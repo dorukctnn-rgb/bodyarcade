@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BodyArcade — Move Your Body, Rule The Game</title>
+<meta name="description" content="The world's first browser fitness game. No download, no equipment — just your body and a camera. Burn real calories while playing."/>
+<meta property="og:title" content="BodyArcade — Move Your Body, Rule The Game"/>
+<meta property="og:description" content="Squat, jump and twist through 10 epic worlds. Burn real calories. No download needed."/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://bodyarcade.com/"/>
+<meta property="og:image" content="https://bodyarcade.com/og-image.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="BodyArcade — Move Your Body, Rule The Game"/>
+<meta name="twitter:description" content="The browser fitness game. Use your body as a controller."/>
+<meta name="twitter:image" content="https://bodyarcade.com/og-image.png"/>
+<meta name="theme-color" content="#ffc424"/>
+<link rel="canonical" href="https://bodyarcade.com/"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="icon" href="/icon-192.png" type="image/png"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<!-- Plausible Analytics (replace data-domain with yours after deploy) -->
+<script defer data-domain="bodyarcade.com" src="https://plausible.io/js/script.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --neon:#39ff6a; --neon2:#a8ff78; --blue:#00d4ff;
+  --amber:#ffb347; --danger:#ff4444;
+  --bg:#050f07; --bg2:#0a1f0e; --bg3:#0f2d14;
+  --text:#e8f5e9; --dim:#7aad82;
+  --glass:rgba(10,31,14,.75); --border:rgba(57,255,106,.16);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;overflow-x:hidden;}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 5vw;
+  background:rgba(5,15,7,.85);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(12px);}
+.nav-logo{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;
+  background:linear-gradient(135deg,var(--neon),var(--neon2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.nav-links{display:flex;gap:28px;align-items:center;}
+.nav-links a{color:var(--dim);text-decoration:none;font-size:14px;font-weight:500;transition:color .2s;}
+.nav-links a:hover{color:var(--neon);}
+.nav-cta{padding:8px 22px;border-radius:8px;background:var(--neon);color:#050f07;
+  font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
+  text-decoration:none;transition:all .2s;box-shadow:0 0 20px #39ff6a33;}
+.nav-cta:hover{transform:scale(1.04);box-shadow:0 0 32px #39ff6a55;color:#050f07;}
+
+/* ── HERO ── */
+#hero{
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:100px 5vw 60px;position:relative;overflow:hidden;
+  background:radial-gradient(ellipse 100% 80% at 50% 60%,#0f3a18 0%,#050f07 70%);
+}
+.hero-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.hero-particle{position:absolute;border-radius:50%;background:var(--neon);opacity:0;animation:fp 8s ease-in infinite;}
+@keyframes fp{0%{opacity:0;transform:translateY(0) scale(1);}20%{opacity:.5;}80%{opacity:.15;}100%{opacity:0;transform:translateY(-80vh) scale(.1);}}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 18px;border-radius:999px;
+  background:rgba(57,255,106,.08);border:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--neon);letter-spacing:.12em;text-transform:uppercase;
+  margin-bottom:28px;animation:fadeUp .6s ease both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+.hero-h1{
+  font-family:'Rajdhani',sans-serif;font-size:clamp(52px,9vw,110px);font-weight:700;line-height:.95;
+  letter-spacing:-.01em;margin-bottom:24px;
+  animation:fadeUp .7s .1s ease both;
+}
+.hero-h1 span.g{
+  background:linear-gradient(135deg,var(--neon) 0%,var(--neon2) 45%,var(--blue) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 30px #39ff6a44);
+}
+.hero-sub{
+  font-size:clamp(16px,2.2vw,22px);color:var(--dim);max-width:600px;line-height:1.6;
+  margin-bottom:44px;animation:fadeUp .7s .2s ease both;
+}
+.hero-btns{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:56px;animation:fadeUp .7s .3s ease both;}
+.btn-hero{
+  padding:16px 44px;border-radius:14px;
+  background:linear-gradient(135deg,var(--neon),var(--neon2));
+  color:#050f07;font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;
+  text-decoration:none;box-shadow:0 0 40px #39ff6a33;transition:all .2s;
+}
+.btn-hero:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 0 60px #39ff6a55;}
+.btn-hero-sec{
+  padding:16px 36px;border-radius:14px;
+  background:transparent;color:var(--text);
+  border:1px solid var(--border);font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:600;
+  text-decoration:none;transition:all .2s;backdrop-filter:blur(8px);
+}
+.btn-hero-sec:hover{border-color:var(--neon);color:var(--neon);}
+
+/* Preview window */
+.hero-preview{
+  position:relative;width:min(760px,88vw);border-radius:20px;overflow:hidden;
+  border:1px solid var(--border);box-shadow:0 0 100px #39ff6a18,0 20px 60px #00000088;
+  animation:fadeUp .8s .4s ease both;
+}
+.hero-preview canvas{width:100%;height:auto;display:block;aspect-ratio:16/9;}
+.hp-badge{
+  position:absolute;bottom:16px;right:16px;
+  padding:6px 14px;border-radius:8px;
+  background:rgba(5,15,7,.85);border:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--neon);
+  backdrop-filter:blur(8px);
+}
+
+/* ── STATS ── */
+#stats{
+  padding:80px 5vw;display:flex;justify-content:center;
+  background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;max-width:900px;width:100%;}
+.stat-item{text-align:center;padding:32px 20px;}
+.stat-val{font-family:'Rajdhani',sans-serif;font-size:clamp(36px,5vw,56px);font-weight:700;
+  background:linear-gradient(135deg,var(--neon),var(--neon2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;}
+.stat-label{font-size:13px;color:var(--dim);margin-top:6px;text-transform:uppercase;letter-spacing:.1em;}
+
+/* ── HOW IT WORKS ── */
+#how{padding:100px 5vw;text-align:center;}
+.section-tag{font-size:11px;font-weight:600;color:var(--neon);letter-spacing:.2em;text-transform:uppercase;margin-bottom:14px;}
+.section-h2{font-family:'Rajdhani',sans-serif;font-size:clamp(36px,5vw,58px);font-weight:700;margin-bottom:16px;line-height:1.05;}
+.section-sub{font-size:clamp(14px,1.8vw,17px);color:var(--dim);max-width:540px;margin:0 auto 64px;line-height:1.6;}
+.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:900px;margin:0 auto;}
+.step-card{
+  padding:36px 28px;border-radius:20px;
+  background:var(--glass);border:1px solid var(--border);
+  text-align:left;position:relative;overflow:hidden;
+  transition:transform .2s,box-shadow .2s;
+}
+.step-card:hover{transform:translateY(-4px);box-shadow:0 0 40px #39ff6a18;}
+.step-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,#39ff6a08,transparent);pointer-events:none;}
+.step-num{font-family:'Rajdhani',sans-serif;font-size:64px;font-weight:700;color:var(--border);line-height:1;margin-bottom:16px;}
+.step-icon{font-size:36px;margin-bottom:14px;display:block;}
+.step-title{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--neon);margin-bottom:10px;}
+.step-desc{font-size:14px;color:var(--dim);line-height:1.6;}
+
+/* ── WORLDS ── */
+#worlds{padding:100px 5vw;background:var(--bg2);}
+.worlds-header{text-align:center;margin-bottom:56px;}
+.worlds-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;max-width:1000px;margin:0 auto;}
+.world-card{
+  aspect-ratio:1;border-radius:16px;overflow:hidden;
+  border:1px solid var(--border);cursor:pointer;
+  position:relative;transition:all .25s;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.world-card:hover{transform:scale(1.07);border-color:var(--neon);box-shadow:0 0 28px #39ff6a33;}
+.world-card-icon{font-size:28px;margin-bottom:6px;}
+.world-card-name{font-size:11px;font-weight:600;color:var(--dim);text-align:center;}
+.world-card:hover .world-card-name{color:var(--neon);}
+.world-badge{
+  position:absolute;top:8px;right:8px;
+  padding:2px 7px;border-radius:4px;
+  font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+}
+.world-badge.hot{background:#ff444422;color:#ff6666;border:1px solid #ff444433;}
+.world-badge.new{background:#39ff6a18;color:var(--neon);border:1px solid var(--border);}
+
+/* ── EXERCISES ── */
+#exercises{padding:100px 5vw;text-align:center;}
+.ex-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:800px;margin:0 auto;}
+.ex-chip{
+  padding:10px 20px;border-radius:10px;
+  background:var(--glass);border:1px solid var(--border);
+  font-size:14px;font-weight:500;cursor:default;
+  transition:all .2s;
+}
+.ex-chip:hover{border-color:var(--neon);color:var(--neon);transform:scale(1.04);}
+.ex-chip-icon{margin-right:6px;}
+
+/* ── FEATURES ── */
+#features{padding:100px 5vw;background:var(--bg2);}
+.features-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px;margin:0 auto;}
+.feat-card{
+  padding:32px 28px;border-radius:20px;
+  background:var(--glass);border:1px solid var(--border);
+  transition:transform .2s;
+}
+.feat-card:hover{transform:translateY(-3px);}
+.feat-icon{font-size:32px;margin-bottom:14px;display:block;}
+.feat-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--neon);margin-bottom:8px;}
+.feat-desc{font-size:14px;color:var(--dim);line-height:1.6;}
+
+/* ── CTA BOTTOM ── */
+#cta{
+  padding:120px 5vw;text-align:center;
+  background:radial-gradient(ellipse 80% 70% at 50% 50%,#0f3a18 0%,#050f07 70%);
+  position:relative;overflow:hidden;
+}
+.cta-glow{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle,#39ff6a18 0%,transparent 70%);
+  pointer-events:none;
+  animation:glowPulse 3s ease-in-out infinite;
+}
+@keyframes glowPulse{0%,100%{transform:translate(-50%,-50%) scale(1);}50%{transform:translate(-50%,-50%) scale(1.15);}}
+.cta-h2{font-family:'Rajdhani',sans-serif;font-size:clamp(40px,6vw,72px);font-weight:700;line-height:1;margin-bottom:20px;}
+.cta-h2 span{background:linear-gradient(135deg,var(--neon),var(--neon2),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.cta-sub{font-size:clamp(15px,2vw,20px);color:var(--dim);margin-bottom:44px;max-width:500px;margin-left:auto;margin-right:auto;}
+
+/* ── FOOTER ── */
+footer{
+  padding:40px 5vw;border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;
+  background:var(--bg);
+}
+.footer-logo{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;
+  background:linear-gradient(135deg,var(--neon),var(--neon2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.footer-links{display:flex;gap:20px;}
+.footer-links a{color:var(--dim);text-decoration:none;font-size:13px;transition:color .2s;}
+.footer-links a:hover{color:var(--neon);}
+.footer-copy{font-size:12px;color:var(--dim);}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .steps-grid{grid-template-columns:1fr;}
+  .worlds-grid{grid-template-columns:repeat(5,1fr);}
+  .features-grid{grid-template-columns:1fr;}
+  .nav-links{display:none;}
+  .hero-btns{flex-direction:column;align-items:center;}
+}
+@media(max-width:500px){
+  .worlds-grid{grid-template-columns:repeat(3,1fr);}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">BODY<span style="opacity:.7">ARCADE</span></div>
+  <div class="nav-links">
+    <a href="#how">How It Works</a>
+    <a href="#worlds">Worlds</a>
+    <a href="#features">Features</a>
+    <a href="BodyArcade.html" class="nav-cta">Play Free →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-particles" id="heroP"></div>
+  <div class="hero-tag">🎮 No Download &nbsp;·&nbsp; 📷 Camera Only &nbsp;·&nbsp; 🔥 Real Calories</div>
+  <h1 class="hero-h1"><span class="g">Move Your Body</span><br/>Rule The Game</h1>
+  <p class="hero-sub">The world's first browser fitness game. Your body is the controller. Burn real calories while you play — no equipment, no download, no excuses.</p>
+  <div class="hero-btns">
+    <a href="BodyArcade.html" class="btn-hero">Play Now — It's Free</a>
+    <a href="#how" class="btn-hero-sec">How It Works</a>
+  </div>
+  <div class="hero-preview">
+    <canvas id="heroCanvas"></canvas>
+    <div class="hp-badge">🔴 LIVE DEMO</div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section id="stats">
+  <div class="stats-grid">
+    <div class="stat-item"><div class="stat-val" id="s-players">47K+</div><div class="stat-label">Players Today</div></div>
+    <div class="stat-item"><div class="stat-val">10</div><div class="stat-label">Unique Worlds</div></div>
+    <div class="stat-item"><div class="stat-val">10</div><div class="stat-label">Exercises</div></div>
+    <div class="stat-item"><div class="stat-val">0</div><div class="stat-label">Downloads Needed</div></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="section-tag">How It Works</div>
+  <h2 class="section-h2">Three steps to your<br/>best workout</h2>
+  <p class="section-sub">No setup, no equipment. Just open your browser, allow camera access, and start moving.</p>
+  <div class="steps-grid">
+    <div class="step-card">
+      <div class="step-num">01</div>
+      <span class="step-icon">📷</span>
+      <div class="step-title">Allow Camera</div>
+      <div class="step-desc">BodyArcade uses your camera to track your body in real time. No data is stored — all processing happens locally in your browser.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">02</div>
+      <span class="step-icon">🧱</span>
+      <div class="step-title">React to Obstacles</div>
+      <div class="step-desc">Holographic obstacles fly toward you. Squat under beams, jump over walls, raise your arms through arches — your body is the input.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">03</div>
+      <span class="step-icon">🔥</span>
+      <div class="step-title">Track Real Calories</div>
+      <div class="step-desc">Every rep, every jump, every squat is tracked. Calories are calculated using the MET formula based on your weight and movement intensity.</div>
+    </div>
+  </div>
+</section>
+
+<!-- WORLDS -->
+<section id="worlds">
+  <div class="worlds-header">
+    <div class="section-tag">Environments</div>
+    <h2 class="section-h2">10 Worlds to Conquer</h2>
+    <p class="section-sub" style="margin-bottom:0">Each world has its own atmosphere, fog, lighting and color palette.</p>
+  </div>
+  <div class="worlds-grid" id="worldsGrid"></div>
+</section>
+
+<!-- EXERCISES -->
+<section id="exercises">
+  <div class="section-tag">Exercises</div>
+  <h2 class="section-h2">10 Body Movements</h2>
+  <p class="section-sub">Detected in real time by MediaPipe AI pose estimation.</p>
+  <div class="ex-grid">
+    <div class="ex-chip"><span class="ex-chip-icon">🏋️</span>Squat</div>
+    <div class="ex-chip"><span class="ex-chip-icon">⭐</span>Jumping Jack</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🦵</span>Lunge</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🏃</span>High Knees</div>
+    <div class="ex-chip"><span class="ex-chip-icon">💪</span>Shoulder Press</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🙌</span>Arms Up</div>
+    <div class="ex-chip"><span class="ex-chip-icon">↔️</span>Side Bend</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🔄</span>Body Twist</div>
+    <div class="ex-chip"><span class="ex-chip-icon">👟</span>Calf Raise</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🔵</span>Arm Circles</div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div style="text-align:center;margin-bottom:56px;">
+    <div class="section-tag">Features</div>
+    <h2 class="section-h2">Built Different</h2>
+  </div>
+  <div class="features-grid">
+    <div class="feat-card">
+      <span class="feat-icon">🤖</span>
+      <div class="feat-title">MediaPipe AI Tracking</div>
+      <div class="feat-desc">33-point body skeleton tracked at 30fps. Joint angles are measured to verify every rep with real biomechanical precision.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">✨</span>
+      <div class="feat-title">WebGL + Bloom Rendering</div>
+      <div class="feat-desc">Three.js with UnrealBloom post-processing. Neon obstacles, bioluminescent forests, and cinematic ACES tone mapping.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🔥</span>
+      <div class="feat-title">Real Calorie Science</div>
+      <div class="feat-desc">MET (Metabolic Equivalent of Task) formula adapted for each exercise. Personalized to your weight for accurate results.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🔒</span>
+      <div class="feat-title">100% Private</div>
+      <div class="feat-desc">Camera feed never leaves your device. All AI pose detection runs locally in your browser. Zero data collection.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🏆</span>
+      <div class="feat-title">Global Leaderboard</div>
+      <div class="feat-desc">Compete with players worldwide. Scores ranked by points, calories burned, distance and best combo streak.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🎵</span>
+      <div class="feat-title">Adaptive Audio</div>
+      <div class="feat-desc">Web Audio API generative soundtrack. Bass drone, atmospheric pads and LFO modulation that responds to your movement.</div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing" style="padding:100px 24px;max-width:1200px;margin:0 auto;">
+  <div style="text-align:center;margin-bottom:56px;">
+    <div class="section-tag">Plans</div>
+    <h2 class="section-h2">Start free.<br/>Go pro when ready.</h2>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
+    <div style="background:linear-gradient(180deg,rgba(26,37,64,.6),rgba(10,16,24,.6));border:2px solid #2a3548;border-radius:18px;padding:32px 24px;">
+      <div style="font-family:'Bangers',cursive;font-size:32px;color:#fff;margin-bottom:4px;">FREE</div>
+      <div style="font-size:38px;font-weight:900;color:#ffc424;margin-bottom:6px;">$0</div>
+      <div style="font-size:13px;color:#aab4c2;margin-bottom:20px;">forever</div>
+      <ul style="list-style:none;padding:0;font-size:14px;color:#aab4c2;line-height:1.9;">
+        <li>✓ All 10 worlds</li>
+        <li>✓ Solo runs</li>
+        <li>✓ Calorie tracking</li>
+        <li>✗ Short ads between runs</li>
+      </ul>
+      <a href="BodyArcade.html" style="display:block;margin-top:24px;text-align:center;padding:12px;border-radius:10px;background:#2a3548;color:#fff;text-decoration:none;font-family:'Bangers',cursive;letter-spacing:.04em;font-size:16px;">PLAY FREE</a>
+    </div>
+    <div style="background:linear-gradient(180deg,rgba(255,196,36,.15),rgba(255,107,26,.08));border:2px solid #ffc424;border-radius:18px;padding:32px 24px;position:relative;box-shadow:0 12px 40px rgba(255,196,36,.15);">
+      <div style="position:absolute;top:-12px;right:20px;background:#ffc424;color:#3a1f00;font-family:'Bangers',cursive;font-size:13px;padding:4px 12px;border-radius:8px;letter-spacing:.05em;">MOST POPULAR</div>
+      <div style="font-family:'Bangers',cursive;font-size:32px;color:#ffc424;margin-bottom:4px;">PRO</div>
+      <div style="font-size:38px;font-weight:900;color:#fff;margin-bottom:6px;">$4.99<span style="font-size:16px;color:#aab4c2;font-weight:400;">/mo</span></div>
+      <div style="font-size:13px;color:#aab4c2;margin-bottom:20px;">or $39/year</div>
+      <ul style="list-style:none;padding:0;font-size:14px;color:#fff;line-height:1.9;">
+        <li>✓ Everything in Free</li>
+        <li>✓ <b>No ads</b></li>
+        <li>✓ 2-player split-screen</li>
+        <li>✓ Workout history & graphs</li>
+        <li>✓ Custom playlists</li>
+      </ul>
+      <a href="https://gumroad.com/l/bodyarcade-pro" class="gumroad-button" style="display:block;margin-top:24px;text-align:center;padding:12px;border-radius:10px;background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);color:#3a1f00;text-decoration:none;font-family:'Bangers',cursive;letter-spacing:.04em;font-size:16px;box-shadow:0 4px 0 #5a3a00;">GO PRO →</a>
+    </div>
+    <div style="background:linear-gradient(180deg,rgba(26,37,64,.6),rgba(10,16,24,.6));border:2px solid #2a3548;border-radius:18px;padding:32px 24px;">
+      <div style="font-family:'Bangers',cursive;font-size:32px;color:#fff;margin-bottom:4px;">LIFETIME</div>
+      <div style="font-size:38px;font-weight:900;color:#ffc424;margin-bottom:6px;">$99</div>
+      <div style="font-size:13px;color:#aab4c2;margin-bottom:20px;">one-time payment</div>
+      <ul style="list-style:none;padding:0;font-size:14px;color:#aab4c2;line-height:1.9;">
+        <li>✓ Everything in Pro</li>
+        <li>✓ <b>Forever access</b></li>
+        <li>✓ Early access to new worlds</li>
+        <li>✓ Founder badge</li>
+        <li>✓ Priority support</li>
+      </ul>
+      <a href="https://gumroad.com/l/bodyarcade-lifetime" class="gumroad-button" style="display:block;margin-top:24px;text-align:center;padding:12px;border-radius:10px;background:#2a3548;color:#fff;text-decoration:none;font-family:'Bangers',cursive;letter-spacing:.04em;font-size:16px;">BUY ONCE</a>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:32px;font-size:13px;color:#5a6878;">Cancel anytime. 30-day refund guarantee on annual & lifetime.</p>
+</section>
+
+<!-- EMAIL CAPTURE -->
+<section id="newsletter" style="padding:80px 24px;max-width:760px;margin:0 auto;text-align:center;">
+  <div class="section-tag">Get Notified</div>
+  <h2 class="section-h2">New worlds drop monthly.</h2>
+  <p style="color:#aab4c2;margin:16px 0 28px;">Be the first to know when we ship.</p>
+  <form id="emailForm" style="display:flex;gap:10px;max-width:500px;margin:0 auto;flex-wrap:wrap;justify-content:center;" onsubmit="return submitEmail(event)">
+    <input type="email" required placeholder="you@email.com" style="flex:1;min-width:240px;padding:14px 18px;border-radius:12px;border:2px solid rgba(57,255,106,.2);background:rgba(10,16,24,.7);color:#fff;font-family:inherit;font-size:15px;outline:none;"/>
+    <button type="submit" style="padding:14px 32px;border-radius:12px;border:none;background:linear-gradient(135deg,#39ff6a,#a8ff78);color:#050f07;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;cursor:pointer;letter-spacing:.05em;">SUBSCRIBE</button>
+  </form>
+  <div id="emailMsg" style="margin-top:14px;font-size:13px;color:#5cdfff;display:none;">✓ Thanks! You're on the list.</div>
+</section>
+
+<!-- BOTTOM CTA -->
+<section id="cta">
+  <div class="cta-glow"></div>
+  <h2 class="cta-h2"><span>Ready to move?</span></h2>
+  <p class="cta-sub">Free forever. No account needed. Just open it and play.</p>
+  <a href="BodyArcade.html" class="btn-hero" style="font-size:22px;padding:18px 52px;">Play BodyArcade Free →</a>
+</section>
+
+<footer>
+  <div class="footer-logo">BODYARCADE</div>
+  <div class="footer-links">
+    <a href="#how">How It Works</a>
+    <a href="#worlds">Worlds</a>
+    <a href="#features">Features</a>
+    <a href="BodyArcade.html">Play</a>
+  </div>
+  <div class="footer-copy">© 2026 BodyArcade. All rights reserved.</div>
+</footer>
+
+<script>
+function submitEmail(e){
+  e.preventDefault();
+  const email = e.target.querySelector('input').value;
+  // Save locally; in production wire to ConvertKit/Beehiiv/Mailchimp endpoint
+  const list = JSON.parse(localStorage.getItem('ba_emails')||'[]');
+  list.push({email,ts:Date.now()});
+  localStorage.setItem('ba_emails',JSON.stringify(list));
+  if(window.plausible) plausible('Email Signup');
+  $('emailMsg').style.display = 'block';
+  e.target.querySelector('input').value = '';
+  return false;
+}
+// PWA register
+if('serviceWorker' in navigator){
+  addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+</script>
+<script src="https://gumroad.com/js/gumroad.js"></script>
+<script>
+(()=>{
+  const c=document.getElementById('heroP');
+  for(let i=0;i<28;i++){
+    const p=document.createElement('div');p.className='hero-particle';
+    const s=2+Math.random()*5;
+    p.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;bottom:${Math.random()*20}%;animation-delay:${Math.random()*8}s;animation-duration:${5+Math.random()*7}s;`;
+    c.appendChild(p);
+  }
+})();
+
+// Worlds grid
+const COURSES=[
+  {id:'jungle',  name:'Jungle',   icon:'🌿',bg:'#0a1f0e', hot:true},
+  {id:'volcano', name:'Volcano',  icon:'🌋',bg:'#1a0505', hot:false},
+  {id:'arctic',  name:'Arctic',   icon:'❄️',bg:'#081828', hot:false},
+  {id:'desert',  name:'Desert',   icon:'🏜️',bg:'#1a1000', hot:false},
+  {id:'ocean',   name:'Ocean',    icon:'🌊',bg:'#040e28', hot:false},
+  {id:'haunted', name:'Haunted',  icon:'👻',bg:'#0e0814', hot:false},
+  {id:'space',   name:'Space',    icon:'🚀',bg:'#04060e', isNew:true},
+  {id:'crystal', name:'Crystal',  icon:'💎',bg:'#040e1a', isNew:true},
+  {id:'temple',  name:'Temple',   icon:'🏛️',bg:'#0f0e04', hot:false},
+  {id:'neon',    name:'Neon City',icon:'⚡',bg:'#04040e', isNew:true},
+];
+const wg=document.getElementById('worldsGrid');
+COURSES.forEach(c=>{
+  const d=document.createElement('div');
+  d.className='world-card';d.style.background=c.bg;
+  let badge='';
+  if(c.hot) badge='<div class="world-badge hot">HOT</div>';
+  if(c.isNew) badge='<div class="world-badge new">NEW</div>';
+  d.innerHTML=`${badge}<div class="world-card-icon">${c.icon}</div><div class="world-card-name">${c.name}</div>`;
+  d.onclick=()=>window.location.href='BodyArcade.html';
+  wg.appendChild(d);
+});
+
+// Hero canvas animation
+(()=>{
+  const canvas=document.getElementById('heroCanvas');
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  let t=0;
+  function resize(){
+    const r=canvas.parentElement.getBoundingClientRect();
+    canvas.width=r.width;canvas.height=r.width*(9/16);
+  }
+  resize();window.addEventListener('resize',resize);
+
+  const exercises=[
+    {name:'SQUAT',color:'#00d4ff',y:0.52},
+    {name:'ARMS UP',color:'#39ff6a',y:0.6},
+    {name:'HIGH KNEES',color:'#ffb347',y:0.56},
+    {name:'LUNGE',color:'#ff4444',y:0.58},
+  ];
+  let exIdx=0,exTimer=0;
+
+  function frame(){
+    resize();const w=canvas.width,h=canvas.height;
+    // Sky
+    const sky=ctx.createLinearGradient(0,0,0,h);
+    sky.addColorStop(0,'#050f07');sky.addColorStop(1,'#1a4d20');
+    ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+    // Stars
+    for(let i=0;i<60;i++){
+      const sx=Math.sin(i*137.5)*w/2+w/2,sy=Math.cos(i*97.3)*h*.35+h*.12;
+      ctx.fillStyle=`rgba(170,255,200,${.2+.3*Math.sin(t+i)})`;
+      ctx.fillRect(sx,sy,1,1);
+    }
+    const vp={x:w/2,y:h*.34};
+    // Road
+    ctx.beginPath();ctx.moveTo(w/2-w*.24,h);ctx.lineTo(w/2+w*.24,h);
+    ctx.lineTo(vp.x+22,vp.y);ctx.lineTo(vp.x-22,vp.y);
+    ctx.fillStyle='#1a3d16';ctx.fill();
+    // Edge neon
+    ctx.shadowColor='#39ff6a';ctx.shadowBlur=8;
+    for(const side of[-1,1]){
+      const bx=w/2+side*w*.24,tx=vp.x+side*22;
+      ctx.beginPath();ctx.moveTo(bx,h);ctx.lineTo(tx,vp.y);
+      ctx.strokeStyle='rgba(57,255,106,.7)';ctx.lineWidth=1.5;ctx.stroke();
+    }
+    ctx.shadowBlur=0;
+    // Dashes
+    for(let z=0;z<10;z++){
+      const pct=((t*.3+z/10)%1);
+      const y=vp.y+(h-vp.y)*pct,xw=(18+(w*.24-18)*pct)*.38;
+      ctx.beginPath();ctx.moveTo(vp.x-xw,y);ctx.lineTo(vp.x+xw,y);
+      ctx.strokeStyle=`rgba(57,255,106,${pct*.4})`;ctx.lineWidth=pct*2.2;ctx.stroke();
+    }
+    // Trees
+    for(const sd of[-1,1])for(let j=0;j<4;j++){
+      const pct=((t*.19+j*.25)%1);
+      const ty=vp.y+(h-vp.y)*pct,tx2=w/2+sd*(w*.16+w*.2*pct),s=pct*58;
+      if(s<4)continue;
+      ctx.fillStyle=`rgba(13,${28+pct*38},18,${.55+pct*.45})`;
+      ctx.beginPath();ctx.moveTo(tx2,ty-s*1.3);ctx.lineTo(tx2-s*.5,ty);ctx.lineTo(tx2+s*.5,ty);ctx.fill();
+    }
+    // Obstacle
+    exTimer+=.008;if(exTimer>1){exTimer=0;exIdx=(exIdx+1)%exercises.length;}
+    const ex=exercises[exIdx];
+    const oz=((t*.38)%1);
+    if(oz>.22){
+      const oy=vp.y+(h-vp.y)*oz,sz=(oz-.22)*3*w*.24,al=Math.min(1,(oz-.22)*3);
+      ctx.shadowColor=ex.color;ctx.shadowBlur=20*oz;
+      ctx.strokeStyle=`${ex.color}${Math.floor(al*220).toString(16).padStart(2,'0')}`;ctx.lineWidth=3*oz;
+      ctx.strokeRect(w/2-sz/2,oy-sz*.52,sz,sz*.8);
+      if(oz>.6){
+        ctx.fillStyle=ex.color;ctx.globalAlpha=(oz-.6)*2.5*al;
+        ctx.font=`bold ${Math.floor(14*oz)}px Rajdhani,sans-serif`;ctx.textAlign='center';
+        ctx.fillText(ex.name,w/2,oy-sz*.52-8);ctx.globalAlpha=1;
+      }
+      ctx.shadowBlur=0;
+    }
+    // HUD mockup
+    ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(0,0,w,h*.12);
+    ctx.fillStyle='rgba(0,0,0,.3)';ctx.fillRect(0,h*.88,w,h*.12);
+    // Hearts
+    for(let i=0;i<3;i++){ctx.font=`${h*.055}px serif`;ctx.fillText('❤️',w*.04+i*(h*.065),h*.082);}
+    // Score
+    ctx.fillStyle='#fff';ctx.font=`bold ${h*.065}px Rajdhani,sans-serif`;ctx.textAlign='right';
+    ctx.fillText(Math.floor(t*800).toString().padStart(6,'0'),w*.97,h*.082);
+    // Cal
+    ctx.fillStyle='#ffb347';ctx.font=`bold ${h*.042}px Rajdhani,sans-serif`;ctx.textAlign='center';
+    ctx.fillText(`🔥 ${(t*1.2).toFixed(1)} kcal`,w/2,h*.082);
+    ctx.textAlign='left';
+    t+=.007;requestAnimationFrame(frame);
+  }
+  frame();
+})();
+
+// Animate stat counter
+(()=>{
+  const el=document.getElementById('s-players');
+  let n=0;const target=47312;
+  const iv=setInterval(()=>{
+    n+=Math.floor(target/60);
+    if(n>=target){n=target;clearInterval(iv);}
+    el.textContent=(n/1000).toFixed(1)+'K+';
+  },30);
+})();
+
+// Scroll reveal
+const observer=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting) e.target.style.animation='fadeUp .6s ease both';});
+},{threshold:.1});
+document.querySelectorAll('.step-card,.feat-card,.stat-item').forEach(el=>observer.observe(el));
+</script>
+</body>
+</html>
