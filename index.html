@@ -44,6 +44,8 @@
      "aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"127"}},
     {"@type":"Organization","name":"BodyArcade","url":"https://bodyarcade.com/",
      "logo":"https://bodyarcade.com/icon-512.png",
+     "email":"peakappsstudios@gmail.com",
+     "contactPoint":{"@type":"ContactPoint","email":"peakappsstudios@gmail.com","contactType":"customer support"},
      "sameAs":["https://twitter.com/bodyarcade","https://instagram.com/bodyarcade","https://tiktok.com/@bodyarcade"]},
     {"@type":"FAQPage","mainEntity":[
       {"@type":"Question","name":"Do I need to download anything?","acceptedAnswer":{"@type":"Answer","text":"No. BodyArcade runs entirely in your browser."}},
@@ -619,8 +621,9 @@ footer{
     <a href="#pricing">Pricing</a>
     <a href="/blog/">Blog</a>
     <a href="BodyArcade.html">Play</a>
+    <a href="mailto:peakappsstudios@gmail.com">Contact</a>
   </div>
-  <div class="footer-copy">© 2026 BodyArcade. All rights reserved.</div>
+  <div class="footer-copy">© 2026 BodyArcade by Peak Apps Studios · <a href="mailto:peakappsstudios@gmail.com" style="color:#aab4c2;">peakappsstudios@gmail.com</a></div>
 </footer>
 
 <script src="https://gumroad.com/js/gumroad.js"></script>
@@ -674,8 +677,7 @@ COURSES.forEach(c=>{
       if(window.plausible) plausible('Locked World Click', { props: { world: c.id } });
       return;
     }
-    // Pass selected world to game via hash
-    window.location.href='BodyArcade.html#world='+c.id;
+    window.location.href='BodyArcade.html?world='+c.id;
   };
   wg.appendChild(d);
 });

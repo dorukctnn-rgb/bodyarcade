@@ -253,9 +253,11 @@ function buildCourseGrid() {
   });
 }
 
-// Read URL hash for preselected world from landing page
+// Read URL hash OR query for preselected world from landing page
 (function preselectFromHash(){
-  const m = location.hash.match(/world=([a-z]+)/i);
+  const hashMatch = location.hash.match(/world=([a-z]+)/i);
+  const queryMatch = location.search.match(/[?&]world=([a-z]+)/i);
+  const m = hashMatch || queryMatch;
   if (m) {
     const wid = m[1].toLowerCase();
     // Map landing IDs to game IDs
