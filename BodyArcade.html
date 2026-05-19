@@ -322,8 +322,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'In
       <div class="ob-grid2">
         <div class="ob-card" data-diff="easy" onclick="pickDiff(this)"><span class="ob-card-icon">🌱</span><div class="ob-card-title">EASY</div><div class="ob-card-sub">Slow · 5s react</div></div>
         <div class="ob-card selected" data-diff="medium" onclick="pickDiff(this)"><span class="ob-card-icon">⚡</span><div class="ob-card-title">MEDIUM</div><div class="ob-card-sub">Standard · 4s</div></div>
-        <div class="ob-card" data-diff="hard" onclick="pickDiff(this)"><span class="ob-card-icon">🔥</span><div class="ob-card-title">HARD</div><div class="ob-card-sub">Fast · 3s</div></div>
-        <div class="ob-card" data-diff="insane" onclick="pickDiff(this)"><span class="ob-card-icon">💀</span><div class="ob-card-title">INSANE</div><div class="ob-card-sub">Brutal · 2s</div></div>
+        <div class="ob-card" data-diff="hard" onclick="pickDiff(this)" style="position:relative;"><span class="ob-card-icon">🔥</span><div class="ob-card-title">HARD</div><div class="ob-card-sub">Fast · 3s</div><div id="lock-hard" style="position:absolute;top:6px;right:6px;font-size:14px;display:none;">🔒</div></div>
+        <div class="ob-card" data-diff="insane" onclick="pickDiff(this)" style="position:relative;"><span class="ob-card-icon">💀</span><div class="ob-card-title">INSANE</div><div class="ob-card-sub">Brutal · 2s</div><div id="lock-insane" style="position:absolute;top:6px;right:6px;font-size:14px;display:none;">🔒</div></div>
       </div>
       <div class="ob-nav"><button class="btn btn-secondary" onclick="obGo(2)">← BACK</button><button class="btn btn-primary" onclick="obGo(4)">NEXT →</button></div>
     </div>

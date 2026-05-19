@@ -18,18 +18,90 @@ const DIFF = {
 };
 
 // 10 worlds — realistic, NO neon. Photographic palettes.
+// First 3 (mountain, desert, forest) = FREE, rest = PRO ONLY
 const COURSES = [
-  { id:'mountain', emoji:'🏔️', name:'ALPS',     sky:[ '#3a5878','#5a7898','#a8bccc'], ground:'#3a3530', accent:'#c8b896', fog:0.012, rain:0 },
-  { id:'desert',   emoji:'🏜️', name:'DESERT',   sky:[ '#d87838','#e8a868','#f4d090'], ground:'#a87038', accent:'#d8a868', fog:0.010, rain:0 },
-  { id:'forest',   emoji:'🌲', name:'FOREST',   sky:[ '#3a5840','#6a8848','#a8b888'], ground:'#3a2818', accent:'#5a7038', fog:0.018, rain:0 },
-  { id:'storm',    emoji:'⛈️', name:'STORM',    sky:[ '#1a2030','#2a3548','#4a5868'], ground:'#1a2028', accent:'#3a4858', fog:0.025, rain:120 },
-  { id:'sunset',   emoji:'🌅', name:'SUNSET',   sky:[ '#3a2848','#a85838','#f8c878'], ground:'#3a2828', accent:'#c87848', fog:0.012, rain:0 },
-  { id:'snow',     emoji:'❄️', name:'ARCTIC',   sky:[ '#5a7898','#a8c8d8','#e8f0f8'], ground:'#c8d8e8', accent:'#e8f0f8', fog:0.022, rain:60 },
-  { id:'jungle',   emoji:'🌴', name:'JUNGLE',   sky:[ '#286848','#58a878','#c8e898'], ground:'#382818', accent:'#487038', fog:0.020, rain:80 },
-  { id:'city',     emoji:'🏙️', name:'CITY',     sky:[ '#1a2540','#3a4868','#6a7898'], ground:'#2a2a30', accent:'#48586a', fog:0.014, rain:0 },
-  { id:'volcano',  emoji:'🌋', name:'VOLCANO',  sky:[ '#1a0808','#582020','#c84028'], ground:'#3a1818', accent:'#a83020', fog:0.020, rain:0 },
-  { id:'ocean',    emoji:'🌊', name:'COAST',    sky:[ '#2a4858','#5a8098','#a8c8d8'], ground:'#4a5868', accent:'#7898a8', fog:0.012, rain:0 },
+  { id:'mountain', emoji:'🏔️', name:'ALPS',     sky:[ '#3a5878','#5a7898','#a8bccc'], ground:'#3a3530', accent:'#c8b896', fog:0.012, rain:0,   free:true  },
+  { id:'desert',   emoji:'🏜️', name:'DESERT',   sky:[ '#d87838','#e8a868','#f4d090'], ground:'#a87038', accent:'#d8a868', fog:0.010, rain:0,   free:true  },
+  { id:'forest',   emoji:'🌲', name:'FOREST',   sky:[ '#3a5840','#6a8848','#a8b888'], ground:'#3a2818', accent:'#5a7038', fog:0.018, rain:0,   free:true  },
+  { id:'storm',    emoji:'⛈️', name:'STORM',    sky:[ '#1a2030','#2a3548','#4a5868'], ground:'#1a2028', accent:'#3a4858', fog:0.025, rain:120, free:false },
+  { id:'sunset',   emoji:'🌅', name:'SUNSET',   sky:[ '#3a2848','#a85838','#f8c878'], ground:'#3a2828', accent:'#c87848', fog:0.012, rain:0,   free:false },
+  { id:'snow',     emoji:'❄️', name:'ARCTIC',   sky:[ '#5a7898','#a8c8d8','#e8f0f8'], ground:'#c8d8e8', accent:'#e8f0f8', fog:0.022, rain:60,  free:false },
+  { id:'jungle',   emoji:'🌴', name:'JUNGLE',   sky:[ '#286848','#58a878','#c8e898'], ground:'#382818', accent:'#487038', fog:0.020, rain:80,  free:false },
+  { id:'city',     emoji:'🏙️', name:'CITY',     sky:[ '#1a2540','#3a4868','#6a7898'], ground:'#2a2a30', accent:'#48586a', fog:0.014, rain:0,   free:false },
+  { id:'volcano',  emoji:'🌋', name:'VOLCANO',  sky:[ '#1a0808','#582020','#c84028'], ground:'#3a1818', accent:'#a83020', fog:0.020, rain:0,   free:false },
+  { id:'ocean',    emoji:'🌊', name:'COAST',    sky:[ '#2a4858','#5a8098','#a8c8d8'], ground:'#4a5868', accent:'#7898a8', fog:0.012, rain:0,   free:false },
 ];
+
+// ──────── MONETIZATION HELPERS ────────
+const GUMROAD_PRO = 'https://dorukctn.gumroad.com/l/ithhc';
+const GUMROAD_LIFETIME = 'https://dorukctn.gumroad.com/l/czrhwp';
+
+function isPro() {
+  return localStorage.getItem('ba_pro') === '1';
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function getDailyRuns() {
+  const data = JSON.parse(localStorage.getItem('ba_daily')||'{}');
+  return data[todayStr()] || 0;
+}
+
+function incDailyRuns() {
+  const data = JSON.parse(localStorage.getItem('ba_daily')||'{}');
+  const k = todayStr();
+  data[k] = (data[k] || 0) + 1;
+  // Cleanup old days
+  Object.keys(data).forEach(d => { if(d < k && Date.now() - new Date(d).getTime() > 7*86400000) delete data[d]; });
+  localStorage.setItem('ba_daily', JSON.stringify(data));
+}
+
+const DAILY_FREE_LIMIT = 5;
+
+function canRunToday() {
+  return isPro() || getDailyRuns() < DAILY_FREE_LIMIT;
+}
+
+function showLockModal(reason, ctaUrl) {
+  // Build a simple modal overlay
+  let m = $('lock-modal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'lock-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);';
+    document.body.appendChild(m);
+  }
+  m.style.display = 'flex';
+  m.innerHTML = `
+    <div style="background:linear-gradient(180deg,#1a2540,#0a1018);border:3px solid #ffc424;border-radius:18px;padding:36px 28px;max-width:420px;width:90vw;text-align:center;box-shadow:0 12px 40px rgba(255,196,36,.3);position:relative;">
+      <div style="position:absolute;top:10px;right:14px;cursor:pointer;color:#aab4c2;font-size:24px;line-height:1;" onclick="document.getElementById('lock-modal').style.display='none'">×</div>
+      <div style="font-size:54px;margin-bottom:8px;">🔒</div>
+      <div style="font-family:'Bangers',cursive;font-size:34px;color:#ffc424;text-shadow:0 4px 0 #5a3a00;letter-spacing:.04em;margin-bottom:10px;">UNLOCK PRO</div>
+      <div style="font-size:15px;color:#aab4c2;margin-bottom:24px;line-height:1.5;">${reason}</div>
+      <div style="background:rgba(255,196,36,.08);border:1px solid rgba(255,196,36,.2);border-radius:12px;padding:14px;margin-bottom:24px;text-align:left;">
+        <div style="font-family:'Bangers',cursive;font-size:18px;color:#ffc424;margin-bottom:8px;letter-spacing:.04em;">PRO INCLUDES:</div>
+        <div style="color:#fff;font-size:13px;line-height:1.8;">
+          ✓ <b>All 10 worlds</b> unlocked<br/>
+          ✓ <b>Hard &amp; Insane</b> difficulty<br/>
+          ✓ <b>Unlimited daily runs</b><br/>
+          ✓ Workout history &amp; graphs<br/>
+          ✓ 2-player split-screen
+        </div>
+      </div>
+      <a href="${ctaUrl||GUMROAD_PRO}" target="_blank" style="display:block;font-family:'Bangers',cursive;font-size:22px;letter-spacing:.06em;padding:14px;border-radius:12px;background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);color:#3a1f00;text-decoration:none;border:3px solid #5a3a00;box-shadow:0 5px 0 #5a3a00, 0 10px 20px rgba(255,196,36,.3);">GET PRO — $4.99 →</a>
+      <div style="margin-top:14px;font-size:12px;color:#5a6878;">Or get <a href="${GUMROAD_LIFETIME}" target="_blank" style="color:#ffc424;text-decoration:underline;">Lifetime for $99</a> — one-time</div>
+    </div>
+  `;
+  if (window.plausible) window.plausible('Lock Modal', { props: { reason } });
+}
+
+// Allow unlocking via URL ?pro=1 for testing or after Gumroad purchase
+if (location.search.includes('pro=1')) {
+  localStorage.setItem('ba_pro','1');
+  alert('🎉 PRO unlocked! Welcome to BodyArcade Pro.');
+}
 
 // ──────── EXERCISES (with SVG icons) ────────
 const EX = {
@@ -133,25 +205,65 @@ function obGo(n) {
 }
 
 function pickDiff(el) {
+  const diff = el.dataset.diff;
+  // Lock Hard & Insane for free users
+  if ((diff === 'hard' || diff === 'insane') && !isPro()) {
+    showLockModal(`<b>${diff.toUpperCase()}</b> difficulty is Pro-only. Unlock all difficulties + 10 worlds + unlimited runs.`, GUMROAD_PRO);
+    return;
+  }
   document.querySelectorAll('[data-diff]').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected');
-  S.diff = el.dataset.diff;
+  S.diff = diff;
+}
+
+function startCamera() {
+  // Check daily run limit
+  if (!canRunToday()) {
+    showLockModal(`<b>Daily run limit reached</b> (${DAILY_FREE_LIMIT}/day for Free). Come back tomorrow — or go Pro for unlimited runs.`, GUMROAD_PRO);
+    return;
+  }
+  showScreen('screen-cam');
 }
 
 function buildCourseGrid() {
   const grid = $('ob-courses'); grid.innerHTML = '';
   COURSES.forEach((c, i) => {
     const d = document.createElement('div');
-    d.className = 'ob-course' + (c.id === S.course ? ' selected' : '');
+    const locked = !c.free && !isPro();
+    d.className = 'ob-course' + (c.id === S.course && !locked ? ' selected' : '');
     d.dataset.id = c.id;
-    d.innerHTML = `<div>${c.emoji}</div><div class="ob-course-name">${c.name}</div>`;
+    if (locked) {
+      d.style.opacity = '0.5';
+      d.style.position = 'relative';
+      d.innerHTML = `<div>${c.emoji}</div><div class="ob-course-name">${c.name}</div><div style="position:absolute;top:6px;right:6px;font-size:14px;">🔒</div>`;
+    } else {
+      const badge = c.free ? '<div style="position:absolute;top:4px;left:4px;font-family:Bangers,cursive;font-size:9px;letter-spacing:.06em;padding:2px 6px;border-radius:4px;background:#5cdfff;color:#0a2540;">FREE</div>' : '';
+      d.style.position = 'relative';
+      d.innerHTML = `${badge}<div>${c.emoji}</div><div class="ob-course-name">${c.name}</div>`;
+    }
     d.onclick = () => {
+      if (locked) {
+        showLockModal(`<b>${c.name}</b> is a Pro world. Unlock all 10 worlds + unlimited runs.`, GUMROAD_PRO);
+        return;
+      }
       document.querySelectorAll('.ob-course').forEach(e => e.classList.remove('selected'));
       d.classList.add('selected'); S.course = c.id;
     };
     grid.appendChild(d);
   });
 }
+
+// Read URL hash for preselected world from landing page
+(function preselectFromHash(){
+  const m = location.hash.match(/world=([a-z]+)/i);
+  if (m) {
+    const wid = m[1].toLowerCase();
+    // Map landing IDs to game IDs
+    const map = { jungle:'jungle', volcano:'volcano', arctic:'snow', desert:'desert', ocean:'ocean', haunted:'sunset', space:'storm', crystal:'snow', temple:'mountain', neon:'city' };
+    const target = map[wid] || (COURSES.find(c=>c.id===wid)?.id);
+    if (target) S.course = target;
+  }
+})();
 
 function saveProfile() {
   const n = $('i-name').value.trim(); if (n) S.name = n;
@@ -169,7 +281,6 @@ function showScreen(id) {
 // CAMERA
 // ═══════════════════════════════════════════════════════════════
 let camStream = null, demoMode = false;
-function startCamera() { showScreen('screen-cam'); }
 async function requestCamera() {
   $('cam-error').style.display = 'none';
   try {
@@ -1005,6 +1116,8 @@ addEventListener('keyup', (e) => {
 // ═══════════════════════════════════════════════════════════════
 function gameOver(finished) {
   if (animId) cancelAnimationFrame(animId);
+  // Count this run against daily limit (for free users)
+  if (!isPro()) incDailyRuns();
   showScreen('screen-gameover');
   const finalScore = Math.floor(scoreVal + S.score);
   $('go-msg').textContent = finished
@@ -1069,4 +1182,23 @@ addEventListener('DOMContentLoaded', () => {
   buildCourseGrid();
   obBgAnim();
   obHeroAnim();
+  // Show lock icons on difficulty cards if not Pro
+  if (!isPro()) {
+    const lh = $('lock-hard'); if (lh) lh.style.display = 'block';
+    const li = $('lock-insane'); if (li) li.style.display = 'block';
+  }
+  // Add "runs left today" hint on slide 1
+  const obSlide1 = $('ob-1');
+  if (obSlide1 && !isPro()) {
+    const left = DAILY_FREE_LIMIT - getDailyRuns();
+    const hint = document.createElement('div');
+    hint.style.cssText = 'margin-top:14px;font-family:Bangers,cursive;font-size:14px;letter-spacing:.08em;color:#5cdfff;';
+    hint.textContent = left > 0 ? `${left} FREE RUNS LEFT TODAY` : 'NO FREE RUNS LEFT — UNLOCK PRO';
+    obSlide1.appendChild(hint);
+  } else if (obSlide1 && isPro()) {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'margin-top:14px;font-family:Bangers,cursive;font-size:14px;letter-spacing:.08em;color:#ffc424;';
+    hint.textContent = '⭐ PRO MEMBER — UNLIMITED RUNS';
+    obSlide1.appendChild(hint);
+  }
 });

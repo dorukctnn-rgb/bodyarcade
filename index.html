@@ -640,28 +640,43 @@ if('serviceWorker' in navigator){
   addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 }
 
-// Worlds grid — Fortnite-style colors per biome
+// Worlds grid — first 3 FREE, rest LOCKED (require Pro)
 const COURSES=[
-  {id:'jungle',  name:'JUNGLE',   icon:'🌿', bg:'linear-gradient(180deg,#1a3d1f,#0a1f12)', hot:true},
-  {id:'volcano', name:'VOLCANO',  icon:'🌋', bg:'linear-gradient(180deg,#4a1505,#1a0505)', hot:false},
-  {id:'arctic',  name:'ARCTIC',   icon:'❄️', bg:'linear-gradient(180deg,#1a3a5a,#081828)', hot:false},
-  {id:'desert',  name:'DESERT',   icon:'🏜️', bg:'linear-gradient(180deg,#5a3a10,#2a1a05)', hot:false},
-  {id:'ocean',   name:'OCEAN',    icon:'🌊', bg:'linear-gradient(180deg,#0a3a5a,#040e28)', hot:false},
-  {id:'haunted', name:'HAUNTED',  icon:'👻', bg:'linear-gradient(180deg,#2a1a3a,#0e0814)', hot:false},
-  {id:'space',   name:'SPACE',    icon:'🚀', bg:'linear-gradient(180deg,#1a1a3a,#04060e)', isNew:true},
-  {id:'crystal', name:'CRYSTAL',  icon:'💎', bg:'linear-gradient(180deg,#0a3a5a,#040e1a)', isNew:true},
-  {id:'temple',  name:'TEMPLE',   icon:'🏛️', bg:'linear-gradient(180deg,#4a3505,#1a1505)', hot:false},
-  {id:'neon',    name:'NEON CITY',icon:'⚡', bg:'linear-gradient(180deg,#3a1a5a,#04040e)', isNew:true},
+  {id:'jungle',  name:'JUNGLE',   icon:'🌿', bg:'linear-gradient(180deg,#1a3d1f,#0a1f12)', free:true,  hot:true},
+  {id:'volcano', name:'VOLCANO',  icon:'🌋', bg:'linear-gradient(180deg,#4a1505,#1a0505)', free:true},
+  {id:'arctic',  name:'ARCTIC',   icon:'❄️', bg:'linear-gradient(180deg,#1a3a5a,#081828)', free:true},
+  {id:'desert',  name:'DESERT',   icon:'🏜️', bg:'linear-gradient(180deg,#5a3a10,#2a1a05)', free:false},
+  {id:'ocean',   name:'OCEAN',    icon:'🌊', bg:'linear-gradient(180deg,#0a3a5a,#040e28)', free:false},
+  {id:'haunted', name:'HAUNTED',  icon:'👻', bg:'linear-gradient(180deg,#2a1a3a,#0e0814)', free:false},
+  {id:'space',   name:'SPACE',    icon:'🚀', bg:'linear-gradient(180deg,#1a1a3a,#04060e)', free:false, isNew:true},
+  {id:'crystal', name:'CRYSTAL',  icon:'💎', bg:'linear-gradient(180deg,#0a3a5a,#040e1a)', free:false, isNew:true},
+  {id:'temple',  name:'TEMPLE',   icon:'🏛️', bg:'linear-gradient(180deg,#4a3505,#1a1505)', free:false},
+  {id:'neon',    name:'NEON CITY',icon:'⚡', bg:'linear-gradient(180deg,#3a1a5a,#04040e)', free:false, isNew:true},
 ];
+const isPro = localStorage.getItem('ba_pro')==='1';
 const wg=document.getElementById('worldsGrid');
 COURSES.forEach(c=>{
   const d=document.createElement('div');
   d.className='world-card';d.style.background=c.bg;
+  const locked = !c.free && !isPro;
   let badge='';
-  if(c.hot) badge='<div class="world-badge hot">HOT</div>';
-  if(c.isNew) badge='<div class="world-badge new">NEW</div>';
-  d.innerHTML=`${badge}<div class="world-card-icon">${c.icon}</div><div class="world-card-name">${c.name}</div>`;
-  d.onclick=()=>window.location.href='BodyArcade.html';
+  if(c.hot && !locked) badge='<div class="world-badge hot">HOT</div>';
+  else if(c.isNew && !locked) badge='<div class="world-badge new">NEW</div>';
+  else if(c.free) badge='<div class="world-badge new" style="background:linear-gradient(180deg,#5cdfff,#1aa8e8);border-color:#0a4060;">FREE</div>';
+  const lockOverlay = locked
+    ? '<div style="position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(2px);"><div style="font-size:32px;margin-bottom:4px;">🔒</div><div style="font-family:Bangers,cursive;font-size:12px;color:#ffc424;letter-spacing:.08em;">PRO ONLY</div></div>'
+    : '';
+  d.innerHTML=`${badge}<div class="world-card-icon">${c.icon}</div><div class="world-card-name">${c.name}</div>${lockOverlay}`;
+  d.onclick=()=>{
+    if(locked){
+      // Open Gumroad in new tab
+      window.open('https://dorukctn.gumroad.com/l/ithhc','_blank');
+      if(window.plausible) plausible('Locked World Click', { props: { world: c.id } });
+      return;
+    }
+    // Pass selected world to game via hash
+    window.location.href='BodyArcade.html#world='+c.id;
+  };
   wg.appendChild(d);
 });
 
