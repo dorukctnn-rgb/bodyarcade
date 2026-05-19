@@ -6,7 +6,7 @@
 <title>BodyArcade — Move Your Body, Rule The Game</title>
 <meta name="description" content="The world's first browser fitness game. No download, no equipment — just your body and a camera. Burn real calories while playing."/>
 <meta property="og:title" content="BodyArcade — Move Your Body, Rule The Game"/>
-<meta property="og:description" content="Squat, jump and twist through 10 epic worlds. Burn real calories. No download needed."/>
+<meta property="og:description" content="Race LIVE vs 50 players in your browser. Burn real calories. 10 worlds. No download."/>
 <meta property="og:type" content="website"/>
 <meta property="og:url" content="https://bodyarcade.com/"/>
 <meta property="og:image" content="https://bodyarcade.com/og-image.png"/>
@@ -423,12 +423,40 @@ footer{
   <p class="hero-sub">The world's first browser fitness game. Your body is the controller. Burn real calories while you play — no equipment, no download, no excuses.</p>
   <div class="hero-btns">
     <a href="BodyArcade.html" class="btn-primary">PLAY NOW — FREE</a>
+    <a href="BodyArcade.html?live=1" class="btn-secondary" style="background:linear-gradient(180deg,#e8302a,#a01b15);border-color:#5a0a07;box-shadow:0 6px 0 #5a0a07, 0 12px 24px rgba(232,48,42,.4);color:#fff;">⚔️ PLAY LIVE — <span id="live-counter">42</span> ONLINE</a>
     <a href="#how" class="btn-secondary">HOW IT WORKS</a>
   </div>
   <div class="hero-preview">
     <canvas id="heroCanvas"></canvas>
     <div class="hp-badge">LIVE DEMO</div>
   </div>
+</section>
+
+<!-- LIVE MULTIPLAYER BANNER -->
+<section id="live-mp" style="padding:60px 5vw;background:linear-gradient(180deg,#0a1018,#1a2540);border-top:3px solid #e8302a;border-bottom:3px solid #e8302a;">
+  <div style="max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center;">
+    <div>
+      <div class="section-tag" style="background:rgba(232,48,42,.15);border-color:rgba(232,48,42,.4);color:#ff6b6b;">⚔️ NEW: MULTIPLAYER</div>
+      <h2 class="section-h2" style="font-size:clamp(36px,5vw,64px);text-align:left;">Race <span class="gold">Live</span><br/>vs 50 Players</h2>
+      <p style="color:#aab4c2;line-height:1.6;font-size:16px;margin-bottom:24px;">Join the live lobby every 5 minutes. Up to 50 players race the same course simultaneously. See real-time leaderboard during your run. Last one standing wins.</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:20px;">🎯</span><span style="font-family:Bangers,cursive;letter-spacing:.04em;color:#fff;">Real-time progress bar of all players</span></div>
+        <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:20px;">⚔️</span><span style="font-family:Bangers,cursive;letter-spacing:.04em;color:#fff;">Live top-5 leaderboard during race</span></div>
+        <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:20px;">🏆</span><span style="font-family:Bangers,cursive;letter-spacing:.04em;color:#fff;">Win streaks &amp; weekly tournaments</span></div>
+        <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:20px;">🔥</span><span style="font-family:Bangers,cursive;letter-spacing:.04em;color:#fff;">No download, no signup, instant play</span></div>
+      </div>
+      <a href="BodyArcade.html?live=1" class="btn-primary" style="background:linear-gradient(180deg,#ff6b6b,#e8302a,#a01b15);border-color:#5a0a07;box-shadow:0 5px 0 #5a0a07, 0 10px 22px rgba(232,48,42,.4);">⚔️ JOIN LIVE RACE</a>
+    </div>
+    <div style="background:linear-gradient(180deg,#1a2540,#0a1018);border:3px solid #e8302a;border-radius:14px;padding:20px;box-shadow:0 0 60px rgba(232,48,42,.2);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border-radius:50%;background:#5cdfff;animation:pulse 1.4s infinite;"></span><span style="font-family:Bangers,cursive;color:#5cdfff;letter-spacing:.1em;font-size:14px;">LIVE NOW</span></div>
+        <div style="font-family:Bangers,cursive;font-size:13px;color:#aab4c2;letter-spacing:.06em;">Next race · <span id="next-race-timer">00:00</span></div>
+      </div>
+      <div id="live-players-preview" style="background:rgba(0,0,0,.3);border-radius:8px;border:1px solid #2a3548;padding:8px;max-height:260px;overflow:hidden;"></div>
+      <div style="text-align:center;margin-top:10px;font-size:11px;color:#5a6878;">Race starts every 5 min · Up to 50 players</div>
+    </div>
+  </div>
+  <style>@keyframes pulse{50%{opacity:.3;}}</style>
 </section>
 
 <!-- STATS -->

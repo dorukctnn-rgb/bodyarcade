@@ -103,6 +103,15 @@ if (location.search.includes('pro=1')) {
   alert('🎉 PRO unlocked! Welcome to BodyArcade Pro.');
 }
 
+// Auto-open live lobby if ?live=1
+if (location.search.includes('live=1')) {
+  addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      if (window.BAmulti) BAmulti.openLiveLobby();
+    }, 600);
+  });
+}
+
 // ──────── EXERCISES (with SVG icons) ────────
 const EX = {
   jump:   { label:'JUMP',   color:'#5cdfff', svg:`<g fill="#fff" stroke="#0a3a5a" stroke-width="2"><path d="M50 18 a8 8 0 1 0 0.1 0z"/><path d="M50 28 v22 M50 28 L36 38 M50 28 L64 38 M50 50 L38 72 M50 50 L62 72" stroke-linecap="round" stroke-width="6" fill="none"/></g>` },
@@ -800,6 +809,25 @@ function startGame() {
   lastTime = performance.now()/1000;
   runStartTs = performance.now()/1000;
 
+  // Show active skin
+  if (window.BAfeatures) {
+    const skinId = BAfeatures.currentSkin();
+    const skin = BAfeatures.SKINS.find(s => s.id === skinId);
+    if (skin) {
+      const skEl = $('skin-display');
+      if (skEl) { skEl.textContent = skin.emoji; skEl.style.display = 'block'; }
+    }
+  }
+
+  // Live lobby overlay
+  if (S.lobbyMode && window.BAmulti) {
+    const opEl = $('live-opponents');
+    if (opEl) opEl.style.display = 'block';
+  } else {
+    const opEl = $('live-opponents');
+    if (opEl) opEl.style.display = 'none';
+  }
+
   renderHearts();
   setupPose();
   if (animId) cancelAnimationFrame(animId);
@@ -980,6 +1008,28 @@ function loop() {
     $('hud-dist').textContent = S.distance;
     $('hud-score').textContent = Math.floor(scoreVal + S.score);
     $('hud-cal').textContent = S.calories.toFixed(1);
+
+    // — Live lobby broadcast + opponent list update
+    if (S.lobbyMode && window.BAmulti) {
+      if (frameCount % 30 === 0) {
+        // Broadcast my progress every 30 frames (~0.5s)
+        BAmulti.broadcastProgress(progress, Math.floor(scoreVal + S.score));
+      }
+      // Render live opponents (top 5)
+      const opEl = $('live-opp-list');
+      if (opEl) {
+        const lobbyState = BAmulti.getLobbyState();
+        const sorted = lobbyState.players.slice().sort((a,b) => (b.score||0)-(a.score||0)).slice(0,5);
+        opEl.innerHTML = sorted.map((p, i) => {
+          const isMe = p.id === lobbyState.myId;
+          return `<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:2px 0;${isMe?'color:#ffc424;':'color:#fff;'}">
+            <span style="width:14px;color:#aab4c2;">${i+1}.</span>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px;">${(p.name||'?').slice(0,12)}</span>
+            <span style="color:${isMe?'#ffc424':'#5cdfff'};">${p.score||0}</span>
+          </div>`;
+        }).join('') || '<div style="font-size:11px;color:#aab4c2;">Waiting…</div>';
+      }
+    }
   }
 
   // — finish run
