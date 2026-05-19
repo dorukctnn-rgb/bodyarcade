@@ -1153,6 +1153,25 @@ function gameOver(finished) {
       if (achEl) achEl.innerHTML = '🏆 ' + recent;
     }
   }
+
+  // ── UPLOAD TO GLOBAL LEADERBOARD ──
+  if (window.BAmulti && finalScore > 0) {
+    BAmulti.uploadRun({
+      name: S.name,
+      score: finalScore,
+      distance: S.distance,
+      kcal: S.calories,
+      combo: S.bestCombo,
+      world: S.course,
+      diff: S.diff,
+    }).then(async () => {
+      const rank = await BAmulti.fetchMyRank(finalScore, S.course);
+      if (rank) {
+        const achEl = $('go-achievements');
+        if (achEl) achEl.innerHTML += `<div style="margin-top:6px;color:#5cdfff;">🌍 GLOBAL RANK #${rank} IN ${(S.course||'').toUpperCase()}</div>`;
+      }
+    });
+  }
   if (window.plausible) window.plausible('Run Complete', { props: { course: S.course, diff: S.diff } });
 }
 
@@ -1256,6 +1275,8 @@ addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <button onclick="BAmulti.openLiveLobby()" style="font-family:Bangers,cursive;font-size:13px;letter-spacing:.06em;padding:8px 18px;border-radius:10px;border:2px solid #e8302a;background:linear-gradient(180deg,#e8302a,#a01b15);color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 3px 0 #5a0a07;">⚔️ LIVE LOBBY</button>
+        <button onclick="BAmulti.showGlobalLeaderboard()" style="font-family:Bangers,cursive;font-size:13px;letter-spacing:.06em;padding:8px 18px;border-radius:10px;border:2px solid #5a6878;background:rgba(26,37,64,.6);color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;">🌍 GLOBAL</button>
         <button onclick="BAfeatures.showSkinShop()" style="font-family:Bangers,cursive;font-size:13px;letter-spacing:.06em;padding:8px 18px;border-radius:10px;border:2px solid #5a6878;background:rgba(26,37,64,.6);color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;">🎭 SKINS</button>
         <button onclick="showAchievementsPanel()" style="font-family:Bangers,cursive;font-size:13px;letter-spacing:.06em;padding:8px 18px;border-radius:10px;border:2px solid #5a6878;background:rgba(26,37,64,.6);color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;">🏆 ACHIEVEMENTS <span style="background:#ffc424;color:#3a1f00;border-radius:6px;padding:1px 6px;font-size:11px;">${ach.length}/${BAfeatures.ACHIEVEMENTS.length}</span></button>
         <button onclick="showHistoryPanel()" style="font-family:Bangers,cursive;font-size:13px;letter-spacing:.06em;padding:8px 18px;border-radius:10px;border:2px solid #5a6878;background:rgba(26,37,64,.6);color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;">📊 HISTORY</button>
