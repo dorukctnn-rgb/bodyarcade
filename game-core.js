@@ -1132,7 +1132,34 @@ function gameOver(finished) {
   // Save to local leaderboard
   saveRun({ score: finalScore, distance: S.distance, calories: +S.calories.toFixed(1), combo: S.bestCombo, course: S.course, ts: Date.now() });
   renderLeaderboard();
+
+  // ── KILLER FEATURES HOOK ──
+  if (window.BAfeatures) {
+    const stats = { score: finalScore, distance: S.distance, kcal: S.calories, combo: S.bestCombo, world: S.course, diff: S.diff };
+    BAfeatures.trackRun(stats);
+    BAfeatures.recordRun(stats);
+    // Friend challenge result
+    const friendResult = BAfeatures.showChallengeResult(finalScore);
+    const frEl = $('go-friend-result');
+    if (frEl) frEl.innerHTML = friendResult || '';
+    // Achievements feedback
+    const newAchs = BAfeatures.getUnlockedAchievements();
+    if (newAchs.length > 0) {
+      const recent = newAchs.slice(-3).map(id => {
+        const a = BAfeatures.ACHIEVEMENTS.find(x => x.id === id);
+        return a ? `${a.icon} ${a.name}` : '';
+      }).filter(Boolean).join(' · ');
+      const achEl = $('go-achievements');
+      if (achEl) achEl.innerHTML = '🏆 ' + recent;
+    }
+  }
   if (window.plausible) window.plausible('Run Complete', { props: { course: S.course, diff: S.diff } });
+}
+
+function challengeFriend() {
+  if (!window.BAfeatures) return;
+  const finalScore = Math.floor(scoreVal + S.score);
+  BAfeatures.shareChallenge(finalScore, S.course, S.diff, S.name);
 }
 
 function saveRun(run) {
@@ -1203,4 +1230,108 @@ addEventListener('DOMContentLoaded', () => {
     hint.textContent = '⭐ PRO MEMBER — UNLIMITED RUNS';
     obSlide1.appendChild(hint);
   }
+
+  // ── DAILY CHALLENGE banner + TOURNAMENT info on slide 1 ──
+  if (window.BAfeatures) {
+    const daily = BAfeatures.getDailyChallenge();
+    const done = BAfeatures.isDailyCompletedToday();
+    const streak = BAfeatures.getDailyStreak();
+    const tour = BAfeatures.currentTournament();
+    const worldName = (COURSES.find(c=>c.id===daily.world)||{name:daily.world}).name;
+    const ach = BAfeatures.getUnlockedAchievements();
+
+    const panel = document.createElement('div');
+    panel.style.cssText = 'margin-top:18px;display:flex;flex-direction:column;gap:8px;width:min(620px,92vw);';
+    panel.innerHTML = `
+      <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;background:linear-gradient(180deg,${done?'#1a4d20':'rgba(255,196,36,.15)'},${done?'#0a3010':'rgba(255,107,26,.05)'});border:2px solid ${done?'#5cdfff':'#ffc424'};border-radius:12px;padding:12px 14px;">
+          <div style="font-family:Bangers,cursive;font-size:12px;color:${done?'#5cdfff':'#ffc424'};letter-spacing:.12em;margin-bottom:4px;">📅 DAILY ${done?'✓ DONE':'CHALLENGE'}</div>
+          <div style="font-family:Bangers,cursive;font-size:18px;color:#fff;text-shadow:0 2px 0 #000;letter-spacing:.04em;">${daily.target} PTS IN ${worldName}</div>
+          <div style="font-size:11px;color:#aab4c2;margin-top:4px;">${done ? `🔥 Streak: ${streak} day${streak===1?'':'s'}` : `Reward: ${daily.reward==='PRO_PERK'?'🏆 Pro Perk':'🏅 Badge'}`}</div>
+        </div>
+        <div style="flex:1;min-width:200px;background:linear-gradient(180deg,rgba(220,40,40,.15),rgba(160,20,20,.05));border:2px solid #e8302a;border-radius:12px;padding:12px 14px;">
+          <div style="font-family:Bangers,cursive;font-size:12px;color:#ff6b6b;letter-spacing:.12em;margin-bottom:4px;">🏆 WEEK ${BAfeatures.currentWeek()} TOURNAMENT</div>
+          <div style="font-family:Bangers,cursive;font-size:18px;color:#fff;text-shadow:0 2px 0 #000;letter-spacing:.04em;">${tour.theme}</div>
+          <div style="font-size:11px;color:#aab4c2;margin-top:4px;">${tour.diff.toUpperCase()} · Ends Sunday</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <button onclick="BAfeatures.showSkinShop()" style="font-family:Bangers,cursive;font-size:13px;letter-spacing:.06em;padding:8px 18px;border-radius:10px;border:2px solid #5a6878;background:rgba(26,37,64,.6);color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;">🎭 SKINS</button>
+        <button onclick="showAchievementsPanel()" style="font-family:Bangers,cursive;font-size:13px;letter-spacing:.06em;padding:8px 18px;border-radius:10px;border:2px solid #5a6878;background:rgba(26,37,64,.6);color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;">🏆 ACHIEVEMENTS <span style="background:#ffc424;color:#3a1f00;border-radius:6px;padding:1px 6px;font-size:11px;">${ach.length}/${BAfeatures.ACHIEVEMENTS.length}</span></button>
+        <button onclick="showHistoryPanel()" style="font-family:Bangers,cursive;font-size:13px;letter-spacing:.06em;padding:8px 18px;border-radius:10px;border:2px solid #5a6878;background:rgba(26,37,64,.6);color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;">📊 HISTORY</button>
+      </div>
+    `;
+    obSlide1.appendChild(panel);
+  }
 });
+
+// ═══════════════════════════════════════════════════════════════
+// ACHIEVEMENTS / HISTORY PANELS
+// ═══════════════════════════════════════════════════════════════
+function showAchievementsPanel() {
+  if (!window.BAfeatures) return;
+  const unlocked = BAfeatures.getUnlockedAchievements();
+  let modal = $('ach-panel'); if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = 'ach-panel';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);overflow-y:auto;padding:24px;';
+  modal.innerHTML = `
+    <div style="background:linear-gradient(180deg,#1a2540,#0a1018);border:3px solid #ffc424;border-radius:18px;padding:28px;max-width:680px;width:100%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+        <div style="font-family:Bangers,cursive;font-size:30px;color:#ffc424;text-shadow:0 4px 0 #5a3a00;letter-spacing:.04em;">🏆 ACHIEVEMENTS (${unlocked.length}/${BAfeatures.ACHIEVEMENTS.length})</div>
+        <div style="cursor:pointer;color:#aab4c2;font-size:28px;line-height:1;" onclick="document.getElementById('ach-panel').remove()">×</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
+        ${BAfeatures.ACHIEVEMENTS.map(a => {
+          const has = unlocked.includes(a.id);
+          return `<div style="background:${has?'rgba(255,196,36,.12)':'rgba(26,37,64,.4)'};border:2px solid ${has?'#ffc424':'#2a3548'};border-radius:12px;padding:14px 10px;text-align:center;${has?'':'opacity:0.5;'}">
+            <div style="font-size:34px;margin-bottom:4px;filter:${has?'none':'grayscale(1)'};">${a.icon}</div>
+            <div style="font-family:Bangers,cursive;font-size:14px;color:${has?'#ffc424':'#aab4c2'};letter-spacing:.04em;text-shadow:${has?'0 2px 0 #5a3a00':'none'};">${a.name}</div>
+            <div style="font-size:10px;color:#aab4c2;margin-top:4px;line-height:1.3;">${a.desc}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function showHistoryPanel() {
+  if (!window.BAfeatures) return;
+  const history = BAfeatures.getRunHistory().slice(-30).reverse();
+  const totals = JSON.parse(localStorage.getItem('ba_totals')||'{"runs":0,"kcal":0}');
+  let modal = $('hist-panel'); if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = 'hist-panel';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);overflow-y:auto;padding:24px;';
+  // Simple bar chart of scores
+  const maxScore = Math.max(1, ...history.map(r=>r.score));
+  modal.innerHTML = `
+    <div style="background:linear-gradient(180deg,#1a2540,#0a1018);border:3px solid #ffc424;border-radius:18px;padding:28px;max-width:680px;width:100%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+        <div style="font-family:Bangers,cursive;font-size:30px;color:#ffc424;text-shadow:0 4px 0 #5a3a00;letter-spacing:.04em;">📊 YOUR STATS</div>
+        <div style="cursor:pointer;color:#aab4c2;font-size:28px;line-height:1;" onclick="document.getElementById('hist-panel').remove()">×</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px;">
+        <div style="background:rgba(255,196,36,.12);border:2px solid #ffc424;border-radius:12px;padding:14px;text-align:center;">
+          <div style="font-family:Bangers,cursive;font-size:30px;color:#ffc424;text-shadow:0 4px 0 #5a3a00;">${totals.runs}</div>
+          <div style="font-size:11px;color:#aab4c2;letter-spacing:.1em;">TOTAL RUNS</div>
+        </div>
+        <div style="background:rgba(255,107,26,.12);border:2px solid #ff6b1a;border-radius:12px;padding:14px;text-align:center;">
+          <div style="font-family:Bangers,cursive;font-size:30px;color:#ff6b1a;text-shadow:0 4px 0 #5a3a00;">${totals.kcal.toFixed(1)}</div>
+          <div style="font-size:11px;color:#aab4c2;letter-spacing:.1em;">TOTAL CALORIES</div>
+        </div>
+      </div>
+      ${history.length > 0 ? `
+      <div style="font-family:Bangers,cursive;font-size:14px;color:#5cdfff;letter-spacing:.1em;margin-bottom:8px;">SCORE PROGRESSION (LAST 30)</div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:120px;background:rgba(0,0,0,.3);border-radius:10px;padding:8px;border:1px solid #2a3548;">
+        ${history.map(r=>{
+          const h = (r.score/maxScore)*100;
+          return `<div title="${r.score}pts · ${new Date(r.ts).toLocaleDateString()}" style="flex:1;height:${h}%;background:linear-gradient(180deg,#5cdfff,#1aa8e8);border-radius:3px 3px 0 0;min-height:2px;"></div>`;
+        }).join('')}
+      </div>
+      ` : '<div style="text-align:center;color:#aab4c2;padding:24px;">No runs yet — start crushing!</div>'}
+    </div>
+  `;
+  document.body.appendChild(modal);
+}

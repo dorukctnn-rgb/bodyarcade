@@ -420,8 +420,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'In
   <div class="go-btns">
     <button class="btn btn-primary" onclick="restartGame()">PLAY AGAIN</button>
     <button class="btn btn-secondary" onclick="shareRun()">📤 SHARE RUN</button>
+    <button class="btn btn-secondary" onclick="challengeFriend()">⚔️ CHALLENGE FRIEND</button>
     <button class="btn btn-secondary" onclick="goHome()">HOME</button>
   </div>
+  <div id="go-friend-result"></div>
+  <div id="go-achievements" style="margin-top:14px;font-family:Bangers,cursive;font-size:14px;color:#5cdfff;letter-spacing:.06em;"></div>
   <div style="margin-top:32px;font-size:12px;color:#5a6878;text-align:center;">
     Found a bug or have feedback? <a href="mailto:peakappsstudios@gmail.com" style="color:#ffc424;text-decoration:none;">peakappsstudios@gmail.com</a>
   </div>
@@ -436,5 +439,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'In
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
 
 <script src="game-core.js"></script>
+<script src="features.js"></script>
 </body>
 </html>
