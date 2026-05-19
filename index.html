@@ -19,249 +19,413 @@
 <meta name="theme-color" content="#ffc424"/>
 <link rel="canonical" href="https://bodyarcade.com/"/>
 <link rel="manifest" href="/manifest.json"/>
-<link rel="icon" href="/icon-192.png" type="image/png"/>
-<link rel="apple-touch-icon" href="/icon-192.png"/>
-<!-- Plausible Analytics (replace data-domain with yours after deploy) -->
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/>
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>
+<meta name="keywords" content="fitness game, browser game, pose detection, ai workout, body controlled game, exercise game, webcam fitness, home workout, gamified fitness, motion game"/>
+<meta name="author" content="BodyArcade"/>
+<meta name="robots" content="index, follow"/>
+<meta name="google-site-verification" content="LSVTdVtTiP2KkZe8ja0PZsw-pzVfW-N0rG5Tmv6abnQ"/>
 <script defer data-domain="bodyarcade.com" src="https://plausible.io/js/script.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {"@type":"WebApplication","name":"BodyArcade","url":"https://bodyarcade.com/",
+     "description":"The world's first browser fitness game. Use your body as a controller — no download, no equipment.",
+     "applicationCategory":"GameApplication","operatingSystem":"Any (Web)",
+     "browserRequirements":"Requires JavaScript, WebGL, camera access",
+     "offers":[
+       {"@type":"Offer","name":"Free","price":"0","priceCurrency":"USD"},
+       {"@type":"Offer","name":"Pro Monthly","price":"4.99","priceCurrency":"USD"},
+       {"@type":"Offer","name":"Lifetime","price":"99","priceCurrency":"USD"}
+     ],
+     "aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":"127"}},
+    {"@type":"Organization","name":"BodyArcade","url":"https://bodyarcade.com/",
+     "logo":"https://bodyarcade.com/icon-512.png",
+     "sameAs":["https://twitter.com/bodyarcade","https://instagram.com/bodyarcade","https://tiktok.com/@bodyarcade"]},
+    {"@type":"FAQPage","mainEntity":[
+      {"@type":"Question","name":"Do I need to download anything?","acceptedAnswer":{"@type":"Answer","text":"No. BodyArcade runs entirely in your browser."}},
+      {"@type":"Question","name":"Do I need special equipment?","acceptedAnswer":{"@type":"Answer","text":"Only a webcam or phone camera."}},
+      {"@type":"Question","name":"Does it actually burn calories?","acceptedAnswer":{"@type":"Answer","text":"Yes. Each squat, jump and twist is tracked by AI pose detection."}},
+      {"@type":"Question","name":"Can I play on my phone?","acceptedAnswer":{"@type":"Answer","text":"Yes. Works on iOS Safari and Android Chrome."}}
+    ]}
+  ]
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
 :root{
-  --neon:#39ff6a; --neon2:#a8ff78; --blue:#00d4ff;
-  --amber:#ffb347; --danger:#ff4444;
-  --bg:#050f07; --bg2:#0a1f0e; --bg3:#0f2d14;
-  --text:#e8f5e9; --dim:#7aad82;
-  --glass:rgba(10,31,14,.75); --border:rgba(57,255,106,.16);
+  --gold:#ffc424; --gold-light:#ffd95c; --gold-deep:#c08800; --gold-shadow:#5a3a00;
+  --orange:#ff6b1a; --red:#e8302a;
+  --steel:#1a2530; --steel-mid:#2a3548; --steel-dark:#0a1018; --steel-bg:#050a12;
+  --text:#fff; --dim:#aab4c2; --dimmer:#5a6878;
 }
-*{margin:0;padding:0;box-sizing:border-box;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html{scroll-behavior:smooth;}
-body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;overflow-x:hidden;}
+body{background:var(--steel-bg);color:var(--text);font-family:'Inter',sans-serif;
+  overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+
+/* ── HELPERS ── */
+.bangers{font-family:'Bangers',cursive;font-weight:400;letter-spacing:.04em;}
+.gold-text{
+  background:linear-gradient(180deg,#ffd95c 0%,#ffc424 45%,#c08800 95%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 4px 0 rgba(90,58,0,.5));
+}
+.bevel{text-shadow:0 4px 0 var(--gold-shadow), 0 0 20px rgba(255,196,36,.25);}
 
 /* ── NAV ── */
 nav{position:fixed;top:0;left:0;right:0;z-index:100;
   display:flex;align-items:center;justify-content:space-between;
-  padding:16px 5vw;
-  background:rgba(5,15,7,.85);border-bottom:1px solid var(--border);
+  padding:14px 5vw;
+  background:linear-gradient(180deg,rgba(10,16,24,.95),rgba(10,16,24,.7));
+  border-bottom:2px solid var(--steel-mid);
   backdrop-filter:blur(12px);}
-.nav-logo{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;
-  background:linear-gradient(135deg,var(--neon),var(--neon2));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.nav-logo{font-family:'Bangers',cursive;font-size:26px;letter-spacing:.06em;
+  color:var(--gold);text-shadow:0 2px 0 var(--gold-shadow);}
+.nav-logo span{color:#fff;text-shadow:0 2px 0 #000;}
 .nav-links{display:flex;gap:28px;align-items:center;}
-.nav-links a{color:var(--dim);text-decoration:none;font-size:14px;font-weight:500;transition:color .2s;}
-.nav-links a:hover{color:var(--neon);}
-.nav-cta{padding:8px 22px;border-radius:8px;background:var(--neon);color:#050f07;
-  font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
-  text-decoration:none;transition:all .2s;box-shadow:0 0 20px #39ff6a33;}
-.nav-cta:hover{transform:scale(1.04);box-shadow:0 0 32px #39ff6a55;color:#050f07;}
+.nav-links a{color:var(--dim);text-decoration:none;font-size:13px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;transition:color .15s;}
+.nav-links a:hover{color:var(--gold);}
+.nav-cta{
+  font-family:'Bangers',cursive;font-size:17px;letter-spacing:.06em;
+  padding:10px 26px;border-radius:10px;
+  background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);
+  color:#3a1f00;text-decoration:none;
+  border:2px solid var(--gold-shadow);
+  box-shadow:0 4px 0 var(--gold-shadow), 0 6px 18px rgba(255,196,36,.25);
+  transition:transform .12s,box-shadow .12s;}
+.nav-cta:hover{transform:translateY(-1px);box-shadow:0 5px 0 var(--gold-shadow), 0 8px 24px rgba(255,196,36,.4);}
+.nav-cta:active{transform:translateY(2px);box-shadow:0 2px 0 var(--gold-shadow);}
 
 /* ── HERO ── */
 #hero{
   min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  text-align:center;padding:100px 5vw 60px;position:relative;overflow:hidden;
-  background:radial-gradient(ellipse 100% 80% at 50% 60%,#0f3a18 0%,#050f07 70%);
+  text-align:center;padding:110px 5vw 60px;position:relative;overflow:hidden;
+  background:
+    radial-gradient(ellipse 100% 80% at 50% 30%, rgba(255,107,26,.18), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 50% 85%, rgba(255,196,36,.12), transparent 70%),
+    linear-gradient(180deg,#1a2540 0%,#0a1018 55%,#000 100%);
 }
-.hero-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
-.hero-particle{position:absolute;border-radius:50%;background:var(--neon);opacity:0;animation:fp 8s ease-in infinite;}
-@keyframes fp{0%{opacity:0;transform:translateY(0) scale(1);}20%{opacity:.5;}80%{opacity:.15;}100%{opacity:0;transform:translateY(-80vh) scale(.1);}}
+/* subtle dotted grid backdrop */
+#hero::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:radial-gradient(rgba(255,196,36,.08) 1px, transparent 1.5px);
+  background-size:32px 32px;mask-image:radial-gradient(ellipse 60% 60% at 50% 50%, black, transparent 80%);
+  -webkit-mask-image:radial-gradient(ellipse 60% 60% at 50% 50%, black, transparent 80%);
+}
 .hero-tag{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:6px 18px;border-radius:999px;
-  background:rgba(57,255,106,.08);border:1px solid var(--border);
-  font-size:12px;font-weight:600;color:var(--neon);letter-spacing:.12em;text-transform:uppercase;
-  margin-bottom:28px;animation:fadeUp .6s ease both;
-}
+  display:inline-flex;align-items:center;gap:10px;
+  padding:8px 20px;border-radius:999px;
+  background:rgba(255,196,36,.1);border:2px solid rgba(255,196,36,.3);
+  font-family:'Bangers',cursive;font-size:13px;color:var(--gold);
+  letter-spacing:.14em;margin-bottom:32px;
+  animation:fadeUp .6s ease both;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
 .hero-h1{
-  font-family:'Rajdhani',sans-serif;font-size:clamp(52px,9vw,110px);font-weight:700;line-height:.95;
-  letter-spacing:-.01em;margin-bottom:24px;
-  animation:fadeUp .7s .1s ease both;
-}
-.hero-h1 span.g{
-  background:linear-gradient(135deg,var(--neon) 0%,var(--neon2) 45%,var(--blue) 100%);
+  font-family:'Bangers',cursive;font-size:clamp(64px,12vw,160px);
+  letter-spacing:.03em;line-height:.88;margin-bottom:18px;
+  animation:fadeUp .7s .1s ease both;}
+.hero-h1 .line1{
+  display:block;
+  background:linear-gradient(180deg,#ffd95c 0%,#ffc424 50%,#c08800 95%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  filter:drop-shadow(0 0 30px #39ff6a44);
-}
+  filter:drop-shadow(0 6px 0 rgba(90,58,0,.6)) drop-shadow(0 0 40px rgba(255,196,36,.3));}
+.hero-h1 .line2{
+  display:block;color:#fff;
+  text-shadow:0 6px 0 #000, 0 0 30px rgba(255,107,26,.4);}
 .hero-sub{
-  font-size:clamp(16px,2.2vw,22px);color:var(--dim);max-width:600px;line-height:1.6;
-  margin-bottom:44px;animation:fadeUp .7s .2s ease both;
-}
-.hero-btns{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:56px;animation:fadeUp .7s .3s ease both;}
-.btn-hero{
-  padding:16px 44px;border-radius:14px;
-  background:linear-gradient(135deg,var(--neon),var(--neon2));
-  color:#050f07;font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;
-  text-decoration:none;box-shadow:0 0 40px #39ff6a33;transition:all .2s;
-}
-.btn-hero:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 0 60px #39ff6a55;}
-.btn-hero-sec{
+  font-size:clamp(15px,2vw,20px);color:var(--dim);max-width:600px;line-height:1.55;
+  margin:0 auto 38px;font-weight:500;
+  animation:fadeUp .7s .2s ease both;}
+.hero-btns{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:52px;animation:fadeUp .7s .3s ease both;}
+.btn-primary{
+  font-family:'Bangers',cursive;font-size:24px;letter-spacing:.07em;
+  padding:18px 48px;border-radius:14px;
+  background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);
+  color:#3a1f00;text-decoration:none;
+  border:3px solid var(--gold-shadow);
+  box-shadow:0 6px 0 var(--gold-shadow), 0 12px 28px rgba(255,196,36,.35);
+  transition:transform .12s,box-shadow .12s;}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 0 var(--gold-shadow), 0 16px 36px rgba(255,196,36,.5);}
+.btn-primary:active{transform:translateY(3px);box-shadow:0 3px 0 var(--gold-shadow);}
+.btn-secondary{
+  font-family:'Bangers',cursive;font-size:22px;letter-spacing:.06em;
   padding:16px 36px;border-radius:14px;
-  background:transparent;color:var(--text);
-  border:1px solid var(--border);font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:600;
-  text-decoration:none;transition:all .2s;backdrop-filter:blur(8px);
-}
-.btn-hero-sec:hover{border-color:var(--neon);color:var(--neon);}
+  background:linear-gradient(180deg,#2a3548,#1a2530);
+  color:#fff;text-decoration:none;
+  border:3px solid var(--steel-dark);
+  box-shadow:0 6px 0 var(--steel-dark), 0 12px 24px rgba(0,0,0,.4);
+  transition:transform .12s,box-shadow .12s;}
+.btn-secondary:hover{transform:translateY(-2px);box-shadow:0 8px 0 var(--steel-dark), 0 14px 28px rgba(0,0,0,.5);}
+.btn-secondary:active{transform:translateY(3px);box-shadow:0 3px 0 var(--steel-dark);}
 
 /* Preview window */
 .hero-preview{
-  position:relative;width:min(760px,88vw);border-radius:20px;overflow:hidden;
-  border:1px solid var(--border);box-shadow:0 0 100px #39ff6a18,0 20px 60px #00000088;
-  animation:fadeUp .8s .4s ease both;
-}
+  position:relative;width:min(840px,92vw);
+  border-radius:18px;overflow:hidden;
+  border:3px solid var(--steel-mid);
+  box-shadow:
+    inset 0 0 0 2px var(--steel-dark),
+    0 20px 60px rgba(0,0,0,.7),
+    0 0 80px rgba(255,196,36,.12);
+  animation:fadeUp .8s .4s ease both;}
 .hero-preview canvas{width:100%;height:auto;display:block;aspect-ratio:16/9;}
 .hp-badge{
-  position:absolute;bottom:16px;right:16px;
+  position:absolute;top:14px;left:14px;
+  font-family:'Bangers',cursive;font-size:14px;letter-spacing:.1em;
   padding:6px 14px;border-radius:8px;
-  background:rgba(5,15,7,.85);border:1px solid var(--border);
-  font-size:12px;font-weight:600;color:var(--neon);
-  backdrop-filter:blur(8px);
-}
+  background:linear-gradient(180deg,#e8302a,#a01b15);
+  border:2px solid #5a0a07;color:#fff;
+  box-shadow:0 3px 0 #5a0a07;
+  display:flex;align-items:center;gap:6px;}
+.hp-badge::before{content:'';width:8px;height:8px;border-radius:50%;background:#fff;animation:livePulse 1.2s infinite;}
+@keyframes livePulse{50%{opacity:.3;}}
 
-/* ── STATS ── */
+/* ── STATS BAR ── */
 #stats{
-  padding:80px 5vw;display:flex;justify-content:center;
-  background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  padding:48px 5vw;
+  background:linear-gradient(180deg,#0a1018,#1a2530);
+  border-top:3px solid var(--steel-mid);border-bottom:3px solid var(--steel-mid);
 }
-.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;max-width:900px;width:100%;}
-.stat-item{text-align:center;padding:32px 20px;}
-.stat-val{font-family:'Rajdhani',sans-serif;font-size:clamp(36px,5vw,56px);font-weight:700;
-  background:linear-gradient(135deg,var(--neon),var(--neon2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;}
-.stat-label{font-size:13px;color:var(--dim);margin-top:6px;text-transform:uppercase;letter-spacing:.1em;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;max-width:980px;margin:0 auto;}
+.stat-item{text-align:center;}
+.stat-val{font-family:'Bangers',cursive;font-size:clamp(40px,5.5vw,64px);
+  color:var(--gold);text-shadow:0 5px 0 var(--gold-shadow);line-height:1;}
+.stat-label{font-size:11px;color:var(--dim);margin-top:8px;text-transform:uppercase;letter-spacing:.15em;font-weight:700;}
+
+/* ── SECTIONS ── */
+section{padding:100px 5vw;position:relative;}
+.section-tag{
+  display:inline-block;
+  font-family:'Bangers',cursive;font-size:14px;letter-spacing:.18em;
+  padding:4px 14px;border-radius:6px;
+  background:rgba(255,196,36,.12);border:2px solid rgba(255,196,36,.3);
+  color:var(--gold);margin-bottom:18px;}
+.section-h2{font-family:'Bangers',cursive;font-size:clamp(44px,7vw,84px);
+  letter-spacing:.03em;line-height:.95;margin-bottom:18px;
+  color:#fff;text-shadow:0 5px 0 #000;}
+.section-h2 .gold{color:var(--gold);text-shadow:0 5px 0 var(--gold-shadow);}
+.section-sub{font-size:clamp(15px,1.7vw,18px);color:var(--dim);
+  max-width:580px;margin:0 auto 64px;line-height:1.6;text-align:center;}
+.section-head{text-align:center;}
 
 /* ── HOW IT WORKS ── */
-#how{padding:100px 5vw;text-align:center;}
-.section-tag{font-size:11px;font-weight:600;color:var(--neon);letter-spacing:.2em;text-transform:uppercase;margin-bottom:14px;}
-.section-h2{font-family:'Rajdhani',sans-serif;font-size:clamp(36px,5vw,58px);font-weight:700;margin-bottom:16px;line-height:1.05;}
-.section-sub{font-size:clamp(14px,1.8vw,17px);color:var(--dim);max-width:540px;margin:0 auto 64px;line-height:1.6;}
-.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:900px;margin:0 auto;}
+.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1000px;margin:0 auto;}
 .step-card{
-  padding:36px 28px;border-radius:20px;
-  background:var(--glass);border:1px solid var(--border);
-  text-align:left;position:relative;overflow:hidden;
-  transition:transform .2s,box-shadow .2s;
-}
-.step-card:hover{transform:translateY(-4px);box-shadow:0 0 40px #39ff6a18;}
-.step-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,#39ff6a08,transparent);pointer-events:none;}
-.step-num{font-family:'Rajdhani',sans-serif;font-size:64px;font-weight:700;color:var(--border);line-height:1;margin-bottom:16px;}
-.step-icon{font-size:36px;margin-bottom:14px;display:block;}
-.step-title{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--neon);margin-bottom:10px;}
+  position:relative;padding:32px 28px;
+  background:linear-gradient(180deg,#1a2540,#0a1018);
+  border:3px solid var(--steel-mid);border-radius:18px;
+  box-shadow:0 8px 0 var(--steel-dark), 0 12px 24px rgba(0,0,0,.4);
+  transition:transform .15s,box-shadow .15s;}
+.step-card:hover{transform:translateY(-4px);box-shadow:0 12px 0 var(--steel-dark), 0 16px 32px rgba(255,196,36,.15);border-color:var(--gold);}
+.step-num{
+  position:absolute;top:-22px;left:24px;
+  font-family:'Bangers',cursive;font-size:32px;letter-spacing:.04em;
+  padding:6px 16px;border-radius:10px;
+  background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);color:#3a1f00;
+  border:2px solid var(--gold-shadow);
+  box-shadow:0 3px 0 var(--gold-shadow);}
+.step-icon{font-size:42px;margin:8px 0 14px;display:block;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));}
+.step-title{font-family:'Bangers',cursive;font-size:26px;letter-spacing:.04em;
+  color:var(--gold);text-shadow:0 3px 0 var(--gold-shadow);margin-bottom:10px;}
 .step-desc{font-size:14px;color:var(--dim);line-height:1.6;}
 
 /* ── WORLDS ── */
-#worlds{padding:100px 5vw;background:var(--bg2);}
-.worlds-header{text-align:center;margin-bottom:56px;}
-.worlds-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;max-width:1000px;margin:0 auto;}
+#worlds{background:linear-gradient(180deg,#0a1018,#050a12);}
+.worlds-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;max-width:1080px;margin:0 auto;}
 .world-card{
-  aspect-ratio:1;border-radius:16px;overflow:hidden;
-  border:1px solid var(--border);cursor:pointer;
-  position:relative;transition:all .25s;
+  aspect-ratio:1;border-radius:14px;overflow:hidden;cursor:pointer;
+  position:relative;
+  border:3px solid var(--steel-mid);
+  box-shadow:0 6px 0 var(--steel-dark);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-}
-.world-card:hover{transform:scale(1.07);border-color:var(--neon);box-shadow:0 0 28px #39ff6a33;}
-.world-card-icon{font-size:28px;margin-bottom:6px;}
-.world-card-name{font-size:11px;font-weight:600;color:var(--dim);text-align:center;}
-.world-card:hover .world-card-name{color:var(--neon);}
+  transition:transform .15s,box-shadow .15s,border-color .15s;}
+.world-card:hover{transform:translateY(-4px);border-color:var(--gold);
+  box-shadow:0 10px 0 var(--steel-dark), 0 14px 28px rgba(255,196,36,.2);}
+.world-card-icon{font-size:34px;margin-bottom:6px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.6));}
+.world-card-name{font-family:'Bangers',cursive;font-size:14px;letter-spacing:.06em;
+  color:#fff;text-shadow:0 2px 0 #000;text-align:center;padding:0 6px;}
 .world-badge{
   position:absolute;top:8px;right:8px;
-  padding:2px 7px;border-radius:4px;
-  font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-}
-.world-badge.hot{background:#ff444422;color:#ff6666;border:1px solid #ff444433;}
-.world-badge.new{background:#39ff6a18;color:var(--neon);border:1px solid var(--border);}
+  font-family:'Bangers',cursive;font-size:10px;letter-spacing:.08em;
+  padding:3px 8px;border-radius:6px;
+  border:1px solid;box-shadow:0 2px 0 rgba(0,0,0,.4);}
+.world-badge.hot{background:linear-gradient(180deg,#e8302a,#a01b15);color:#fff;border-color:#5a0a07;}
+.world-badge.new{background:linear-gradient(180deg,#ffd95c,#ffc424);color:#3a1f00;border-color:var(--gold-shadow);}
 
 /* ── EXERCISES ── */
-#exercises{padding:100px 5vw;text-align:center;}
-.ex-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:800px;margin:0 auto;}
+.ex-grid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:880px;margin:0 auto;}
 .ex-chip{
-  padding:10px 20px;border-radius:10px;
-  background:var(--glass);border:1px solid var(--border);
-  font-size:14px;font-weight:500;cursor:default;
-  transition:all .2s;
-}
-.ex-chip:hover{border-color:var(--neon);color:var(--neon);transform:scale(1.04);}
-.ex-chip-icon{margin-right:6px;}
+  font-family:'Bangers',cursive;font-size:16px;letter-spacing:.06em;
+  padding:10px 22px;border-radius:10px;
+  background:linear-gradient(180deg,#2a3548,#1a2530);
+  border:2px solid var(--steel-dark);
+  box-shadow:0 4px 0 var(--steel-dark);color:#fff;
+  display:flex;align-items:center;gap:8px;
+  transition:transform .15s,box-shadow .15s,border-color .15s;}
+.ex-chip:hover{transform:translateY(-2px);border-color:var(--gold);
+  box-shadow:0 6px 0 var(--steel-dark);color:var(--gold);}
+.ex-chip-icon{font-size:18px;}
 
 /* ── FEATURES ── */
-#features{padding:100px 5vw;background:var(--bg2);}
-.features-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px;margin:0 auto;}
+#features{background:linear-gradient(180deg,#050a12,#0a1018);}
+.features-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:980px;margin:0 auto;}
 .feat-card{
-  padding:32px 28px;border-radius:20px;
-  background:var(--glass);border:1px solid var(--border);
-  transition:transform .2s;
-}
-.feat-card:hover{transform:translateY(-3px);}
-.feat-icon{font-size:32px;margin-bottom:14px;display:block;}
-.feat-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--neon);margin-bottom:8px;}
+  padding:30px 28px;border-radius:18px;
+  background:linear-gradient(180deg,#1a2540,#0a1018);
+  border:3px solid var(--steel-mid);
+  box-shadow:0 6px 0 var(--steel-dark);
+  transition:transform .15s,box-shadow .15s,border-color .15s;}
+.feat-card:hover{transform:translateY(-3px);border-color:var(--gold);
+  box-shadow:0 10px 0 var(--steel-dark);}
+.feat-icon{font-size:36px;margin-bottom:14px;display:block;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));}
+.feat-title{font-family:'Bangers',cursive;font-size:24px;letter-spacing:.04em;
+  color:var(--gold);text-shadow:0 3px 0 var(--gold-shadow);margin-bottom:8px;}
 .feat-desc{font-size:14px;color:var(--dim);line-height:1.6;}
 
-/* ── CTA BOTTOM ── */
+/* ── PRICING ── */
+#pricing{background:linear-gradient(180deg,#0a1018,#050a12);}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:1080px;margin:0 auto;}
+.price-card{
+  position:relative;padding:36px 28px;border-radius:18px;
+  background:linear-gradient(180deg,#1a2540,#0a1018);
+  border:3px solid var(--steel-mid);
+  box-shadow:0 8px 0 var(--steel-dark);
+  text-align:left;}
+.price-card.featured{
+  border-color:var(--gold);transform:scale(1.04);
+  background:linear-gradient(180deg,rgba(255,196,36,.12),rgba(255,107,26,.04),#0a1018);
+  box-shadow:0 10px 0 var(--gold-shadow), 0 20px 50px rgba(255,196,36,.2);}
+.price-badge{
+  position:absolute;top:-16px;left:50%;transform:translateX(-50%);
+  font-family:'Bangers',cursive;font-size:13px;letter-spacing:.1em;
+  padding:6px 18px;border-radius:8px;
+  background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);
+  color:#3a1f00;border:2px solid var(--gold-shadow);
+  box-shadow:0 3px 0 var(--gold-shadow);}
+.price-name{font-family:'Bangers',cursive;font-size:36px;letter-spacing:.04em;color:#fff;
+  text-shadow:0 4px 0 #000;margin-bottom:6px;}
+.price-name.gold{color:var(--gold);text-shadow:0 4px 0 var(--gold-shadow);}
+.price-amount{font-family:'Bangers',cursive;font-size:54px;letter-spacing:.02em;
+  color:var(--gold);text-shadow:0 5px 0 var(--gold-shadow);line-height:1;}
+.price-amount .unit{font-family:'Inter',sans-serif;font-size:18px;color:var(--dim);font-weight:600;letter-spacing:0;text-shadow:none;}
+.price-period{font-size:13px;color:var(--dim);margin:6px 0 22px;}
+.price-feats{list-style:none;padding:0;margin:0 0 28px;font-size:14px;color:#fff;line-height:1.95;}
+.price-feats li{display:flex;align-items:flex-start;gap:8px;}
+.price-feats .check{color:var(--gold);font-weight:900;}
+.price-feats .cross{color:var(--dimmer);font-weight:900;}
+.price-feats .gray{color:var(--dim);}
+.price-btn{
+  display:block;text-align:center;text-decoration:none;
+  font-family:'Bangers',cursive;font-size:20px;letter-spacing:.06em;
+  padding:14px;border-radius:12px;
+  transition:transform .12s,box-shadow .12s;}
+.price-btn.gold{
+  background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);
+  color:#3a1f00;border:3px solid var(--gold-shadow);
+  box-shadow:0 5px 0 var(--gold-shadow), 0 10px 20px rgba(255,196,36,.3);}
+.price-btn.gold:hover{transform:translateY(-2px);box-shadow:0 7px 0 var(--gold-shadow), 0 12px 26px rgba(255,196,36,.5);}
+.price-btn.steel{
+  background:linear-gradient(180deg,#2a3548,#1a2530);
+  color:#fff;border:3px solid var(--steel-dark);
+  box-shadow:0 5px 0 var(--steel-dark);}
+.price-btn.steel:hover{transform:translateY(-2px);box-shadow:0 7px 0 var(--steel-dark);}
+.price-note{text-align:center;margin-top:36px;font-size:13px;color:var(--dimmer);}
+
+/* ── NEWSLETTER ── */
+#newsletter{text-align:center;padding:80px 5vw;}
+.news-form{display:flex;gap:10px;max-width:540px;margin:0 auto;flex-wrap:wrap;justify-content:center;}
+.news-form input{
+  flex:1;min-width:260px;padding:16px 20px;border-radius:12px;
+  border:3px solid var(--steel-mid);
+  background:#0a1018;color:#fff;font-family:'Inter',sans-serif;font-size:15px;
+  outline:none;box-shadow:inset 0 3px 6px rgba(0,0,0,.5);}
+.news-form input:focus{border-color:var(--gold);}
+.news-form button{
+  font-family:'Bangers',cursive;font-size:18px;letter-spacing:.06em;
+  padding:16px 32px;border-radius:12px;border:3px solid var(--gold-shadow);
+  background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);color:#3a1f00;
+  box-shadow:0 4px 0 var(--gold-shadow);cursor:pointer;
+  transition:transform .12s,box-shadow .12s;}
+.news-form button:hover{transform:translateY(-1px);box-shadow:0 5px 0 var(--gold-shadow);}
+#emailMsg{margin-top:18px;font-family:'Bangers',cursive;font-size:18px;color:var(--gold);display:none;letter-spacing:.06em;}
+
+/* ── CTA ── */
 #cta{
-  padding:120px 5vw;text-align:center;
-  background:radial-gradient(ellipse 80% 70% at 50% 50%,#0f3a18 0%,#050f07 70%);
-  position:relative;overflow:hidden;
+  padding:130px 5vw;text-align:center;position:relative;overflow:hidden;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255,107,26,.18), transparent 70%),
+    linear-gradient(180deg,#1a2540 0%,#0a1018 60%,#000 100%);
 }
 .cta-glow{
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:400px;height:400px;border-radius:50%;
-  background:radial-gradient(circle,#39ff6a18 0%,transparent 70%);
-  pointer-events:none;
-  animation:glowPulse 3s ease-in-out infinite;
-}
-@keyframes glowPulse{0%,100%{transform:translate(-50%,-50%) scale(1);}50%{transform:translate(-50%,-50%) scale(1.15);}}
-.cta-h2{font-family:'Rajdhani',sans-serif;font-size:clamp(40px,6vw,72px);font-weight:700;line-height:1;margin-bottom:20px;}
-.cta-h2 span{background:linear-gradient(135deg,var(--neon),var(--neon2),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.cta-sub{font-size:clamp(15px,2vw,20px);color:var(--dim);margin-bottom:44px;max-width:500px;margin-left:auto;margin-right:auto;}
+  width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle, rgba(255,196,36,.18) 0%, transparent 70%);
+  pointer-events:none;animation:cglow 4s ease-in-out infinite;}
+@keyframes cglow{50%{transform:translate(-50%,-50%) scale(1.15);}}
 
 /* ── FOOTER ── */
 footer{
-  padding:40px 5vw;border-top:1px solid var(--border);
-  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;
-  background:var(--bg);
-}
-.footer-logo{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;
-  background:linear-gradient(135deg,var(--neon),var(--neon2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.footer-links{display:flex;gap:20px;}
-.footer-links a{color:var(--dim);text-decoration:none;font-size:13px;transition:color .2s;}
-.footer-links a:hover{color:var(--neon);}
-.footer-copy{font-size:12px;color:var(--dim);}
+  padding:36px 5vw;border-top:3px solid var(--steel-mid);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px;
+  background:#0a1018;}
+.footer-logo{font-family:'Bangers',cursive;font-size:22px;letter-spacing:.06em;
+  color:var(--gold);text-shadow:0 2px 0 var(--gold-shadow);}
+.footer-links{display:flex;gap:24px;flex-wrap:wrap;}
+.footer-links a{color:var(--dim);text-decoration:none;font-size:13px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;transition:color .15s;}
+.footer-links a:hover{color:var(--gold);}
+.footer-copy{font-size:12px;color:var(--dimmer);}
 
-/* RESPONSIVE */
-@media(max-width:768px){
-  .stats-grid{grid-template-columns:repeat(2,1fr);}
-  .steps-grid{grid-template-columns:1fr;}
-  .worlds-grid{grid-template-columns:repeat(5,1fr);}
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:32px;}
+  .steps-grid{grid-template-columns:1fr;max-width:480px;}
   .features-grid{grid-template-columns:1fr;}
-  .nav-links{display:none;}
-  .hero-btns{flex-direction:column;align-items:center;}
+  .pricing-grid{grid-template-columns:1fr;max-width:440px;}
+  .price-card.featured{transform:none;}
+  .nav-links a:not(.nav-cta){display:none;}
+  .worlds-grid{grid-template-columns:repeat(5,1fr);gap:8px;}
 }
-@media(max-width:500px){
+@media(max-width:520px){
   .worlds-grid{grid-template-columns:repeat(3,1fr);}
+  .hero-btns{flex-direction:column;align-items:stretch;width:min(360px,86vw);}
+  section{padding:80px 5vw;}
 }
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="nav-logo">BODY<span style="opacity:.7">ARCADE</span></div>
+  <div class="nav-logo">BODY<span>ARCADE</span></div>
   <div class="nav-links">
     <a href="#how">How It Works</a>
     <a href="#worlds">Worlds</a>
-    <a href="#features">Features</a>
-    <a href="BodyArcade.html" class="nav-cta">Play Free →</a>
+    <a href="#pricing">Pricing</a>
+    <a href="/blog/">Blog</a>
+    <a href="BodyArcade.html" class="nav-cta">PLAY FREE →</a>
   </div>
 </nav>
 
 <!-- HERO -->
 <section id="hero">
-  <div class="hero-particles" id="heroP"></div>
-  <div class="hero-tag">🎮 No Download &nbsp;·&nbsp; 📷 Camera Only &nbsp;·&nbsp; 🔥 Real Calories</div>
-  <h1 class="hero-h1"><span class="g">Move Your Body</span><br/>Rule The Game</h1>
+  <div class="hero-tag">⚡ NO DOWNLOAD &nbsp;·&nbsp; 📷 CAMERA ONLY &nbsp;·&nbsp; 🔥 REAL CALORIES</div>
+  <h1 class="hero-h1">
+    <span class="line1">Move Your Body</span>
+    <span class="line2">Rule The Game</span>
+  </h1>
   <p class="hero-sub">The world's first browser fitness game. Your body is the controller. Burn real calories while you play — no equipment, no download, no excuses.</p>
   <div class="hero-btns">
-    <a href="BodyArcade.html" class="btn-hero">Play Now — It's Free</a>
-    <a href="#how" class="btn-hero-sec">How It Works</a>
+    <a href="BodyArcade.html" class="btn-primary">PLAY NOW — FREE</a>
+    <a href="#how" class="btn-secondary">HOW IT WORKS</a>
   </div>
   <div class="hero-preview">
     <canvas id="heroCanvas"></canvas>
-    <div class="hp-badge">🔴 LIVE DEMO</div>
+    <div class="hp-badge">LIVE DEMO</div>
   </div>
 </section>
 
@@ -269,89 +433,93 @@ footer{
 <section id="stats">
   <div class="stats-grid">
     <div class="stat-item"><div class="stat-val" id="s-players">47K+</div><div class="stat-label">Players Today</div></div>
-    <div class="stat-item"><div class="stat-val">10</div><div class="stat-label">Unique Worlds</div></div>
+    <div class="stat-item"><div class="stat-val">10</div><div class="stat-label">Epic Worlds</div></div>
     <div class="stat-item"><div class="stat-val">10</div><div class="stat-label">Exercises</div></div>
-    <div class="stat-item"><div class="stat-val">0</div><div class="stat-label">Downloads Needed</div></div>
+    <div class="stat-item"><div class="stat-val">0</div><div class="stat-label">Downloads</div></div>
   </div>
 </section>
 
 <!-- HOW IT WORKS -->
 <section id="how">
-  <div class="section-tag">How It Works</div>
-  <h2 class="section-h2">Three steps to your<br/>best workout</h2>
-  <p class="section-sub">No setup, no equipment. Just open your browser, allow camera access, and start moving.</p>
+  <div class="section-head">
+    <div class="section-tag">HOW IT WORKS</div>
+    <h2 class="section-h2">Three Steps To <span class="gold">Glory</span></h2>
+    <p class="section-sub">No setup, no equipment. Open your browser, allow your camera, and start moving.</p>
+  </div>
   <div class="steps-grid">
     <div class="step-card">
       <div class="step-num">01</div>
       <span class="step-icon">📷</span>
       <div class="step-title">Allow Camera</div>
-      <div class="step-desc">BodyArcade uses your camera to track your body in real time. No data is stored — all processing happens locally in your browser.</div>
+      <div class="step-desc">BodyArcade tracks your body in real time. Camera feed never leaves your device — all AI processing runs locally.</div>
     </div>
     <div class="step-card">
       <div class="step-num">02</div>
       <span class="step-icon">🧱</span>
-      <div class="step-title">React to Obstacles</div>
-      <div class="step-desc">Holographic obstacles fly toward you. Squat under beams, jump over walls, raise your arms through arches — your body is the input.</div>
+      <div class="step-title">Dodge & Move</div>
+      <div class="step-desc">Obstacles fly toward you. Squat under beams, jump over walls, raise your arms through arches. Your body is the input.</div>
     </div>
     <div class="step-card">
       <div class="step-num">03</div>
       <span class="step-icon">🔥</span>
-      <div class="step-title">Track Real Calories</div>
-      <div class="step-desc">Every rep, every jump, every squat is tracked. Calories are calculated using the MET formula based on your weight and movement intensity.</div>
+      <div class="step-title">Burn Calories</div>
+      <div class="step-desc">Every rep, jump, and squat tracked. Calories calculated using the MET formula based on your weight & intensity.</div>
     </div>
   </div>
 </section>
 
 <!-- WORLDS -->
 <section id="worlds">
-  <div class="worlds-header">
-    <div class="section-tag">Environments</div>
-    <h2 class="section-h2">10 Worlds to Conquer</h2>
-    <p class="section-sub" style="margin-bottom:0">Each world has its own atmosphere, fog, lighting and color palette.</p>
+  <div class="section-head">
+    <div class="section-tag">ENVIRONMENTS</div>
+    <h2 class="section-h2"><span class="gold">10 Worlds</span> To Conquer</h2>
+    <p class="section-sub">Every world brings its own atmosphere, lighting, fog, and obstacles.</p>
   </div>
   <div class="worlds-grid" id="worldsGrid"></div>
 </section>
 
 <!-- EXERCISES -->
 <section id="exercises">
-  <div class="section-tag">Exercises</div>
-  <h2 class="section-h2">10 Body Movements</h2>
-  <p class="section-sub">Detected in real time by MediaPipe AI pose estimation.</p>
+  <div class="section-head">
+    <div class="section-tag">EXERCISES</div>
+    <h2 class="section-h2">10 <span class="gold">Body Moves</span></h2>
+    <p class="section-sub">Detected in real time by MediaPipe AI pose estimation. 33 skeleton joints, 30fps.</p>
+  </div>
   <div class="ex-grid">
-    <div class="ex-chip"><span class="ex-chip-icon">🏋️</span>Squat</div>
-    <div class="ex-chip"><span class="ex-chip-icon">⭐</span>Jumping Jack</div>
-    <div class="ex-chip"><span class="ex-chip-icon">🦵</span>Lunge</div>
-    <div class="ex-chip"><span class="ex-chip-icon">🏃</span>High Knees</div>
-    <div class="ex-chip"><span class="ex-chip-icon">💪</span>Shoulder Press</div>
-    <div class="ex-chip"><span class="ex-chip-icon">🙌</span>Arms Up</div>
-    <div class="ex-chip"><span class="ex-chip-icon">↔️</span>Side Bend</div>
-    <div class="ex-chip"><span class="ex-chip-icon">🔄</span>Body Twist</div>
-    <div class="ex-chip"><span class="ex-chip-icon">👟</span>Calf Raise</div>
-    <div class="ex-chip"><span class="ex-chip-icon">🔵</span>Arm Circles</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🏋️</span>SQUAT</div>
+    <div class="ex-chip"><span class="ex-chip-icon">⭐</span>JUMPING JACK</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🦵</span>LUNGE</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🏃</span>HIGH KNEES</div>
+    <div class="ex-chip"><span class="ex-chip-icon">💪</span>SHOULDER PRESS</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🙌</span>ARMS UP</div>
+    <div class="ex-chip"><span class="ex-chip-icon">↔️</span>SIDE BEND</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🔄</span>BODY TWIST</div>
+    <div class="ex-chip"><span class="ex-chip-icon">👟</span>CALF RAISE</div>
+    <div class="ex-chip"><span class="ex-chip-icon">🔵</span>ARM CIRCLES</div>
   </div>
 </section>
 
 <!-- FEATURES -->
 <section id="features">
-  <div style="text-align:center;margin-bottom:56px;">
-    <div class="section-tag">Features</div>
-    <h2 class="section-h2">Built Different</h2>
+  <div class="section-head">
+    <div class="section-tag">FEATURES</div>
+    <h2 class="section-h2">Built <span class="gold">Different</span></h2>
   </div>
   <div class="features-grid">
     <div class="feat-card">
       <span class="feat-icon">🤖</span>
-      <div class="feat-title">MediaPipe AI Tracking</div>
-      <div class="feat-desc">33-point body skeleton tracked at 30fps. Joint angles are measured to verify every rep with real biomechanical precision.</div>
+      <div class="feat-title">AI Body Tracking</div>
+      <div class="feat-desc">33-point body skeleton tracked at 30fps with MediaPipe. Joint angles measured to verify every rep with biomechanical precision.</div>
     </div>
     <div class="feat-card">
       <span class="feat-icon">✨</span>
-      <div class="feat-title">WebGL + Bloom Rendering</div>
-      <div class="feat-desc">Three.js with UnrealBloom post-processing. Neon obstacles, bioluminescent forests, and cinematic ACES tone mapping.</div>
+      <div class="feat-title">Cinematic Graphics</div>
+      <div class="feat-desc">Three.js WebGL with UnrealBloom post-processing. Volumetric fog, dynamic lighting, ACES tone mapping.</div>
     </div>
     <div class="feat-card">
       <span class="feat-icon">🔥</span>
       <div class="feat-title">Real Calorie Science</div>
-      <div class="feat-desc">MET (Metabolic Equivalent of Task) formula adapted for each exercise. Personalized to your weight for accurate results.</div>
+      <div class="feat-desc">MET (Metabolic Equivalent of Task) formula adapted per exercise. Personalized to your weight for accurate results.</div>
     </div>
     <div class="feat-card">
       <span class="feat-icon">🔒</span>
@@ -360,85 +528,87 @@ footer{
     </div>
     <div class="feat-card">
       <span class="feat-icon">🏆</span>
-      <div class="feat-title">Global Leaderboard</div>
-      <div class="feat-desc">Compete with players worldwide. Scores ranked by points, calories burned, distance and best combo streak.</div>
+      <div class="feat-title">Leaderboard</div>
+      <div class="feat-desc">Compete with players worldwide. Ranked by score, calories, distance, and best combo streak.</div>
     </div>
     <div class="feat-card">
       <span class="feat-icon">🎵</span>
-      <div class="feat-title">Adaptive Audio</div>
-      <div class="feat-desc">Web Audio API generative soundtrack. Bass drone, atmospheric pads and LFO modulation that responds to your movement.</div>
+      <div class="feat-title">Spotify Integration</div>
+      <div class="feat-desc">Plug your own playlist. Or use the adaptive Web Audio soundtrack that responds to your movement.</div>
     </div>
   </div>
 </section>
 
 <!-- PRICING -->
-<section id="pricing" style="padding:100px 24px;max-width:1200px;margin:0 auto;">
-  <div style="text-align:center;margin-bottom:56px;">
-    <div class="section-tag">Plans</div>
-    <h2 class="section-h2">Start free.<br/>Go pro when ready.</h2>
+<section id="pricing">
+  <div class="section-head">
+    <div class="section-tag">PLANS</div>
+    <h2 class="section-h2">Start <span class="gold">Free</span>. Level Up When Ready.</h2>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
-    <div style="background:linear-gradient(180deg,rgba(26,37,64,.6),rgba(10,16,24,.6));border:2px solid #2a3548;border-radius:18px;padding:32px 24px;">
-      <div style="font-family:'Bangers',cursive;font-size:32px;color:#fff;margin-bottom:4px;">FREE</div>
-      <div style="font-size:38px;font-weight:900;color:#ffc424;margin-bottom:6px;">$0</div>
-      <div style="font-size:13px;color:#aab4c2;margin-bottom:20px;">forever</div>
-      <ul style="list-style:none;padding:0;font-size:14px;color:#aab4c2;line-height:1.9;">
-        <li>✓ All 10 worlds</li>
-        <li>✓ Solo runs</li>
-        <li>✓ Calorie tracking</li>
-        <li>✗ Short ads between runs</li>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="price-name">FREE</div>
+      <div class="price-amount">$0</div>
+      <div class="price-period">forever</div>
+      <ul class="price-feats">
+        <li><span class="check">✓</span> All 10 worlds</li>
+        <li><span class="check">✓</span> Solo runs</li>
+        <li><span class="check">✓</span> Calorie tracking</li>
+        <li><span class="cross">✗</span> <span class="gray">Short ads between runs</span></li>
       </ul>
-      <a href="BodyArcade.html" style="display:block;margin-top:24px;text-align:center;padding:12px;border-radius:10px;background:#2a3548;color:#fff;text-decoration:none;font-family:'Bangers',cursive;letter-spacing:.04em;font-size:16px;">PLAY FREE</a>
+      <a href="BodyArcade.html" class="price-btn steel">PLAY FREE</a>
     </div>
-    <div style="background:linear-gradient(180deg,rgba(255,196,36,.15),rgba(255,107,26,.08));border:2px solid #ffc424;border-radius:18px;padding:32px 24px;position:relative;box-shadow:0 12px 40px rgba(255,196,36,.15);">
-      <div style="position:absolute;top:-12px;right:20px;background:#ffc424;color:#3a1f00;font-family:'Bangers',cursive;font-size:13px;padding:4px 12px;border-radius:8px;letter-spacing:.05em;">MOST POPULAR</div>
-      <div style="font-family:'Bangers',cursive;font-size:32px;color:#ffc424;margin-bottom:4px;">PRO</div>
-      <div style="font-size:38px;font-weight:900;color:#fff;margin-bottom:6px;">$4.99<span style="font-size:16px;color:#aab4c2;font-weight:400;">/mo</span></div>
-      <div style="font-size:13px;color:#aab4c2;margin-bottom:20px;">or $39/year</div>
-      <ul style="list-style:none;padding:0;font-size:14px;color:#fff;line-height:1.9;">
-        <li>✓ Everything in Free</li>
-        <li>✓ <b>No ads</b></li>
-        <li>✓ 2-player split-screen</li>
-        <li>✓ Workout history & graphs</li>
-        <li>✓ Custom playlists</li>
+    <div class="price-card featured">
+      <div class="price-badge">MOST POPULAR</div>
+      <div class="price-name gold">PRO</div>
+      <div class="price-amount">$4.99<span class="unit">/mo</span></div>
+      <div class="price-period">or $39/year (save 35%)</div>
+      <ul class="price-feats">
+        <li><span class="check">✓</span> Everything in Free</li>
+        <li><span class="check">✓</span> <b>No ads</b></li>
+        <li><span class="check">✓</span> 2-player split-screen</li>
+        <li><span class="check">✓</span> Workout history & graphs</li>
+        <li><span class="check">✓</span> Custom playlists</li>
       </ul>
-      <a href="https://gumroad.com/l/bodyarcade-pro" class="gumroad-button" style="display:block;margin-top:24px;text-align:center;padding:12px;border-radius:10px;background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);color:#3a1f00;text-decoration:none;font-family:'Bangers',cursive;letter-spacing:.04em;font-size:16px;box-shadow:0 4px 0 #5a3a00;">GO PRO →</a>
+      <a href="https://gumroad.com/l/bodyarcade-pro" class="price-btn gold gumroad-button">GO PRO →</a>
     </div>
-    <div style="background:linear-gradient(180deg,rgba(26,37,64,.6),rgba(10,16,24,.6));border:2px solid #2a3548;border-radius:18px;padding:32px 24px;">
-      <div style="font-family:'Bangers',cursive;font-size:32px;color:#fff;margin-bottom:4px;">LIFETIME</div>
-      <div style="font-size:38px;font-weight:900;color:#ffc424;margin-bottom:6px;">$99</div>
-      <div style="font-size:13px;color:#aab4c2;margin-bottom:20px;">one-time payment</div>
-      <ul style="list-style:none;padding:0;font-size:14px;color:#aab4c2;line-height:1.9;">
-        <li>✓ Everything in Pro</li>
-        <li>✓ <b>Forever access</b></li>
-        <li>✓ Early access to new worlds</li>
-        <li>✓ Founder badge</li>
-        <li>✓ Priority support</li>
+    <div class="price-card">
+      <div class="price-name">LIFETIME</div>
+      <div class="price-amount">$99</div>
+      <div class="price-period">one-time payment</div>
+      <ul class="price-feats">
+        <li><span class="check">✓</span> Everything in Pro</li>
+        <li><span class="check">✓</span> <b>Forever access</b></li>
+        <li><span class="check">✓</span> Early access to new worlds</li>
+        <li><span class="check">✓</span> Founder badge</li>
+        <li><span class="check">✓</span> Priority support</li>
       </ul>
-      <a href="https://gumroad.com/l/bodyarcade-lifetime" class="gumroad-button" style="display:block;margin-top:24px;text-align:center;padding:12px;border-radius:10px;background:#2a3548;color:#fff;text-decoration:none;font-family:'Bangers',cursive;letter-spacing:.04em;font-size:16px;">BUY ONCE</a>
+      <a href="https://gumroad.com/l/bodyarcade-lifetime" class="price-btn steel gumroad-button">BUY ONCE</a>
     </div>
   </div>
-  <p style="text-align:center;margin-top:32px;font-size:13px;color:#5a6878;">Cancel anytime. 30-day refund guarantee on annual & lifetime.</p>
+  <p class="price-note">Cancel anytime. 30-day refund guarantee on annual &amp; lifetime.</p>
 </section>
 
-<!-- EMAIL CAPTURE -->
-<section id="newsletter" style="padding:80px 24px;max-width:760px;margin:0 auto;text-align:center;">
-  <div class="section-tag">Get Notified</div>
-  <h2 class="section-h2">New worlds drop monthly.</h2>
-  <p style="color:#aab4c2;margin:16px 0 28px;">Be the first to know when we ship.</p>
-  <form id="emailForm" style="display:flex;gap:10px;max-width:500px;margin:0 auto;flex-wrap:wrap;justify-content:center;" onsubmit="return submitEmail(event)">
-    <input type="email" required placeholder="you@email.com" style="flex:1;min-width:240px;padding:14px 18px;border-radius:12px;border:2px solid rgba(57,255,106,.2);background:rgba(10,16,24,.7);color:#fff;font-family:inherit;font-size:15px;outline:none;"/>
-    <button type="submit" style="padding:14px 32px;border-radius:12px;border:none;background:linear-gradient(135deg,#39ff6a,#a8ff78);color:#050f07;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;cursor:pointer;letter-spacing:.05em;">SUBSCRIBE</button>
+<!-- NEWSLETTER -->
+<section id="newsletter">
+  <div class="section-head">
+    <div class="section-tag">GET NOTIFIED</div>
+    <h2 class="section-h2">New Worlds Drop <span class="gold">Monthly</span></h2>
+    <p class="section-sub">Be the first to know when we ship.</p>
+  </div>
+  <form class="news-form" id="emailForm" onsubmit="return submitEmail(event)">
+    <input type="email" required placeholder="you@email.com"/>
+    <button type="submit">SUBSCRIBE</button>
   </form>
-  <div id="emailMsg" style="margin-top:14px;font-size:13px;color:#5cdfff;display:none;">✓ Thanks! You're on the list.</div>
+  <div id="emailMsg">✓ YOU'RE ON THE LIST</div>
 </section>
 
 <!-- BOTTOM CTA -->
 <section id="cta">
   <div class="cta-glow"></div>
-  <h2 class="cta-h2"><span>Ready to move?</span></h2>
-  <p class="cta-sub">Free forever. No account needed. Just open it and play.</p>
-  <a href="BodyArcade.html" class="btn-hero" style="font-size:22px;padding:18px 52px;">Play BodyArcade Free →</a>
+  <h2 class="section-h2" style="font-size:clamp(48px,8vw,96px);margin-bottom:18px;">Ready To <span class="gold">Move</span>?</h2>
+  <p class="section-sub" style="margin-bottom:44px;">Free forever. No account needed. Just open it and play.</p>
+  <a href="BodyArcade.html" class="btn-primary" style="font-size:28px;padding:22px 60px;">PLAY BODYARCADE FREE →</a>
 </section>
 
 <footer>
@@ -446,54 +616,42 @@ footer{
   <div class="footer-links">
     <a href="#how">How It Works</a>
     <a href="#worlds">Worlds</a>
-    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="/blog/">Blog</a>
     <a href="BodyArcade.html">Play</a>
   </div>
   <div class="footer-copy">© 2026 BodyArcade. All rights reserved.</div>
 </footer>
 
+<script src="https://gumroad.com/js/gumroad.js"></script>
 <script>
 function submitEmail(e){
   e.preventDefault();
   const email = e.target.querySelector('input').value;
-  // Save locally; in production wire to ConvertKit/Beehiiv/Mailchimp endpoint
   const list = JSON.parse(localStorage.getItem('ba_emails')||'[]');
   list.push({email,ts:Date.now()});
   localStorage.setItem('ba_emails',JSON.stringify(list));
   if(window.plausible) plausible('Email Signup');
-  $('emailMsg').style.display = 'block';
+  document.getElementById('emailMsg').style.display = 'block';
   e.target.querySelector('input').value = '';
   return false;
 }
-// PWA register
 if('serviceWorker' in navigator){
   addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 }
-</script>
-<script src="https://gumroad.com/js/gumroad.js"></script>
-<script>
-(()=>{
-  const c=document.getElementById('heroP');
-  for(let i=0;i<28;i++){
-    const p=document.createElement('div');p.className='hero-particle';
-    const s=2+Math.random()*5;
-    p.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;bottom:${Math.random()*20}%;animation-delay:${Math.random()*8}s;animation-duration:${5+Math.random()*7}s;`;
-    c.appendChild(p);
-  }
-})();
 
-// Worlds grid
+// Worlds grid — Fortnite-style colors per biome
 const COURSES=[
-  {id:'jungle',  name:'Jungle',   icon:'🌿',bg:'#0a1f0e', hot:true},
-  {id:'volcano', name:'Volcano',  icon:'🌋',bg:'#1a0505', hot:false},
-  {id:'arctic',  name:'Arctic',   icon:'❄️',bg:'#081828', hot:false},
-  {id:'desert',  name:'Desert',   icon:'🏜️',bg:'#1a1000', hot:false},
-  {id:'ocean',   name:'Ocean',    icon:'🌊',bg:'#040e28', hot:false},
-  {id:'haunted', name:'Haunted',  icon:'👻',bg:'#0e0814', hot:false},
-  {id:'space',   name:'Space',    icon:'🚀',bg:'#04060e', isNew:true},
-  {id:'crystal', name:'Crystal',  icon:'💎',bg:'#040e1a', isNew:true},
-  {id:'temple',  name:'Temple',   icon:'🏛️',bg:'#0f0e04', hot:false},
-  {id:'neon',    name:'Neon City',icon:'⚡',bg:'#04040e', isNew:true},
+  {id:'jungle',  name:'JUNGLE',   icon:'🌿', bg:'linear-gradient(180deg,#1a3d1f,#0a1f12)', hot:true},
+  {id:'volcano', name:'VOLCANO',  icon:'🌋', bg:'linear-gradient(180deg,#4a1505,#1a0505)', hot:false},
+  {id:'arctic',  name:'ARCTIC',   icon:'❄️', bg:'linear-gradient(180deg,#1a3a5a,#081828)', hot:false},
+  {id:'desert',  name:'DESERT',   icon:'🏜️', bg:'linear-gradient(180deg,#5a3a10,#2a1a05)', hot:false},
+  {id:'ocean',   name:'OCEAN',    icon:'🌊', bg:'linear-gradient(180deg,#0a3a5a,#040e28)', hot:false},
+  {id:'haunted', name:'HAUNTED',  icon:'👻', bg:'linear-gradient(180deg,#2a1a3a,#0e0814)', hot:false},
+  {id:'space',   name:'SPACE',    icon:'🚀', bg:'linear-gradient(180deg,#1a1a3a,#04060e)', isNew:true},
+  {id:'crystal', name:'CRYSTAL',  icon:'💎', bg:'linear-gradient(180deg,#0a3a5a,#040e1a)', isNew:true},
+  {id:'temple',  name:'TEMPLE',   icon:'🏛️', bg:'linear-gradient(180deg,#4a3505,#1a1505)', hot:false},
+  {id:'neon',    name:'NEON CITY',icon:'⚡', bg:'linear-gradient(180deg,#3a1a5a,#04040e)', isNew:true},
 ];
 const wg=document.getElementById('worldsGrid');
 COURSES.forEach(c=>{
@@ -507,7 +665,18 @@ COURSES.forEach(c=>{
   wg.appendChild(d);
 });
 
-// Hero canvas animation
+// Animate stat counter
+(()=>{
+  const el=document.getElementById('s-players');
+  let n=0;const target=47312;
+  const iv=setInterval(()=>{
+    n+=Math.floor(target/60);
+    if(n>=target){n=target;clearInterval(iv);}
+    el.textContent=(n/1000).toFixed(1)+'K+';
+  },30);
+})();
+
+// Hero canvas animation — Fortnite-style preview
 (()=>{
   const canvas=document.getElementById('heroCanvas');
   if(!canvas)return;
@@ -520,102 +689,114 @@ COURSES.forEach(c=>{
   resize();window.addEventListener('resize',resize);
 
   const exercises=[
-    {name:'SQUAT',color:'#00d4ff',y:0.52},
-    {name:'ARMS UP',color:'#39ff6a',y:0.6},
-    {name:'HIGH KNEES',color:'#ffb347',y:0.56},
-    {name:'LUNGE',color:'#ff4444',y:0.58},
+    {name:'SQUAT',color:'#ffc424',y:0.52},
+    {name:'JUMP',color:'#ff6b1a',y:0.6},
+    {name:'HIGH KNEES',color:'#ffd95c',y:0.56},
+    {name:'LUNGE',color:'#e8302a',y:0.58},
   ];
   let exIdx=0,exTimer=0;
 
   function frame(){
     resize();const w=canvas.width,h=canvas.height;
-    // Sky
+    // Sky — sunset orange/gold
     const sky=ctx.createLinearGradient(0,0,0,h);
-    sky.addColorStop(0,'#050f07');sky.addColorStop(1,'#1a4d20');
-    ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
-    // Stars
-    for(let i=0;i<60;i++){
-      const sx=Math.sin(i*137.5)*w/2+w/2,sy=Math.cos(i*97.3)*h*.35+h*.12;
-      ctx.fillStyle=`rgba(170,255,200,${.2+.3*Math.sin(t+i)})`;
-      ctx.fillRect(sx,sy,1,1);
-    }
-    const vp={x:w/2,y:h*.34};
+    sky.addColorStop(0,'#1a2540');sky.addColorStop(0.6,'#5a3a10');sky.addColorStop(1,'#ff6b1a');
+    ctx.fillStyle=sky;ctx.fillRect(0,0,w,h*.55);
+    // Ground
+    ctx.fillStyle='#0a1018';ctx.fillRect(0,h*.55,w,h*.45);
+    // Sun
+    ctx.fillStyle='rgba(255,196,36,.5)';
+    ctx.beginPath();ctx.arc(w*.5,h*.5,h*.12,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#ffd95c';
+    ctx.beginPath();ctx.arc(w*.5,h*.5,h*.08,0,Math.PI*2);ctx.fill();
     // Road
-    ctx.beginPath();ctx.moveTo(w/2-w*.24,h);ctx.lineTo(w/2+w*.24,h);
-    ctx.lineTo(vp.x+22,vp.y);ctx.lineTo(vp.x-22,vp.y);
-    ctx.fillStyle='#1a3d16';ctx.fill();
-    // Edge neon
-    ctx.shadowColor='#39ff6a';ctx.shadowBlur=8;
+    const vp={x:w/2,y:h*.55};
+    ctx.beginPath();ctx.moveTo(w/2-w*.32,h);ctx.lineTo(w/2+w*.32,h);
+    ctx.lineTo(vp.x+20,vp.y);ctx.lineTo(vp.x-20,vp.y);
+    ctx.fillStyle='#2a3548';ctx.fill();
+    // Road edges (gold lines)
     for(const side of[-1,1]){
-      const bx=w/2+side*w*.24,tx=vp.x+side*22;
+      const bx=w/2+side*w*.32,tx=vp.x+side*20;
       ctx.beginPath();ctx.moveTo(bx,h);ctx.lineTo(tx,vp.y);
-      ctx.strokeStyle='rgba(57,255,106,.7)';ctx.lineWidth=1.5;ctx.stroke();
+      ctx.strokeStyle='#ffc424';ctx.lineWidth=2;ctx.stroke();
     }
-    ctx.shadowBlur=0;
-    // Dashes
+    // Center dashes
     for(let z=0;z<10;z++){
       const pct=((t*.3+z/10)%1);
-      const y=vp.y+(h-vp.y)*pct,xw=(18+(w*.24-18)*pct)*.38;
+      const y=vp.y+(h-vp.y)*pct,xw=(20+(w*.32-20)*pct)*.04;
       ctx.beginPath();ctx.moveTo(vp.x-xw,y);ctx.lineTo(vp.x+xw,y);
-      ctx.strokeStyle=`rgba(57,255,106,${pct*.4})`;ctx.lineWidth=pct*2.2;ctx.stroke();
+      ctx.strokeStyle=`rgba(255,196,36,${pct*.7})`;ctx.lineWidth=pct*3;ctx.stroke();
     }
-    // Trees
-    for(const sd of[-1,1])for(let j=0;j<4;j++){
-      const pct=((t*.19+j*.25)%1);
-      const ty=vp.y+(h-vp.y)*pct,tx2=w/2+sd*(w*.16+w*.2*pct),s=pct*58;
+    // Side trees / silhouettes
+    for(const sd of[-1,1])for(let j=0;j<5;j++){
+      const pct=((t*.22+j*.2)%1);
+      const ty=vp.y+(h-vp.y)*pct,tx2=w/2+sd*(w*.18+w*.22*pct),s=pct*70;
       if(s<4)continue;
-      ctx.fillStyle=`rgba(13,${28+pct*38},18,${.55+pct*.45})`;
-      ctx.beginPath();ctx.moveTo(tx2,ty-s*1.3);ctx.lineTo(tx2-s*.5,ty);ctx.lineTo(tx2+s*.5,ty);ctx.fill();
+      ctx.fillStyle=`rgba(10,16,24,${.7+pct*.3})`;
+      ctx.beginPath();ctx.moveTo(tx2,ty-s*1.4);ctx.lineTo(tx2-s*.5,ty);ctx.lineTo(tx2+s*.5,ty);ctx.fill();
     }
-    // Obstacle
+    // Obstacle barricade
     exTimer+=.008;if(exTimer>1){exTimer=0;exIdx=(exIdx+1)%exercises.length;}
     const ex=exercises[exIdx];
     const oz=((t*.38)%1);
     if(oz>.22){
-      const oy=vp.y+(h-vp.y)*oz,sz=(oz-.22)*3*w*.24,al=Math.min(1,(oz-.22)*3);
-      ctx.shadowColor=ex.color;ctx.shadowBlur=20*oz;
-      ctx.strokeStyle=`${ex.color}${Math.floor(al*220).toString(16).padStart(2,'0')}`;ctx.lineWidth=3*oz;
-      ctx.strokeRect(w/2-sz/2,oy-sz*.52,sz,sz*.8);
-      if(oz>.6){
-        ctx.fillStyle=ex.color;ctx.globalAlpha=(oz-.6)*2.5*al;
-        ctx.font=`bold ${Math.floor(14*oz)}px Rajdhani,sans-serif`;ctx.textAlign='center';
-        ctx.fillText(ex.name,w/2,oy-sz*.52-8);ctx.globalAlpha=1;
+      const oy=vp.y+(h-vp.y)*oz,sz=(oz-.22)*3*w*.28,al=Math.min(1,(oz-.22)*3);
+      // Striped barricade
+      ctx.fillStyle=`rgba(255,107,26,${al})`;
+      ctx.fillRect(w/2-sz/2,oy-sz*.45,sz,sz*.18);
+      // White stripes
+      ctx.fillStyle=`rgba(255,255,255,${al*.9})`;
+      const stripes=6;
+      for(let i=0;i<stripes;i++){
+        if(i%2===0)ctx.fillRect(w/2-sz/2+sz/stripes*i,oy-sz*.45,sz/stripes,sz*.18);
       }
-      ctx.shadowBlur=0;
+      // Prompt label
+      if(oz>.5){
+        const promptAl=Math.min(1,(oz-.5)*3);
+        const pw=sz*.6,ph=sz*.18;
+        const px=w/2-pw/2, py=oy-sz*.45-ph-8;
+        // Gold prompt box
+        ctx.fillStyle=`rgba(255,196,36,${promptAl})`;
+        ctx.fillRect(px,py,pw,ph);
+        ctx.strokeStyle=`rgba(90,58,0,${promptAl})`;
+        ctx.lineWidth=2;
+        ctx.strokeRect(px,py,pw,ph);
+        ctx.fillStyle=`rgba(58,31,0,${promptAl})`;
+        ctx.font=`bold ${Math.floor(ph*.7)}px 'Bangers',cursive`;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(ex.name,w/2,py+ph/2);
+      }
     }
-    // HUD mockup
-    ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(0,0,w,h*.12);
-    ctx.fillStyle='rgba(0,0,0,.3)';ctx.fillRect(0,h*.88,w,h*.12);
+    // Top HUD bar (progress)
+    ctx.fillStyle='rgba(10,16,24,.85)';
+    ctx.fillRect(0,0,w,h*.1);
+    // Progress bar
+    const pbx=w*.15, pby=h*.04, pbw=w*.4, pbh=h*.025;
+    ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(pbx,pby,pbw,pbh);
+    ctx.fillStyle='#3a6db8';ctx.fillRect(pbx,pby,pbw*.45,pbh);
+    // Distance (gold)
+    ctx.fillStyle='#ffc424';ctx.font=`bold ${h*.06}px 'Bangers',cursive`;ctx.textAlign='right';
+    ctx.fillText(Math.floor(t*120)+'M',w*.95,h*.075);
     // Hearts
-    for(let i=0;i<3;i++){ctx.font=`${h*.055}px serif`;ctx.fillText('❤️',w*.04+i*(h*.065),h*.082);}
-    // Score
-    ctx.fillStyle='#fff';ctx.font=`bold ${h*.065}px Rajdhani,sans-serif`;ctx.textAlign='right';
-    ctx.fillText(Math.floor(t*800).toString().padStart(6,'0'),w*.97,h*.082);
-    // Cal
-    ctx.fillStyle='#ffb347';ctx.font=`bold ${h*.042}px Rajdhani,sans-serif`;ctx.textAlign='center';
-    ctx.fillText(`🔥 ${(t*1.2).toFixed(1)} kcal`,w/2,h*.082);
+    for(let i=0;i<3;i++){ctx.font=`${h*.045}px serif`;ctx.fillText('❤️',w*.06+i*(h*.055),h*.075);}
     ctx.textAlign='left';
+    // Score bottom right
+    ctx.fillStyle='#fff';ctx.font=`bold ${h*.075}px 'Bangers',cursive`;ctx.textAlign='right';
+    ctx.fillText(Math.floor(t*8000).toString().padStart(6,'0'),w*.97,h*.96);
+    // Calorie bottom left
+    ctx.fillStyle='#ff6b1a';ctx.font=`bold ${h*.04}px 'Bangers',cursive`;ctx.textAlign='left';
+    ctx.fillText('🔥 '+(t*1.8).toFixed(1)+' KCAL',w*.04,h*.96);
+
     t+=.007;requestAnimationFrame(frame);
   }
   frame();
-})();
-
-// Animate stat counter
-(()=>{
-  const el=document.getElementById('s-players');
-  let n=0;const target=47312;
-  const iv=setInterval(()=>{
-    n+=Math.floor(target/60);
-    if(n>=target){n=target;clearInterval(iv);}
-    el.textContent=(n/1000).toFixed(1)+'K+';
-  },30);
 })();
 
 // Scroll reveal
 const observer=new IntersectionObserver(entries=>{
   entries.forEach(e=>{if(e.isIntersecting) e.target.style.animation='fadeUp .6s ease both';});
 },{threshold:.1});
-document.querySelectorAll('.step-card,.feat-card,.stat-item').forEach(el=>observer.observe(el));
+document.querySelectorAll('.step-card,.feat-card,.stat-item,.price-card').forEach(el=>observer.observe(el));
 </script>
 </body>
 </html>
