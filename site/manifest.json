@@ -1,0 +1,37 @@
+{
+  "name": "BodyArcade",
+  "short_name": "BodyArcade",
+  "description": "A running game you play with your body. Jump, squat, duck and lean in front of your webcam.",
+  "start_url": "/BodyArcade.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#15130f",
+  "theme_color": "#15130f",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "games",
+    "health",
+    "fitness"
+  ],
+  "screenshots": [
+    {
+      "src": "/assets/og.jpg",
+      "sizes": "1200x630",
+      "type": "image/jpeg",
+      "form_factor": "wide"
+    }
+  ]
+}

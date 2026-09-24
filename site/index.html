@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade: Webcam Fitness Game You Play in Your Browser</title>
+<meta name="description" content="BodyArcade is a free running game you control with your body. Jump, squat, duck and lean to clear obstacles while your webcam tracks your moves. No download, no controller, no account.">
+<link rel="canonical" href="https://bodyarcade.com/">
+<meta name="theme-color" content="#15130f">
+<meta name="google-site-verification" content="LSVTdVtTiP2KkZe8ja0PZsw-pzVfW-N0rG5Tmv6abnQ">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BodyArcade">
+<meta property="og:url" content="https://bodyarcade.com/">
+<meta property="og:title" content="BodyArcade: your body is the controller">
+<meta property="og:description" content="A free browser running game you steer by jumping, squatting, ducking and leaning in front of your webcam.">
+<meta property="og:image" content="https://bodyarcade.com/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://bodyarcade.com/assets/og.jpg">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="preload" href="/assets/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/screens/play-hud.webp" as="image" type="image/webp" fetchpriority="high">
+<link rel="stylesheet" href="/assets/ba.css">
+<script>document.documentElement.classList.add('js')</script>
+<script defer data-domain="bodyarcade.com" src="https://plausible.io/js/script.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": ["VideoGame", "SoftwareApplication"],
+      "name": "BodyArcade",
+      "url": "https://bodyarcade.com/",
+      "description": "A browser running game controlled by body movement. The webcam tracks jumps, squats, ducks and leans with on-device pose detection.",
+      "applicationCategory": "GameApplication",
+      "gamePlatform": "Web browser",
+      "operatingSystem": "Any (web browser with camera)",
+      "playMode": ["SinglePlayer", "MultiPlayer"],
+      "genre": ["Fitness", "Endless runner"],
+      "image": "https://bodyarcade.com/assets/og.jpg",
+      "offers": [
+        {"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD"},
+        {"@type": "Offer", "name": "Pro (monthly)", "price": "4.99", "priceCurrency": "USD"},
+        {"@type": "Offer", "name": "Lifetime", "price": "99", "priceCurrency": "USD"}
+      ],
+      "publisher": {"@type": "Organization", "name": "Peak Apps Studio", "email": "peakappsstudios@gmail.com"}
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {"@type": "Question", "name": "Do I need to download anything?", "acceptedAnswer": {"@type": "Answer", "text": "No. BodyArcade runs in your web browser. Open the page, allow the camera, and play."}},
+        {"@type": "Question", "name": "What equipment do I need?", "acceptedAnswer": {"@type": "Answer", "text": "A laptop or desktop webcam, or a phone's front camera, and enough room to step back so the camera can see you from your head down to your hips."}},
+        {"@type": "Question", "name": "Is my camera video uploaded or recorded?", "acceptedAnswer": {"@type": "Answer", "text": "No. Pose detection runs in your browser on your device. Camera frames are never uploaded or stored. Only your finished run results (name, score, distance, world) are posted to the leaderboard."}},
+        {"@type": "Question", "name": "Does it work on a phone?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. It runs in Safari on iPhone and Chrome on Android. Prop the phone up so the front camera can see you from head to hips."}},
+        {"@type": "Question", "name": "What does the free version include?", "acceptedAnswer": {"@type": "Answer", "text": "Five runs a day in the Alps, Desert and Forest worlds on Easy or Medium difficulty, plus live races and the leaderboard. Pro unlocks unlimited runs, all ten worlds and Hard and Insane difficulty."}},
+        {"@type": "Question", "name": "How accurate is the calorie count?", "acceptedAnswer": {"@type": "Answer", "text": "It is an estimate based on standard MET values for each movement and the body weight you enter. Use it to compare your own sessions, not as a medical measurement."}}
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" data-nav>
+  <div class="wrap nav-in">
+    <a class="logo" href="/" aria-label="BodyArcade home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#15130f"/><circle cx="16" cy="8.5" r="3.2" fill="#ffc93c"/><path d="M8 11.5 L16 15 L24 11.5 M16 15 V20 M16 20 L11 26.5 M16 20 L21 26.5" stroke="#f3eee5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      <span class="logo-word">BodyArcade</span>
+    </a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav-links" data-menu>Menu</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#worlds">Worlds</a></li>
+      <li><a href="#live">Live races</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="/blog/">Blog</a></li>
+    </ul>
+    <a class="btn btn-play btn-sm" href="/BodyArcade.html" data-event="Play Click" data-where="nav">Play free</a>
+  </div>
+</header>
+
+<main id="main">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="live-pill"><span class="live-dot" aria-hidden="true"></span>Live races start every 5 minutes</span>
+        <h1 class="display">Your body is the <span class="hl">controller.</span></h1>
+        <p class="hero-lede">BodyArcade is a running game in your browser. Jump, squat, duck and lean to clear the road while your webcam tracks your moves. No download, no controller, no account.</p>
+        <div class="hero-cta">
+          <a class="btn btn-play" href="/BodyArcade.html" data-event="Play Click" data-where="hero">Play free now <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn-line" href="/BodyArcade.html?live=1" data-event="Live Click" data-where="hero">Join a live race</a>
+        </div>
+        <ul class="hero-facts">
+          <li>5 free runs a day</li>
+          <li>90-second runs</li>
+          <li>Camera stays on your device</li>
+        </ul>
+      </div>
+
+      <div class="hero-art">
+        <div class="screen">
+          <img src="/assets/screens/play-hud.webp" srcset="/assets/screens/play-hud-sm.webp 800w, /assets/screens/play-hud.webp 1400w" sizes="(max-width: 900px) 92vw, 52vw" width="1400" height="700" alt="BodyArcade gameplay in the Sunset world: a road through pine trees under a pink sky, with the run progress bar, lives and score on screen." fetchpriority="high">
+        </div>
+        <div class="phone">
+          <img src="/assets/screens/phone-play.webp" width="430" height="774" alt="The same game running on a phone in portrait." loading="lazy">
+        </div>
+        <div class="pose-card" aria-hidden="true">
+          <span class="label">Squat</span>
+          <svg viewBox="0 0 120 150">
+            <g class="fig-bar"><rect x="14" y="34" width="92" height="7" rx="3" fill="#ff4f24"/></g>
+            <g class="fig-body" stroke="#f3eee5" stroke-width="4" stroke-linecap="round" fill="none">
+              <circle cx="60" cy="24" r="9" fill="#f3eee5" stroke="none"/>
+              <path d="M60 36 V80 M46 46 H74 M46 46 L36 64 L40 80 M74 46 L84 64 L80 80 M52 80 H68 M52 80 L48 108 L50 136 M68 80 L72 108 L70 136"/>
+              <g fill="#ffc93c" stroke="none"><circle cx="46" cy="46" r="3.4"/><circle cx="74" cy="46" r="3.4"/><circle cx="36" cy="64" r="3.4"/><circle cx="84" cy="64" r="3.4"/><circle cx="52" cy="80" r="3.4"/><circle cx="68" cy="80" r="3.4"/><circle cx="48" cy="108" r="3.4"/><circle cx="72" cy="108" r="3.4"/></g>
+            </g>
+            <path d="M8 142 H112" stroke="#6b645a" stroke-width="2" stroke-dasharray="8 6"/>
+          </svg>
+          <p>Drop your hips and the bar clears overhead.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTROLLER -->
+  <section class="section on-ink" id="controller" aria-labelledby="moves-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="kicker label">The controller</span>
+          <h2 id="moves-title" class="display">Five moves. That's all of it.</h2>
+        </div>
+        <p class="sec-lede">Every obstacle on the road is cleared by one of these. The game reads them from your hips, head and shoulders using on-device pose tracking.</p>
+      </div>
+      <div class="moves">
+        <article class="move rv">
+          <svg viewBox="0 0 120 150" aria-hidden="true"><rect x="28" y="124" width="64" height="12" rx="3" fill="#ff4f24"/><g stroke="#f3eee5" stroke-width="4" stroke-linecap="round" fill="none"><circle cx="60" cy="16" r="9" fill="#f3eee5" stroke="none"/><path d="M60 28 V70 M48 36 H72 M48 36 L42 22 L40 8 M72 36 L78 22 L80 8 M52 70 H68 M52 70 L46 92 L54 110 M68 70 L74 92 L66 110"/></g><g fill="#ffc93c"><circle cx="48" cy="36" r="3.4"/><circle cx="72" cy="36" r="3.4"/><circle cx="42" cy="22" r="3.4"/><circle cx="78" cy="22" r="3.4"/><circle cx="52" cy="70" r="3.4"/><circle cx="68" cy="70" r="3.4"/><circle cx="46" cy="92" r="3.4"/><circle cx="74" cy="92" r="3.4"/></g></svg>
+          <h3>Jump</h3>
+          <p>Push off and lift your hips.</p>
+          <span class="obst">Clears low barriers</span>
+        </article>
+        <article class="move rv">
+          <svg viewBox="0 0 120 150" aria-hidden="true"><rect x="10" y="34" width="100" height="8" rx="3" fill="#ff4f24"/><g stroke="#f3eee5" stroke-width="4" stroke-linecap="round" fill="none"><circle cx="60" cy="52" r="9" fill="#f3eee5" stroke="none"/><path d="M60 64 V98 M48 70 H72 M48 70 L38 80 L28 76 M72 70 L82 80 L92 76 M50 98 H70 M50 98 L38 112 L48 136 M70 98 L82 112 L72 136"/></g><g fill="#ffc93c"><circle cx="48" cy="70" r="3.4"/><circle cx="72" cy="70" r="3.4"/><circle cx="38" cy="80" r="3.4"/><circle cx="82" cy="80" r="3.4"/><circle cx="50" cy="98" r="3.4"/><circle cx="70" cy="98" r="3.4"/><circle cx="38" cy="112" r="3.4"/><circle cx="82" cy="112" r="3.4"/></g></svg>
+          <h3>Squat</h3>
+          <p>Sit your hips back and down.</p>
+          <span class="obst">Gets under mid bars</span>
+        </article>
+        <article class="move rv">
+          <svg viewBox="0 0 120 150" aria-hidden="true"><rect x="10" y="40" width="100" height="8" rx="3" fill="#ff4f24"/><g stroke="#f3eee5" stroke-width="4" stroke-linecap="round" fill="none"><circle cx="60" cy="62" r="9" fill="#f3eee5" stroke="none"/><path d="M60 74 L60 90 M46 74 H74 M46 74 L42 88 L48 100 M74 74 L78 88 L72 100 M52 90 H68 M52 90 L50 114 L52 136 M68 90 L70 114 L68 136"/></g><g fill="#ffc93c"><circle cx="46" cy="74" r="3.4"/><circle cx="74" cy="74" r="3.4"/><circle cx="42" cy="88" r="3.4"/><circle cx="78" cy="88" r="3.4"/><circle cx="52" cy="90" r="3.4"/><circle cx="68" cy="90" r="3.4"/><circle cx="50" cy="114" r="3.4"/><circle cx="70" cy="114" r="3.4"/></g></svg>
+          <h3>Duck</h3>
+          <p>Drop your head and shoulders low.</p>
+          <span class="obst">Passes overhead bars</span>
+        </article>
+        <article class="move rv">
+          <svg viewBox="0 0 120 150" aria-hidden="true"><rect x="80" y="40" width="30" height="100" rx="4" fill="#ff4f24"/><g stroke="#f3eee5" stroke-width="4" stroke-linecap="round" fill="none"><circle cx="42" cy="28" r="9" fill="#f3eee5" stroke="none"/><path d="M45 40 L58 84 M33 50 L58 44 M33 50 L25 64 L22 78 M58 44 L66 58 L68 72 M50 84 H66 M50 84 L50 110 L50 136 M66 84 L68 110 L68 136"/></g><g fill="#ffc93c"><circle cx="33" cy="50" r="3.4"/><circle cx="58" cy="44" r="3.4"/><circle cx="25" cy="64" r="3.4"/><circle cx="66" cy="58" r="3.4"/><circle cx="50" cy="84" r="3.4"/><circle cx="66" cy="84" r="3.4"/><circle cx="50" cy="110" r="3.4"/><circle cx="68" cy="110" r="3.4"/></g></svg>
+          <h3>Lean left</h3>
+          <p>Shift your shoulders to the left.</p>
+          <span class="obst">Dodges right-side walls</span>
+        </article>
+        <article class="move rv">
+          <svg viewBox="0 0 120 150" aria-hidden="true"><rect x="10" y="40" width="30" height="100" rx="4" fill="#ff4f24"/><g stroke="#f3eee5" stroke-width="4" stroke-linecap="round" fill="none"><circle cx="78" cy="28" r="9" fill="#f3eee5" stroke="none"/><path d="M75 40 L62 84 M87 50 L62 44 M87 50 L95 64 L98 78 M62 44 L54 58 L52 72 M70 84 H54 M70 84 L70 110 L70 136 M54 84 L52 110 L52 136"/></g><g fill="#ffc93c"><circle cx="87" cy="50" r="3.4"/><circle cx="62" cy="44" r="3.4"/><circle cx="95" cy="64" r="3.4"/><circle cx="54" cy="58" r="3.4"/><circle cx="70" cy="84" r="3.4"/><circle cx="54" cy="84" r="3.4"/><circle cx="70" cy="110" r="3.4"/><circle cx="52" cy="110" r="3.4"/></g></svg>
+          <h3>Lean right</h3>
+          <p>Shift your shoulders to the right.</p>
+          <span class="obst">Dodges left-side walls</span>
+        </article>
+      </div>
+      <p class="moves-note">No webcam handy? Try a run with the keyboard: <code>↑</code> or <code>Space</code> to jump, <code>Shift</code> to squat, <code>↓</code> to duck, <code>←</code> <code>→</code> to lean.</p>
+    </div>
+  </section>
+
+  <!-- HOW A RUN WORKS -->
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="kicker label">How a run works</span>
+          <h2 id="how-title" class="display">From tab to sweat in a minute.</h2>
+        </div>
+        <p class="sec-lede">There's no install and no sign-up. Open the game, stand back and start moving.</p>
+      </div>
+      <div class="steps">
+        <div class="step rv">
+          <div class="step-media"><img src="/assets/screens/camera.webp" width="800" height="420" alt="The in-game camera access screen with Allow and Skip buttons." loading="lazy"></div>
+          <h3>Allow the camera</h3>
+          <p>Step back until the camera sees you from your head to your hips. The video is processed on your device and never uploaded.</p>
+        </div>
+        <div class="step rv">
+          <div class="step-media"><img src="/assets/screens/menu.webp" width="600" height="750" alt="The BodyArcade start screen with the daily challenge, weekly tournament and live lobby buttons." loading="lazy"></div>
+          <h3>Pick a world</h3>
+          <p>Alps, Desert and Forest are free on Easy or Medium. Pro adds seven more worlds and the Hard and Insane difficulties.</p>
+        </div>
+        <div class="step rv">
+          <div class="step-media"><img src="/assets/worlds/volcano-sm.webp" width="700" height="340" alt="A run in the Volcano world with dark red rocks along the road." loading="lazy"></div>
+          <h3>Run for 90 seconds</h3>
+          <p>Obstacles come at you and your body clears them. When you finish, you get your score, distance, best combo and an estimate of calories burned.</p>
+        </div>
+      </div>
+      <div class="needs rv">
+        <strong>You'll need</strong>
+        <ul>
+          <li>A webcam or a phone's front camera</li>
+          <li>A couple of metres of floor space</li>
+          <li>An up-to-date Chrome, Edge or Safari</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORLDS -->
+  <section class="section on-ink" id="worlds" aria-labelledby="worlds-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="kicker label">Worlds</span>
+          <h2 id="worlds-title" class="display">Ten roads to run.</h2>
+        </div>
+        <p class="sec-lede">Each world has its own sky, fog, weather and scenery. Three are free to play every day.</p>
+      </div>
+      <div class="worlds">
+        <figure class="world w-lg rv"><img src="/assets/worlds/sunset-sm.webp" srcset="/assets/worlds/sunset-sm.webp 700w, /assets/worlds/sunset.webp 1400w" sizes="(max-width: 760px) 50vw, 48vw" width="1400" height="680" alt="Sunset world: pine trees and street lamps under a pink evening sky." loading="lazy"><figcaption><span class="world-name">Sunset</span><span class="tag tag-pro">Pro</span></figcaption></figure>
+        <figure class="world w-lg rv"><img src="/assets/worlds/alps-sm.webp" srcset="/assets/worlds/alps-sm.webp 700w, /assets/worlds/alps.webp 1400w" sizes="(max-width: 760px) 50vw, 48vw" width="1400" height="680" alt="Alps world: pines and grey boulders beside a mountain road." loading="lazy"><figcaption><span class="world-name">Alps</span><span class="tag tag-free">Free</span></figcaption></figure>
+        <figure class="world rv"><img src="/assets/worlds/desert-sm.webp" width="700" height="340" alt="Desert world: sand dunes and cacti." loading="lazy"><figcaption><span class="world-name">Desert</span><span class="tag tag-free">Free</span></figcaption></figure>
+        <figure class="world rv"><img src="/assets/worlds/forest-sm.webp" width="700" height="340" alt="Forest world: green pines on a mossy plain." loading="lazy"><figcaption><span class="world-name">Forest</span><span class="tag tag-free">Free</span></figcaption></figure>
+        <figure class="world rv"><img src="/assets/worlds/volcano-sm.webp" width="700" height="340" alt="Volcano world: dark red rocks under a smoky sky." loading="lazy"><figcaption><span class="world-name">Volcano</span><span class="tag tag-pro">Pro</span></figcaption></figure>
+        <figure class="world rv"><img src="/assets/worlds/city-sm.webp" width="700" height="340" alt="City world: towers with lit windows." loading="lazy"><figcaption><span class="world-name">City</span><span class="tag tag-pro">Pro</span></figcaption></figure>
+        <figure class="world rv"><img src="/assets/worlds/storm-sm.webp" width="700" height="340" alt="Storm world: a grey coastal road under heavy cloud." loading="lazy"><figcaption><span class="world-name">Storm</span><span class="tag tag-pro">Pro</span></figcaption></figure>
+        <figure class="world rv"><img src="/assets/worlds/arctic-sm.webp" width="700" height="340" alt="Arctic world: snow and ice boulders in pale fog." loading="lazy"><figcaption><span class="world-name">Arctic</span><span class="tag tag-pro">Pro</span></figcaption></figure>
+        <figure class="world rv"><img src="/assets/worlds/jungle-sm.webp" width="700" height="340" alt="Jungle world: tall trees in green haze." loading="lazy"><figcaption><span class="world-name">Jungle</span><span class="tag tag-pro">Pro</span></figcaption></figure>
+        <figure class="world rv"><img src="/assets/worlds/coast-sm.webp" width="700" height="340" alt="Coast world: a causeway with lamps over calm water." loading="lazy"><figcaption><span class="world-name">Coast</span><span class="tag tag-pro">Pro</span></figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE -->
+  <section class="section live" id="live" aria-labelledby="live-title">
+    <div class="live-bg" aria-hidden="true"><img src="/assets/worlds/city.webp" width="1400" height="680" alt="" loading="lazy"></div>
+    <div class="wrap live-grid">
+      <div>
+        <span class="kicker label">Live races</span>
+        <h2 id="live-title" class="display">Race whoever's moving right now.</h2>
+        <p>Join the live lobby and run the same course as everyone in it, with a live leaderboard during the race. Nobody around? Race ghost runners built from the best scores in each world.</p>
+        <div class="hero-cta"><a class="btn btn-play" href="/BodyArcade.html?live=1" data-event="Live Click" data-where="live">Join the next race <span class="arrow" aria-hidden="true">→</span></a></div>
+      </div>
+      <div class="nums">
+        <div class="num"><b>50</b><span>players per lobby</span></div>
+        <div class="num"><b>5<small style="font-size:.5em">min</small></b><span>between races</span></div>
+        <div class="num"><b>90<small style="font-size:.5em">s</small></b><span>per run</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRIVACY -->
+  <section class="section" id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="kicker label">Privacy</span>
+          <h2 id="privacy-title" class="display">The camera watches. Nobody else does.</h2>
+        </div>
+        <p class="sec-lede">Here's exactly what happens to your data. The <a href="/privacy.html">privacy page</a> has the full details.</p>
+      </div>
+      <div class="trust">
+        <div class="trust-item rv"><div class="trust-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="2" y="5" width="12" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 9 L18 6.5 V13.5 L14 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div><h3>Video stays on your device</h3><p>Pose detection runs in your browser. Camera frames are never uploaded, recorded or stored.</p></div>
+        <div class="trust-item rv"><div class="trust-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 17 C4.5 13 15.5 13 16.5 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><h3>No account needed</h3><p>Your profile, run history and settings are saved in this browser. There's nothing to sign up for.</p></div>
+        <div class="trust-item rv"><div class="trust-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 16 V9 M10 16 V4 M16 16 V11" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></div><h3>Scores are public</h3><p>When you finish a run, your chosen name and score are posted to the global leaderboard. Pick any name you like.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section class="section" id="pricing" style="background:var(--paper-2)" aria-labelledby="pricing-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="kicker label">Pricing</span>
+          <h2 id="pricing-title" class="display">Free every day. Pro when you're hooked.</h2>
+        </div>
+        <p class="sec-lede">The free plan resets every day. Upgrade when five runs aren't enough.</p>
+      </div>
+      <div class="plans">
+        <div class="plan rv">
+          <span class="plan-name">Free</span>
+          <div class="plan-price">$0</div>
+          <p class="plan-sub">No card, no account</p>
+          <ul>
+            <li>5 runs every day</li>
+            <li>Alps, Desert and Forest worlds</li>
+            <li>Easy and Medium difficulty</li>
+            <li>Live races and the global leaderboard</li>
+          </ul>
+          <a class="btn btn-line" href="/BodyArcade.html" data-event="Play Click" data-where="pricing">Play free</a>
+        </div>
+        <div class="plan featured rv">
+          <span class="plan-badge">Most runners</span>
+          <span class="plan-name">Pro</span>
+          <div class="plan-price">$4.99<small> /month</small></div>
+          <p class="plan-sub">or $39 a year. Cancel anytime.</p>
+          <ul>
+            <li>Unlimited runs</li>
+            <li>All 10 worlds</li>
+            <li>Hard and Insane difficulty</li>
+            <li>Every runner skin</li>
+            <li>Workout history with charts</li>
+          </ul>
+          <a class="btn btn-play gumroad-button" href="https://dorukctn.gumroad.com/l/ithhc" data-event="Checkout Click" data-where="pro">Go Pro</a>
+        </div>
+        <div class="plan rv">
+          <span class="plan-name">Lifetime</span>
+          <div class="plan-price">$99</div>
+          <p class="plan-sub">One payment, no subscription</p>
+          <ul>
+            <li>Everything in Pro</li>
+            <li>No renewals, ever</li>
+            <li>One payment</li>
+          </ul>
+          <a class="btn btn-line gumroad-button" href="https://dorukctn.gumroad.com/l/czrhwp" data-event="Checkout Click" data-where="lifetime">Buy lifetime</a>
+        </div>
+      </div>
+      <p class="plans-note">Checkout is handled by Gumroad. Monthly plans cancel anytime; annual and lifetime purchases have a 30-day refund window.</p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="kicker label">Questions</span>
+          <h2 id="faq-title" class="display">Before you press play</h2>
+        </div>
+      </div>
+      <div class="faq">
+        <details><summary>Do I need to download anything?</summary><p>No. BodyArcade runs in your web browser. Open the page, allow the camera, and play. You can add it to your home screen if you like, but you don't have to.</p></details>
+        <details><summary>What equipment do I need?</summary><p>A laptop or desktop webcam, or a phone's front camera, and enough room to step back so the camera sees you from your head down to your hips. A couple of metres of clear floor is enough for most rooms.</p></details>
+        <details><summary>Is my camera video uploaded or recorded?</summary><p>No. Pose detection runs in your browser on your device. Camera frames are never uploaded or stored. Only your finished run results (name, score, distance, world) go to the leaderboard.</p></details>
+        <details><summary>Does it work on a phone?</summary><p>Yes. It runs in Safari on iPhone and Chrome on Android. Prop the phone up on a shelf or against a wall so the front camera can see you from head to hips.</p></details>
+        <details><summary>What does the free version include?</summary><p>Five runs a day in the Alps, Desert and Forest worlds on Easy or Medium, plus live races and the leaderboard. Pro unlocks unlimited runs, all ten worlds and the Hard and Insane difficulties.</p></details>
+        <details><summary>How accurate is the calorie count?</summary><p>It's an estimate based on standard MET values for each movement and the body weight you enter. Use it to compare your own sessions, not as a medical measurement.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="section final" aria-labelledby="final-title">
+    <div class="final-bg" aria-hidden="true"><img src="/assets/worlds/sunset.webp" width="1400" height="680" alt="" loading="lazy"></div>
+    <div class="wrap">
+      <h2 id="final-title" class="display">Your first run takes 90 seconds.</h2>
+      <p>Clear a bit of floor, open the game and see how far you get.</p>
+      <a class="btn btn-play" href="/BodyArcade.html" data-event="Play Click" data-where="final">Play BodyArcade free <span class="arrow" aria-hidden="true">→</span></a>
+    </div>
+  </section>
+</main>
+
+<div class="mobile-play" data-mobile-play><a class="btn btn-play" href="/BodyArcade.html" data-event="Play Click" data-where="sticky">Play free now <span class="arrow" aria-hidden="true">→</span></a></div>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-in">
+      <div>
+        <a class="logo" href="/" aria-label="BodyArcade home">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#f3eee5"/><circle cx="16" cy="8.5" r="3.2" fill="#ff4f24"/><path d="M8 11.5 L16 15 L24 11.5 M16 15 V20 M16 20 L11 26.5 M16 20 L21 26.5" stroke="#15130f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          <span class="logo-word">BodyArcade</span>
+        </a>
+        <p class="footer-note">A browser running game you play with your whole body.</p>
+      </div>
+      <div><h4>Play</h4><ul><li><a href="/BodyArcade.html">Start a run</a></li><li><a href="/BodyArcade.html?live=1">Live race</a></li><li><a href="#worlds">Worlds</a></li><li><a href="#pricing">Pricing</a></li></ul></div>
+      <div><h4>Learn</h4><ul><li><a href="/blog/">Blog</a></li><li><a href="/ring-fit-adventure-alternative.html">Ring Fit alternative</a></li><li><a href="#how">How it works</a></li></ul></div>
+      <div><h4>Company</h4><ul><li><a href="/privacy.html">Privacy</a></li><li><a href="mailto:peakappsstudios@gmail.com">Contact</a></li><li><a href="https://dorukctnn-rgb.github.io/peakappsstudios/">Peak Apps Studio</a></li></ul></div>
+    </div>
+    <div class="footer-base"><span>© 2026 BodyArcade by Peak Apps Studio</span><span>Estimates are not medical advice. Warm up and play within your limits.</span></div>
+  </div>
+</footer>
+
+<script src="/assets/ba.js" defer></script>
+<script src="https://gumroad.com/js/gumroad.js" async></script>
+</body>
+</html>
