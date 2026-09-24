@@ -1,6 +1,7 @@
-# Netlify deploy config for BodyArcade
+# Netlify deploy config for BodyArcade.
+# Only site/ is published; old builds and working screenshots in the repo root stay private.
 [build]
-  publish = "."
+  publish = "site"
 
 [[headers]]
   for = "/*"
@@ -15,15 +16,26 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# Scripts and styles are not fingerprinted, so they must revalidate or updates never reach players.
 [[headers]]
-  for = "*.js"
+  for = "/*.js"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
-  for = "*.png"
+  for = "/assets/*.css"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
 
 [[redirects]]
   from = "/play"
@@ -33,4 +45,20 @@
 [[redirects]]
   from = "/app"
   to = "/BodyArcade.html"
+  status = 301
+
+# Old builds that used to be published from the repo root.
+[[redirects]]
+  from = "/BodyArcade%20v1.html"
+  to = "/BodyArcade.html"
+  status = 301
+
+[[redirects]]
+  from = "/BodyArcade%20v2-neon.html"
+  to = "/BodyArcade.html"
+  status = 301
+
+[[redirects]]
+  from = "/uploads/*"
+  to = "/"
   status = 301

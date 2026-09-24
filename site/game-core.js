@@ -87,7 +87,7 @@ function showLockModal(reason, ctaUrl) {
           ✓ <b>Hard &amp; Insane</b> difficulty<br/>
           ✓ <b>Unlimited daily runs</b><br/>
           ✓ Workout history &amp; graphs<br/>
-          ✓ 2-player split-screen
+          ✓ Every runner skin
         </div>
       </div>
       <a href="${ctaUrl||GUMROAD_PRO}" target="_blank" style="display:block;font-family:'Bangers',cursive;font-size:22px;letter-spacing:.06em;padding:14px;border-radius:12px;background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);color:#3a1f00;text-decoration:none;border:3px solid #5a3a00;box-shadow:0 5px 0 #5a3a00, 0 10px 20px rgba(255,196,36,.3);">GET PRO — $4.99 →</a>
