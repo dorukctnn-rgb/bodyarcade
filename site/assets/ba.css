@@ -375,3 +375,9 @@ a { color: inherit; }
   /* Static frame: squatting under the bar. */
   .fig-body { transform: translateY(18px) scaleY(0.9); }
 }
+
+/* Narrow phones: comparison tables scroll inside their own box instead of widening the page. */
+@media (max-width: 480px) {
+  .article table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; font-size: 14px; }
+  .article th, .article td { padding: 9px 8px; }
+}
