@@ -117,7 +117,7 @@ function renderRunsLeft() {
   else el.innerHTML = left > 0 ? `${left} of ${store.DAILY_FREE_LIMIT} free runs left today.` : `No free runs left today. <button class="link-btn" type="button" id="b-pro-inline">Go Pro for unlimited runs</button> or come back tomorrow.`;
   const b = $('b-pro-inline'); if (b) b.onclick = () => openPro();
   $('b-pro').classList.toggle('on', store.isPro());
-  $('b-pro').textContent = store.isPro() ? 'Pro ✓' : 'Pro';
+  $('b-pro').textContent = store.isPro() ? 'Pro active' : 'Pro';
 }
 function renderDaily() {
   const g = store.dailyGoal(), done = store.dailyDone(), streak = store.dailyStreak();
@@ -147,7 +147,7 @@ function openPro(reason = '') {
       <div class="plan featured"><span class="pn">Pro</span><span class="pp">$4.99<small> / month</small></span><span class="small muted">Cancel anytime on Gumroad</span><a class="btn btn-play" href="${store.GUMROAD.pro.url}" target="_blank" rel="noopener" data-ev="Checkout Click" data-where="game-pro">Get Pro</a></div>
       <div class="plan"><span class="pn">Lifetime</span><span class="pp">$99<small> once</small></span><span class="small muted">One payment, no renewals</span><a class="btn btn-ghost" href="${store.GUMROAD.lifetime.url}" target="_blank" rel="noopener" data-ev="Checkout Click" data-where="game-lifetime">Buy lifetime</a></div>
     </div>
-    <p class="small">After checkout, Gumroad emails you a license key. Paste it here to unlock Pro in this browser.</p>
+    <p class="small">After checkout, Gumroad emails you a license key. Paste it here to turn Pro on in this browser.</p>
     <div class="keyrow"><input id="i-key" placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX" autocomplete="off" spellcheck="false" aria-label="License key"><button id="b-key" class="btn btn-play" type="button">Activate</button></div>
     <p id="key-msg" class="key-msg"></p>`}`);
   const rm = $('b-key-remove'); if (rm) rm.onclick = () => { store.clearLicense(); m.close(); renderStart(); toast('Pro key removed.'); };
@@ -161,7 +161,7 @@ async function activateKey(key, m) {
   msg.className = 'key-msg'; msg.textContent = 'Checking with Gumroad…'; if (b) b.disabled = true;
   const r = await store.verifyLicense(key);
   if (b) b.disabled = false;
-  if (r.ok) { msg.className = 'key-msg ok'; msg.textContent = 'Pro unlocked. Enjoy every world.'; plausible('Pro Activated'); setTimeout(() => { m && m.close(); renderStart(); }, 900); }
+  if (r.ok) { msg.className = 'key-msg ok'; msg.textContent = 'Pro is active. Every world is open.'; plausible('Pro Activated'); setTimeout(() => { m && m.close(); renderStart(); }, 900); }
   else { msg.className = 'key-msg err'; msg.textContent = r.error; }
 }
 
@@ -177,7 +177,7 @@ function openHistory() {
   modal(`<p class="kicker">History</p><h2 class="display">Your runs</h2>
     <div class="hist-tot"><div><b>${t.runs}</b><span>runs</span></div><div><b>${Math.round(t.kcal)}</b><span>kcal est.</span></div><div><b>${Math.round(t.seconds / 60)}</b><span>minutes</span></div></div>
     ${shown.length ? `<div class="hist-chart" aria-label="Score per run">${shown.slice().reverse().map(r => `<i style="height:${Math.max(3, r.score / max * 100)}%" title="${r.score}"></i>`).join('')}</div>` : '<p class="muted">No runs yet. Your first one is 90 seconds away.</p>'}
-    <ul class="hist-list">${shown.map(r => `<li><span><b>${r.score.toLocaleString()}</b> · ${esc((WORLD_BY_ID[r.world] || {}).name || r.world)} · ${esc((DIFFS[r.diff] || {}).label || '')}</span><span>${r.dist} m</span><span>${new Date(r.ts).toLocaleDateString()}</span></li>`).join('')}</ul>
+    <ul class="hist-list">${shown.map(r => `<li><span><b>${r.score.toLocaleString()}</b> in ${esc((WORLD_BY_ID[r.world] || {}).name || r.world)}, ${esc((DIFFS[r.diff] || {}).label || '')}</span><span>${r.dist} m</span><span>${new Date(r.ts).toLocaleDateString()}</span></li>`).join('')}</ul>
     ${!pro && runs.length > 7 ? `<p class="small muted">Showing your last 7 runs. <button class="link-btn" type="button" id="b-hist-pro">Pro keeps the full history.</button></p>` : ''}`);
   const b = $('b-hist-pro'); if (b) b.onclick = () => openPro('Full history is part of Pro.');
 }
@@ -327,7 +327,7 @@ async function beginRun() {
   st.inputCtl.reset();
   st.inputCtl.enabled = false;
   if (st.input === 'camera') { const pip = $('pip'); pip.hidden = false; pip.className = 'pip mode-run'; }
-  $('hud-world').textContent = world.name + ' · ' + DIFFS[st.diff].label;
+  $('hud-world').textContent = world.name + ', ' + DIFFS[st.diff].label;
   $('hud-input').textContent = st.input === 'camera' ? 'Camera' : (matchMedia('(pointer: coarse)').matches ? 'Swipe to move' : 'Keyboard');
   renderHearts(3);
   $('hud-score').textContent = '0'; $('hud-combo').textContent = ''; $('hud-time').textContent = '90'; $('timefill').style.transform = 'scaleX(1)';
@@ -466,19 +466,19 @@ function endRun(complete) {
   const res = store.afterRun({ ...s, world: world.id, ts: Date.now(), friend: st.challenge });
   if (complete) sfx.done(); else sfx.hit();
   show('results');
-  $('res-kicker').textContent = complete ? `Run complete · ${world.name}` : `Out of lives · ${world.name}`;
+  $('res-kicker').textContent = complete ? `Run complete in ${world.name}` : `Out of lives in ${world.name}`;
   $('res-score').textContent = s.score.toLocaleString();
   $('res-best').textContent = s.score > prevBest && prevBest > 0 ? 'New best' : (prevBest === 0 ? 'First run here' : '');
   $('res-dist').textContent = s.dist + ' m'; $('res-cleared').textContent = s.cleared; $('res-combo').textContent = s.bestCombo; $('res-kcal').textContent = s.kcal;
   const notes = [];
   if (st.challenge) notes.push(s.score > st.challenge.score ? `<div>You beat <b>${esc(st.challenge.name)}</b>’s ${st.challenge.score.toLocaleString()}. Send your score back.</div>` : `<div><b>${esc(st.challenge.name)}</b> still leads with ${st.challenge.score.toLocaleString()}. ${(st.challenge.score - s.score).toLocaleString()} to go.</div>`);
   if (res.daily) notes.push(`<div>Daily goal done. <b>${res.daily.streak}-day streak.</b></div>`);
-  for (const id of res.news) { const a = store.ACHIEVEMENTS.find(x => x.id === id); if (a) notes.push(`<div>Achievement: <b>${esc(a.name)}</b> · ${esc(a.desc)}</div>`); }
+  for (const id of res.news) { const a = store.ACHIEVEMENTS.find(x => x.id === id); if (a) notes.push(`<div>Achievement: <b>${esc(a.name)}</b>. ${esc(a.desc)}</div>`); }
   if (!complete && s.hits >= 3 && s.cleared < 3 && st.input === 'camera') notes.push(`<div>Tip: the ring fills as an obstacle approaches. Make your move when it turns <b>yellow</b>.</div>`);
   if (!store.isPro() && store.runsLeft() === 0) notes.push(`<div>That was your last free run today. <b>Pro</b> removes the limit.</div>`);
   $('res-notes').innerHTML = notes.join('');
   const bests = store.runs().filter(r => r.world === world.id).sort((a, b) => b.score - a.score).slice(0, 5);
-  $('res-bests').innerHTML = bests.length ? `<h3>Your best in ${world.name}</h3><ol>${bests.map((r, i) => `<li><b>${i + 1}</b><span>${new Date(r.ts).toLocaleDateString()} · ${esc((DIFFS[r.diff] || {}).label || '')}</span><span>${r.dist} m</span><b>${r.score.toLocaleString()}</b></li>`).join('')}</ol>` : '';
+  $('res-bests').innerHTML = bests.length ? `<h3>Your best in ${world.name}</h3><ol>${bests.map((r, i) => `<li><b>${i + 1}</b><span>${new Date(r.ts).toLocaleDateString()}, ${esc((DIFFS[r.diff] || {}).label || '')}</span><span>${r.dist} m</span><b>${r.score.toLocaleString()}</b></li>`).join('')}</ol>` : '';
   plausible('Run Complete', { world: world.id, diff: st.diff, complete: String(complete) });
 }
 async function runAgain() {

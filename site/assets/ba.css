@@ -206,7 +206,7 @@ a { color: inherit; }
 .move p { margin: 8px 0 0; font-size: 15px; color: #b9b0a2; line-height: 1.45; }
 .move .obst { display: inline-block; margin-top: 14px; padding: 4px 9px; border-radius: 7px; background: rgba(255, 201, 60, 0.12); color: var(--sun); font-size: 12px; font-weight: 650; letter-spacing: 0.04em; }
 .moves-note { margin: 26px 0 0; font-size: 14px; color: #b9b0a2; }
-.moves-note code { font-family: inherit; font-weight: 700; color: var(--paper); background: var(--ink-3); border-radius: 6px; padding: 1px 7px; }
+.moves-note kbd, .moves-note code { font-family: inherit; font-weight: 700; color: var(--paper); background: var(--ink-3); border-radius: 6px; padding: 1px 7px; }
 
 /* ---------- How a run works ---------- */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(16px, 2.4vw, 32px); counter-reset: step; }
