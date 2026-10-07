@@ -118,7 +118,7 @@ export class PoseTracker {
       // keep the last state briefly, then declare tracking lost
       if (t - this._lastSeen > 0.6) {
         this.signals.visible = false;
-        this.input.tracking = { ok: false, reason: !lm ? 'Can’t see you — step into view' : !hipsOk ? 'Step back so your hips are in view' : 'Keep your shoulders in view' };
+        this.input.tracking = { ok: false, reason: !lm ? 'Can’t see you. Step into view' : !hipsOk ? 'Step back so your hips are in view' : 'Keep your shoulders in view' };
         if (!this.base) this._calib = { progress: 0, ready: false, reason: this.input.tracking.reason };
         this.input.setCrouch(0); this.input.setLane(0); this._lane = 0;
       }
