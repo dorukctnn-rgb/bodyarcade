@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Webcam Fitness Games: How They Work and How to Set Up Your Room | BodyArcade</title>
+<meta name="description" content="How webcam fitness games track your body in a browser, what moves a laptop camera can and can't read, how to set up your room, and how BodyArcade compares with console, VR and phone options.">
+<link rel="canonical" href="https://bodyarcade.com/webcam-fitness-games">
+<meta name="theme-color" content="#15130f">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="BodyArcade">
+<meta property="og:url" content="https://bodyarcade.com/webcam-fitness-games">
+<meta property="og:title" content="Webcam fitness games: how they work and how to set up your room">
+<meta property="og:description" content="How browser pose tracking reads jumps, squats and leans, what to expect from a laptop camera, and a room setup that actually works.">
+<meta property="og:image" content="https://bodyarcade.com/assets/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://bodyarcade.com/assets/og.jpg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="preload" href="/assets/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/ba.css?v=20261007">
+<script>document.documentElement.classList.add('js')</script>
+<script defer data-domain="bodyarcade.com" src="https://plausible.io/js/script.js"></script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Article", "headline": "Webcam fitness games: how they work and how to set up your room", "datePublished": "2026-10-07", "dateModified": "2026-10-07", "author": {"@type": "Organization", "name": "BodyArcade"}, "publisher": {"@type": "Organization", "name": "Peak Apps Studio"}, "mainEntityOfPage": "https://bodyarcade.com/webcam-fitness-games", "image": "https://bodyarcade.com/assets/og.jpg"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "BodyArcade", "item": "https://bodyarcade.com/"}, {"@type": "ListItem", "position": 2, "name": "Webcam fitness games", "item": "https://bodyarcade.com/webcam-fitness-games"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav" data-nav>
+  <div class="wrap nav-in">
+    <a class="logo" href="/" aria-label="BodyArcade home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#15130f"/><circle cx="16" cy="8.5" r="3.2" fill="#ffc93c"/><path d="M8 11.5 L16 15 L24 11.5 M16 15 V20 M16 20 L11 26.5 M16 20 L21 26.5" stroke="#f3eee5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg><span class="logo-word">BodyArcade</span></a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav-links" data-menu>Menu</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/#how">How it works</a></li>
+      <li><a href="/#worlds">Worlds</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="/blog/">Blog</a></li>
+    </ul>
+    <a class="btn btn-play btn-sm" href="/bodyarcade" data-event="Play Click" data-where="article-nav">Play free</a>
+  </div>
+</header>
+<main id="main">
+<article class="article">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/">BodyArcade</a> / Webcam fitness games</nav>
+  <h1 class="display">Webcam fitness games: how they work and how to set up your room</h1>
+  <p class="meta">October 2026 · 7 min read</p>
+  <p>A webcam fitness game is a game you control by moving your body in front of an ordinary camera: the one in your laptop lid, on top of your monitor, or on the front of your phone. There is no controller, no wristband and no console. The camera watches you, software turns what it sees into a handful of body positions, and the game reacts to those positions the way it would react to a button press.</p>
+  <p>This page explains how that tracking works in a browser, what it can and can't read reliably, how to set up a room so it works first time, and where webcam games sit next to console, VR and phone options. We make <a href="/bodyarcade">BodyArcade</a>, a webcam runner, so we'll use it as the example, but the setup advice applies to any game that uses a camera.</p>
+
+  <h2>How a browser reads your body</h2>
+  <p>Modern browsers can run small machine-learning models directly on your device. The one most webcam games use for bodies is a <em>pose landmarker</em>: it takes a camera frame and returns the position of about thirty points on your body, such as your nose, shoulders, elbows, hips, knees and ankles, as coordinates within the frame. BodyArcade uses Google's MediaPipe Pose model for this. It runs on your graphics chip through WebGL, roughly thirty times a second, and the video frames never leave your machine.</p>
+  <p>A game doesn't use all thirty points. It picks a few that are stable and reads simple relationships between them:</p>
+  <ul>
+    <li><strong>Jump:</strong> your hip points rise sharply compared with where they usually sit.</li>
+    <li><strong>Squat:</strong> your hips drop a long way below their standing height.</li>
+    <li><strong>Duck:</strong> your head and shoulders drop, even if your hips only drop a little.</li>
+    <li><strong>Lean or step sideways:</strong> your shoulders move left or right relative to your hips, or your whole body shifts across the frame.</li>
+  </ul>
+  <p>The important word is <em>usually</em>. The camera doesn't know how tall you are or how far away you're standing, so a good game measures everything relative to your own body. BodyArcade asks you to stand still for about a second before the run and records your standing hip height and your torso length. A jump then means "hips rose by at least a fifth of your torso", which is the same physical movement for a child and for a tall adult. Games that skip this step and use fixed pixel thresholds tend to work for the developer and nobody else.</p>
+
+  <h2>What a laptop camera can and can't read</h2>
+  <p>Reliable: anything that moves your hips, head or shoulders by a clear amount. Jumps, squats, ducks, lunges to the side, raising your arms, stepping left and right. These are large movements of large body parts and they survive a cheap camera, uneven light and a cluttered room.</p>
+  <p>Unreliable: fine hand positions, fast arm movements near the body, anything that happens behind a table, and movements towards or away from the camera (depth). A single camera has no real sense of distance, so "step forward" is a poor control. Punch-style movements can work if they're big and slow, but a webcam at thirty frames a second will miss fast jabs.</p>
+  <p>This is why most webcam games are built around whole-body moves and a small vocabulary. Five clear moves that register every time make a better game than twenty that register half the time.</p>
+
+  <h2>Setting up a room that works first time</h2>
+  <ol>
+    <li><strong>Distance.</strong> Stand about two metres back. The camera needs to see you from the top of your head to below your hips, with some space above your head for jumps. If the game shows an outline, fit yourself inside it.</li>
+    <li><strong>Camera height.</strong> Hip to chest height is ideal. A laptop on a coffee table or a phone propped on a shelf works; a laptop on the floor pointing up distorts your proportions.</li>
+    <li><strong>Light.</strong> The light should be in front of you or to the side, not behind you. A window behind you turns you into a silhouette and the model loses your joints.</li>
+    <li><strong>Background.</strong> Plain is better than busy, but it rarely matters. What does matter is other people walking through the frame: the model follows the most prominent person, so a passer-by can briefly steal the game.</li>
+    <li><strong>Clothes and floor.</strong> Anything that contrasts with the wall behind you helps. Clear the floor of things you could land on.</li>
+    <li><strong>Phones.</strong> Use landscape if the game supports it; portrait works but gives the camera less width for side steps. Turn off the auto-lock so the screen doesn't dim mid-run.</li>
+  </ol>
+
+  <h2>How webcam games compare with the alternatives</h2>
+  <table>
+    <thead><tr><th>Option</th><th>What you need</th><th>Tracking</th><th>Best at</th></tr></thead>
+    <tbody>
+      <tr><td>Browser webcam games</td><td>A laptop or phone with a camera and a browser</td><td>Whole-body poses from one camera</td><td>Starting in seconds, short sessions, zero cost to try</td></tr>
+      <tr><td>Console motion games</td><td>A console plus its controllers or accessories</td><td>Motion sensors in the controllers, sometimes a force sensor</td><td>Long structured programs with resistance training</td></tr>
+      <tr><td>VR fitness</td><td>A headset and clear space</td><td>Headset and hand controllers in 3D</td><td>Immersion, boxing and rhythm games, arm work</td></tr>
+      <tr><td>Phone camera fitness apps</td><td>A phone and an app install</td><td>The same kind of pose model, in an app</td><td>Rep counting and guided workouts</td></tr>
+    </tbody>
+  </table>
+  <p>The honest summary: webcam games win on friction. There's nothing to buy, nothing to charge, and a run can start within a minute of deciding to move. They lose on resistance (a camera can't make you push against anything) and on precision. If you want an easy way to get your heart rate up in a living room, they're a good fit. If you want a strength program, look at a console title or a weights app, or use the webcam game as the warm-up.</p>
+
+  <h2>What to look for in a webcam fitness game</h2>
+  <ul>
+    <li><strong>On-device processing.</strong> The video should be analysed in your browser and never uploaded. Check the privacy page; if it doesn't say, assume it's uploaded.</li>
+    <li><strong>A calibration step.</strong> Even a one-second "stand still" check means the game is measuring you rather than guessing.</li>
+    <li><strong>Feedback you can see.</strong> A small preview with your skeleton drawn over it tells you instantly whether the camera has lost you, and why.</li>
+    <li><strong>Fair timing.</strong> A countdown or a ring that shows when to move. A camera adds a tenth of a second or so of delay, and a well-made game leaves room for that.</li>
+    <li><strong>Short runs.</strong> Pose tracking is tiring in a good way. Ninety seconds to three minutes is the sweet spot before form drops.</li>
+    <li><strong>A way to play without the camera.</strong> Keyboard or touch controls let you try the game on a train and let the whole family share one laptop.</li>
+  </ul>
+
+  <h2>Try one now</h2>
+  <p>BodyArcade is a ninety-second runner: jump hurdles, duck bars, squat under low bars and lean to dodge walls, in ten worlds drawn in the browser. The pose model runs on your device, three worlds are free every day, and you can play with the keyboard if you just want to see it move.</p>
+  <div class="callout"><p>Open the game, allow the camera, step back and run. Your first run takes ninety seconds.</p><a class="btn btn-play" href="/bodyarcade" data-event="Play Click" data-where="guide">Play BodyArcade free →</a></div>
+  <p>Related: <a href="/ring-fit-adventure-alternative">a Ring Fit Adventure alternative you can play in a browser</a> and <a href="/blog/why-browser-fitness-games-are-the-future">why browser fitness games are the future of home workouts</a>.</p>
+</article>
+</main>
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-in">
+      <div>
+        <a class="logo" href="/" aria-label="BodyArcade home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#f3eee5"/><circle cx="16" cy="8.5" r="3.2" fill="#ff4f24"/><path d="M8 11.5 L16 15 L24 11.5 M16 15 V20 M16 20 L11 26.5 M16 20 L21 26.5" stroke="#15130f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg><span class="logo-word">BodyArcade</span></a>
+        <p class="footer-note">A browser running game you play with your whole body.</p>
+      </div>
+      <div><h4>Play</h4><ul><li><a href="/bodyarcade">Start a run</a></li><li><a href="/#worlds">Worlds</a></li><li><a href="/#pricing">Pricing</a></li><li><a href="/#faq">FAQ</a></li></ul></div>
+      <div><h4>Learn</h4><ul><li><a href="/webcam-fitness-games">Webcam fitness games</a></li><li><a href="/ring-fit-adventure-alternative">Ring Fit alternative</a></li><li><a href="/blog/">Blog</a></li></ul></div>
+      <div><h4>Company</h4><ul><li><a href="/privacy">Privacy</a></li><li><a href="mailto:peakappsstudios@gmail.com">Contact</a></li><li><a href="https://dorukctnn-rgb.github.io/peakappsstudios/">Peak Apps Studio</a></li></ul></div>
+    </div>
+    <div class="footer-base"><span>© 2026 BodyArcade by Peak Apps Studio</span><span>Estimates are not medical advice. Warm up and play within your limits.</span></div>
+  </div>
+</footer>
+<script src="/assets/ba.js?v=20261007" defer></script>
+</body>
+</html>
