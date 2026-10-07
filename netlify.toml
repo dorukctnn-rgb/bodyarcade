@@ -11,24 +11,47 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(self), microphone=()"
 
+# HTML, the service worker and un-fingerprinted scripts/styles must revalidate so
+# every player gets a new build on the next load. Pages reference ba.css/app.js with
+# a ?v= query as a second safety net.
 [[headers]]
   for = "/sw.js"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Scripts and styles are not fingerprinted, so they must revalidate or updates never reach players.
 [[headers]]
-  for = "/*.js"
+  for = "/game/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
-  for = "/assets/*.css"
+  for = "/assets/ba.css"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
-  for = "/assets/*"
+  for = "/assets/ba.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Immutable-by-name assets: the 3D library (renamed on upgrade), fonts and images.
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/assets/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/assets/worlds/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+
+[[headers]]
+  for = "/assets/screens/*"
   [headers.values]
     Cache-Control = "public, max-age=2592000"
 
@@ -37,25 +60,51 @@
   [headers.values]
     Cache-Control = "public, max-age=2592000"
 
+# Canonical URLs are extensionless; keep the old .html addresses working.
+[[redirects]]
+  from = "/BodyArcade.html"
+  to = "/bodyarcade"
+  status = 301
+
 [[redirects]]
   from = "/play"
-  to = "/BodyArcade.html"
+  to = "/bodyarcade"
   status = 301
 
 [[redirects]]
   from = "/app"
-  to = "/BodyArcade.html"
+  to = "/bodyarcade"
+  status = 301
+
+[[redirects]]
+  from = "/privacy.html"
+  to = "/privacy"
+  status = 301
+
+[[redirects]]
+  from = "/ring-fit-adventure-alternative.html"
+  to = "/ring-fit-adventure-alternative"
+  status = 301
+
+[[redirects]]
+  from = "/webcam-fitness-games.html"
+  to = "/webcam-fitness-games"
+  status = 301
+
+[[redirects]]
+  from = "/blog/why-browser-fitness-games-are-the-future.html"
+  to = "/blog/why-browser-fitness-games-are-the-future"
   status = 301
 
 # Old builds that used to be published from the repo root.
 [[redirects]]
   from = "/BodyArcade%20v1.html"
-  to = "/BodyArcade.html"
+  to = "/bodyarcade"
   status = 301
 
 [[redirects]]
   from = "/BodyArcade%20v2-neon.html"
-  to = "/BodyArcade.html"
+  to = "/bodyarcade"
   status = 301
 
 [[redirects]]

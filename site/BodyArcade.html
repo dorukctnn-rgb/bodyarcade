@@ -1,451 +1,207 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>BodyArcade — Move Your Body, Rule The Game</title>
-<meta name="theme-color" content="#ffc424"/>
-<link rel="manifest" href="/manifest.json"/>
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"/>
-<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/>
-<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png"/>
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>
-<link rel="canonical" href="https://bodyarcade.com/BodyArcade.html"/>
-<meta name="description" content="Play BodyArcade in your browser: jump, squat, duck and lean in front of your webcam to clear the road. 10 worlds, 90-second runs, live races. Free to play."/>
-<meta name="keywords" content="fitness game, browser game, pose detection, ai workout, exercise game, webcam fitness"/>
-<meta name="robots" content="index, follow"/>
-<meta name="google-site-verification" content="LSVTdVtTiP2KkZe8ja0PZsw-pzVfW-N0rG5Tmv6abnQ"/>
-<meta property="og:title" content="BodyArcade — Play the Game"/>
-<meta property="og:description" content="Jump, squat, duck and lean in front of your webcam to clear the road. Free to play in your browser."/>
-<meta property="og:image" content="https://bodyarcade.com/assets/og.jpg"/>
-<meta property="og:url" content="https://bodyarcade.com/BodyArcade.html"/>
-<meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:image" content="https://bodyarcade.com/assets/og.jpg"/>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Play BodyArcade: Webcam Fitness Game in Your Browser</title>
+<meta name="description" content="Play BodyArcade free in your browser. Jump, squat, duck and lean in front of your webcam to clear obstacles on a 90-second run. Ten worlds, no download, no account.">
+<link rel="canonical" href="https://bodyarcade.com/bodyarcade">
+<meta name="theme-color" content="#15130f">
+<meta name="google-site-verification" content="LSVTdVtTiP2KkZe8ja0PZsw-pzVfW-N0rG5Tmv6abnQ">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BodyArcade">
+<meta property="og:url" content="https://bodyarcade.com/bodyarcade">
+<meta property="og:title" content="Play BodyArcade: your body is the controller">
+<meta property="og:description" content="A free browser running game you steer by jumping, squatting, ducking and leaning in front of your webcam.">
+<meta property="og:image" content="https://bodyarcade.com/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://bodyarcade.com/assets/og.jpg">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="preload" href="/assets/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/game/ui.css?v=20261007">
+<link rel="modulepreload" href="/game/app.js?v=20261007">
 <script defer data-domain="bodyarcade.com" src="https://plausible.io/js/script.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-<style>
-:root{
-  --gold:#ffc424; --gold-deep:#c08800;
-  --orange:#ff6b1a; --red:#e8302a;
-  --steel:#1a2530; --steel-dark:#0a1018;
-  --text:#fff; --dim:#aab4c2;
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "BodyArcade",
+  "url": "https://bodyarcade.com/bodyarcade",
+  "description": "A browser running game controlled by body movement. The webcam tracks jumps, squats, ducks and leans with on-device pose detection.",
+  "applicationCategory": "GameApplication",
+  "gamePlatform": "Web browser",
+  "operatingSystem": "Any (web browser with camera)",
+  "playMode": "SinglePlayer",
+  "genre": ["Fitness", "Endless runner"],
+  "image": "https://bodyarcade.com/assets/og.jpg",
+  "offers": [
+    {"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD"},
+    {"@type": "Offer", "name": "Pro (monthly)", "price": "4.99", "priceCurrency": "USD"},
+    {"@type": "Offer", "name": "Lifetime", "price": "99", "priceCurrency": "USD"}
+  ],
+  "publisher": {"@type": "Organization", "name": "Peak Apps Studio"}
 }
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Inter',sans-serif;color:#fff;-webkit-font-smoothing:antialiased;}
-.screen{position:absolute;inset:0;display:none;}
-.screen.active{display:flex;}
-
-/* ── ONBOARDING ── */
-#screen-onboard{flex-direction:column;align-items:center;justify-content:center;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255,107,26,.15), transparent),
-    linear-gradient(180deg,#1a2540 0%,#0a1018 50%,#000 100%);
-  overflow:hidden;}
-.ob-bg{position:absolute;inset:0;pointer-events:none;opacity:.4;}
-.ob-wrap{position:relative;z-index:10;display:flex;flex-direction:column;align-items:center;max-height:100vh;overflow-y:auto;padding:16px 12px;scrollbar-width:none;}
-.ob-wrap::-webkit-scrollbar{display:none;}
-.ob-slide{display:none;flex-direction:column;align-items:center;text-align:center;}
-.ob-slide.active{display:flex;}
-
-.ob-logo{
-  font-family:'Bangers',cursive;font-size:clamp(46px,9vw,90px);font-weight:400;letter-spacing:.04em;line-height:.9;
-  background:linear-gradient(180deg,#ffd95c 0%,#ffc424 45%,#c08800 90%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  filter:drop-shadow(0 6px 0 #5a3a00) drop-shadow(0 0 20px rgba(255,196,36,.4));
-  margin-bottom:4px;
-}
-.ob-tagline{font-size:12px;font-weight:600;color:#aab4c2;letter-spacing:.2em;text-transform:uppercase;margin-bottom:16px;}
-
-.ob-hero-preview{width:min(540px,82vw);aspect-ratio:16/9;border-radius:12px;overflow:hidden;
-  border:2px solid #2a3548;box-shadow:0 10px 36px rgba(0,0,0,.6);
-  margin-bottom:16px;background:#000;position:relative;}
-.ob-hero-canvas{width:100%;height:100%;display:block;}
-
-.ob-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:min(540px,92vw);margin-bottom:14px;}
-.ob-step{padding:10px 8px;border-radius:10px;background:rgba(26,37,48,.7);border:1px solid #2a3548;backdrop-filter:blur(8px);}
-.ob-step-icon{font-size:20px;margin-bottom:3px;display:block;}
-.ob-step-title{font-size:11px;font-weight:700;color:#ffc424;margin-bottom:2px;letter-spacing:.05em;}
-.ob-step-desc{font-size:10px;color:#aab4c2;line-height:1.3;}
-
-.ob-title{font-family:'Bangers',cursive;font-size:clamp(36px,6vw,62px);font-weight:400;letter-spacing:.04em;color:#ffc424;margin-bottom:10px;text-shadow:0 4px 0 #5a3a00;}
-.ob-body{font-size:15px;color:#aab4c2;max-width:480px;line-height:1.55;margin-bottom:28px;}
-.ob-form{display:flex;flex-direction:column;gap:14px;width:min(360px,86vw);margin-bottom:24px;}
-.ob-label{font-size:11px;font-weight:600;color:#aab4c2;text-transform:uppercase;letter-spacing:.12em;margin-bottom:4px;display:block;text-align:left;}
-.ob-input{width:100%;padding:13px 16px;border-radius:10px;border:2px solid #2a3548;background:rgba(10,16,24,.7);color:#fff;font-family:inherit;font-size:15px;font-weight:500;outline:none;transition:border-color .2s;}
-.ob-input:focus{border-color:#ffc424;}
-.ob-input::placeholder{color:#5a6878;}
-
-.ob-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:min(480px,90vw);margin-bottom:24px;}
-.ob-card{padding:18px 14px;border-radius:12px;border:2px solid #2a3548;background:rgba(26,37,48,.5);cursor:pointer;transition:all .15s;text-align:center;}
-.ob-card.selected{border-color:#ffc424;background:rgba(255,196,36,.1);box-shadow:0 0 0 4px rgba(255,196,36,.15);}
-.ob-card-icon{font-size:32px;margin-bottom:6px;display:block;}
-.ob-card-title{font-family:'Bangers',cursive;font-size:18px;letter-spacing:.04em;color:#ffc424;}
-.ob-card-sub{font-size:11px;color:#aab4c2;margin-top:2px;}
-
-.ob-courses{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;width:min(620px,92vw);margin-bottom:24px;}
-.ob-course{aspect-ratio:1;border-radius:12px;border:2px solid #2a3548;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;font-size:24px;}
-.ob-course.selected{border-color:#ffc424;background:rgba(255,196,36,.12);transform:scale(1.05);box-shadow:0 0 0 3px rgba(255,196,36,.2);}
-.ob-course-name{font-size:9px;font-weight:700;color:#aab4c2;margin-top:4px;text-transform:uppercase;letter-spacing:.05em;}
-.ob-course.selected .ob-course-name{color:#ffc424;}
-
-.ob-nav{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
-.btn{font-family:'Bangers',cursive;font-size:22px;letter-spacing:.06em;padding:14px 36px;border-radius:14px;border:none;cursor:pointer;transition:all .15s;}
-.btn-primary{
-  background:linear-gradient(180deg,#ffd95c 0%,#ffc424 50%,#c08800 100%);
-  color:#3a1f00;
-  box-shadow:0 5px 0 #5a3a00, 0 10px 24px rgba(255,196,36,.35), inset 0 1px 0 rgba(255,255,255,.5);
-  text-shadow:0 1px 0 rgba(255,255,255,.4);
-}
-.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 0 #5a3a00,0 12px 28px rgba(255,196,36,.45),inset 0 1px 0 rgba(255,255,255,.5);}
-.btn-primary:active{transform:translateY(3px);box-shadow:0 2px 0 #5a3a00;}
-.btn-secondary{background:#1a2540;color:#fff;border:2px solid #2a3548;box-shadow:0 4px 0 #0a1018;}
-.btn-secondary:active{transform:translateY(2px);box-shadow:0 2px 0 #0a1018;}
-
-/* ── CAMERA ── */
-#screen-cam{flex-direction:column;align-items:center;justify-content:center;background:#000;padding:20px;}
-.cam-title{font-family:'Bangers',cursive;font-size:48px;color:#ffc424;text-shadow:0 4px 0 #5a3a00;margin-bottom:8px;}
-.cam-body{font-size:15px;color:#aab4c2;text-align:center;max-width:420px;margin-bottom:24px;}
-.cam-error{display:none;color:#ff6b6b;font-size:13px;margin-top:8px;}
-#cam-skipNote{font-size:12px;color:#aab4c2;margin-top:14px;}
-
-/* ── COUNTDOWN ── */
-#screen-countdown{align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);flex-direction:column;}
-.cd-number{font-family:'Bangers',cursive;font-size:240px;color:#ffc424;text-shadow:0 12px 0 #5a3a00, 0 0 60px rgba(255,196,36,.5);line-height:1;animation:cdPop .9s ease;}
-@keyframes cdPop{0%{transform:scale(.3);opacity:0;}50%{transform:scale(1.15);}100%{transform:scale(1);opacity:1;}}
-.cd-label{font-family:'Bangers',cursive;font-size:36px;color:#fff;margin-top:12px;letter-spacing:.08em;}
-
-/* ── GAME (NEW REALISTIC HUD) ── */
-#screen-game{position:absolute;inset:0;}
-#gameCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
-#hud{position:absolute;inset:0;pointer-events:none;font-family:'Inter',sans-serif;}
-
-/* TOP PROGRESS BAR (Godzilla-style) */
-.hud-top{
-  position:absolute;top:18px;left:20px;right:20px;
-  display:flex;align-items:center;gap:14px;
-}
-.hud-progress-wrap{
-  flex:1;height:34px;
-  background:linear-gradient(180deg,#0a1018 0%,#1a2530 100%);
-  border:2px solid #ffc424;border-radius:18px;
-  padding:3px;position:relative;
-  box-shadow:0 4px 16px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.1);
-}
-.hud-progress-fill{
-  height:100%;width:0%;
-  background:linear-gradient(180deg,#5cdfff 0%,#1aa8e8 50%,#0a6a99 100%);
-  border-radius:14px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.4);
-  transition:width .2s linear;
-  position:relative;overflow:hidden;
-}
-.hud-progress-fill::after{
-  content:'';position:absolute;inset:0;
-  background:repeating-linear-gradient(90deg,transparent 0,transparent 6px,rgba(255,255,255,.15) 6px,rgba(255,255,255,.15) 8px);
-  animation:slide 1s linear infinite;
-}
-@keyframes slide{from{transform:translateX(0);}to{transform:translateX(14px);}}
-.hud-progress-label{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  font-family:'Bangers',cursive;font-size:16px;letter-spacing:.18em;color:#fff;
-  text-shadow:0 2px 0 #0a1018, 0 0 8px rgba(0,0,0,.8);
-}
-
-.hud-dist{
-  font-family:'Bangers',cursive;font-size:34px;color:#ffc424;letter-spacing:.04em;line-height:1;
-  text-shadow:0 4px 0 #5a3a00, 0 0 12px rgba(255,196,36,.4);
-  min-width:90px;text-align:right;
-}
-.hud-dist-unit{font-size:18px;color:#fff;margin-left:4px;text-shadow:0 3px 0 #0a1018;}
-
-/* HEARTS top-left */
-.hud-hearts{
-  position:absolute;top:62px;left:20px;display:flex;gap:6px;
-}
-.hud-heart{
-  width:34px;height:34px;
-  display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(circle at 30% 30%,#ff6b6b,#c81818);
-  clip-path:path('M17 30 C 17 30, 2 19, 2 10 C 2 4, 7 1, 11 1 C 14 1, 16 3, 17 5 C 18 3, 20 1, 23 1 C 27 1, 32 4, 32 10 C 32 19, 17 30, 17 30 Z');
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));
-}
-.hud-heart.empty{background:#2a3548;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5)) grayscale(1) brightness(.4);}
-
-/* CENTER EXERCISE BADGE (big circular "JUMP" prompt) */
-.hud-prompt{
-  position:absolute;top:50%;left:50%;
-  transform:translate(-50%,calc(-50% - 60px));
-  display:flex;flex-direction:column;align-items:center;
-  opacity:0;transition:opacity .25s, transform .3s;
-  pointer-events:none;
-}
-.hud-prompt.show{opacity:1;transform:translate(-50%,calc(-50% - 70px));}
-.hud-prompt-badge{
-  width:160px;height:160px;border-radius:50%;
-  background:linear-gradient(180deg,#5cdfff 0%,#1aa8e8 60%,#0a6a99 100%);
-  border:5px solid #ffc424;
-  box-shadow:0 0 0 4px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.6), inset 0 4px 0 rgba(255,255,255,.4);
-  display:flex;align-items:center;justify-content:center;
-  position:relative;
-  animation:promptPulse 1.2s ease-in-out infinite;
-}
-@keyframes promptPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
-.hud-prompt-icon{
-  width:80px;height:80px;
-  filter:drop-shadow(0 3px 0 rgba(0,0,0,.3));
-}
-.hud-prompt-label{
-  margin-top:-22px;padding:6px 22px;
-  background:linear-gradient(180deg,#ffd95c,#ffc424,#c08800);
-  border:3px solid #5a3a00;border-radius:10px;
-  font-family:'Bangers',cursive;font-size:24px;letter-spacing:.1em;color:#3a1f00;
-  text-shadow:0 1px 0 rgba(255,255,255,.4);
-  box-shadow:0 4px 0 #5a3a00, 0 8px 16px rgba(0,0,0,.5);
-  z-index:2;
-}
-.hud-prompt-timer{
-  margin-top:8px;font-family:'Bangers',cursive;font-size:32px;color:#fff;
-  text-shadow:0 3px 0 #0a1018, 0 0 12px rgba(0,0,0,.8);
-  letter-spacing:.05em;
-}
-
-/* COMBO + CAL bottom-left */
-.hud-bl{position:absolute;bottom:20px;left:20px;display:flex;flex-direction:column;gap:8px;}
-.hud-chip{
-  padding:8px 14px;border-radius:10px;
-  background:linear-gradient(180deg,rgba(26,37,48,.95),rgba(10,16,24,.95));
-  border:2px solid #2a3548;
-  display:flex;align-items:center;gap:8px;
-  font-family:'Bangers',cursive;font-size:18px;letter-spacing:.04em;color:#fff;
-  text-shadow:0 2px 0 rgba(0,0,0,.5);
-  box-shadow:0 4px 12px rgba(0,0,0,.5);
-}
-.hud-chip-icon{font-size:18px;}
-.hud-chip.combo{border-color:#ff6b1a;color:#ffb347;}
-.hud-chip.cal{color:#ffc424;}
-
-/* SCORE bottom-right */
-.hud-score{
-  position:absolute;bottom:20px;right:20px;
-  font-family:'Bangers',cursive;font-size:42px;letter-spacing:.04em;color:#fff;
-  text-shadow:0 5px 0 #0a1018, 0 0 16px rgba(0,0,0,.8);
-  line-height:1;text-align:right;
-}
-.hud-score-label{font-size:13px;color:#aab4c2;letter-spacing:.2em;text-transform:uppercase;font-family:'Inter',sans-serif;font-weight:700;}
-
-/* STATUS message (✓ GREAT! ✗ MISS) */
-.hud-status{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  font-family:'Bangers',cursive;font-size:80px;letter-spacing:.06em;
-  text-shadow:0 6px 0 rgba(0,0,0,.5), 0 0 24px currentColor;
-  opacity:0;pointer-events:none;
-  transition:opacity .15s;
-}
-.hud-status.show{opacity:1;animation:statusPop .5s ease;}
-@keyframes statusPop{0%{transform:translate(-50%,-50%) scale(.3);}50%{transform:translate(-50%,-50%) scale(1.2);}100%{transform:translate(-50%,-50%) scale(1);}}
-
-/* Camera PIP */
-#camPip{
-  position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
-  width:140px;height:105px;border-radius:12px;overflow:hidden;
-  border:2px solid #2a3548;box-shadow:0 4px 16px rgba(0,0,0,.6);background:#000;
-}
-#camPip video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
-
-/* Audio btn */
-#audio-ctrl{position:absolute;top:20px;right:130px;width:36px;height:36px;border-radius:50%;
-  background:rgba(10,16,24,.8);border:2px solid #2a3548;cursor:pointer;pointer-events:auto;
-  display:flex;align-items:center;justify-content:center;font-size:16px;}
-
-/* Flash effects */
-#flash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .12s;}
-#flash.good{background:radial-gradient(ellipse at center,rgba(57,255,106,.4),transparent 60%);opacity:1;}
-#flash.bad{background:radial-gradient(ellipse at center,rgba(255,68,68,.5),transparent 60%);opacity:1;}
-
-/* ── GAME OVER ── */
-#screen-gameover{flex-direction:column;align-items:center;justify-content:center;
-  background:radial-gradient(ellipse 80% 80% at 50% 50%,#1a2540 0%,#0a1018 50%,#000 100%);padding:24px;}
-.go-title{font-family:'Bangers',cursive;font-size:clamp(56px,10vw,110px);color:#ffc424;text-shadow:0 8px 0 #5a3a00, 0 0 30px rgba(255,196,36,.4);letter-spacing:.04em;margin-bottom:8px;}
-.go-sub{font-size:17px;color:#aab4c2;margin-bottom:32px;}
-.go-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:680px;width:100%;margin-bottom:28px;}
-.go-stat{background:linear-gradient(180deg,#1a2540,#0a1018);border:2px solid #2a3548;border-radius:14px;padding:20px 12px;text-align:center;box-shadow:0 6px 0 #0a1018;}
-.go-stat-val{font-family:'Bangers',cursive;font-size:38px;color:#ffc424;text-shadow:0 4px 0 #5a3a00;line-height:1;}
-.go-stat-label{font-size:11px;color:#aab4c2;text-transform:uppercase;letter-spacing:.15em;margin-top:6px;font-weight:700;}
-.go-btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
-
-@media(max-width:600px){
-  .go-stats{grid-template-columns:repeat(2,1fr);}
-  .hud-prompt-badge{width:130px;height:130px;}
-  .hud-prompt-icon{width:65px;height:65px;}
-  .hud-prompt-label{font-size:20px;padding:5px 16px;}
-  .hud-progress-label{font-size:13px;}
-  .hud-dist{font-size:26px;}
-  .ob-courses{grid-template-columns:repeat(5,1fr);}
-  .ob-steps{grid-template-columns:1fr;}
-}
-</style>
+</script>
 </head>
 <body>
+<noscript><div class="noscript">BodyArcade needs JavaScript to run. Please enable it and reload.</div></noscript>
 
-<!-- ─────────── ONBOARDING ─────────── -->
-<div id="screen-onboard" class="screen active">
-  <canvas class="ob-bg" id="obBg"></canvas>
-  <div class="ob-wrap">
-    <!-- Slide 1: Welcome -->
-    <div class="ob-slide active" id="ob-1">
-      <div class="ob-logo">BODY<br/>ARCADE</div>
-      <div class="ob-tagline">Move Your Body · Rule The Game</div>
-      <div class="ob-hero-preview"><canvas id="obHero" class="ob-hero-canvas"></canvas></div>
-      <div class="ob-steps">
-        <div class="ob-step"><span class="ob-step-icon">📷</span><div class="ob-step-title">ALLOW CAMERA</div><div class="ob-step-desc">Your body becomes the controller.</div></div>
-        <div class="ob-step"><span class="ob-step-icon">🏃</span><div class="ob-step-title">MOVE TO PLAY</div><div class="ob-step-desc">Jump, squat, twist past obstacles.</div></div>
-        <div class="ob-step"><span class="ob-step-icon">🔥</span><div class="ob-step-title">BURN CALORIES</div><div class="ob-step-desc">Real fitness wrapped in a real game.</div></div>
+<!-- ────────── START ────────── -->
+<section id="s-start" class="screen active" aria-label="Start">
+  <header class="top">
+    <a class="brand" href="/" aria-label="BodyArcade home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#f3eee5"/><circle cx="16" cy="8.5" r="3.2" fill="#ff4f24"/><path d="M8 11.5 L16 15 L24 11.5 M16 15 V20 M16 20 L11 26.5 M16 20 L21 26.5" stroke="#15130f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      <span>BodyArcade</span>
+    </a>
+    <div class="top-r">
+      <button id="b-sound" class="icon-btn" type="button" aria-label="Toggle sound" aria-pressed="true"></button>
+      <button id="b-pro" class="pill-btn" type="button">Pro</button>
+    </div>
+  </header>
+
+  <div class="start">
+    <div class="start-hero">
+      <p class="kicker">Your body is the controller</p>
+      <h1 class="display">Ready to run?</h1>
+      <p class="lede">Stand up, step back from the screen and clear the road by jumping, squatting, ducking and leaning. One run is 90 seconds.</p>
+      <div class="cta">
+        <button id="b-play" class="btn btn-play" type="button">Play with camera <span class="arrow">→</span></button>
+        <button id="b-play-keys" class="btn btn-ghost" type="button">Play with keyboard</button>
       </div>
-      <button class="btn btn-primary" onclick="obGo(2)">LET'S GO →</button>
+      <p id="runs-left" class="small muted"></p>
+      <div id="challenge" class="challenge" hidden></div>
+      <div id="daily" class="daily"></div>
     </div>
 
-    <!-- Slide 2: Profile -->
-    <div class="ob-slide" id="ob-2">
-      <div class="ob-title">YOUR PROFILE</div>
-      <div class="ob-body">We'll personalize your calorie burn.</div>
-      <div class="ob-form">
-        <div><div class="ob-label">Name</div><input class="ob-input" id="i-name" placeholder="Champion" autocomplete="off"/></div>
-        <div><div class="ob-label">Weight (kg)</div><input class="ob-input" id="i-weight" type="number" placeholder="70" min="30" max="200"/></div>
-        <div><div class="ob-label">Age</div><input class="ob-input" id="i-age" type="number" placeholder="28" min="10" max="100"/></div>
+    <div class="start-side">
+      <div class="field">
+        <div class="field-head"><span class="label">World</span><span id="world-tag" class="small muted"></span></div>
+        <div id="worlds" class="worlds" role="radiogroup" aria-label="World"></div>
       </div>
-      <div class="ob-nav"><button class="btn btn-secondary" onclick="obGo(1)">← BACK</button><button class="btn btn-primary" onclick="saveProfile()">NEXT →</button></div>
-    </div>
-
-    <!-- Slide 3: Difficulty -->
-    <div class="ob-slide" id="ob-3">
-      <div class="ob-title">CHOOSE DIFFICULTY</div>
-      <div class="ob-body">How fast should obstacles come?</div>
-      <div class="ob-grid2">
-        <div class="ob-card" data-diff="easy" onclick="pickDiff(this)"><span class="ob-card-icon">🌱</span><div class="ob-card-title">EASY</div><div class="ob-card-sub">Slow · 5s react</div></div>
-        <div class="ob-card selected" data-diff="medium" onclick="pickDiff(this)"><span class="ob-card-icon">⚡</span><div class="ob-card-title">MEDIUM</div><div class="ob-card-sub">Standard · 4s</div></div>
-        <div class="ob-card" data-diff="hard" onclick="pickDiff(this)" style="position:relative;"><span class="ob-card-icon">🔥</span><div class="ob-card-title">HARD</div><div class="ob-card-sub">Fast · 3s</div><div id="lock-hard" style="position:absolute;top:6px;right:6px;font-size:14px;display:none;">🔒</div></div>
-        <div class="ob-card" data-diff="insane" onclick="pickDiff(this)" style="position:relative;"><span class="ob-card-icon">💀</span><div class="ob-card-title">INSANE</div><div class="ob-card-sub">Brutal · 2s</div><div id="lock-insane" style="position:absolute;top:6px;right:6px;font-size:14px;display:none;">🔒</div></div>
+      <div class="field">
+        <div class="field-head"><span class="label">Difficulty</span><span id="diff-hint" class="small muted"></span></div>
+        <div id="diffs" class="seg" role="radiogroup" aria-label="Difficulty"></div>
       </div>
-      <div class="ob-nav"><button class="btn btn-secondary" onclick="obGo(2)">← BACK</button><button class="btn btn-primary" onclick="obGo(4)">NEXT →</button></div>
-    </div>
-
-    <!-- Slide 4: World -->
-    <div class="ob-slide" id="ob-4">
-      <div class="ob-title">CHOOSE YOUR WORLD</div>
-      <div class="ob-body">Each world has unique atmosphere & weather.</div>
-      <div class="ob-courses" id="ob-courses"></div>
-      <div class="ob-nav"><button class="btn btn-secondary" onclick="obGo(3)">← BACK</button><button class="btn btn-primary" onclick="startCamera()">START →</button></div>
+      <div class="field two">
+        <label>Name <input id="i-name" maxlength="20" autocomplete="nickname" placeholder="Runner"></label>
+        <label>Weight (kg) <input id="i-weight" type="number" inputmode="numeric" min="25" max="250" placeholder="70"></label>
+      </div>
+      <div class="links">
+        <button id="b-skins" class="link-btn" type="button">Runner look</button>
+        <button id="b-ach" class="link-btn" type="button">Achievements</button>
+        <button id="b-hist" class="link-btn" type="button">History</button>
+        <a class="link-btn" href="/privacy">Privacy</a>
+      </div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- ─────────── CAMERA ─────────── -->
-<div id="screen-cam" class="screen">
-  <div class="cam-title">CAMERA ACCESS</div>
-  <div class="cam-body">BodyArcade uses your camera to track your body. Footage stays 100% on your device — nothing is uploaded.</div>
-  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
-    <button class="btn btn-primary" onclick="requestCamera()">ALLOW &amp; PLAY</button>
-    <button class="btn btn-secondary" onclick="skipCamera()">SKIP (DEMO)</button>
-  </div>
-  <div class="cam-error" id="cam-error">Camera denied. Try again or skip.</div>
-  <div id="cam-skipNote">In demo mode, exercises auto-pass for testing.</div>
-</div>
-
-<!-- ─────────── COUNTDOWN ─────────── -->
-<div id="screen-countdown" class="screen">
-  <div class="cd-number" id="cd-num">3</div>
-  <div class="cd-label">GET READY!</div>
-</div>
-
-<!-- ─────────── GAME ─────────── -->
-<div id="screen-game" class="screen">
-  <canvas id="gameCanvas"></canvas>
-  <div id="hud">
-    <div id="audio-ctrl" onclick="openSpotify()" style="pointer-events:auto;" title="Connect Spotify">🎵</div>
-      <div id="spotify-panel" style="display:none;position:absolute;top:64px;right:20px;width:340px;background:#121212;border:2px solid #1db954;border-radius:14px;padding:14px;pointer-events:auto;box-shadow:0 12px 32px rgba(0,0,0,.7);z-index:50;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="font-family:'Bangers',cursive;font-size:18px;color:#1db954;letter-spacing:.04em;">SPOTIFY</div>
-          <div style="cursor:pointer;color:#aab4c2;font-size:20px;line-height:1;" onclick="closeSpotify()">×</div>
-        </div>
-        <div style="font-size:11px;color:#aab4c2;margin-bottom:10px;line-height:1.4;">Paste any Spotify track/playlist URL and press <b>Load</b>. Plays inside the game.</div>
-        <input id="spotify-url" placeholder="https://open.spotify.com/playlist/..." style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid #2a3548;background:#0a0a0a;color:#fff;font-size:12px;outline:none;margin-bottom:8px;"/>
-        <button onclick="loadSpotify()" style="width:100%;padding:9px;border-radius:8px;border:none;background:#1db954;color:#000;font-weight:700;cursor:pointer;font-size:13px;">LOAD</button>
-        <div id="spotify-embed" style="margin-top:10px;"></div>
+<!-- ────────── CAMERA SETUP ────────── -->
+<section id="s-setup" class="screen" aria-label="Camera check">
+  <div class="setup">
+    <div class="setup-side">
+      <p class="kicker">Camera check</p>
+      <h2 class="display">Let the camera see you</h2>
+      <ol id="setup-steps" class="steps">
+        <li data-step="model"><span class="dot"></span><span>Loading the pose model</span><small>Runs on your device. Nothing is uploaded.</small></li>
+        <li data-step="camera"><span class="dot"></span><span>Camera on</span><small>Allow the camera when your browser asks.</small></li>
+        <li data-step="frame"><span class="dot"></span><span>Head to hips in frame</span><small>Step back about two metres.</small></li>
+        <li data-step="still"><span class="dot"></span><span>Stand still for a second</span><small>That sets your standing position.</small></li>
+      </ol>
+      <p id="setup-msg" class="setup-msg" aria-live="polite"></p>
+      <div class="setup-actions">
+        <button id="b-setup-keys" class="btn btn-ghost" type="button">Use keyboard instead</button>
+        <button id="b-setup-back" class="link-btn" type="button">Back</button>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────── RUN ────────── -->
+<section id="s-run" class="screen" aria-label="Run">
+  <canvas id="gl"></canvas>
+  <div id="hud" aria-hidden="true">
     <div class="hud-top">
-      <div class="hud-progress-wrap">
-        <div class="hud-progress-fill" id="hud-progress"></div>
-        <div class="hud-progress-label">RUN PROGRESS</div>
+      <div class="hud-left">
+        <div id="hearts" class="hearts"></div>
+        <div id="hud-world" class="hud-world"></div>
       </div>
-      <div class="hud-dist"><span id="hud-dist">0</span><span class="hud-dist-unit">M</span></div>
-    </div>
-    <div class="hud-hearts" id="hud-hearts"></div>
-
-    <div class="hud-prompt" id="hud-prompt">
-      <div class="hud-prompt-badge">
-        <svg class="hud-prompt-icon" id="hud-prompt-icon" viewBox="0 0 100 100"></svg>
+      <div class="hud-mid">
+        <div class="timebar"><div id="timefill"></div></div>
+        <div id="hud-time" class="hud-time">90</div>
       </div>
-      <div class="hud-prompt-label" id="hud-prompt-label">JUMP</div>
-      <div class="hud-prompt-timer" id="hud-prompt-timer">3s</div>
+      <div class="hud-right">
+        <div class="hud-score"><span id="hud-score">0</span></div>
+        <div id="hud-combo" class="hud-combo"></div>
+      </div>
     </div>
-
-    <div class="hud-bl">
-      <div class="hud-chip combo" id="hud-combo" style="display:none;"><span class="hud-chip-icon">🔥</span><span id="hud-combo-text">x3</span></div>
-      <div class="hud-chip cal"><span class="hud-chip-icon">🔥</span><span id="hud-cal">0.0</span><span style="font-size:11px;color:#aab4c2;letter-spacing:.15em;">KCAL</span></div>
+    <div id="prompt" class="prompt">
+      <svg class="ring" viewBox="0 0 100 100"><circle class="ring-bg" cx="50" cy="50" r="46"/><circle id="ring-fill" class="ring-fill" cx="50" cy="50" r="46"/></svg>
+      <div id="prompt-icon" class="prompt-icon"></div>
+      <div id="prompt-verb" class="prompt-verb"></div>
     </div>
-
-    <div class="hud-score">
-      <div class="hud-score-label">SCORE</div>
-      <div id="hud-score">0</div>
+    <div id="pop" class="pop"></div>
+    <div class="hud-bottom">
+      <div id="hud-dist" class="hud-stat"><b>0</b><span>m</span></div>
+      <div id="hud-kcal" class="hud-stat"><b>0</b><span>kcal</span></div>
+      <div id="hud-input" class="hud-input"></div>
     </div>
-
-    <div class="hud-status" id="hud-status"></div>
   </div>
-    <!-- Skin avatar overlay (shows current skin emoji) -->
-    <div id="skin-display" style="position:absolute;top:60px;left:20px;font-size:32px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));pointer-events:none;display:none;"></div>
-    <!-- Live opponents leaderboard (during race) -->
-    <div id="live-opponents" style="position:absolute;top:120px;right:14px;background:rgba(10,16,24,.85);border:2px solid #e8302a;border-radius:10px;padding:8px 10px;min-width:160px;display:none;font-family:Bangers,cursive;backdrop-filter:blur(8px);">
-      <div style="font-size:11px;color:#ff6b6b;letter-spacing:.1em;margin-bottom:4px;">⚔️ LIVE RACE</div>
-      <div id="live-opp-list"></div>
+  <div id="track-warn" class="track-warn" hidden></div>
+  <div id="countdown" class="countdown" hidden></div>
+  <div id="pause" class="pause" hidden>
+    <div class="pause-card">
+      <h2 class="display">Paused</h2>
+      <p id="pause-msg"></p>
+      <div class="cta">
+        <button id="b-resume" class="btn btn-play" type="button">Resume</button>
+        <button id="b-recal" class="btn btn-ghost" type="button">Recalibrate</button>
+        <button id="b-quit" class="link-btn" type="button">Quit run</button>
+      </div>
     </div>
-  <div id="flash"></div>
+  </div>
+  <button id="b-pause" class="icon-btn pause-btn" type="button" aria-label="Pause"></button>
+  <div id="flash" class="flash"></div>
+</section>
+
+<!-- ────────── RESULTS ────────── -->
+<section id="s-results" class="screen" aria-label="Results">
+  <div class="results">
+    <p id="res-kicker" class="kicker">Run complete</p>
+    <div class="res-score"><span id="res-score">0</span><span id="res-best" class="res-best"></span></div>
+    <div class="res-grid">
+      <div><b id="res-dist">0 m</b><span>Distance</span></div>
+      <div><b id="res-cleared">0</b><span>Obstacles cleared</span></div>
+      <div><b id="res-combo">0</b><span>Best combo</span></div>
+      <div><b id="res-kcal">0</b><span>kcal (estimate)</span></div>
+    </div>
+    <div id="res-notes" class="res-notes"></div>
+    <div class="cta">
+      <button id="b-again" class="btn btn-play" type="button">Run again <span class="arrow">→</span></button>
+      <button id="b-change" class="btn btn-ghost" type="button">Change world</button>
+      <button id="b-share" class="btn btn-ghost" type="button">Challenge a friend</button>
+    </div>
+    <div id="res-bests" class="res-bests"></div>
+    <p class="small muted">Found a bug? <a href="mailto:peakappsstudios@gmail.com">peakappsstudios@gmail.com</a></p>
+  </div>
+</section>
+
+<!-- camera preview: one element, repositioned between setup and the run -->
+<div id="pip" class="pip" hidden>
+  <video id="cam" playsinline muted autoplay></video>
+  <canvas id="cam-overlay"></canvas>
+  <div id="pip-guide" class="pip-guide"></div>
+  <div id="pip-ring" class="pip-ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><circle id="pip-ring-fill" cx="50" cy="50" r="46"/></svg></div>
+  <div id="pip-status" class="pip-status"></div>
 </div>
 
-<!-- ─────────── GAME OVER ─────────── -->
-<div id="screen-gameover" class="screen">
-  <div class="go-title">GAME OVER</div>
-  <div class="go-sub" id="go-msg">Great run, Champion!</div>
-  <div class="go-stats">
-    <div class="go-stat"><div class="go-stat-val" id="go-score">0</div><div class="go-stat-label">Score</div></div>
-    <div class="go-stat"><div class="go-stat-val" id="go-dist">0M</div><div class="go-stat-label">Distance</div></div>
-    <div class="go-stat"><div class="go-stat-val" id="go-cal">0</div><div class="go-stat-label">Calories</div></div>
-    <div class="go-stat"><div class="go-stat-val" id="go-combo">0</div><div class="go-stat-label">Best Combo</div></div>
-  </div>
-  <div class="go-btns">
-    <button class="btn btn-primary" onclick="restartGame()">PLAY AGAIN</button>
-    <button class="btn btn-secondary" onclick="shareRun()">📤 SHARE RUN</button>
-    <button class="btn btn-secondary" onclick="challengeFriend()">⚔️ CHALLENGE FRIEND</button>
-    <button class="btn btn-secondary" onclick="goHome()">HOME</button>
-  </div>
-  <div id="go-friend-result"></div>
-  <div id="go-achievements" style="margin-top:14px;font-family:Bangers,cursive;font-size:14px;color:#5cdfff;letter-spacing:.06em;"></div>
-  <div style="margin-top:32px;font-size:12px;color:#5a6878;text-align:center;">
-    Found a bug or have feedback? <a href="mailto:peakappsstudios@gmail.com" style="color:#ffc424;text-decoration:none;">peakappsstudios@gmail.com</a>
-  </div>
-  <div id="leaderboard" style="margin-top:36px;max-width:520px;width:100%;">
-    <div style="font-family:'Bangers',cursive;font-size:22px;color:#ffc424;letter-spacing:.04em;margin-bottom:10px;">🏆 YOUR TOP 5</div>
-    <div id="leaderboard-list" style="background:rgba(26,37,64,.5);border:1px solid #2a3548;border-radius:12px;padding:12px;"></div>
-  </div>
-</div>
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script src="game-core.js"></script>
-<script src="features.js"></script>
-<script src="multiplayer.js"></script>
+<script type="module" src="/game/app.js?v=20261007"></script>
 </body>
 </html>
