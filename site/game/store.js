@@ -3,9 +3,10 @@
 const LS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const SET = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
+// Gumroad's license API refuses product_permalink for these products and needs product_id.
 export const GUMROAD = {
-  pro: { url: 'https://dorukctn.gumroad.com/l/ithhc', permalink: 'ithhc', label: 'Pro', price: '$4.99 / month' },
-  lifetime: { url: 'https://dorukctn.gumroad.com/l/czrhwp', permalink: 'czrhwp', label: 'Lifetime', price: '$99 once' },
+  pro: { url: 'https://dorukctn.gumroad.com/l/ithhc', permalink: 'ithhc', productId: 'tN-xTHwaZm8bOdcHHBaKbQ==', label: 'Pro', price: '$4.99 / month' },
+  lifetime: { url: 'https://dorukctn.gumroad.com/l/czrhwp', permalink: 'czrhwp', productId: 'xIio9_FPmjKjWkdZLQKVxA==', label: 'Lifetime', price: '$99 once' },
 };
 export const DAILY_FREE_LIMIT = 5;
 export const MIN_COUNTED_RUN = 15; // seconds; aborted starts don't eat a free run
@@ -49,7 +50,7 @@ export async function verifyLicense(key, { increment = true } = {}) {
   let lastErr = 'License key not found.';
   for (const [id, p] of Object.entries(GUMROAD)) {
     try {
-      const body = new URLSearchParams({ product_permalink: p.permalink, license_key: key, increment_uses_count: increment ? 'true' : 'false' });
+      const body = new URLSearchParams({ product_id: p.productId, license_key: key, increment_uses_count: increment ? 'true' : 'false' });
       const res = await fetch('https://api.gumroad.com/v2/licenses/verify', { method: 'POST', body });
       const j = await res.json().catch(() => ({}));
       if (!j.success) { lastErr = j.message || lastErr; continue; }
