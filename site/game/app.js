@@ -141,7 +141,7 @@ function openPro(reason = '') {
     <p class="kicker">BodyArcade Pro</p>
     <h2 class="display">${pro ? 'Pro is active' : 'Every world. Every day.'}</h2>
     ${reason ? `<p><b>${esc(reason)}</b></p>` : ''}
-    ${pro ? `<p>Thanks for supporting BodyArcade. Your key ${l && l.email ? `(${esc(l.email)})` : ''} is saved in this browser.</p><p><button class="link-btn" type="button" id="b-key-remove">Remove key from this browser</button></p>` : `
+    ${pro ? `<p>Thanks for supporting BodyArcade. Your key ${l && l.email ? `(${esc(l.email)})` : ''} is saved in this browser.</p>${l && l.endsAt ? `<p>Your plan will not renew. Pro stays on until ${esc(new Date(l.endsAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))}, the end of the period you paid for.</p>` : ''}<p><button class="link-btn" type="button" id="b-key-remove">Remove key from this browser</button></p>` : `
     <ul><li>Unlimited runs (free is ${store.DAILY_FREE_LIMIT} a day)</li><li>All ten worlds</li><li>Hard and Insane difficulty</li><li>Every runner look</li><li>Full workout history</li></ul>
     <div class="plans">
       <div class="plan featured"><span class="pn">Pro</span><span class="pp">$4.99<small> / month</small></span><span class="small muted">Cancel anytime on Gumroad</span><a class="btn btn-play" href="${store.GUMROAD.pro.url}" target="_blank" rel="noopener" data-ev="Checkout Click" data-where="game-pro">Get Pro</a></div>
