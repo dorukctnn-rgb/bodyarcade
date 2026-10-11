@@ -38,8 +38,24 @@ export function license() { return LS('ba_license', null); }
 export function isPro() {
   const l = license();
   if (!l || !l.key || !l.verifiedAt) return false;
+  // A cancelled monthly plan stays Pro until the paid period ends, and not a moment longer, even offline.
+  if (l.endsAt && Date.now() >= l.endsAt) return false;
   const age = Date.now() - l.verifiedAt;
   return age < 30 * 86400000; // re-verified in the background; 30-day offline grace
+}
+
+// When a Gumroad membership ends, as a millisecond timestamp, or null while it simply renews.
+// Gumroad keeps the key valid after a cancellation and reports the end of the membership instead:
+// subscription_cancelled_at (cancelled by the buyer or seller), subscription_failed_at (a renewal
+// could not be charged) and subscription_ended_at (a fixed-length membership ran out) all hold the
+// membership's end date, not the moment someone pressed cancel. So a cancelled plan shows a date in
+// the future until the paid month is over. Renewing or restarting sets them back to null.
+// https://gumroad.com/help/article/76-license-keys
+export function subscriptionEnd(purchase) {
+  const stamps = [purchase.subscription_ended_at, purchase.subscription_cancelled_at, purchase.subscription_failed_at].filter(Boolean);
+  if (!stamps.length) return null;
+  // A timestamp that cannot be read counts as already over.
+  return Math.min(...stamps.map(t => { const n = Date.parse(t); return Number.isNaN(n) ? 0 : n; }));
 }
 export function clearLicense() { try { localStorage.removeItem('ba_license'); } catch {} }
 
@@ -56,18 +72,22 @@ export async function verifyLicense(key, { increment = true } = {}) {
       if (!j.success) { lastErr = j.message || lastErr; continue; }
       const pu = j.purchase || {};
       if (pu.refunded || pu.chargebacked || pu.disputed) return { ok: false, error: 'This purchase was refunded.' };
-      if (pu.subscription_ended_at || pu.subscription_cancelled_at || pu.subscription_failed_at) return { ok: false, error: 'This subscription has ended. Renew it on Gumroad to keep Pro.' };
+      const endsAt = subscriptionEnd(pu);
+      if (endsAt !== null && endsAt <= Date.now()) return { ok: false, error: 'This subscription has ended. Renew it on Gumroad to keep Pro.' };
       const l = { key, product: id, verifiedAt: Date.now(), email: pu.email ? String(pu.email).replace(/(.{2}).+(@.+)/, '$1…$2') : '' };
+      if (endsAt !== null) l.endsAt = endsAt;
       SET('ba_license', l);
       return { ok: true, license: l };
     } catch (e) { lastErr = 'Couldn’t reach Gumroad. Check your connection and try again.'; return { ok: false, error: lastErr, network: true }; }
   }
   return { ok: false, error: lastErr };
 }
-// Silent re-check once a day; keeps the key if the network is down.
+// Silent re-check once a day, and as soon as a cancelled plan's paid period is over (it may have
+// been restarted since). Keeps the key if the network is down.
 export async function refreshLicense() {
   const l = license(); if (!l || !l.key) return;
-  if (Date.now() - l.verifiedAt < 86400000) return;
+  const periodOver = l.endsAt && Date.now() >= l.endsAt;
+  if (!periodOver && Date.now() - l.verifiedAt < 86400000) return;
   const r = await verifyLicense(l.key, { increment: false });
   if (!r.ok && !r.network) clearLicense();
 }
