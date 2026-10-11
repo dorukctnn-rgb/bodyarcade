@@ -82,6 +82,11 @@
   status = 301
 
 [[redirects]]
+  from = "/terms.html"
+  to = "/terms"
+  status = 301
+
+[[redirects]]
   from = "/ring-fit-adventure-alternative.html"
   to = "/ring-fit-adventure-alternative"
   status = 301
