@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="/assets/ba.css?v=20261007">
 <script>document.documentElement.classList.add('js')</script>
 <script defer data-domain="bodyarcade.com" src="https://plausible.io/js/script.js"></script>
+<script src="/assets/pro-source.js?v=20261015" defer></script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "BodyArcade", "item": "https://bodyarcade.com/"}, {"@type": "ListItem", "position": 2, "name": "Privacy", "item": "https://bodyarcade.com/privacy"}]}]}</script>
 </head>
 <body>
@@ -42,7 +43,7 @@
 <article class="article">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/">BodyArcade</a> / Privacy</nav>
   <h1 class="display">Privacy policy</h1>
-  <p class="meta">Last updated: 11 October 2026</p>
+  <p class="meta">Last updated: 15 October 2026</p>
   <p>BodyArcade is made by Peak Apps Studio. This page explains, in plain language, what the game does with your data. If you have a question, email <a href="mailto:info@peakappsstudio.com">info@peakappsstudio.com</a>.</p>
 
   <h2>Your camera</h2>
@@ -51,11 +52,12 @@
 
   <h2>What is stored on your device</h2>
   <p>Your player name, body weight (used for the calorie estimate), chosen world, difficulty and runner look, your last 200 runs, totals, achievements, daily goal streak and today's free-run count are kept in your browser's local storage. If you activate Pro, your license key, the plan and a shortened form of your purchase email address are kept there too. The game also keeps its own files, such as images, fonts, the 3D library and the pose model, in your browser's cache so it loads faster. Clearing this site's data in your browser removes all of it. We cannot see or recover it.</p>
+  <p>The site also notes what kind of site sent you, as one word such as "google", "ai-assistant", "social", or "direct" when no site did. A tag in the address you arrived at, such as the utm_source=chatgpt.com that ChatGPT adds to its links, counts before the site you came from. The word for this visit is kept in session storage and deleted when you close the tab; the first word other than "direct" is also kept in local storage until you clear this site's data. Only the word is kept, never the address of the page you came from, and it goes nowhere unless you click a buy button.</p>
 
   <h2>What is sent to other services</h2>
   <ul>
     <li><strong>Pro license checks.</strong> If you activate Pro, your browser sends the license key you paste, with the product it belongs to, straight to Gumroad's license service (api.gumroad.com) to confirm the purchase. The game checks it again in the background about once a day. Gumroad sees your IP address with each check. If you open an activation link that contains your key, the key is also part of the page address sent to our host.</li>
-    <li><strong>Payments.</strong> Pro and Lifetime purchases are processed by Gumroad. We do not receive or store your card details. As the seller, we receive your email address and the details of your order from Gumroad, and we use them to answer questions and issue refunds.</li>
+    <li><strong>Payments.</strong> Pro and Lifetime purchases are processed by Gumroad. We do not receive or store your card details. As the seller, we receive your email address and the details of your order from Gumroad, and we use them to answer questions and issue refunds. When you click a buy button, the link to Gumroad carries three labels: the word for the kind of site you came from (the first one kept in your browser, or else this visit's), its group (search, referral, social or none) and the name of the game. Gumroad stores them with the sale, so we can see which kinds of sites bring buyers. Gumroad learns only the kind of site, never its address.</li>
     <li><strong>Friend challenges.</strong> A challenge link contains the name you typed, your score, the world and the difficulty, written into the link's address. It goes to whoever you send it to, through the app you share it with. When someone opens it, the address is sent to our host as part of the page request, and Plausible discards that part of the address.</li>
   </ul>
   <p>There is no online leaderboard, no live race server and no account. Scores are never uploaded.</p>
@@ -72,7 +74,7 @@
   <h2>Who else receives data</h2>
   <ul>
     <li>Netlify, hosting the site: <a href="https://www.netlify.com/privacy/" rel="noopener">privacy policy</a>.</li>
-    <li>Gumroad, checkout, payments and license checks: <a href="https://gumroad.com/privacy" rel="noopener">privacy policy</a>.</li>
+    <li>Gumroad, checkout, payments and license checks, and the kind of site you came from when you click a buy button: <a href="https://gumroad.com/privacy" rel="noopener">privacy policy</a>.</li>
     <li>Plausible, counting page views and game events: <a href="https://plausible.io/privacy" rel="noopener">privacy policy</a>.</li>
     <li>Google, hosting the pose model file, and the Gmail inbox for our email: <a href="https://policies.google.com/privacy" rel="noopener">privacy policy</a>.</li>
     <li>jsDelivr, serving the pose model code: <a href="https://www.jsdelivr.com/terms/privacy-policy" rel="noopener">privacy policy</a>.</li>
@@ -82,7 +84,7 @@
 
   <h2>How long data is kept</h2>
   <ul>
-    <li>Everything in your browser: until you clear this site's data. The run history keeps your last 200 runs.</li>
+    <li>Everything in your browser: until you clear this site's data. The run history keeps your last 200 runs. The word for the kind of site you came from is kept until you close the tab, and the first one until you clear this site's data.</li>
     <li>Pro status: re-checked with Gumroad about once a day, and kept for up to 30 days without a successful check if you play offline.</li>
     <li>Analytics: Plausible stores counts, and the key behind its daily identifier is deleted every 24 hours.</li>
     <li>Purchase records: kept by Gumroad under its own policy.</li>
