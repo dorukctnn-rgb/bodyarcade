@@ -135,7 +135,7 @@ function renderChallenge() {
 function renderStart() { renderWorlds(); renderDiffs(); renderRunsLeft(); renderDaily(); renderChallenge(); $('b-sound').innerHTML = st.sound ? ICON.soundOn : ICON.soundOff; $('b-sound').setAttribute('aria-pressed', String(st.sound)); }
 
 // ───────────────────────── Pro ─────────────────────────
-function openPro(reason = '') {
+function openPro(reason = '', where = '') {
   const pro = store.isPro(); const l = store.license();
   const m = modal(`
     <p class="kicker">BodyArcade Pro</p>
@@ -154,7 +154,7 @@ function openPro(reason = '') {
   const b = $('b-key');
   if (b) b.onclick = () => activateKey($('i-key').value, m);
   const inp = $('i-key'); if (inp) inp.onkeydown = (e) => { if (e.key === 'Enter') b.click(); };
-  plausible('Pro Modal', { reason: reason || 'button' });
+  plausible('Pro Modal', { reason: reason || where || 'button' });
 }
 async function activateKey(key, m) {
   const msg = $('key-msg'), b = $('b-key');
@@ -475,11 +475,20 @@ function endRun(complete) {
   if (res.daily) notes.push(`<div>Daily goal done. <b>${res.daily.streak}-day streak.</b></div>`);
   for (const id of res.news) { const a = store.ACHIEVEMENTS.find(x => x.id === id); if (a) notes.push(`<div>Achievement: <b>${esc(a.name)}</b>. ${esc(a.desc)}</div>`); }
   if (!complete && s.hits >= 3 && s.cleared < 3 && st.input === 'camera') notes.push(`<div>Tip: the ring fills as an obstacle approaches. Make your move when it turns <b>yellow</b>.</div>`);
-  if (!store.isPro() && store.runsLeft() === 0) notes.push(`<div>That was your last free run today. <b>Pro</b> removes the limit.</div>`);
+  if (!store.isPro()) notes.push(proOffer());
   $('res-notes').innerHTML = notes.join('');
+  const more = $('b-res-pro'); if (more) more.onclick = () => openPro('', 'results');
   const bests = store.runs().filter(r => r.world === world.id).sort((a, b) => b.score - a.score).slice(0, 5);
   $('res-bests').innerHTML = bests.length ? `<h3>Your best in ${world.name}</h3><ol>${bests.map((r, i) => `<li><b>${i + 1}</b><span>${new Date(r.ts).toLocaleDateString()}, ${esc((DIFFS[r.diff] || {}).label || '')}</span><span>${r.dist} m</span><b>${r.score.toLocaleString()}</b></li>`).join('')}</ol>` : '';
   plausible('Run Complete', { world: world.id, diff: st.diff, complete: String(complete) });
+}
+// The Pro offer on the results screen: the moment a free player has just finished a run.
+// One sentence on what Pro adds, the price, a direct checkout link and the full Pro screen (plans + key box).
+function proOffer() {
+  const left = store.runsLeft();
+  const head = left > 0 ? `${left} free ${left === 1 ? 'run' : 'runs'} left today.` : 'That was your last free run today.';
+  return `<div class="res-pro"><p><b>${head}</b> Pro opens the other seven worlds, Hard and Insane, and unlimited runs for $4.99 a month. Cancel anytime.</p>
+    <p class="res-pro-cta"><a class="pill-btn" href="${store.GUMROAD.pro.url}" target="_blank" rel="noopener" data-ev="Checkout Click" data-where="results">Get Pro, $4.99/month</a><button id="b-res-pro" class="link-btn" type="button">See Pro and Lifetime</button></p></div>`;
 }
 async function runAgain() {
   if (!canStart()) return;
