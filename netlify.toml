@@ -101,6 +101,16 @@
   to = "/blog/why-browser-fitness-games-are-the-future"
   status = 301
 
+[[redirects]]
+  from = "/webcam-games-for-kids.html"
+  to = "/webcam-games-for-kids"
+  status = 301
+
+[[redirects]]
+  from = "/kinect-alternative-pc.html"
+  to = "/kinect-alternative-pc"
+  status = 301
+
 # Old builds that used to be published from the repo root.
 [[redirects]]
   from = "/BodyArcade%20v1.html"
