@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Two-player pose harness</title></head>
+<body>
+<p>Two players, one camera: harness for the e2e tests.</p>
+<script type="module">
+  import { createCameraService } from '/packages/core/camera/camera.ts';
+  import { createPoseService } from '/packages/core/pose/service.ts';
+  import { POSE_MODEL, WASM_BASE } from '/packages/core/pose/assets.ts';
+  import { webglRenderer } from '/packages/core/pose/landmarker.ts';
+  import { createPlayerAssignment } from '/packages/core/body/players.ts';
+  import { createTwoPlayerCalibrator } from '/packages/core/body/calibrator2.ts';
+  window.harness = {
+    createCameraService, createPoseService, webglRenderer, createPlayerAssignment, createTwoPlayerCalibrator,
+    wasmBase: WASM_BASE, modelUrl: POSE_MODEL.url,
+  };
+  window.harnessReady = true;
+</script>
+</body>
+</html>
