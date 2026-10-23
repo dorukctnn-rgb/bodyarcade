@@ -412,3 +412,97 @@ export function shellGrid(v: Viewport): ShellGrid {
     rail,
   };
 }
+
+// ---------------- 2 players, same camera (design/LAYOUT.md section 12) ----------------
+// Web only, big screens only (tablet landscape, laptop, desktop, TV). Never offered on phones or in the Android app.
+
+/** True when the screen may offer the 2-player same-camera mode: not a phone, landscape, at least 1000 px wide. */
+export function duoAvailable(v: { w: number; h: number }): boolean {
+  return deviceClass(v.w, v.h) !== 'phone' && v.w > v.h && v.w >= 1000;
+}
+
+/** The shared self view of two players: one wide camera frame that shows both (default 16:9, capped at 30 % of the width). */
+export function duoPipSize(v: { w: number; h: number; camAspect?: number }): PipSize {
+  const aspect = v.camAspect ?? 16 / 9;
+  let ph = clamp(90, 0.22 * v.h, 240);
+  let pw = ph * aspect;
+  if (pw > 0.3 * v.w) { pw = 0.3 * v.w; ph = pw / aspect; }
+  return { w: r(pw), h: r(ph), aspect };
+}
+
+export interface MeasuredDuo {
+  statusP1: Size;
+  statusP2: Size;
+  timer: Size;
+  command: Size;
+  reasonP1?: Size;
+  reasonP2?: Size;
+  away?: Size | null;
+}
+
+export type DuoAway = 'p1' | 'p2' | null;
+
+export interface DuoRects {
+  statusP1: PlacedRect;
+  statusP2: PlacedRect;
+  timer: PlacedRect;
+  command: PlacedRect;
+  pip: PlacedRect;
+  reasonP1?: PlacedRect;
+  reasonP2?: PlacedRect;
+  /** Each player's half of the play area; both lanes run the same seed. */
+  playP1: Rect;
+  playP2: Rect;
+  away?: Rect;
+}
+
+export interface DuoLayout { metrics: HudMetrics; rects: DuoRects; pip: PipSize }
+
+/**
+ * Two players: Player 1's score top left, Player 2's top right, the shared timer top centre, the one command under it,
+ * the shared self view at the bottom centre and one reason strip per player. `away` is the player who left the frame.
+ */
+export function placeHudDuo(
+  viewport: Viewport & { metrics?: HudMetrics },
+  measured: MeasuredDuo,
+  options: { away?: DuoAway; camAspect?: number } = {},
+): DuoLayout {
+  const m = viewport.metrics ?? hudMetrics(viewport);
+  const { w, h, insets, margin, gap } = m;
+  const left = insets.left + margin;
+  const right = w - insets.right - margin;
+  const top = insets.top + margin;
+  const bottom = h - insets.bottom - margin;
+  const statusP1: PlacedRect = { x: left, y: top, ...measured.statusP1 };
+  const statusP2: PlacedRect = { x: right - measured.statusP2.w, y: top, ...measured.statusP2 };
+  const timer: PlacedRect = { x: r((left + right) / 2 - measured.timer.w / 2), y: top, ...measured.timer };
+  const rowBottom = top + Math.max(measured.statusP1.h, measured.statusP2.h, measured.timer.h);
+  const command: PlacedRect = { x: r((left + right) / 2 - measured.command.w / 2), y: rowBottom + gap, ...measured.command };
+  const pipSize2 = duoPipSize({ w, h, ...(options.camAspect !== undefined ? { camAspect: options.camAspect } : {}) });
+  const pip: PlacedRect = { x: r((left + right) / 2 - pipSize2.w / 2), y: bottom - pipSize2.h, w: pipSize2.w, h: pipSize2.h, corner: 'bottom-centre' };
+  const rects: DuoRects = { statusP1, statusP2, timer, command, pip, playP1: { x: 0, y: 0, w: 0, h: 0 }, playP2: { x: 0, y: 0, w: 0, h: 0 } };
+
+  // Reasons: beside the self view when they fit, otherwise lifted above it, one per side.
+  const sideW = (right - left - pipSize2.w) / 2 - gap;
+  for (const [k, side] of [['reasonP1', 'left'], ['reasonP2', 'right']] as const) {
+    const rs = measured[k];
+    if (!rs) continue;
+    const x = side === 'left' ? left : right - rs.w;
+    rects[k] = rs.w <= sideW
+      ? { x: r(x), y: bottom - rs.h, ...rs, row: 'bottom' }
+      : { x: r(x), y: pip.y - gap - rs.h, ...rs, row: 'lifted' };
+  }
+  const hudTop = command.y + command.h + gap;
+  const lowest = Math.min(pip.y, ...(['reasonP1', 'reasonP2'] as const).flatMap((k) => (rects[k] ? [(rects[k] as PlacedRect).y] : []))) - gap;
+  const mid = (left + right) / 2;
+  const laneH = Math.max(0, lowest - hudTop);
+  rects.playP1 = { x: left, y: hudTop, w: mid - gap / 2 - left, h: laneH };
+  rects.playP2 = { x: mid + gap / 2, y: hudTop, w: right - mid - gap / 2, h: laneH };
+  if (options.away) {
+    const half = options.away === 'p2' ? rects.playP2 : rects.playP1;
+    const aw = Math.min(half.w - 2 * gap, measured.away?.w ?? half.w * 0.8);
+    const ah = measured.away?.h ?? 120;
+    rects.away = { x: r(half.x + (half.w - aw) / 2), y: r(half.y + (half.h - ah) / 2), w: r(aw), h: ah };
+  }
+  return { metrics: m, rects, pip: pipSize2 };
+}

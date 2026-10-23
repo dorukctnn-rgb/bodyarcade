@@ -4,8 +4,9 @@ import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  BREAKPOINTS, checkRects, deviceClass, hudMetrics, hudSlots, mirrorRect, pipSize, placeHud, shellGrid, typicalInsets,
-  type HudMode, type MeasuredHud, type PipPlacement,
+  BREAKPOINTS, checkRects, deviceClass, duoAvailable, duoPipSize, hudMetrics, hudSlots, mirrorRect, pipSize, placeHud,
+  placeHudDuo, shellGrid, typicalInsets,
+  type HudMode, type MeasuredDuo, type MeasuredHud, type PipPlacement,
 } from './layout.ts';
 
 type Ref = Record<string, (...a: unknown[]) => unknown> & { BREAKPOINTS: typeof BREAKPOINTS };
@@ -76,4 +77,42 @@ describe('the rules in LAYOUT.md hold on every breakpoint', () => {
       }
     });
   }
+});
+
+describe('two players, one camera', () => {
+  const duoMeasured = (long: boolean): MeasuredDuo => ({
+    statusP1: { w: 210, h: 62 }, statusP2: { w: 212, h: 62 }, timer: { w: 150, h: 62 },
+    command: long ? { w: 700, h: 90 } : { w: 240, h: 72 },
+    reasonP1: { w: long ? 700 : 280, h: 50 }, reasonP2: { w: long ? 700 : 240, h: 50 },
+    away: { w: 380, h: 190 },
+  });
+
+  for (const bp of BREAKPOINTS) {
+    it(`${bp.id}: availability, shared self view and layout equal the reference`, () => {
+      expect(duoAvailable({ w: bp.w, h: bp.h })).toBe(ref['duoAvailable']?.({ w: bp.w, h: bp.h }));
+      expect(duoPipSize({ w: bp.w, h: bp.h })).toEqual(ref['duoPipSize']?.({ w: bp.w, h: bp.h }));
+      if (!duoAvailable({ w: bp.w, h: bp.h })) return;
+      for (const long of [false, true]) {
+        for (const away of [null, 'p1', 'p2'] as const) {
+          const a = placeHudDuo({ w: bp.w, h: bp.h }, duoMeasured(long), { away });
+          const b = ref['placeHudDuo']?.({ w: bp.w, h: bp.h }, duoMeasured(long), { away });
+          expect(a, `${bp.id} long=${long} away=${away}`).toEqual(b);
+        }
+      }
+    });
+  }
+
+  it('is offered only on landscape screens of at least 1000 px that are not phones', () => {
+    const offered = BREAKPOINTS.filter((b) => duoAvailable(b)).map((b) => b.id);
+    expect(offered).toEqual(['tablet-land-1024', 'laptop-1280', 'laptop-1440', 'tv-1920']);
+  });
+
+  it('keeps every duo plate on screen without overlap on the big screens', () => {
+    for (const bp of BREAKPOINTS.filter((b) => duoAvailable(b))) {
+      const { rects } = placeHudDuo({ w: bp.w, h: bp.h }, duoMeasured(false), { away: null });
+      const flat: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      for (const [k, v] of Object.entries(rects)) if (v && !k.startsWith('play')) flat[k] = v as never;
+      expect(checkRects(flat, { w: bp.w, h: bp.h }), bp.id).toEqual([]);
+    }
+  });
 });
