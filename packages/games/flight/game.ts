@@ -8,12 +8,12 @@
 // - summary(): metSeconds = MET x the seconds spent flapping (warm-up and sets, not the rests); `log` lets a room recompute
 //   the score (every pass with its points) and names every miss in the body's words (a MissCode).
 import type { Game, GameContext, GameEvent, GameManifest, InputEvent, InputFrame, RunSummary, StartOptions, StepResult } from '../../core/types/index.ts';
-import { clamp, createSay, hudWriter, lanesOf, round, type HudWriter, type LaneInput, type Say } from '../kit-g1/index.ts';
+import { clamp, createSay, hudWriter, lanesOf, round, type HudWriter, type LaneInput, type RoundPlan, type Say } from '../kit-g1/index.ts';
 import { createSelfView, type SelfView } from '../kit-g1/selfview.ts';
 import { createStage, type Stage } from '../kit-g1/stage.ts';
 import { en } from './strings.ts';
 import {
-  createFlight, gapCentre, levelFor, nextPipe, planOf, stepFlight, timeLeft, type FlapIn, type FlightEvent, type FlightState, type HintCode, type LaneIn,
+  createFlight, gapCentre, nextPipe, stepFlight, timeLeft, type FlapIn, type FlightEvent, type FlightState, type HintCode, type LaneIn,
 } from './sim.ts';
 import { createFlightView, type FlightFrame, type FlightView } from './view.ts';
 
@@ -31,6 +31,8 @@ export interface FlightGame extends Game {
 export interface FlightGameOptions {
   /** Left out: the game has no picture (tests, a shell without a canvas). Default: the 2D view when the context has a scene. */
   view?: false;
+  /** A shorter round (the end-to-end runs); the real one is three sets of a minute with 25 seconds of rest. */
+  plan?: Partial<RoundPlan>;
 }
 
 /** Hands level at the shoulders and spread to the sides (armDirection's glide); its own channel names are used because
@@ -124,7 +126,7 @@ export function createFlightGame(manifest: GameManifest, o: FlightGameOptions = 
   function drawHud(s: FlightState): void {
     const h = hud;
     if (!h) return;
-    h.set('timer', Math.max(0, Math.ceil(s.phase === 'warmup' ? planOf(levelFor(s)).setSec : timeLeft(s))));
+    h.set('timer', Math.max(0, Math.ceil(s.phase === 'warmup' ? s.plan.setSec : timeLeft(s))));
     if (players === 1) {
       const l = s.lanes[0];
       if (l) {
@@ -153,7 +155,7 @@ export function createFlightGame(manifest: GameManifest, o: FlightGameOptions = 
   }
 
   function announce(events: readonly FlightEvent[], s: FlightState): void {
-    const plan = planOf(levelFor(s));
+    const plan = s.plan;
     for (const e of events) {
       if (e.type === 'start' && plan.sets > 1) hud?.announce(say('announce.set', { n: e.set, total: plan.sets }));
       else if (e.type === 'rest') hud?.announce(say('announce.rest', { sec: plan.restSec }));
@@ -177,7 +179,7 @@ export function createFlightGame(manifest: GameManifest, o: FlightGameOptions = 
       opts = { ...s };
       players = s.mode === 'local2' ? 2 : 1;
       seated = s.seated || ctx.flags.seated;
-      state = createFlight({ difficulty: s.difficulty, players, seated, rng: ctx.rng('course') });
+      state = createFlight({ difficulty: s.difficulty, players, seated, rng: ctx.rng('course'), ...(o.plan ? { plan: o.plan } : {}) });
       log = [];
       flapsAll = [0, 0];
       flapsDeep = [0, 0];

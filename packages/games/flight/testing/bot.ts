@@ -13,6 +13,8 @@ export interface SquatBot {
   /** The body's state, for assertions. */
   readonly phase: Phase;
   readonly drop: number;
+  /** How far the body is through its current phase, 0..1 (the arms of the seated bot follow it). */
+  readonly progress: number;
 }
 
 type Phase = 'stand' | 'down' | 'hold' | 'up';
@@ -32,6 +34,11 @@ class Body {
   private peakUp = 0;
   private prev = 0;
   private t: Timing = { depth: 0.6, down: 0.7, hold: 0.12, up: 0.5 };
+
+  get progress(): number {
+    const t = this.t;
+    return this.phase === 'down' ? Math.min(1, this.clock / t.down) : this.phase === 'hold' ? Math.min(1, this.clock / t.hold) : this.phase === 'up' ? Math.min(1, this.clock / t.up) : 0;
+  }
 
   start(t: Timing): void { this.phase = 'down'; this.clock = 0; this.t = t; this.armed = false; this.peakUp = 0; }
 
@@ -132,6 +139,7 @@ export function squatBot(kind: BotKind, seed = 1): SquatBot {
   return {
     get phase() { return body.phase; },
     get drop() { return body.drop; },
+    get progress() { return body.progress; },
     next(s, lane, dt) {
       if (kind === 'idle') return { flaps: [], drop: 0, glide: false, armed: false };
       const l = s.lanes[lane];
