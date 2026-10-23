@@ -128,7 +128,7 @@ a.k-card:hover { box-shadow: inset 0 0 0 2.5px var(--ba-text); }
 .k-pw { display: grid; gap: clamp(18px, 3vw, 48px); padding-top: 8px; }
 @media (min-width: 900px) { .k-pw { grid-template-columns: minmax(0, 1fr) minmax(380px, 0.9fr); align-items: start; } }
 .k-pw-art { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.k-pw-art img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: var(--ba-radius-lg); background: var(--ba-surface-sunken); }
+.k-pw-art img { width: 100%; height: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: var(--ba-radius-lg); background: var(--ba-surface-sunken); }
 .k-pw-art img:nth-child(2) { transform: translateY(14px); }
 .k-benefits { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .k-benefits li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; font-weight: 650; line-height: 1.35; }
@@ -174,7 +174,7 @@ a.k-card:hover { box-shadow: inset 0 0 0 2.5px var(--ba-text); }
 .k-react { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); cursor: pointer; flex: none; }
 .k-react svg { width: 28px; height: 28px; }
 .k-gamepick { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; }
-.k-gamepick img { width: 112px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 14px; background: var(--ba-surface-sunken); }
+.k-gamepick img { width: 112px; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 14px; background: var(--ba-surface-sunken); }
 .k-gamepick b { display: block; font-family: var(--ba-font-display); font-weight: 820; font-size: 1.3rem; letter-spacing: -0.01em; line-height: 1.05; }
 .k-gamepick small { color: var(--ba-text-muted); font-size: var(--ba-text-sm); }
 
@@ -239,3 +239,8 @@ a.k-card:hover { box-shadow: inset 0 0 0 2.5px var(--ba-text); }
 .k-pip .score { position: absolute; left: 50%; bottom: 9px; transform: translateX(-50%); width: 30px; height: 8px; border-radius: 4px; background: var(--ba-ink-300); }
 .k-danger { color: var(--ba-flush-700); }
 [data-theme="dark"] .k-danger { color: var(--ba-flush-500); }
+
+/* A primary action that waits for someone else (ready check). */
+.ba-btn.is-waiting { opacity: 0.6; cursor: default; box-shadow: none; transform: none; }
+/* Phones: the side panel (for example quick match) comes before the list it serves. */
+@media (max-width: 899px) { .k-cols--side > aside { order: -1; } }

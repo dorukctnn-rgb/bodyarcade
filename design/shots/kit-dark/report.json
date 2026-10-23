@@ -1,0 +1,194 @@
+[
+ {
+  "page": "home",
+  "breakpoint": "phone-390",
+  "ms": 3742,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/home-phone-390.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "phone-390",
+  "ms": 1769,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/game-phone-390.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "phone-390",
+  "ms": 1241,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/game-pad-work-phone-390.webp"
+ },
+ {
+  "page": "calibration",
+  "breakpoint": "phone-390",
+  "ms": 907,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/calibration-phone-390.webp"
+ },
+ {
+  "page": "calibration-done",
+  "breakpoint": "phone-390",
+  "ms": 1180,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/calibration-done-phone-390.webp"
+ },
+ {
+  "page": "results",
+  "breakpoint": "phone-390",
+  "ms": 2255,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/results-phone-390.webp"
+ },
+ {
+  "page": "paywall",
+  "breakpoint": "phone-390",
+  "ms": 1522,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/paywall-phone-390.webp"
+ },
+ {
+  "page": "room",
+  "breakpoint": "phone-390",
+  "ms": 1494,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/room-phone-390.webp"
+ },
+ {
+  "page": "lobbies",
+  "breakpoint": "phone-390",
+  "ms": 1511,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/lobbies-phone-390.webp"
+ },
+ {
+  "page": "friends",
+  "breakpoint": "phone-390",
+  "ms": 1105,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/friends-phone-390.webp"
+ },
+ {
+  "page": "safety",
+  "breakpoint": "phone-390",
+  "ms": 2407,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/safety-phone-390.webp"
+ },
+ {
+  "page": "settings",
+  "breakpoint": "phone-390",
+  "ms": 2996,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/settings-phone-390.webp"
+ },
+ {
+  "page": "home",
+  "breakpoint": "laptop-1440",
+  "ms": 4920,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/home-laptop-1440.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "laptop-1440",
+  "ms": 1944,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/game-laptop-1440.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "laptop-1440",
+  "ms": 1632,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/game-pad-work-laptop-1440.webp"
+ },
+ {
+  "page": "calibration",
+  "breakpoint": "laptop-1440",
+  "ms": 1437,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/calibration-laptop-1440.webp"
+ },
+ {
+  "page": "calibration-done",
+  "breakpoint": "laptop-1440",
+  "ms": 1602,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/calibration-done-laptop-1440.webp"
+ },
+ {
+  "page": "results",
+  "breakpoint": "laptop-1440",
+  "ms": 1613,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/results-laptop-1440.webp"
+ },
+ {
+  "page": "paywall",
+  "breakpoint": "laptop-1440",
+  "ms": 911,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/paywall-laptop-1440.webp"
+ },
+ {
+  "page": "room",
+  "breakpoint": "laptop-1440",
+  "ms": 1755,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/room-laptop-1440.webp"
+ },
+ {
+  "page": "lobbies",
+  "breakpoint": "laptop-1440",
+  "ms": 871,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/lobbies-laptop-1440.webp"
+ },
+ {
+  "page": "friends",
+  "breakpoint": "laptop-1440",
+  "ms": 1472,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/friends-laptop-1440.webp"
+ },
+ {
+  "page": "safety",
+  "breakpoint": "laptop-1440",
+  "ms": 1349,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/safety-laptop-1440.webp"
+ },
+ {
+  "page": "settings",
+  "breakpoint": "laptop-1440",
+  "ms": 1066,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit-dark/settings-laptop-1440.webp"
+ }
+]

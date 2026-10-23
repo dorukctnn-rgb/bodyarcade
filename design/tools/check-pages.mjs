@@ -31,7 +31,7 @@ const SETS = {
       const [base, qs] = p.split('~');
       return { name: qs ? `${base}-${qs.split('=')[1]}` : base, url: `design/ui-kit/${base}.html?${qs ? `${qs}&` : ''}theme=${theme}` };
     }),
-    sizes: BREAKPOINTS.filter((b) => ['phone-390', 'laptop-1440'].includes(b.id)).concat(arg('--all', null) ? BREAKPOINTS.filter((b) => !['phone-390', 'laptop-1440'].includes(b.id)) : []),
+    sizes: BREAKPOINTS.filter((b) => ['phone-390', 'laptop-1440'].includes(b.id)).concat(process.argv.includes('--all') ? BREAKPOINTS.filter((b) => !['phone-390', 'laptop-1440'].includes(b.id)) : []),
     full: true,
   },
   brand: { dir: 'brand', pages: [{ name: 'brand-sheet', url: 'design/brand/index.html' }], sizes: BREAKPOINTS.filter((b) => ['phone-390', 'laptop-1440'].includes(b.id)), full: true },

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade settings</title>
+<meta name="description" content="UI kit: the Profile tab. Play modes, where your camera view sits, display and sound, weight for calories, Pro, safety, your data on this device.">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="pages.css">
+<style>
+  .k-setgroup h2 { font-family: var(--ba-font-display); font-weight: 820; font-size: 1.2rem; letter-spacing: -0.01em; margin: 0 0 10px 2px; }
+  .k-weight { display: flex; align-items: center; gap: 8px; flex: none; }
+  .k-weight .ba-input { width: 96px; height: 44px; text-align: right; }
+  .k-select { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 12px; border: 0; background: var(--ba-surface-sunken); color: var(--ba-text); font-weight: 700; cursor: pointer; flex: none; }
+  .k-select svg { width: 18px; height: 18px; }
+  .k-pipwrap { display: grid; gap: 8px; justify-items: end; flex: none; }
+  .k-set > li.wrap { align-items: flex-start; }
+  .k-set a.rowlink { display: contents; color: inherit; text-decoration: none; }
+  .k-set .chev { width: 22px; height: 22px; color: var(--ba-text-muted); flex: none; }
+  @media (max-width: 520px) { .k-set .ba-seg button { padding: 8px 10px; font-size: 0.875rem; } .k-pipwrap { justify-items: start; } }
+</style>
+</head>
+<body class="ba-app" data-long="1">
+<main class="ba-page" id="page"></main>
+<script type="module" data-wait>
+import { mountShell, mobileHead, ICON, avatar, ready } from './shell.mjs';
+
+mountShell('profile');
+const sw = (on = false, label = '') => `<span class="ba-switch"><input type="checkbox" ${on ? 'checked' : ''} aria-label="${label}"><span></span></span>`;
+const row = (ico, title, hint, control, cls = '') => `<li class="${cls}">${ico ? `<span class="ico">${ICON[ico]}</span>` : ''}<div class="grow"><b>${title}</b>${hint ? `<small>${hint}</small>` : ''}</div>${control}</li>`;
+const link = (ico, title, hint, href) => `<li><a class="rowlink" href="${href}"><span class="ico">${ICON[ico]}</span><div class="grow"><b>${title}</b>${hint ? `<small>${hint}</small>` : ''}</div><span class="chev">${ICON.chevron}</span></a></li>`;
+const pip = `<div class="k-pipwrap"><div class="k-pip" role="radiogroup" aria-label="Your camera view corner"><span class="hud"></span><span class="score"></span>${['Top left', 'Top right', 'Bottom left', 'Bottom right'].map((c) => `<button type="button" role="radio" aria-checked="${c === 'Bottom right'}" aria-label="${c}"></button>`).join('')}</div><label class="k-check" style="font-size:13px"><input type="checkbox">Hidden</label></div>`;
+
+const page = document.getElementById('page');
+page.innerHTML = `
+  ${mobileHead('')}
+  <div class="ba-pagehead"><h1 class="ba-h1">Settings</h1></div>
+  <div class="k-cols k-cols--even">
+    <div class="k-stack">
+      <section class="k-card k-profile" aria-label="Your profile">${avatar('#FF4F6E', 'jackOpen')}<div><p class="name">Doruk</p><div class="ba-row-wrap"><span class="ba-code">BA-7K2Q</span><button class="ba-link" type="button">Edit name and colour</button></div></div></section>
+      <section class="k-setgroup" aria-labelledby="s-play"><h2 id="s-play">Play</h2><ul class="k-set">
+        ${row('chair', 'Seated mode', 'Play from a chair. Games with a seated version use it.', sw(false, 'Seated mode'))}
+        ${row('quiet', 'Quiet mode', 'No jumping or stamping. Kind to the neighbours below.', sw(true, 'Quiet mode'))}
+        ${row('camera', 'Your camera view', 'The corner where it sits while you play. It never covers the score or the command.', pip, 'wrap')}
+        ${row('user', 'Show skeleton on your view', '', sw(true, 'Show skeleton on your view'))}
+        ${link('replay', 'Measure me again', 'Height, reach and your squat line. Takes 20 seconds.', 'calibration.html')}
+      </ul></section>
+      <section class="k-setgroup" aria-labelledby="s-you"><h2 id="s-you">About you</h2><ul class="k-set">
+        ${row('trophy', 'Goals and level', 'Legs and hips, Cardio. Steady.', `<button class="ba-link" type="button">Change</button>`)}
+        ${row('info', 'Weight for calories (optional)', 'Stays on this device. Without it no calories are shown.', `<span class="k-weight"><input class="ba-input" type="text" inputmode="decimal" value="74" aria-label="Weight in kg"><span class="ba-small">kg</span></span>`, 'wrap')}
+      </ul></section>
+    </div>
+    <div class="k-stack">
+      <section class="k-setgroup" aria-labelledby="s-disp"><h2 id="s-disp">Display and sound</h2><ul class="k-set">
+        ${row('globe', 'Language', '', `<button class="k-select" type="button">English${ICON.chevron}</button>`)}
+        ${row('', 'Theme', '', `<div class="ba-seg" role="radiogroup" aria-label="Theme"><button type="button" role="radio" aria-checked="true">Same as the device</button><button type="button" role="radio" aria-checked="false">Light</button><button type="button" role="radio" aria-checked="false">Dark</button></div>`, 'wrap')}
+        ${row('', 'Reduce motion', 'Also follows your device setting.', sw(false, 'Reduce motion'))}
+        ${row('tv', 'Big text for TV', 'Larger text and four columns, for playing from the sofa.', sw(false, 'Big text for TV'))}
+        ${row('', 'Sound effects', '', sw(true, 'Sound effects'))}
+      </ul></section>
+      <section class="k-setgroup" aria-labelledby="s-pro"><h2 id="s-pro">BodyArcade Pro</h2><ul class="k-set">
+        ${row('star', 'You are on the free plan.', '8 games stay free, with no ads.', `<a class="ba-btn ba-btn--secondary" href="paywall.html" style="min-height:44px">See Pro plans</a>`)}
+      </ul></section>
+      <section class="k-setgroup" aria-labelledby="s-data"><h2 id="s-data">Safety and your data</h2><ul class="k-set">
+        ${link('shield', 'Safety', 'Age, blocked players and reports.', 'safety.html')}
+        ${row('lock', 'Your data', 'Settings and results are stored on this device only.', `<button class="ba-btn ba-btn--quiet k-danger" type="button">${ICON.trash}Clear data</button>`, 'wrap')}
+        ${link('play', 'Replay the welcome tour', 'Version 2.0.0', '../onboarding/index.html')}
+      </ul></section>
+    </div>
+  </div>`;
+await ready();
+</script>
+</body>
+</html>

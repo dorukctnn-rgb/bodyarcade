@@ -25,6 +25,12 @@
   .k-info > .k-top { order: 1; }
   .k-info > .k-actionbar { order: 10; }
   @media (min-width: 900px) and (min-height: 501px) { .k-info > .k-actionbar { order: 2; margin-top: 20px; } .k-info > .k-lockcard { order: 2; } }
+  /* Phones held sideways: art on the left, details on the right, Play pinned to the bottom. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .k-detail { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr); align-items: start; }
+    .k-detail .art { position: sticky; top: 12px; }
+    .k-info .k-actionbar { margin-left: 0; margin-right: calc(-1 * var(--ba-gutter)); padding-left: 0; }
+  }
 </style>
 </head>
 <body class="ba-app no-tabbar">
