@@ -1,7 +1,8 @@
 // core/loop: fixed-step clock, seeded random streams and the Session state machine.
+import type { CalibrationStatus } from './body.ts';
 import type { Unsubscribe } from './common.ts';
 import type { RunSummary } from './game.ts';
-import type { PlayerSlot } from './players.ts';
+import type { PlayerSlot, TwoPlayerCalibrationStatus } from './players.ts';
 
 /** The only step size Game.step ever receives (seconds). */
 export const FIXED_DT = 1 / 60;
@@ -32,10 +33,16 @@ export interface SessionEvents {
   error: { code: string; message: string };
   /** Mode 'local2': a player left or came back. */
   player: { player: PlayerSlot; present: boolean };
+  /** Every pose frame while calibrating, for the setup screen (two-player status in mode 'local2'). */
+  calibration: CalibrationStatus | TwoPlayerCalibrationStatus;
+  /** Whole seconds left: 3, 2, 1, then 0 when play starts (or continues after a pause). */
+  countdown: { remaining: number };
 }
 
 export interface Session {
   readonly state: SessionState;
+  /** Why the session is paused; null in every other state. */
+  readonly pauseReason: PauseReason | null;
   /** Owns the camera lease, calibration, countdown and the loop. */
   start(gameId: string, o: SessionOptions): Promise<void>;
   /** Paused frames neither render continuously nor feed the quality governor (B12). */
