@@ -1,0 +1,670 @@
+// LiveClient: one player's side of a live room (tech.md 2.4 to 2.8). The Room socket is the one thing a match needs:
+// it resumes after any drop (backoff, outbox, resend of unacknowledged results), detects half-open sockets, keeps a
+// server clock estimate and the player's pause reasons. Peer links (peer.ts) make the fast state and video smooth
+// but the match never waits for them.
+import {
+  CLOSE, NET_PROTOCOL,
+  type AckRejection, type ChatRejectReason, type ClientMessage, type IceGrant, type JoinGrant, type MatchInfo, type MatchResult, type MemberInfo,
+  type NetPauseReason, type ObstacleResult, type Outcome, type PresetId, type ReactionId, type ReportReason, type RoomErrorCode, type RoomInfo,
+  type RoomMessage, type SeatId, type SignalData,
+} from '../types/net.ts';
+import { ClockFilter, type ClockInfo } from './clock.ts';
+import { PeerLink, DEFAULT_VIDEO_LIMITS, type LinkStats, type PeerHost, type PeerMetrics, type VideoLimits } from './peer.ts';
+import { Emitter, WS_OPEN, browserSocket, randomId, realScheduler, type Scheduler, type SocketFactory, type SocketLike } from './runtime.ts';
+import { parseRoomMessage } from './validate.ts';
+
+export type FatalReason = 'replaced' | 'full' | 'removed' | 'no_room' | 'version' | 'not_allowed' | 'ticket' | 'stopped';
+
+export interface LiveEvents {
+  status: { state: 'connecting' | 'online' | 'reconnecting' | 'stopped'; attempt: number; delayMs?: number };
+  welcome: Extract<RoomMessage, { t: 'welcome' }>;
+  presence: MemberInfo[];
+  room: RoomInfo;
+  /** A match to play: it just started, or this client rejoined one that is running (`mine` holds the results the Room already has). */
+  match: { match: MatchInfo; mine: ObstacleResult[]; why: 'start' | 'welcome' };
+  /** Any change of the match state (start, paused, resumed, forfeit, welcome). */
+  phase: { why: string; match: MatchInfo };
+  settling: { mid: string };
+  forfeit: { seat: SeatId; match: MatchInfo };
+  result: MatchResult;
+  chat: { from: SeatId; text: string; at: number };
+  preset: { from: SeatId; id: PresetId; at: number };
+  react: { from: SeatId; id: ReactionId; at: number };
+  chatRejected: { reason: ChatRejectReason; retryAt?: number };
+  blocked: { seat: SeatId; key: string };
+  reported: { seat: SeatId };
+  removed: { reason: 'kicked' | 'banned' | 'dropped' };
+  /** Fast game state from a rival (the ghost). `path` says which way it came. */
+  state: { from: SeatId; d: unknown; path: 'dc' | 'relay'; latency: number };
+  ctrl: { from: SeatId; d: unknown };
+  track: { from: SeatId; stream: MediaStream; track: MediaStreamTrack };
+  synced: ClockInfo;
+  roomError: { code: RoomErrorCode };
+  /** The client stopped for good (taken over by another tab, removed, room gone...). */
+  fatal: { reason: FatalReason; code: number };
+  log: string;
+}
+
+export interface LiveClientOptions {
+  grant: JoinGrant;
+  /** Origin of the site, `http://host:port`. Defaults to location.origin. */
+  origin?: string;
+  /** A fresh grant when the Room rejects the ticket (close 4002). Without it a rejected ticket is fatal. */
+  refreshTicket?: () => Promise<JoinGrant>;
+  /** Block keys this device holds (from earlier `blocked` events), sent with every hello. */
+  blocks?: string[];
+  /** Offer our camera to the rivals who also opted in (needs `stream`). */
+  video?: boolean;
+  stream?: MediaStream | null;
+  /** 'webrtc': peer links (browsers). 'none': everything goes through the Room relay. */
+  peers?: 'webrtc' | 'none';
+  /** TURN/STUN servers; fetched from /api/ice when omitted and peers are on. */
+  ice?: IceGrant | (() => Promise<IceGrant>);
+  /** Test switches: only relayed candidates; no usable peer path at all. */
+  forceRelay?: boolean;
+  noP2P?: boolean;
+  /** Create and drop one throwaway RTCPeerConnection in the lobby (the first one blocks the main thread for seconds). */
+  warmup?: boolean;
+  videoLimits?: VideoLimits;
+  sched?: Scheduler;
+  socket?: SocketFactory;
+  random?: () => number;
+  tab?: string;
+  log?: (s: string) => void;
+  /** Tests: replaces `new RTCPeerConnection(cfg)`. */
+  createPeerConnection?: (cfg: RTCConfiguration) => RTCPeerConnection;
+}
+
+export interface LiveMetrics extends PeerMetrics {
+  t0: number;
+  wsOpens: number;
+  wsCloses: number;
+  deadSockets: number;
+  relaySent: number;
+  dcSent: number;
+  stSent: number;
+  stRecvDc: number;
+  stRecvRelay: number;
+  stDup: number;
+  maxGap: number;
+  gaps: number[];
+  pings: number;
+  pongs: number;
+  syncSamples: number;
+  warmupMs?: number;
+  tWsOpen?: number;
+  tWelcome?: number;
+  clock?: ClockInfo;
+}
+
+const TICK_MS = 250;
+const PING_MATCH_MS = 2000;
+const PING_LOBBY_MS = 5000;
+const FINAL_RESEND_MS = 2000;
+const CLOCK_REFRESH_MS = 5000;
+const OUTBOX_MAX = 200;
+const QUEUEABLE = new Set<ClientMessage['t']>(['ready', 'config', 'kick', 'block', 'report', 'signal']);
+const FATAL_CODES: Readonly<Record<number, FatalReason>> = {
+  [CLOSE.FULL]: 'full', [CLOSE.REMOVED]: 'removed', [CLOSE.NO_ROOM]: 'no_room', [CLOSE.VERSION]: 'version', [CLOSE.NOT_ALLOWED]: 'not_allowed',
+};
+
+interface StateEnvelope { q: number; s: string; ts: number; d: unknown }
+
+export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
+  readonly tab: string;
+  sess: string;
+  you: SeatId | null = null;
+  room: RoomInfo | null = null;
+  members: MemberInfo[] = [];
+  match: MatchInfo | null = null;
+  blocks: string[];
+  stream: MediaStream | null;
+  readonly m: LiveMetrics;
+  readonly clock = new ClockFilter();
+  readonly iceConfig: RTCConfiguration = { iceServers: [] };
+  readonly forceRelay: boolean;
+  readonly noP2P: boolean;
+  readonly videoLimits: VideoLimits;
+  readonly opts: LiveClientOptions;
+  closed = false;
+
+  private readonly sched: Scheduler;
+  private readonly socketFactory: SocketFactory;
+  private readonly random: () => number;
+  private grant: JoinGrant;
+  private ws: SocketLike | null = null;
+  private online = false;
+  private attempt = 0;
+  private reconnectTimer: unknown = null;
+  private tickTimer: unknown = null;
+  private lastRefresh = 0;
+  private outbox: ClientMessage[] = [];
+  private seq = 0;
+  private readonly unacked = new Map<number, Extract<ClientMessage, { t: 'ev' }>>();
+  private readonly reasons = new Set<NetPauseReason>();
+  private pendingFinal: Extract<ClientMessage, { t: 'final' }> | null = null;
+  private finalAt = 0;
+  private resultFor: string | null = null;
+  /** What the player last asked for with the ready button; null once a match has used it up. Re-sent when the Room's view differs after a reconnect. */
+  private wantReady: boolean | null = null;
+  private lastPing = 0;
+  private lastPong = 0;
+  private lastMsgIn = 0;
+  private lastClockTry = 0;
+  private burstActive = false;
+  private clockRetries = 0;
+  private stSeq = 0;
+  private readonly peers = new Map<SeatId, PeerLink>();
+  private readonly lastSq = new Map<SeatId, { s: string; q: number }>();
+  private readonly lastStateAt = new Map<SeatId, number>();
+
+  constructor(opts: LiveClientOptions) {
+    super();
+    this.opts = opts;
+    this.grant = opts.grant;
+    this.sched = opts.sched ?? realScheduler;
+    this.socketFactory = opts.socket ?? browserSocket;
+    this.random = opts.random ?? Math.random;
+    this.tab = opts.tab ?? randomId(this.random);
+    this.sess = randomId(this.random);
+    this.blocks = [...(opts.blocks ?? [])];
+    this.stream = opts.stream ?? null;
+    this.forceRelay = !!opts.forceRelay;
+    this.noP2P = !!opts.noP2P;
+    this.videoLimits = opts.videoLimits ?? DEFAULT_VIDEO_LIMITS;
+    this.m = {
+      t0: this.sched.now(), wsOpens: 0, wsCloses: 0, deadSockets: 0, relaySent: 0, dcSent: 0, stSent: 0, stRecvDc: 0, stRecvRelay: 0, stDup: 0, maxGap: 0, gaps: [],
+      pings: 0, pongs: 0, syncSamples: 0, iceRestarts: 0, hardResets: 0, connectMs: [], pathTypes: [], lastReset: 0,
+    };
+  }
+
+  // ───────── PeerHost ─────────
+
+  get me(): SeatId { return this.you ?? ''; }
+  get metrics(): PeerMetrics { return this.m; }
+  now(): number { return this.sched.now(); }
+  log(s: string): void { this.opts.log?.(s); this.emit('log', s); }
+  sendSignal(to: SeatId, d: SignalData): void { this.send({ t: 'signal', to, d }); }
+
+  onCtrl(from: SeatId, raw: string): void {
+    try { this.emit('ctrl', { from, d: JSON.parse(raw) as unknown }); } catch { /* not JSON */ }
+  }
+
+  onTrack(from: SeatId, stream: MediaStream, track: MediaStreamTrack): void {
+    this.emit('track', { from, stream, track });
+  }
+
+  hardReset(link: PeerLink): void {
+    this.newEpoch();
+    link.close();
+    this.peers.delete(link.seat);
+    this.setMembers(this.members);
+  }
+
+  // ───────── lifecycle ─────────
+
+  /** Warms up WebRTC, gets ICE servers, connects. Resolves when the first socket is being opened (not when it is welcomed). */
+  async start(): Promise<void> {
+    const rtc = this.opts.peers === 'webrtc';
+    if (rtc && this.opts.warmup !== false && typeof RTCPeerConnection !== 'undefined') {
+      const w0 = this.sched.now();
+      try {
+        const pc = new RTCPeerConnection();
+        pc.createDataChannel('warm');
+        await pc.setLocalDescription(await pc.createOffer());
+        pc.close();
+      } catch { /* optional */ }
+      this.m.warmupMs = Math.round(this.sched.now() - w0);
+    }
+    if (rtc) {
+      try {
+        const ice = typeof this.opts.ice === 'function' ? await this.opts.ice() : this.opts.ice;
+        if (ice) (this.iceConfig as { iceServers: RTCIceServer[] }).iceServers = ice.iceServers as RTCIceServer[];
+      } catch { /* STUN-less: host candidates still work on one network, the Room relay covers the rest */ }
+      if (this.noP2P) (this.iceConfig as { iceServers: RTCIceServer[] }).iceServers = [{ urls: ['turn:127.0.0.1:9?transport=udp'], username: 'x', credential: 'x' }];
+    }
+    if (this.closed) return;
+    this.connect();
+    this.armTick();
+  }
+
+  /** Stops without telling the Room (another tab took the seat, the page is closing). */
+  stop(): void {
+    if (this.closed) return;
+    this.closed = true;
+    if (this.tickTimer) this.sched.clearTimeout(this.tickTimer);
+    if (this.reconnectTimer) this.sched.clearTimeout(this.reconnectTimer);
+    this.tickTimer = this.reconnectTimer = null;
+    for (const p of this.peers.values()) p.close();
+    this.peers.clear();
+    const ws = this.ws;
+    this.ws = null;
+    this.online = false;
+    if (ws) { ws.onclose = null; ws.onmessage = null; ws.onerror = null; try { ws.close(1000, 'stop'); } catch { /* closing */ } }
+    this.emit('status', { state: 'stopped', attempt: this.attempt });
+  }
+
+  /** Leaving on purpose: during a match the seat forfeits at once. Never call this on page unload (a reload is not a leave). */
+  leave(): void {
+    if (this.closed) return;
+    this.sendNow({ t: 'bye' });
+    this.stop();
+  }
+
+  private fatal(reason: FatalReason, code: number): void {
+    this.stop();
+    this.emit('fatal', { reason, code });
+  }
+
+  // ───────── socket ─────────
+
+  private wsUrl(): string {
+    const origin = (this.opts.origin ?? (typeof location !== 'undefined' ? location.origin : '')).replace(/^http/, 'ws').replace(/\/+$/, '');
+    return `${origin}/api/rooms/${this.grant.code}/ws?ticket=${encodeURIComponent(this.grant.ticket)}`;
+  }
+
+  private connect(): void {
+    if (this.closed) return;
+    this.reconnectTimer = null;
+    const ws = this.socketFactory(this.wsUrl());
+    this.ws = ws;
+    this.online = false;
+    this.emit('status', { state: this.attempt ? 'reconnecting' : 'connecting', attempt: this.attempt });
+    ws.onopen = () => {
+      if (this.ws !== ws) return;
+      this.m.wsOpens++;
+      this.lastPong = this.lastMsgIn = this.sched.now();
+      if (this.m.tWsOpen === undefined) this.m.tWsOpen = this.sched.now() - this.m.t0;
+      // The pause reasons say why this player is paused right now; the Room adopts them instead of resuming the match
+      // and pausing it again a moment later.
+      ws.send(JSON.stringify({
+        t: 'hello', v: NET_PROTOCOL, tab: this.tab, sess: this.sess, video: !!this.opts.video && !!this.stream, reasons: [...this.reasons], blocks: this.blocks.slice(0, 200),
+      } satisfies ClientMessage));
+    };
+    ws.onmessage = (e) => {
+      if (this.ws !== ws) return;
+      if (e.data === 'pong') { this.lastPong = this.sched.now(); this.m.pongs++; return; }
+      this.lastMsgIn = this.sched.now();
+      const msg = parseRoomMessage(e.data);
+      if (msg) this.onRoom(msg);
+    };
+    ws.onclose = (e) => {
+      if (this.ws !== ws) return;
+      this.ws = null;
+      this.online = false;
+      this.m.wsCloses++;
+      this.onClosed(e.code, e.reason);
+    };
+    ws.onerror = () => { /* the close event follows */ };
+  }
+
+  private onClosed(code: number, reason: string): void {
+    if (this.closed) return;
+    if (code === CLOSE.REPLACED) { this.fatal('replaced', code); return; }
+    const fatal = FATAL_CODES[code];
+    if (fatal) { this.fatal(fatal, code); return; }
+    if (code === CLOSE.TICKET) { void this.renewTicket(); return; }
+    this.log(`room socket closed (${code}${reason ? ' ' + reason : ''})`);
+    this.scheduleReconnect();
+  }
+
+  private async renewTicket(): Promise<void> {
+    const refresh = this.opts.refreshTicket;
+    const now = this.sched.now();
+    if (!refresh || now - this.lastRefresh < 3000) { this.fatal('ticket', CLOSE.TICKET); return; }
+    this.lastRefresh = now;
+    try {
+      this.grant = await refresh();
+      this.scheduleReconnect(0);
+    } catch {
+      this.scheduleReconnect();
+    }
+  }
+
+  /** Backoff 250 ms, 500 ms, 1 s, 2 s, 4 s, then 5 s, each with +-30% jitter. */
+  private scheduleReconnect(fixed?: number): void {
+    if (this.closed || this.reconnectTimer) return;
+    const delay = fixed ?? Math.round(Math.min(5000, 250 * 2 ** this.attempt) * (0.7 + this.random() * 0.6));
+    this.attempt++;
+    this.emit('status', { state: 'reconnecting', attempt: this.attempt, delayMs: delay });
+    // a ticket that expires within a minute is renewed before it is used
+    const refresh = this.opts.refreshTicket;
+    if (refresh && this.grant.exp * 1000 - Date.now() < 60_000 && this.sched.now() - this.lastRefresh > 3000) {
+      this.lastRefresh = this.sched.now();
+      void refresh().then((g) => { this.grant = g; }).catch(() => { /* the old ticket may still work */ });
+    }
+    this.reconnectTimer = this.sched.setTimeout(() => this.connect(), delay);
+  }
+
+  /** Drops a socket that looks alive but is not (half-open) and reconnects at once. */
+  private dropSocket(): void {
+    const ws = this.ws;
+    if (!ws) return;
+    this.ws = null;
+    this.online = false;
+    this.m.wsCloses++;
+    ws.onclose = null; ws.onmessage = null; ws.onerror = null;
+    try { ws.close(); } catch { /* closing */ }
+    this.scheduleReconnect(Math.round(100 + this.random() * 200));
+  }
+
+  private sendNow(msg: ClientMessage): boolean {
+    const ws = this.ws;
+    if (ws && ws.readyState === WS_OPEN && this.online) { ws.send(JSON.stringify(msg)); return true; }
+    return false;
+  }
+
+  /** Sends to the Room; messages that must not be lost (ready, config, block, report, signals) wait for the next welcome. */
+  private send(msg: ClientMessage): boolean {
+    if (this.sendNow(msg)) return true;
+    if (QUEUEABLE.has(msg.t)) {
+      if (msg.t === 'ready') this.outbox = this.outbox.filter((x) => x.t !== 'ready');
+      this.outbox.push(msg);
+      if (this.outbox.length > OUTBOX_MAX) this.outbox.shift();
+    }
+    return false;
+  }
+
+  // ───────── messages from the Room ─────────
+
+  private onRoom(msg: RoomMessage): void {
+    switch (msg.t) {
+      case 'welcome': this.onWelcome(msg); break;
+      case 'sync': this.onSync(msg.c, msg.s); break;
+      case 'presence': this.setMembers(msg.members); break;
+      case 'room': this.room = msg.room; this.emit('room', msg.room); break;
+      case 'signal': this.peers.get(msg.from)?.onSignal(msg.d).catch(() => { /* logged inside */ }); break;
+      case 'relay': this.onStateEnvelope(msg.from, msg.d, 'relay'); break;
+      case 'start': this.setMatch(msg.match, 'start'); break;
+      case 'paused': case 'resumed': this.setMatch(msg.match, msg.t); break;
+      case 'forfeit': this.setMatch(msg.match, 'forfeit'); this.emit('forfeit', { seat: msg.seat, match: msg.match }); break;
+      case 'settling': this.emit('settling', { mid: msg.mid }); break;
+      case 'ack': this.onAck(msg.seq, msg.rejected); break;
+      case 'result': this.onResult(msg.result); break;
+      case 'chat': this.emit('chat', { from: msg.from, text: msg.text, at: msg.at }); break;
+      case 'preset': this.emit('preset', { from: msg.from, id: msg.id, at: msg.at }); break;
+      case 'react': this.emit('react', { from: msg.from, id: msg.id, at: msg.at }); break;
+      case 'chat_rejected': this.emit('chatRejected', msg.retryAt === undefined ? { reason: msg.reason } : { reason: msg.reason, retryAt: msg.retryAt }); break;
+      case 'blocked': if (!this.blocks.includes(msg.key)) this.blocks.push(msg.key); this.emit('blocked', { seat: msg.seat, key: msg.key }); break;
+      case 'reported': this.emit('reported', { seat: msg.seat }); break;
+      case 'removed': this.emit('removed', { reason: msg.reason }); break;
+      case 'error': this.log('room error ' + msg.code); this.emit('roomError', { code: msg.code }); break;
+    }
+  }
+
+  private onWelcome(msg: Extract<RoomMessage, { t: 'welcome' }>): void {
+    const now = this.sched.now();
+    this.online = true;
+    this.attempt = 0;
+    this.you = msg.you;
+    this.room = msg.room;
+    if (this.m.tWelcome === undefined) this.m.tWelcome = now - this.m.t0;
+    this.clock.provisional(msg.now, now);
+    this.syncBurst(8, 60);
+    this.setMembers(msg.members);
+    const prev = this.match;
+    this.match = msg.match;
+    const m = msg.match;
+    // resend what the Room has not acknowledged, then what was queued while offline
+    for (const ev of this.unacked.values()) if (m && ev.mid === m.id && m.phase !== 'over') this.sendNow(ev); else this.unacked.delete(ev.seq);
+    if (this.pendingFinal && m && m.id === this.pendingFinal.mid && m.phase !== 'over') this.sendNow(this.pendingFinal);
+    const queued = this.outbox;
+    this.outbox = [];
+    for (const q of queued) this.send(q);
+    // a ready press sent into a socket that was already dead never arrived: say it again if the Room disagrees
+    const mine = msg.members.find((x) => x.seat === msg.you);
+    if (this.wantReady !== null && mine && mine.ready !== this.wantReady && (!m || m.phase === 'over')) this.sendNow({ t: 'ready', ready: this.wantReady });
+    this.emit('welcome', msg);
+    if (m) {
+      if (m.phase !== 'over' && (!prev || prev.id !== m.id)) this.emit('match', { match: m, mine: msg.mine, why: 'welcome' });
+      this.emit('phase', { why: 'welcome', match: m });
+      if (m.phase === 'over' && m.result && this.pendingFinal && this.pendingFinal.mid === m.id) this.onResult(m.result);
+    }
+    this.clock.setSlew(!!m && m.phase !== 'over');
+  }
+
+  private setMatch(match: MatchInfo, why: 'start' | 'paused' | 'resumed' | 'forfeit'): void {
+    this.match = match;
+    this.clock.setSlew(match.phase !== 'over');
+    if (why === 'start') { this.resultFor = null; this.wantReady = null; this.emit('match', { match, mine: [], why: 'start' }); }
+    this.emit('phase', { why, match });
+    if (why === 'start' || why === 'paused') this.syncBurst(6, 70);
+  }
+
+  private onAck(seq: number, rejected?: AckRejection): void {
+    this.unacked.delete(seq);
+    if (rejected) this.log('result rejected: ' + rejected);
+  }
+
+  private onResult(result: MatchResult): void {
+    if (this.resultFor === result.mid) return;
+    this.resultFor = result.mid;
+    if (this.pendingFinal && this.pendingFinal.mid === result.mid) this.pendingFinal = null;
+    for (const [seq, ev] of this.unacked) if (ev.mid === result.mid) this.unacked.delete(seq);
+    if (this.match && this.match.id === result.mid) this.match = { ...this.match, phase: 'over', result };
+    this.clock.setSlew(false);
+    this.wantReady = null;
+    this.emit('result', result);
+  }
+
+  // ───────── room actions ─────────
+
+  setReady(ready: boolean): void {
+    this.wantReady = ready;
+    this.send({ t: 'ready', ready });
+  }
+  configure(c: { gameId?: string; durationMs?: number }): void { this.send({ t: 'config', ...c }); }
+  kick(seat: SeatId): void { this.send({ t: 'kick', seat }); }
+  chat(text: string): void { this.send({ t: 'chat', text }); }
+  preset(id: PresetId): void { this.send({ t: 'preset', id }); }
+  react(id: ReactionId): void { this.send({ t: 'react', id }); }
+  block(seat: SeatId): void { this.send({ t: 'block', seat }); }
+  reportPlayer(seat: SeatId, reason: ReportReason, block: boolean): void { this.send({ t: 'report', seat, reason, block }); }
+
+  /** Camera on or off for rivals who also opted in (the Room decides who may see it). */
+  setVideo(on: boolean): void {
+    (this.opts as { video?: boolean }).video = on;
+    this.send({ t: 'video', on: on && !!this.stream });
+  }
+
+  /** The player's own state: the Room keeps one reason per player, so `unpause` is only sent when none is left. */
+  pause(reason: NetPauseReason): void {
+    this.reasons.add(reason);
+    this.sendNow({ t: 'pause', reason });          // offline: the next hello carries it
+  }
+
+  unpause(reason?: NetPauseReason): void {
+    if (reason) this.reasons.delete(reason); else this.reasons.clear();
+    if (!this.reasons.size) this.sendNow({ t: 'unpause' });
+  }
+
+  /** The player's result for one obstacle: acknowledged by the Room, resent after any reconnect until it is. */
+  reportResult(ob: number, k: Outcome): void {
+    const m = this.match;
+    if (!m) return;
+    const ev: Extract<ClientMessage, { t: 'ev' }> = { t: 'ev', mid: m.id, seq: ++this.seq, ob, k };
+    this.unacked.set(ev.seq, ev);
+    this.sendNow(ev);
+  }
+
+  /** End of match: the full outcome list. Resent every 2 s and after reconnects until the result arrives. */
+  finish(evs: readonly ObstacleResult[]): void {
+    const m = this.match;
+    if (!m || (this.pendingFinal && this.pendingFinal.mid === m.id) || this.resultFor === m.id) return;
+    this.pendingFinal = { t: 'final', mid: m.id, evs: evs.map((e) => ({ ob: e.ob, k: e.k })) };
+    this.finalAt = this.sched.now();
+    this.sendNow(this.pendingFinal);
+  }
+
+  // ───────── clock ─────────
+
+  serverNow(): number {
+    const now = this.sched.now();
+    return now + this.clock.offset(now);
+  }
+
+  /** Match time in ms from the Room's numbers: the same on every device within the clock error. Negative before time zero. */
+  matchTime(): number {
+    const m = this.match;
+    if (!m) return 0;
+    if (m.phase === 'settling' || m.phase === 'over') return m.duration;
+    const t = m.phase === 'paused' ? (m.pausedAt as number) : this.serverNow();
+    return t - m.startAt - m.pauseTotal;
+  }
+
+  /** Is this client one of the players of the current match (not a spectator, not forfeited)? */
+  get playing(): boolean {
+    const m = this.match;
+    return !!m && !!this.you && m.phase !== 'over' && m.seats.includes(this.you) && !m.forfeited.includes(this.you);
+  }
+
+  get self(): MemberInfo | undefined {
+    return this.members.find((x) => x.seat === this.you);
+  }
+
+  private syncBurst(n: number, gap: number): void {
+    if (this.burstActive) return;
+    this.burstActive = true;
+    let i = 0;
+    const one = (): void => {
+      if (this.closed || i++ >= n || !this.sendNow({ t: 'sync', c: this.sched.now() })) { this.burstActive = false; return; }
+      this.sched.setTimeout(one, gap);
+    };
+    one();
+  }
+
+  private onSync(c: number, s: number): void {
+    const now = this.sched.now();
+    this.m.syncSamples++;
+    if (this.clock.add(now - c, s, now)) {
+      this.m.clock = this.clock.info(now);
+      this.emit('synced', this.m.clock);
+    }
+  }
+
+  // ───────── members and peer links ─────────
+
+  private desiredVideo(rival: MemberInfo): boolean {
+    return !!this.opts.video && !!this.stream && !!this.self?.video && rival.video;
+  }
+
+  private setMembers(list: MemberInfo[]): void {
+    this.members = list;
+    if (this.opts.peers === 'webrtc' && this.you) {
+      for (const mem of list) {
+        if (mem.seat === this.you || !mem.online) continue;
+        const p = this.peers.get(mem.seat);
+        const want = this.desiredVideo(mem);
+        if (p && p.remoteSess === mem.sess && p.sendVideo === want) continue;
+        if (p) {
+          p.close();
+          if (p.remoteSess === mem.sess) this.newEpoch();         // we change the link (video on or off): the rival must rebuild too
+        }
+        this.peers.set(mem.seat, new PeerLink(this, mem.seat, mem.sess, want, this.opts.createPeerConnection));
+      }
+      for (const [seat, p] of this.peers) if (!list.some((x) => x.seat === seat)) { p.close(); this.peers.delete(seat); }
+    }
+    this.emit('presence', list);
+  }
+
+  /** A new peer-connection epoch: every rival rebuilds its link to us. */
+  private newEpoch(): void {
+    this.sess = randomId(this.random);
+    this.sendNow({ t: 'sess', sess: this.sess });       // offline: the next hello carries the new epoch
+  }
+
+  /** Replaces the camera track in every running link (no renegotiation). */
+  async replaceVideoTrack(track: MediaStreamTrack): Promise<void> {
+    this.stream = new MediaStream([track]);
+    for (const p of this.peers.values()) await p.replaceTrack(track);
+  }
+
+  // ───────── fast game state ─────────
+
+  /** The ghost and the live score at about 15 Hz: peer channel when healthy, Room relay when not, both while degraded. */
+  sendState(d: unknown): void {
+    const env: StateEnvelope = { q: ++this.stSeq, s: this.tab, ts: this.serverNow(), d };
+    const text = JSON.stringify(env);
+    this.m.stSent++;
+    let viaDc = false;
+    for (const p of this.peers.values()) if (p.sendState(text)) { viaDc = true; this.m.dcSent++; }
+    // degraded: no open channel, or a rival has gone quiet on it. The receiver drops duplicates by sequence number.
+    const degraded = !viaDc || [...this.peers.values()].some((p) => p.stale);
+    if (degraded && this.sendNow({ t: 'relay', d: env })) this.m.relaySent++;
+  }
+
+  /** A message for the rivals' reliable control channel (rarely needed; the Room is the reliable path). */
+  sendCtrl(d: unknown): void {
+    const text = JSON.stringify(d);
+    for (const p of this.peers.values()) p.sendCtrl(text);
+  }
+
+  onState(from: SeatId, raw: string): void {
+    let env: unknown;
+    try { env = JSON.parse(raw); } catch { return; }
+    this.onStateEnvelope(from, env, 'dc');
+  }
+
+  private onStateEnvelope(from: SeatId, env: unknown, path: 'dc' | 'relay'): void {
+    if (typeof env !== 'object' || env === null) return;
+    const e = env as Partial<StateEnvelope>;
+    if (typeof e.q !== 'number' || typeof e.s !== 'string' || typeof e.ts !== 'number') return;
+    const last = this.lastSq.get(from);
+    if (last && last.s === e.s && e.q <= last.q) { this.m.stDup++; return; }
+    this.lastSq.set(from, { s: e.s, q: e.q });
+    const now = this.sched.now();
+    const p = this.peers.get(from);
+    const prevAt = this.lastStateAt.get(from);
+    if (prevAt !== undefined) {
+      const gap = now - prevAt;
+      if (gap > this.m.maxGap) this.m.maxGap = gap;
+      if (gap > 400) this.m.gaps.push(Math.round(gap));
+    }
+    this.lastStateAt.set(from, now);
+    if (p) { p.lastMsg = now; }
+    if (path === 'dc') this.m.stRecvDc++; else this.m.stRecvRelay++;
+    this.emit('state', { from, d: e.d, path, latency: this.serverNow() - e.ts });
+  }
+
+  // ───────── the 250 ms tick ─────────
+
+  private armTick(): void {
+    if (this.closed) return;
+    this.tickTimer = this.sched.setTimeout(() => { this.tick(); this.armTick(); }, TICK_MS);
+  }
+
+  private tick(): void {
+    const now = this.sched.now();
+    // Half-open detection (a Wi-Fi to 4G hand-over leaves a TCP connection that never closes): ping every 2 s in a
+    // match, 5 s otherwise; no pong for three periods drops the socket and reconnects.
+    const live = !!this.match && this.match.phase !== 'over';
+    const period = live ? PING_MATCH_MS : PING_LOBBY_MS;
+    const ws = this.ws;
+    if (ws && ws.readyState === WS_OPEN) {
+      if (!this.lastPing || now - this.lastPing > period) { this.lastPing = now; this.m.pings++; try { ws.send('ping'); } catch { /* closing */ } }
+      if (this.lastPong && now - this.lastPong > period * 3 + 500) {
+        this.log(`no pong: reconnecting (last pong ${Math.round(now - this.lastPong)} ms ago, last message ${Math.round(now - this.lastMsgIn)} ms ago)`);
+        this.m.deadSockets++;
+        this.dropSocket();
+      }
+    }
+    for (const p of this.peers.values()) p.watch();
+    if (this.pendingFinal && this.online && now - this.finalAt > FINAL_RESEND_MS) { this.finalAt = now; this.sendNow(this.pendingFinal); }
+    if (this.online && now - this.lastClockTry > CLOCK_REFRESH_MS) {
+      this.lastClockTry = now;
+      // a first estimate built on slow round trips is improved at once, a few times
+      if (!this.clock.good && this.clockRetries < 4) { this.clockRetries++; this.syncBurst(6, 70); } else { if (this.clock.good) this.clockRetries = 0; this.syncBurst(2, 70); }
+    }
+  }
+
+  /** Link statistics for tests and the connection indicator. */
+  async stats(): Promise<LinkStats[]> {
+    const out: LinkStats[] = [];
+    for (const p of this.peers.values()) out.push(await p.stats());
+    return out;
+  }
+
+  get peerLinks(): ReadonlyMap<SeatId, PeerLink> {
+    return this.peers;
+  }
+}
