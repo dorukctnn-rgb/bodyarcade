@@ -1,33 +1,44 @@
 // The browser app: it owns the settings, the language, the plan and the router, draws the page for each address with
-// the same views the page generator uses, and handles what the player does (clicks, forms, dialogs, the round).
+// the same views the page generator uses, and handles what the player does (clicks, forms, the round).
 import type { Plan, Session } from '../../../core/types/index.ts';
 import { detectUiCapabilities, type UiCapabilities } from '../../../core/ui/capabilities.ts';
-import { openDialog, type DialogHandle } from '../../../core/ui/dialog.ts';
-import { detectLang, isLang, LANG_INFO, type Lang } from '../../../core/ui/i18n/index.ts';
+import { openDialog } from '../../../core/ui/dialog.ts';
+import { detectLang, isLang, LANG_INFO, type I18n, type Lang } from '../../../core/ui/i18n/index.ts';
 import { createLiveRegion, type LiveRegion } from '../../../core/ui/live-region.ts';
 import { createNavigation, type Matched, type Navigation, type RouteChange } from '../../../core/ui/router.ts';
 import { shouldShowPaywallAfterRound, STUB_PLANS, type PlansConfig } from '../../../core/ui/plans.ts';
 import { applySettingsToDocument, createSettingsStore, type Settings, type SettingsStore } from '../../../core/ui/settings.ts';
 import { createToaster, type Toaster } from '../../../core/ui/toast.ts';
-import { createStore, browserStorage, type BodyArcadeStore, type StorageLike, type StoreNamespace } from '../../../core/store/store.ts';
+import { createStore, type BodyArcadeStore, type StorageLike, type StoreNamespace } from '../../../core/store/store.ts';
 import type { Catalogue, ShellGame } from '../../catalogue/types.ts';
 import { gameById, gameBySlug } from '../../catalogue/filter.ts';
 import { mappedAssets, devAssets, type AssetResolver } from '../assets.ts';
 import type { ViewContext } from '../context.ts';
 import { accessOf, hasPro, titleOf } from '../context.ts';
 import { makeContext } from '../make-context.ts';
-import { EMPTY_STATE, renderPage, type PageState } from '../pages.ts';
+import { EMPTY_STATE, renderPage, SITE_ORIGIN, type PageState } from '../pages.ts';
 import { INDEXED_LANGS, router, type RouteId } from '../routes.ts';
+import type { GameData } from '../views/game.ts';
+import type { HomeData } from '../views/home.ts';
 import { confirmHtml, type ConfirmOptions } from '../views/misc.ts';
-import { defaultPaywallState, paywallHtml, selectedOffer, type KeyStatus, type PaywallReason, type PaywallState } from '../views/paywall.ts';
-import { PRO_DIFFICULTIES, defaultSetup, playHref, sanitizeSetup, setupFromQuery, setupHtml, type Difficulty, type SetupState } from '../views/setup.ts';
+import { defaultPaywallState, selectedOffer, type KeyStatus, type PaywallState } from '../views/paywall.ts';
 import type { RoundResult } from '../views/results.ts';
+import { PRO_DIFFICULTIES, defaultSetup, playHref, sanitizeSetup, setupFields, setupFromForm, setupFromQuery, type SetupState } from '../views/setup.ts';
 import { applyHead, readAssetMap, swap } from './dom.ts';
 import { localEntitlements } from './entitlements.ts';
+import { addRound, HISTORY_SCHEMA, recentBests, weekStats, type RoundRecord } from './history.ts';
 import { PlayController, type PlayHost } from './play.ts';
 import type { EntitlementsPort, SessionFactory } from './ports.ts';
 import { BESTS_SCHEMA, bestOf, buildRoundResult, withBest, type Bests } from './results.ts';
-import { SITE_ORIGIN } from '../pages.ts';
+
+/** What a session factory needs from the app: where the store is, the words, and the player's switches. */
+export interface AppServices {
+  store: BodyArcadeStore;
+  i18n(): I18n;
+  reducedMotion(): boolean;
+  soundOn(): boolean;
+  quiet(): boolean;
+}
 
 export interface AppOptions {
   win: Window & typeof globalThis;
@@ -38,9 +49,15 @@ export interface AppOptions {
   storage?: StorageLike | null;
   entitlements?: EntitlementsPort;
   sessionFactory?: SessionFactory;
+  /** Makes the session factory once the app's services exist (the real session needs the store and the words). */
+  makeSessionFactory?: (s: AppServices) => SessionFactory;
   plans?: PlansConfig;
   /** Friends, lobbies and rooms (off until the social server exists). */
   social?: boolean;
+  /** The player pressed something that starts a round: the place to unlock the sound. */
+  onPlayGesture?: () => void;
+  /** Called when a round's page goes away, so the session factory can give back what it holds. */
+  onRoundEnded?: () => void;
 }
 
 const PIP_ORDER = ['bottom-right', 'bottom-left', 'top-left', 'top-right', 'hidden'] as const;
@@ -65,16 +82,21 @@ export class App {
   private readonly games: readonly ShellGame[];
   private readonly assets: AssetResolver;
   private readonly plans: PlansConfig;
+  private readonly factory: SessionFactory | undefined;
   private nav!: Navigation<RouteId>;
   private caps: UiCapabilities;
   private lang: Lang = 'en';
   private route: Matched<RouteId> | null = null;
   private state: PageState = { ...EMPTY_STATE };
   private bests: Bests;
+  private history: RoundRecord[];
   private play: PlayController | null = null;
-  private paywallDialog: DialogHandle | null = null;
   private plan: Plan;
   private capsTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The choices on each game's page, kept while the app is open. */
+  private readonly setups = new Map<string, SetupState>();
+  /** How many times the player moved inside the app: a close button goes back only when there is a back. */
+  private moves = 0;
   private readonly cleanups: (() => void)[] = [];
 
   constructor(o: AppOptions) {
@@ -99,8 +121,12 @@ export class App {
     const map = readAssetMap(this.doc);
     this.assets = Object.keys(map).length > 0 ? mappedAssets(map) : devAssets;
     this.bests = this.shell.get('bests', BESTS_SCHEMA, {});
+    this.history = this.shell.get('history', HISTORY_SCHEMA, []);
     this.live = createLiveRegion(this.doc as never);
     this.toaster = createToaster(this.doc as never, this.live);
+    this.factory = o.sessionFactory ?? o.makeSessionFactory?.({
+      store: this.store, i18n: () => this.ctx().i18n, reducedMotion: () => this.reducedMotion(), soundOn: () => this.currentSettings().sound, quiet: () => this.currentSettings().quiet,
+    });
   }
 
   // ---- context -----------------------------------------------------------------------------------------------------
@@ -140,7 +166,7 @@ export class App {
     this.on(this.win, 'offline', () => this.toaster.show(this.ctx().i18n.t('toast.offline'), { kind: 'warn' }));
     this.on(this.win, 'resize', () => this.onResize());
     this.on(this.win, 'orientationchange', () => this.onResize());
-    this.cleanups.push(this.entitlements.onChange((p) => { this.plan = p; if (this.route && this.route.id !== 'play') this.render(); }));
+    this.cleanups.push(this.entitlements.onChange((p) => { this.plan = p; this.rerender(); }));
     this.cleanups.push(this.settings.subscribe(() => this.apply()));
     this.apply();
     this.nav.start();
@@ -177,6 +203,7 @@ export class App {
         return;
       }
     }
+    if (!change.initial && !change.replaced) this.moves += 1;
     this.endPlay();
     this.route = route;
     this.lang = route && route.lang !== 'en' ? route.lang : (route ? 'en' : this.lang);
@@ -186,12 +213,49 @@ export class App {
     if (route?.id === 'results') this.afterResults();
   }
 
+  private bestAnyLevel(gameId: string): number | null {
+    const by = this.bests[gameId];
+    if (!by) return null;
+    const v = Object.values(by);
+    return v.length ? Math.max(...v) : null;
+  }
+
+  /** What the home page knows about this player's weeks. */
+  private homeData(route: Matched<RouteId> | null): HomeData {
+    const today = this.store.day();
+    const week = this.history.length > 0 ? weekStats(this.history, today) : null;
+    return {
+      week,
+      recent: week ? recentBests(this.history, (g) => this.bestAnyLevel(g)) : [],
+      duoOnly: this.caps.local2 && route?.query.get('players') === '2',
+    };
+  }
+
+  private gameData(g: ShellGame, ctx: ViewContext): GameData {
+    return { best: this.bestAnyLevel(g.id), setup: this.setupFor(g, ctx) };
+  }
+
+  private setupFor(g: ShellGame, ctx: ViewContext): SetupState {
+    const s = this.setups.get(g.id) ?? defaultSetup(ctx, g);
+    return sanitizeSetup(ctx, g, s);
+  }
+
   private render(): void {
     const route = this.route;
     this.endPlay();
     const ctx = this.ctx();
-    if (route?.id === 'pro' && !this.state.paywall) this.state = { ...this.state, paywall: defaultPaywallState(ctx, 'menu') };
-    const page = renderPage(ctx, route, { ...this.state, reducedMotion: this.reducedMotion() });
+    if (route?.id === 'pro') {
+      const gameId = route.query.get('game') ?? undefined;
+      if (!this.state.paywall || this.state.paywall.gameId !== gameId) this.state = { ...this.state, paywall: defaultPaywallState(ctx, gameId) };
+    }
+    const game = route?.id === 'game' ? gameBySlug(this.games, route.params['slug'] ?? '') : undefined;
+    const state: PageState = {
+      ...this.state,
+      reducedMotion: this.reducedMotion(),
+      home: this.homeData(route),
+      game: game ? this.gameData(game, ctx) : this.state.game,
+    };
+    const page = renderPage(ctx, route, state);
     swap(this.host, page.body.value);
     const info = LANG_INFO.find((l) => l.code === this.lang);
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });
@@ -221,14 +285,14 @@ export class App {
     const setup = setupFromQuery(ctx, g, route.query);
     // A Pro game without Pro and without a free round left goes to the offer, not to a round that cannot count.
     if (accessOf(ctx, g) === 'locked') {
-      this.nav.go(ctx.href('game', { params: { slug: g.seo.slug } }), { replace: true });
-      this.openPaywall('game', g.id);
+      this.nav.go(ctx.href('pro', { query: { game: g.id } }), { replace: true });
       return;
     }
-    const factory = this.o.sessionFactory;
+    const factory = this.factory;
     this.play = new PlayController({
       host: this.playHost(g), game: g, setup, stage,
       makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles }) ?? null,
+      ...(this.o.onRoundEnded ? { release: this.o.onRoundEnded } : {}),
     });
     void this.play.begin();
   }
@@ -264,6 +328,7 @@ export class App {
       },
       setupChanged: (s) => {
         const c = this.ctx();
+        this.setups.set(g.id, s);
         this.win.history.replaceState(this.win.history.state, '', playHref(c, g, s));
       },
     };
@@ -279,6 +344,9 @@ export class App {
       this.bests = withBest(this.bests, game.id, setup.difficulty, summary.score);
       this.shell.set('bests', this.bests);
     }
+    const now = Date.now();
+    this.history = addRound(this.history, { day: this.store.day(), game: game.id, score: summary.score, seconds: Math.round(summary.seconds), at: now });
+    this.shell.set('history', this.history);
     this.state = { ...this.state, result };
     this.shell.set('rounds', this.rounds() + 1);
     this.nav.go(ctx.href('results'), { replace: true });
@@ -296,73 +364,12 @@ export class App {
     });
     if (!show) return;
     this.settings.set({ paywallShownAt: Date.now() });
-    setTimeout(() => { if (this.route?.id === 'results') this.openPaywall('results'); }, 900);
+    setTimeout(() => { if (this.route?.id === 'results') this.nav.go(this.ctx().href('pro', { query: { from: 'results' } })); }, 900);
   }
-
-  // ---- dialogs -----------------------------------------------------------------------------------------------------
 
   private confirm(o: ConfirmOptions): Promise<boolean> {
     const d = openDialog({ html: confirmHtml(o), labelledBy: 'confirm-title', describedBy: 'confirm-body' });
     return d.closed.then((r) => r === 'yes');
-  }
-
-  private openSetup(g: ShellGame): void {
-    const ctx = this.ctx();
-    let state = defaultSetup(ctx, g);
-    const dlg = openDialog({ html: setupHtml(ctx, g, state), labelledBy: 'setup-title', className: 'ba-modal--setup' });
-    const read = (form: HTMLFormElement): SetupState => {
-      const f = new FormData(form);
-      const pick = <T extends string>(k: string, fallback: T): T => (f.get(k) as T | null) ?? fallback;
-      return {
-        players: pick('players', String(state.players)) === '2' ? 2 : 1,
-        input: pick('input', state.input) === 'keyboard' ? 'keyboard' : 'camera',
-        difficulty: pick<Difficulty>('difficulty', state.difficulty),
-        seated: f.has('seated'), quiet: f.has('quiet'),
-      };
-    };
-    dlg.el.addEventListener('change', (e) => {
-      const form = (e.target as HTMLElement).closest('form');
-      if (!form) return;
-      const c = this.ctx();
-      const wanted = read(form);
-      if (PRO_DIFFICULTIES.includes(wanted.difficulty) && !hasPro(c)) {
-        dlg.setHtml(setupHtml(c, g, state));
-        this.openPaywall('game', g.id);
-        return;
-      }
-      state = sanitizeSetup(c, g, wanted);
-      dlg.setHtml(setupHtml(c, g, state));
-    });
-    dlg.el.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const c = this.ctx();
-      if (accessOf(c, g) === 'locked') { this.openPaywall('game', g.id); return; }
-      dlg.close('start');
-      this.nav.go(playHref(c, g, state));
-    });
-  }
-
-  private openPaywall(reason: PaywallReason, gameId?: string): void {
-    const ctx = this.ctx();
-    if (hasPro(ctx)) { this.toaster.show(ctx.i18n.t('paywall.active')); return; }
-    if (this.paywallDialog) return;
-    const st = defaultPaywallState(ctx, reason, gameId);
-    this.state = { ...this.state, paywall: st };
-    const dlg = openDialog({ html: paywallHtml(ctx, st, { dialog: true }), labelledBy: 'paywall-title', className: 'ba-modal--wide', onClose: () => { this.paywallDialog = null; } });
-    this.paywallDialog = dlg;
-    dlg.el.addEventListener('change', (e) => {
-      const t = e.target as HTMLInputElement;
-      if (t.name === 'plan') this.setPaywall({ selected: t.value as PaywallState['selected'] });
-    });
-  }
-
-  /** Updates the offer's state and redraws it where it is shown, in the window or on its page. */
-  private setPaywall(patch: Partial<PaywallState>): void {
-    const ctx = this.ctx();
-    const st: PaywallState = { ...(this.state.paywall ?? defaultPaywallState(ctx)), ...patch };
-    this.state = { ...this.state, paywall: st };
-    if (this.paywallDialog) this.paywallDialog.setHtml(paywallHtml(ctx, st, { dialog: true }));
-    else if (this.route?.id === 'pro') this.render();
   }
 
   // ---- events ------------------------------------------------------------------------------------------------------
@@ -372,20 +379,14 @@ export class App {
     if (!el) return;
     const action = el.dataset['action'] ?? '';
     if (this.play?.action(action)) { e.preventDefault(); return; }
-    const gameId = el.dataset['game'];
-    const g = gameId ? gameById(this.games, gameId) : undefined;
     switch (action) {
-      case 'open-setup':
-        if (!g) return;
-        e.preventDefault();
-        this.openSetup(g);
-        break;
-      case 'open-pro':
-        e.preventDefault();
-        this.openPaywall(g ? 'game' : 'menu', g?.id);
+      case 'mode':
+        this.toggleMode(el.dataset['mode'] ?? '');
         break;
       case 'close-paywall':
-        if (this.paywallDialog) { e.preventDefault(); this.paywallDialog.close('dismissed'); }
+        e.preventDefault();
+        if (this.moves > 0) this.win.history.back();
+        else this.nav.go(this.ctx().href('home'), { replace: true });
         break;
       case 'lang': {
         const l = el.dataset['lang'];
@@ -413,11 +414,27 @@ export class App {
     }
   }
 
+  /** The chips on the home page: seated and quiet are the player's modes (kept), two players only filters the grid. */
+  private toggleMode(mode: string): void {
+    if (mode === 'seated') this.settings.set({ seated: !this.currentSettings().seated });
+    else if (mode === 'quiet') this.settings.set({ quiet: !this.currentSettings().quiet });
+    else if (mode === 'duo') {
+      const u = new URL(this.win.location.href);
+      if (u.searchParams.get('players') === '2') u.searchParams.delete('players'); else u.searchParams.set('players', '2');
+      this.win.history.replaceState(this.win.history.state, '', `${u.pathname}${u.search}`);
+      this.route = router.match(this.urlNow());
+    } else return;
+    this.render();
+    const chip = this.doc.querySelector<HTMLElement>(`[data-action="mode"][data-mode="${CSS.escape(mode)}"]`);
+    chip?.focus({ preventScroll: true });
+  }
+
   private onChange(e: Event): void {
-    const t = e.target as HTMLInputElement | null;
+    const t = e.target as HTMLInputElement | HTMLSelectElement | null;
     if (!t) return;
     if (t.closest('[data-form="settings"]')) this.onSettingChanged(t);
-    else if (t.closest('[data-form="paywall"]') && t.name === 'plan' && !this.paywallDialog) this.setPaywall({ selected: t.value as PaywallState['selected'] });
+    else if (t.closest('[data-form="setup"]')) this.onSetupChanged(t.closest('form') as HTMLFormElement);
+    else if (t.closest('[data-form="paywall"]') && (t as HTMLInputElement).name === 'plan') this.setPaywall({ selected: t.value as PaywallState['selected'] });
   }
 
   private onInput(e: Event): void {
@@ -427,19 +444,55 @@ export class App {
 
   private onSubmit(e: Event): void {
     const form = e.target as HTMLFormElement | null;
-    if (form?.matches('[data-form="settings"], [data-form="paywall"]')) e.preventDefault();
+    if (!form) return;
+    if (form.matches('[data-form="setup"]')) { e.preventDefault(); this.startRound(form); }
+    else if (form.matches('[data-form="settings"], [data-form="paywall"]')) e.preventDefault();
   }
 
-  private onSettingChanged(t: HTMLInputElement): void {
+  private gameOfForm(form: HTMLFormElement): ShellGame | undefined {
+    return gameById(this.games, form.dataset['game'] ?? '');
+  }
+
+  /** A choice on the game's page: the fields are drawn again from the new state; a Pro choice goes to the offer instead. */
+  private onSetupChanged(form: HTMLFormElement): void {
+    const g = this.gameOfForm(form);
+    if (!g) return;
+    const ctx = this.ctx();
+    const prev = this.setupFor(g, ctx);
+    const wanted = setupFromForm(ctx, g, new FormData(form), prev);
+    const locked = PRO_DIFFICULTIES.includes(wanted.difficulty) && !hasPro(ctx);
+    const next = locked ? prev : sanitizeSetup(ctx, g, wanted);
+    this.setups.set(g.id, next);
+    const fields = form.querySelector<HTMLElement>('[data-setup-fields]');
+    if (fields) {
+      const open = fields.querySelector<HTMLDetailsElement>('details.k-more')?.open ?? false;
+      swap(fields, setupFields(ctx, g, next).value);
+      if (open) { const d = fields.querySelector<HTMLDetailsElement>('details.k-more'); if (d) d.open = true; }
+    }
+    if (locked) this.nav.go(ctx.href('pro', { query: { game: g.id } }));
+  }
+
+  private startRound(form: HTMLFormElement): void {
+    const g = this.gameOfForm(form);
+    if (!g) return;
+    const ctx = this.ctx();
+    const next = sanitizeSetup(ctx, g, setupFromForm(ctx, g, new FormData(form), this.setupFor(g, ctx)));
+    this.setups.set(g.id, next);
+    this.o.onPlayGesture?.();
+    this.nav.go(playHref(ctx, g, next));
+  }
+
+  private onSettingChanged(t: HTMLInputElement | HTMLSelectElement): void {
     const s = this.settings;
     const ctx = this.ctx();
+    const checked = (t as HTMLInputElement).checked;
     switch (t.name) {
-      case 'seated': s.set({ seated: t.checked }); break;
-      case 'quiet': s.set({ quiet: t.checked }); break;
-      case 'skeleton': s.set({ skeleton: t.checked }); break;
-      case 'sound': s.set({ sound: t.checked }); break;
-      case 'bigText': s.set({ bigText: t.checked }); break;
-      case 'motion': s.set({ motion: t.checked ? 'reduce' : 'full' }); break;
+      case 'seated': s.set({ seated: checked }); break;
+      case 'quiet': s.set({ quiet: checked }); break;
+      case 'skeleton': s.set({ skeleton: checked }); break;
+      case 'sound': s.set({ sound: checked }); break;
+      case 'bigText': s.set({ bigText: checked }); break;
+      case 'motion': s.set({ motion: checked ? 'reduce' : 'full' }); break;
       case 'theme': s.set({ theme: t.value as Settings['theme'] }); break;
       case 'pipCorner': s.set({ pipCorner: t.value as Settings['pipCorner'] }); break;
       case 'weightKg': {
@@ -472,6 +525,8 @@ export class App {
     this.settings.reset();
     this.shell.set('plan', plan);
     this.bests = {};
+    this.history = [];
+    this.setups.clear();
     this.state = { ...EMPTY_STATE };
     this.apply();
     this.rerender();
@@ -479,6 +534,14 @@ export class App {
   }
 
   // ---- buying ------------------------------------------------------------------------------------------------------
+
+  /** Updates the offer's state and draws it again where it is shown. */
+  private setPaywall(patch: Partial<PaywallState>): void {
+    const ctx = this.ctx();
+    const st: PaywallState = { ...(this.state.paywall ?? defaultPaywallState(ctx)), ...patch };
+    this.state = { ...this.state, paywall: st };
+    if (this.route?.id === 'pro') this.render();
+  }
 
   private buy(planId: string): void {
     const ctx = this.ctx();
@@ -503,7 +566,6 @@ export class App {
       this.plan = r.plan;
       this.setPaywall({ keyStatus: 'ok' });
       this.live.announce(this.ctx().i18n.t('paywall.key.ok'));
-      setTimeout(() => { this.paywallDialog?.close('active'); this.rerender(); }, 900);
     } else this.setPaywall({ keyOpen: true, keyStatus: r.code });
   }
 
@@ -514,8 +576,11 @@ export class App {
   }
 
   /** For tests and tools: where the app is and what it holds. Development and test builds only. */
-  debug(): { route: Matched<RouteId> | null; lang: Lang; plan: Plan; titleOf: (id: string) => string; result: RoundResult | null; playProblems: string[] } {
-    return { route: this.route, lang: this.lang, plan: this.plan, result: this.state.result, playProblems: this.play?.problems() ?? [], titleOf: (id) => { const g = gameById(this.games, id); return g ? titleOf(this.ctx(), g) : ''; } };
+  debug(): { route: Matched<RouteId> | null; lang: Lang; plan: Plan; titleOf: (id: string) => string; result: RoundResult | null; playProblems: string[]; moves: number } {
+    return {
+      route: this.route, lang: this.lang, plan: this.plan, result: this.state.result, playProblems: this.play?.problems() ?? [], moves: this.moves,
+      titleOf: (id) => { const g = gameById(this.games, id); return g ? titleOf(this.ctx(), g) : ''; },
+    };
   }
 
   /** For tests: sets the plan the way a completed purchase would. */
@@ -523,7 +588,4 @@ export class App {
     if (!this.o.demo) return;
     (this.entitlements as ReturnType<typeof localEntitlements>).set?.(p);
   }
-
-  /** Paywall page and window share this so tests can read what is selected. */
-  paywallState(): PaywallState | null { return this.state.paywall; }
 }

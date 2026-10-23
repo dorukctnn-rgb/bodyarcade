@@ -127,7 +127,7 @@ describe('the schema and the rules refuse bad manifests', () => {
     bad((e) => { delete (e['catalogue'] as Record<string, unknown>)['quietNote']; }, /no quietNote/);
   });
 
-  it('finds duplicates and related games that do not exist', () => {
+  it('finds duplicate slugs and orders, and lets a game name related games that are not built yet', () => {
     const a = raw('squat-flap');
     const b = raw('knee-sprint');
     b.catalogue.order = a.catalogue.order;
@@ -136,7 +136,7 @@ describe('the schema and the rules refuse bad manifests', () => {
     const text = r.problems.map((p) => p.message).join('\n');
     expect(text).toMatch(/slug squat-flap is also used/);
     expect(text).toMatch(/order 1 is also used/);
-    expect(text).toMatch(/related game road-run does not exist/);
+    expect(text).not.toMatch(/related/);
   });
 
   it('wants the tile art to exist when asked', () => {

@@ -35,7 +35,7 @@ export function gameGrid(ctx: ViewContext, games: readonly ShellGame[], label?: 
 }
 
 /** The chips above the grid: all games, then each body region that has games. `active` is the region page being shown. */
-export function regionChips(ctx: ViewContext, active: BodyRegion | null): SafeHtml {
+export function regionChips(ctx: ViewContext, active: BodyRegion | null, modes: SafeHtml | string = ''): SafeHtml {
   const t = ctx.i18n;
   // A region every game belongs to (the seated one) filters nothing, so it is a chip only when its own page is open.
   const counts = regionCounts(ctx.games, REGION_ORDER).filter((c) => c.count < ctx.games.length || c.region === active);
@@ -47,5 +47,5 @@ export function regionChips(ctx: ViewContext, active: BodyRegion | null): SafeHt
     const gl = g ? glyph(g.pose, { decorative: true, floor: false, size: 34, highlight: g.highlight }) : html``;
     return chip(ctx.href('region', { params: { region } }), regionLabel(ctx, region), active === region, gl);
   });
-  return html`<nav class="ba-filters" aria-label="${t.t('a11y.regionFilter')}">${all}${rest}</nav>`;
+  return html`<div class="ba-filters" role="group" aria-label="${t.t(modes ? 'home.filtersModes' : 'a11y.regionFilter')}">${all}${rest}${modes ? html`<span class="sep" aria-hidden="true"></span>${modes}` : ''}</div>`;
 }

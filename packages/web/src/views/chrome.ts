@@ -54,6 +54,8 @@ export interface ChromeOptions {
   main: SafeHtml;
   /** Extra class on the main element. */
   mainClass?: string;
+  /** A screen reached from another (a game, the results): back button in its own header, no tab bar. */
+  pushed?: boolean;
 }
 
 /** The whole page body. */
@@ -64,7 +66,7 @@ export function chrome(ctx: ViewContext, o: ChromeOptions): SafeHtml {
   const proBadge = hasPro(ctx) ? html`<span class="ba-badge ba-badge--pro">${t.t('common.pro')}</span>` : '';
   const topLinks = tabs.map((x) => html`<a href="${x.href}"${attr('aria-current', o.tab === x.tab && 'page')}>${icon(x.icon)}<span>${x.label}</span></a>`);
   const tabLinks = tabs.map((x) => html`<a class="ba-tab" href="${x.href}"${attr('aria-current', o.tab === x.tab && 'page')}>${icon(x.icon)}<span>${x.label}</span></a>`);
-  return html`<div class="ba-app">
+  return html`<div class="ba-app${o.pushed ? ' no-tabbar' : ''}">
     <a class="ba-skip" href="#main">${t.t('common.skipToContent')}</a>
     <header class="ba-topbar">
       <a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 32)}</a>
@@ -72,7 +74,7 @@ export function chrome(ctx: ViewContext, o: ChromeOptions): SafeHtml {
       <span class="ba-me">${proBadge}</span>
     </header>
     <main id="main" class="ba-page ${o.mainClass ?? ''}" tabindex="-1">
-      <div class="ba-mobilehead"><a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 28)}</a>${proBadge}</div>
+      ${o.pushed ? '' : html`<div class="ba-mobilehead"><a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 28)}</a>${proBadge}</div>`}
       ${o.main}
     </main>
     ${footer(ctx)}

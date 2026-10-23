@@ -11,5 +11,5 @@ declare module 'virtual:catalogue' {
 interface Window {
   /** Development and test builds only: the running app and the hooks tests use. */
   __BA__?: import('./app/app.ts').App;
-  __BA_TEST__?: { timeScale?: number; roundSeconds?: number; social?: boolean; plan?: 'free' | 'pro' };
+  __BA_TEST__?: { timeScale?: number; roundSeconds?: number; social?: boolean; plan?: 'free' | 'pro'; forceDemo?: boolean };
 }

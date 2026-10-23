@@ -1,12 +1,13 @@
-// "Set up your round": who is playing, with what controls, how hard, and the ways to play (seated, quiet). The rules of
-// what is possible live here as pure functions, so the window, the play address and the tests agree.
+// "Set up your round": who is playing, how hard, and the ways to play (seated, quiet, camera or keyboard). The fields
+// sit on the game's page (design/ui-kit/game.html) inside a form that goes to the play address, so a round starts the
+// same way with or without scripts. The rules of what is possible live here as pure functions, so the page, the play
+// address and the tests agree.
 import { html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import { supportsLocal2 } from '../../catalogue/filter.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import { accessOf, hasPro, titleOf, type ViewContext } from '../context.ts';
 import { segmented, switchRow } from './forms.ts';
-import { accessNote } from './game.ts';
 
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'normal', 'hard', 'expert'];
@@ -67,58 +68,69 @@ export function setupFromQuery(ctx: ViewContext, g: ShellGame, q: URLSearchParam
   return sanitizeSetup(ctx, g, read);
 }
 
+/** What a form on the game's page holds, read back into a state (the form's fields are named like the address). */
+export function setupFromForm(ctx: ViewContext, g: ShellGame, f: FormData, previous: SetupState): SetupState {
+  const pick = (k: string, fallback: string): string => {
+    const v = f.get(k);
+    return typeof v === 'string' ? v : fallback;
+  };
+  return {
+    players: pick('players', String(previous.players)) === '2' ? 2 : 1,
+    input: pick('input', previous.input) === 'keyboard' ? 'keyboard' : 'camera',
+    difficulty: pick('difficulty', previous.difficulty) as Difficulty,
+    // A checked box sends 1 before the hidden 0 that follows it; an unchecked one sends only the 0.
+    seated: pick('seated', previous.seated ? '1' : '0') === '1',
+    quiet: pick('quiet', previous.quiet ? '1' : '0') === '1',
+  };
+}
+
 export function startLabel(ctx: ViewContext, g: ShellGame): string {
   const t = ctx.i18n;
   const a = accessOf(ctx, g);
-  return a === 'locked' ? t.t('setup.needPro') : a === 'once' ? t.t('setup.startOnce') : t.t('setup.start');
+  return a === 'locked' ? t.t('setup.needPro') : a === 'once' ? t.t('setup.startOnce') : t.t('game.play');
 }
 
-export function setupHtml(ctx: ViewContext, g: ShellGame, s: SetupState): SafeHtml {
+/** A checkbox that also says "no" when it is not checked: the checkbox comes first, so a checked box wins. */
+function flag(o: { id: string; name: string; label: string; hint?: string | undefined; checked: boolean; disabled: boolean }): SafeHtml {
+  return html`${switchRow({ id: o.id, name: o.name, label: o.label, ...(o.hint ? { hint: o.hint } : {}), checked: o.checked, disabled: o.disabled })}<input type="hidden" name="${o.name}" value="0">`;
+}
+
+/** The fields of the setup: players (only where two players are offered), difficulty, and the ways to play. */
+export function setupFields(ctx: ViewContext, g: ShellGame, s: SetupState): SafeHtml {
   const t = ctx.i18n;
   const camera = cameraUsable(ctx);
-  const access = accessOf(ctx, g);
-  const note = accessNote(ctx, g, access);
   const title = titleOf(ctx, g);
 
   const players = twoPlayersOffered(ctx)
     ? html`${segmented('players', t.t('setup.players'), [
         { value: '1', label: t.t('setup.players.one'), checked: s.players === 1 },
         { value: '2', label: t.t('setup.players.two'), checked: s.players === 2, disabled: !twoPlayersPossible(ctx, g) },
-      ], { describedBy: 'setup-players-hint' })}
-      <p class="ba-small ba-fieldnote" id="setup-players-hint">${twoPlayersPossible(ctx, g) ? t.t('setup.players.twoHint') : t.t('setup.players.twoUnavailable', { game: title })}</p>`
+      ], { describedBy: 'setup-players-hint', legendClass: 'k-label', className: 'k-block' })}
+      ${!twoPlayersPossible(ctx, g)
+        ? html`<p class="ba-small k-hint" id="setup-players-hint">${t.t('setup.players.twoUnavailable', { game: title })}</p>`
+        : s.players === 2
+          ? html`<div class="k-duo" id="setup-players-hint"><i class="p1" aria-hidden="true"></i><p class="ba-small">${t.t('setup.players.duoDetail')}</p></div>`
+          : html`<p class="ba-small k-hint" id="setup-players-hint">${t.t('setup.players.twoHint')}</p>`}`
     : '';
 
-  const inputNote = !ctx.caps.camera ? t.t('setup.noCamera') : !ctx.caps.secure ? t.t('setup.insecure') : t.t('setup.input.hint');
-  const input = html`${segmented('input', t.t('setup.input'), [
-      { value: 'camera', label: t.t('setup.input.camera'), checked: s.input === 'camera', disabled: !camera },
-      { value: 'keyboard', label: t.t('setup.input.keyboard'), checked: s.input === 'keyboard', disabled: s.players === 2 },
-    ], { describedBy: 'setup-input-hint' })}
-    <p class="ba-small ba-fieldnote" id="setup-input-hint">${inputNote}</p>`;
-
   const levelLabel = (d: Difficulty): string => t.t(`setup.difficulty.${d}` as 'setup.difficulty.easy');
-  const difficulty = segmented('difficulty', t.t('setup.difficulty'), DIFFICULTIES.map((d) => ({
-    value: d, label: levelLabel(d), checked: s.difficulty === d, lock: PRO_DIFFICULTIES.includes(d) && !hasPro(ctx),
-  })));
+  const difficulty = html`${segmented('difficulty', t.t('setup.difficulty'), DIFFICULTIES.map((d) => ({
+      value: d, label: levelLabel(d), checked: s.difficulty === d, lock: PRO_DIFFICULTIES.includes(d) && !hasPro(ctx),
+    })), { describedBy: 'setup-difficulty-hint', legendClass: 'k-label', className: 'k-block' })}
+    ${hasPro(ctx) ? '' : html`<p class="ba-small k-hint" id="setup-difficulty-hint">${t.t('setup.difficulty.hint')}</p>`}`;
 
-  const ways = html`<fieldset class="ba-fieldset"><legend class="ba-legend">${t.t('setup.variants')}</legend>
-    ${switchRow({ id: 'setup-seated', name: 'seated', label: t.t('setup.seated'), hint: g.seated ? undefined : t.t('setup.seated.none'), checked: s.seated, disabled: !g.seated })}
-    ${switchRow({ id: 'setup-quiet', name: 'quiet', label: t.t('setup.quiet'), hint: g.silentSafe ? undefined : t.t('setup.quiet.none'), checked: s.quiet, disabled: !g.silentSafe })}
-  </fieldset>`;
+  const inputNote = !ctx.caps.camera ? t.t('setup.noCamera') : !ctx.caps.secure ? t.t('setup.insecure') : t.t('setup.input.hint');
+  const more = html`<details class="k-more"><summary>${icon('settings')}<span>${t.t('setup.more')}</span></summary>
+    <div>
+      ${flag({ id: 'setup-seated', name: 'seated', label: t.t('setup.seated'), hint: g.seated ? undefined : t.t('setup.seated.none'), checked: s.seated, disabled: !g.seated })}
+      ${flag({ id: 'setup-quiet', name: 'quiet', label: t.t('setup.quiet'), hint: g.silentSafe ? undefined : t.t('setup.quiet.none'), checked: s.quiet, disabled: !g.silentSafe })}
+      ${segmented('input', t.t('setup.input'), [
+        { value: 'camera', label: t.t('setup.input.camera'), checked: s.input === 'camera', disabled: !camera },
+        { value: 'keyboard', label: t.t('setup.input.keyboard'), checked: s.input === 'keyboard', disabled: s.players === 2 },
+      ], { describedBy: 'setup-input-hint', legendClass: 'k-label' })}
+      <p class="ba-small k-hint" id="setup-input-hint">${inputNote}</p>
+    </div>
+  </details>`;
 
-  return html`<form class="ba-setup" data-form="setup" data-game="${g.id}" novalidate>
-    <header class="ba-dialog-head">
-      <div><p class="ba-small ba-dialog-kicker">${title}</p><h2 class="ba-h3" id="setup-title">${t.t('setup.title')}</h2></div>
-      <button type="button" class="ba-icon-btn" data-dialog-close="dismissed" aria-label="${t.t('common.close')}">${icon('close')}</button>
-    </header>
-    <div class="ba-setup-body">
-      ${players}
-      ${input}
-      ${difficulty}
-      ${ways}
-      ${note ? html`<p class="ba-small ba-accessnote">${note}</p>` : ''}
-    </div>
-    <div class="ba-actions ba-actions--end ba-setup-foot">
-      <button type="submit" class="ba-btn ba-btn--primary ba-btn--lg" data-key="start">${access === 'locked' ? icon('lock') : icon('play')}<span>${startLabel(ctx, g)}</span></button>
-    </div>
-  </form>`;
+  return html`${players}${difficulty}${more}`;
 }

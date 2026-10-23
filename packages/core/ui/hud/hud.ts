@@ -164,6 +164,12 @@ export class PlayHud implements Hud {
 
   setMode(mode: HudMode): void { this.mode = mode; this.schedule(); }
 
+  /** Shows the self view in another element (the big view while calibrating), or back in its tile when null. */
+  attachPipTo(el: HTMLElement | null): void {
+    if (el) el.prepend(this.pipHost);
+    else (this.el['pip'] as HTMLElement).prepend(this.pipHost);
+  }
+
   /** 'calibrate': only the camera view, large; 'play': the plates and the small view. */
   setPhase(phase: 'calibrate' | 'play'): void {
     this.phase = phase;

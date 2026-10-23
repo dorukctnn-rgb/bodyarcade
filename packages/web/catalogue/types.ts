@@ -14,6 +14,8 @@ export interface CatalogueBlock {
   how: LocalizedString[];
   /** What the camera reads, in plain words. One to four lines. Never heart rate or anything medical. */
   measures: LocalizedString[];
+  /** What the score counts, in the plural: "squats", "stars". Shown under the big number of the results and as the HUD label. */
+  unit?: LocalizedString;
   /** The move pictogram shown next to the region on tiles. */
   move: PoseName;
   /** File stem of the 3D tile art (design/art/tiles/<tile>.webp). */

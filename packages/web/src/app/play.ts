@@ -8,7 +8,7 @@ import { PlayHud } from '../../../core/ui/hud/hud.ts';
 import type { HudMode, PipPlacement } from '../../../core/ui/layout.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import type { ViewContext } from '../context.ts';
-import { overlayHtml, type CalibCheck, type PlayOverlay } from '../views/play.ts';
+import { framingGuide, gaugeFor, overlayHtml, type CalibCheck, type GaugePos, type PlayOverlay } from '../views/play.ts';
 import type { SetupState } from '../views/setup.ts';
 import type { StageHandles } from './ports.ts';
 
@@ -42,6 +42,8 @@ export interface PlayControllerOptions {
   stage: HTMLElement;
   /** Builds the session once the HUD exists (the session draws into the stage handles). Null: games cannot run here. */
   makeSession(stage: StageHandles, setup: SetupState): Session | null;
+  /** Called when the round is over or left, to give back what the session's scene held (the 3D kit, say). */
+  release?(): void;
 }
 
 const CAMERA_CODES = new Set(['denied', 'not_found', 'in_use', 'overconstrained', 'no_frames', 'insecure', 'unsupported', 'unknown']);
@@ -68,6 +70,8 @@ function isTwo(s: CalibrationStatus | TwoPlayerCalibrationStatus): s is TwoPlaye
   return 'players' in s;
 }
 
+const RING = 163.4;
+
 export class PlayController {
   private readonly o: PlayControllerOptions;
   private readonly host: PlayHost;
@@ -85,6 +89,8 @@ export class PlayController {
   private disposed = false;
   private usedFree = false;
   private launching = false;
+  private guideObserver: ResizeObserver | null = null;
+  private guide: { ready: boolean; showFeet: boolean } = { ready: false, showFeet: true };
   private readonly keys: (e: KeyboardEvent) => void;
   private readonly visibility: () => void;
 
@@ -156,6 +162,7 @@ export class PlayController {
     on('over', (summary) => this.host.finish(this.game, this.setup, summary));
     on('error', (e) => this.onError(e.code, e.message));
     on('player', (p) => this.onPlayer(p.player, p.present));
+    on('video', ({ el }) => this.onVideo(el));
   }
 
   private async launch(): Promise<void> {
@@ -189,7 +196,7 @@ export class PlayController {
       case 'calibrating':
         hud.setPhase('calibrate');
         this.lastCalib = '';
-        this.show({ kind: 'calibrating', framing: this.game.framing, two: this.setup.players === 2, message: '', checks: checksFor(this.game.framing, 'no_person'), progress: 0, slow: false });
+        this.show({ kind: 'calibrating', framing: this.game.framing, two: this.setup.players === 2, message: this.ctx().i18n.tx('calib.msg.no_person'), checks: checksFor(this.game.framing, 'no_person'), progress: 0, slow: false, gauge: 'none' });
         break;
       case 'countdown':
         hud.setPhase('play');
@@ -226,6 +233,17 @@ export class PlayController {
     else if (this.overlay?.kind === 'countdown') this.show(null);
   }
 
+  /** The camera picture for the self view, from the session. It is shown mirrored, here and nowhere else. */
+  private onVideo(el: HTMLVideoElement | null): void {
+    const host = this.hud?.pipHost;
+    if (!host || this.disposed) return;
+    if (el) {
+      el.classList.add('ba-selfview');
+      el.setAttribute('aria-hidden', 'true');
+      host.replaceChildren(el);
+    } else host.replaceChildren();
+  }
+
   private onCalibration(c: CalibrationStatus | TwoPlayerCalibrationStatus): void {
     if (this.disposed || this.overlay?.kind !== 'calibrating') return;
     const i18n = this.ctx().i18n;
@@ -241,19 +259,57 @@ export class PlayController {
       ? checksFor(this.game.framing, c.players[1].code === 'ok' || c.players[1].code === 'hold' ? c.players[2].code : c.players[1].code)
       : checksFor(this.game.framing, code);
     const slow = code === 'too_slow';
-    const stamp = `${message}|${checks.map((x) => (x.ok ? 1 : 0)).join('')}|${Math.round(c.progress * 20)}|${slow}`;
+    const gauge = gaugeFor(code);
+    const stamp = `${message}|${checks.map((x) => (x.ok ? 1 : 0)).join('')}|${Math.round(c.progress * 20)}|${slow}|${gauge}`;
     if (stamp === this.lastCalib) return;
     this.lastCalib = stamp;
-    this.overlay = { kind: 'calibrating', framing: this.game.framing, two: this.setup.players === 2, message, checks, progress: c.progress, slow };
-    // Updated in place: the message is a live region, and a live region that is replaced is not spoken.
+    this.overlay = { kind: 'calibrating', framing: this.game.framing, two: this.setup.players === 2, message, checks, progress: c.progress, slow, gauge };
+    this.updateCalibration(message, checks, slow, gauge);
+  }
+
+  /** Updated in place: the message is a live region, and a live region that is replaced is not spoken. */
+  private updateCalibration(message: string, checks: CalibCheck[], slow: boolean, gauge: GaugePos): void {
     const root = this.overlayEl;
+    const i18n = this.ctx().i18n;
     const msg = root.querySelector('[data-calib-msg]');
     if (msg && msg.textContent !== message) msg.textContent = message;
     for (const ch of checks) root.querySelector(`[data-calib-check="${ch.part}"]`)?.classList.toggle('is-ok', ch.ok);
-    const meter = root.querySelector<HTMLProgressElement>('[data-calib-meter]');
-    if (meter) meter.value = Math.round(c.progress * 100);
+    const done = checks.filter((x) => x.ok).length;
+    const ring = root.querySelector('[data-calib-ring]');
+    if (ring) {
+      const arc = ring.querySelector('[data-calib-arc]');
+      arc?.setAttribute('stroke-dashoffset', (RING * (1 - (checks.length ? done / checks.length : 0))).toFixed(1));
+      arc?.setAttribute('stroke', done === checks.length ? '#22C383' : '#FF4F6E');
+      const label = i18n.t('calib.progress', { done, total: checks.length });
+      ring.setAttribute('aria-label', label);
+      const text = ring.querySelector('[data-calib-ringtext]');
+      if (text) text.textContent = i18n.t('calib.done', { done, total: checks.length });
+    }
+    const gaugeEl = root.querySelector<HTMLElement>('[data-calib-gauge]');
+    if (gaugeEl) {
+      gaugeEl.dataset['pos'] = gauge;
+      gaugeEl.hidden = gauge === 'none';
+      const names = { close: i18n.t('calib.gauge.close'), good: i18n.t('calib.gauge.good'), far: i18n.t('calib.gauge.far') };
+      gaugeEl.setAttribute('aria-label', i18n.t('calib.gauge.label', { state: gauge === 'none' ? '' : names[gauge] }));
+    }
     const slowBox = root.querySelector<HTMLElement>('[data-calib-slow]');
     if (slowBox) slowBox.hidden = !slow;
+    const feetMissing = checks.some((x) => x.part === 'feet' && !x.ok);
+    const ready = checks.length > 0 && done === checks.length;
+    if (ready !== this.guide.ready || feetMissing !== this.guide.showFeet) {
+      this.guide = { ready, showFeet: feetMissing };
+      this.drawGuide();
+    }
+  }
+
+  private drawGuide(): void {
+    const view = this.overlayEl.querySelector<HTMLElement>('[data-cal-view]');
+    const target = this.overlayEl.querySelector<HTMLElement>('[data-cal-guide]');
+    if (!view || !target) return;
+    const w = Math.round(view.clientWidth);
+    const h = Math.round(view.clientHeight);
+    if (w < 2 || h < 2) return;
+    target.innerHTML = framingGuide(w, h, { ready: this.guide.ready, showFeet: this.guide.showFeet, feetLabel: this.ctx().i18n.t('calib.check.feet') });
   }
 
   private onError(code: string, message: string): void {
@@ -297,6 +353,9 @@ export class PlayController {
       case 'recalibrate':
         void s?.recalibrate();
         return true;
+      case 'leave-now':
+        this.host.leave();
+        return true;
       case 'quit':
         void this.host.confirmLeave().then((yes) => { if (yes) this.host.leave(); });
         return true;
@@ -314,19 +373,39 @@ export class PlayController {
   // ---- the overlay -------------------------------------------------------------------------------------------------
 
   private show(o: PlayOverlay | null): void {
+    const wasCalibrating = this.overlay?.kind === 'calibrating';
     this.overlay = o;
     const root = this.overlayEl;
+    if (wasCalibrating && o?.kind !== 'calibrating') {
+      this.guideObserver?.disconnect();
+      this.guideObserver = null;
+      this.hud?.attachPipTo(null);
+    }
     if (!o) {
       root.replaceChildren();
       this.hudEl.inert = false;
       return;
     }
-    const markup = overlayHtml(this.ctx(), this.game, o).value;
-    // A countdown number replaces the previous one so its entrance plays again.
-    root.innerHTML = markup;
+    root.innerHTML = overlayHtml(this.ctx(), this.game, o).value;
     const modal = o.kind === 'camera-explainer' || o.kind === 'camera-error' || o.kind === 'paused' || o.kind === 'error';
-    this.hudEl.inert = modal;
+    this.hudEl.inert = modal || o.kind === 'calibrating';
     if (modal) (root.querySelector<HTMLElement>('[autofocus]') ?? root.querySelector<HTMLElement>('button, a'))?.focus({ preventScroll: true });
+    if (o.kind === 'calibrating') this.startCalibrationView(o);
+  }
+
+  /** While getting into frame the camera picture fills the view of the calibration screen. */
+  private startCalibrationView(o: Extract<PlayOverlay, { kind: 'calibrating' }>): void {
+    const view = this.overlayEl.querySelector<HTMLElement>('[data-cal-view]');
+    if (!view) return;
+    this.hud?.attachPipTo(view);
+    const done = o.checks.filter((c) => c.ok).length;
+    this.guide = { ready: o.checks.length > 0 && done === o.checks.length, showFeet: o.checks.some((c) => c.part === 'feet' && !c.ok) };
+    this.drawGuide();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.guideObserver?.disconnect();
+      this.guideObserver = new ResizeObserver(() => this.drawGuide());
+      this.guideObserver.observe(view);
+    }
   }
 
   /** Problems found in the HUD as it is drawn (tests and the screenshot tool). */
@@ -338,8 +417,10 @@ export class PlayController {
     this.doc.removeEventListener('keydown', this.keys);
     this.doc.removeEventListener('visibilitychange', this.visibility);
     for (const off of this.offs.splice(0)) off();
+    this.guideObserver?.disconnect();
     this.session?.quit();
     this.hud?.dispose();
+    this.o.release?.();
     this.overlayEl.replaceChildren();
     this.hudEl.inert = false;
   }

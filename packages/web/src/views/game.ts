@@ -1,20 +1,34 @@
-// A game's page: what it is, how to play it, where to stand, what the camera reads, and a way in. Generated from the
-// manifest, so it can only say what the manifest says (rule 8: only the modes the game lists).
+// A game's page (design/ui-kit/game.html): the art, how to play, who is playing and how hard, your best, and the Play
+// button; a Pro game whose free round is used shows the honest lock instead. Below it the page carries what a search
+// engine and a careful player want: what the game is, where to stand, what the camera reads, the seated and quiet
+// versions and safety. Generated from the manifest, so it can only say what the manifest says (rule 8).
 import { html, type SafeHtml } from '../../../core/ui/html.ts';
 import { glyph, type PoseName } from '../../../core/ui/glyphs.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import { localized } from '../../../core/ui/i18n/localized.ts';
 import type { Framing } from '../../../core/types/index.ts';
-import { relatedGames, supportsLocal2 } from '../../catalogue/filter.ts';
+import { proGames, relatedGames, supportsLocal2 } from '../../catalogue/filter.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import { accessOf, aboutOf, durationLabel, regionLabel, taglineOf, titleOf, type Access, type ViewContext } from '../context.ts';
 import { chrome } from './chrome.ts';
+import { pageHead } from './parts.ts';
+import { defaultSetup, setupFields, startLabel, type SetupState } from './setup.ts';
 import { gameGrid } from './tiles.ts';
 
 const FRAMING_POSE: Readonly<Record<Framing, PoseName>> = { full: 'stand', upper: 'seated', side: 'squat' };
 
+/** What the page knows about this player and this game; empty on the server. */
+export interface GameData {
+  /** The best score on any difficulty, or null. */
+  best: number | null;
+  /** The choices on the page; the defaults for this player when not given. */
+  setup?: SetupState;
+}
+
+export const NO_GAME_DATA: GameData = { best: null };
+
 /** The words about whether this player can start the game now. */
-export function accessNote(ctx: ViewContext, g: ShellGame, access: Access): string {
+export function accessNote(ctx: ViewContext, access: Access): string {
   const t = ctx.i18n;
   if (access === 'free') return t.t('setup.note.free');
   if (access === 'once') return t.t('setup.note.once');
@@ -22,30 +36,21 @@ export function accessNote(ctx: ViewContext, g: ShellGame, access: Access): stri
   return '';
 }
 
-/** The main button: Play, or the way to Pro when the free round of a Pro game is used up. */
-export function playButton(ctx: ViewContext, g: ShellGame, o: { large?: boolean } = {}): SafeHtml {
-  const t = ctx.i18n;
-  const access = accessOf(ctx, g);
-  const cls = `ba-btn ba-btn--primary${o.large ? ' ba-btn--lg' : ''}`;
-  if (access === 'locked') {
-    return html`<a class="${cls}" href="${ctx.href('pro')}" data-action="open-pro" data-game="${g.id}">${icon('lock')}<span>${t.t('setup.needPro')}</span></a>`;
-  }
-  return html`<a class="${cls}" href="${ctx.href('play', { params: { slug: g.seo.slug } })}" data-action="open-setup" data-game="${g.id}">${icon('play')}<span>${t.t('game.play')}</span></a>`;
-}
-
 function facts(ctx: ViewContext, g: ShellGame): SafeHtml {
   const t = ctx.i18n;
   const regions = ctx.i18n.list(g.regions.map((r) => regionLabel(ctx, r)));
-  const badge = (ic: Parameters<typeof icon>[0], text: string): SafeHtml => html`<li class="ba-fact">${icon(ic)}<span>${text}</span></li>`;
-  return html`<ul class="ba-facts" aria-label="${t.t('game.section.measures')}">
-    ${badge('clock', durationLabel(ctx, g.durationSec))}
-    ${badge('user', regions)}
-    ${g.seated ? badge('chair', t.t('game.badge.seated')) : ''}
-    ${g.silentSafe ? badge('quiet', t.t('game.badge.quiet')) : ''}
-    ${g.lowImpact ? badge('check', t.t('game.badge.lowImpact')) : ''}
-    ${supportsLocal2(g) ? badge('users', t.t('game.badge.local2')) : ''}
-    <li class="ba-fact ba-fact--tier">${g.free ? t.t('common.free') : t.t('common.pro')}</li>
+  return html`<ul class="k-facts" aria-label="${t.t('game.section.measures')}">
+    <li>${glyph(g.catalogue.move, { decorative: true, floor: false, size: 22 })}${regions}</li>
+    <li>${icon('clock')}${t.t('game.round', { time: durationLabel(ctx, g.durationSec) })}</li>
+    ${g.seated ? html`<li>${icon('chair')}${t.t('game.badge.seated')}</li>` : ''}
+    ${g.silentSafe ? html`<li>${icon('quiet')}${t.t('game.badge.quiet')}</li>` : ''}
+    ${g.lowImpact ? html`<li>${icon('check')}${t.t('game.badge.lowImpact')}</li>` : ''}
+    ${supportsLocal2(g) ? html`<li>${icon('users')}${t.t('game.badge.local2')}</li>` : ''}
   </ul>`;
+}
+
+function how(ctx: ViewContext, g: ShellGame): SafeHtml {
+  return html`<ol class="k-how">${g.catalogue.how.map((s, i) => html`<li><span class="g" aria-hidden="true">${i + 1}</span><div><span class="s">${localized(s, ctx.lang)}</span></div></li>`)}</ol>`;
 }
 
 function variants(ctx: ViewContext, g: ShellGame): SafeHtml {
@@ -59,50 +64,61 @@ function variants(ctx: ViewContext, g: ShellGame): SafeHtml {
   return html`<section class="ba-block" aria-labelledby="g-variants"><h2 id="g-variants">${t.t('game.section.variants')}</h2><ul class="ba-variants">${items}</ul></section>`;
 }
 
-export function gamePage(ctx: ViewContext, g: ShellGame): SafeHtml {
+/** The part of the page that starts a round: the lock for a Pro game without a free round, else the setup and Play. */
+function play(ctx: ViewContext, g: ShellGame, data: GameData, access: Access): SafeHtml {
+  const t = ctx.i18n;
+  if (access === 'locked') {
+    const pro = proGames(ctx.games).length;
+    return html`<div class="k-block k-card k-lockcard"><span class="ico">${icon('lock')}</span><div><b>${t.t('paywall.locked', { game: titleOf(ctx, g) })}</b><p>${t.t('game.lock.body', { n: pro, free: ctx.games.length - pro })}</p></div></div>
+      <div class="k-actionbar"><div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('pro', { query: { game: g.id } })}">${icon('lock')}<span>${t.t('settings.pro.see')}</span></a><a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${t.t('game.lock.free')}</a></div></div>`;
+  }
+  const state = data.setup ?? defaultSetup(ctx, g);
+  return html`<form data-form="setup" data-game="${g.id}" method="get" action="${ctx.href('play', { params: { slug: g.seo.slug } })}" novalidate>
+    <div data-setup-fields>${setupFields(ctx, g, state)}</div>
+    ${data.best !== null ? html`<div class="k-block k-best">${icon('star')}<span>${t.t('game.best', { score: ctx.i18n.number(data.best) })}</span></div>` : ''}
+    <div class="k-actionbar"><div class="k-actions"><button type="submit" class="ba-btn ba-btn--primary ba-btn--lg" data-key="play">${icon('play')}<span>${startLabel(ctx, g)}</span></button></div>
+      <p class="k-note">${access === 'once' ? `${t.t('setup.note.once')} ` : ''}${t.t('game.cameraNote')}</p></div>
+  </form>`;
+}
+
+export function gamePage(ctx: ViewContext, g: ShellGame, data: GameData = NO_GAME_DATA): SafeHtml {
   const t = ctx.i18n;
   const c = g.catalogue;
   const access = accessOf(ctx, g);
-  const note = accessNote(ctx, g, access);
   const related = relatedGames(g, ctx.games, 3);
-  const framingTip = t.tx(`game.framing.${g.framing}.tip`);
   const main = html`
-    <p class="ba-crumb"><a href="${ctx.href('home')}">${icon('back')}<span>${t.t('game.back')}</span></a></p>
-    <article class="ba-game" aria-labelledby="game-h1">
-      <header class="ba-gamehead">
-        <div class="ba-gameart"><img src="${ctx.assets.tile(c.tile, 800)}" srcset="${ctx.assets.tile(c.tile, 400)} 400w, ${ctx.assets.tile(c.tile, 800)} 800w" sizes="(min-width: 900px) 46vw, 92vw" width="800" height="600" alt="" fetchpriority="high" decoding="async"></div>
-        <div class="ba-gameinfo">
-          <h1 class="ba-h1" id="game-h1" data-main-heading>${titleOf(ctx, g)}</h1>
-          <p class="ba-lead">${taglineOf(ctx, g)}</p>
+    ${pageHead(ctx, '', { back: ctx.href('home') })}
+    <article class="k-detail" aria-labelledby="game-h1">
+      <div class="art"><img src="${ctx.assets.tile(c.tile, 800)}" srcset="${ctx.assets.tile(c.tile, 400)} 400w, ${ctx.assets.tile(c.tile, 800)} 800w" sizes="(min-width: 900px) 48vw, 92vw" width="800" height="600" alt="" fetchpriority="high" decoding="async">${g.free ? html`<span class="ba-badge ba-badge--free">${t.t('common.free')}</span>` : html`<span class="ba-badge ba-badge--pro">${t.t('common.pro')}</span>`}</div>
+      <div class="k-info">
+        <div class="k-top">
+          <h1 id="game-h1" data-main-heading>${titleOf(ctx, g)}</h1>
+          <p class="k-lead">${taglineOf(ctx, g)}</p>
           ${facts(ctx, g)}
-          <div class="ba-actions">${playButton(ctx, g, { large: true })}</div>
-          ${note ? html`<p class="ba-small ba-accessnote">${note}</p>` : ''}
         </div>
-      </header>
-
-      <section class="ba-block" aria-labelledby="g-about"><h2 id="g-about">${t.t('game.section.about')}</h2><p>${aboutOf(ctx, g)}</p></section>
-
-      <div class="ba-twocol">
-        <section class="ba-block" aria-labelledby="g-how"><h2 id="g-how">${t.t('game.section.how')}</h2>
-          <ol class="ba-steps">${c.how.map((s) => html`<li>${localized(s, ctx.lang)}</li>`)}</ol>
-        </section>
-        <section class="ba-block" aria-labelledby="g-stand"><h2 id="g-stand">${t.t('game.section.stand')}</h2>
-          <div class="ba-stand">${glyph(FRAMING_POSE[g.framing], { decorative: true, floor: true, size: 72 })}<div><p><b>${t.tx(`game.framing.${g.framing}`)}</b></p><p>${framingTip}</p></div></div>
-        </section>
+        <div class="k-block"><span class="k-label">${t.t('game.section.how')}</span>${how(ctx, g)}</div>
+        ${play(ctx, g, data, access)}
       </div>
+    </article>
 
+    <section class="ba-block" aria-labelledby="g-about"><h2 id="g-about">${t.t('game.section.about')}</h2><p>${aboutOf(ctx, g)}</p></section>
+
+    <div class="ba-twocol">
+      <section class="ba-block" aria-labelledby="g-stand"><h2 id="g-stand">${t.t('game.section.stand')}</h2>
+        <div class="ba-stand">${glyph(FRAMING_POSE[g.framing], { decorative: true, floor: true, size: 72 })}<div><p><b>${t.tx(`game.framing.${g.framing}`)}</b></p><p>${t.tx(`game.framing.${g.framing}.tip`)}</p></div></div>
+      </section>
       <section class="ba-block" aria-labelledby="g-measures"><h2 id="g-measures">${t.t('game.section.measures')}</h2>
         <ul class="ba-bullets">${c.measures.map((s) => html`<li>${localized(s, ctx.lang)}</li>`)}</ul>
         <p class="ba-small">${t.t('game.measures.not')}</p>
       </section>
+    </div>
 
-      ${variants(ctx, g)}
+    ${variants(ctx, g)}
 
-      <section class="ba-block" aria-labelledby="g-safety"><h2 id="g-safety">${t.t('game.section.safety')}</h2>
-        <p class="ba-callout">${icon('info')}<span><b>${t.t('onboarding.s4.healthLead')}</b> ${t.t('onboarding.s4.health')}</span></p>
-      </section>
+    <section class="ba-block" aria-labelledby="g-safety"><h2 id="g-safety">${t.t('game.section.safety')}</h2>
+      <p class="ba-callout">${icon('info')}<span><b>${t.t('onboarding.s4.healthLead')}</b> ${t.t('onboarding.s4.health')}</span></p>
+    </section>
 
-      ${related.length ? html`<section class="ba-block" aria-labelledby="g-related"><h2 id="g-related">${t.t('game.section.related')}</h2>${gameGrid(ctx, related, t.t('game.section.related'))}</section>` : ''}
-    </article>`;
-  return chrome(ctx, { tab: 'games', main, mainClass: 'ba-page--game' });
+    ${related.length ? html`<section class="ba-block" aria-labelledby="g-related"><h2 id="g-related">${t.t('game.section.related')}</h2>${gameGrid(ctx, related, t.t('game.section.related'))}</section>` : ''}`;
+  return chrome(ctx, { tab: 'games', main, mainClass: 'ba-page--game', pushed: true });
 }

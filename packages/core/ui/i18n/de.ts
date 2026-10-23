@@ -18,4 +18,9 @@ export const de: Readonly<Partial<Record<keyof typeof en, string>>> = {
   'nav.games': 'Spiele',
   'nav.friends': 'Freunde',
   'nav.settings': 'Einstellungen',
+  'runner.move.hurdle': 'Spring',
+  'runner.move.duck': 'Duck dich',
+  'runner.move.squat': 'Kniebeuge',
+  'runner.move.wallL': 'Nach links',
+  'runner.move.wallR': 'Nach rechts',
 };

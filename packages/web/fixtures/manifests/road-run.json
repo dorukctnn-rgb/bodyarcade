@@ -8,7 +8,7 @@
   "seated": true,
   "lowImpact": false,
   "silentSafe": false,
-  "durationSec": 300,
+  "durationSec": 90,
   "met": 6,
   "detectors": [{ "id": "jump" }, { "id": "squat" }, { "id": "lean" }],
   "free": true,

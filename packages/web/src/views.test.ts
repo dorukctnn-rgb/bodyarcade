@@ -127,7 +127,8 @@ describe('home and region pages', () => {
     const { html } = draw('en', '/', { settings: { quiet: true } });
     expect(html).not.toContain('data-game="road-run"');
     expect(textOf(html)).toContain('2 games are hidden by your modes.');
-    expect(textOf(html)).toContain('Quiet mode is on');
+    expect(html).toMatch(/data-mode="quiet" aria-pressed="true"/);
+    expect(html).toMatch(/data-mode="seated" aria-pressed="false"/);
   });
 
   it('shows an empty state with a way out when the modes hide everything', () => {
@@ -153,9 +154,9 @@ describe('game pages', () => {
   it('carry the facts of the manifest and nothing else', () => {
     for (const g of games) {
       const { html, r } = draw('en', `/games/${g.seo.slug}/`);
-      const text = textOf(html);
+      const text = textOf(html.match(/<ul class="k-facts"[\s\S]*?<\/ul>/)?.[0] ?? '');
       expect(r.title).toBe(`${typeof g.title === 'string' ? g.title : g.title['en']}: camera workout game`);
-      expect(html.match(/<ol class="ba-steps">[\s\S]*?<\/ol>/)?.[0].match(/<li>/g)?.length, g.id).toBe(g.catalogue.how.length);
+      expect(html.match(/<ol class="k-how">[\s\S]*?<\/ol>/)?.[0].match(/<li>/g)?.length, g.id).toBe(g.catalogue.how.length);
       expect(text.includes('2 players'), `${g.id} two players`).toBe(g.modes.includes('local2'));
       expect(text.includes('Seated version'), `${g.id} seated`).toBe(g.seated);
       expect(text.includes('Quiet mode'), `${g.id} quiet`).toBe(g.silentSafe);
@@ -167,15 +168,18 @@ describe('game pages', () => {
 
   it('offers Play for free games and for the first round of a Pro game, then the way to Pro', () => {
     const free = draw('en', '/games/squat-flap/').html;
-    expect(free).toContain('data-action="open-setup"');
-    expect(textOf(free)).toContain('Free to play.');
+    // The form goes to the play address, so a round starts the same way with or without scripts.
+    expect(free).toContain('<form data-form="setup" data-game="squat-flap" method="get" action="/play/squat-flap/"');
+    expect(free).toContain('type="submit"');
     const pro1 = draw('en', '/games/pad-work/');
     expect(textOf(pro1.html)).toContain('You can play it once for free.');
+    expect(textOf(pro1.html)).toContain('Play once free');
     const pro2 = draw('en', '/games/pad-work/', { settings: { playedOnce: ['pad-work'] } }).html;
-    expect(pro2).toContain('data-action="open-pro"');
-    expect(textOf(pro2)).toContain('Get Pro to play');
+    expect(pro2).not.toContain('data-form="setup"');
+    expect(pro2).toContain('href="/pro/?game=pad-work"');
+    expect(textOf(pro2)).toContain('Pad Work is part of Pro.');
     const owner = draw('en', '/games/pad-work/', { plan: 'pro', settings: { playedOnce: ['pad-work'] } }).html;
-    expect(owner).toContain('data-action="open-setup"');
+    expect(owner).toContain('data-form="setup"');
   });
 
   it('has a breadcrumb in the structured data and an image for link previews', () => {
@@ -245,7 +249,7 @@ describe('results', () => {
   it('shows the score, the best badge, the clock, the share of clean moves and the reasons', () => {
     const t = textOf(draw('en', '/results/', {}, { ...EMPTY_STATE, result: sample }).html);
     expect(t).toContain('42');
-    expect(t).toContain('Personal best');
+    expect(t).toContain('New personal best');
     expect(t).toContain('1:35');
     expect(t).toContain('82%');
     expect(t).toContain('Hips 4 cm above the line');

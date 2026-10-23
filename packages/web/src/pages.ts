@@ -7,8 +7,8 @@ import type { Matched } from '../../core/ui/router.ts';
 import { gameBySlug } from '../catalogue/filter.ts';
 import { aboutOf, regionLabel, titleOf, type ViewContext } from './context.ts';
 import { INDEXABLE, isRegion, type RouteId } from './routes.ts';
-import { homePage } from './views/home.ts';
-import { gamePage } from './views/game.ts';
+import { homePage, NO_HOME_DATA, type HomeData } from './views/home.ts';
+import { gamePage, NO_GAME_DATA, type GameData } from './views/game.ts';
 import { friendsPage, notFoundPage } from './views/misc.ts';
 import { defaultPaywallState, paywallPage, type PaywallState } from './views/paywall.ts';
 import { playPage } from './views/play.ts';
@@ -22,9 +22,11 @@ export interface PageState {
   paywall: PaywallState | null;
   result: RoundResult | null;
   reducedMotion: boolean;
+  home: HomeData;
+  game: GameData;
 }
 
-export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false };
+export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA };
 
 export interface Rendered {
   body: SafeHtml;
@@ -72,7 +74,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
     case 'home': {
       const home = ctx.href('home');
       return {
-        body: homePage(ctx, { region: null }), title: t.t('home.title'), description: t.t('home.description'), noindex: false, status: 200,
+        body: homePage(ctx, { region: null, data: state.home }), title: t.t('home.title'), description: t.t('home.description'), noindex: false, status: 200,
         jsonLd: [{ '@context': 'https://schema.org', '@type': 'WebSite', name: brand, url: `${SITE_ORIGIN}${home}`, inLanguage: t.tag }],
         ...(ctx.games[0] ? { image: ctx.assets.tile(ctx.games[0].catalogue.tile, 800) } : {}),
       };
@@ -82,7 +84,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       if (!isRegion(region) || !ctx.games.some((g) => g.regions.includes(region) || (region === 'seated' && g.seated))) return notFound();
       const label = regionLabel(ctx, region);
       return {
-        body: homePage(ctx, { region }), title: t.t('workouts.title', { region: label }), description: t.t('workouts.description', { region: label }), noindex: false, status: 200,
+        body: homePage(ctx, { region, data: state.home }), title: t.t('workouts.title', { region: label }), description: t.t('workouts.description', { region: label }), noindex: false, status: 200,
         jsonLd: [crumbs(ctx, [{ name: brand, path: ctx.href('home') }, { name: label, path: ctx.href('region', { params: { region } }) }])],
       };
     }
@@ -90,7 +92,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       const g = gameBySlug(ctx.games, route.params['slug'] ?? '');
       if (!g) return notFound();
       return {
-        body: gamePage(ctx, g), title: t.t('game.title', { game: titleOf(ctx, g) }), description: snippet(aboutOf(ctx, g)), noindex: false, status: 200,
+        body: gamePage(ctx, g, state.game), title: t.t('game.title', { game: titleOf(ctx, g) }), description: snippet(aboutOf(ctx, g)), noindex: false, status: 200,
         jsonLd: [crumbs(ctx, [{ name: brand, path: ctx.href('home') }, { name: titleOf(ctx, g), path: ctx.href('game', { params: { slug: g.seo.slug } }) }])],
         image: ctx.assets.tile(g.catalogue.tile, 800),
       };
@@ -103,7 +105,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
     case 'results':
       return { body: resultsPage(ctx, state.result), title: named(t.t('results.title')), description: t.t('results.title'), noindex, status: 200, jsonLd: [] };
     case 'pro':
-      return { body: paywallPage(ctx, state.paywall ?? defaultPaywallState(ctx)), title: named(t.t('paywall.title')), description: t.t('paywall.lead'), noindex, status: 200, jsonLd: [] };
+      return { body: paywallPage(ctx, state.paywall ?? defaultPaywallState(ctx, route.query.get('game') ?? undefined)), title: named(t.t('paywall.title')), description: t.t('paywall.lead'), noindex, status: 200, jsonLd: [] };
     case 'settings':
       return { body: settingsPage(ctx, { reducedMotion: state.reducedMotion || ctx.settings.motion === 'reduce' }), title: named(t.t('settings.title')), description: t.t('settings.title'), noindex, status: 200, jsonLd: [] };
     case 'friends':
