@@ -3,7 +3,7 @@
 // waiting for ever on a device that cannot keep up.
 import {
   LM, type BodyProfile, type CalibrationCode, type CalibrationStatus, type Calibrator, type CalibratorOptions, type Framing,
-  type Landmark, type PoseFrame,
+  type Landmark, type PoseFrame, type Vec2,
 } from '../types/index.ts';
 import { clamp, dist, isVisible, median, mid, viewOf } from './geometry.ts';
 
@@ -72,8 +72,13 @@ function framingProblem(lm: Landmark[] | null, framing: Framing): CalibrationCod
 
 function sampleOf(lm: Landmark[], aspect: number, t: number, framing: Framing): Sample {
   const v = (i: number) => viewOf(lm, i, aspect);
-  const hip = mid(v(LM.leftHip), v(LM.rightHip));
-  const sh = mid(v(LM.leftShoulder), v(LM.rightShoulder));
+  // Side framing: a hidden far side takes the seen side's position, as in the feature extractor.
+  const pair = (l: number, r: number): [Vec2, Vec2] => {
+    if (framing === 'side' && isVisible(lm, l) !== isVisible(lm, r)) { const s = isVisible(lm, l) ? v(l) : v(r); return [s, s]; }
+    return [v(l), v(r)];
+  };
+  const hip = mid(...pair(LM.leftHip, LM.rightHip));
+  const sh = mid(...pair(LM.leftShoulder, LM.rightShoulder));
   const s: Sample = {
     t, hipX: hip.x, hipY: hip.y, shoulderX: sh.x, shoulderY: sh.y, noseY: v(LM.nose).y,
     T: hip.y - sh.y,
@@ -84,6 +89,7 @@ function sampleOf(lm: Landmark[], aspect: number, t: number, framing: Framing): 
   const arms = [arm(LM.leftShoulder, LM.leftElbow, LM.leftWrist), arm(LM.rightShoulder, LM.rightElbow, LM.rightWrist)].filter((a): a is number => a !== null);
   if (arms.length) s.A = arms.reduce((a, b) => a + b, 0) / arms.length;
   if (isVisible(lm, LM.leftKnee) && isVisible(lm, LM.rightKnee)) s.U = mid(v(LM.leftKnee), v(LM.rightKnee)).y - hip.y;
+  else if (framing === 'side' && (isVisible(lm, LM.leftKnee) || isVisible(lm, LM.rightKnee))) s.U = mid(...pair(LM.leftKnee, LM.rightKnee)).y - hip.y;
   return s;
 }
 

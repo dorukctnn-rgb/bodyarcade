@@ -6,14 +6,14 @@
 // - Each player's engine is connected to the hub (with its player) once it has a profile. push(f, { engines: false })
 //   only splits the frame (calibration, pauses): the assignment still sees every frame and no events are produced.
 // - The gate (tech.md 4.1): once a player has a profile, a player whose shoulders and hips are not seen for lostMs
-//   (default 500 ms) is lost. The hub's tracking for that player turns to 'no_person' (one player) or 'player_missing'
+//   (default 500 ms) is lost (side framing: the shoulder and hip of one side, as Features.ok). The hub's tracking for that player turns to 'no_person' (one player) or 'player_missing'
 //   (local2) and onPresence fires; it fires again when they are seen. Judged on frame time, so a trace replays the
 //   same way.
 import type {
-  BodyProfile, DetectorSpec, InputHub, Ms, MovementEngine, PlayerAssignment, PlayerFrame, PlayerSlot, PoseFrame, Unsubscribe,
+  BodyProfile, DetectorSpec, Framing, InputHub, Ms, MovementEngine, PlayerAssignment, PlayerFrame, PlayerSlot, PoseFrame, Unsubscribe,
 } from '../types/index.ts';
 import { createPlayerAssignment } from '../body/players.ts';
-import { partSeen } from '../body/geometry.ts';
+import { bodySeen } from '../body/geometry.ts';
 import { createMovementEngine } from '../moves/engine.ts';
 
 export const FEED_DEFAULTS = { lostMs: 500 } as const;
@@ -52,7 +52,7 @@ export interface PoseFeed {
   dispose(): void;
 }
 
-interface Gate { armed: boolean; present: boolean; lastSeen: number | null }
+interface Gate { armed: boolean; present: boolean; lastSeen: number | null; framing: Framing }
 
 const slotsOf = (n: 1 | 2): PlayerSlot[] => (n === 2 ? [1, 2] : [1]);
 
@@ -65,7 +65,9 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
   const engines: Partial<Record<PlayerSlot, MovementEngine>> = {};
   for (const s of slots) engines[s] = make(s);
   const assignment = players === 2 ? (o.assignment ?? createPlayerAssignment()) : null;
-  const gates: Record<PlayerSlot, Gate> = { 1: { armed: false, present: true, lastSeen: null }, 2: { armed: false, present: true, lastSeen: null } };
+  const gates: Record<PlayerSlot, Gate> = {
+    1: { armed: false, present: true, lastSeen: null, framing: 'full' }, 2: { armed: false, present: true, lastSeen: null, framing: 'full' },
+  };
   const links = new Map<PlayerSlot, Unsubscribe>();
   const listeners = new Set<(e: PresenceChange) => void>();
   const lostCode = players === 2 ? 'player_missing' : 'no_person';
@@ -87,8 +89,7 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
   function gate(p: PlayerSlot, f: PlayerFrame): PresenceChange | null {
     const g = gates[p];
     if (!g.armed) return null;
-    const lm = f.landmarks;
-    const seen = lm !== null && partSeen(lm, 'shoulders') && partSeen(lm, 'hips');
+    const seen = bodySeen(f.landmarks, g.framing);
     if (g.lastSeen === null) g.lastSeen = f.t;
     if (seen) {
       g.lastSeen = f.t;
@@ -124,6 +125,7 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
         m.setProfile(profile);
         if (!links.has(s)) links.set(s, o.hub.connectPose(m, source, s));
         gates[s].armed = true;
+        gates[s].framing = profile.framing;
       }
     },
 

@@ -1,12 +1,16 @@
 // FeatureExtractor: pose frames to body-space features (types/body.ts), One Euro filtered per coordinate.
 // The scalar signals keep today's definitions (site/game/pose.js) so the present thresholds still apply:
 // rise/drop/headDrop in torso lengths T, lean = shoulder-over-hip tilt + 0.7 x hip shift in shoulder widths W.
+// Side framing (profile.framing 'side'): the far half of the body may be hidden. A frame counts (ok) with the
+// shoulder and hip of one side; a pair whose one side is hidden takes the seen side's position for both entries, so
+// means and midpoints follow the near side; `seen` counts a pair when either side is seen; `near` names the side that
+// faces the camera; lean is 0 and shoulderSpan 1 (sideways tilt and shoulder width are not visible from the side).
 import {
   LM, type BodyProfile, type FeatureExtractor, type FeatureExtractorOptions, type Features, type JointName, type Landmark,
   type PoseFrame, type Vec2,
 } from '../types/index.ts';
 import { OneEuro } from '../pose/one-euro.ts';
-import { clamp, isVisible, meanView, seenParts, viewOf } from './geometry.ts';
+import { bodySeen, clamp, isVisible, meanView, nearSide, seenParts, seenPartsSide, viewOf } from './geometry.ts';
 
 /** Points that get their own filter: [L, R] landmark groups (one group for the head). */
 const POINTS = {
@@ -71,8 +75,9 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
         reset();
       }
       const lm = f.landmarks;
-      const seen = seenParts(lm);
-      const ok = lm !== null && isVisible(lm, LM.leftShoulder) && isVisible(lm, LM.rightShoulder) && isVisible(lm, LM.leftHip) && isVisible(lm, LM.rightHip);
+      const sideMode = p.framing === 'side';
+      const seen = sideMode ? seenPartsSide(lm) : seenParts(lm);
+      const ok = bodySeen(lm, p.framing);
       if (!ok || !lm) { lastT = f.t; return (last = empty(f, seen)); }
       // A gap of more than half a second: start the filters afresh so stale velocities do not carry over.
       if (f.t - lastOkT > 500) filters = new Map();
@@ -85,8 +90,14 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
       for (const name of Object.keys(POINTS) as PointName[]) {
         view[name] = [];
         deriv[name] = [];
-        POINTS[name].forEach((idx, side) => {
-          const raw = idx.length === 1 ? viewOf(lm as Landmark[], idx[0] as number, f.aspect) : meanView(lm as Landmark[], idx, f.aspect);
+        const groups: readonly (readonly number[])[] = POINTS[name];
+        const raws = groups.map((idx) => (idx.length === 1 ? viewOf(lm as Landmark[], idx[0] as number, f.aspect) : meanView(lm as Landmark[], idx, f.aspect)));
+        if (sideMode && groups.length === 2) {
+          // One side hidden (from the side, the far one): both entries follow the side that is seen.
+          const vis = groups.map((idx) => isVisible(lm as Landmark[], idx[0] as number));
+          if (vis[0] !== vis[1]) { const v = raws[vis[0] ? 0 : 1] as Vec2; raws[0] = v; raws[1] = v; }
+        }
+        raws.forEach((raw, side) => {
           const fx = filterFor(`${name}${side}x`), fy = filterFor(`${name}${side}y`);
           view[name].push({ x: fx.filter(raw.x, f.t), y: fy.filter(raw.y, f.t) });
           deriv[name].push({ x: fx.derivative, y: fy.derivative });
@@ -101,9 +112,9 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
 
       const rise = (rest.hipY - hipV.y) / rest.T;
       const headDrop = (headV.y - rest.noseY) / rest.T;
-      const lean = ((shV.x - hipV.x) - (rest.shoulderX - rest.hipX)) / rest.W + 0.7 * (hipV.x - rest.hipX) / rest.W;
+      const lean = sideMode ? 0 : ((shV.x - hipV.x) - (rest.shoulderX - rest.hipX)) / rest.W + 0.7 * (hipV.x - rest.hipX) / rest.W;
       const shoulders = view.shoulder as [Vec2, Vec2];
-      const shoulderSpan = Math.abs(shoulders[1].x - shoulders[0].x) / rest.W;
+      const shoulderSpan = sideMode ? 1 : Math.abs(shoulders[1].x - shoulders[0].x) / rest.W;
 
       const vel: Features['vel'] = {};
       const velOf = (name: PointName): [Vec2, Vec2] => {
@@ -121,6 +132,7 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
         ankle: pair('ankle'), foot: pair('foot'),
         rise, drop: -rise, headDrop, lean, shoulderSpan, vel,
       };
+      if (sideMode) features.near = nearSide(lm);
 
       // Slow re-centring while standing neutral (today's 8 s drift): camera nudged, player shifted a little.
       if (driftSeconds > 0 && dtSec > 0 && Math.abs(rise) < 0.06 && crouchLevel(-rise, headDrop) < 0.1 && Math.abs(lean) < 0.12) {
@@ -130,7 +142,7 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
         rest.shoulderY += (shV.y - rest.shoulderY) * k;
         rest.shoulderX += (shV.x - rest.shoulderX) * k;
         rest.noseY += (headV.y - rest.noseY) * k;
-        rest.W += (Math.abs(shoulders[1].x - shoulders[0].x) - rest.W) * k;
+        if (!sideMode) rest.W += (Math.abs(shoulders[1].x - shoulders[0].x) - rest.W) * k;
         rest.T += ((hipV.y - shV.y) - rest.T) * k;
       }
       return (last = features);

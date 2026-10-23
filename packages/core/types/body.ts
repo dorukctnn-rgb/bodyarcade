@@ -7,7 +7,7 @@
 // - BODY space: origin at the calibrated rest hip midpoint, unit = the player's torso length T on both axes,
 //   +x = the player's right as seen in the mirror (screen right), +y = UP. Features positions use body space, so
 //   tall and short players, near or far from the camera, follow the same rules.
-import type { BodyPart, JointName, Ms, Vec2 } from './common.ts';
+import type { BodyPart, JointName, Ms, Side, Vec2 } from './common.ts';
 import type { PoseFrame } from './pose.ts';
 
 export type Framing = 'full' | 'upper' | 'side';
@@ -77,9 +77,9 @@ export interface Calibrator {
 export interface Features {
   t: Ms;
   seq: number;
-  /** Shoulders and hips are visible: the minimum for any game. */
+  /** Shoulders and hips are visible: the minimum for any game. Side framing: the shoulder and hip of one side. */
   ok: boolean;
-  /** Which landmark groups are visible (visibility >= 0.5) in this frame. */
+  /** Which landmark groups are visible (visibility >= 0.5) in this frame; side framing: a pair counts when either side is. */
   seen: Record<BodyPart, boolean>;
   // Positions in body space (see the top of this file), One Euro filtered. Pairs are [L, R] (the player's own sides).
   head: Vec2;
@@ -100,10 +100,12 @@ export interface Features {
   drop: number;
   /** Nose drop below rest, in T (positive = down). */
   headDrop: number;
-  /** Shoulder-over-hip tilt plus 0.7 x hip shift, relative to rest, in W; positive = toward the player's right. */
+  /** Shoulder-over-hip tilt plus 0.7 x hip shift, relative to rest, in W; positive = toward the player's right. 0 in side framing. */
   lean: number;
-  /** Current shoulder width / W (drops when the player turns; M8 twist). */
+  /** Current shoulder width / W (drops when the player turns; M8 twist). 1 in side framing. */
   shoulderSpan: number;
+  /** Side framing only: the side of the body that faces the camera (the far side may be hidden). */
+  near?: Side;
   /** Velocities in T per second, body space, [L, R] for paired joints (both entries equal for midline joints). */
   vel: Partial<Record<JointName, [Vec2, Vec2]>>;
 }
