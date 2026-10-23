@@ -10,6 +10,7 @@
 // squatFlap.ts); without it, it is the runner's plain squat (squat.ts).
 import type { BodyProfile, DetectorFactory, DetectorRegistry } from '../types/index.ts';
 import { createArmDirectionDetector } from './armDirection.ts';
+import { createHandHitDetector } from './handHit.ts';
 import { createJumpDetector } from './jump.ts';
 import { createKneeLiftDetector } from './kneeLift.ts';
 import { createLeanDetector } from './lean.ts';
@@ -22,6 +23,7 @@ export const LIBRARY_DETECTORS: DetectorRegistry = {
   squat: createSquatRouter,
   armDirection: createArmDirectionDetector,
   kneeLift: createKneeLiftDetector,
+  handHit: createHandHitDetector,
 };
 
 export const ALL_DETECTORS: DetectorRegistry = {
