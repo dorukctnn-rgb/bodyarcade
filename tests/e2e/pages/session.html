@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Session harness</title></head>
+<body>
+<p>Session harness for the e2e tests: the real camera and pose services with a small test game.</p>
+<script type="module">
+  import { createSession } from '/packages/core/loop/session.ts';
+  import { createCameraService } from '/packages/core/camera/camera.ts';
+  import { createPoseService } from '/packages/core/pose/service.ts';
+  import { detectCapabilities } from '/packages/core/device/capabilities.ts';
+
+  /** A game that records what the session gives it; `log.end = true` ends the run at the next step. */
+  function testGame() {
+    const log = { steps: 0, renders: 0, starts: [], events: [], twoStreams: false, end: false, disposed: 0, inits: 0 };
+    const manifest = {
+      id: 'test', template: 'runner', version: 1, title: 'Test', regions: ['legs'], framing: 'full', seated: false,
+      lowImpact: false, silentSafe: true, durationSec: 60, met: 5, detectors: [{ id: 'jump' }, { id: 'squat' }, { id: 'lean' }],
+      free: true, modes: ['solo', 'local2'], seo: { slug: 'test', keywords: [] },
+    };
+    const module = {
+      manifest,
+      create: () => ({
+        manifest,
+        async init() { log.inits++; },
+        start(s) { log.starts.push({ seed: s.seed, mode: s.mode, profile: s.profile !== null, profiles: s.profiles ? Object.keys(s.profiles) : null }); },
+        step(_dt, input) {
+          log.steps++;
+          if (input.players) log.twoStreams = true;
+          for (const e of input.events) log.events.push(e.id);
+          return { events: [], phase: log.end ? 'over' : 'running' };
+        },
+        render() { log.renders++; },
+        snapshot: () => ({}),
+        restore() {},
+        summary: () => ({ score: log.steps, seconds: log.steps / 60, metSeconds: 0, log: [] }),
+        dispose() { log.disposed++; },
+      }),
+    };
+    return { log, module };
+  }
+
+  const UI = {
+    hud: { set() {}, announce() {}, toast() {} },
+    audio: { unlock() {}, play() {}, clock: () => ({ now: () => 0, schedule() {}, latencyMs: 0 }) },
+    store: { get: (_k, _s, f) => f, set() {}, remove() {} },
+    t: (k) => k,
+  };
+
+  window.makeRun = () => {
+    const game = testGame();
+    const camera = createCameraService();
+    const pose = createPoseService();
+    const caps = detectCapabilities();
+    const session = createSession({
+      games: (id) => (id === 'test' ? game.module : null),
+      ui: () => UI,
+      camera,
+      pose,
+      poseLoad: { prefer: 'GPU', worker: 'auto' },
+      capabilities: () => caps,
+      countdownMs: 1000,
+    });
+    const seen = { states: [], pauses: [], countdown: [], calibration: 0, over: null, errors: [], players: [] };
+    session.on('state', (s) => seen.states.push(s));
+    session.on('pause', (r) => seen.pauses.push(r));
+    session.on('countdown', (c) => seen.countdown.push(c.remaining));
+    session.on('calibration', (c) => { seen.calibration++; window.run.lastCal = c; });
+    session.on('over', (s) => { seen.over = s; });
+    session.on('error', (e) => seen.errors.push(e));
+    session.on('player', (p) => seen.players.push(p));
+    window.run = { session, camera, pose, game: game.log, caps, seen };
+    return true;
+  };
+  window.harnessReady = true;
+</script>
+</body>
+</html>

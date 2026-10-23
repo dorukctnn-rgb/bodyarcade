@@ -229,19 +229,32 @@ export function createSession(deps: SessionDeps): Session {
     r.lease = null;
   }
 
-  async function attachCamera(r: Run): Promise<boolean> {
-    const camera = deps.camera as CameraService;
-    const pose = deps.pose as PoseService;
-    const lease = await camera.acquire({ ...deps.cameraOptions, signal: r.abort.signal });
+  /** Asks for the camera (the permission prompt); the lease belongs to the run from here on. */
+  async function acquireLease(r: Run): Promise<boolean> {
+    const lease = await (deps.camera as CameraService).acquire({ ...deps.cameraOptions, signal: r.abort.signal });
     if (!live(r)) { lease.release(); return false; }
     r.lease = lease;
     r.offLease = lease.onEnded(() => onCameraEnded(r));
+    return true;
+  }
+
+  /** Starts the video and hands it to the pose service (which must have its model by now). */
+  async function connectLease(r: Run): Promise<boolean> {
+    const lease = r.lease;
+    if (!lease) return false;
+    const pose = deps.pose as PoseService;
     await lease.start();
     if (!live(r) || r.lease !== lease) return false;
     for (const s of slots(r)) r.hub.setTracking({ ok: true }, s);
     r.offPose = pose.onFrame((f) => onPoseFrame(r, f));
     pose.attach(lease);
     return true;
+  }
+
+  function cameraFailure(r: Run, e: unknown): void {
+    if (!live(r) || isAbortError(e)) return;
+    const code = (e as { code?: string }).code;
+    fail(r, (code && CAMERA_CODES.has(code) ? code : 'unknown') as SessionErrorCode, message(e));
   }
 
   /**
@@ -467,15 +480,11 @@ export function createSession(deps: SessionDeps): Session {
           beginCountdown(r, null);
           return;
         }
-        let attached: boolean;
         try {
-          attached = await attachCamera(r);
+          if (!(await acquireLease(r))) return;
         } catch (e) {
-          if (!live(r) || isAbortError(e)) return;
-          const code = (e as { code?: string }).code;
-          return fail(r, (code && CAMERA_CODES.has(code) ? code : 'unknown') as SessionErrorCode, message(e));
+          return cameraFailure(r, e);
         }
-        if (!attached) return;
         try {
           await posePromise;
         } catch (e) {
@@ -489,6 +498,11 @@ export function createSession(deps: SessionDeps): Session {
         feed.use(m.detectors);
         r.feed = feed;
         r.offPresence = feed.onPresence((e) => onPresence(r, e));
+        try {
+          if (!(await connectLease(r))) return;
+        } catch (e) {
+          return cameraFailure(r, e);
+        }
         beginCalibration(r);
       } catch (e) {
         if (!live(r) || isAbortError(e)) return;
@@ -521,11 +535,9 @@ export function createSession(deps: SessionDeps): Session {
       if (!r.lease || !r.lease.alive) {
         releaseCamera(r);
         try {
-          if (!(await attachCamera(r))) return;
+          if (!(await acquireLease(r)) || !(await connectLease(r))) return;
         } catch (e) {
-          if (!live(r) || isAbortError(e)) return;
-          const code = (e as { code?: string }).code;
-          return fail(r, (code && CAMERA_CODES.has(code) ? code : 'unknown') as SessionErrorCode, message(e));
+          return cameraFailure(r, e);
         }
       }
       if (!live(r)) return;

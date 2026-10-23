@@ -66,9 +66,13 @@ function fakePose() {
     loads: [] as PoseLoadOptions[],
     numPoses: [] as number[],
     attached: null as FrameSource | null,
-    async load(o: PoseLoadOptions) { p.loads.push(o); return { delegate: 'CPU' as const, worker: true, loadMs: 1 }; },
+    loaded: false,
+    async load(o: PoseLoadOptions) { p.loads.push(o); await Promise.resolve(); p.loaded = true; return { delegate: 'CPU' as const, worker: true, loadMs: 1 }; },
     async warmUp() {},
-    attach(src: FrameSource) { p.attached = src; },
+    attach(src: FrameSource) {
+      if (src.kind === 'video' && !p.loaded) throw new Error('Call load() before attaching a camera.');
+      p.attached = src;
+    },
     detach() { p.attached = null; },
     onFrame(cb: (f: PoseFrame) => void) { cbs.add(cb); return () => { cbs.delete(cb); }; },
     setMaxHz() {},
