@@ -55,9 +55,14 @@ try {
       await page.goto(`${server.url}/${p.url}`, { waitUntil: 'networkidle' });
       await page.waitForFunction(() => document.documentElement.dataset.ready === '1' || document.readyState === 'complete' && !document.querySelector('script[type=module][data-wait]'), null, { timeout: 90000 });
       await page.evaluate(() => document.fonts.ready);
-      const res = await page.evaluate(() => {
+      // Onboarding panels must fit without scrolling, except on the smallest phone and on
+      // phones held sideways, where the panel may scroll under a fade (the button stays put).
+      const mayScroll = ['phone-360', 'phone-land-844', 'phone-land-915'].includes(bp.id);
+      const res = await page.evaluate((mayScroll) => {
         const out = { problems: [] };
         const W = innerWidth, H = innerHeight;
+        const sc = document.querySelector('.ob-scroll');
+        if (sc && sc.offsetParent && !mayScroll && sc.scrollHeight > sc.clientHeight + 4) out.problems.push(`panel needs scrolling (${sc.scrollHeight - sc.clientHeight}px hidden)`);
         const ox = document.documentElement.scrollWidth - W;
         if (ox > 0) out.problems.push(`horizontal scroll ${ox}px`);
         const prim = [...document.querySelectorAll('.ba-btn--primary')].filter((b) => b.offsetParent && !b.closest('[data-offscreen-ok]'));
@@ -73,7 +78,7 @@ try {
         }
         out.stats = window.__ob?.stats ?? null;
         return out;
-      });
+      }, mayScroll);
       const problems = [...res.problems, ...errors.map((e) => `console: ${e}`)];
       const file = await saveShot(await page.screenshot({ fullPage: !!S.full }), path.join(outDir, `${p.name}-${bp.id}`));
       report.push({ page: p.name, breakpoint: bp.id, ms: Date.now() - t0, problems, stats: res.stats, shot: path.relative(repo, file).split(path.sep).join('/') });

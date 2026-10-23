@@ -90,9 +90,9 @@ const STEPS = {
     <div class="ob-scroll">${progress(2)}
       <h2 class="ob-title">The camera finds 33 points on your body.</h2>
       <ul class="ob-points">
-        <li>${ICON.device}<div><b>It stays on this device</b><span>The video becomes those points on your phone or laptop. It is never uploaded or saved.</span></div></li>
+        <li>${ICON.device}<div><b>It stays on this device</b><span>The video turns into points on your phone or laptop and is never uploaded or saved.</span></div></li>
         <li>${ICON.line}<div><b>Every miss gets a reason</b><span>If a move does not count, you see why, for example hips 4 cm above the line.</span></div></li>
-        <li>${ICON.friends}<div><b>Friends see you only if you both agree</b><span>In a private room each of you decides whether to share the camera. It starts switched off.</span></div></li>
+        <li>${ICON.friends}<div><b>Friends see you only if you both agree</b><span>In a private room, camera sharing starts off and each of you decides.</span></div></li>
       </ul>
     </div>${actions(next())}`,
   3: () => `
@@ -110,7 +110,7 @@ const STEPS = {
         <label class="ob-mode">${glyph('seated', { highlight: ['armL1', 'armL2', 'armR1', 'armR2'], title: 'Seated' }).replace('<svg', '<svg class="g"')}<div><b>Seated mode</b><span>Play from a chair. 30 games have a seated version.</span></div><span class="ba-switch"><input type="checkbox" data-mode="seated" ${state.seated ? 'checked' : ''} aria-label="Seated mode"><span></span></span></label>
         <label class="ob-mode">${glyph('stand', { title: 'Quiet' }).replace('<svg', '<svg class="g"')}<div><b>Quiet mode</b><span>No jumping or stamping. Kind to the neighbours below.</span></div><span class="ba-switch"><input type="checkbox" data-mode="quiet" ${state.quiet ? 'checked' : ''} aria-label="Quiet mode"><span></span></span></label>
       </div>
-      <p class="ob-note">Pick one or more. You can change all of this later in Settings.</p>
+      <p class="ob-note ob-note--wide">Pick one or more. You can change all of this later in Settings.</p>
     </div>${actions(next())}`,
   4: () => `
     <div class="ob-scroll">${progress(4)}
@@ -126,9 +126,9 @@ const STEPS = {
     <div class="ob-scroll">${progress(5)}
       <h2 class="ob-title">Let the camera see your moves.</h2>
       <ul class="ob-points">
-        <li>${ICON.device}<div><b>It stays on this device</b><span>Nothing is uploaded or recorded. Each picture becomes points and is thrown away.</span></div></li>
-        <li>${ICON.only}<div><b>Only while you play</b><span>The camera runs while a game is open. You can switch it off any time from the browser bar.</span></div></li>
-        <li>${ICON.prompt}<div><b>Your browser asks next</b><span>Choose Allow in the box that appears. You can change it later in the browser settings.</span></div></li>
+        <li>${ICON.device}<div><b>It stays on this device</b><span>Nothing is uploaded or recorded. Each frame becomes points, then it is gone.</span></div></li>
+        <li>${ICON.only}<div><b>Only while you play</b><span>The camera runs only while a game is open.</span></div></li>
+        <li>${ICON.prompt}<div><b>Your browser asks next</b><span>Choose Allow in the box that appears. You can change it later.</span></div></li>
       </ul>
     </div><div class="ob-actions">${next('Continue')}</div>`,
   6: () => `

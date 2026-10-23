@@ -16,7 +16,7 @@ body { overflow: hidden; }
 .ob[data-step="3"] { --stage-share: 27%; }
 .ob[data-step="4"] { --stage-share: 44%; }
 .ob[data-step="5"] { --stage-share: 44%; }
-.ob[data-step="6"] { --stage-share: 58%; }
+.ob[data-step="6"] { --stage-share: 54%; }
 .ob[data-step="7"][data-done="0"] { grid-template-rows: 1fr 0; grid-template-columns: 1fr; }
 .ob[data-step="7"][data-done="0"] .ob-panel { display: none; }
 .ob[data-step="7"][data-done="1"] { --stage-share: 50%; }
@@ -26,10 +26,16 @@ body { overflow: hidden; }
 .ob-stage .ob-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; background: var(--ba-bg); }
 .ob-stage.is-fallback canvas { display: none; }
 .ob-stage.is-fallback .ob-poster { display: block; }
+/* No seam where the stage meets the panel: the vignette, the grain and the 3D canvas all fade
+   out on that side (bottom in portrait, right in landscape), so the scene melts into the page. */
+.ob-stage { --ob-vig: 120% 90% at 50% 45%; --ob-fade: linear-gradient(to bottom, #000 calc(100% - 56px), transparent); }
+.ob-stage canvas, .ob-stage .ob-poster { -webkit-mask-image: var(--ob-fade); mask-image: var(--ob-fade); }
+.ob[data-step="7"][data-done="0"] .ob-stage { --ob-fade: none; }
 .ob-stage::after { /* soft vignette and grain: cheap stand-ins for post-processing */
   content: ""; position: absolute; inset: 0; pointer-events: none;
+  -webkit-mask-image: var(--ob-fade); mask-image: var(--ob-fade);
   background:
-    radial-gradient(120% 90% at 50% 45%, transparent 62%, color-mix(in srgb, var(--ba-text) 7%, transparent) 100%),
+    radial-gradient(var(--ob-vig), transparent 62%, color-mix(in srgb, var(--ba-text) 7%, transparent) 100%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
 }
 
@@ -112,6 +118,13 @@ body { overflow: hidden; }
   .ob-mode span:not(.ba-switch) { font-size: 0.8125rem; }
   .ob-mode svg.g { width: 32px; height: 32px; }
 }
+/* Phones in portrait: step 3 is the longest panel, so its stage gives up room and the
+   closing note (repeated in Settings) is left out. */
+@media (max-width: 599px) and (orientation: portrait) {
+  .ob[data-step="3"] { --stage-share: 21%; }
+  .ob-note--wide { display: none; }
+  .ob-regions .ba-chip { min-height: 42px; }
+}
 .ob-level[aria-checked="true"] b::after { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--ba-accent); margin-left: 8px; vertical-align: 0.12em; }
 .ob-modes { display: grid; gap: 8px; }
 .ob-mode { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--ba-radius-md); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
@@ -168,8 +181,9 @@ body { overflow: hidden; }
 /* Tablets in portrait: more stage, larger type, a centred column */
 @media (min-width: 700px) and (orientation: portrait) {
   .ob { --stage-share: 56%; }
-  .ob[data-step="2"], .ob[data-step="4"], .ob[data-step="5"] { --stage-share: 50%; }
-  .ob[data-step="3"] { --stage-share: 36%; }
+  .ob[data-step="4"], .ob[data-step="5"] { --stage-share: 50%; }
+  .ob[data-step="2"] { --stage-share: 44%; }
+  .ob[data-step="3"] { --stage-share: 33%; }
   .ob-panel { padding-left: max(48px, 8vw); padding-right: max(48px, 8vw); }
   .ob-title { font-size: clamp(2.4rem, 1rem + 3.4vw, 3.4rem); }
   .ob[data-step="1"] .ob-title { font-size: clamp(2.8rem, 1rem + 4.4vw, 4.2rem); }
@@ -189,6 +203,7 @@ body { overflow: hidden; }
   .ob-panel { justify-content: center; padding-top: clamp(16px, 4vh, 48px); padding-left: clamp(18px, 3.2vw, 56px); padding-right: max(var(--ob-gutter), env(safe-area-inset-right, 0px)); }
   .ob-scroll { flex: 0 1 auto; }
   .ob-top { right: auto; width: calc(55% - 2 * var(--ob-gutter)); }
+  .ob-stage { --ob-vig: 140% 110% at 70% 40%; --ob-fade: linear-gradient(to right, #000 calc(100% - clamp(48px, 7vw, 120px)), transparent); }
 }
 @media (orientation: landscape) and (max-height: 500px) {
   .ob-title { font-size: clamp(1.4rem, 1rem + 2.4vmin, 2rem); }
