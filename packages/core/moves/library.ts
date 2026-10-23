@@ -20,6 +20,7 @@ import { createOverheadPressDetector } from './overheadPress.ts';
 import { createPoseMatchDetector } from './poseMatch.ts';
 import { createPullDetector } from './pull.ts';
 import { createSideBendDetector } from './sideBend.ts';
+import { createSideLineDetector } from './sideLine.ts';
 import { createSquatDetector } from './squat.ts';
 import { createSquatFlapDetector } from './squatFlap.ts';
 import { createSteadinessDetector } from './steadiness.ts';
@@ -42,6 +43,7 @@ export const LIBRARY_DETECTORS: DetectorRegistry = {
   overheadPress: createOverheadPressDetector,
   energy: createEnergyDetector,
   steadiness: createSteadinessDetector,
+  sideLine: createSideLineDetector,
 };
 
 export const ALL_DETECTORS: DetectorRegistry = {
