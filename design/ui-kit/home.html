@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade home</title>
+<meta name="description" content="UI kit: the Arcade tab. Today's mix from your goals, the week against your daily line, every game by body region, and ways to play together.">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="pages.css">
+<style>
+  .k-together .pic > svg { width: 34px; height: 34px; }
+  .k-together .pic.two svg { width: 40px; height: 54px; margin: 0 -7px; }
+  .k-together .pic.two { display: flex; justify-content: center; align-items: end; padding-bottom: 6px; }
+  .ba-filters .sep { flex: none; width: 1.5px; align-self: stretch; margin: 6px 4px; background: var(--ba-border); }
+  .k-bars i.later { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+  .k-week .bests { margin-top: 10px; padding-top: 16px; border-top: 1.5px solid var(--ba-border); }
+  .k-modes { display: contents; }
+  .k-modes .ba-chip svg { width: 20px; height: 20px; margin-left: -4px; }
+  /* Wide screens: the modes sit on the heading line, the regions get the whole row. */
+  @media (min-width: 900px) {
+    #all-games { position: relative; }
+    .k-allhead { justify-content: flex-start; gap: 14px; }
+    .ba-filters .sep { display: none; }
+    .k-modes { display: flex; gap: 8px; position: absolute; right: 0; top: -6px; }
+  }
+</style>
+</head>
+<body class="ba-app" data-long="1">
+<main class="ba-page" id="page"></main>
+<script type="module" data-wait>
+import { mountShell, mobileHead, GAMES, glyph, gameTile, fillGlyphs, ICON, bigScreen, artSrc, avatar, ready } from './shell.mjs';
+import { REGIONS } from '../brand/glyphs.mjs';
+
+mountShell('arcade');
+const page = document.getElementById('page');
+const two = bigScreen();
+const mix = [['squat-flap', 'Squat to flap, hold low to glide'], ['knee-sprint', 'Run on the spot'], ['firework-jacks', 'Jumping jacks, or step jacks in quiet mode']];
+const game = (id) => GAMES.find((g) => g.id === id);
+// This week against the daily line (10 minutes). Today is Thursday; later days are empty outlines.
+const week = [['Mon', 4], ['Tue', 12], ['Wed', 11], ['Thu', 7, 'now'], ['Fri', null], ['Sat', null], ['Sun', null]];
+const goal = 10, top = 14;
+
+page.innerHTML = `
+  ${mobileHead(`<a class="ba-badge ba-badge--pro" href="paywall.html" style="height:34px;padding:0 14px;text-decoration:none">See Pro</a>`)}
+  <section class="k-hero" aria-label="Today">
+    <article class="k-today">
+      <div class="art"><img src="${artSrc('squat-flap', false)}" alt="" width="800" height="600"></div>
+      <div class="body">
+        <span class="ba-label k-muted">Today, about 9 minutes</span>
+        <h2>Legs and cardio in three short games.</h2>
+        <p class="why">Picked from your goals. You can change them in Settings.</p>
+        <ol class="k-mix">${mix.map(([id, how]) => `<li><img src="${artSrc(id)}" alt="" width="56" height="42"><div><b>${game(id).name}</b><small>${how}</small></div><span class="min">3 min</span></li>`).join('')}</ol>
+        <div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="calibration.html">${ICON.play}Start today's mix</a></div>
+      </div>
+    </article>
+    <aside class="k-card k-week" aria-label="This week">
+      <div class="top"><h3>This week</h3><a class="ba-link" href="results.html">Last round</a></div>
+      <div class="big">34<small>minutes moved</small></div>
+      <div class="k-bars" role="img" aria-label="Minutes per day: Monday 4, Tuesday 12, Wednesday 11, today 7. The daily line is 10 minutes.">
+        ${week.map(([d, m, cls]) => `<i class="${m === null ? 'later' : cls || (m >= goal ? 'hit' : '')}" style="height:${m === null ? 8 : Math.max(6, (m / top) * 100)}%"></i>`).join('')}
+        <span class="goal" style="bottom:${(goal / top) * 100}%"><span>10 min</span></span>
+      </div>
+      <div class="k-days">${week.map(([d]) => `<span>${d}</span>`).join('')}</div>
+      <p class="ba-small" style="margin:4px 0 0">Three days in a row. Two days reached the line.</p>
+      <div class="bests">
+        <span class="k-label">Recent bests</span>
+        <ul class="k-mix">${[['squat-flap', '18 squats', 'Today'], ['knee-sprint', '212 steps', 'Wed'], ['star-catch', '41 stars', 'Tue']].map(([id, best, day]) => `<li><img src="${artSrc(id)}" alt="" width="56" height="42"><div><b>${best}</b><small>${game(id).name}</small></div><span class="min">${day}</span></li>`).join('')}</ul>
+      </div>
+    </aside>
+  </section>
+
+  <section class="ba-section" id="all-games" aria-labelledby="all">
+    <header class="k-allhead"><h2 id="all">All games</h2><span class="ba-small">${GAMES.length} games, ${GAMES.filter((g) => g.tier === 'free').length} free</span></header>
+    <div class="ba-filters" role="group" aria-label="Body region and modes">
+      <button class="ba-chip ba-chip--text" type="button" aria-pressed="true">All games</button>
+      ${REGIONS.filter((r) => r.id !== 'seated').map((r) => `<button class="ba-chip" type="button" aria-pressed="false">${glyph(r.pose, { highlight: r.highlight, accent: '#FF4F6E', title: '' })}${r.label}</button>`).join('')}
+      <span class="sep" aria-hidden="true"></span>
+      <span class="k-modes">
+        <button class="ba-chip ba-chip--text" type="button" aria-pressed="false">${ICON.chair}Seated</button>
+        <button class="ba-chip ba-chip--text" type="button" aria-pressed="false">${ICON.quiet}Quiet</button>
+        ${two ? `<button class="ba-chip ba-chip--text" type="button" aria-pressed="false">${ICON.tv}2 players</button>` : ''}
+      </span>
+    </div>
+    <div class="ba-grid" style="margin-top:14px">${GAMES.map((g) => gameTile(g.id, { duo: two })).join('')}</div>
+  </section>
+
+  <section class="ba-section" aria-labelledby="together">
+    <header><h2 id="together">Play together</h2><a class="ba-link" href="friends.html">Friends</a></header>
+    <div class="k-together">
+      <a class="k-card" href="room.html"><span class="pic two">${glyph('jackOpen', { accent: '#FF4F6E', floor: false, title: '' })}${glyph('stand', { accent: '#46B4FF', ball: '#46B4FF', floor: false, title: '' })}</span><div><h3>Private room</h3><p>Invite up to three friends with a link or a code. The host picks the game.</p></div></a>
+      <a class="k-card" href="lobbies.html"><span class="pic">${ICON.search}</span><div><h3>Public lobbies</h3><p>Quick match at your level. Players you do not know appear as skeletons.</p></div></a>
+      ${two ? `<a class="k-card" href="game.html?game=squat-flap&players=2"><span class="pic">${ICON.tv}</span><div><h3>2 players, one camera</h3><p>Side by side in front of this screen. Each of you gets your own score.</p></div></a>` : ''}
+    </div>
+  </section>`;
+fillGlyphs(page);
+await ready();
+</script>
+</body>
+</html>

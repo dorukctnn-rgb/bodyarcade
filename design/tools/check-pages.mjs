@@ -26,8 +26,13 @@ const SETS = {
   },
   kit: {
     dir: 'kit',
-    pages: (arg('--pages', 'home,game-card,calibration,results,paywall,live-room,settings')).split(',').map((p) => ({ name: p, url: `design/ui-kit/${p}.html?theme=${theme}` })),
+    // "game~game=pad-work" renders game.html?game=pad-work and saves it as game-pad-work.
+    pages: (arg('--pages', 'home,game,game~game=pad-work,calibration,calibration~state=done,results,paywall,room,lobbies,friends,safety,settings')).split(',').map((p) => {
+      const [base, qs] = p.split('~');
+      return { name: qs ? `${base}-${qs.split('=')[1]}` : base, url: `design/ui-kit/${base}.html?${qs ? `${qs}&` : ''}theme=${theme}` };
+    }),
     sizes: BREAKPOINTS.filter((b) => ['phone-390', 'laptop-1440'].includes(b.id)).concat(arg('--all', null) ? BREAKPOINTS.filter((b) => !['phone-390', 'laptop-1440'].includes(b.id)) : []),
+    full: true,
   },
   brand: { dir: 'brand', pages: [{ name: 'brand-sheet', url: 'design/brand/index.html' }], sizes: BREAKPOINTS.filter((b) => ['phone-390', 'laptop-1440'].includes(b.id)), full: true },
   art: { dir: 'art', pages: [{ name: 'art-direction', url: 'design/art/index.html' }], sizes: BREAKPOINTS.filter((b) => ['phone-390', 'laptop-1440'].includes(b.id)), full: true },
@@ -80,6 +85,8 @@ try {
         return out;
       }, mayScroll);
       const problems = [...res.problems, ...errors.map((e) => `console: ${e}`)];
+      // Full-page shots: pin fixed bars to the end of the page so they do not land mid-page.
+      if (S.full) await page.addStyleTag({ content: 'body{position:relative} .ba-tabbar{position:absolute!important} .k-actionbar{position:static!important}' });
       const file = await saveShot(await page.screenshot({ fullPage: !!S.full }), path.join(outDir, `${p.name}-${bp.id}`));
       report.push({ page: p.name, breakpoint: bp.id, ms: Date.now() - t0, problems, stats: res.stats, shot: path.relative(repo, file).split(path.sep).join('/') });
       if (problems.length) { failures++; console.log(`FAIL ${p.name} ${bp.id}: ${problems.join('; ')}`); }

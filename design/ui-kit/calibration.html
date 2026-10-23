@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade calibration</title>
+<meta name="description" content="UI kit: calibration before a game. Framing guide over the camera, body checks, one clear instruction and a distance gauge in a panel that never covers the body; then the line is set.">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="pages.css">
+<style>
+  html, body { height: 100%; }
+  body { overflow: hidden; background: #1A1430; color: #F4F2F8; }
+  /* The camera view and the message panel never overlap: panel below on portrait screens,
+     on the right on landscape screens. Nothing covers the feet the player is told to show. */
+  .cal { position: fixed; inset: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; --m: clamp(12px, 2.6vmin, 32px); }
+  .view { position: relative; overflow: hidden; min-height: 0; }
+  .view .feed, .view .guide { position: absolute; inset: 0; }
+  .view .feed svg, .view .guide svg { width: 100%; height: 100%; display: block; }
+  .view .shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(26,20,48,0.7), transparent 24%); pointer-events: none; }
+  .cal-top { position: absolute; top: calc(env(safe-area-inset-top, 0px) + var(--m)); left: max(var(--m), env(safe-area-inset-left, 0px)); right: var(--m); display: flex; align-items: center; gap: 12px; }
+  .cal-top .grow { flex: 1; min-width: 0; }
+  .cal-top h1 { margin: 0; font-family: var(--ba-font-display); font-weight: 850; font-size: clamp(1.1rem, 0.8rem + 1.5vmin, 1.8rem); letter-spacing: -0.012em; line-height: 1.05; text-wrap: balance; }
+  .cal .ba-icon-btn { background: rgba(28,20,51,0.72); color: #F4F2F8; box-shadow: inset 0 0 0 1.5px rgba(244,242,248,0.25); flex: none; }
+  .ring { width: 58px; height: 58px; flex: none; }
+  .checks { position: absolute; left: max(var(--m), env(safe-area-inset-left, 0px)); top: calc(env(safe-area-inset-top, 0px) + var(--m) + 72px); display: grid; gap: 8px; }
+  .ck { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 999px; font-weight: 750; font-size: 15px; background: rgba(28,20,51,0.86); color: #F4F2F8; width: max-content; }
+  .ck i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--ba-go-400); }
+  .ck i svg { width: 15px; height: 15px; }
+  .ck.wait i { background: var(--ba-sun-400); }
+  .panel { display: grid; gap: 12px; justify-items: center; text-align: center; align-content: center; padding: clamp(14px, 2.4vmin, 28px) max(var(--m), env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + var(--m)) max(var(--m), env(safe-area-inset-left, 0px)); background: #1A1430; box-shadow: 0 -1px 0 rgba(244,242,248,0.08); }
+  .msg { font-family: var(--ba-font-display); font-weight: 900; font-size: clamp(1.55rem, 0.9rem + 3vmin, 3rem); line-height: 1.02; letter-spacing: -0.015em; margin: 0; text-wrap: balance; }
+  .sub { margin: 0; font-weight: 600; color: rgba(244,242,248,0.78); line-height: 1.4; max-width: 30em; }
+  .gauge { width: min(100%, 420px); }
+  .gauge .bar { position: relative; height: 12px; border-radius: 6px; background: linear-gradient(to right, rgba(244,242,248,0.22) 0 30%, var(--ba-go-400) 30% 70%, rgba(244,242,248,0.22) 70%); }
+  .gauge .bar em { position: absolute; top: 50%; width: 24px; height: 24px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--ba-accent); box-shadow: 0 0 0 4px #1A1430; }
+  .gauge .lbl { display: grid; grid-template-columns: 30fr 40fr 30fr; margin-top: 8px; font-size: 13px; font-weight: 700; color: rgba(244,242,248,0.75); text-align: center; }
+  .gauge .lbl span:nth-child(2) { color: var(--ba-go-400); }
+  .seated { color: #F4F2F8; font-weight: 750; background: none; border: 0; padding: 8px 4px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; text-decoration-color: var(--ba-accent); cursor: pointer; font-size: 15px; }
+  .done-facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .done-facts li { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px 7px 8px; border-radius: 999px; background: rgba(244,242,248,0.1); font-weight: 700; font-size: 14px; }
+  .done-facts li i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--ba-go-400); }
+  .done-facts li i svg { width: 12px; height: 12px; }
+  .panel .ba-btn--primary { width: min(100%, 420px); }
+  @media (orientation: landscape) {
+    .cal { grid-template-rows: 1fr; grid-template-columns: minmax(0, 1fr) clamp(280px, 34vw, 500px); }
+    .panel { justify-items: start; text-align: left; box-shadow: -1px 0 0 rgba(244,242,248,0.08); padding-left: clamp(18px, 3vw, 48px); }
+    .done-facts { justify-content: flex-start; }
+    .checks { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--m)); }
+  }
+  @media (orientation: landscape) and (max-height: 500px) {
+    .ring { width: 46px; height: 46px; }
+    .checks { gap: 5px; }
+    .ck { font-size: 13px; padding: 4px 10px 4px 4px; }
+    .ck i { width: 20px; height: 20px; }
+    .panel { gap: 8px; }
+    .gauge .lbl { font-size: 12px; margin-top: 5px; }
+    .sub { font-size: 0.9rem; }
+    .ba-btn--lg { min-height: 52px; font-size: 1.05rem; }
+  }
+</style>
+</head>
+<body>
+<div class="cal" id="cal"></div>
+<script type="module" data-wait>
+import { ICON, q, ready } from './shell.mjs';
+import { cameraArt } from './art.mjs';
+
+const state = q.get('state') || 'frame';
+const tick = '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4l2.6 2.6L11 4.6" fill="none" stroke="#1C1433" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const dots = '<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="3.5" cy="7" r="1.4" fill="#1C1433"/><circle cx="7" cy="7" r="1.4" fill="#1C1433"/><circle cx="10.5" cy="7" r="1.4" fill="#1C1433"/></svg>';
+const checks = [['Head', true], ['Hips', true], ['Knees', true], ['Feet', state !== 'frame']];
+const done = state === 'frame' ? 3 : 4;
+const ring = (n, total) => `<svg class="ring" viewBox="0 0 64 64" role="img" aria-label="${n} of ${total} body checks done"><circle cx="32" cy="32" r="26" fill="rgba(28,20,51,0.8)" stroke="rgba(244,242,248,0.2)" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="${n === total ? '#22C383' : '#FF4F6E'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="${163.4 * (1 - n / total)}" transform="rotate(-90 32 32)"/><text x="32" y="37.5" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="15" fill="#F4F2F8">${n} of ${total}</text></svg>`;
+
+// Framing guide: where the body should stand, with the feet zone (onboarding step 6 uses the same drawing).
+function guide(w, h) {
+  const cx = w / 2, top = h * 0.13, bottom = h * 0.95, bw = Math.min(w * 0.42, (bottom - top) * 0.36);
+  return `<svg viewBox="0 0 ${w} ${h}" aria-hidden="true">
+    <rect x="${cx - bw / 2}" y="${top}" width="${bw}" height="${bottom - top}" rx="${bw * 0.45}" fill="none" stroke="${state === 'frame' ? '#F4F2F8' : '#22C383'}" stroke-width="3" stroke-dasharray="10 8" opacity="0.9"/>
+    ${state === 'frame' ? `<rect x="${cx - bw * 0.8}" y="${bottom - h * 0.065}" width="${bw * 1.6}" height="${h * 0.065}" rx="10" fill="#FFC53A" opacity="0.45"/><text x="${cx}" y="${bottom - h * 0.022}" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="${Math.max(12, Math.min(18, h * 0.03))}" fill="#1C1433">Feet here</text>` : ''}</svg>`;
+}
+
+const title = state === 'frame' ? 'Get your whole body in view' : state === 'hold' ? 'Hold still for a moment' : 'You are ready';
+const panel = state === 'frame' ? `
+    <p class="msg">Step back until your feet show.</p>
+    <div class="gauge" role="img" aria-label="Distance: too close. Step back about 40 cm."><div class="bar"><em style="left:18%"></em></div><div class="lbl"><span>Too close</span><span>Good</span><span>Too far</span></div></div>
+    <button class="seated" type="button">Play seated instead</button>` : state === 'hold' ? `
+    <p class="msg">Hold still. Measuring.</p>
+    <p class="sub">We set your line from your height and one comfortable squat.</p>` : `
+    <p class="msg">Got you. Your line is set.</p>
+    <ul class="done-facts">${['Squat line set', 'Arm reach set', 'Light is good'].map((t) => `<li><i>${tick}</i>${t}</li>`).join('')}</ul>
+    <a class="ba-btn ba-btn--primary ba-btn--lg" href="../onboarding/index.html?step=7">${ICON.play}Start Squat Flap</a>`;
+
+const cal = document.getElementById('cal');
+cal.innerHTML = `
+  <div class="view" id="view"><div class="feed" id="feed"></div><div class="guide" id="guide"></div><div class="shade"></div>
+    <div class="cal-top"><a class="ba-icon-btn" href="game.html" aria-label="Back to the game">${ICON.close}</a><div class="grow"><h1>${title}</h1></div>${ring(done, 4)}</div>
+    <div class="checks" aria-label="Body checks">${checks.map(([n, ok]) => `<span class="ck ${ok ? '' : 'wait'}"><i>${ok ? tick : dots}</i>${n}</span>`).join('')}</div>
+  </div>
+  <div class="panel" aria-live="polite">${panel}</div>`;
+// Draw the camera stand-in at the exact size of the view, so nothing is stretched.
+const view = document.getElementById('view');
+const w = Math.round(view.clientWidth), h = Math.round(view.clientHeight);
+document.getElementById('feed').innerHTML = cameraArt({ w, h, pose: state === 'done' ? 'squat' : 'stand', skeleton: true, line: state === 'done' ? 0.66 : null, lineLabel: 'Your line' });
+document.getElementById('guide').innerHTML = guide(w, h);
+await ready();
+</script>
+</body>
+</html>

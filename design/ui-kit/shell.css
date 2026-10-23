@@ -37,7 +37,10 @@
   .ba-topbar nav a { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 12px; text-decoration: none; font-weight: 700; color: var(--ba-text-muted); }
   .ba-topbar nav a svg { width: 22px; height: 22px; }
   .ba-topbar nav a[aria-current="page"] { color: var(--ba-text); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
-  .ba-topbar .ba-me { margin-left: auto; }
+  .ba-topbar .ba-me { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px 0 4px; border-radius: 999px; text-decoration: none; font-weight: 700; }
+  .ba-topbar .ba-me:hover { background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+  .ba-topbar .ba-me .ba-avatar { width: 40px; height: 40px; }
+  .ba-topbar .ba-me .ba-avatar svg { width: 30px; height: 30px; }
   .ba-page { padding-bottom: 64px; }
 }
 @media (min-width: 1680px) { .ba-topbar { padding: 0 max(48px, calc((100vw - 1560px) / 2)); } }
@@ -66,7 +69,10 @@
 .ba-tile .art svg { width: 100%; height: 100%; display: block; }
 .ba-tile .art .ba-badge { position: absolute; left: 8px; top: 8px; }
 .ba-tile .t { font-family: var(--ba-font-display); font-weight: 820; font-size: clamp(1.02rem, 0.95rem + 0.3vw, 1.2rem); letter-spacing: -0.01em; line-height: 1.1; margin: 0; }
-.ba-tile .meta { display: flex; align-items: center; gap: 6px; font-size: var(--ba-text-xs); color: var(--ba-text-muted); font-weight: 650; flex-wrap: wrap; }
+.ba-tile .meta { display: flex; align-items: center; gap: 6px; font-size: var(--ba-text-xs); color: var(--ba-text-muted); font-weight: 650; flex-wrap: nowrap; min-width: 0; }
+.ba-tile .meta > * { flex: none; }
+.ba-tile .meta .r { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ba-tile .meta .ba-seat svg { width: 18px; height: 18px; }
 .ba-tile .meta svg { width: 22px; height: 22px; }
 .ba-tile:hover .art { box-shadow: inset 0 0 0 3px var(--ba-text); }
 
