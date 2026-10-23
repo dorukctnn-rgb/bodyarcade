@@ -4,6 +4,8 @@ import { expect, test } from '@playwright/test';
 import { call, openRoom, waitFor, type RoomPlayer } from './support/room.ts';
 import { startStack, type Stack } from './support/stack.ts';
 
+test.skip(!!process.env.CI, 'the live suite runs on the local release gate, not on GitHub runners');
+
 let stack: Stack;
 test.beforeAll(async () => { test.setTimeout(120_000); stack = await startStack(); });
 test.afterAll(async () => { await stack?.stop(); });

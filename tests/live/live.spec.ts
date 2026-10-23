@@ -3,6 +3,9 @@ import { runScenario } from './support/runner.ts';
 import { SCENARIOS } from './support/scenarios.ts';
 import { startStack, type Stack } from './support/stack.ts';
 
+// A local release gate: it starts workerd, a TURN server and headless Chromium players, which a GitHub runner cannot do in time.
+test.skip(!!process.env.CI, 'the live suite runs on the local release gate, not on GitHub runners');
+
 let stack: Stack;
 test.beforeAll(async () => { test.setTimeout(120_000); stack = await startStack(); });
 test.afterAll(async () => { await stack?.stop(); });
