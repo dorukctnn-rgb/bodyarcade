@@ -90,7 +90,7 @@ interface GameLog {
   events: InputEvent[]; frames: InputFrame[]; ctx: GameContext | null; course: number[];
 }
 
-function fakeGame(o: { modes?: GameMode[]; overAfter?: number } = {}) {
+function fakeGame(o: { modes?: GameMode[]; overAfter?: number; controls?: GameModule['controls'] } = {}) {
   const log: GameLog = { inits: 0, starts: [], steps: 0, dts: new Set(), renders: 0, disposed: 0, events: [], frames: [], ctx: null, course: [] };
   const manifest: GameManifest = {
     id: 'fake', template: 'runner', version: 1, title: 'Fake', regions: ['legs'], framing: 'full', seated: false, lowImpact: false,
@@ -100,6 +100,7 @@ function fakeGame(o: { modes?: GameMode[]; overAfter?: number } = {}) {
   const games: Game[] = [];
   const module: GameModule = {
     manifest,
+    ...(o.controls ? { controls: o.controls } : {}),
     create(): Game {
       const g: Game = {
         manifest,
@@ -138,7 +139,7 @@ const shape = (cx: number): BodyShape => ({ cx, hipY: 0.55, T: 0.18, W: 0.14, as
 
 interface Person { cx: number; present: boolean; motion?: Motion }
 
-function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; people?: Person[] } = {}) {
+function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; people?: Person[]; controls?: GameModule['controls'] } = {}) {
   let t = 1000;
   const raf = new Map<number, () => void>();
   let rafSeq = 0;
@@ -146,6 +147,7 @@ function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; 
   const pose = fakePose();
   const game = fakeGame(o);
   const doc = Object.assign(new EventTarget(), { hidden: false });
+  const keys = new EventTarget();
   const people: Person[] = o.people ?? [{ cx: 0.5, present: true }];
   const rng = mulberry32(5);
   let seq = 0;
@@ -164,6 +166,7 @@ function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; 
     doc,
     seed: () => 42,
     extraSources: ['test'],
+    keyTarget: keys,
   });
   const seen: { states: SessionState[]; pauses: PauseReason[]; countdown: number[]; over: SessionEvents['over'][]; errors: SessionEvents['error'][]; players: SessionEvents['player'][]; fps: number[] } =
     { states: [], pauses: [], countdown: [], over: [], errors: [], players: [], fps: [] };
@@ -201,7 +204,15 @@ function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; 
     expect(session.state).toBe(s);
   }
 
-  return { session, cam, pose, game, doc, people, seen, pass, until, get rafPending() { return raf.size; }, get now() { return t; } };
+  /** Presses a key on the page; true when the session's bindings took it (default prevented). */
+  function press(k: string): boolean {
+    const e = Object.assign(new Event('keydown', { cancelable: true }), { key: k, repeat: false, metaKey: false, ctrlKey: false, altKey: false });
+    keys.dispatchEvent(e);
+    keys.dispatchEvent(Object.assign(new Event('keyup'), { key: k }));
+    return e.defaultPrevented;
+  }
+
+  return { session, cam, pose, game, doc, people, seen, pass, until, press, get rafPending() { return raf.size; }, get now() { return t; } };
 }
 
 const KEYS: SessionOptions = { mode: 'solo', difficulty: 'normal', input: 'keyboard', seated: false };
@@ -281,6 +292,23 @@ describe('Session, keyboard run', () => {
     h.pass(1000 / 60);
     expect(h.game.log.steps - steps).toBeLessThanOrEqual(1);
     expect(h.game.log.starts.length).toBe(1);
+  });
+
+  it("the game's keys are bound only while counting down and playing; on pause and results they work the page again", async () => {
+    const h = harness({ overAfter: 400, controls: { keys: { ' ': { event: 'jump' }, ArrowLeft: { channel: 'lane', value: -1 } } } });
+    expect(h.press(' ')).toBe(false);
+    await h.session.start('fake', KEYS);
+    expect(h.press(' ')).toBe(true);           // countdown: bound, but the event never reaches the game
+    h.until('running');
+    expect(h.press(' ')).toBe(true);
+    h.pass(50);
+    expect(h.game.log.events.map((e) => [e.id, e.source])).toEqual([['jump', 'keyboard']]);
+    h.session.pause('user');
+    expect(h.press(' ')).toBe(false);
+    await h.session.resume();
+    expect(h.press('ArrowLeft')).toBe(true);
+    h.until('results', 10_000);
+    expect(h.press(' ')).toBe(false);
   });
 
   it('a hidden tab pauses with reason hidden and stays paused when visible again', async () => {

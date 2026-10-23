@@ -1,7 +1,7 @@
 // games: the one contract every template implements (runner, flight, target, rhythm, strength, gate, balance, duel).
 import type { BodyProfile, Framing } from './body.ts';
 import type { LocalizedString, Ms } from './common.ts';
-import type { InputFrame, InputHub } from './input.ts';
+import type { InputFrame, InputHub, KeyMap, TouchMap } from './input.ts';
 import type { Rng } from './loop.ts';
 import type { DetectorSpec } from './moves.ts';
 import type { PoseService } from './pose.ts';
@@ -114,4 +114,9 @@ export interface Game {
 export interface GameModule {
   manifest: GameManifest;
   create(): Game;
+  /**
+   * Keys and swipes for keyboard and touch play. The session binds them to the page (keys) and the play area
+   * (touch) for the length of a run; games never add their own key or pointer listeners.
+   */
+  controls?: { keys?: KeyMap; touch?: TouchMap };
 }

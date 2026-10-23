@@ -71,10 +71,16 @@ export interface SessionDeps {
   lostMs?: number;
   /** Extra input sources for tests and tools ('test', 'trace'); never added in duel. */
   extraSources?: InputSourceId[];
+  /** Where the game's keys are bound (default window, when there is one). */
+  keyTarget?: EventTarget;
+  /** The play area for the game's swipes (none: no touch controls). */
+  touchTarget?: () => HTMLElement | null;
 }
 
 interface Run {
   options: SessionOptions;
+  module: GameModule | null;
+  offControls: Unsubscribe[];
   players: 1 | 2;
   manifest: GameManifest | null;
   game: Game | null;
@@ -344,6 +350,7 @@ export function createSession(deps: SessionDeps): Session {
       r.started = true;
       r.clock.reset();
     }
+    bindControls(r);
     r.countdownEnd = now() + countdownMs;
     r.countdownShown = Math.ceil(countdownMs / 1000);
     setState('countdown');
@@ -363,6 +370,7 @@ export function createSession(deps: SessionDeps): Session {
     }
     if (state !== 'running' && state !== 'countdown' && state !== 'calibrating') return;
     stopLoop(r);
+    unbindControls(r);
     r.hub.reset();
     reason = why;
     emit('pause', why);
@@ -373,6 +381,7 @@ export function createSession(deps: SessionDeps): Session {
     stopLoop(r);
     const summary: RunSummary = (r.game as Game).summary();
     releaseCamera(r); // B10: the camera light goes off on the results screen
+    unbindControls(r);
     r.hub.reset();
     emit('over', summary);
     if (live(r)) setState('results');
@@ -381,6 +390,7 @@ export function createSession(deps: SessionDeps): Session {
   function teardown(r: Run): void {
     r.abort.abort();
     stopLoop(r);
+    unbindControls(r);
     releaseCamera(r);
     r.offPresence?.();
     r.offPresence = null;
@@ -401,6 +411,23 @@ export function createSession(deps: SessionDeps): Session {
     setState('error');
   }
 
+  /**
+   * The game's keys and swipes, bound only while counting down or playing: on pause and results screens the same
+   * keys (Space, arrows) must work the buttons and scroll the page again.
+   */
+  function bindControls(r: Run): void {
+    const c = r.module?.controls;
+    if (!c || r.offControls.length) return;
+    const keyTarget = deps.keyTarget ?? (typeof window !== 'undefined' ? window : undefined);
+    if (c.keys && keyTarget) r.offControls.push(r.hub.bindKeyboard(c.keys, keyTarget));
+    const el = c.touch ? deps.touchTarget?.() : null;
+    if (c.touch && el) r.offControls.push(r.hub.bindTouch(el, c.touch));
+  }
+
+  function unbindControls(r: Run): void {
+    for (const off of r.offControls.splice(0)) off();
+  }
+
   // ---- visibility ----
 
   const doc = deps.doc ?? (typeof document !== 'undefined' ? (document as EventTarget & { hidden: boolean }) : undefined);
@@ -419,7 +446,7 @@ export function createSession(deps: SessionDeps): Session {
       const players: 1 | 2 = o.mode === 'local2' ? 2 : 1;
       const hub = (deps.hub ?? createInputHub)({ players, now: () => r.clock.simMs });
       const r: Run = {
-        options: { ...o }, players, manifest: null, game: null, started: false, hub, feed: null, lease: null, offLease: null,
+        options: { ...o }, module: null, offControls: [], players, manifest: null, game: null, started: false, hub, feed: null, lease: null, offLease: null,
         offPose: null, offPresence: null, abort: new AbortController(), calibrator: null, calibrator2: null,
         clock: createFixedStepClock(), rafId: null, alpha: 0, countdownEnd: 0, countdownShown: -1, fpsFrames: 0, fpsSince: 0,
         seed: (o.seed ?? deps.seed?.() ?? randomSeed()) >>> 0,
@@ -435,6 +462,7 @@ export function createSession(deps: SessionDeps): Session {
         if (!module) return fail(r, 'game_not_found', `There is no game '${gameId}'.`);
         const m = module.manifest;
         r.manifest = m;
+        r.module = module;
         if (!m.modes.includes(o.mode)) return fail(r, 'mode_unavailable', `${m.id} has no '${o.mode}' mode.`);
         if ((o.mode === 'duel' || o.mode === 'local2') && o.input !== 'camera') return fail(r, 'camera_required', `Mode '${o.mode}' is played with the camera.`);
         if (o.mode === 'local2') {
