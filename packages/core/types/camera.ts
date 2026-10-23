@@ -15,7 +15,7 @@ export interface VideoFrameSource {
 }
 
 /** One landmark frame from a non-camera source. `t` is on the performance.now() clock. */
-export interface SourceLandmarks { t: Ms; landmarks: Landmark[] | null; inferenceMs?: number }
+export interface SourceLandmarks { t: Ms; landmarks: Landmark[] | null; inferenceMs?: number; poses?: Landmark[][] }
 
 export interface LandmarkFrameSource {
   readonly kind: 'landmarks';

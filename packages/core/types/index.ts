@@ -21,6 +21,16 @@
 // - input: InputFrame adds `t`; events carry their source; InputHub adds allowed(), inject(), setTracking(),
 //   reset(), dispose(); typed KeyMap and TouchMap.
 // - game: GameManifest adds minPoseHz; GameModule for the catalogue.
+//
+// Two players, one camera (23 Oct, additive):
+// - players.ts: PlayerSlot, PlayerFrame, PlayerAssignment (stable players from unordered detections),
+//   TwoPlayerCalibrator with two-person framing codes and guidance.
+// - device.ts: Capabilities (local2 only on desktop, laptop, TV and landscape tablets; never in the Android app
+//   or on phone-sized screens) from DeviceSignals.
+// - pose: PoseLoadOptions.numPoses, PoseService.setNumPoses(), PoseFrame.poses; traces keep `people`.
+// - input: InputFrame.players (one stream per player), InputEvent.player, TrackingCode 'player_missing'.
+// - loop and game: mode 'local2', PauseReason 'player_lost', SessionEvents.player, StartOptions.profiles,
+//   RunSummary.players and log entries per player.
 
 export * from './common.ts';
 export * from './camera.ts';
@@ -35,3 +45,5 @@ export * from './render.ts';
 export * from './store.ts';
 export * from './entitlements.ts';
 export * from './net.ts';
+export * from './players.ts';
+export * from './device.ts';

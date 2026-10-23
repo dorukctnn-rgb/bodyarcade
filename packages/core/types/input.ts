@@ -1,15 +1,23 @@
 // core/input: one input bus for every source (replaces site/game/input.js).
 import type { Ms, Unsubscribe } from './common.ts';
 import type { MovementEngine, MovementEvent, MovementId } from './moves.ts';
+import type { PlayerSlot } from './players.ts';
 
 export type InputSourceId = 'pose' | 'keyboard' | 'touch' | 'trace' | 'test';
 
-export type TrackingCode = 'no_person' | 'camera_ended' | 'stalled';
+export type TrackingCode = 'no_person' | 'camera_ended' | 'stalled' | 'player_missing';
 
 export interface Tracking { ok: boolean; code?: TrackingCode }
 
-/** Every event carries its source (tech.md 4.5). */
-export type InputEvent = MovementEvent & { source: InputSourceId };
+/** Every event carries its source (tech.md 4.5), and in two-player mode its player. */
+export type InputEvent = MovementEvent & { source: InputSourceId; player?: PlayerSlot };
+
+/** One player's share of an input frame in mode 'local2'. */
+export interface PlayerInput {
+  tracking: Tracking;
+  channels: Readonly<Record<string, number>>;
+  events: readonly InputEvent[];
+}
 
 export interface InputFrame {
   t: Ms;
@@ -19,6 +27,11 @@ export interface InputFrame {
   channels: Readonly<Record<string, number>>;
   /** Drained once per fixed step: each event appears in exactly one frame. */
   events: readonly InputEvent[];
+  /**
+   * Mode 'local2' only: each player's own stream. The top-level tracking, channels and events then mirror Player 1,
+   * so a game that reads only them still works for one person, but local2 games must read `players`.
+   */
+  players?: Readonly<Record<PlayerSlot, PlayerInput>>;
 }
 
 /**

@@ -59,7 +59,13 @@
               { "type": "array", "minItems": 132, "maxItems": 132, "items": { "type": "number" } }
             ]
           },
-          "ms": { "type": "number", "minimum": 0, "description": "Inference time of this frame, if measured." }
+          "ms": { "type": "number", "minimum": 0, "description": "Inference time of this frame, if measured." },
+          "people": {
+            "type": "array",
+            "maxItems": 4,
+            "description": "Two-person recordings: every person found (132 numbers each), in the detector's order; lm is the first.",
+            "items": { "type": "array", "minItems": 132, "maxItems": 132, "items": { "type": "number" } }
+          }
         }
       }
     }

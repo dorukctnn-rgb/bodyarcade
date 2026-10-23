@@ -102,7 +102,7 @@ export const parseTrace: ParseTraceFn = (json) => {
   json.frames.forEach((f, i) => {
     const path = `frames[${i}]`;
     if (!isObj(f)) throw new TraceFormatError(path, 'must be an object');
-    onlyKeys(f, ['t', 'lm', 'ms'], path);
+    onlyKeys(f, ['t', 'lm', 'ms', 'people'], path);
     if (!isNum(f.t) || f.t < 0) throw new TraceFormatError(`${path}.t`, 'must be a time in ms, 0 or more');
     if (f.t < lastT) throw new TraceFormatError(`${path}.t`, 'frame times must not go back');
     lastT = f.t;
@@ -110,6 +110,11 @@ export const parseTrace: ParseTraceFn = (json) => {
     if (f.ms !== undefined) {
       if (!isNum(f.ms) || f.ms < 0) throw new TraceFormatError(`${path}.ms`, 'must be a duration in ms');
       frame.inferenceMs = f.ms;
+    }
+    if (f.people !== undefined) {
+      if (!Array.isArray(f.people) || f.people.length > 4) throw new TraceFormatError(`${path}.people`, 'must be an array of at most 4 people');
+      frame.people = f.people.map((p, k) => unflatten(p, `${path}.people[${k}]`) as Landmark[]);
+      if (f.people.some((p) => p === null)) throw new TraceFormatError(`${path}.people`, 'people must not contain null');
     }
     frames.push(frame);
   });
@@ -121,9 +126,12 @@ const round = (v: number, d: number): number => { const k = 10 ** d; return Math
 /** Compact JSON form; coordinates rounded to `decimals` (default 4), visibility to 3, times to 0.1 ms. */
 export const serializeTrace: SerializeTraceFn = (t, o) => {
   const d = o?.decimals ?? 4;
+  const flat = (lm: Landmark[]): number[] => lm.flatMap((p) => [round(p.x, d), round(p.y, d), round(p.z, d), round(p.visibility, 3)]);
   const frames: TraceFile['frames'] = t.frames.map((f) => {
-    const lm = f.lm === null ? null : f.lm.flatMap((p) => [round(p.x, d), round(p.y, d), round(p.z, d), round(p.visibility, 3)]);
-    return f.inferenceMs === undefined ? { t: round(f.t, 1), lm } : { t: round(f.t, 1), lm, ms: round(f.inferenceMs, 2) };
+    const out: TraceFile['frames'][number] = { t: round(f.t, 1), lm: f.lm === null ? null : flat(f.lm) };
+    if (f.inferenceMs !== undefined) out.ms = round(f.inferenceMs, 2);
+    if (f.people) out.people = f.people.map(flat);
+    return out;
   });
   const head = { format: TRACE_FORMAT, version: TRACE_VERSION, fps: t.fps, aspect: round(t.aspect, 6), meta: { ...t.meta } } as const;
   return t.labels.length ? { ...head, labels: t.labels.map((l) => ({ ...l })), frames } : { ...head, frames };
@@ -157,7 +165,9 @@ export const traceFrames: TraceFramesFn = (t, o) => {
   const t0 = o?.t0 ?? 0;
   return schedule(t, o?.hz).map(({ index, at }): PoseFrame => {
     const f = t.frames[index] as TraceFrame;
-    return { seq: index, t: t0 + at, landmarks: copyLm(f.lm), inferenceMs: f.inferenceMs ?? 0, source: o?.source ?? 'trace', aspect: t.aspect };
+    const frame: PoseFrame = { seq: index, t: t0 + at, landmarks: copyLm(f.lm), inferenceMs: f.inferenceMs ?? 0, source: o?.source ?? 'trace', aspect: t.aspect };
+    if (f.people) frame.poses = f.people.map((p) => copyLm(p) as Landmark[]);
+    return frame;
   });
 };
 
@@ -185,6 +195,7 @@ export const traceSource: TraceSourceFn = (t: Trace, o: TraceSourceOptions = {})
       const f = t.frames[p.index] as TraceFrame;
       const out: SourceLandmarks = { t: now, landmarks: copyLm(f.lm) };
       if (f.inferenceMs !== undefined) out.inferenceMs = f.inferenceMs;
+      if (f.people) out.poses = f.people.map((p) => copyLm(p) as Landmark[]);
       next++;
       for (const cb of [...listeners]) cb(out);
     }
@@ -227,7 +238,9 @@ export const recordTrace: RecordTraceFn = (pose, meta) => {
   const off = pose.onFrame((f) => {
     if (stopped) return;
     if (t0 === null) { t0 = f.t; aspect = f.aspect; }
-    frames.push({ t: f.t - t0, lm: copyLm(f.landmarks), inferenceMs: f.inferenceMs });
+    const frame: TraceFrame = { t: f.t - t0, lm: copyLm(f.landmarks), inferenceMs: f.inferenceMs };
+    if (f.poses) frame.people = f.poses.map((p) => copyLm(p) as Landmark[]);
+    frames.push(frame);
   });
   return {
     get frames() { return frames.length; },

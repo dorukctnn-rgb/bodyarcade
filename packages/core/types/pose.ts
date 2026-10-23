@@ -41,6 +41,11 @@ export interface PoseFrame {
   source: PoseFrameSource;
   /** Width / height of the analysed image. Needed for distances that mix x and y. */
   aspect: number;
+  /**
+   * Every person found, in MediaPipe's order (not stable between frames), when the service runs with numPoses 2.
+   * `landmarks` is poses[0]. Two-player code reads players from PlayerAssignment, never from this order.
+   */
+  poses?: Landmark[][];
 }
 
 export interface LoadProgress { phase: 'wasm' | 'model' | 'warmup'; loaded: number; total: number }
@@ -54,6 +59,8 @@ export interface PoseLoadOptions {
   worker?: 'auto' | 'never' | 'only';
   /** Inference rate cap; tech.md 3.2 drops pose to 20 Hz under load before render quality. */
   maxHz?: number;
+  /** People to look for: 1 (default) or 2 for two players in front of one camera (web, big screens only). */
+  numPoses?: 1 | 2;
   onProgress?: (p: LoadProgress) => void;
   signal?: AbortSignal;
 }
@@ -80,6 +87,8 @@ export interface PoseService {
   detach(): void;
   onFrame(cb: (f: PoseFrame) => void): Unsubscribe;
   setMaxHz(hz: number): void;
+  /** Switches between one and two people without reloading the model. */
+  setNumPoses(n: 1 | 2): Promise<void>;
   readonly stats: PoseStats;
   /** Terminates the worker and closes the landmarker. The service cannot be used afterwards. */
   dispose(): void;

@@ -3,16 +3,20 @@
 import type {
   FrameSource, Landmark, LoadProgress, PoseFrame, PoseLoadOptions, PoseLoadResult, PoseService, PoseStats, Unsubscribe,
 } from '../types/index.ts';
-import { createLandmarker, firstPose, unpackLandmarks } from './landmarker.ts';
+import { allPoses, createLandmarker, unpackPoses } from './landmarker.ts';
 import type { FromWorker, ToWorker } from './protocol.ts';
+
+export interface DetectResult { poses: Landmark[][]; inferenceMs: number }
 
 /** One inference engine. The service owns exactly one at a time. */
 export interface PoseBackend {
   readonly worker: boolean;
-  load(o: { modelUrl: string; wasmBase: string; prefer: 'GPU' | 'CPU'; onProgress?: (p: LoadProgress) => void; signal?: AbortSignal }): Promise<'GPU' | 'CPU'>;
+  load(o: { modelUrl: string; wasmBase: string; prefer: 'GPU' | 'CPU'; numPoses?: 1 | 2; onProgress?: (p: LoadProgress) => void; signal?: AbortSignal }): Promise<'GPU' | 'CPU'>;
+  setNumPoses(n: 1 | 2): Promise<void>;
   /** One dummy inference; resolves with its duration in ms. */
   warmUp(): Promise<number>;
-  detect(video: HTMLVideoElement, ts: number): Promise<{ landmarks: Landmark[] | null; inferenceMs: number }>;
+  /** Every person found in the current video frame, in the detector's order. */
+  detect(video: HTMLVideoElement, ts: number): Promise<DetectResult>;
   dispose(): void;
 }
 
@@ -23,9 +27,10 @@ export class WorkerBackend implements PoseBackend {
   readonly worker = true;
   private readonly w: Worker;
   private nextId = 1;
-  private readonly pending = new Map<number, { resolve: (r: { landmarks: Landmark[] | null; inferenceMs: number }) => void; reject: (e: Error) => void }>();
+  private readonly pending = new Map<number, { resolve: (r: DetectResult) => void; reject: (e: Error) => void }>();
   private onLoaded: ((m: FromWorker) => void) | null = null;
   private onWarm: ((ms: number) => void) | null = null;
+  private onNumPoses: ((m: FromWorker) => void) | null = null;
   private progress: ((p: LoadProgress) => void) | undefined;
   private dead: Error | null = null;
 
@@ -40,6 +45,7 @@ export class WorkerBackend implements PoseBackend {
     if (this.dead) return;
     this.dead = err;
     this.onLoaded?.({ type: 'error', message: err.message });
+    this.onNumPoses?.({ type: 'error', message: err.message });
     for (const p of this.pending.values()) p.reject(err);
     this.pending.clear();
   }
@@ -48,17 +54,19 @@ export class WorkerBackend implements PoseBackend {
     if (m.type === 'progress') this.progress?.(m.p);
     else if (m.type === 'loaded') this.onLoaded?.(m);
     else if (m.type === 'warm') this.onWarm?.(m.ms);
+    else if (m.type === 'numPosesSet') this.onNumPoses?.(m);
     else if (m.type === 'result') {
       const p = this.pending.get(m.id);
       if (!p) return;
       this.pending.delete(m.id);
-      p.resolve({ landmarks: m.lm ? unpackLandmarks(m.lm) : null, inferenceMs: m.ms });
+      p.resolve({ poses: unpackPoses(m.poses), inferenceMs: m.ms });
     } else if (m.type === 'error') {
       if (m.id !== undefined) {
         const p = this.pending.get(m.id);
         this.pending.delete(m.id);
         p?.reject(new Error(m.message));
-      } else this.onLoaded?.(m);
+      } else if (this.onNumPoses) this.onNumPoses(m);
+      else this.onLoaded?.(m);
     }
   }
 
@@ -75,7 +83,18 @@ export class WorkerBackend implements PoseBackend {
         o.signal?.removeEventListener('abort', onAbort);
         if (m.type === 'loaded') resolve(m.delegate); else reject(new Error(m.type === 'error' ? m.message : 'Pose worker did not load.'));
       };
-      this.send({ type: 'load', wasmBase: absolute(o.wasmBase), modelUrl: absolute(o.modelUrl), prefer: o.prefer });
+      this.send({ type: 'load', wasmBase: absolute(o.wasmBase), modelUrl: absolute(o.modelUrl), prefer: o.prefer, numPoses: o.numPoses ?? 1 });
+    });
+  }
+
+  setNumPoses(n: 1 | 2): Promise<void> {
+    if (this.dead) return Promise.reject(this.dead);
+    return new Promise((resolve, reject) => {
+      this.onNumPoses = (m) => {
+        this.onNumPoses = null;
+        if (m.type === 'numPosesSet') resolve(); else reject(new Error(m.type === 'error' ? m.message : 'Pose worker did not switch.'));
+      };
+      this.send({ type: 'numPoses', n });
     });
   }
 
@@ -84,7 +103,7 @@ export class WorkerBackend implements PoseBackend {
     return new Promise((resolve) => { this.onWarm = (ms) => { this.onWarm = null; resolve(ms); }; this.send({ type: 'warmup' }); });
   }
 
-  async detect(video: HTMLVideoElement, ts: number): Promise<{ landmarks: Landmark[] | null; inferenceMs: number }> {
+  async detect(video: HTMLVideoElement, ts: number): Promise<DetectResult> {
     if (this.dead) throw this.dead;
     const bitmap = await createImageBitmap(video);
     if (this.dead) { bitmap.close(); throw this.dead; }
@@ -117,7 +136,7 @@ export class MainBackend implements PoseBackend {
   private lastTs = 0;
 
   async load(o: Parameters<PoseBackend['load']>[0]): Promise<'GPU' | 'CPU'> {
-    const opts: Parameters<typeof createLandmarker>[0] = { wasmBase: o.wasmBase, modelUrl: o.modelUrl, prefer: o.prefer, useModule: false };
+    const opts: Parameters<typeof createLandmarker>[0] = { wasmBase: o.wasmBase, modelUrl: o.modelUrl, prefer: o.prefer, useModule: false, numPoses: o.numPoses ?? 1 };
     if (o.onProgress) opts.onProgress = o.onProgress;
     if (o.signal) opts.signal = o.signal;
     const r = await createLandmarker(opts);
@@ -125,13 +144,18 @@ export class MainBackend implements PoseBackend {
     return r.delegate;
   }
 
-  private run(src: TexImageSource, ts: number): { landmarks: Landmark[] | null; inferenceMs: number } {
+  private run(src: TexImageSource, ts: number): DetectResult {
     if (!this.lm) throw new Error('The pose model is not loaded.');
     const t = Math.max(ts, this.lastTs + 1);
     this.lastTs = t;
     const a = performance.now();
-    const landmarks = firstPose(this.lm.detectForVideo(src, t));
-    return { landmarks, inferenceMs: performance.now() - a };
+    const poses = allPoses(this.lm.detectForVideo(src, t));
+    return { poses, inferenceMs: performance.now() - a };
+  }
+
+  async setNumPoses(n: 1 | 2): Promise<void> {
+    if (!this.lm) throw new Error('The pose model is not loaded.');
+    await this.lm.setOptions({ numPoses: n });
   }
 
   warmUp(): Promise<number> {
@@ -141,7 +165,7 @@ export class MainBackend implements PoseBackend {
     return Promise.resolve(this.run(c, performance.now()).inferenceMs);
   }
 
-  detect(video: HTMLVideoElement, ts: number): Promise<{ landmarks: Landmark[] | null; inferenceMs: number }> {
+  detect(video: HTMLVideoElement, ts: number): Promise<DetectResult> {
     try { return Promise.resolve(this.run(video, ts)); } catch (e) { return Promise.reject(e); }
   }
 
@@ -176,6 +200,7 @@ export function createPoseService(deps: PoseServiceDeps = {}): PoseService & { r
   let disposed = false;
   let detachCurrent: (() => void) | null = null;
   let maxHz = Infinity;
+  let numPoses: 1 | 2 = 1;
   const recent = { inference: [] as number[], delivered: [] as number[] };
   const counts = { frames: 0, dropped: 0, errors: 0 };
 
@@ -220,7 +245,13 @@ export function createPoseService(deps: PoseServiceDeps = {}): PoseService & { r
       const mySeq = seq;
       const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 4 / 3;
       b.detect(video, now).then(
-        (r) => { busy = false; if (active) emit({ seq: mySeq, t: now, landmarks: r.landmarks, inferenceMs: r.inferenceMs, source: 'camera', aspect }); },
+        (r) => {
+          busy = false;
+          if (!active) return;
+          const frame: PoseFrame = { seq: mySeq, t: now, landmarks: r.poses[0] ?? null, inferenceMs: r.inferenceMs, source: 'camera', aspect };
+          if (numPoses === 2) frame.poses = r.poses;
+          emit(frame);
+        },
         () => { busy = false; counts.errors++; counts.dropped++; },
       );
     };
@@ -247,7 +278,8 @@ export function createPoseService(deps: PoseServiceDeps = {}): PoseService & { r
       const mode = o.worker ?? 'auto';
       const supported = (deps.workerSupported ?? canUseWorker)();
       if (o.maxHz) maxHz = o.maxHz;
-      const args: Parameters<PoseBackend['load']>[0] = { modelUrl: o.modelUrl, wasmBase: o.wasmBase, prefer: o.prefer ?? 'GPU' };
+      numPoses = o.numPoses ?? 1;
+      const args: Parameters<PoseBackend['load']>[0] = { modelUrl: o.modelUrl, wasmBase: o.wasmBase, prefer: o.prefer ?? 'GPU', numPoses };
       if (o.onProgress) args.onProgress = o.onProgress;
       if (o.signal) args.signal = o.signal;
       if (mode !== 'never' && supported) {
@@ -289,7 +321,9 @@ export function createPoseService(deps: PoseServiceDeps = {}): PoseService & { r
         let seq = -1;
         const off: Unsubscribe = src.onFrame((f) => {
           seq++;
-          emit({ seq, t: f.t, landmarks: f.landmarks, inferenceMs: f.inferenceMs ?? 0, source: src.source, aspect: src.aspect });
+          const frame: PoseFrame = { seq, t: f.t, landmarks: f.landmarks, inferenceMs: f.inferenceMs ?? 0, source: src.source, aspect: src.aspect };
+          if (f.poses) frame.poses = f.poses;
+          emit(frame);
         });
         detachCurrent = off;
       } else {
@@ -309,6 +343,13 @@ export function createPoseService(deps: PoseServiceDeps = {}): PoseService & { r
     },
 
     setMaxHz(hz: number): void { maxHz = hz > 0 ? hz : Infinity; },
+
+    async setNumPoses(n: 1 | 2): Promise<void> {
+      if (!backend) { numPoses = n; return; }
+      if (n === numPoses) return;
+      await backend.setNumPoses(n);
+      numPoses = n;
+    },
 
     get stats(): PoseStats {
       const now = performance.now();

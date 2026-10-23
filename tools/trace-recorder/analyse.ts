@@ -17,6 +17,8 @@ export interface AnalyseOptions {
   notes?: string;
   consent?: TraceMeta['consent'];
   labels?: TraceLabel[];
+  /** Look for two people; the trace then keeps everyone found in `people`. */
+  numPoses?: 1 | 2;
   onProgress?: (done: number, total: number) => void;
 }
 
@@ -52,7 +54,7 @@ export async function analyseVideo(url: string, o: AnalyseOptions): Promise<{ tr
   const to = Math.min(video.duration, o.to ?? video.duration);
   const backend: PoseBackend = o.worker === false ? new MainBackend() : new WorkerBackend(() => new Worker(new URL('../../packages/core/pose/pose.worker.ts', import.meta.url), { type: 'module' }));
   try {
-    await backend.load({ modelUrl: POSE_MODEL.url, wasmBase: WASM_BASE, prefer: o.prefer ?? 'CPU' });
+    await backend.load({ modelUrl: POSE_MODEL.url, wasmBase: WASM_BASE, prefer: o.prefer ?? 'CPU', numPoses: o.numPoses ?? 1 });
     const frames: TraceFrame[] = [];
     const n = Math.floor((to - from) * fps) + 1;
     for (let i = 0; i < n; i++) {
@@ -60,7 +62,9 @@ export async function analyseVideo(url: string, o: AnalyseOptions): Promise<{ tr
       if (tSec > to) break;
       await seek(video, tSec);
       const r = await backend.detect(video, Math.round(i * 1000 / fps) + 1);
-      frames.push({ t: Math.round((i * 1000 / fps) * 10) / 10, lm: r.landmarks, inferenceMs: Math.round(r.inferenceMs * 100) / 100 });
+      const frame: TraceFrame = { t: Math.round((i * 1000 / fps) * 10) / 10, lm: r.poses[0] ?? null, inferenceMs: Math.round(r.inferenceMs * 100) / 100 };
+      if ((o.numPoses ?? 1) === 2) frame.people = r.poses;
+      frames.push(frame);
       o.onProgress?.(i + 1, n);
     }
     const meta: TraceMeta = { id: o.id, origin: 'video', framing: o.framing ?? 'full', model: `${POSE_MODEL.file}, tasks-vision, ${o.worker === false ? 'main thread' : 'worker'}` , recordedAt: new Date().toISOString() };

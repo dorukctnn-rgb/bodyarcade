@@ -41,8 +41,11 @@ export interface TraceLabel {
   note?: string;
 }
 
-/** One frame in memory. `t` counts from the start of the trace. */
-export interface TraceFrame { t: Ms; lm: Landmark[] | null; inferenceMs?: number }
+/**
+ * One frame in memory. `t` counts from the start of the trace. Two-person recordings (numPoses 2) also keep every
+ * person found in `people`, in the detector's order; `lm` is then people[0].
+ */
+export interface TraceFrame { t: Ms; lm: Landmark[] | null; inferenceMs?: number; people?: Landmark[][] }
 
 export interface Trace {
   /** Nominal capture rate; frames carry their own times, which may jitter or skip. */
@@ -62,7 +65,7 @@ export interface TraceFile {
   aspect: number;
   meta: TraceMeta;
   labels?: TraceLabel[];
-  frames: { t: Ms; lm: number[] | null; ms?: number }[];
+  frames: { t: Ms; lm: number[] | null; ms?: number; people?: number[][] }[];
 }
 
 export interface TraceSourceOptions {

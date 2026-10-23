@@ -2,7 +2,7 @@
 // limiting, dropped-frame accounting and disposal. The real model runs in tests/e2e/pose.spec.ts.
 import { describe, expect, it } from 'vitest';
 import type { Landmark, PoseFrame, VideoFrameSource } from '../types/index.ts';
-import { createPoseService, type PoseBackend } from './service.ts';
+import { createPoseService, type DetectResult, type PoseBackend } from './service.ts';
 import { DEFAULT_SHAPE, synthPose, synthTrace } from './synth.ts';
 import { traceSource } from './trace.ts';
 
@@ -17,13 +17,17 @@ class FakeBackend implements PoseBackend {
   hold = false;
   private waiting: (() => void)[] = [];
   inferenceMs = 7;
+  numPoses: 1 | 2 = 1;
+  /** People in front of the fake camera. */
+  people: Landmark[][] = [synthPose(DEFAULT_SHAPE)];
   constructor(kind: 'worker' | 'main') { this.worker = kind === 'worker'; }
-  async load(): Promise<'GPU' | 'CPU'> { this.loads++; if (this.failLoad) throw this.failLoad; return 'GPU'; }
+  async load(o: { numPoses?: 1 | 2 }): Promise<'GPU' | 'CPU'> { this.loads++; this.numPoses = o.numPoses ?? 1; if (this.failLoad) throw this.failLoad; return 'GPU'; }
+  async setNumPoses(n: 1 | 2): Promise<void> { this.numPoses = n; }
   async warmUp(): Promise<number> { return 3; }
-  async detect(_v: HTMLVideoElement, ts: number): Promise<{ landmarks: Landmark[] | null; inferenceMs: number }> {
+  async detect(_v: HTMLVideoElement, ts: number): Promise<DetectResult> {
     this.detects.push(ts);
     if (this.hold) await new Promise<void>((r) => this.waiting.push(r));
-    return { landmarks: synthPose(DEFAULT_SHAPE), inferenceMs: this.inferenceMs };
+    return { poses: this.people.slice(0, this.numPoses), inferenceMs: this.inferenceMs };
   }
   release(): void { const w = this.waiting; this.waiting = []; for (const r of w) r(); }
   dispose(): void { this.disposed++; }
@@ -161,6 +165,28 @@ describe('camera frames', () => {
     for (let i = 1; i <= 100; i++) { b.inferenceMs = i; v.present(i * 40); await wait(0); }
     expect(pose.stats.p50).toBe(51);
     expect(pose.stats.p95).toBe(96);
+  });
+});
+
+describe('two people', () => {
+  it('numPoses 2: every person found is in poses, landmarks is the first; switching back drops poses', async () => {
+    const { pose, made } = setup();
+    await pose.load({ ...LOAD, numPoses: 2 });
+    const b = made[0] as FakeBackend;
+    expect(b.numPoses).toBe(2);
+    b.people = [synthPose({ ...DEFAULT_SHAPE, cx: 0.3 }), synthPose({ ...DEFAULT_SHAPE, cx: 0.7 })];
+    const v = new ManualVideo();
+    const got: PoseFrame[] = [];
+    pose.onFrame((f) => got.push(f));
+    pose.attach(videoSource(v));
+    v.present(10); await wait(0);
+    expect(got[0]?.poses?.length).toBe(2);
+    expect(got[0]?.landmarks).toBe(got[0]?.poses?.[0]);
+    await pose.setNumPoses(1);
+    expect(b.numPoses).toBe(1);
+    v.present(50); await wait(0);
+    expect(got[1]?.poses).toBeUndefined();
+    expect(got[1]?.landmarks?.[0]?.x).toBeCloseTo(got[0]!.poses![0]![0]!.x);
   });
 });
 

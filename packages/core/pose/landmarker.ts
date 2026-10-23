@@ -13,6 +13,8 @@ export interface CreateLandmarkerOptions {
   signal?: AbortSignal;
   /** Use the GPU delegate even on a software WebGL renderer (tests only). */
   allowSoftwareGpu?: boolean;
+  /** People to look for (default 1). */
+  numPoses?: 1 | 2;
 }
 
 /** Fetches a file, reporting progress when the server sends a length. */
@@ -70,7 +72,7 @@ export async function createLandmarker(o: CreateLandmarkerOptions): Promise<{ la
   const make = (delegate: 'GPU' | 'CPU'): Promise<PoseLandmarker> => (routeWasmLogs(), vision.PoseLandmarker.createFromOptions(fileset, {
     baseOptions: { modelAssetBuffer: model.slice(), delegate },
     runningMode: 'VIDEO',
-    numPoses: 1,
+    numPoses: o.numPoses ?? 1,
     minPoseDetectionConfidence: 0.5,
     minPosePresenceConfidence: 0.5,
     minTrackingConfidence: 0.5,
@@ -105,9 +107,26 @@ type RawLandmark = { x: number; y: number; z: number; visibility?: number };
 
 /** The first pose of a result as contract landmarks, or null. */
 export function firstPose(result: { landmarks?: RawLandmark[][] } | null | undefined): Landmark[] | null {
-  const lm = result?.landmarks?.[0];
-  if (!lm || lm.length < LANDMARK_COUNT) return null;
-  return lm.slice(0, LANDMARK_COUNT).map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 0 }));
+  return allPoses(result)[0] ?? null;
+}
+
+/** Every pose of a result as contract landmarks, in the detector's order. */
+export function allPoses(result: { landmarks?: RawLandmark[][] } | null | undefined): Landmark[][] {
+  return (result?.landmarks ?? [])
+    .filter((lm) => lm.length >= LANDMARK_COUNT)
+    .map((lm) => lm.slice(0, LANDMARK_COUNT).map((p) => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility ?? 0 })));
+}
+
+/** Any number of poses as one Float32Array of 132 floats each. */
+export function packPoses(poses: readonly Landmark[][]): Float32Array {
+  const out = new Float32Array(poses.length * LANDMARK_COUNT * 4);
+  poses.forEach((lm, k) => out.set(packLandmarks(lm), k * LANDMARK_COUNT * 4));
+  return out;
+}
+
+export function unpackPoses(f: Float32Array): Landmark[][] {
+  const n = Math.floor(f.length / (LANDMARK_COUNT * 4));
+  return Array.from({ length: n }, (_, k) => unpackLandmarks(f.subarray(k * LANDMARK_COUNT * 4, (k + 1) * LANDMARK_COUNT * 4)));
 }
 
 /** 33 landmarks as 132 floats (x, y, z, visibility), for transfer between threads. */

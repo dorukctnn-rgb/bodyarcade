@@ -7,12 +7,14 @@ import type { DetectorSpec } from './moves.ts';
 import type { PoseService } from './pose.ts';
 import type { AudioApi, Scene2D, Scene3D } from './render.ts';
 import type { Namespace } from './store.ts';
+import type { PlayerSlot } from './players.ts';
 
 export type TemplateId = 'runner' | 'flight' | 'target' | 'rhythm' | 'strength' | 'gate' | 'balance' | 'duel';
 
 export type BodyRegion = 'legs' | 'arms' | 'chest-back' | 'core' | 'cardio' | 'mobility' | 'seated';
 
-export type GameMode = 'solo' | 'ghost' | 'duel';
+/** 'local2': two players, one camera, one screen (web on big screens). A game lists it only if it supports it. */
+export type GameMode = 'solo' | 'ghost' | 'duel' | 'local2';
 
 /** One manifest.json per game feeds the menu, the paywall, the SEO page, the sitemap and the store text. */
 export interface GameManifest {
@@ -44,6 +46,8 @@ export interface StartOptions {
   seated: boolean;
   mode: GameMode;
   profile: BodyProfile | null;
+  /** Mode 'local2': each player's calibration (profile is then Player 1's). */
+  profiles?: Partial<Record<PlayerSlot, BodyProfile>>;
 }
 
 export type GameEvent = { type: string; t: Ms; [k: string]: unknown };
@@ -61,7 +65,9 @@ export interface RunSummary {
   /** MET x seconds; calories are derived from it and the player's weight, never invented. */
   metSeconds: number;
   /** Lets a room recompute the score (tech.md 2.7). `t` is simulation time in ms. */
-  log: { t: Ms; kind: string; ok: boolean; v?: number }[];
+  log: { t: Ms; kind: string; ok: boolean; v?: number; player?: PlayerSlot }[];
+  /** Mode 'local2': each player's result (co-op games may give both the same score). */
+  players?: Partial<Record<PlayerSlot, { score: number; reps?: number; hits?: number; cleared?: number; metSeconds: number }>>;
 }
 
 export interface Hud {
