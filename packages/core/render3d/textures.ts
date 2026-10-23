@@ -328,7 +328,8 @@ export interface TextureOptions {
   /** Colour data (sRGB) is the default; pass false for data textures. */
   srgb?: boolean;
   repeat?: [number, number];
-  wrap?: 'repeat' | 'clamp';
+  /** 'repeat-x': repeats across, clamps up and down (the horizon ring: no bleeding between its top and bottom rows). */
+  wrap?: 'repeat' | 'clamp' | 'repeat-x';
   anisotropy?: number;
   mipmaps?: boolean;
 }
@@ -348,8 +349,8 @@ export function makeTexture(px: Pixels, o: TextureOptions = {}): THREE.DataTextu
   t.minFilter = mips ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
   t.magFilter = THREE.LinearFilter;
   if (o.srgb !== false) t.colorSpace = THREE.SRGBColorSpace;
-  const wrap = o.wrap === 'clamp' ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
-  t.wrapS = wrap; t.wrapT = wrap;
+  t.wrapS = o.wrap === 'clamp' ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+  t.wrapT = o.wrap === 'clamp' || o.wrap === 'repeat-x' ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
   if (o.repeat) t.repeat.set(o.repeat[0], o.repeat[1]);
   if (o.anisotropy) t.anisotropy = o.anisotropy;
   t.needsUpdate = true;
