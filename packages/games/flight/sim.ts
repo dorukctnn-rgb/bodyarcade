@@ -283,8 +283,12 @@ function hint(s: FlightState, i: number, code: HintCode, out: FlightEvent[]): vo
   out.push({ type: 'hint', lane: i, code });
 }
 
+/** Two flaps closer than this are one (the detector's own pause is 0.25 s; keys and taps must not make a bird that climbs on a mash). */
+export const MIN_FLAP_GAP = 0.3;
+
 function flapLane(s: FlightState, i: number, f: FlapIn, out: FlightEvent[]): void {
   const l = s.lanes[i] as LaneState;
+  if (l.sinceFlap < MIN_FLAP_GAP) return;
   const power = clamp(f.power, 0.6, 1.2);
   // Depth: a squat as deep as asked gives the whole lift; down to half of it still gives three quarters.
   const ratio = f.depth === undefined ? 1 : clamp(f.depth / s.need, 0.5, 1);
