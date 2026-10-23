@@ -39,6 +39,11 @@ export interface SessionEvents {
   calibration: CalibrationStatus | TwoPlayerCalibrationStatus;
   /** Whole seconds left: 3, 2, 1, then 0 when play starts (or continues after a pause). */
   countdown: { remaining: number };
+  /**
+   * The camera picture for the self view: the playing video element once the camera runs, null when it is released
+   * (results, quit, a dead camera). Show it mirrored; never record or send it.
+   */
+  video: { el: HTMLVideoElement | null };
 }
 
 export interface Session {

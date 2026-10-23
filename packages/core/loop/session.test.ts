@@ -395,6 +395,8 @@ describe('Session, camera run', () => {
     const h = harness({ people: [{ cx: 0.5, present: true }] });
     const calib: number[] = [];
     h.session.on('calibration', (c) => calib.push(c.progress));
+    const videos: (HTMLVideoElement | null)[] = [];
+    h.session.on('video', (v) => videos.push(v.el));
     await h.session.start('fake', CAMERA);
     expect(h.session.state).toBe('calibrating');
     expect(h.pose.loads.map((l) => l.numPoses)).toEqual([1]);
@@ -417,6 +419,7 @@ describe('Session, camera run', () => {
     h.pass(100);
     expect(h.session.state).toBe('results');
     expect(h.cam.stats()).toEqual({ acquired: 1, released: 1, live: 0 });
+    expect(videos).toEqual([h.cam.leases[0]!.video, null]);
     expect(h.pose.attached).toBeNull();
     expect(h.pose.listeners).toBe(0);
   });

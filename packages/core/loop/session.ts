@@ -92,6 +92,8 @@ interface Run {
   options: SessionOptions;
   module: GameModule | null;
   offControls: Unsubscribe[];
+  /** The 'video' event said a picture is showing. */
+  videoShown: boolean;
   players: 1 | 2;
   manifest: GameManifest | null;
   game: Game | null;
@@ -274,11 +276,13 @@ export function createSession(deps: SessionDeps): Session {
   function releaseCamera(r: Run): void {
     r.offPose?.();
     r.offPose = null;
-    if (r.lease) deps.pose?.detach();
+    const had = r.lease !== null;
+    if (had) deps.pose?.detach();
     r.offLease?.();
     r.offLease = null;
     r.lease?.release();
     r.lease = null;
+    if (had && r.videoShown) { r.videoShown = false; emit('video', { el: null }); }
   }
 
   /** Asks for the camera (the permission prompt); the lease belongs to the run from here on. */
@@ -300,6 +304,8 @@ export function createSession(deps: SessionDeps): Session {
     for (const s of slots(r)) r.hub.setTracking({ ok: true }, s);
     r.offPose = pose.onFrame((f) => onPoseFrame(r, f));
     pose.attach(lease);
+    r.videoShown = true;
+    emit('video', { el: lease.video });
     return true;
   }
 
@@ -496,7 +502,7 @@ export function createSession(deps: SessionDeps): Session {
       const players: 1 | 2 = o.mode === 'local2' ? 2 : 1;
       const hub = (deps.hub ?? createInputHub)({ players, now: () => r.clock.simMs });
       const r: Run = {
-        options: { ...o }, module: null, offControls: [], players, manifest: null, game: null, started: false, hub, feed: null, lease: null, offLease: null,
+        options: { ...o }, module: null, offControls: [], videoShown: false, players, manifest: null, game: null, started: false, hub, feed: null, lease: null, offLease: null,
         offPose: null, offPresence: null, abort: new AbortController(), calibrator: null, calibrator2: null,
         clock: createFixedStepClock(), rafId: null, alpha: 0, countdownEnd: 0, countdownShown: -1, fpsFrames: 0, fpsSince: 0,
         seed: (o.seed ?? deps.seed?.() ?? randomSeed()) >>> 0,
