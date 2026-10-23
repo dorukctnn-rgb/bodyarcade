@@ -14,6 +14,7 @@ import type { SpriteStyle } from '../../core/render2d/sprites.ts';
 import { makeProjector, type Projector, type Rect } from '../../core/render2d/view.ts';
 import type { TargetView, ViewBegin, ViewFrame } from './game.ts';
 import { STEP_MS } from './engine.ts';
+import { readyVideo, videoSizeOf } from './video.ts';
 import type { LightSpec } from './reaction-tag.ts';
 import type { PadSpec } from './pad-work.ts';
 import type { StarSpec } from './star-catch.ts';
@@ -32,7 +33,7 @@ const starStyle = (s: Side | undefined): SpriteStyle => ({ fill: handColor(s), s
 export interface MirrorViewOptions {
   /** The camera picture to draw as the scene; null (or no function) shows the stage and the player's silhouette only. */
   video?: () => CanvasImageSource | null;
-  /** Pixel size of that picture (video.videoWidth and videoHeight) so its aspect is kept. */
+  /** Pixel size of that picture so its aspect is kept; the picture's own size (video.videoWidth and videoHeight) when missing. */
   videoSize?: () => { w: number; h: number } | null;
   /** How much the picture is darkened so targets are the brightest things (default 0.25, the kit's). */
   dim?: number;
@@ -453,6 +454,8 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
       lit = [];
       clock = 0;
       kit.particles.clear();
+      // a mirror game has no self view window: when nobody set up the mirror layout, do it (never over a two-player layout)
+      if (!kit.rects.lanes && kit.rects.pip) kit.setHud({ mode: 'mirror', pipCorner: 'hidden' });
       const first = profiles[0];
       if (first) { kit.setCamera(first.aspect); kit.setProfile(first); }
     },
@@ -464,8 +467,8 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
       const rect = kit.rects.mirror;
       if (rect.w <= 0 || rect.h <= 0) return;
       const prs = projectorsFor(rect);
-      const src = keyboard ? null : o.video?.() ?? null;
-      if (src) kit.drawVideo(src, { size: o.videoSize?.() ?? null, ...(o.dim !== undefined ? { dim: o.dim } : {}) });
+      const src = keyboard ? null : readyVideo(o.video?.() ?? null);
+      if (src) kit.drawVideo(src, { size: o.videoSize?.() ?? videoSizeOf(src), ...(o.dim !== undefined ? { dim: o.dim } : {}) });
 
       const players = v.lanes.length;
       v.lanes.forEach((lane, i) => {

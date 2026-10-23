@@ -1,0 +1,40 @@
+{
+  "id": "star-catch",
+  "template": "target",
+  "version": 1,
+  "title": "Star Catch",
+  "regions": ["arms"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 196,
+  "met": 4,
+  "detectors": [{ "id": "handHit" }],
+  "free": true,
+  "modes": ["solo", "local2"],
+  "minPoseHz": 12,
+  "seo": { "slug": "star-catch", "keywords": ["reach game", "arm exercise game", "hand tracking game", "camera exercise game", "star catching game"] },
+  "catalogue": {
+    "tagline": { "en": "Catch each star with the hand of its colour.", "tr": "Her yıldızı kendi renginin eliyle yakala." },
+    "about": {
+      "en": "Stars drift into the mirror view of your room and fade if you wait. Reach out and touch each one with the hand that matches its colour. Catch a whole constellation for a bonus. Three short rounds with a rest between them. On a big screen, two people can play side by side.",
+      "tr": "Yıldızlar odanın ayna görüntüsüne süzülür ve beklersen söner. Uzan ve her birine rengiyle eşleşen elinle dokun. Bir takımyıldızının hepsini yakalarsan bonus kazanırsın. Aralarında mola olan üç kısa tur. Büyük ekranda iki kişi yan yana oynayabilir."
+    },
+    "how": [
+      { "en": "Stand or sit where the camera sees you from head to hips.", "tr": "Kameranın seni baştan kalçaya kadar gördüğü bir yerde dur ya da otur." },
+      { "en": "Gold stars belong to your left hand and blue stars to your right. Pearl stars take either hand.", "tr": "Altın yıldızlar sol elinin, mavi yıldızlar sağ elinin. Sedef yıldızlara iki elle de dokunabilirsin." },
+      { "en": "Catch every star of a constellation to light it up for a bonus.", "tr": "Bir takımyıldızının hepsini yakalarsan parlar ve bonus verir." }
+    ],
+    "measures": [
+      { "en": "Where your hands are in the picture, left and right.", "tr": "Ellerinin görüntüde nerede olduğu, sol ve sağ." },
+      { "en": "Whether you reach each star before it fades.", "tr": "Her yıldıza sönmeden uzanıp uzanmadığın." }
+    ],
+    "move": "reach",
+    "tile": "star-catch",
+    "order": 3,
+    "related": ["pad-work", "reaction-tag"],
+    "seatedNote": { "en": "Seated play: every star stays within reach of a chair.", "tr": "Oturarak oynama: bütün yıldızlar sandalyeden uzanılacak mesafede kalır." },
+    "quietNote": { "en": "No jumping and no stamping.", "tr": "Zıplama ve yere vurma yok." }
+  }
+}

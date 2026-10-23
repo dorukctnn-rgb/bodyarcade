@@ -35,6 +35,8 @@ export const STEP_MS = 1000 / 60;
 export const HINT_MS = 2400;
 /** Standing still between rounds is about this much work. */
 export const REST_MET = 1.5;
+/** Seated upper-body play (game-design.md 2.10: "oturarak sürümler, üst vücut, hafif-orta"): the most a seated run is counted at. */
+export const SEATED_MET = 3;
 /** Nobody tracked for this many steps (40 s) ends the round instead of waiting for ever; the Session pauses long before. */
 export const MAX_FROZEN_STEPS = 60 * 40;
 /** Latency the judge and the beat grading take off, ms: camera frame to screen, until the real devices are measured. */
@@ -333,7 +335,8 @@ export class TargetEngine<S extends BaseSpec> {
     const lanes = this.lanes.map((l) => l.state);
     const best = lanes.reduce((a, b) => (b.stats.score > a.stats.score ? b : a), lanes[0] as LaneState);
     const rest = Math.max(0, this.t - lanes.reduce((m, l) => Math.max(m, l.stats.playMs), 0));
-    const met = (l: LaneState): number => Math.round((this.config.met * (l.stats.playMs / 1000) + REST_MET * (rest / 1000)) * 10) / 10;
+    const base = this.seated ? Math.min(this.config.met, SEATED_MET) : this.config.met;
+    const met = (l: LaneState): number => Math.round((base * (l.stats.playMs / 1000) + REST_MET * (rest / 1000)) * 10) / 10;
     const accuracy = (l: LaneState): number => {
       const n = l.stats.hits + l.stats.misses;
       return n > 0 ? l.stats.hits / n : 0;

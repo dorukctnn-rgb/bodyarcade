@@ -188,6 +188,14 @@ export const TARGET_STRINGS: Readonly<Record<Lang, Table>> = { en, tr, de, es, f
 /** The shell calls `i18n.extend(TARGET_NAMESPACE, TARGET_STRINGS)` once; the games ask for `target.<key>`. */
 export const TARGET_NAMESPACE = 'target';
 
+/**
+ * The same tables with every key written as `target.<key>`, for a shell that adds a game's words under the game's own
+ * namespace: `i18n.extend('game.<id>', module.strings)` (the games ask `t('target.<key>')`, which the shell scopes to the game).
+ */
+export const GAME_STRINGS: Readonly<Record<Lang, Table>> = Object.fromEntries(
+  (Object.keys(TARGET_STRINGS) as Lang[]).map((l) => [l, Object.fromEntries(Object.entries(TARGET_STRINGS[l]).map(([k, v]) => [`${TARGET_NAMESPACE}.${k}`, v]))]),
+) as Record<Lang, Table>;
+
 /** `{name}` placeholders only (no plurals): all these strings are written to need none. */
 export function format(msg: string, vars?: Record<string, string | number>): string {
   return vars ? msg.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m)) : msg;

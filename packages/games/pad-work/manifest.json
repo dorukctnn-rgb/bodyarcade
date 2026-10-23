@@ -1,0 +1,40 @@
+{
+  "id": "pad-work",
+  "template": "target",
+  "version": 1,
+  "title": "Pad Work",
+  "regions": ["arms", "core"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 420,
+  "met": 5,
+  "detectors": [{ "id": "handHit" }],
+  "free": false,
+  "modes": ["solo", "local2"],
+  "minPoseHz": 15,
+  "seo": { "slug": "pad-work", "keywords": ["shadow boxing game", "boxing workout game", "punching game", "camera boxing game", "boxing exercise at home"] },
+  "catalogue": {
+    "tagline": { "en": "Jab, cross and hook on the beat.", "tr": "Ritme göre direkt, çapraz ve kroşe at." },
+    "about": {
+      "en": "Numbered pads light up around your head. Hit them in order with the hand of their colour, each punch on the beat. Swinging bags ask you to lean away or duck under. Three rounds of two minutes with a real rest between them.",
+      "tr": "Başının çevresinde numaralı pedler yanar. Sırayla, rengine uyan elinle vur; her yumruk ritme denk gelsin. Sallanan torbalar eğilip kaçmanı ya da altından geçmeni ister. İki dakikalık üç tur, aralarında gerçek bir mola."
+    },
+    "how": [
+      { "en": "Stand with room for your arms to swing.", "tr": "Kollarını savurabileceğin kadar boşlukta dur." },
+      { "en": "Hit the pads in the order of their numbers, with the hand of their colour.", "tr": "Pedlere numaralarının sırasıyla, kendi renginin eliyle vur." },
+      { "en": "Land each punch on the beat for Perfect. Lean away from a swinging bag or duck under it.", "tr": "Mükemmel için her yumruğu ritme denk getir. Sallanan torbadan eğilerek kaç ya da altından geç." }
+    ],
+    "measures": [
+      { "en": "Which pad your fist reaches, and how fast it gets there.", "tr": "Yumruğunun hangi pede ve ne kadar hızlı ulaştığı." },
+      { "en": "Your timing against the beat.", "tr": "Ritme göre zamanlaman." }
+    ],
+    "move": "punch",
+    "tile": "pad-work",
+    "order": 4,
+    "related": ["star-catch", "reaction-tag"],
+    "seatedNote": { "en": "Seated boxing: every punch from a chair, with leans but no ducks.", "tr": "Oturarak boks: bütün yumruklar sandalyeden, eğilmek var, çömelmek yok." },
+    "quietNote": { "en": "No jumping and no stamping, just punches.", "tr": "Zıplama ve yere vurma yok, yalnızca yumruklar." }
+  }
+}

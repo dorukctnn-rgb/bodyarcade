@@ -1,0 +1,40 @@
+{
+  "id": "reaction-tag",
+  "template": "target",
+  "version": 1,
+  "title": "Reaction Tag",
+  "regions": ["arms", "cardio"],
+  "framing": "full",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 155,
+  "met": 4,
+  "detectors": [{ "id": "handHit", "opts": { "feet": 1 } }],
+  "free": false,
+  "modes": ["solo", "local2"],
+  "minPoseHz": 15,
+  "seo": { "slug": "reaction-tag", "keywords": ["reaction game", "reaction time game", "hand tracking game", "agility game", "camera workout game"] },
+  "catalogue": {
+    "tagline": { "en": "Tap the lights before they fade. Never the red ones.", "tr": "Işıklar sönmeden dokun. Kırmızılara asla." },
+    "about": {
+      "en": "Green lights come on around you and fade fast. Tap each one with either hand and leave the red squares alone. Every tap shows your reaction time in milliseconds. Harder levels add lights further out and, standing, on the floor.",
+      "tr": "Çevrende yeşil ışıklar yanar ve hızla söner. Her birine istediğin elle dokun, kırmızı karelere dokunma. Her dokunuş tepki süreni milisaniye olarak gösterir. Zor seviyelerde daha uzakta, ayaktaysan yerde de ışıklar yanar."
+    },
+    "how": [
+      { "en": "Stand or sit with space around you. Standing, the camera should see you from head to feet.", "tr": "Çevrende boşluk olacak şekilde dur ya da otur. Ayaktaysan kamera seni baştan ayağa görmeli." },
+      { "en": "Tap each green light before it fades. A light on the floor wants a foot.", "tr": "Her yeşil ışığa sönmeden dokun. Yerdeki ışık için ayağını kullan." },
+      { "en": "Leave the red squares alone: touching one costs points.", "tr": "Kırmızı karelere dokunma: dokunmak puan kaybettirir." }
+    ],
+    "measures": [
+      { "en": "How many milliseconds pass between a light and your touch.", "tr": "Işıkla dokunuşun arasında kaç milisaniye geçtiği." },
+      { "en": "Whether you tapped a green light or a red one.", "tr": "Yeşil mi kırmızı mı ışığa dokunduğun." }
+    ],
+    "move": "reach",
+    "tile": "reaction-tag",
+    "order": 5,
+    "related": ["star-catch", "pad-work"],
+    "seatedNote": { "en": "Hands only: the whole game plays from a chair.", "tr": "Yalnızca eller: oyunun tamamı sandalyeden oynanır." },
+    "quietNote": { "en": "Quiet mode drops the floor lights, so nothing to stamp.", "tr": "Sessiz modda yerdeki ışıklar kalkar, yere basmak gerekmez." }
+  }
+}
