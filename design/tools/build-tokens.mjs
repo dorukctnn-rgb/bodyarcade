@@ -43,8 +43,8 @@ add('  /* HUD plates: the same in both themes, they sit on a camera mirror or a 
 for (const [k, v] of Object.entries(hud)) add(`  --ba-hud-${k}: ${v};`);
 add('');
 add('  /* Type */');
-add(`  --ba-font-display: ${type.display};`);
-add(`  --ba-font-text: ${type.text};`);
+add(`  --ba-font-display: ${type.family.display};`);
+add(`  --ba-font-text: ${type.family.text};`);
 for (const [k, v] of Object.entries(type.size)) add(`  --ba-text-${k}: ${v};`);
 for (const [k, v] of Object.entries(type.display)) add(`  --ba-display-${k}: ${v};`);
 for (const [k, v] of Object.entries(type.weight)) add(`  --ba-weight-${k}: ${v};`);
@@ -105,6 +105,8 @@ add('    --ba-dur-enter: 1ms;');
 add('    --ba-dur-celebrate: 1ms;');
 add('  }');
 add('}');
+const bad = lines.find((l) => l.includes('[object Object]') || /:\s*undefined;/.test(l));
+if (bad) throw new Error(`token value is not a string: ${bad.trim()}`);
 writeFileSync(path.join(out, 'tokens.css'), lines.join('\n') + '\n');
 
 const table = BREAKPOINTS.map((b) => {

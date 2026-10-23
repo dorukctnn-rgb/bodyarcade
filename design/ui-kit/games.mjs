@@ -1,0 +1,52 @@
+// The release 1 games as data, with a small hand-drawn motif per game for tiles and
+// concept sketches. Each template has its own palette (design/art/index.html).
+
+export const GAMES = [
+  { id: 'squat-flap', name: 'Squat Flap', region: 'legs', template: 'B', tier: 'free', min: 5, seated: 'Stand up from a chair to flap', line: 'Every squat is a wing beat. Hold low to glide.', moves: ['squat'], local2: true },
+  { id: 'knee-sprint', name: 'Knee Sprint', region: 'cardio', template: 'A', tier: 'free', min: 3, seated: 'Seated march', line: 'Run on the spot. Higher knees, more speed.', moves: ['highKnee'], local2: true },
+  { id: 'star-catch', name: 'Star Catch', region: 'arms', template: 'C', tier: 'free', min: 3, seated: 'Seated reach', line: 'Catch each star with the hand of its colour.', moves: ['reach'], local2: true },
+  { id: 'pad-work', name: 'Pad Work', region: 'arms', template: 'C', tier: 'pro', min: 7, seated: 'Seated boxing', line: 'Jab, cross and hook on the beat.', moves: ['punch'], local2: true },
+  { id: 'reaction-tag', name: 'Reaction Tag', region: 'cardio', template: 'C', tier: 'pro', min: 3, seated: 'Hands only', line: 'Tap the lights before they fade. Never the red ones.', moves: ['reach'], local2: true },
+  { id: 'firework-jacks', name: 'Firework Jacks', region: 'cardio', template: 'E', tier: 'free', min: 4, seated: 'Arm jacks', line: 'Every jumping jack sends a firework up.', moves: ['jackOpen'], local2: true, quiet: 'Step jacks' },
+  { id: 'twist-turbine', name: 'Twist Turbine', region: 'core', template: 'E', tier: 'free', min: 3, seated: 'Seated twist', line: 'Twist to spin the turbine and light the city.', moves: ['twist'], local2: false },
+  { id: 'summit-climb', name: 'Summit Climb', region: 'chest-back', template: 'E', tier: 'free', min: 4, seated: 'Arms only', line: 'Reach, grab and pull, hand over hand.', moves: ['pull'], local2: false },
+  { id: 'limbo-bend', name: 'Limbo Bend', region: 'core', template: 'F', tier: 'pro', min: 3, seated: 'Seated bend', line: 'Bend sideways to slip through tilted gates.', moves: ['sideBend'], local2: true },
+  { id: 'pose-wall', name: 'Pose Wall', region: 'balance', template: 'F', tier: 'free', min: 4, seated: 'Upper body walls', line: 'Make the shape before the wall reaches you.', moves: ['tPose'], local2: true },
+  { id: 'road-run', name: 'Road Run', region: 'cardio', template: 'A', tier: 'free', min: 5, seated: 'Lean and duck course', line: 'Jump, duck and lean through ten worlds.', moves: ['leanLeft'], local2: false },
+];
+
+export const REGION_LABEL = { legs: 'Legs and hips', arms: 'Arms and shoulders', 'chest-back': 'Chest and back', core: 'Core', cardio: 'Cardio', balance: 'Mobility and balance' };
+
+const star = (cx, cy, r, fill) => {
+  let d = '';
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.45 : r;
+    d += `${i ? 'L' : 'M'}${(cx + Math.cos(a) * rr).toFixed(1)} ${(cy + Math.sin(a) * rr).toFixed(1)} `;
+  }
+  return `<path d="${d}Z" fill="${fill}"/>`;
+};
+const burst = (cx, cy, r, col) => Array.from({ length: 12 }, (_, i) => {
+  const a = (i / 12) * Math.PI * 2;
+  return `<line x1="${cx + Math.cos(a) * r * 0.35}" y1="${cy + Math.sin(a) * r * 0.35}" x2="${cx + Math.cos(a) * r}" y2="${cy + Math.sin(a) * r}" stroke="${col}" stroke-width="5" stroke-linecap="round"/>`;
+}).join('') + `<circle cx="${cx}" cy="${cy}" r="${r * 0.14}" fill="${col}"/>`;
+const mover = (x, y, s = 1, col = '#1C1433', head = '#FF4F6E') =>
+  `<g transform="translate(${x} ${y}) scale(${s})"><line x1="0" y1="0" x2="4" y2="-38" stroke="${col}" stroke-width="11" stroke-linecap="round"/><line x1="4" y1="-34" x2="-14" y2="-52" stroke="${col}" stroke-width="7" stroke-linecap="round"/><line x1="4" y1="-34" x2="22" y2="-46" stroke="${col}" stroke-width="7" stroke-linecap="round"/><line x1="0" y1="0" x2="-8" y2="26" stroke="${col}" stroke-width="8" stroke-linecap="round"/><line x1="0" y1="0" x2="9" y2="26" stroke="${col}" stroke-width="8" stroke-linecap="round"/><circle cx="7" cy="-55" r="10" fill="${head}"/></g>`;
+
+/** 400 x 300 motif for a game tile or concept sketch. */
+export function motif(id) {
+  const W = 400, H = 300;
+  const M = {
+    'squat-flap': () => `<rect width="${W}" height="${H}" fill="#C9C5F2"/><path d="M0 230 L70 170 L130 205 L210 140 L290 200 L350 165 L400 190 V300 H0Z" fill="#7C77D6"/><path d="M0 255 L90 215 L170 240 L260 205 L340 240 L400 225 V300 H0Z" fill="#5A52B8"/><rect x="250" y="-20" width="54" height="120" rx="27" fill="#E4F4FF"/><rect x="242" y="86" width="70" height="20" rx="10" fill="#fff"/><rect x="250" y="190" width="54" height="140" rx="27" fill="#E4F4FF"/><rect x="242" y="182" width="70" height="20" rx="10" fill="#fff"/><rect y="272" width="${W}" height="28" fill="#2B2248"/><rect y="272" width="${W}" height="5" fill="#FF4F6E"/><circle cx="150" cy="140" r="26" fill="#FF4F6E"/><path d="M172 136 l20 6 l-20 7z" fill="#FFC53A"/><circle cx="160" cy="130" r="4.5" fill="#1C1433"/><path d="M136 140 q-24 -26 -6 -36" fill="none" stroke="#1C1433" stroke-width="9" stroke-linecap="round"/>`,
+    'knee-sprint': () => `<rect width="${W}" height="${H}" fill="#241C40"/><path d="M120 300 L185 120 H215 L280 300Z" fill="#3A3060"/>${[0, 1, 2, 3].map((i) => `<line x1="${120 + i * 53.3}" y1="300" x2="${185 + i * 10}" y2="120" stroke="#F4F2F8" stroke-width="3" opacity="0.7"/>`).join('')}<rect x="0" y="0" width="${W}" height="120" fill="#1A1430"/>${[60, 130, 270, 340].map((x) => `<circle cx="${x}" cy="40" r="7" fill="#FFF1CC"/>`).join('')}${mover(200, 230, 1.4, '#F4F2F8')}<line x1="150" y1="250" x2="252" y2="250" stroke="#FF4F6E" stroke-width="6" stroke-linecap="round"/>`,
+    'star-catch': () => `<rect width="${W}" height="${H}" fill="#1A1430"/>${star(90, 80, 26, '#FFC53A')}${star(300, 70, 22, '#46B4FF')}${star(330, 190, 18, '#FFC53A')}${star(70, 200, 16, '#46B4FF')}<path d="M90 80 L300 70 L330 190" fill="none" stroke="#F4F2F8" stroke-width="2" stroke-dasharray="4 6" opacity="0.6"/>${mover(200, 250, 1.6, '#F4F2F8')}`,
+    'pad-work': () => `<rect width="${W}" height="${H}" fill="#2B2248"/><circle cx="120" cy="120" r="46" fill="#FFC53A"/><circle cx="120" cy="120" r="46" fill="none" stroke="#1C1433" stroke-width="8"/><circle cx="285" cy="105" r="40" fill="#46B4FF"/><circle cx="285" cy="105" r="40" fill="none" stroke="#1C1433" stroke-width="8"/><circle cx="210" cy="215" r="34" fill="#FF4F6E"/><circle cx="210" cy="215" r="34" fill="none" stroke="#1C1433" stroke-width="8"/><text x="120" y="130" text-anchor="middle" font-family="Savate, sans-serif" font-weight="900" font-size="30" fill="#1C1433">1</text><text x="285" y="115" text-anchor="middle" font-family="Savate, sans-serif" font-weight="900" font-size="28" fill="#1C1433">2</text><text x="210" y="225" text-anchor="middle" font-family="Savate, sans-serif" font-weight="900" font-size="26" fill="#1C1433">3</text>`,
+    'reaction-tag': () => `<rect width="${W}" height="${H}" fill="#F4F2F8"/>${[[80, 70, '#22C383'], [200, 50, '#22C383'], [320, 80, '#FF4F6E'], [60, 190, '#FF4F6E'], [340, 200, '#22C383'], [140, 250, '#22C383'], [270, 255, '#D9D4E5']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="28" fill="${c}"/><circle cx="${x}" cy="${y}" r="38" fill="none" stroke="${c}" stroke-width="4" opacity="0.4"/>`).join('')}${mover(200, 205, 1.3)}`,
+    'firework-jacks': () => `<rect width="${W}" height="${H}" fill="#1A1430"/>${burst(110, 90, 54, '#FFC53A')}${burst(290, 70, 46, '#FF4F6E')}${burst(230, 150, 30, '#46B4FF')}<rect y="250" width="${W}" height="50" fill="#140F27"/>${[40, 90, 150, 260, 330, 370].map((x, i) => `<rect x="${x}" y="${222 - (i % 3) * 14}" width="${28 + (i % 2) * 14}" height="${80}" fill="#241C40"/>`).join('')}${mover(200, 258, 1.2, '#F4F2F8')}`,
+    'twist-turbine': () => `<rect width="${W}" height="${H}" fill="#241C40"/>${[20, 70, 120, 250, 300, 350].map((x, i) => `<rect x="${x}" y="${150 + (i % 3) * 20}" width="40" height="160" fill="#31285A"/>${[0, 1, 2, 3].map((r) => `<rect x="${x + 8}" y="${165 + (i % 3) * 20 + r * 26}" width="9" height="12" fill="${(i + r) % 3 ? '#FFC53A' : '#40366E'}"/><rect x="${x + 23}" y="${165 + (i % 3) * 20 + r * 26}" width="9" height="12" fill="${(i + r) % 2 ? '#FFC53A' : '#40366E'}"/>`).join('')}`).join('')}<line x1="200" y1="300" x2="200" y2="110" stroke="#F4F2F8" stroke-width="8"/>${[0, 120, 240].map((a) => `<path d="M200 110 l0 -78 a18 18 0 0 1 18 18z" fill="#46B4FF" transform="rotate(${a + 20} 200 110)"/>`).join('')}<circle cx="200" cy="110" r="10" fill="#FF4F6E"/>`,
+    'summit-climb': () => `<rect width="${W}" height="${H}" fill="#BFE3FF"/><path d="M60 300 L130 30 L300 0 L360 300Z" fill="#8C79C9"/><path d="M130 30 L300 0 L330 140 L170 160Z" fill="#A08FD8"/>${[[170, 80], [230, 60], [200, 130], [260, 120], [180, 200], [250, 210], [215, 260]].map(([x, y], i) => `<rect x="${x - 12}" y="${y - 8}" width="24" height="16" rx="8" fill="${i % 2 ? '#FFC53A' : '#FF4F6E'}"/>`).join('')}${mover(220, 190, 1.1)}<path d="M300 0 l14 -20 l14 20z" fill="#F4F2F8"/>`,
+    'limbo-bend': () => `<rect width="${W}" height="${H}" fill="#F4F2F8"/><ellipse cx="200" cy="270" rx="170" ry="26" fill="#E7E3EF"/><g transform="rotate(-18 200 150)"><rect x="95" y="60" width="210" height="190" rx="24" fill="none" stroke="#46B4FF" stroke-width="22"/></g>${mover(205, 236, 1.5)}<line x1="80" y1="272" x2="320" y2="272" stroke="#FF4F6E" stroke-width="6" stroke-linecap="round"/>`,
+    'pose-wall': () => `<rect width="${W}" height="${H}" fill="#FFE3E9"/><rect x="40" y="30" width="320" height="250" rx="18" fill="#FF4F6E"/><g transform="translate(0 6)"><path d="M200 70 a22 22 0 1 1 0.1 0z M150 112 h100 a14 14 0 0 1 0 28 h-30 v40 l26 62 a14 14 0 0 1 -26 10 l-20 -50 l-20 50 a14 14 0 0 1 -26 -10 l26 -62 v-40 h-30 a14 14 0 0 1 0 -28z" fill="#1C1433" opacity="0.9"/></g>`,
+    'road-run': () => `<rect width="${W}" height="${H}" fill="#FBE1D6"/><circle cx="300" cy="80" r="30" fill="#FFC53A"/><path d="M0 170 L120 120 L230 150 L400 110 V300 H0Z" fill="#9FCB8E"/><path d="M150 300 L195 140 H205 L250 300Z" fill="#3A3060"/><line x1="200" y1="150" x2="200" y2="300" stroke="#F4F2F8" stroke-width="4" stroke-dasharray="14 12"/>${mover(200, 262, 1.2)}<rect x="230" y="170" width="44" height="26" rx="6" fill="#FF4F6E"/>`,
+  };
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${(M[id] || M['squat-flap'])()}</svg>`;
+}

@@ -91,8 +91,12 @@ export const hud = {
 };
 
 export const type = {
-  display: '"Savate", "National Park", ui-sans-serif, system-ui, sans-serif',
-  text: '"National Park", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  // Font stacks. (Kept under `family`: a second `display` key below used to overwrite the
+  // display stack, so --ba-font-display came out as "[object Object]" and Savate never loaded.)
+  family: {
+    display: '"Savate", "National Park", ui-sans-serif, system-ui, sans-serif',
+    text: '"National Park", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  },
   // Shell scale (read at arm's length). rem values; body is 1rem = 16px on phones, 17px from 768px.
   size: {
     xs: '0.8125rem', // 13

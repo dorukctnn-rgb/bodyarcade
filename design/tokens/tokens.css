@@ -89,7 +89,7 @@
   --ba-hud-camera-on: #FF4F6E;
 
   /* Type */
-  --ba-font-display: [object Object];
+  --ba-font-display: "Savate", "National Park", ui-sans-serif, system-ui, sans-serif;
   --ba-font-text: "National Park", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --ba-text-xs: 0.8125rem;
   --ba-text-sm: 0.9375rem;
