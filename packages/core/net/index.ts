@@ -7,3 +7,4 @@ export { codeFromInvite, formatRoomCode, inviteLink, isRoomCode, normalizeRoomCo
 export { checkChat, checkName, CHAT_MAX_CHARS, CHAT_INTERVAL_MS, NAME_MAX_CHARS } from './chat-filter.ts';
 export { makeSchedule, scoreOf, decide, places, winnerOf, specFor, SCHEDULE_SPECS, DEFAULT_SPEC, type Obstacle, type ScheduleSpec } from './schedule.ts';
 export { realScheduler, browserSocket, type Scheduler, type SocketFactory, type SocketLike } from './runtime.ts';
+export { encodeQr, qrToSvg, QR_MAX_VERSION, type QrCode, type QrEcc, type QrSvgOptions } from './qr.ts';
