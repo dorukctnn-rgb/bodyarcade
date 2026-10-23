@@ -45,7 +45,7 @@ export const TT_LEVELS: Readonly<Record<Difficulty, TtLevel>> = {
   easy: { band: [20, 34], holdS: 2, storms: [1, 1] },
   normal: { band: [28, 44], holdS: 3, storms: [1, 2] },
   hard: { band: [36, 54], holdS: 4, storms: [2, 2] },
-  expert: { band: [44, 64], holdS: 5, storms: [2, 3] },
+  expert: { band: [44, 64], holdS: 5, storms: [2, 2] },
 };
 
 export type StormKind = 'blackout' | 'overload';
@@ -75,10 +75,12 @@ export interface TtPlan {
 
 const BLACKOUT_S = 8;
 const OVERLOAD_S = 8;
+/** Storm starts are at least this far apart (seconds). */
+const STORM_APART_S = 14;
+/** After a storm the pace is not judged for this many seconds: the player is getting back into the rhythm. */
+const GRACE_S = 5;
 const STORM_BONUS = { blackout: 150, overload: 200 } as const;
 const BASE_POINTS = 10;
-/** A repetition counts toward the pace over this many seconds. */
-const RATE_WINDOW_S = 6;
 const HINT_STEPS = 90;
 const IDLE_HINT_S = 8;
 /** Seconds of movement for calories and the like: a twist within this long counts. */
@@ -97,12 +99,16 @@ export function makeTtPlan(difficulty: Difficulty, timing: TtTiming, rng: () => 
   for (let i = 0; i < timing.sets; i++) {
     const work = stepsOf(timing.workS);
     segments.push({ kind: 'work', startK: k, endK: k + work, set: i });
-    // storms: spread over the set, never in the first ten seconds or the last six, at least 14 seconds apart
-    const count = randInt(rng, level.storms[0], level.storms[1]);
-    const from = stepsOf(Math.min(10, timing.workS * 0.25)), to = work - stepsOf(Math.min(6, timing.workS * 0.15));
+    // storms: never in the first ten seconds, over before the set ends, and their starts at least 14 seconds apart: a storm
+    // lasts up to 8 seconds, so there are always 6 seconds of plain twisting between two
+    const from = stepsOf(Math.min(10, timing.workS * 0.25)), to = work - stepsOf(BLACKOUT_S + 1);
+    const apart = stepsOf(STORM_APART_S);
+    const room = Math.max(0, to - from);
+    const count = Math.min(randInt(rng, level.storms[0], level.storms[1]), 1 + Math.floor(room / apart));
+    const slack = Math.max(0, room - (count - 1) * apart);
+    const offsets = Array.from({ length: count }, () => Math.floor(rng() * slack)).sort((a, b) => a - b);
     for (let j = 0; j < count; j++) {
-      const slot = (to - from) / count;
-      const startK = k + from + Math.floor(slot * j + rng() * slot * 0.5);
+      const startK = k + from + (offsets[j] as number) + j * apart;
       const kind: StormKind = rng() < 0.5 ? 'blackout' : 'overload';
       const lenS = kind === 'blackout' ? BLACKOUT_S : OVERLOAD_S;
       const hi = level.band[1];
@@ -129,9 +135,13 @@ export interface TtPlayer {
   score: number;
   /** Repetitions: twists from one side to the other. */
   reps: number;
+  /** Repetitions whose pace was judged (not in a storm, not just after one, not the first), and how many of them were in the band. */
+  banded: number;
   inBand: number;
   streak: number;
   bestStreak: number;
+  /** The pace is not judged until this step (a storm just ended). */
+  graceUntilK: number;
   /** The side the last repetition ended on (-1 left, +1 right, 0 none yet). */
   side: -1 | 0 | 1;
   repKs: number[];
@@ -184,7 +194,7 @@ export interface TtOptions {
 }
 
 const newPlayer = (): TtPlayer => ({
-  score: 0, reps: 0, inBand: 0, streak: 0, bestStreak: 0, side: 0, repKs: [], omega: 0, angle: 0, power: 0, lit: 0.08, recent: [], lastRepK: -100000, activeSteps: 0,
+  score: 0, reps: 0, banded: 0, inBand: 0, graceUntilK: 0, streak: 0, bestStreak: 0, side: 0, repKs: [], omega: 0, angle: 0, power: 0, lit: 0.08, recent: [], lastRepK: -100000, activeSteps: 0,
   hist: [], miss: null, lastMissK: -100000, held: 0,
 });
 
@@ -222,18 +232,22 @@ export class TurbineSim implements HostSim {
   get stormProgress(): number { return this.s.storm.progress; }
   /** Seconds left in the current segment. */
   get leftS(): number { return Math.max(0, (this.segment.endK - this.s.k) / 60); }
-  /** Twists a minute over the last few seconds. */
-  get rate(): number { return this.rateAt(this.s.k); }
+  /** Twists a minute: from the last three gaps between twists, and falling as the time since the last one grows. */
+  get rate(): number { return this.paceAt(this.s.k); }
   /** The last seconds of a rest: "Ready". */
   get gettingReady(): boolean { const seg = this.segment; return seg.kind === 'rest' && seg.endK - this.s.k <= 180; }
   /** Seconds left for the storm that is on, 0 when none. */
   get stormLeftS(): number { const st = this.storm; return st ? Math.max(0, (st.endK - this.s.k) / 60) : 0; }
 
-  private rateAt(k: number): number {
-    const from = k - RATE_WINDOW_S * 60;
-    let n = 0;
-    for (const r of this.s.player.repKs) if (r > from) n++;
-    return (n * 60) / RATE_WINDOW_S;
+  /** The pace at step k, twists a minute: 3600 over the mean of the last three gaps, or over the time since the last twist if that is longer. */
+  private paceAt(k: number): number {
+    const ks = this.s.player.repKs;
+    if (ks.length < 2) return 0;
+    const from = Math.max(0, ks.length - 4);
+    let sum = 0;
+    for (let i = from + 1; i < ks.length; i++) sum += (ks[i] as number) - (ks[i - 1] as number);
+    const mean = sum / (ks.length - 1 - from);
+    return 3600 / Math.max(mean, k - (ks[ks.length - 1] as number), 1);
   }
 
   // ───── the step ─────
@@ -294,13 +308,16 @@ export class TurbineSim implements HostSim {
       p.lastRepK = k;
       p.repKs.push(k);
       while (p.repKs.length && (p.repKs[0] as number) <= k - 12 * 60) p.repKs.shift();
-      const rate = this.rateAt(k);
+      const rate = this.paceAt(k);
       const [lo, hi] = this.s.plan.band;
-      // the pace needs two repetitions to be a pace: the first is judged on its own
-      const known = p.repKs.length >= 2;
-      const inBand = known && rate >= lo * 0.92 && rate <= hi * 1.08;
-      const mult = !known ? 0.8 : rate < lo * 0.92 ? 0.4 + 0.6 * clamp(rate / lo, 0, 1) : rate > hi * 1.08 ? 0.7 : 1;
-      if (inBand) { p.inBand++; p.streak++; p.bestStreak = Math.max(p.bestStreak, p.streak); } else if (known) p.streak = 0;
+      // the pace needs two repetitions to be a pace, and a storm asks for another one: only plain twisting is judged
+      const graded = p.repKs.length >= 2 && this.s.storm.on < 0 && k > p.graceUntilK;
+      const inBand = graded && rate >= lo * 0.92 && rate <= hi * 1.08;
+      const mult = p.repKs.length < 2 ? 0.8 : !graded ? 1 : rate < lo * 0.92 ? 0.4 + 0.6 * clamp(rate / lo, 0, 1) : rate > hi * 1.08 ? 0.7 : 1;
+      if (graded) {
+        p.banded++;
+        if (inBand) { p.inBand++; p.streak++; p.bestStreak = Math.max(p.bestStreak, p.streak); } else p.streak = 0;
+      }
       const combo = 1 + Math.min(0.5, p.streak * 0.02);
       const pts = Math.round(BASE_POINTS * (0.6 + 0.4 * rf) * mult * combo);
       p.score += pts;
@@ -375,6 +392,7 @@ export class TurbineSim implements HostSim {
       const bonus = answered ? STORM_BONUS[storm.kind] : 0;
       if (answered) { p.score += bonus; s.log.push(logOf(k, storm.kind, true, { v: bonus })); } else s.log.push(logOf(k, storm.kind === 'blackout' ? 'too_slow' : 'held_too_short', false));
       st.result[st.on] = answered ? 1 : 0;
+      p.graceUntilK = k + GRACE_S * 60;
       out.push({ type: 'stormEnd', t, kind: storm.kind, ok: answered, bonus });
       st.on = -1;
       st.progress = 0;
@@ -392,7 +410,7 @@ export class TurbineSim implements HostSim {
     if (seg.kind === 'work') {
       const lo = this.s.plan.band[0];
       const quality = p.recent.length ? p.recent.reduce((n, x) => n + x, 0) / p.recent.length : 0;
-      target = clamp((this.rateAt(k) / lo) * quality, 0, 1);
+      target = clamp((this.paceAt(k) / lo) * quality, 0, 1);
     } else if (seg.kind === 'rest') target = 0.3 * p.power;
     else target = clamp(this.completion(), 0.1, 1);
     p.power += (target - p.power) * POWER_EASE;
@@ -413,7 +431,7 @@ export class TurbineSim implements HostSim {
 
   quality(): number {
     const p = this.s.player;
-    return p.reps ? p.inBand / p.reps : 0;
+    return p.banded ? p.inBand / p.banded : 0;
   }
 
   summary(): RunSummary {

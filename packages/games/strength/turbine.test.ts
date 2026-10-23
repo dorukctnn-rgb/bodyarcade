@@ -104,13 +104,14 @@ describe('repetitions, pace and points', () => {
     expect(mid.score).toBeGreaterThan(slow.score);
   });
 
-  it('the first twist is judged on its own and never in the band; the streak builds from the second', () => {
+  it('the first twist is judged on its own and never in the band; the pace and the streak start with the second', () => {
     const sim = make({ timing: { sets: 1, workS: 30, finaleS: 2 } });
+    (sim.plan as { storms: unknown[] }).storms.length = 0;
     const r = run(sim, inputOf(bot(sim, { mode: 'perfect' })));
     const reps = types(r.events, 'rep');
     expect(reps[0]!['inBand']).toBe(false);
     expect(reps[0]!['pts']).toBe(Math.round(10 * (0.6 + 0.4 * ((0.9 - 0.6) / 0.5)) * 0.8));
-    expect(reps.slice(2).every((e) => e['inBand'] === true)).toBe(true);
+    expect(reps.slice(1).every((e) => e['inBand'] === true)).toBe(true);
     expect(reps.at(-1)!['streak']).toBeGreaterThan(10);
   });
 
