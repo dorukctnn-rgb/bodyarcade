@@ -106,6 +106,7 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
     const p = new URLSearchParams({ room: code, pid: w.pid, name: w.name, age: w.age, video: videoOf(i) ? '1' : '0', relay: sc.relay ? '1' : '0', nop2p: sc.nop2p ? '1' : '0', matches: String(matches) });
     if (sc.busy?.[i]) p.set('busy', String(sc.busy[i]));
     if (sc.readyDelayMs) p.set('readydelay', String(sc.readyDelayMs));
+    if (n > 2) p.set('noready', '1');          // a group presses ready together once everybody is in the room
     return `${baseFor(i)}/duel?${p.toString()}`;
   };
 
@@ -142,6 +143,15 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
       const ok = await Promise.all(pages.map((p) => p.evaluate(() => !!(window as unknown as { __M__?: unknown }).__M__).catch(() => false)));
       if (ok.every(Boolean)) break;
       if (i === 99) broken = true; else await sleep(100);
+    }
+
+    if (!broken && n > 2) {
+      for (let i = 0; i < 200; i++) {
+        const seats = await Promise.all(pages.map((p) => p.evaluate(() => (window as unknown as { __M__?: { seat?: string | null } }).__M__?.seat ?? null).catch(() => null)));
+        if (seats.every(Boolean)) break;
+        await sleep(100);
+      }
+      await Promise.all(pages.map((p) => p.evaluate(() => (window as unknown as { __lm: { setReady(r: boolean): void } }).__lm.setReady(true))));
     }
 
     const act = async (a: Action): Promise<void> => {
