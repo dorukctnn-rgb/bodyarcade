@@ -1,0 +1,7 @@
+Fake camera feeds for the e2e tests (Chromium --use-file-for-fake-video-capture). Landmarks only are derived
+from them; no video leaves the test machine.
+
+standing-640x360.mjpeg
+  Source: Wikimedia Commons, "Conditioning Drill 3- Alternate Staggered Squat Jump.webm", U.S. Army video,
+  public domain (work of the U.S. federal government). Seconds 2 to 8, scaled to 640x360, 15 fps, MJPEG.
+  Made with: ffmpeg -ss 2 -t 6 -i <source>.webm -vf "fps=15,scale=640:360" -c:v mjpeg -q:v 5 -an standing-640x360.mjpeg

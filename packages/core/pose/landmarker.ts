@@ -11,6 +11,8 @@ export interface CreateLandmarkerOptions {
   useModule: boolean;
   onProgress?: (p: LoadProgress) => void;
   signal?: AbortSignal;
+  /** Use the GPU delegate even on a software WebGL renderer (tests only). */
+  allowSoftwareGpu?: boolean;
 }
 
 /** Fetches a file, reporting progress when the server sends a length. */
@@ -74,10 +76,29 @@ export async function createLandmarker(o: CreateLandmarkerOptions): Promise<{ la
     minTrackingConfidence: 0.5,
     outputSegmentationMasks: false,
   }));
-  if (o.prefer === 'GPU') {
-    try { return { landmarker: await make('GPU'), delegate: 'GPU' }; } catch { /* no WebGL2 here: use the CPU */ }
+  // A software WebGL renderer (SwiftShader, llvmpipe: no GPU, blocked driver, some VMs) runs the GPU delegate about
+  // 7x slower than the CPU path: 4 Hz instead of 20+ Hz here. That was B7's slow calibration. Use the CPU there.
+  if (o.prefer === 'GPU' && (o.allowSoftwareGpu || webglRenderer().kind === 'hardware')) {
+    try { return { landmarker: await make('GPU'), delegate: 'GPU' }; } catch { /* no usable WebGL2 here: use the CPU */ }
   }
   return { landmarker: await make('CPU'), delegate: 'CPU' };
+}
+
+/** What WebGL2 runs on in this realm (window or worker): real GPU, software rasteriser, or nothing. */
+export function webglRenderer(): { kind: 'hardware' | 'software' | 'none'; renderer: string } {
+  try {
+    const canvas: OffscreenCanvas | HTMLCanvasElement | null = typeof OffscreenCanvas === 'function'
+      ? new OffscreenCanvas(1, 1)
+      : typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    const gl = canvas?.getContext('webgl2') as WebGL2RenderingContext | null | undefined;
+    if (!gl) return { kind: 'none', renderer: '' };
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer = String(gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? '');
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return { kind: /swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer) ? 'software' : 'hardware', renderer };
+  } catch {
+    return { kind: 'none', renderer: '' };
+  }
 }
 
 type RawLandmark = { x: number; y: number; z: number; visibility?: number };

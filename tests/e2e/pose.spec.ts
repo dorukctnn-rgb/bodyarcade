@@ -2,42 +2,7 @@
 // and the main-thread fallback, fed by Chromium's fake camera through CameraService.
 import { expect, test } from '@playwright/test';
 import { DEV_URL } from './support/ports.ts';
-
-type Harness = {
-  createCameraService: typeof import('../../packages/core/camera/camera.ts').createCameraService;
-  createPoseService: typeof import('../../packages/core/pose/service.ts').createPoseService;
-  wasmBase: string;
-  modelUrl: string;
-};
-
-export async function runCamera(page: import('@playwright/test').Page, worker: 'only' | 'never', seconds: number) {
-  return page.evaluate(async ({ worker, seconds }) => {
-    const h = (window as unknown as { harness: Harness }).harness;
-    const pose = h.createPoseService();
-    const phases: string[] = [];
-    const loaded = await pose.load({ modelUrl: h.modelUrl, wasmBase: h.wasmBase, prefer: 'CPU', worker, onProgress: (p) => { if (!phases.includes(p.phase)) phases.push(p.phase); } });
-    const w0 = performance.now();
-    await pose.warmUp();
-    const warmMs = performance.now() - w0;
-    const cam = h.createCameraService();
-    const lease = await cam.acquire();
-    await lease.start();
-    const frames: { seq: number; t: number; person: boolean; ms: number; src: string; aspect: number; inRange: boolean }[] = [];
-    pose.onFrame((f) => frames.push({
-      seq: f.seq, t: f.t, person: f.landmarks !== null, ms: f.inferenceMs, src: f.source, aspect: f.aspect,
-      inRange: f.landmarks ? f.landmarks.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && p.visibility >= 0 && p.visibility <= 1) : true,
-    }));
-    pose.attach(lease);
-    await new Promise((r) => setTimeout(r, seconds * 1000));
-    const stats = pose.stats;
-    pose.detach();
-    const afterDetach = frames.length;
-    await new Promise((r) => setTimeout(r, 300));
-    pose.dispose();
-    lease.release();
-    return { loaded, phases, warmMs, frames, afterDetach, stats, camStats: cam.stats(), trackStates: lease.stream.getTracks().map((t) => t.readyState), info: lease.info };
-  }, { worker, seconds });
-}
+import { runCamera } from './support/pose-run.ts';
 
 test.describe('pose service (Chromium fake camera)', () => {
   test.beforeEach(async ({ page }) => {

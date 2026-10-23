@@ -7,7 +7,8 @@
   import { createCameraService } from '/packages/core/camera/camera.ts';
   import { createPoseService } from '/packages/core/pose/service.ts';
   import { POSE_MODEL, WASM_BASE } from '/packages/core/pose/assets.ts';
-  window.harness = { createCameraService, createPoseService, wasmBase: WASM_BASE, modelUrl: POSE_MODEL.url };
+  import { webglRenderer } from '/packages/core/pose/landmarker.ts';
+  window.harness = { createCameraService, createPoseService, webglRenderer, wasmBase: WASM_BASE, modelUrl: POSE_MODEL.url };
   window.harnessReady = true;
 </script>
 </body>
