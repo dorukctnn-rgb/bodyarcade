@@ -20,12 +20,13 @@ export function gameTile(ctx: ViewContext, g: ShellGame): SafeHtml {
   const t = ctx.i18n;
   const pro = !g.free && !hasPro(ctx) ? html`<span class="ba-badge ba-badge--pro">${t.t('common.pro')}</span>` : '';
   const region = mainRegion(g);
-  const two = ctx.caps.local2 && supportsLocal2(g) ? html`<span class="ba-tag2">${t.t('game.badge.local2')}</span>` : '';
-  const seat = g.seated ? html`<span class="ba-seat" title="${t.t('game.badge.seated')}" role="img" aria-label="${t.t('game.badge.seated')}">${icon('chair')}</span>` : '';
+  const marks: SafeHtml[] = [];
+  if (g.seated) marks.push(html`<span class="mark" role="img" aria-label="${t.t('game.badge.seated')}" title="${t.t('game.badge.seated')}">${icon('chair')}</span>`);
+  if (ctx.caps.local2 && supportsLocal2(g)) marks.push(html`<span class="mark" role="img" aria-label="${t.t('game.badge.local2')}" title="${t.t('game.badge.local2')}">${icon('users')}</span>`);
   return html`<a class="ba-tile" href="${ctx.href('game', { params: { slug: g.seo.slug } })}" data-game="${g.id}">
-    <span class="art">${tileImage(ctx, g, TILE_SIZES)}${pro}</span>
+    <span class="art">${tileImage(ctx, g, TILE_SIZES)}${pro}${marks.length ? html`<span class="marks">${marks}</span>` : ''}</span>
     <span class="t">${titleOf(ctx, g)}</span>
-    <span class="meta">${glyph(g.catalogue.move, { decorative: true, floor: false, size: 22 })}<span>${regionLabel(ctx, region)}</span><span class="dot-sep" aria-hidden="true"></span><span>${durationLabel(ctx, g.durationSec)}</span>${seat}${two}</span>
+    <span class="meta">${glyph(g.catalogue.move, { decorative: true, floor: false, size: 24 })}<span class="meta-text"><span>${regionLabel(ctx, region)}</span><span class="meta-dur">${durationLabel(ctx, g.durationSec)}</span></span></span>
   </a>`;
 }
 
@@ -36,7 +37,8 @@ export function gameGrid(ctx: ViewContext, games: readonly ShellGame[], label?: 
 /** The chips above the grid: all games, then each body region that has games. `active` is the region page being shown. */
 export function regionChips(ctx: ViewContext, active: BodyRegion | null): SafeHtml {
   const t = ctx.i18n;
-  const counts = regionCounts(ctx.games, REGION_ORDER);
+  // A region every game belongs to (the seated one) filters nothing, so it is a chip only when its own page is open.
+  const counts = regionCounts(ctx.games, REGION_ORDER).filter((c) => c.count < ctx.games.length || c.region === active);
   const chip = (href: string, label: string, current: boolean, glyphHtml: SafeHtml): SafeHtml =>
     html`<a class="ba-chip" href="${href}"${attr('aria-current', current && 'page')}>${glyphHtml}<span>${label}</span></a>`;
   const all = chip(ctx.href('home'), t.t('home.all'), active === null, glyph('stand', { decorative: true, floor: false, size: 34 }));

@@ -30,6 +30,8 @@ export interface DocumentInput {
   /** The text of the no-script note. */
   noscript: string;
   siteName: string;
+  /** Development URL to built URL for the pictures; the browser app reads it to draw the same addresses. */
+  assetMap?: Readonly<Record<string, string>>;
 }
 
 const OG_LOCALE: Readonly<Record<Lang, string>> = { en: 'en_US', tr: 'tr_TR', de: 'de_DE', es: 'es_ES', fr: 'fr_FR' };
@@ -74,6 +76,8 @@ ${head.join('\n')}
 <body>
 <div id="app">${body.value}</div>
 <noscript><p class="ba-noscript">${e(d.noscript)}</p></noscript>
+${d.assetMap ? `<script type="application/json" id="ba-assets">${jsonForScript(d.assetMap)}</script>
+` : ''}
 <script type="module" src="${e(assets.js)}"></script>
 </body>
 </html>

@@ -57,3 +57,21 @@ export function chooseReasonRow(slots: ReasonSlots, linesAt: (row: ReasonRow, ma
   }
   return best ?? { row: 'bottom', lines: 0 };
 }
+
+const round = (n: number): number => Math.round(n);
+
+/**
+ * Where the camera view goes while the player is getting into frame: large, because the player needs to see
+ * themselves. Portrait screens: along the top, the calibration card below. Landscape: on the left, the card on the right.
+ */
+export function calibrationPip(m: { portrait: boolean; safe: { x: number; y: number; w: number; h: number } }, duo: boolean): { x: number; y: number; w: number; h: number } {
+  const aspect = duo ? 16 / 9 : m.portrait ? 3 / 4 : 4 / 3;
+  const { safe } = m;
+  const maxW = m.portrait ? safe.w : 0.52 * safe.w;
+  const maxH = m.portrait ? 0.5 * safe.h : safe.h;
+  const h = Math.min(maxH, maxW / aspect);
+  const w = h * aspect;
+  const x = m.portrait ? safe.x + (safe.w - w) / 2 : safe.x;
+  const y = m.portrait ? safe.y : safe.y + (safe.h - h) / 2;
+  return { x: round(x), y: round(y), w: round(w), h: round(h) };
+}

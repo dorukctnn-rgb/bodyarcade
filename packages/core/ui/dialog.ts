@@ -87,8 +87,13 @@ export function openDialog(o: DialogOptions): DialogHandle {
       if (el.open) el.close(); else finish();
     },
     setHtml(html) {
+      // A control that had focus and has a data-key keeps it across the redraw, so keyboard use is not interrupted.
+      const active = el.contains(doc.activeElement) ? (doc.activeElement as HTMLElement) : null;
+      const key = active?.getAttribute('data-key') ?? '';
       el.innerHTML = html.value;
-      focusFirst();
+      const same = key ? el.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`) : null;
+      if (same) same.focus({ preventScroll: true });
+      else focusFirst();
     },
   };
 }

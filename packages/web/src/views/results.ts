@@ -98,7 +98,7 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
     <header class="ba-pagehead ba-resulthead"><div><p class="ba-small">${g ? titleOf(ctx, g) : ''}</p><h1 class="ba-h1" data-main-heading>${t.t('results.title')}</h1></div>
       ${r.personalBest ? html`<span class="ba-badge ba-badge--live">${icon('trophy')}${t.t('results.personalBest')}</span>` : ''}</header>
     <section class="ba-panel ba-scorecard" aria-label="${t.t('results.score')}">
-      ${r.setup.players === 2 && r.players ? duo(ctx, r) : html`<p class="ba-bignum" aria-label="${t.t('results.score')}: ${r.score}">${ctx.i18n.number(r.score)}</p><p class="ba-small ba-scorelabel">${t.t('results.score')}</p>`}
+      ${r.setup.players === 2 && r.players ? duo(ctx, r) : html`<div class="ba-bignum-box"><p class="ba-bignum" aria-label="${t.t('results.score')}: ${r.score}">${ctx.i18n.number(r.score)}</p><p class="ba-small ba-scorelabel">${t.t('results.score')}</p></div>`}
       ${stats(ctx, r)}
       ${calories(ctx, r)}
     </section>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ReasonSlots } from '../layout.ts';
-import { chooseReasonRow, fitCommand } from './fit.ts';
+import { calibrationPip, chooseReasonRow, fitCommand } from './fit.ts';
 
 // A command plate whose width is 0.6 em per character plus 1.2 em for the glyph; wrapping makes it as narrow as it likes.
 const widthOf = (text: string) => (font: number, s: { noGlyph: boolean; wrap: boolean }): number => {
@@ -55,5 +55,33 @@ describe('choosing the row of the reason strip', () => {
     const asked: string[] = [];
     chooseReasonRow({ ...slots, preferred: 'lifted' }, (row) => { asked.push(row); return 9; });
     expect(asked).toEqual(['lifted', 'bottom']);
+  });
+});
+
+describe('the large camera view while calibrating', () => {
+  const safe = { x: 16, y: 16, w: 358, h: 812 };
+
+  it('sits along the top of a portrait screen, centred, in the camera aspect', () => {
+    const r = calibrationPip({ portrait: true, safe }, false);
+    expect(r.y).toBe(16);
+    expect(r.w / r.h).toBeCloseTo(3 / 4, 1);
+    expect(Math.abs(r.x + r.w / 2 - (16 + 358 / 2))).toBeLessThanOrEqual(1);
+    expect(r.w).toBeLessThanOrEqual(358);
+    expect(r.h).toBeLessThanOrEqual(0.5 * 812 + 1);
+  });
+
+  it('sits on the left of a landscape screen, centred vertically, leaving the right for the card', () => {
+    const land = { x: 20, y: 20, w: 1240, h: 760 };
+    const r = calibrationPip({ portrait: false, safe: land }, false);
+    expect(r.x).toBe(20);
+    expect(r.w / r.h).toBeCloseTo(4 / 3, 1);
+    expect(r.w).toBeLessThanOrEqual(0.52 * 1240 + 1);
+    expect(Math.abs(r.y + r.h / 2 - (20 + 760 / 2))).toBeLessThanOrEqual(1);
+    expect(r.x + r.w).toBeLessThan(20 + 1240 * 0.6);
+  });
+
+  it('is wide when two people share the camera', () => {
+    const r = calibrationPip({ portrait: false, safe: { x: 20, y: 20, w: 1240, h: 760 } }, true);
+    expect(r.w / r.h).toBeCloseTo(16 / 9, 1);
   });
 });

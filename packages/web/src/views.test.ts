@@ -227,8 +227,8 @@ describe('page state', () => {
   });
 
   it('shows two players in the grid only where the device allows it', () => {
-    expect(textOf(draw('en', '/').html)).not.toContain('2 players');
-    expect(textOf(draw('en', '/', { caps: bigScreen }).html)).toContain('2 players');
+    expect(draw('en', '/').html).not.toContain('aria-label="2 players"');
+    expect(draw('en', '/', { caps: bigScreen }).html).toContain('aria-label="2 players"');
   });
 });
 

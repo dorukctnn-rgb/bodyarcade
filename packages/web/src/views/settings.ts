@@ -29,14 +29,15 @@ export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml
     </div>
     ${switchRow({ id: 'set-skeleton', name: 'skeleton', label: t.t('settings.skeleton'), checked: s.skeleton })}`;
 
-  const langOptions: { value: string; label: string; checked: boolean; hint?: string | undefined }[] = [
+  const langOptions: { value: string; label: string; checked: boolean; draft?: boolean }[] = [
     { value: 'auto', label: t.t('settings.lang.auto'), checked: s.lang === 'auto' },
-    ...LANG_INFO.map((l) => ({ value: l.code, label: l.name, checked: s.lang === l.code, hint: l.status === 'draft' ? t.t('settings.lang.draft') : undefined })),
+    ...LANG_INFO.map((l) => ({ value: l.code, label: l.name, checked: s.lang === l.code, draft: l.status === 'draft' })),
   ];
   const display = html`
     <div class="ba-row-setting ba-row-setting--stack">
       <fieldset class="ba-fieldset"><legend class="ba-legend">${t.t('settings.lang')}</legend>
-        <ul class="ba-radiolist">${langOptions.map((l) => html`<li><label class="ba-radio"><input type="radio" name="lang" value="${l.value}" data-key="lang-${l.value}"${attr('checked', l.checked)}><span><b${attr('lang', l.value === 'auto' ? false : l.value)}>${l.label}</b>${l.hint ? html`<small>${l.hint}</small>` : ''}</span></label></li>`)}</ul>
+        <ul class="ba-radiolist">${langOptions.map((l) => html`<li><label class="ba-radio"><input type="radio" name="lang" value="${l.value}" data-key="lang-${l.value}"${attr('checked', l.checked)}><span><b${attr('lang', l.value === 'auto' ? false : l.value)}>${l.label}</b>${l.draft ? html` <span class="ba-badge">${t.t('settings.lang.draftBadge')}</span>` : ''}</span></label></li>`)}</ul>
+        <p class="ba-small">${t.t('settings.lang.draft')}</p>
       </fieldset>
     </div>
     <div class="ba-row-setting ba-row-setting--stack">

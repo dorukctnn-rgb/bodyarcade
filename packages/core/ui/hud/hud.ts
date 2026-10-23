@@ -11,7 +11,7 @@ import {
   checkRects, duoAvailable, hudMetrics, hudSlots, placeHud, placeHudDuo, typicalInsets,
   type DuoLayout, type HudLayout, type HudMetrics, type HudMode, type Insets, type PipPlacement, type PlacedRect, type Rect, type Size,
 } from '../layout.ts';
-import { chooseReasonRow, fitCommand } from './fit.ts';
+import { calibrationPip, chooseReasonRow, fitCommand } from './fit.ts';
 
 export interface PlayHudOptions {
   document: Document;
@@ -48,7 +48,8 @@ type Value = string | number | { icon?: string; text: string; progress?: number 
 
 const PAUSE_ICON = '<svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect x="1.5" y="1" width="2.4" height="8" rx="1" fill="#F4F2F8"/><rect x="6.1" y="1" width="2.4" height="8" rx="1" fill="#F4F2F8"/></svg>';
 const LINE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="7" r="4"/><line x1="3" y1="17" x2="21" y2="17" stroke="#F4F2F8" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="4 3.4"/></svg>';
-const MOVE_ICON = '<svg viewBox="0 0 14 14" aria-hidden="true" focusable="false"><path d="M2 5V2h3M12 5V2H9M2 9v3h3M12 9v3H9" fill="none" stroke="#F4F2F8" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const CAMERA_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="#F4F2F8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="13" height="11" rx="3"/><path d="M16 10.4l5-2.9v9l-5-2.9"/></svg>';
+const MOVE_ICON ='<svg viewBox="0 0 14 14" aria-hidden="true" focusable="false"><path d="M2 5V2h3M12 5V2H9M2 9v3h3M12 9v3H9" fill="none" stroke="#F4F2F8" stroke-width="1.8" stroke-linecap="round"/></svg>';
 
 const clockText = (seconds: number): string => {
   const s = Math.max(0, Math.ceil(seconds));
@@ -67,7 +68,8 @@ export class PlayHud implements Hud {
   private mode: HudMode;
   private corner: PipPlacement;
   private duo: boolean;
-  private away: { player: PlayerSlot; seconds: number } | null = null;
+  private away: { player: PlayerSlot } | null = null;
+  private phase: 'calibrate' | 'play' = 'play';
   private info: HudLayoutInfo | null = null;
   private raf = 0;
   private disposed = false;
@@ -161,19 +163,25 @@ export class PlayHud implements Hud {
   }
 
   setMode(mode: HudMode): void { this.mode = mode; this.schedule(); }
+
+  /** 'calibrate': only the camera view, large; 'play': the plates and the small view. */
+  setPhase(phase: 'calibrate' | 'play'): void {
+    this.phase = phase;
+    this.o.root.dataset['phase'] = phase;
+    this.schedule();
+  }
   setPipCorner(c: PipPlacement): void { this.corner = c; this.schedule(); }
   setDuo(on: boolean): void { this.duo = on; this.build(); this.schedule(); }
 
   /** The player who left the frame ("Player 2, step back in") with the seconds before the other may go on; null clears it. */
-  setAway(player: PlayerSlot | null, secondsLeft = 0): void {
-    this.away = player ? { player, seconds: secondsLeft } : null;
+  setAway(player: PlayerSlot | null): void {
+    this.away = player ? { player } : null;
     const plate = this.el['away'] as HTMLElement | undefined;
     if (plate) {
       plate.hidden = !this.away;
       if (this.away) {
         const t = this.o.i18n;
         (this.el['awayTitle'] as HTMLElement).textContent = t.t('hud.stepBackIn', { player: t.t(this.away.player === 1 ? 'hud.player1' : 'hud.player2') });
-        (this.el['awayCount'] as HTMLElement).textContent = this.away.seconds > 0 ? t.t('duration.sec', { n: this.away.seconds }) : '';
         plate.dataset['player'] = String(this.away.player);
       }
     }
@@ -251,7 +259,7 @@ export class PlayHud implements Hud {
     this.o.root.replaceChildren();
     for (const k of Object.keys(this.el)) delete this.el[k];
     const add = (node: HTMLElement): HTMLElement => { this.o.root.append(node); return node; };
-    const pauseBtn = html`<button type="button" class="pause" data-ref="pause" aria-label="${t.t('hud.pause')}">${raw(PAUSE_ICON)}</button>`;
+    const pauseBtn = html`${this.duo ? '' : html`<button type="button" class="pause showpip" data-ref="showPip" aria-label="${t.t('hud.moveView')}" hidden>${raw(CAMERA_ICON)}</button>`}<button type="button" class="pause" data-ref="pause" aria-label="${t.t('hud.pause')}">${raw(PAUSE_ICON)}</button>`;
     const who = (n: 1 | 2): SafeHtml => html`<span class="who">${glyph('stand', { ink: '#1C1433', floor: false, decorative: true, size: 100 })}${t.t(n === 1 ? 'hud.player1' : 'hud.player2')}</span>`;
     const status = (key: string, n: 1 | 2, left: boolean): SafeHtml => html`<div class="hud-plate status p${n}" data-hud="status${n === 1 ? 'P1' : 'P2'}" data-ref="${key}">${left ? who(n) : ''}<div class="stack"><b data-ref="score${n}">0</b><small data-ref="score${n}Label">${t.t('hud.score')}</small></div>${left ? '' : who(n)}</div>`;
 
@@ -266,18 +274,19 @@ export class PlayHud implements Hud {
       add(this.make(html`<div class="hud-plate status" data-hud="timer" data-ref="timerPlate"><div class="stack"><b data-ref="timer">0:00</b><small data-ref="timerLabel">${t.t('hud.time')}</small></div>${pauseBtn}</div>`));
       add(this.make(html`<div class="hud-command" data-hud="command" data-ref="command" aria-hidden="true" hidden><span class="hud-command-glyph" data-ref="commandGlyph"></span><span data-ref="commandText"></span></div>`));
       for (const n of [1, 2] as const) add(this.make(html`<div class="hud-plate reason p${n}" data-hud="reasonP${n}" data-ref="reason${n}" aria-hidden="true" hidden>${raw(LINE_ICON)}<span data-ref="reason${n}Text"></span></div>`));
-      add(this.make(html`<div class="hud-plate away" data-hud="away" data-ref="away" hidden>${glyph('stand', { ink: '#F4F2F8', accent: '#46B4FF', highlight: ['torso'], floor: false, decorative: true, size: 100 })}<b data-ref="awayTitle"></b><span>${t.t('calib.player2')}</span><span class="count" data-ref="awayCount"></span></div>`));
+      add(this.make(html`<div class="hud-plate away" data-hud="away" data-ref="away" hidden>${glyph('stand', { ink: '#F4F2F8', accent: '#46B4FF', highlight: ['torso'], floor: false, decorative: true, size: 100 })}<b data-ref="awayTitle"></b><span>${t.t('hud.away.body')}</span></div>`));
       const dim = this.make(html`<div class="lane-dim" data-ref="dim" hidden></div>`);
       this.o.root.prepend(dim);
     }
-    for (const n of this.o.root.querySelectorAll<HTMLElement>('[data-ref]')) this.el[n.dataset['ref'] as string] = n;
 
     // The self view: a tile that holds whatever the session draws (one wide view of both players in duo mode).
     const pip = add(this.make(html`<div class="tile" data-hud="pip" data-size="1" data-ref="pip"><span class="tag" data-ref="pipTag">${t.t(this.duo ? 'hud.youBoth' : 'hud.you')}</span><button type="button" class="move" data-ref="move" aria-label="${t.t('hud.moveView')}">${raw(MOVE_ICON)}</button></div>`));
     pip.prepend(this.pipHost);
-    this.el['pip'] = pip;
+    for (const n of this.o.root.querySelectorAll<HTMLElement>('[data-ref]')) this.el[n.dataset['ref'] as string] = n;
     (this.el['pause'] as HTMLElement).addEventListener('click', () => this.o.onPause());
     (this.el['move'] as HTMLElement).addEventListener('click', () => this.o.onMovePip());
+    this.el['showPip']?.addEventListener('click', () => this.o.onMovePip());
+    if (this.duo) (this.el['move'] as HTMLElement).hidden = true;
   }
 
   private text(key: string, value: string): void {
@@ -358,7 +367,11 @@ export class PlayHud implements Hud {
     }
 
     const pip = this.el['pip'] as HTMLElement;
-    pip.hidden = this.corner === 'hidden' || this.mode === 'mirror';
+    // Two players always see the shared view; one player can hide theirs, and gets a button to bring it back.
+    const calibrating = this.phase === 'calibrate';
+    pip.hidden = duo || calibrating ? false : this.corner === 'hidden' || this.mode === 'mirror';
+    const showPip = this.el['showPip'];
+    if (showPip) showPip.hidden = calibrating || !(this.corner === 'hidden' && this.mode !== 'mirror');
     const play: Rect = { x: 0, y: 0, w: vp.w, h: vp.h };
 
     if (duo) {
@@ -373,7 +386,7 @@ export class PlayHud implements Hud {
       const r = layout.rects;
       this.put(this.el['statusP1'], r.statusP1); this.put(this.el['statusP2'], r.statusP2); this.put(this.el['timerPlate'], r.timer); this.put(command, r.command);
       this.put(this.el['reason1'], r.reasonP1); this.put(this.el['reason2'], r.reasonP2);
-      this.put(pip, r.pip, true);
+      this.put(pip, calibrating ? calibrationPip(metrics, true) : r.pip, true);
       if (this.away && r.away) this.put(away, r.away);
       const dim = this.el['dim'];
       if (dim && this.away) {
@@ -406,8 +419,9 @@ export class PlayHud implements Hud {
       const layout = placeHud({ w: vp.w, h: vp.h, metrics }, measured, { ...options, reasonRow });
       const r = layout.rects;
       this.put(this.el['statusLeft'], r.statusLeft); this.put(this.el['statusRight'], r.statusRight); this.put(command, r.command); this.put(reason, r.reason);
-      this.put(pip, r.pip, true);
-      if (r.mirror && this.o.cameraHost) {
+      this.put(pip, calibrating ? calibrationPip(metrics, false) : r.pip, true);
+      if (calibrating && this.o.cameraHost) this.o.cameraHost.style.display = 'none';
+      else if (r.mirror && this.o.cameraHost) {
         const host = this.o.cameraHost;
         Object.assign(host.style, { left: `${r.mirror.x}px`, top: `${r.mirror.y}px`, width: `${r.mirror.w}px`, height: `${r.mirror.h}px`, right: 'auto', bottom: 'auto', display: '' });
       } else if (this.o.cameraHost && this.mode !== 'mirror') {

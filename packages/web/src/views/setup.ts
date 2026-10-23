@@ -110,12 +110,14 @@ export function setupHtml(ctx: ViewContext, g: ShellGame, s: SetupState): SafeHt
       <div><p class="ba-small ba-dialog-kicker">${title}</p><h2 class="ba-h3" id="setup-title">${t.t('setup.title')}</h2></div>
       <button type="button" class="ba-icon-btn" data-dialog-close="dismissed" aria-label="${t.t('common.close')}">${icon('close')}</button>
     </header>
-    ${players}
-    ${input}
-    ${difficulty}
-    ${ways}
-    ${note ? html`<p class="ba-small ba-accessnote">${note}</p>` : ''}
-    <div class="ba-actions ba-actions--end">
+    <div class="ba-setup-body">
+      ${players}
+      ${input}
+      ${difficulty}
+      ${ways}
+      ${note ? html`<p class="ba-small ba-accessnote">${note}</p>` : ''}
+    </div>
+    <div class="ba-actions ba-actions--end ba-setup-foot">
       <button type="submit" class="ba-btn ba-btn--primary ba-btn--lg" data-key="start">${access === 'locked' ? icon('lock') : icon('play')}<span>${startLabel(ctx, g)}</span></button>
     </div>
   </form>`;

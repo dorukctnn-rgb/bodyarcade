@@ -76,7 +76,7 @@ export function chrome(ctx: ViewContext, o: ChromeOptions): SafeHtml {
       ${o.main}
     </main>
     ${footer(ctx)}
-    <nav class="ba-tabbar" style="--tabs:${tabs.length}" aria-label="${t.t('nav.label')}">${tabLinks}</nav>
+    <nav class="ba-tabbar ba-tabbar--${tabs.length}" aria-label="${t.t('nav.label')}">${tabLinks}</nav>
   </div>`;
 }
 
