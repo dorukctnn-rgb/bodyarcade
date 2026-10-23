@@ -15,6 +15,7 @@ import { createJumpDetector } from './jump.ts';
 import { createJumpingJackDetector } from './jumpingJack.ts';
 import { createKneeLiftDetector } from './kneeLift.ts';
 import { createLeanDetector } from './lean.ts';
+import { createPullDetector } from './pull.ts';
 import { createSquatDetector } from './squat.ts';
 import { createSquatFlapDetector } from './squatFlap.ts';
 import { createTwistDetector } from './twist.ts';
@@ -28,6 +29,7 @@ export const LIBRARY_DETECTORS: DetectorRegistry = {
   handHit: createHandHitDetector,
   jumpingJack: createJumpingJackDetector,
   twist: createTwistDetector,
+  pull: createPullDetector,
 };
 
 export const ALL_DETECTORS: DetectorRegistry = {
