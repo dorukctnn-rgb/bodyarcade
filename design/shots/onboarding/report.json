@@ -2,7 +2,7 @@
  {
   "page": "step-1",
   "breakpoint": "phone-360",
-  "ms": 807,
+  "ms": 1437,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -17,7 +17,7 @@
  {
   "page": "step-2",
   "breakpoint": "phone-360",
-  "ms": 688,
+  "ms": 754,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -32,7 +32,7 @@
  {
   "page": "step-3",
   "breakpoint": "phone-360",
-  "ms": 672,
+  "ms": 819,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -47,7 +47,7 @@
  {
   "page": "step-4",
   "breakpoint": "phone-360",
-  "ms": 693,
+  "ms": 746,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -62,7 +62,7 @@
  {
   "page": "step-5",
   "breakpoint": "phone-360",
-  "ms": 716,
+  "ms": 750,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -77,7 +77,7 @@
  {
   "page": "step-6",
   "breakpoint": "phone-360",
-  "ms": 670,
+  "ms": 731,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-phone-360.webp"
@@ -85,7 +85,7 @@
  {
   "page": "step-7",
   "breakpoint": "phone-360",
-  "ms": 780,
+  "ms": 1092,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-phone-360.webp"
@@ -93,7 +93,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "phone-360",
-  "ms": 664,
+  "ms": 904,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -108,7 +108,7 @@
  {
   "page": "step-1",
   "breakpoint": "phone-390",
-  "ms": 677,
+  "ms": 833,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -123,7 +123,7 @@
  {
   "page": "step-2",
   "breakpoint": "phone-390",
-  "ms": 684,
+  "ms": 838,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -138,7 +138,7 @@
  {
   "page": "step-3",
   "breakpoint": "phone-390",
-  "ms": 688,
+  "ms": 1018,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -153,7 +153,7 @@
  {
   "page": "step-4",
   "breakpoint": "phone-390",
-  "ms": 697,
+  "ms": 806,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -168,7 +168,7 @@
  {
   "page": "step-5",
   "breakpoint": "phone-390",
-  "ms": 755,
+  "ms": 741,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -183,7 +183,7 @@
  {
   "page": "step-6",
   "breakpoint": "phone-390",
-  "ms": 729,
+  "ms": 1008,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-phone-390.webp"
@@ -191,7 +191,7 @@
  {
   "page": "step-7",
   "breakpoint": "phone-390",
-  "ms": 803,
+  "ms": 1077,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-phone-390.webp"
@@ -199,7 +199,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "phone-390",
-  "ms": 695,
+  "ms": 880,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -214,7 +214,7 @@
  {
   "page": "step-1",
   "breakpoint": "phone-412",
-  "ms": 690,
+  "ms": 825,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -229,7 +229,7 @@
  {
   "page": "step-2",
   "breakpoint": "phone-412",
-  "ms": 692,
+  "ms": 745,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -244,7 +244,7 @@
  {
   "page": "step-3",
   "breakpoint": "phone-412",
-  "ms": 688,
+  "ms": 804,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -259,7 +259,7 @@
  {
   "page": "step-4",
   "breakpoint": "phone-412",
-  "ms": 727,
+  "ms": 753,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -274,7 +274,7 @@
  {
   "page": "step-5",
   "breakpoint": "phone-412",
-  "ms": 690,
+  "ms": 795,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -289,7 +289,7 @@
  {
   "page": "step-6",
   "breakpoint": "phone-412",
-  "ms": 757,
+  "ms": 840,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-phone-412.webp"
@@ -297,7 +297,7 @@
  {
   "page": "step-7",
   "breakpoint": "phone-412",
-  "ms": 852,
+  "ms": 908,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-phone-412.webp"
@@ -305,7 +305,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "phone-412",
-  "ms": 720,
+  "ms": 735,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -320,7 +320,7 @@
  {
   "page": "step-1",
   "breakpoint": "phone-land-844",
-  "ms": 763,
+  "ms": 756,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -335,7 +335,7 @@
  {
   "page": "step-2",
   "breakpoint": "phone-land-844",
-  "ms": 691,
+  "ms": 785,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -350,7 +350,7 @@
  {
   "page": "step-3",
   "breakpoint": "phone-land-844",
-  "ms": 762,
+  "ms": 778,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -365,7 +365,7 @@
  {
   "page": "step-4",
   "breakpoint": "phone-land-844",
-  "ms": 803,
+  "ms": 887,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -380,7 +380,7 @@
  {
   "page": "step-5",
   "breakpoint": "phone-land-844",
-  "ms": 681,
+  "ms": 795,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -395,7 +395,7 @@
  {
   "page": "step-6",
   "breakpoint": "phone-land-844",
-  "ms": 731,
+  "ms": 765,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-phone-land-844.webp"
@@ -403,7 +403,7 @@
  {
   "page": "step-7",
   "breakpoint": "phone-land-844",
-  "ms": 773,
+  "ms": 818,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-phone-land-844.webp"
@@ -411,7 +411,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "phone-land-844",
-  "ms": 688,
+  "ms": 725,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -426,7 +426,7 @@
  {
   "page": "step-1",
   "breakpoint": "phone-land-915",
-  "ms": 698,
+  "ms": 719,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -441,7 +441,7 @@
  {
   "page": "step-2",
   "breakpoint": "phone-land-915",
-  "ms": 691,
+  "ms": 731,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -456,7 +456,7 @@
  {
   "page": "step-3",
   "breakpoint": "phone-land-915",
-  "ms": 689,
+  "ms": 818,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -471,7 +471,7 @@
  {
   "page": "step-4",
   "breakpoint": "phone-land-915",
-  "ms": 739,
+  "ms": 880,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -486,7 +486,7 @@
  {
   "page": "step-5",
   "breakpoint": "phone-land-915",
-  "ms": 690,
+  "ms": 748,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -501,7 +501,7 @@
  {
   "page": "step-6",
   "breakpoint": "phone-land-915",
-  "ms": 747,
+  "ms": 847,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-phone-land-915.webp"
@@ -509,7 +509,7 @@
  {
   "page": "step-7",
   "breakpoint": "phone-land-915",
-  "ms": 795,
+  "ms": 929,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-phone-land-915.webp"
@@ -517,7 +517,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "phone-land-915",
-  "ms": 699,
+  "ms": 892,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -532,7 +532,7 @@
  {
   "page": "step-1",
   "breakpoint": "tablet-768",
-  "ms": 758,
+  "ms": 825,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -547,7 +547,7 @@
  {
   "page": "step-2",
   "breakpoint": "tablet-768",
-  "ms": 758,
+  "ms": 803,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -562,7 +562,7 @@
  {
   "page": "step-3",
   "breakpoint": "tablet-768",
-  "ms": 753,
+  "ms": 818,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -577,7 +577,7 @@
  {
   "page": "step-4",
   "breakpoint": "tablet-768",
-  "ms": 800,
+  "ms": 891,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -592,7 +592,7 @@
  {
   "page": "step-5",
   "breakpoint": "tablet-768",
-  "ms": 737,
+  "ms": 806,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -607,7 +607,7 @@
  {
   "page": "step-6",
   "breakpoint": "tablet-768",
-  "ms": 834,
+  "ms": 1048,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-tablet-768.webp"
@@ -615,7 +615,7 @@
  {
   "page": "step-7",
   "breakpoint": "tablet-768",
-  "ms": 976,
+  "ms": 1512,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-tablet-768.webp"
@@ -623,7 +623,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "tablet-768",
-  "ms": 723,
+  "ms": 1081,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -638,7 +638,7 @@
  {
   "page": "step-1",
   "breakpoint": "tablet-land-1024",
-  "ms": 763,
+  "ms": 1100,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -653,7 +653,7 @@
  {
   "page": "step-2",
   "breakpoint": "tablet-land-1024",
-  "ms": 891,
+  "ms": 1236,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -668,7 +668,7 @@
  {
   "page": "step-3",
   "breakpoint": "tablet-land-1024",
-  "ms": 786,
+  "ms": 1083,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -683,7 +683,7 @@
  {
   "page": "step-4",
   "breakpoint": "tablet-land-1024",
-  "ms": 864,
+  "ms": 1077,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -698,7 +698,7 @@
  {
   "page": "step-5",
   "breakpoint": "tablet-land-1024",
-  "ms": 780,
+  "ms": 1045,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -713,7 +713,7 @@
  {
   "page": "step-6",
   "breakpoint": "tablet-land-1024",
-  "ms": 858,
+  "ms": 895,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-tablet-land-1024.webp"
@@ -721,7 +721,7 @@
  {
   "page": "step-7",
   "breakpoint": "tablet-land-1024",
-  "ms": 1016,
+  "ms": 1045,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-tablet-land-1024.webp"
@@ -729,7 +729,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "tablet-land-1024",
-  "ms": 812,
+  "ms": 809,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -744,7 +744,7 @@
  {
   "page": "step-4-duo",
   "breakpoint": "tablet-land-1024",
-  "ms": 868,
+  "ms": 941,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -759,7 +759,7 @@
  {
   "page": "step-1",
   "breakpoint": "laptop-1280",
-  "ms": 828,
+  "ms": 922,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -774,7 +774,7 @@
  {
   "page": "step-2",
   "breakpoint": "laptop-1280",
-  "ms": 836,
+  "ms": 877,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -789,7 +789,7 @@
  {
   "page": "step-3",
   "breakpoint": "laptop-1280",
-  "ms": 849,
+  "ms": 894,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -804,7 +804,7 @@
  {
   "page": "step-4",
   "breakpoint": "laptop-1280",
-  "ms": 912,
+  "ms": 898,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -819,7 +819,7 @@
  {
   "page": "step-5",
   "breakpoint": "laptop-1280",
-  "ms": 873,
+  "ms": 885,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -834,7 +834,7 @@
  {
   "page": "step-6",
   "breakpoint": "laptop-1280",
-  "ms": 820,
+  "ms": 861,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-laptop-1280.webp"
@@ -842,7 +842,7 @@
  {
   "page": "step-7",
   "breakpoint": "laptop-1280",
-  "ms": 1092,
+  "ms": 1076,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-laptop-1280.webp"
@@ -850,7 +850,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "laptop-1280",
-  "ms": 822,
+  "ms": 811,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -865,7 +865,7 @@
  {
   "page": "step-4-duo",
   "breakpoint": "laptop-1280",
-  "ms": 897,
+  "ms": 895,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -880,7 +880,7 @@
  {
   "page": "step-1",
   "breakpoint": "laptop-1440",
-  "ms": 855,
+  "ms": 979,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -895,7 +895,7 @@
  {
   "page": "step-2",
   "breakpoint": "laptop-1440",
-  "ms": 861,
+  "ms": 965,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -910,7 +910,7 @@
  {
   "page": "step-3",
   "breakpoint": "laptop-1440",
-  "ms": 843,
+  "ms": 1051,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -925,7 +925,7 @@
  {
   "page": "step-4",
   "breakpoint": "laptop-1440",
-  "ms": 857,
+  "ms": 1145,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -940,7 +940,7 @@
  {
   "page": "step-5",
   "breakpoint": "laptop-1440",
-  "ms": 828,
+  "ms": 896,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -955,7 +955,7 @@
  {
   "page": "step-6",
   "breakpoint": "laptop-1440",
-  "ms": 874,
+  "ms": 976,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-laptop-1440.webp"
@@ -963,7 +963,7 @@
  {
   "page": "step-7",
   "breakpoint": "laptop-1440",
-  "ms": 1148,
+  "ms": 1221,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-laptop-1440.webp"
@@ -971,7 +971,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "laptop-1440",
-  "ms": 855,
+  "ms": 908,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -986,7 +986,7 @@
  {
   "page": "step-4-duo",
   "breakpoint": "laptop-1440",
-  "ms": 903,
+  "ms": 985,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -1001,7 +1001,7 @@
  {
   "page": "step-1",
   "breakpoint": "tv-1920",
-  "ms": 996,
+  "ms": 1108,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -1016,7 +1016,7 @@
  {
   "page": "step-2",
   "breakpoint": "tv-1920",
-  "ms": 1177,
+  "ms": 1139,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -1031,7 +1031,7 @@
  {
   "page": "step-3",
   "breakpoint": "tv-1920",
-  "ms": 1118,
+  "ms": 1134,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -1046,7 +1046,7 @@
  {
   "page": "step-4",
   "breakpoint": "tv-1920",
-  "ms": 1287,
+  "ms": 1222,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -1061,7 +1061,7 @@
  {
   "page": "step-5",
   "breakpoint": "tv-1920",
-  "ms": 1206,
+  "ms": 1172,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -1076,7 +1076,7 @@
  {
   "page": "step-6",
   "breakpoint": "tv-1920",
-  "ms": 1204,
+  "ms": 995,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-tv-1920.webp"
@@ -1084,7 +1084,7 @@
  {
   "page": "step-7",
   "breakpoint": "tv-1920",
-  "ms": 1485,
+  "ms": 1368,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-tv-1920.webp"
@@ -1092,7 +1092,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "tv-1920",
-  "ms": 1070,
+  "ms": 980,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -1107,7 +1107,7 @@
  {
   "page": "step-4-duo",
   "breakpoint": "tv-1920",
-  "ms": 1212,
+  "ms": 1103,
   "problems": [],
   "stats": {
    "frames": 0,
