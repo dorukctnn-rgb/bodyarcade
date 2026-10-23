@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>In-game HUD</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  html, body { height: 100%; }
+  body { overflow: hidden; background: #2B2248; }
+  .stage { position: fixed; inset: 0; }
+  .scene, .mirror { position: absolute; overflow: hidden; }
+  .scene { inset: 0; }
+  [data-hud] { position: absolute; }
+  .status { gap: 0.32em; padding: 0.18em 0.36em 0.2em; }
+  .status b { font-family: var(--ba-font-text); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .status small { display: block; font-weight: 600; color: var(--ba-hud-plate-muted); line-height: 1.1; }
+  .status .stack { display: flex; flex-direction: column; justify-content: center; }
+  .feathers { display: flex; gap: 0.12em; margin-left: 0.1em; }
+  .feathers i { width: 0.32em; height: 0.32em; border-radius: 50%; background: var(--ba-flush-500); display: block; }
+  .feathers i.off { background: transparent; box-shadow: inset 0 0 0 0.06em var(--ba-hud-plate-muted); }
+  .pause { width: 1.15em; height: 1.15em; border-radius: 50%; display: grid; place-items: center; background: rgba(244,242,248,0.14); margin-left: 0.12em; }
+  .pause svg { width: 0.5em; height: 0.5em; }
+  .reason { gap: 0.45em; padding: 0.4em 0.7em 0.44em 0.5em; font-weight: 650; line-height: 1.2; }
+  .reason span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-wrap: balance; }
+  .hud-command.wrap { white-space: normal; line-height: 0.98; text-wrap: balance; }
+  .hud-command.no-glyph svg { display: none; }
+  .reason svg { width: 1.35em; height: 1.35em; flex: none; }
+  .tile { border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 3px var(--ba-hud-pip-frame), var(--ba-elev-float); background: #241C40; }
+  .tile .tag { position: absolute; left: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; background: rgba(28,20,51,0.86); color: #F4F2F8; font: 700 12px/1.2 var(--ba-font-text); }
+  .tile .tag .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ba-hud-camera-on); }
+  .tile .move { position: absolute; right: 6px; top: 6px; width: 26px; height: 26px; border-radius: 50%; background: rgba(28,20,51,0.7); display: grid; place-items: center; }
+  .tile .move svg { width: 14px; height: 14px; }
+  .tile .score { position: absolute; right: 6px; top: 6px; padding: 2px 8px; border-radius: 999px; background: var(--ba-sky-400); color: #1C1433; font: 800 14px/1.3 var(--ba-font-text); }
+  .grain { position: absolute; inset: 0; pointer-events: none; opacity: 0.06; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .debug [data-hud] { outline: 1px dashed rgba(0,255,200,0.9); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<script type="module">
+import { hudMetrics, placeHud, hudSlots, checkRects, typicalInsets } from '../tokens/layout.mjs';
+import { glyph } from '../brand/glyphs.mjs';
+import { cameraArt, ghostArt, squatFlapScene } from './art.mjs';
+
+const q = new URLSearchParams(location.search);
+const mode = q.get('mode') || 'scene';          // scene | live-friend | live-ghost | mirror
+const corner = q.get('corner') || 'bottom-right';
+const cmdText = q.get('cmd') || (mode === 'mirror' ? 'Left hand' : 'Squat');
+const cmdPose = q.get('pose') || (mode === 'mirror' ? 'reach' : 'squat');
+const reasonText = q.get('reason') || (mode === 'mirror' ? 'Left hand, not right' : 'Hips 4 cm above the line');
+if (q.has('debug')) document.body.classList.add('debug');
+
+const w = innerWidth, h = innerHeight;
+const metrics = hudMetrics({ w, h, insets: typicalInsets(w, h) });
+const stage = document.getElementById('stage');
+const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+
+// Scene or mirror underneath.
+if (mode === 'mirror') {
+  const mr = { ...metrics };
+  const cam = metrics.portrait ? { w: 300, h: 400 } : { w: 400, h: 300 };
+  const box = el(`<div class="mirror" data-layer="mirror">${cameraArt({ ...cam, pose: 'reach', skeleton: true })}</div>`);
+  stage.append(box);
+  stage.style.background = '#1A1430';
+} else {
+  stage.append(el(`<div class="scene">${squatFlapScene(w, h)}</div>`));
+}
+stage.append(el('<div class="grain"></div>'));
+
+const F = metrics.font;
+const pauseIcon = '<svg viewBox="0 0 10 10"><rect x="1.5" y="1" width="2.4" height="8" rx="1" fill="#F4F2F8"/><rect x="6.1" y="1" width="2.4" height="8" rx="1" fill="#F4F2F8"/></svg>';
+const lineIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4" fill="#FF4F6E"/><line x1="3" y1="17" x2="21" y2="17" stroke="#FF4F6E" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="4 3.4"/></svg>';
+const moveIcon = '<svg viewBox="0 0 14 14"><path d="M2 5V2h3M12 5V2H9M2 9v3h3M12 9v3H9" fill="none" stroke="#F4F2F8" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+const statusLeft = el(`<div class="hud-plate status" data-hud="statusLeft" style="font-size:${F.numeral}px"><div class="stack"><b>12</b><small style="font-size:${F.label}px">pipes</small></div><div class="feathers" aria-label="2 of 3 feathers left"><i></i><i></i><i class="off"></i></div></div>`);
+const statusRight = el(`<div class="hud-plate status" data-hud="statusRight" style="font-size:${F.numeral}px"><div class="stack"><b>0:47</b><small style="font-size:${F.label}px">left</small></div><span class="pause" role="button" aria-label="Pause">${pauseIcon}</span></div>`);
+const command = el(`<div class="hud-command" data-hud="command" style="font-size:${F.command}px">${glyph(cmdPose, { ink: '#1C1433', floor: false, size: 100, title: cmdText })}<span>${cmdText}</span></div>`);
+const reason = el(`<div class="hud-plate reason" data-hud="reason" style="font-size:${F.reason}px">${lineIcon}<span>${reasonText}</span></div>`);
+stage.append(statusLeft, statusRight, command, reason);
+
+const size = (n) => { const r = n.getBoundingClientRect(); return { w: Math.ceil(r.width), h: Math.ceil(r.height) }; };
+const layoutMode = mode.startsWith('live') ? 'live' : mode;
+const safeW = metrics.safe.w;
+
+// Long commands (other languages): 1) shrink, never below the 8 % floor, 2) drop the move
+// glyph, 3) wrap at a soft hyphen (translations mark one in words over 8 letters).
+let cmdSize = F.command;
+const fits = () => command.getBoundingClientRect().width <= safeW;
+while (!fits() && cmdSize > metrics.commandShrinkFloor) { cmdSize -= 1; command.style.fontSize = cmdSize + 'px'; }
+if (!fits()) command.classList.add('no-glyph');
+if (!fits()) { command.classList.add('wrap'); command.style.maxWidth = safeW + 'px'; }
+
+const slots = hudSlots({ w, h, metrics }, { statusLeft: size(statusLeft), statusRight: size(statusRight), command: size(command) }, { mode: layoutMode, pipCorner: corner });
+
+// Reason strip: try the preferred slot; if the text needs more than two lines there, use the
+// next slot. The reason is never cut short.
+const reasonSpan = reason.querySelector('span');
+const linesAt = (maxW) => {
+  reason.style.maxWidth = Math.floor(maxW) + 'px';
+  reasonSpan.style.webkitLineClamp = 'unset';
+  const lh = parseFloat(getComputedStyle(reasonSpan).lineHeight) || F.reason * 1.2;
+  const n = Math.round(reasonSpan.getBoundingClientRect().height / lh);
+  reasonSpan.style.webkitLineClamp = '';
+  return n;
+};
+const order = [slots.reason.preferred, 'bottom', 'lifted'].filter((k, i, a) => slots.reason[k] && a.indexOf(k) === i);
+let reasonRow = null, fewest = Infinity, fewestRow = order[0];
+for (const k of order) {
+  const n = linesAt(slots.reason[k].w);
+  if (n <= 2) { reasonRow = k; break; }
+  if (n < fewest) { fewest = n; fewestRow = k; }
+}
+reasonRow = reasonRow ?? fewestRow; // over budget: widest slot, and the check reports it
+linesAt(slots.reason[reasonRow].w);
+
+const measured = { statusLeft: size(statusLeft), statusRight: size(statusRight), command: size(command), reason: size(reason) };
+const { rects } = placeHud({ w, h, metrics }, measured, { mode: layoutMode, pipCorner: corner, reasonRow });
+
+const put = (node, r) => { Object.assign(node.style, { left: r.x + 'px', top: r.y + 'px' }); if (r.w && node.dataset.size) { node.style.width = r.w + 'px'; node.style.height = r.h + 'px'; } };
+put(statusLeft, rects.statusLeft); put(statusRight, rects.statusRight); put(command, rects.command); put(reason, rects.reason);
+
+const camFor = (r) => (r.w >= r.h ? { w: 400, h: 300 } : { w: 300, h: 400 });
+if (rects.pip) {
+  const t = el(`<div class="tile" data-hud="pip" data-size="1">${cameraArt({ ...camFor(rects.pip), pose: 'squat', line: 0.58 })}<span class="tag">You</span><span class="move" role="button" aria-label="Move or hide your camera view">${moveIcon}</span></div>`);
+  stage.append(t); put(t, rects.pip);
+}
+if (rects.own) {
+  const t = el(`<div class="tile" data-hud="own" data-size="1">${cameraArt({ ...camFor(rects.own), pose: 'squat', line: null })}<span class="tag">You</span></div>`);
+  stage.append(t); put(t, rects.own);
+}
+if (rects.friend) {
+  const ghost = mode === 'live-ghost';
+  const art = ghost ? ghostArt({ ...camFor(rects.friend), pose: 'stand' }) : cameraArt({ ...camFor(rects.friend), pose: 'stand', skeleton: false });
+  const tag = ghost ? '<span class="tag">Sam, skeleton only</span>' : '<span class="tag"><span class="dot"></span>Mia</span>';
+  const t = el(`<div class="tile" data-hud="friend" data-size="1">${art}${tag}<span class="score">10</span></div>`);
+  stage.append(t); put(t, rects.friend);
+}
+if (rects.mirror) {
+  const m = stage.querySelector('.mirror');
+  Object.assign(m.style, { left: rects.mirror.x + 'px', top: rects.mirror.y + 'px', width: rects.mirror.w + 'px', height: rects.mirror.h + 'px' });
+}
+
+// Self-check from the rendered DOM, independent of the layout maths.
+const rendered = {};
+for (const n of stage.querySelectorAll('[data-hud]')) {
+  const r = n.getBoundingClientRect();
+  rendered[n.dataset.hud] = { x: r.x, y: r.y, w: r.width, h: r.height };
+}
+rendered.command.font = parseFloat(command.style.fontSize);
+const problems = checkRects(rendered, { w, h, minCommand: Math.ceil(0.08 * h) });
+for (const plate of stage.querySelectorAll('[data-hud]')) {
+  const pr = plate.getBoundingClientRect();
+  const walker = document.createTreeWalker(plate, NodeFilter.SHOW_TEXT);
+  for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+    if (!t.textContent.trim() || t.parentElement.closest('svg')) continue;
+    const range = document.createRange(); range.selectNodeContents(t);
+    const tol = 0.25 * parseFloat(getComputedStyle(t.parentElement).fontSize); // ascent/descent box, not ink
+    for (const rr of range.getClientRects()) {
+      if (rr.left < pr.left - 0.5 || rr.right > pr.right + 0.5 || rr.top < pr.top - tol || rr.bottom > pr.bottom + tol) {
+        problems.push(`text spills out of ${plate.dataset.hud}`); break;
+      }
+    }
+  }
+}
+const reasonLines = linesAt(slots.reason[reasonRow].w);
+if (reasonLines > 2) problems.push(`reason needs ${reasonLines} lines; shorten the text`);
+window.__hud = { metrics, rects, rendered, problems, mode, corner, reasonRow, reasonLines, commandFont: rendered.command.font };
+document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>

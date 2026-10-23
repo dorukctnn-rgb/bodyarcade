@@ -162,47 +162,90 @@ export function placeHud(viewport, measured, options = {}) {
     rects[t.key] = { x: r(x), y: r(y), w: t.w, h: t.h, corner: t.corner };
   }
 
-  // Reason strip: bottom centre, never over a tile. Shift into the free span or lift above.
+  // Reason strip: bottom centre, never over a tile and never cut short. It sits in the free
+  // span next to the bottom tiles when the text fits there in two lines, otherwise it is
+  // lifted above the tiles (options.reasonRow = 'lifted'). In landscape mirror games it can
+  // sit in the side band beside the mirror (options.reasonRow = 'side').
+  const slots = reasonSlots(m, rects, tiles, { left, right, bottom, mode, hudTopBottom });
+  const want = options.reasonRow ?? slots.preferred;
+  const slot = slots[want] ?? slots.bottom;
   const rs = { ...measured.reason };
-  const bottomTiles = tiles.filter((t) => t.corner.startsWith('bottom')).map((t) => rects[t.key]);
-  let spanL = left, spanR = right;
-  for (const t of bottomTiles) {
-    if (t.x <= left + 1) spanL = Math.max(spanL, t.x + t.w + gap);
-    else spanR = Math.min(spanR, t.x - gap);
-  }
-  if (rs.w <= spanR - spanL) {
-    const centre = bottomTiles.length ? (spanL + spanR) / 2 : (left + right) / 2;
-    const x = clamp(spanL, centre - rs.w / 2, spanR - rs.w);
-    rects.reason = { x: r(x), y: bottom - rs.h, w: rs.w, h: rs.h, lifted: false };
+  if (slot.row === 'bottom') {
+    const x = clamp(slot.x, slot.centre - rs.w / 2, slot.x + slot.w - rs.w);
+    rects.reason = { x: r(x), y: bottom - rs.h, w: rs.w, h: rs.h, row: 'bottom' };
+  } else if (slot.row === 'side') {
+    rects.reason = { x: r(slot.x + (slot.w - rs.w) / 2), y: bottom - rs.h, w: rs.w, h: rs.h, row: 'side' };
   } else {
-    const tileTop = Math.min(...bottomTiles.map((t) => t.y));
-    rects.reason = { x: r((left + right) / 2 - rs.w / 2), y: tileTop - gap - rs.h, w: rs.w, h: rs.h, lifted: true };
+    rects.reason = { x: r(slot.centre - rs.w / 2), y: slot.bottomY - rs.h, w: rs.w, h: rs.h, row: 'lifted' };
   }
+  const bottomTiles = tiles.filter((t) => t.corner.startsWith('bottom')).map((t) => rects[t.key]);
 
   // Play area: what is left between the HUD bands; games keep key objects inside it.
   const playTop = hudTopBottom + gap;
-  const playBottom = Math.min(rects.reason.y, ...bottomTiles.map((t) => t.y)) - gap;
+  const reasonTop = rects.reason.row === 'side' ? bottom + gap : rects.reason.y;
+  const playBottom = Math.min(reasonTop, ...bottomTiles.map((t) => t.y)) - gap;
   rects.play = { x: left, y: playTop, w: right - left, h: Math.max(0, playBottom - playTop) };
 
-  if (mode === 'mirror') rects.mirror = mirrorRect(m);
+  if (mode === 'mirror') rects.mirror = mirrorRect(m, rects.play);
   return { metrics: m, rects };
 }
 
 /**
- * Mirror games (target hit, rhythm): the camera mirror is the scene.
- * Portrait screens show the whole camera frame with bands above and below for the HUD;
- * landscape screens fill the screen (cover) and the HUD sits on plates.
+ * Where the reason strip may go, before it is measured. The DOM sets max-width to the slot
+ * width, measures the wrapped plate (two lines at most) and passes the size to placeHud.
+ * bottom: next to the bottom tiles (or centred when there are none)
+ * lifted: full width, above the bottom tiles
+ * side:   landscape mirror games, in the band beside the mirror
  */
-export function mirrorRect(m, camAspect) {
-  const { w, h, portrait } = m;
-  const aspect = camAspect ?? (portrait ? 3 / 4 : 4 / 3);
-  if (portrait) {
-    const mw = w, mh = r(w / aspect);
-    return { x: 0, y: r((h - mh) / 2), w: mw, h: mh, fit: 'contain' };
+export function reasonSlots(m, rects, tiles, { left, right, bottom, mode, hudTopBottom }) {
+  const out = {};
+  const bottomTiles = tiles.filter((t) => t.corner.startsWith('bottom')).map((t) => rects[t.key]);
+  let spanL = left, spanR = right;
+  for (const t of bottomTiles) {
+    if (t.x <= left + 1) spanL = Math.max(spanL, t.x + t.w + m.gap);
+    else spanR = Math.min(spanR, t.x - m.gap);
   }
-  const scale = Math.max(w / (h * aspect), 1);
-  const mw = r(h * aspect * scale), mh = r(h * scale);
-  return { x: r((w - mw) / 2), y: r((h - mh) / 2), w: mw, h: mh, fit: 'cover' };
+  out.bottom = { row: 'bottom', x: spanL, w: spanR - spanL, centre: bottomTiles.length ? (spanL + spanR) / 2 : (left + right) / 2 };
+  if (bottomTiles.length) {
+    const tileTop = Math.min(...bottomTiles.map((t) => t.y));
+    out.lifted = { row: 'lifted', x: left, w: right - left, centre: (left + right) / 2, bottomY: tileTop - m.gap };
+  }
+  const minSpan = Math.max(220, 0.55 * (right - left));
+  out.preferred = !bottomTiles.length || out.bottom.w >= minSpan ? 'bottom' : 'lifted';
+  if (mode === 'mirror' && !m.portrait) {
+    const area = { x: left, y: hudTopBottom + m.gap, w: right - left, h: bottom - hudTopBottom - m.gap };
+    const mr = mirrorRect(m, area);
+    const band = mr.x - left - m.gap;
+    if (band >= 180) {
+      out.side = { row: 'side', x: mr.x + mr.w + m.gap, w: right - (mr.x + mr.w + m.gap), centre: 0 };
+      out.preferred = 'side';
+    }
+  }
+  return out;
+}
+
+/** Tile rects and the reason slots for a viewport, used before measuring the text plates. */
+export function hudSlots(viewport, measuredStatus, options = {}) {
+  const fake = { statusLeft: measuredStatus.statusLeft, statusRight: measuredStatus.statusRight, command: measuredStatus.command ?? { w: 1, h: 1 }, reason: { w: 1, h: 1 } };
+  const { metrics, rects } = placeHud(viewport, fake, options);
+  const left = metrics.insets.left + metrics.margin, right = metrics.w - metrics.insets.right - metrics.margin;
+  const bottom = metrics.h - metrics.insets.bottom - metrics.margin;
+  const tiles = ['pip', 'own', 'friend'].filter((k) => rects[k]).map((k) => ({ key: k, corner: rects[k].corner }));
+  const hudTopBottom = Math.max(rects.statusLeft.y + rects.statusLeft.h, rects.statusRight.y + rects.statusRight.h, rects.command.y + rects.command.h);
+  return { reason: reasonSlots(metrics, rects, tiles, { left, right, bottom, mode: options.mode ?? 'scene', hudTopBottom }), commandMaxW: right - left };
+}
+
+/**
+ * Mirror games (target hit, rhythm): the camera mirror is the scene. The whole camera frame
+ * is fitted inside the play area, so no HUD plate ever covers the player or a target.
+ * The space around it is the stage colour (night), never a stretched or cropped image.
+ */
+export function mirrorRect(m, play, camAspect) {
+  const aspect = camAspect ?? (m.portrait ? 3 / 4 : 4 / 3);
+  const area = play && play.h > 0 ? play : { x: 0, y: 0, w: m.w, h: m.h };
+  let mw = area.w, mh = mw / aspect;
+  if (mh > area.h) { mh = area.h; mw = mh * aspect; }
+  return { x: r(area.x + (area.w - mw) / 2), y: r(area.y + (area.h - mh) / 2), w: r(mw), h: r(mh), fit: 'contain' };
 }
 
 /** Problems found in a set of rendered rects. Empty list = pass. */
@@ -226,3 +269,22 @@ export function checkRects(rects, { w, h, minCommand }) {
 }
 
 const fmt = (a) => `${r(a.x)},${r(a.y)} ${r(a.w)}x${r(a.h)}`;
+
+/**
+ * Shell layout (menus, catalogue, results, settings): page gutter, content width and the
+ * game grid. Same numbers as the .ba-shell and .ba-grid rules in ui-kit/kit.css.
+ */
+export function shellGrid({ w, h, insets = typicalInsets(w, h) }) {
+  const gutter = Math.max(clamp(16, 0.04 * w, 48), insets.left, insets.right);
+  const nav = h < 500 && w > h ? 'side rail' : w < 900 ? 'bottom tab bar' : 'top bar';
+  const rail = nav === 'side rail' ? 76 : 0; // landscape phones keep their height for content
+  const maxContent = w >= 1680 ? 1560 : 1240;
+  const content = Math.min(w - 2 * gutter - rail, maxContent);
+  const cols = w < 600 ? 2 : w < 900 ? 3 : w < 1680 ? 4 : 5;
+  const gap = clamp(12, 0.02 * w, 24);
+  const tile = (content - (cols - 1) * gap) / cols;
+  return {
+    gutter: Math.round(gutter * 10) / 10, content: Math.round(content), cols,
+    gap: Math.round(gap * 10) / 10, tile: Math.round(tile), tileArt: Math.round(tile * 0.75), nav, rail,
+  };
+}
