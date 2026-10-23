@@ -35,6 +35,11 @@ const en = {
   'reason.wrong_direction': 'Lean the other way',
   'reason.bend_more': 'Lean further away from it',
   'reason.hold_still': 'That was red, keep your hands back',
+  'grade.perfect': 'Perfect',
+  'grade.good': 'Good',
+  'grade.early': 'Early',
+  'grade.late': 'Late',
+  'ms': '{n} ms',
   'reason.other': 'Missed that one',
 } as const satisfies Table;
 
@@ -65,6 +70,11 @@ const tr: Table = {
   'reason.wrong_direction': 'Öbür yana yaslan',
   'reason.bend_more': 'Ondan biraz daha uzağa yaslan',
   'reason.hold_still': 'O kırmızıydı, ellerini geri çek',
+  'grade.perfect': 'Mükemmel',
+  'grade.good': 'İyi',
+  'grade.early': 'Erken',
+  'grade.late': 'Geç',
+  'ms': '{n} ms',
   'reason.other': 'Onu kaçırdın',
 };
 
@@ -95,6 +105,11 @@ const de: Table = {
   'reason.wrong_direction': 'Lehn dich zur anderen Seite',
   'reason.bend_more': 'Lehn dich weiter weg davon',
   'reason.hold_still': 'Das war rot, Hände zurück',
+  'grade.perfect': 'Perfekt',
+  'grade.good': 'Gut',
+  'grade.early': 'Früh',
+  'grade.late': 'Spät',
+  'ms': '{n} ms',
   'reason.other': 'Das war verpasst',
 };
 
@@ -125,6 +140,11 @@ const es: Table = {
   'reason.wrong_direction': 'Inclínate hacia el otro lado',
   'reason.bend_more': 'Inclínate más lejos de él',
   'reason.hold_still': 'Era roja, retira las manos',
+  'grade.perfect': 'Perfecto',
+  'grade.good': 'Bien',
+  'grade.early': 'Pronto',
+  'grade.late': 'Tarde',
+  'ms': '{n} ms',
   'reason.other': 'Esa se escapó',
 };
 
@@ -155,6 +175,11 @@ const fr: Table = {
   'reason.wrong_direction': 'Penche-toi de l\'autre côté',
   'reason.bend_more': 'Penche-toi plus loin',
   'reason.hold_still': 'C\'était rouge, retire les mains',
+  'grade.perfect': 'Parfait',
+  'grade.good': 'Bien',
+  'grade.early': 'Tôt',
+  'grade.late': 'Tard',
+  'ms': '{n} ms',
   'reason.other': 'Celle-ci t\'a échappé',
 };
 
