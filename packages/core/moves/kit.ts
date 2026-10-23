@@ -270,7 +270,7 @@ export type MissCode =
   // reaching and hitting
   | 'not_reached' | 'too_slow' | 'too_fast' | 'too_brief' | 'grab_higher' | 'pull_more' | 'pull_faster'
   // trunk
-  | 'turn_more' | 'turn_shoulders' | 'bend_more' | 'wrong_side' | 'hips_shifted' | 'bending_forward' | 'body_not_straight'
+  | 'turn_more' | 'turn_shoulders' | 'bend_more' | 'bend_less' | 'wrong_side' | 'hips_shifted' | 'bending_forward' | 'body_not_straight'
   // poses and holds
   | 'limb_off' | 'move_more' | 'hold_still' | 'held_too_short';
 
