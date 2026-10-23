@@ -17,6 +17,7 @@ import { createKneeLiftDetector } from './kneeLift.ts';
 import { createLeanDetector } from './lean.ts';
 import { createSquatDetector } from './squat.ts';
 import { createSquatFlapDetector } from './squatFlap.ts';
+import { createTwistDetector } from './twist.ts';
 
 export const createSquatRouter: DetectorFactory = (p: BodyProfile, opts) => (opts && opts.flap ? createSquatFlapDetector(p, opts) : createSquatDetector(p, opts));
 
@@ -26,6 +27,7 @@ export const LIBRARY_DETECTORS: DetectorRegistry = {
   kneeLift: createKneeLiftDetector,
   handHit: createHandHitDetector,
   jumpingJack: createJumpingJackDetector,
+  twist: createTwistDetector,
 };
 
 export const ALL_DETECTORS: DetectorRegistry = {

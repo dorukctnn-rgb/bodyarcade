@@ -1,6 +1,6 @@
 // MovementEngine: registry, profile handling, channels, events and listener safety.
 import { describe, expect, it } from 'vitest';
-import type { BodyProfile, Detector, DetectorRegistry, Features, MovementEvent, PoseFrame } from '../types/index.ts';
+import type { BodyProfile, Detector, DetectorRegistry, Features, MovementEvent, MovementId, PoseFrame } from '../types/index.ts';
 import { createCalibrator } from '../body/calibrator.ts';
 import { combine, jumpAt, leanAt, squatAt, synthTrace } from '../pose/synth.ts';
 import { traceFrames } from '../pose/trace.ts';
@@ -116,7 +116,8 @@ describe('MovementEngine', () => {
     const e = createMovementEngine();
     e.use([{ id: 'lean' }]);
     e.setProfile(profile);
-    expect(() => e.use([{ id: 'squat' }, { id: 'poseMatch' }, { id: 'twist' }])).toThrow(/'poseMatch', 'twist'/);
+    // ids that no library will ever register (the movement library fills in M4..M16 over time)
+    expect(() => e.use([{ id: 'squat' }, { id: 'neverRegisteredA' as MovementId }, { id: 'neverRegisteredB' as MovementId }])).toThrow(/'neverRegisteredA', 'neverRegisteredB'/);
     e.push(fs[from] as PoseFrame);
     expect(Object.keys(e.channels()).sort()).toEqual(['lane', 'lean']);
   });

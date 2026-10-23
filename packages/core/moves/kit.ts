@@ -124,6 +124,14 @@ export class Series {
   min(windowMs?: number): number | undefined { const a = this.values(windowMs); return a.length ? Math.min(...a) : undefined; }
   mean(windowMs?: number): number | undefined { const a = this.values(windowMs); return a.length ? a.reduce((s, x) => s + x, 0) / a.length : undefined; }
 
+  /** Median of the values in the window (robust against a few glitched frames); undefined without samples. */
+  median(windowMs?: number): number | undefined {
+    const a = this.values(windowMs).sort((x, y) => x - y);
+    if (!a.length) return undefined;
+    const m = a.length >> 1;
+    return a.length % 2 ? (a[m] as number) : ((a[m - 1] as number) + (a[m] as number)) / 2;
+  }
+
   /** Population standard deviation; undefined with fewer than 3 samples. */
   std(windowMs?: number): number | undefined {
     const a = this.values(windowMs);
@@ -260,7 +268,7 @@ export type MissCode =
   // arms
   | 'arms_not_up' | 'arms_not_down' | 'arms_not_out' | 'use_both_arms' | 'wrong_hand' | 'hands_apart' | 'elbows_bent'
   // reaching and hitting
-  | 'not_reached' | 'too_slow' | 'too_brief' | 'grab_higher' | 'pull_more' | 'pull_faster'
+  | 'not_reached' | 'too_slow' | 'too_fast' | 'too_brief' | 'grab_higher' | 'pull_more' | 'pull_faster'
   // trunk
   | 'turn_more' | 'turn_shoulders' | 'bend_more' | 'wrong_side' | 'hips_shifted' | 'bending_forward' | 'body_not_straight'
   // poses and holds
