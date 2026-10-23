@@ -23,7 +23,7 @@ import { isCamera, type FrameIn } from '../_shared/frame.ts';
 import type { HostSim, Phase, SimEvent, SimSetup } from '../_shared/host.ts';
 import type { MissNote } from '../_shared/reasons.ts';
 import { clamp, copyData, msOf, randInt, round, stepsOf } from '../_shared/util.ts';
-import { difficultyOf, logOf, meter, unit, type Difficulty, type LogEntry } from './kit.ts';
+import { difficultyOf, logOf, unit, type Difficulty, type LogEntry } from './kit.ts';
 
 // ───────── the plan: levels and timing ─────────
 
@@ -66,6 +66,8 @@ const DOUBLE_BONUS = 30;
 const IDLE_HINT_S = 8;
 const HINT_STEPS = 90;
 const FINALE_BURSTS = 72;
+/** The energy of the sky follows its target with a time constant of 1.5 s (per step). */
+const ENERGY_EASE = 1 - Math.exp(-1 / 60 / 1.5);
 
 /** Seconds a try counts as moving for calories and the summary. */
 const ACTIVE_STEPS = 150;
@@ -104,6 +106,10 @@ export interface FjPlayer {
   lastJackK: number;
   activeSteps: number;
   energy: number;
+  /** The jacks of the last four seconds: [step, how good it was 0..1], for the energy of the sky. */
+  recent: [number, number][];
+  /** How open the body is now, 0..1 (the detector's `open` channel; 0 without a camera), for the avatar. */
+  open: number;
   att: Attempt;
   /** The latest sentence for the strip: the miss and the step it was said at. */
   miss: (MissNote & { k: number }) | null;
@@ -141,7 +147,7 @@ export interface FjOptions {
 
 const newPlayer = (): FjPlayer => ({
   score: 0, jacks: 0, judged: 0, perfect: 0, good: 0, off: 0, streak: 0, bestStreak: 0, lastBeat: -1, lastGrade: null, checked: 0, lastJackK: -100000,
-  activeSteps: 0, energy: 0, att: { on: false, k0: 0, armsMax: -1, gapMax: 0, rep: false }, miss: null, lastMissK: -100000,
+  activeSteps: 0, energy: 0, recent: [], open: 0, att: { on: false, k0: 0, armsMax: -1, gapMax: 0, rep: false }, miss: null, lastMissK: -100000,
 });
 
 export function makePlan(difficulty: Difficulty, timing: FjTiming, rng: () => number): FjPlan {
@@ -251,6 +257,10 @@ export class FireworkSim implements HostSim {
       this.enter(out, t);
     }
     const seg = this.segment;
+    for (let i = 0; i < this.players; i++) {
+      const inp = f.players[i];
+      (s.players[i] as FjPlayer).open = inp && inp.ok ? clamp(inp.ch['open'] ?? 0, 0, 1) : 0;
+    }
 
     if (seg.kind === 'work') this.work(f, seg, k, t, out);
     else if (seg.kind === 'rest') this.rest(f, k, t, out);
@@ -258,7 +268,7 @@ export class FireworkSim implements HostSim {
 
     for (let i = 0; i < this.players; i++) {
       const p = s.players[i] as FjPlayer;
-      p.energy = meter.decayed(p.energy, 1 / 60, { decay: 0.03 });
+      p.energy += (this.energyTarget(p, seg, k) - p.energy) * ENERGY_EASE;
     }
     if (k >= s.plan.endK) {
       s.phase = 'complete';
@@ -331,7 +341,7 @@ export class FireworkSim implements HostSim {
         const combo = grade === 'off' ? 1 : Math.min(3, 1 + 0.25 * Math.floor(p.streak / 4));
         const pts = Math.round(BASE_POINTS * GRADE_MULT[grade] * combo);
         p.score += pts;
-        p.energy = meter.gain(p.energy, grade === 'perfect' ? 0.06 : grade === 'good' ? 0.04 : 0.02);
+        p.recent.push([k, grade === 'perfect' ? 1 : grade === 'good' ? 0.75 : 0.3]);
         this.launch(p, slot, k, t, grade, SIZE[grade], pts, j.beat, out, j.offsetMs);
         if (this.players === 2 && grade !== 'off') this.matchDouble(i, j.beat, k, t, out);
       }
@@ -457,6 +467,17 @@ export class FireworkSim implements HostSim {
   }
 
   // ───── results ─────
+
+  /** Where the energy of the sky is heading: how many of the last four seconds' jacks there were and how good they were. */
+  private energyTarget(p: FjPlayer, seg: Segment, k: number): number {
+    if (seg.kind === 'finale') return 1;
+    if (seg.kind === 'rest') return 0.25;
+    while (p.recent.length && (p.recent[0] as [number, number])[0] <= k - 240) p.recent.shift();
+    if (!p.recent.length) return 0;
+    const quality = p.recent.reduce((n, r) => n + r[1], 0) / p.recent.length;
+    const wanted = ((4 * seg.bpm) / 60) * 0.8;
+    return clamp(quality * Math.min(1, p.recent.length / wanted), 0, 1);
+  }
 
   /** The share of judged jacks that were on the beat, 0..1. */
   quality(): number {

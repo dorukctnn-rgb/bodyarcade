@@ -8,6 +8,7 @@ import type { AudioApi, GameContext, Hud, HudSlot, Namespace, Rng } from '../../
 import { FIXED_DT } from '../../../core/types/index.ts';
 import type { PlayerInput, InputEvent, InputFrame, InputSourceId, PlayerSlot, MovementId } from '../../../core/types/index.ts';
 import type { CanvasLike } from '../../../core/render2d/scene2d.ts';
+import { hudMetrics } from '../../../core/ui/layout.ts';
 import { msOf } from '../util.ts';
 
 export { FIXED_DT };
@@ -111,4 +112,28 @@ export function testKit(w = 390, h = 844, o: { mode?: 'scene' | 'mirror'; corner
   const kit = createScene2D({ canvas, size: () => size, devicePixelRatio: () => 1, surfaces: surf.factory, rng: mulberry32(o.seed ?? 5) });
   kit.setHud({ mode: o.mode ?? 'scene', pipCorner: o.corner ?? 'bottom-left' });
   return { kit, canvas, size, live: () => surf.live() };
+}
+
+/** The same for two players on one camera (a big screen): the lanes and the shared self view are placed by the platform's duo layout. */
+export function testKitDuo(w = 1280, h = 800): TestKit {
+  const t = testKit(w, h);
+  const f = hudMetrics({ w, h }).font;
+  t.kit.setHudDuo({
+    statusP1: { w: Math.round(f.numeral * 5), h: Math.round(f.numeral * 1.7) },
+    statusP2: { w: Math.round(f.numeral * 5), h: Math.round(f.numeral * 1.7) },
+    timer: { w: Math.round(f.numeral * 4), h: Math.round(f.numeral * 1.7) },
+    command: { w: Math.round(f.command * 3.2), h: Math.round(f.command * 1.25) },
+    reasonP1: { w: Math.round(Math.min(w * 0.3, f.reason * 12)), h: Math.round(f.reason * 2.4) },
+    reasonP2: { w: Math.round(Math.min(w * 0.3, f.reason * 12)), h: Math.round(f.reason * 2.4) },
+  });
+  return t;
+}
+
+/** Are all the numbers a recorder was given finite? A NaN or an Infinity in a drawing call is a bug in the layout maths. */
+export function nonFiniteCalls(r: Recorder): string[] {
+  const bad: string[] = [];
+  for (const c of r.calls) {
+    for (const a of c.args) if (typeof a === 'number' && !Number.isFinite(a)) { bad.push(`${c.name}(${c.args.map(String).join(', ')})`); break; }
+  }
+  return bad;
 }

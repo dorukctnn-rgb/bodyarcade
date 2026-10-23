@@ -32,6 +32,8 @@ export interface Stage {
   /** Moves the particles on by a time in seconds (simulation time, so a replay looks the same). */
   advance(dtSeconds: number): void;
   drawParticles(): void;
+  /** Drops every particle (a new run). */
+  clearParticles(): void;
   stamp(kind: SpriteKind, x: number, y: number, size: number, st?: SpriteStyle, o?: { rot?: number; alpha?: number }): void;
   /** The camera picture in the self view window, when the game was given one. */
   drawSelfView(v: SelfView | null): void;
@@ -56,6 +58,7 @@ export function stageOf(scene: Scene2D | undefined | null): Stage | null {
     burst: (x, y, count, o) => { kit.particles.burst(x, y, count, o); },
     advance: (dt) => kit.particles.update(dt),
     drawParticles: () => kit.particles.draw(kit.ctx as unknown as Ctx2D),
+    clearParticles: () => kit.particles.clear(),
     stamp: (kind, x, y, size, st, o) => kit.sprites.stamp(kit.ctx as unknown as Ctx2D, kind, x, y, size, st, o),
     drawSelfView: (v) => { if (v) kit.drawPip(v.source, { size: v.size, dim: 0 }); },
     get particlesAlive() { return kit.particles.alive; },

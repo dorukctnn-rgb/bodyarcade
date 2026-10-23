@@ -10,15 +10,24 @@ interface DuoHud { setPlayer(player: PlayerSlot, slot: 'score' | 'hint', v: DuoV
 
 const hasDuo = (h: Hud): h is Hud & DuoHud => typeof (h as Partial<DuoHud>).setPlayer === 'function';
 
+/** The slots the duo HUD has no plate for: it has a score and a reason per player instead (a write would find nothing to write to). */
+const SOLO_ONLY: ReadonlySet<HudSlot> = new Set<HudSlot>(['score', 'hint', 'combo', 'lives']);
+
 export class HudWriter {
   private readonly hud: Hud;
+  private readonly duo: boolean;
   private readonly shown = new Map<string, string>();
 
   constructor(hud: Hud) {
     this.hud = hud;
+    this.duo = hasDuo(hud);
   }
 
+  /** Is this the HUD of two players (with plates per player)? */
+  get hasPlayerPlates(): boolean { return this.duo; }
+
   set(slot: HudSlot, v: HudValue): void {
+    if (this.duo && SOLO_ONLY.has(slot)) return;
     const key = JSON.stringify(v);
     if (this.shown.get(slot) === key) return;
     this.shown.set(slot, key);

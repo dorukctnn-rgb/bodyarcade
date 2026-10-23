@@ -128,6 +128,7 @@ export function createHostedGame<S extends HostSim>(spec: HostSpec<S>): HostedGa
   /** A fresh view for a new run or a restored one (a view keeps cosmetic state that must not leak from run to run). */
   function freshView(): void {
     view?.dispose();
+    stage?.clearParticles();
     const c = ctx as GameContext;
     view = stage && spec.makeView ? spec.makeView(c, stage, { reducedMotion: c.flags.reducedMotion }) : null;
   }
