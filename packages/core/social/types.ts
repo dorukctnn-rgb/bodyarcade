@@ -139,6 +139,7 @@ export type SocialErrorCode =
   | 'self'
   | 'friends_full'
   | 'requests_full'
+  | 'blocks_full'
   | 'you_blocked'
   | 'not_friends'
   | 'child_no_public'

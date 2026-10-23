@@ -3,9 +3,16 @@
 // database's daily write budget (100,000 row writes on the free plan).
 import { HOUR, retryAfterMs, windowOf, limitKey, type LimitSpec } from '../../../core/social/rules.ts';
 import { HttpError } from '../http.ts';
-import { one, run, type D1Like } from './db.ts';
+import { one, run, stmt, type D1Like, type D1Stmt } from './db.ts';
 
 type Spec = Pick<LimitSpec, 'name' | 'max' | 'windowMs'>;
+
+const BUMP_SQL = 'INSERT INTO soc_limits (k, n, exp) VALUES (?1, ?2, ?3) ON CONFLICT(k) DO UPDATE SET n = n + ?2 RETURNING n';
+
+/** The counter increment as a statement, to run inside a batch together with the write it pays for (all or nothing). */
+export function bumpStmt(db: D1Like, scope: string, spec: Spec, now: number, by = 1): D1Stmt {
+  return stmt(db, BUMP_SQL, limitKey(scope, spec, now), by, windowOf(now, spec.windowMs).end + HOUR);
+}
 
 /** How many times this scope has used the limit in the current window. */
 export async function used(db: D1Like, scope: string, spec: Spec, now: number): Promise<number> {
@@ -15,12 +22,7 @@ export async function used(db: D1Like, scope: string, spec: Spec, now: number): 
 
 /** Counts one use and returns the new count. Writes one row. */
 export async function bump(db: D1Like, scope: string, spec: Spec, now: number, by = 1): Promise<number> {
-  const exp = windowOf(now, spec.windowMs).end + HOUR;
-  const r = await one<{ n: number }>(
-    db,
-    'INSERT INTO soc_limits (k, n, exp) VALUES (?1, ?2, ?3) ON CONFLICT(k) DO UPDATE SET n = n + ?2 RETURNING n',
-    limitKey(scope, spec, now), by, exp,
-  );
+  const r = await bumpStmt(db, scope, spec, now, by).first<{ n: number }>();
   return r?.n ?? by;
 }
 

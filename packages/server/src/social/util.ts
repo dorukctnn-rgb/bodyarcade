@@ -7,6 +7,7 @@ import type { Handler, Params } from '../router.ts';
 import type { D1Like } from './db.ts';
 import { authenticate, type Me } from './auth.ts';
 import { socialEnv, type SocialEnv } from './env.ts';
+import { maybeSweep } from './sweep.ts';
 
 export const MAX_BODY_BYTES = 4096;
 
@@ -57,6 +58,12 @@ export function guardRequest(env: SocialEnv, req: Request, scope: string | null,
 }
 
 const enc = new TextEncoder();
+
+/** SHA-256 of a text (used to compare secrets without leaking their length or content through timing). */
+export async function sha256Bytes(text: string): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(text)));
+}
+
 const hmacKeys = new Map<string, Promise<CryptoKey>>();
 
 /** A keyed hash of the caller's address: the only form in which an address is ever stored (counter keys). */
@@ -120,6 +127,7 @@ export function authed(handler: SocialHandler, opts: AuthedOptions = {}): Handle
       const wait = waiter(ctx);
       const me = await authenticate({ req, db: env.DB, now, wait }, body, opts);
       guardRequest(env, req, me.pid, now);
+      maybeSweep(env.DB, now, wait);
       const out = await handler({ req, env, raw, db: env.DB, now, url, params, body: body ?? {}, me, origin: publicOrigin(req, env.PUBLIC_ORIGIN), wait });
       return out instanceof Response ? out : ok(out, 200, now);
     } catch (e) {

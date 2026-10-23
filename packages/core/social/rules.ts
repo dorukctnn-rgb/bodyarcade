@@ -71,6 +71,8 @@ export const DECLINE_COOLDOWN_MS = 7 * DAY;
 /** An unanswered request disappears after this long (it also frees the sender's outgoing slot). */
 export const REQUEST_TTL_MS = 30 * DAY;
 export const INVITE_TTL_MS = 2 * MINUTE;
+/** Most players one person can block (a list that grows without a bound is a cost of reads and writes). */
+export const MAX_BLOCKS = 200;
 
 export interface RequestFacts {
   from: { band: AgeBand; friends: number; outgoing: number; sentToday: number };
