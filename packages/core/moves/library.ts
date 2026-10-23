@@ -12,6 +12,7 @@ import type { BodyProfile, DetectorFactory, DetectorRegistry } from '../types/in
 import { createArmDirectionDetector } from './armDirection.ts';
 import { createHandHitDetector } from './handHit.ts';
 import { createJumpDetector } from './jump.ts';
+import { createJumpingJackDetector } from './jumpingJack.ts';
 import { createKneeLiftDetector } from './kneeLift.ts';
 import { createLeanDetector } from './lean.ts';
 import { createSquatDetector } from './squat.ts';
@@ -24,6 +25,7 @@ export const LIBRARY_DETECTORS: DetectorRegistry = {
   armDirection: createArmDirectionDetector,
   kneeLift: createKneeLiftDetector,
   handHit: createHandHitDetector,
+  jumpingJack: createJumpingJackDetector,
 };
 
 export const ALL_DETECTORS: DetectorRegistry = {
