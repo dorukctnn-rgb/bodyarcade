@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live duel test page</title>
+<style>
+  body { font: 13px/1.4 system-ui, sans-serif; margin: 12px; background: #15130f; color: #eee; }
+  video { width: 200px; background: #000; margin-right: 8px; }
+  pre { white-space: pre-wrap; max-height: 40vh; overflow: auto; background: #000; padding: 8px; }
+</style>
+</head>
+<body>
+<div id="videos"><video id="me" muted playsinline autoplay></video></div>
+<div id="hud"></div>
+<pre id="log"></pre>
+<script type="module" src="./duel.ts"></script>
+</body>
+</html>
