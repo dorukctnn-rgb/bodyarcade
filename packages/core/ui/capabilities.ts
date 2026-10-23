@@ -1,71 +1,73 @@
-// What this device and this build can offer. The platform builder adds the official Capabilities flag to the
-// contract (BUILD-PLAN "Two players, one camera"); until it lands this module carries the same rule, in one
-// pure function with its own tests, so swapping the real flag in is a one-line change.
-import { deviceClass, type DeviceClass } from './layout.ts';
+// What this device and this build can offer, as the shell needs it. The decision about two players on one camera
+// belongs to the platform builder (core/device/capabilities.ts, the contract's Capabilities); this module adds what
+// only the shell cares about: the layout class of the window, touch, camera and secure-page facts, and the extra
+// condition that the split HUD needs at least 1000 px of width (layout.ts duoAvailable, design/LAYOUT.md section 12).
+import type { Capabilities as DeviceCapabilities, DeviceKind } from '../types/index.ts';
+import { detectCapabilities as detectDevice } from '../device/capabilities.ts';
+import { deviceClass, duoAvailable, type DeviceClass } from './layout.ts';
 
 export type Platform = 'web' | 'android-app';
 
-export interface CapabilityEnv {
+/** Why the "2 players, same camera" choice is hidden or disabled; 'ok' when it is offered. */
+export type Local2Reason = DeviceCapabilities['local2Reason'] | 'narrow';
+
+export interface UiEnv {
   viewport: { w: number; h: number };
-  platform: Platform;
-  touch: boolean;
   /** navigator.mediaDevices.getUserMedia exists. */
   camera: boolean;
   /** https or localhost; the camera needs it (B8 showed the wrong message for this). */
   secure: boolean;
-  /** The user agent says TV, or the player picked "I play on a TV". */
-  tv: boolean;
+  touch: boolean;
 }
 
-export interface Capabilities {
+export interface UiCapabilities {
+  device: DeviceKind;
   platform: Platform;
   deviceClass: DeviceClass;
   landscape: boolean;
   touch: boolean;
   camera: boolean;
   secure: boolean;
+  /** A TV platform: the shell turns big text on by default. */
   tv: boolean;
-  /** Two players in front of one camera (web only, big screens; hidden on phones and in the Android app). */
+  /** Offer "2 players, same camera". Both the device rule and the split-HUD width rule must pass. */
   local2: boolean;
+  local2Reason: Local2Reason;
 }
 
-/**
- * Doruk, 23 Oct: web only, big screens (desktop, laptop, TV, a tablet in landscape), hidden inside the Android app
- * and on phone-sized screens in the browser ("telefonda zor olur"). A tablet that passes this still has to pass the
- * two-person framing check before a round starts.
- */
-export function local2Available(env: Pick<CapabilityEnv, 'viewport' | 'platform'>): boolean {
-  if (env.platform !== 'web') return false;
+/** Pure: the platform builder's answer plus what the window and browser add. */
+export function uiCapabilities(device: DeviceCapabilities, env: UiEnv): UiCapabilities {
   const { w, h } = env.viewport;
-  if (deviceClass(w, h) === 'phone') return false;
-  return w > h;
-}
-
-export function capabilitiesFrom(env: CapabilityEnv): Capabilities {
-  const { w, h } = env.viewport;
+  const fits = duoAvailable({ w, h });
+  const local2 = device.local2 && fits;
+  const reason: Local2Reason = local2 ? 'ok' : !device.local2 ? device.local2Reason : 'narrow';
   return {
-    platform: env.platform,
+    device: device.device,
+    platform: device.device === 'android_app' ? 'android-app' : 'web',
     deviceClass: deviceClass(w, h),
     landscape: w > h,
     touch: env.touch,
     camera: env.camera,
     secure: env.secure,
-    tv: env.tv,
-    local2: local2Available(env),
+    tv: device.device === 'tv',
+    local2,
+    local2Reason: reason,
   };
 }
 
 /** Reads the browser. Only called in the browser; the page generator never needs it. */
-export function detectCapabilities(win: Window & typeof globalThis): Capabilities {
+export function detectUiCapabilities(win: Window & typeof globalThis): UiCapabilities {
   const nav = win.navigator;
-  const twa = win.document.referrer.startsWith('android-app://') || new URLSearchParams(win.location.search).get('source') === 'twa';
-  const ua = nav.userAgent || '';
-  return capabilitiesFrom({
+  return uiCapabilities(detectDevice(win), {
     viewport: { w: win.innerWidth, h: win.innerHeight },
-    platform: twa ? 'android-app' : 'web',
-    touch: 'ontouchstart' in win || nav.maxTouchPoints > 0,
     camera: !!nav.mediaDevices?.getUserMedia,
     secure: win.isSecureContext,
-    tv: /smart-?tv|googletv|android tv|aftb|crkey|tizen|web0s|hbbtv/i.test(ua),
+    touch: 'ontouchstart' in win || nav.maxTouchPoints > 0,
   });
 }
+
+/** What the page generator and the tests use when there is no browser: a laptop with a camera, no claim about two players. */
+export const SERVER_CAPABILITIES: UiCapabilities = {
+  device: 'desktop', platform: 'web', deviceClass: 'medium', landscape: true, touch: false, camera: true, secure: true, tv: false,
+  local2: false, local2Reason: 'small_screen',
+};

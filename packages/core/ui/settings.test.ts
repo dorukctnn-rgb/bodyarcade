@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { Namespace, Schema } from '../types/index.ts';
-import { local2Available, capabilitiesFrom } from './capabilities.ts';
 import { applySettingsToDocument, createSettingsStore, DEFAULT_SETTINGS, sanitizeSettings, SETTINGS_SCHEMA } from './settings.ts';
 
 function memoryNamespace(initial: Record<string, unknown> = {}): Namespace & { data: Record<string, unknown> } {
@@ -67,16 +66,3 @@ describe('settings', () => {
   });
 });
 
-describe('two players, one camera is offered only on big web screens', () => {
-  const web = (w: number, h: number) => local2Available({ viewport: { w, h }, platform: 'web' });
-  it('laptop, desktop, TV and tablet landscape: yes', () => {
-    for (const [w, h] of [[1280, 800], [1440, 900], [1920, 1080], [1024, 768]] as const) expect(web(w, h), `${w}x${h}`).toBe(true);
-  });
-  it('phones in either orientation and tablet portrait: no', () => {
-    for (const [w, h] of [[360, 780], [390, 844], [412, 915], [844, 390], [915, 412], [768, 1024]] as const) expect(web(w, h), `${w}x${h}`).toBe(false);
-  });
-  it('never inside the Android app', () => {
-    expect(local2Available({ viewport: { w: 1920, h: 1080 }, platform: 'android-app' })).toBe(false);
-    expect(capabilitiesFrom({ viewport: { w: 1440, h: 900 }, platform: 'android-app', touch: true, camera: true, secure: true, tv: false }).local2).toBe(false);
-  });
-});
