@@ -90,7 +90,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       const g = gameBySlug(ctx.games, route.params['slug'] ?? '');
       if (!g) return notFound();
       return {
-        body: gamePage(ctx, g), title: t.t('game.title', { game: titleOf(ctx, g) }), description: snippet(`${localized(g.catalogue.tagline, ctx.lang)} ${aboutOf(ctx, g)}`), noindex: false, status: 200,
+        body: gamePage(ctx, g), title: t.t('game.title', { game: titleOf(ctx, g) }), description: snippet(aboutOf(ctx, g)), noindex: false, status: 200,
         jsonLd: [crumbs(ctx, [{ name: brand, path: ctx.href('home') }, { name: titleOf(ctx, g), path: ctx.href('game', { params: { slug: g.seo.slug } }) }])],
         image: ctx.assets.tile(g.catalogue.tile, 800),
       };
