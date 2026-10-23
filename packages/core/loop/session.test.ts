@@ -148,6 +148,8 @@ function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; 
   const game = fakeGame(o);
   const doc = Object.assign(new EventTarget(), { hidden: false });
   const keys = new EventTarget();
+  /** The screen wake lock: how many were asked for and how many are held now. */
+  const wake = { asked: 0, held: 0, fail: false, sentinels: [] as { release(): Promise<void>; drop(): void }[] };
   const people: Person[] = o.people ?? [{ cx: 0.5, present: true }];
   const rng = mulberry32(5);
   let seq = 0;
@@ -167,6 +169,21 @@ function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; 
     seed: () => 42,
     extraSources: ['test'],
     keyTarget: keys,
+    wakeLock: async () => {
+      wake.asked++;
+      if (wake.fail) throw new Error('NotAllowedError');
+      const cbs: (() => void)[] = [];
+      let released = false;
+      const sentinel = {
+        release: async () => { if (!released) { released = true; wake.held--; } },
+        addEventListener: (_t: 'release', cb: () => void) => { cbs.push(cb); },
+        /** The browser drops the lock (page hidden). */
+        drop: () => { if (!released) { released = true; wake.held--; cbs.forEach((cb) => cb()); } },
+      };
+      wake.held++;
+      wake.sentinels.push(sentinel);
+      return sentinel;
+    },
   });
   const seen: { states: SessionState[]; pauses: PauseReason[]; countdown: number[]; over: SessionEvents['over'][]; errors: SessionEvents['error'][]; players: SessionEvents['player'][]; fps: number[] } =
     { states: [], pauses: [], countdown: [], over: [], errors: [], players: [], fps: [] };
@@ -212,7 +229,7 @@ function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; 
     return e.defaultPrevented;
   }
 
-  return { session, cam, pose, game, doc, people, seen, pass, until, press, get rafPending() { return raf.size; }, get now() { return t; } };
+  return { session, cam, pose, game, doc, people, seen, pass, until, press, wake, get rafPending() { return raf.size; }, get now() { return t; } };
 }
 
 const KEYS: SessionOptions = { mode: 'solo', difficulty: 'normal', input: 'keyboard', seated: false };
@@ -311,6 +328,29 @@ describe('Session, keyboard run', () => {
     expect(h.press(' ')).toBe(false);
   });
 
+  it('the screen stays on from the countdown to the results, not on a pause by hand; a failing wake lock is harmless', async () => {
+    const h = harness({ overAfter: 200 });
+    await h.session.start('fake', KEYS);
+    await flush();
+    expect(h.wake).toMatchObject({ asked: 1, held: 1 });
+    h.until('running');
+    h.session.pause('user');
+    await flush();
+    expect(h.wake.held).toBe(0);
+    await h.session.resume();
+    await flush();
+    expect(h.wake).toMatchObject({ asked: 2, held: 1 });
+    h.until('results', 10_000);
+    await flush();
+    expect(h.wake.held).toBe(0);
+    const h2 = harness();
+    h2.wake.fail = true;
+    await h2.session.start('fake', KEYS);
+    await flush();
+    h2.until('running');
+    expect(h2.seen.errors).toEqual([]);
+  });
+
   it('a hidden tab pauses with reason hidden and stays paused when visible again', async () => {
     const h = harness();
     await h.session.start('fake', KEYS);
@@ -381,6 +421,24 @@ describe('Session, camera run', () => {
     expect(h.pose.listeners).toBe(0);
   });
 
+  it('the browser drops the wake lock when the page is hidden; it is asked for again when the page is back', async () => {
+    const h = harness();
+    await h.session.start('fake', CAMERA);
+    await flush();
+    expect(h.session.state).toBe('calibrating');
+    h.doc.hidden = true;
+    h.wake.sentinels[0]!.drop();
+    h.doc.dispatchEvent(new Event('visibilitychange'));
+    expect(h.wake.held).toBe(0);
+    h.doc.hidden = false;
+    h.doc.dispatchEvent(new Event('visibilitychange'));
+    await flush();
+    expect(h.wake).toMatchObject({ asked: 2, held: 1 });
+    h.session.quit();
+    await flush();
+    expect(h.wake.held).toBe(0);
+  });
+
   it('quit() during the permission prompt leaves no camera on (B9)', async () => {
     const h = harness();
     h.cam.hold = true;
@@ -407,6 +465,8 @@ describe('Session, camera run', () => {
   it('the person leaves: paused (person_lost) after 500 ms; back: calibrates again, counts down, plays on', async () => {
     const h = harness();
     await h.session.start('fake', CAMERA);
+    await flush();
+    expect(h.wake.held).toBe(1);                // calibrating: the player is away from the screen
     h.until('running', 6000);
     h.people[0]!.present = false;
     h.pass(450);
@@ -414,6 +474,8 @@ describe('Session, camera run', () => {
     h.pass(200);
     expect(h.session.state).toBe('paused');
     expect(h.session.pauseReason).toBe('person_lost');
+    await flush();
+    expect(h.wake.held).toBe(1);                // waiting for the player to come back: the screen stays on
     const steps = h.game.log.steps;
     h.pass(3000);
     expect(h.game.log.steps).toBe(steps);

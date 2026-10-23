@@ -16,6 +16,9 @@
 // - Input sources: solo, ghost and local2 accept pose, keyboard and touch (accessibility, tech.md 4.5); duel accepts
 //   pose only (code-audit rule 7). Mode 'local2' needs Capabilities.local2, a game that lists it, and the camera.
 // - Determinism: the game only sees FIXED_DT steps, and InputHub frames stamped with simulation time.
+// - The screen stays on (Wake Lock) while calibrating, counting down, playing and waiting for a lost player: a camera
+//   player never touches the phone, which would otherwise dim and lock mid-run. A pause by hand, the results and
+//   errors let the screen sleep again.
 import {
   FIXED_DT,
   type BodyProfile, type CalibrationStatus, type Calibrator, type CameraAcquireOptions, type CameraLease, type CameraService,
@@ -75,6 +78,14 @@ export interface SessionDeps {
   keyTarget?: EventTarget;
   /** The play area for the game's swipes (none: no touch controls). */
   touchTarget?: () => HTMLElement | null;
+  /** Keeps the screen on (default navigator.wakeLock.request('screen') where it exists; null turns it off). */
+  wakeLock?: (() => Promise<WakeLockLike | null>) | null;
+}
+
+/** The part of WakeLockSentinel the session uses. */
+export interface WakeLockLike {
+  release(): Promise<void>;
+  addEventListener?(type: 'release', cb: () => void): void;
 }
 
 interface Run {
@@ -152,7 +163,42 @@ export function createSession(deps: SessionDeps): Session {
     if (s !== 'paused') reason = null;
     if (s === state) return;
     state = s;
+    syncWakeLock();
     emit('state', s);
+  }
+
+  // ---- screen wake lock ----
+
+  const requestLock = deps.wakeLock === undefined
+    ? (typeof navigator !== 'undefined' && (navigator as { wakeLock?: { request(t: 'screen'): Promise<WakeLockLike> } }).wakeLock
+      ? () => (navigator as unknown as { wakeLock: { request(t: 'screen'): Promise<WakeLockLike> } }).wakeLock.request('screen')
+      : null)
+    : deps.wakeLock;
+  let lock: WakeLockLike | null = null;
+  let lockPending = false;
+
+  const lockWanted = (): boolean =>
+    state === 'calibrating' || state === 'countdown' || state === 'running'
+    || (state === 'paused' && (reason === 'person_lost' || reason === 'player_lost' || reason === 'recalibrate'));
+
+  function syncWakeLock(): void {
+    if (!requestLock) return;
+    if (lockWanted()) {
+      if (lock || lockPending || doc?.hidden) return;
+      lockPending = true;
+      requestLock().then((l) => {
+        lockPending = false;
+        if (!l) return;
+        if (!lockWanted()) { l.release().catch(() => {}); return; }
+        lock = l;
+        // The browser drops the lock when the page is hidden; it is asked for again when the page is back.
+        l.addEventListener?.('release', () => { if (lock === l) lock = null; });
+      }, () => { lockPending = false; });
+    } else if (lock) {
+      const l = lock;
+      lock = null;
+      l.release().catch(() => {});
+    }
   }
 
   const live = (r: Run): boolean => run === r;
@@ -366,6 +412,7 @@ export function createSession(deps: SessionDeps): Session {
     if (state === 'paused') {
       if (reason !== null && RANK[why] <= RANK[reason]) return;
       reason = why;
+      syncWakeLock();
       emit('pause', why);
       return;
     }
@@ -376,6 +423,7 @@ export function createSession(deps: SessionDeps): Session {
     reason = why;
     emit('pause', why);
     if (live(r)) setState('paused');
+    syncWakeLock();
   }
 
   function finish(r: Run): void {
@@ -434,6 +482,7 @@ export function createSession(deps: SessionDeps): Session {
   const doc = deps.doc ?? (typeof document !== 'undefined' ? (document as EventTarget & { hidden: boolean }) : undefined);
   doc?.addEventListener('visibilitychange', () => {
     if (doc.hidden && run && (state === 'running' || state === 'countdown')) pauseRun(run, 'hidden');
+    else if (!doc.hidden) syncWakeLock();
   });
 
   // ---- the public surface ----
@@ -560,7 +609,7 @@ export function createSession(deps: SessionDeps): Session {
       if (!r || !cameraRun(r) || !r.feed) return;
       if (state !== 'paused' && state !== 'running' && state !== 'countdown' && state !== 'calibrating') return;
       if (state !== 'paused') pauseRun(r, 'recalibrate');
-      else if (reason !== 'camera_ended') { reason = 'recalibrate'; emit('pause', 'recalibrate'); }
+      else if (reason !== 'camera_ended') { reason = 'recalibrate'; syncWakeLock(); emit('pause', 'recalibrate'); }
       if (!r.lease || !r.lease.alive) {
         releaseCamera(r);
         try {
