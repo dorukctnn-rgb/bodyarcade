@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tile render</title>
+<script type="importmap">{ "imports": { "three": "../../site/vendor/three.module.min.js" } }</script>
+<style>html, body { margin: 0; background: #F4F2F8; } canvas { display: block; }</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+// Offline render page for the catalogue art (design/tools/render-tiles.mjs drives it).
+import * as THREE from 'three';
+import { buildTile } from './tiles.mjs';
+const q = new URLSearchParams(location.search);
+const w = +(q.get('w') ?? 800), h = +(q.get('h') ?? 600);
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(w, h, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const { scene, camera } = buildTile(q.get('game') ?? 'squat-flap', w / h);
+renderer.render(scene, camera);
+window.__png = () => canvas.toDataURL('image/png');
+document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>

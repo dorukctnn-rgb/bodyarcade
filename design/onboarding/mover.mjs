@@ -146,7 +146,69 @@ export const POSES = {
     shoulderL: { z: 1.5 }, shoulderR: { z: -1.5 }, elbowL: { x: 0 }, elbowR: { x: 0 },
     hipL: { z: 0.12 }, hipR: { z: -0.12 },
   }),
+  // Game poses for the catalogue art (design/art/tiles.mjs). Feet are put on the floor by
+  // groundMover(); airborne poses add their own lift there.
+  highKnee: pose({
+    spine: { x: 0.1 }, neck: { x: -0.08 },
+    shoulderL: { x: -1.05, z: 0.1 }, elbowL: { x: -1.55 },
+    shoulderR: { x: 0.75, z: -0.1 }, elbowR: { x: -1.25 },
+    hipR: { x: -1.62, z: -0.05 }, kneeR: { x: 1.75 },
+    hipL: { x: 0.08, z: 0.05 }, kneeL: { x: 0.12 },
+  }),
+  reachUp: pose({
+    pelvis: { rz: -0.07 }, spine: { z: -0.1 }, neck: { z: -0.12, x: -0.12 },
+    shoulderL: { z: 2.62, x: -0.3 }, elbowL: { x: -0.12 },
+    shoulderR: { z: -0.95, x: -0.55 }, elbowR: { x: -0.45 },
+    hipL: { z: 0.16 }, hipR: { z: -0.05 }, kneeR: { x: 0.1 },
+  }),
+  tap: pose({
+    pelvis: { ry: -0.25 }, spine: { x: 0.18, z: 0.12 }, neck: { y: -0.2 },
+    shoulderR: { z: -1.15, x: -0.75 }, elbowR: { x: -0.18 },
+    shoulderL: { z: 0.45, x: -0.35 }, elbowL: { x: -0.7 },
+    hipR: { x: -0.55, z: -0.32 }, kneeR: { x: 0.7 }, hipL: { z: 0.1 }, kneeL: { x: 0.15 },
+  }),
+  jackOpen: pose({
+    shoulderL: { z: 2.72, x: -0.12 }, shoulderR: { z: -2.72, x: -0.12 }, elbowL: { x: -0.12 }, elbowR: { x: -0.12 },
+    hipL: { z: 0.4 }, hipR: { z: -0.4 }, kneeL: { x: 0.14 }, kneeR: { x: 0.14 },
+    neck: { x: -0.1 },
+  }),
+  twist: pose({
+    spine: { y: 0.78, x: 0.06 }, neck: { y: 0.22 },
+    shoulderL: { x: -1.2, z: 0.5 }, shoulderR: { x: -1.38, z: -0.22 }, elbowL: { x: -0.95 }, elbowR: { x: -1.15 },
+    hipL: { x: -0.28, z: 0.2 }, hipR: { x: -0.28, z: -0.2 }, kneeL: { x: 0.45 }, kneeR: { x: 0.45 },
+  }),
+  climb: pose({
+    spine: { x: 0.06 },
+    shoulderL: { z: 2.78, x: -0.3 }, elbowL: { x: -0.18 },
+    shoulderR: { z: -1.95, x: -0.4 }, elbowR: { x: -1.65 },
+    hipR: { x: -1.1, z: -0.12 }, kneeR: { x: 1.3 },
+    hipL: { x: 0.02, z: 0.06 }, kneeL: { x: 0.06 },
+  }),
+  sideBend: pose({
+    spine: { z: -0.52 }, neck: { z: -0.18 },
+    shoulderR: { z: -2.8, x: -0.08 }, elbowR: { x: -0.3 },
+    shoulderL: { z: 0.22, x: 0.04 }, elbowL: { x: -0.12 },
+    hipL: { z: 0.17 }, hipR: { z: -0.17 },
+  }),
 };
+
+/** Put the lowest shoe on the floor at y = floorY (plus lift for airborne poses). */
+export function groundMover(mover, floorY = 0, lift = 0) {
+  mover.root.position.y = 0;
+  mover.root.updateMatrixWorld(true);
+  let min = Infinity;
+  const v = new THREE.Vector3();
+  for (const s of ['L', 'R']) {
+    const shoe = mover.parts[`shoe${s}`];
+    const pos = shoe.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i += 3) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(shoe.matrixWorld);
+      if (v.y < min) min = v.y;
+    }
+  }
+  mover.root.position.y = floorY - min + lift;
+  mover.root.updateMatrixWorld(true);
+}
 
 // One loop of the hero: squat, jump (logo pose at the top), land, jab, cross, back to ready.
 // [time in seconds, pose, easing into this key]
