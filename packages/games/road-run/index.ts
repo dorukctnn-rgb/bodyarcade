@@ -16,13 +16,18 @@ export const WORLDS = worldsJson as unknown as ThemeData[];
 /** The 3D view needs the scene kit (stage, prototypes, pickups); a plain Scene3D gets the HUD only. */
 const isKit = (s: unknown): s is Scene3DKit => !!s && typeof s === 'object' && 'stage' in s && 'prototypes' in s;
 
-const roadRun: GameModule = {
-  manifest,
-  create: () => createRunnerGame(manifest, {
-    worlds: WORLDS,
-    view: (ctx) => (isKit(ctx.scene3d) ? createRunnerView(ctx.scene3d, { fx: ctx.rng('fx'), reducedMotion: ctx.flags.reducedMotion }) : null),
-  }),
-  controls: { keys: RUNNER_KEYS, touch: RUNNER_TOUCH },
-};
+/** Road Run with another manifest (tools and tests: a shorter run, say); the game itself is the same. */
+export function roadRunModule(m: GameManifest = manifest): GameModule {
+  return {
+    manifest: m,
+    create: () => createRunnerGame(m, {
+      worlds: WORLDS,
+      view: (ctx) => (isKit(ctx.scene3d) ? createRunnerView(ctx.scene3d, { fx: ctx.rng('fx'), reducedMotion: ctx.flags.reducedMotion }) : null),
+    }),
+    controls: { keys: RUNNER_KEYS, touch: RUNNER_TOUCH },
+  };
+}
+
+const roadRun: GameModule = roadRunModule();
 
 export default roadRun;
