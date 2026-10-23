@@ -30,6 +30,15 @@ export function crouchLevel(drop: number, headDrop: number, full = 0.55, headFul
 /** Stands in for a missing frame so games keep the last positions instead of jumping to zero. */
 const ZERO: Vec2 = { x: 0, y: 0 };
 
+/** Features of a frame that cannot be measured (no profile yet, or nobody seen before): ok false, every position 0. */
+export function emptyFeatures(f: Pick<PoseFrame, 't' | 'seq' | 'landmarks'>, seen: Features['seen'] = seenParts(f.landmarks)): Features {
+  const pair: [Vec2, Vec2] = [ZERO, ZERO];
+  return {
+    t: f.t, seq: f.seq, ok: false, seen, head: ZERO, shoulder: ZERO, hip: ZERO, shoulders: pair, hips: pair, elbow: pair,
+    hand: pair, knee: pair, ankle: pair, foot: pair, rise: 0, drop: 0, headDrop: 0, lean: 0, shoulderSpan: 1, vel: {},
+  };
+}
+
 export function createFeatureExtractor(o: FeatureExtractorOptions = {}): FeatureExtractor {
   const driftSeconds = o.driftSeconds ?? 8;
   let profile: BodyProfile | null = null;
@@ -51,11 +60,7 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
 
   function empty(f: PoseFrame, seen: Features['seen']): Features {
     if (last) return { ...last, t: f.t, seq: f.seq, ok: false, seen };
-    const pair: [Vec2, Vec2] = [ZERO, ZERO];
-    return {
-      t: f.t, seq: f.seq, ok: false, seen, head: ZERO, shoulder: ZERO, hip: ZERO, shoulders: pair, hips: pair, elbow: pair,
-      hand: pair, knee: pair, ankle: pair, foot: pair, rise: 0, drop: 0, headDrop: 0, lean: 0, shoulderSpan: 1, vel: {},
-    };
+    return emptyFeatures(f, seen);
   }
 
   return {
