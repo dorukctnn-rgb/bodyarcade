@@ -1,11 +1,14 @@
 // The movement library as a whole (game-design.md 0.5, M1..M16): every id has a factory in the registry, every detector keeps
 // to the Detector contract, survives frames that say nothing, never publishes a number that is not finite, shares no state
 // between instances and repeats itself exactly after a reset.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Detector, DetectorSpec, Features, MovementEvent, MovementId } from '../types/index.ts';
+import { parseTrace, traceFrames } from '../pose/trace.ts';
 import { DETECTORS } from './index.ts';
 import { MISS_CODES, canExplain } from './kit.ts';
 import { ALL_DETECTORS } from './library.ts';
+import { replay } from './replay.ts';
 import { feed } from './testing/harness.ts';
 import { simulate, type FigureSpec, type Motion } from './testing/rig.ts';
 
@@ -128,5 +131,33 @@ describe('the reasons a detector can give', () => {
       const d = build(spec);
       for (const f of sim.features) { d.push(f); if (canExplain(d)) { const m = d.explain(); if (m) expect(known.has(m.code), `${spec.id}: ${m.code}`).toBe(true); } }
     }
+  });
+});
+
+describe('a real person (recorded video, tests/traces/video)', () => {
+  const real = (name: string) => parseTrace(JSON.parse(readFileSync(new URL(`../../../tests/traces/video/${name}.trace.json`, import.meta.url), 'utf8')));
+
+  it.each([30, 10])('standing still for twelve seconds (U.S. Army clip) at %i Hz sets off nothing but the freeze and the arms-down pointing hold', (hz) => {
+    const r = replay(traceFrames(real('army-standing-12s'), { hz }), { registry: ALL_DETECTORS, detectors: SPECS.filter((s) => s.id !== 'sideLine') });
+    expect(r.calibratedAt).not.toBeNull();
+    const seen = new Set(r.events.map((e) => `${e.id}.${e.kind}`));
+    expect([...seen].sort()).toEqual(['armDirection.holdStart', 'energy.holdStart']);
+    const after = r.samples.filter((s) => s.t > (r.calibratedAt as number) + 500);
+    expect(Math.max(...after.map((s) => s.channels.energy ?? 0))).toBeLessThan(0.05);      // the rig reads 0.01 to 0.03: a real person is as still as the model of one
+    expect(Math.max(...after.map((s) => s.channels.sway ?? 0))).toBeLessThan(0.05);
+    expect(Math.max(...after.map((s) => Math.abs(s.channels.bend ?? 0)))).toBeLessThan(3);
+    expect(Math.max(...after.map((s) => s.channels.kneeMax ?? 0))).toBeLessThan(0.2);
+    expect(Math.max(...after.map((s) => s.channels['swipe.R.speed'] ?? 0))).toBeLessThan(0.5);
+    expect(Math.max(...after.map((s) => s.channels['hand.R.speed'] ?? 0))).toBeLessThan(0.5);
+  });
+
+  it.each([30, 10])('jumping jacks and burpees at %i Hz: the three jacks after calibration are three reps, the burpees none', (hz) => {
+    const r = replay(traceFrames(real('jacks-burpees-21s'), { hz }), { calibration: { holdSeconds: 0.5 }, registry: ALL_DETECTORS, detectors: [{ id: 'jumpingJack' }] });
+    expect(r.calibratedAt).not.toBeNull();
+    const reps = r.events.filter((e) => e.kind === 'rep').map((e) => e.t);
+    // an independent count of "both hands above the nose" in the raw landmarks finds the jacks at 11.1, 11.9 and 12.7 s (the first three, before 2.1 s, come before the calibration)
+    expect(reps).toHaveLength(3);
+    expect(reps[0]!).toBeGreaterThan(10800);
+    expect(reps[2]!).toBeLessThan(13500);
   });
 });
