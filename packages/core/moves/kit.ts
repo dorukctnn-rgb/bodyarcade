@@ -260,19 +260,23 @@ export class Schmitt {
  * Reason codes for a miss or a form note. The UI maps each code to one spoken sentence (i18n key `miss.<code>`);
  * `got` and `need` carry the measured and the required value in the detector's own unit (degrees, T, A per second ...).
  */
-export type MissCode =
+export const MISS_CODES = [
   // visibility
-  | 'person_out' | 'head_out_of_view' | 'hands_out_of_view' | 'elbows_out_of_view' | 'hips_out_of_view' | 'knees_out_of_view' | 'feet_out_of_view'
+  'person_out', 'head_out_of_view', 'hands_out_of_view', 'elbows_out_of_view', 'hips_out_of_view', 'knees_out_of_view', 'feet_out_of_view',
   // legs and hips
-  | 'hips_not_low' | 'hips_not_up' | 'knee_not_high' | 'same_leg_twice' | 'feet_not_wide' | 'feet_not_together' | 'foot_not_down'
+  'hips_not_low', 'hips_not_up', 'knee_not_high', 'same_leg_twice', 'feet_not_wide', 'feet_not_together', 'foot_not_down',
   // arms
-  | 'arms_not_up' | 'arms_not_down' | 'arms_not_out' | 'use_both_arms' | 'wrong_hand' | 'hands_apart' | 'elbows_bent'
+  'arms_not_up', 'arms_not_down', 'arms_not_out', 'use_both_arms', 'wrong_hand', 'hands_apart', 'elbows_bent',
   // reaching and hitting
-  | 'not_reached' | 'too_slow' | 'too_fast' | 'too_brief' | 'wrong_direction' | 'grab_higher' | 'pull_more' | 'pull_faster'
+  'not_reached', 'too_slow', 'too_fast', 'too_brief', 'wrong_direction', 'grab_higher', 'pull_more', 'pull_faster',
   // trunk
-  | 'turn_more' | 'turn_shoulders' | 'bend_more' | 'bend_less' | 'wrong_side' | 'hips_shifted' | 'bending_forward' | 'body_not_straight'
+  'turn_more', 'turn_shoulders', 'bend_more', 'bend_less', 'wrong_side', 'hips_shifted', 'bending_forward', 'body_not_straight',
   // poses and holds
-  | 'limb_off' | 'move_more' | 'hold_still' | 'held_too_short';
+  'limb_off', 'move_more', 'hold_still', 'held_too_short',
+] as const;
+
+/** Every reason a detector can give; the interface text has one sentence per code (i18n key `miss.<code>`), and a test can walk this list. */
+export type MissCode = (typeof MISS_CODES)[number];
 
 export interface Miss {
   code: MissCode;
@@ -283,7 +287,7 @@ export interface Miss {
   side?: Side;
   /** The limb or part that is off (poseMatch), e.g. 'armUpperL'. */
   limb?: string;
-  /** The target (handHit). */
+  /** The id of the game's target, gate or wall the miss is about (HitTester, SwipeTester, BendTester, PoseWallJudge). */
   target?: number;
 }
 
