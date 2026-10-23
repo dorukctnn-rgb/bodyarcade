@@ -166,8 +166,14 @@ export function challengeLink({ name, score, world, diff }) {
 }
 export function readChallenge() {
   const m = location.search.match(/[?&]c=([^&]+)/); if (!m) return null;
-  const d = b64d(decodeURIComponent(m[1]));
-  return d && d.s ? { name: d.n, score: d.s, world: d.w, diff: d.d } : null;
+  let d = null;
+  try { d = b64d(decodeURIComponent(m[1])); } catch { return null; }
+  // The link is untrusted: keep a short plain name, a whole positive score and the ids as strings
+  // (23 Oct 2026 audit: a string score went into innerHTML and could run script).
+  if (!d || typeof d !== 'object') return null;
+  const score = Number(d.s);
+  if (!Number.isSafeInteger(score) || score <= 0 || score > 10000000) return null;
+  return { name: String(d.n ?? 'A friend').slice(0, 20), score, world: String(d.w ?? ''), diff: String(d.d ?? '') };
 }
 
 // ── world progress ──

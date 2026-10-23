@@ -130,7 +130,7 @@ function renderChallenge() {
   if (!c) { el.hidden = true; return; }
   const w = WORLD_BY_ID[c.world] || WORLD_BY_ID.alps;
   el.hidden = false;
-  el.innerHTML = `<b>${esc(c.name)}</b> challenged you: beat <b>${c.score.toLocaleString()}</b> in ${w.name} on ${(DIFFS[c.diff] || DIFFS.medium).label}.`;
+  el.innerHTML = `<b>${esc(c.name)}</b> challenged you: beat <b>${esc(Number(c.score).toLocaleString())}</b> in ${esc(w.name)} on ${esc((DIFFS[c.diff] || DIFFS.medium).label)}.`;
 }
 function renderStart() { renderWorlds(); renderDiffs(); renderRunsLeft(); renderDaily(); renderChallenge(); $('b-sound').innerHTML = st.sound ? ICON.soundOn : ICON.soundOff; $('b-sound').setAttribute('aria-pressed', String(st.sound)); }
 

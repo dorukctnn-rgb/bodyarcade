@@ -1,7 +1,7 @@
-// BodyArcade service worker (v20261007).
+// BodyArcade service worker (v20261023).
 // Pages and scripts: network first, so a new build reaches every player on the next
 // load. Images, fonts, the 3D library and the pose model: cached after first use.
-const VERSION = '20261007';
+const VERSION = '20261023';
 const CACHE = 'ba-' + VERSION;
 const STATIC = /\.(png|jpg|jpeg|webp|avif|svg|woff2|ico|mp4|webm)$/i;
 const LIB = /\/vendor\/|cdn\.jsdelivr\.net\/npm\/@mediapipe\/tasks-vision|storage\.googleapis\.com\/mediapipe-models\//;
@@ -47,7 +47,8 @@ self.addEventListener('fetch', (e) => {
 
   // Everything else (HTML, JS, CSS, JSON): network first, cache fallback for offline.
   e.respondWith(fetch(req).then(res => {
-    if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
+    // clone now: by the time caches.open() resolves, the page has already read the body
+    if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
     return res;
   }).catch(async () => (await caches.match(req)) || (req.mode === 'navigate' ? caches.match('/') : Response.error())));
 });
