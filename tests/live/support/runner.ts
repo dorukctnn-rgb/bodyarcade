@@ -12,6 +12,7 @@ const FAKE_CAMERA = path.join(ROOT, 'tests/e2e/fixtures/standing-640x360.mjpeg')
 const OUT = path.join(ROOT, 'tests/live/out');
 
 export interface PlayerM {
+  [k: string]: unknown;
   seat: string | null; done: boolean; results: { mid: string; reason: string; winner: string | null; scores: Record<string, { score: number; hits: number; passes: number; bestCombo: number }>; places: Record<string, number>; forfeited: string[] }[];
   localScores: ({ score: number } | null)[]; phases: { why: string; phase: string; at: number }[]; latency: number[]; seeds: number[]; remoteFrames: number;
   firstRemoteFrameMs: number | null; startWall: number | null; zeroDateNow?: number; endDateNow?: number; heap: number[]; cam?: { lostAt: number; backAt?: number }[];
@@ -104,6 +105,7 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
     const w = who[i] as PlayerSetup;
     const p = new URLSearchParams({ room: code, pid: w.pid, name: w.name, age: w.age, video: videoOf(i) ? '1' : '0', relay: sc.relay ? '1' : '0', nop2p: sc.nop2p ? '1' : '0', matches: String(matches) });
     if (sc.busy?.[i]) p.set('busy', String(sc.busy[i]));
+    if (sc.readyDelayMs) p.set('readydelay', String(sc.readyDelayMs));
     return `${baseFor(i)}/duel?${p.toString()}`;
   };
 
@@ -147,11 +149,13 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
       switch (a.do) {
         case 'loss': await stack.turnControl(`/loss?p=${a.p}`); break;
         case 'blackhole': await stack.turnControl(`/blackhole?on=${a.on}`); break;
+        case 'deploy': await stack.redeploy(); break;
         case 'kick': await stack.admin(`/api/admin/kick-all?code=${code}`, 'POST'); break;
         case 'freeze': (idx === 0 ? stack.shaperA : stack.shaperB).freeze(true); break;
         case 'reload': await (pages[idx] as Page).reload(); break;
         case 'reloadAll': await Promise.all(pages.map((p) => p.reload())); break;
         case 'quit': await (browsers[idx] as Browser).close(); browsers[idx] = null; gone.add(idx); break;
+        case 'leave': gone.add(idx); await (pages[idx] as Page).evaluate(() => (window as unknown as { __lm: { leave(): void } }).__lm.leave()); break;
         case 'thirdJoin': {
           const full = await postJson(`${stack.base}/api/rooms/${code}/join`, { pid: 'dave-device-0004', name: 'dave', age: 'adult' });
           const ws = thirdTicket ? await wsProbe(stack.base, thirdTicket, 'probe') : { closeCode: null, msgs: [] };
@@ -201,8 +205,8 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
     const oldTab = extraPage ? await grab(pages[1] as Page) : null;
     const state = await stack.admin(`/api/admin/state?code=${code}`).catch(() => null) as { match?: { phase: string } } | null;
     const turn = await stack.turnControl('/stats');
-    const tail = await Promise.all(pages.map((p) => p.evaluate(() => (window as unknown as { __M__?: { log: string[] } }).__M__?.log.slice(-25) ?? []).catch(() => [] as string[])));
-    return finish(name, sc, who, M, oldTab, { third, framesAtCamLoss, state, turnDropped: turn?.dropped ?? null, diag: diag.slice(0, 20), diagCount: diag.length, pageErrors, tail: broken ? tail : undefined, broken, code }, Date.now() - t0);
+    const tail = await Promise.all(pages.map((p) => p.evaluate(() => (window as unknown as { __M__?: { log: string[] } }).__M__?.log.slice(-60) ?? []).catch(() => [] as string[])));
+    return finish(name, sc, who, M, oldTab, { third, framesAtCamLoss, state, turnDropped: turn?.dropped ?? null, diag: diag.slice(0, 20), diagCount: diag.length, pageErrors, tail, broken, code }, Date.now() - t0);
   } finally {
     await Promise.all(browsers.map((b) => b?.close().catch(() => undefined)));
   }
@@ -219,7 +223,8 @@ function finish(name: string, sc: Scenario, who: PlayerSetup[], M: (PlayerM | nu
     checks.aDone = !!A?.done;
     checks.forfeitToA = !!A && A.results[0]?.reason === 'forfeit' && A.results[0]?.winner === A.seat;
   } else {
-    checks.allDone = live.length === M.length - (sc.actions?.some((a) => a.do === 'quit') ? 1 : 0) && live.every((m) => m.done && m.results.length === n);
+    const goneCount = (sc.actions ?? []).filter((a) => a.do === 'quit' || a.do === 'leave').length;
+    checks.allDone = live.length === M.length - goneCount && live.every((m) => m.done && m.results.length === n);
     const sig = (m: PlayerM): string => JSON.stringify(m.results.map((r) => [r.scores, r.winner, r.reason, r.places]));
     checks.sameResult = checks.allDone && live.every((m) => sig(m) === sig(live[0] as PlayerM));
     checks.complete = checks.allDone && live.every((m) => m.results.every((r) => r.reason === 'complete'));
@@ -234,7 +239,18 @@ function finish(name: string, sc: Scenario, who: PlayerSetup[], M: (PlayerM | nu
       checks.pausedForCamera = !!A && A.phases.some((p) => p.phase === 'paused') && A.phases.some((p) => p.why === 'resumed');
       checks.videoFlowsAgain = !!A && extra.framesAtCamLoss !== null && A.remoteFrames - (extra.framesAtCamLoss as number) > 60;
     }
-    if (sc.actions?.some((a) => /reload|hide/.test(a.do))) checks.resumed = !!A && A.phases.some((p) => p.why === 'resumed');
+    if (sc.actions?.some((a) => a.do === 'hide')) checks.resumed = !!A && A.phases.some((p) => p.why === 'resumed');
+    // a reload under the 5 s debounce need not pause anything; the reloaded page must be back in the same match
+    const reloaded = (sc.actions ?? []).flatMap((a) => (a.do === 'reload' ? [a.p] : a.do === 'reloadAll' ? M.map((_, i) => i) : []));
+    if (reloaded.length) checks.rejoined = reloaded.every((i) => !!M[i] && (M[i] as PlayerM).phases.some((p) => p.why === 'welcome') && (M[i] as PlayerM).seeds.length >= 1);
+    if (goneCount > 0 && (sc.players ?? 2) > 2) {
+      const left = (sc.actions ?? []).filter((a) => a.do === 'quit' || a.do === 'leave').length;
+      checks.leaversForfeited = checks.allDone && live.every((m) => m.results.every((r) => r.forfeited.length === left));
+      checks.othersCompleted = checks.complete;
+    }
+    if ((sc.players ?? 2) > 2) checks.placesForEveryone = checks.allDone && live.every((m) => m.results.every((r) => Object.keys(r.places).length === (sc.players ?? 2) - goneCount));
+    if (sc.kind === 'public') checks.noVideoInPublic = live.every((m) => Object.keys(m.tracks).length === 0 && m.remoteFrames === 0);
+    else if (sc.video && (sc.players ?? 2) > 2) checks.meshVideo = live.every((m) => Object.keys(m.tracks).length >= (sc.players ?? 2) - 1 - goneCount && m.remoteFrames > 30);
   }
   const failed = Object.entries(checks).filter(([, v]) => !v).map(([k]) => k);
   const B = M[1] ?? null;

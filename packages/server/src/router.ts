@@ -32,7 +32,9 @@ export class Router {
     if (!pattern.startsWith('/')) throw new Error(`route pattern must start with '/': ${pattern}`);
     const m = method.toUpperCase();
     const parts = split(pattern);
-    const clash = this.routes.find((r) => r.method === m && r.parts.join('/') === parts.join('/'));
+    // two patterns that differ only in their parameter names match the same paths: the second would never be reached
+    const shape = (ps: readonly string[]): string => ps.map((p) => (p.startsWith(':') ? ':' : p)).join('/');
+    const clash = this.routes.find((r) => r.method === m && shape(r.parts) === shape(parts));
     if (clash) throw new Error(`route registered twice: ${m} ${pattern}`);
     this.routes.push({ method: m, parts, handler });
     return this;

@@ -54,6 +54,7 @@ export class Shaper {
       this.st.conns++;
       const opened = Date.now();
       const upstream = net.connect(target, '127.0.0.1');
+      client.setNoDelay(true); upstream.setNoDelay(true);       // Nagle plus delayed ACK would add fake 200 ms stalls
       this.sockets.add(client); this.sockets.add(upstream);
       this.pipe(client, upstream, opened);
       this.pipe(upstream, client, opened);
@@ -120,6 +121,8 @@ export interface Stack {
   turnIp: string | null;
   workerLog(): string;
   turnControl(path: string): Promise<TurnChaos | null>;
+  /** A real deploy: the Worker's code changes, workerd restarts, every socket drops and the Room objects are rebuilt from storage. */
+  redeploy(): Promise<void>;
   admin(pathAndQuery: string, method?: 'GET' | 'POST'): Promise<unknown>;
   stop(): Promise<void>;
 }
@@ -148,8 +151,15 @@ export async function startStack(): Promise<Stack> {
       turn.stderr.on('data', (d: Buffer) => log.push('[turn!] ' + String(d)));
       children.push(turn);
     }
+    // The Worker's entry is a wrapper in the temp folder: rewriting it is a deploy (wrangler rebuilds and restarts workerd)
+    // without touching any file of the repository.
+    const entry = path.join(tmp, 'entry.ts');
+    const testing = path.join(ROOT, 'packages/server/src/testing.ts').replace(/\\/g, '/');
+    let version = 1;
+    const writeEntry = (): void => writeFileSync(entry, `export * from '${testing}';\nexport { default } from '${testing}';\n// deploy ${version}\n`);
+    writeEntry();
     const config = {
-      name: 'bodyarcade-live-test', main: path.join(ROOT, 'packages/server/src/testing.ts'), compatibility_date: '2026-09-01',
+      name: 'bodyarcade-live-test', main: entry, compatibility_date: '2026-09-01',
       assets: { directory: pagesDir, binding: 'ASSETS', run_worker_first: ['/api/*'], html_handling: 'auto-trailing-slash' },
       durable_objects: { bindings: [{ name: 'ROOMS', class_name: 'Room' }] }, migrations: [{ tag: 'v1', new_sqlite_classes: ['Room'] }],
       vars: {
@@ -188,6 +198,19 @@ export async function startStack(): Promise<Stack> {
       base, baseA: `http://127.0.0.1:${PORTS.shaperA}`, baseB: `http://127.0.0.1:${PORTS.shaperB}`, shaperA, shaperB, turn: !!turnIp, turnIp,
       workerLog: () => log.join(''),
       turnControl,
+      redeploy: async () => {
+        const mark = log.join('').length;
+        version++;
+        writeEntry();
+        for (let i = 0; i < 120; i++) {                                 // wait until wrangler has rebuilt and reloaded
+          await sleep(250);
+          if (/Reloading|Rebuilt|reloaded|Ready on/i.test(log.join('').slice(mark))) break;
+        }
+        for (let i = 0; i < 80; i++) {                                  // and the new code answers
+          try { if ((await fetch(base + '/api/ice', { method: 'POST' })).ok) return; } catch { /* restarting */ }
+          await sleep(250);
+        }
+      },
       admin: async (p, method = 'GET') => (await fetch(base + p, { method })).json().catch(() => null),
       stop,
     };

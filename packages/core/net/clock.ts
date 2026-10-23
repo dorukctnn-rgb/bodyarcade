@@ -47,8 +47,12 @@ export class ClockFilter {
     this.lastAt = localNow;
   }
 
-  /** Slew mode: while a match runs the offset glides instead of jumping. */
+  /**
+   * Slew mode: while match time is advancing in play the offset glides instead of jumping. In the lobby, during the
+   * countdowns and while paused nothing moves on screen, so a better estimate is adopted at once.
+   */
   setSlew(on: boolean): void {
+    if (this.slew && !on) this.current = this.target;
     this.slew = on;
   }
 
@@ -82,6 +86,7 @@ export class ClockFilter {
   private advance(localNow: number): void {
     const dt = localNow - this.lastAt;
     this.lastAt = localNow;
+    if (!this.slew) { this.current = this.target; return; }
     if (dt <= 0 || this.current === this.target) return;
     const step = (SLEW_MS_PER_S * dt) / 1000;
     const d = this.target - this.current;

@@ -39,7 +39,8 @@ const origin = location.origin;
 if (busy > 0) setInterval(() => { const t = performance.now(); while (performance.now() - t < busy) { /* a busy main thread */ } }, 33);
 
 let stream: MediaStream | null = null;
-if (wantVideo) {
+if (wantVideo && q.get('camdeny') === '1') { M.camDenied = true; log('camera denied (test)'); }
+else if (wantVideo) {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, frameRate: 30 }, audio: false });
     (document.getElementById('me') as HTMLVideoElement).srcObject = stream;
@@ -91,12 +92,22 @@ lm.on('removed', (d) => { M.removed = d; });
 lm.on('roomError', (d) => { M.roomErrors.push(d.code); });
 lm.on('chat', (d) => { M.chat.push(d); });
 lm.on('preset', (d) => { M.presets.push(d); });
-lm.on('blocked', () => sessionStorage.setItem('blocks', JSON.stringify(lm.blocks)));
+lm.on('blocked', (d) => { sessionStorage.setItem('blocks', JSON.stringify(lm.blocks)); ((M.blocked ??= []) as unknown[]).push(d); });
+lm.on('chatRejected', (d) => { ((M.chatRejected ??= []) as unknown[]).push(d); });
+lm.on('reported', (d) => { ((M.reported ??= []) as unknown[]).push(d); });
+lm.on('room', (d) => { M.room = d; });
+lm.on('forfeit', (d) => { ((M.forfeits ??= []) as unknown[]).push(d.seat); });
 lm.on('presence', (list) => { M.members = list; });
 lm.on('synced', (d) => log('clock ' + JSON.stringify(d)));
 lm.on('welcome', (d) => {
   M.seat = d.you;
-  if (!(M as { readySent?: boolean }).readySent && q.get('noready') !== '1') { (M as { readySent?: boolean }).readySent = true; lm.setReady(true); }
+  M.room = d.room;
+  M.welcomes = ((M.welcomes as number | undefined) ?? 0) + 1;
+  if (!(M as { readySent?: boolean }).readySent && q.get('noready') !== '1') {
+    (M as { readySent?: boolean }).readySent = true;
+    const delay = Number(q.get('readydelay') ?? '0');
+    if (delay > 0) setTimeout(() => lm.setReady(true), delay); else lm.setReady(true);
+  }
   const mt = d.match;
   if (mt && game && game.id === mt.id) game.resolvedUpTo = Math.max(game.resolvedUpTo, lm.matchTime());      // skip what passed while we were away
 });

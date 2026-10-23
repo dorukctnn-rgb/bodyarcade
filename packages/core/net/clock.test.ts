@@ -54,6 +54,16 @@ describe('ClockFilter', () => {
     expect(Math.abs(f.offset(40_500) - (1100 + SNAP_MS + 100))).toBeLessThan(1);
   });
 
+  it('switching slew off adopts the pending estimate at once', () => {
+    const f = new ClockFilter();
+    for (let i = 0; i < 4; i++) ping(f, 1000 + i * 70, 20, 1000);
+    f.setSlew(true);
+    for (let i = 0; i < 4; i++) ping(f, 5000 + i * 70, 10, 1100);
+    expect(f.offset(5300)).toBeLessThan(1010);
+    f.setSlew(false);                                          // a pause: nothing moves on screen
+    expect(Math.abs(f.offset(5300) - 1100)).toBeLessThan(0.5);
+  });
+
   it('adopts a new estimate at once when slewing is off (lobby)', () => {
     const f = new ClockFilter();
     for (let i = 0; i < 4; i++) ping(f, 1000 + i * 70, 20, 1000);

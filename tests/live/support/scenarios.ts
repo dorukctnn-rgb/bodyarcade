@@ -11,10 +11,12 @@ export type Action =
   | { at: number; do: 'reload'; p: number }
   | { at: number; do: 'reloadAll' }
   | { at: number; do: 'quit'; p: number }
+  | { at: number; do: 'leave'; p: number }
   | { at: number; do: 'hide'; p: number }
   | { at: number; do: 'show'; p: number }
   | { at: number; do: 'camLoss'; p: number }
   | { at: number; do: 'dupTab'; p: number }
+  | { at: number; do: 'deploy' }
   | { at: number; do: 'thirdJoin' };
 
 export interface Shape { ms: number; jitter: number }
@@ -41,6 +43,8 @@ export interface Scenario {
   /** Run after match time zero, ms after it. */
   actions?: Action[];
   expect?: 'forfeit';
+  /** Players press ready this long after the welcome (a lobby that idles long enough for the Room to hibernate). */
+  readyDelayMs?: number;
   /** Room kind for the scenario; public rooms never carry video. */
   kind?: 'private' | 'public';
   note?: string;
@@ -71,4 +75,17 @@ export const SCENARIOS: Record<string, Scenario> = {
   rematch: { video: true, dur: 18, matches: 2 },
   soak6: { video: true, dur: 15, matches: 6 },
   room_full: { video: false, actions: [{ at: 5000, do: 'thirdJoin' }] },
+  // rooms of 3 and 4 (a mesh of peer links), a public room (no video ever) and a seat that leaves
+  group3: { players: 3, video: false },
+  group4: { players: 4, video: false },
+  group3_video: { players: 3, video: true },
+  group4_leave: { players: 4, video: false, dur: 30, actions: [{ at: 9000, do: 'leave', p: 3 }] },
+  group3_reload: { players: 3, video: true, actions: [{ at: 8000, do: 'reload', p: 2 }] },
+  group4_quit: { players: 4, video: false, dur: 30, actions: [{ at: 8000, do: 'quit', p: 3 }] },
+  public3: { players: 3, kind: 'public', video: true },
+  // the Room object is evicted from memory and rebuilt from storage
+  idle_lobby: { video: false, readyDelayMs: 35_000 },
+  hide_long_b: { video: true, dur: 30, actions: [{ at: 8000, do: 'hide', p: 1 }, { at: 36_000, do: 'show', p: 1 }] },
+  deploy_mid_match: { video: true, actions: [{ at: 8000, do: 'deploy' }] },
+  deploy_countdown: { video: true, pre: [{ at: 1200, do: 'deploy' }] },
 };

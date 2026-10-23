@@ -127,7 +127,10 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
   readonly videoLimits: VideoLimits;
   readonly opts: LiveClientOptions;
   closed = false;
+  /** Set when a peer connection cannot be created on this device: everything goes through the Room relay. */
+  peersBroken = false;
 
+  private started = false;
   private readonly sched: Scheduler;
   private readonly socketFactory: SocketFactory;
   private readonly random: () => number;
@@ -205,7 +208,9 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
 
   /** Warms up WebRTC, gets ICE servers, connects. Resolves when the first socket is being opened (not when it is welcomed). */
   async start(): Promise<void> {
-    const rtc = this.opts.peers === 'webrtc';
+    if (this.started || this.closed) return;
+    this.started = true;
+    const rtc = this.opts.peers === 'webrtc' && typeof RTCPeerConnection !== 'undefined' && !this.peersBroken;
     if (rtc && this.opts.warmup !== false && typeof RTCPeerConnection !== 'undefined') {
       const w0 = this.sched.now();
       try {
@@ -420,12 +425,26 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
       this.emit('phase', { why: 'welcome', match: m });
       if (m.phase === 'over' && m.result && this.pendingFinal && this.pendingFinal.mid === m.id) this.onResult(m.result);
     }
-    this.clock.setSlew(!!m && m.phase !== 'over');
+    this.updateSlew();
+  }
+
+  /**
+   * The clock glides only while match time is really advancing on screen. During the start countdown, the 3-2-1 after a
+   * pause, a pause and in the lobby a better estimate is adopted at once: nothing visible moves.
+   */
+  private updateSlew(): void {
+    const m = this.match;
+    let advancing = false;
+    if (m && m.phase === 'running') {
+      const now = this.serverNow();
+      advancing = now >= m.startAt + m.pauseTotal && !(m.resumeAt !== null && now < m.resumeAt);
+    }
+    this.clock.setSlew(advancing);
   }
 
   private setMatch(match: MatchInfo, why: 'start' | 'paused' | 'resumed' | 'forfeit'): void {
     this.match = match;
-    this.clock.setSlew(match.phase !== 'over');
+    this.updateSlew();
     if (why === 'start') { this.resultFor = null; this.wantReady = null; this.emit('match', { match, mine: [], why: 'start' }); }
     this.emit('phase', { why, match });
     if (why === 'start' || why === 'paused') this.syncBurst(6, 70);
@@ -442,7 +461,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     if (this.pendingFinal && this.pendingFinal.mid === result.mid) this.pendingFinal = null;
     for (const [seq, ev] of this.unacked) if (ev.mid === result.mid) this.unacked.delete(seq);
     if (this.match && this.match.id === result.mid) this.match = { ...this.match, phase: 'over', result };
-    this.clock.setSlew(false);
+    this.updateSlew();
     this.wantReady = null;
     this.emit('result', result);
   }
@@ -550,7 +569,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
 
   private setMembers(list: MemberInfo[]): void {
     this.members = list;
-    if (this.opts.peers === 'webrtc' && this.you) {
+    if (this.opts.peers === 'webrtc' && !this.peersBroken && this.you) {
       for (const mem of list) {
         if (mem.seat === this.you || !mem.online) continue;
         const p = this.peers.get(mem.seat);
@@ -560,7 +579,14 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
           p.close();
           if (p.remoteSess === mem.sess) this.newEpoch();         // we change the link (video on or off): the rival must rebuild too
         }
-        this.peers.set(mem.seat, new PeerLink(this, mem.seat, mem.sess, want, this.opts.createPeerConnection));
+        try {
+          this.peers.set(mem.seat, new PeerLink(this, mem.seat, mem.sess, want, this.opts.createPeerConnection));
+        } catch (err) {
+          // no WebRTC here (an old browser, a locked-down webview): the Room relay carries the match
+          this.peersBroken = true;
+          this.log('peer links unavailable: ' + String(err));
+          break;
+        }
       }
       for (const [seat, p] of this.peers) if (!list.some((x) => x.seat === seat)) { p.close(); this.peers.delete(seat); }
     }
@@ -648,6 +674,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
         this.dropSocket();
       }
     }
+    this.updateSlew();
     for (const p of this.peers.values()) p.watch();
     if (this.pendingFinal && this.online && now - this.finalAt > FINAL_RESEND_MS) { this.finalAt = now; this.sendNow(this.pendingFinal); }
     if (this.online && now - this.lastClockTry > CLOCK_REFRESH_MS) {

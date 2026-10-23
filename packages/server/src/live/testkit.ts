@@ -5,6 +5,7 @@ import { NET_PROTOCOL } from '../../../core/types/net.ts';
 import { DEFAULT_TIMING, type Timing } from './config.ts';
 import { RoomEngine, type ConnAtt, type EngineConn, type EngineHooks, type InitInput } from './room-engine.ts';
 import type { RoomReport } from './hooks.ts';
+import { verifyTicket } from './tickets.ts';
 
 export class FakeConn implements EngineConn {
   readonly id: string;
@@ -205,3 +206,10 @@ export class Room {
 }
 
 export const age = (a: AgeBand): Partial<TicketClaims> => ({ a });
+
+/** The claims inside a signed ticket, or an Error naming why it is not valid (tests of the HTTP layer). */
+export async function decodeTicketForTest(secret: string, ticket: string, code: string): Promise<TicketClaims> {
+  const r = await verifyTicket(secret, ticket, Date.now(), code);
+  if (!r.ok) throw new Error(r.error);
+  return r.claims;
+}

@@ -818,7 +818,7 @@ describe('storage, hibernation and expiry', () => {
   it('expires after 24 hours without a single message and closes the sockets with 4004', async () => {
     const r = await Room.make();
     const a = r.join('alice');
-    r.advance(T.roomTtlMs + 1000);
+    r.advance(T.roomTtlMs + 11 * 60_000);                       // the idle alarm is rounded up to 10 minutes
     expect(r.engine.exists).toBe(false);
     expect(a.closeCode).toBe(CLOSE.NO_ROOM);
   });
@@ -833,6 +833,108 @@ describe('storage, hibernation and expiry', () => {
     r.host.t += T.graceMs + 500;
     a.send({ t: 'sync', c: 1 });
     expect(a.last('forfeit')).toMatchObject({ seat: 's2' });
+  });
+});
+
+describe('more rules', () => {
+  it('a forfeit during the settle time finishes the match at once when everyone left has sent the final list', async () => {
+    const r = await Room.make({ size: 3 });
+    const [a, b, c] = [r.join('alice'), r.join('bob'), r.join('carol')] as [TestPlayer, TestPlayer, TestPlayer];
+    startMatch(r, a, b, c);
+    const m = r.match();
+    r.advance(T.startCountdownMs + m.duration);
+    a.send({ t: 'final', mid: m.id, evs: [] }); b.send({ t: 'final', mid: m.id, evs: [] });
+    expect(resultOf(a)).toBeUndefined();                          // waiting for carol
+    c.send({ t: 'bye' });
+    expect(resultOf(a)).toMatchObject({ reason: 'complete', forfeited: ['s3'] });
+  });
+
+  it('the room goes back to text chat when the under-18 member leaves', async () => {
+    const r = await Room.make({ size: 3 });
+    const a = r.join('alice'); const t = r.join('teen-device-01', { a: 'teen' });
+    expect(a.last('room')?.room.chat).toBe('preset');
+    t.send({ t: 'bye' });
+    expect(a.last('room')?.room.chat).toBe('text');
+  });
+
+  it('a lobby member who leaves and comes back gets a new seat, and a second hello on one socket is an error', async () => {
+    const r = await Room.make({ size: 3 });
+    const a = r.join('alice'); const b = r.join('bob');
+    expect(b.seat).toBe('s2');
+    b.send({ t: 'bye' });
+    const b2 = r.join('bob');
+    expect(b2.seat).toBe('s3');
+    expect(a.last('presence')?.members.map((m) => m.seat)).toEqual(['s1', 's3']);
+    b2.hello();
+    expect(b2.last('error')?.code).toBe('bad');
+  });
+
+  it('presses and releases ready, and a config change clears it', async () => {
+    const r = await Room.make();
+    const a = r.join('alice'); const b = r.join('bob');
+    a.ready(); a.ready(false);
+    expect(b.last('presence')?.members.find((m) => m.seat === 's1')?.ready).toBe(false);
+    b.ready();
+    a.send({ t: 'config', durationMs: 20_000 });
+    expect(a.last('presence')?.members.every((m) => !m.ready)).toBe(true);
+    expect(r.engine.inspect().match).toBeNull();
+  });
+
+  it('keeps counting match time through a deploy that happens in the 3-2-1 after a pause', async () => {
+    const r = await Room.make();
+    const a = r.join('alice'); const b = r.join('bob');
+    startMatch(r, a, b);
+    r.advance(T.startCountdownMs + 10_000);
+    b.send({ t: 'pause', reason: 'hidden' });
+    r.advance(2000);
+    b.send({ t: 'unpause' });
+    const before = r.match();
+    await r.reload();                                               // sockets stay: a hibernation wake
+    r.advance(T.resumeCountdownMs + 1000);
+    const after = r.match();
+    expect(after.pauseTotal).toBe(before.pauseTotal);
+    expect(after.phase).toBe('running');
+  });
+});
+
+describe('restart and names', () => {
+  it('after a restart that took every socket away, members count as offline: the match pauses after the debounce and the grace forfeits the absent', async () => {
+    const r = await Room.make();
+    const a = r.join('alice'); const b = r.join('bob');
+    startMatch(r, a, b);
+    r.advance(T.startCountdownMs + 20_000);
+    // a deploy: the engine is rebuilt from storage and the sockets are gone (the platform reports no closes)
+    a.conn.open = false; b.conn.open = false;
+    await r.reload();
+    expect(r.engine.inspect().members.every((m) => !m.online)).toBe(true);
+    expect(r.match().phase).toBe('running');
+    r.advance(T.offlineDebounceMs + 100);
+    expect(r.match().phase).toBe('paused');
+    expect(r.match().reasons).toEqual({ s1: 'offline', s2: 'offline' });
+    // alice comes back on a new socket: only bob holds the pause now
+    const a2 = r.join('alice', {}, {}, a.tab);
+    expect(a2.last('welcome')?.match?.reasons).toEqual({ s2: 'offline' });
+    r.advance(T.graceMs + 100);
+    expect(r.engine.inspect().match?.result?.reason).toBe('forfeit');
+    expect(r.engine.inspect().match?.result?.winner).toBe('s1');
+  });
+
+  it('a hibernation wake with the sockets still connected changes nothing', async () => {
+    const r = await Room.make();
+    const a = r.join('alice'); const b = r.join('bob');
+    startMatch(r, a, b);
+    r.advance(T.startCountdownMs + 5000);
+    await r.reload();
+    expect(r.engine.inspect().members.every((m) => m.online)).toBe(true);
+    r.advance(T.offlineDebounceMs + 1000);
+    expect(r.match().phase).toBe('running');
+  });
+
+  it('gives two players with the same name different names in the room', async () => {
+    const r = await Room.make({ size: 4 });
+    const a = r.join('alice-1-device', { n: 'Sam' }); const b = r.join('alice-2-device', { n: 'Sam' }); const c = r.join('alice-3-device', { n: 'Sam' });
+    expect(c.last('welcome')?.members.map((m) => m.name)).toEqual(['Sam', 'Sam 2', 'Sam 3']);
+    void a; void b;
   });
 });
 

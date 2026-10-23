@@ -101,10 +101,15 @@ export class PeerLink {
     const track = this.sendVideo ? host.stream?.getVideoTracks()[0] : undefined;
     if (!this.polite && track && host.stream) {
       const lim = host.videoLimits;
-      this.vtx = pc.addTransceiver(track, {
-        direction: 'sendrecv', streams: [host.stream],
-        sendEncodings: [{ maxBitrate: lim.maxBitrate, maxFramerate: lim.maxFramerate, scaleResolutionDownBy: lim.scaleDown }],
-      });
+      try {
+        this.vtx = pc.addTransceiver(track, {
+          direction: 'sendrecv', streams: [host.stream],
+          sendEncodings: [{ maxBitrate: lim.maxBitrate, maxFramerate: lim.maxFramerate, scaleResolutionDownBy: lim.scaleDown }],
+        });
+      } catch (err) {
+        host.log('addTransceiver with encodings failed, retrying plain: ' + String(err));
+        this.vtx = pc.addTransceiver(track, { direction: 'sendrecv', streams: [host.stream] });
+      }
       void this.tuneSender(this.vtx.sender);
     }
     pc.ontrack = (e) => {

@@ -202,7 +202,25 @@ export class RoomEngine {
   }
 
   static async create(host: EngineHost, timing: Timing = DEFAULT_TIMING): Promise<RoomEngine> {
-    return new RoomEngine(host, timing, await host.load());
+    const engine = new RoomEngine(host, timing, await host.load());
+    engine.reconcile();
+    return engine;
+  }
+
+  /**
+   * After a restart (a deploy) the stored members still say "online" but their sockets are gone, and the platform may
+   * not report the closes. A member without a live socket is offline from now on: the debounce, the pause and the
+   * grace then work as if the socket had closed at this moment.
+   */
+  private reconcile(): void {
+    if (!this.meta) return;
+    const live = new Set(this.host.conns().filter((c) => c.att.h).map((c) => c.id));
+    const now = this.now();
+    let changed = false;
+    for (const m of Object.values(this.members)) {
+      if (m.online && !live.has(m.conn)) { m.online = false; m.offlineAt = now; m.offlineHandled = false; changed = true; }
+    }
+    if (changed) { this.dirty.add('members'); this.commit(); }
   }
 
   // ───────── lifecycle: init, preview, check, destroy ─────────
@@ -486,8 +504,11 @@ export class RoomEngine {
   private newMember(att: ConnAtt, m: Hello, now: number): MemberRec {
     const meta = this.meta as Meta;
     const named = checkName(att.n);
+    let name = named.ok ? named.text : 'Player';
+    const taken = new Set(Object.values(this.members).map((x) => x.name));
+    for (let i = 2; taken.has(name) && i < 10; i++) if (!taken.has(`${named.ok ? named.text : 'Player'} ${i}`)) name = `${named.ok ? named.text : 'Player'} ${i}`;
     const mem: MemberRec = {
-      pid: att.p, seat: `s${meta.nextSeat++}`, name: named.ok ? named.text : 'Player', age: att.a, bk: att.k, blocks: [],
+      pid: att.p, seat: `s${meta.nextSeat++}`, name, age: att.a, bk: att.k, blocks: [],
       online: true, ready: false, sess: m.sess, video: m.video, tab: m.tab, replaced: [], conn: att.c, offlineAt: null,
       offlineHandled: false, joinedAt: now, mutedUntil: att.m,
     };
@@ -836,7 +857,8 @@ export class RoomEngine {
     const t = this.timing;
     let min = Infinity;
     const want = (x: number) => { if (x < min) min = x; };
-    want(meta.emptySince !== null ? meta.emptySince + t.emptyTtlMs : meta.activityAt + t.roomTtlMs);
+    // the idle deadline moves with every message: round it up to 10 minutes so the alarm is not rewritten each time
+    want(meta.emptySince !== null ? meta.emptySince + t.emptyTtlMs : Math.ceil((meta.activityAt + t.roomTtlMs) / 600_000) * 600_000);
     const m = this.match;
     for (const mem of Object.values(this.members)) {
       if (mem.online || mem.offlineAt === null) continue;

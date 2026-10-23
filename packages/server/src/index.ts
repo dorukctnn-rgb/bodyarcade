@@ -19,6 +19,12 @@ export default {
     const res = await router.handle(req, env, ctx);
     if (res) return res;
     const assets = env.ASSETS as Fetcher | undefined;
-    return assets ? assets.fetch(req) : new Response('not found', { status: 404 });
+    if (!assets) return new Response('not found', { status: 404 });
+    try {
+      return await assets.fetch(req);
+    } catch (e) {
+      console.log(JSON.stringify({ evt: 'assets_error', error: String(e) }));
+      return new Response('unavailable', { status: 503 });
+    }
   },
 };

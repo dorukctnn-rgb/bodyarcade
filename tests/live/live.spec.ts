@@ -4,7 +4,6 @@ import { SCENARIOS } from './support/scenarios.ts';
 import { startStack, type Stack } from './support/stack.ts';
 
 let stack: Stack;
-test.describe.configure({ mode: 'serial' });
 test.beforeAll(async () => { test.setTimeout(120_000); stack = await startStack(); });
 test.afterAll(async () => { await stack?.stop(); });
 

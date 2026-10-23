@@ -36,8 +36,14 @@ function roomStub(env: LiveEnv, code: RoomCode): Fetcher {
 
 async function roomCall<T>(env: LiveEnv, code: RoomCode, path: string, body?: unknown): Promise<{ status: number; data: T }> {
   const init: RequestInit = body === undefined ? { method: 'GET' } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
-  const res = await roomStub(env, code).fetch(new Request(`https://room.internal${path}`, init));
-  return { status: res.status, data: (await res.json()) as T };
+  try {
+    const res = await roomStub(env, code).fetch(new Request(`https://room.internal${path}`, init));
+    return { status: res.status, data: (await res.json()) as T };
+  } catch (e) {
+    // the Room object is restarting, overloaded or over its daily allowance: tell the page to try again, not "internal error"
+    console.log(JSON.stringify({ evt: 'room_call_error', path, error: String(e) }));
+    throw new HttpError(503, 'room_unavailable');
+  }
 }
 
 function limited(req: Request, env: LiveEnv, what: string, max: number, windowMs: number): void {
@@ -78,10 +84,35 @@ async function body(req: Request): Promise<Record<string, unknown>> {
   return b;
 }
 
-async function grant(env: LiveEnv, req: Request, code: RoomCode, player: LivePlayer, room: RoomPreview): Promise<JoinGrant> {
+async function grant(env: LiveEnv, origin: string, code: RoomCode, player: LivePlayer, room: RoomPreview): Promise<JoinGrant> {
   const secret = checkSecret(env.TICKET_SECRET);
   const { claims, ticket } = await signTicket(secret, { code, pid: player.pid, name: player.name, age: player.age, ...(player.mutedUntil ? { mutedUntil: player.mutedUntil } : {}) }, Date.now());
-  return { code, link: inviteLink(publicOrigin(req, env.PUBLIC_ORIGIN), code), ticket, exp: claims.e, room };
+  return { code, link: inviteLink(origin, code), ticket, exp: claims.e, room };
+}
+
+/**
+ * A seat in room `code` for this player: asks the room whether there is one, runs SO's gate for public rooms, signs the
+ * ticket. POST /api/rooms/:code/join is this plus the HTTP around it; SO's matchmaker calls it directly to hand a
+ * matched player a ticket through their hub. Throws HttpError (no_room 404, full 409, banned or not_allowed 403).
+ */
+export async function issueJoin(env: LiveEnv, origin: string, code: RoomCode, player: LivePlayer): Promise<JoinGrant> {
+  const sum = await roomCall<RoomSummary>(env, code, '/summary');
+  if (sum.status !== 200) throw new HttpError(404, 'no_room');
+  const gate = liveHooks().gateJoin;
+  if (sum.data.kind === 'public' && gate && !(await gate(env, sum.data, player))) throw new HttpError(403, 'not_allowed');
+  const k = await blockKey(checkSecret(env.TICKET_SECRET), player.pid);
+  const chk = await roomCall<CheckResult>(env, code, '/check', { p: player.pid, a: player.age, k });
+  if (!chk.data.ok) {
+    const e = chk.data.error;
+    throw new HttpError(e === 'no_room' ? 404 : e === 'full' ? 409 : 403, e);
+  }
+  return grant(env, origin, code, player, chk.data.preview);
+}
+
+/** What a room looks like to the lobby directory right now, or null when it is gone. */
+export async function roomSummary(env: LiveEnv, code: RoomCode): Promise<RoomSummary | null> {
+  const r = await roomCall<RoomSummary>(env, code, '/summary');
+  return r.status === 200 ? r.data : null;
 }
 
 export interface NewRoom {
@@ -129,7 +160,7 @@ const createRoom = async (req: Request, rawEnv: Record<string, unknown>): Promis
   if (band !== null && typeof band !== 'string') throw new HttpError(400, 'bad_config');
   const player = await identify(req, env, b);
   const { code, preview } = await createRoomFor(env, { kind, gameId: b.gameId, size, durationMs, band }, player);
-  return json(await grant(env, req, code, player, preview), 201);
+  return json(await grant(env, publicOrigin(req, env.PUBLIC_ORIGIN), code, player, preview), 201);
 };
 
 const previewRoom = async (req: Request, rawEnv: Record<string, unknown>, _ctx: unknown, params: Readonly<Record<string, string>>): Promise<Response> => {
@@ -147,17 +178,7 @@ const joinRoom = async (req: Request, rawEnv: Record<string, unknown>, _ctx: unk
   const code = codeParam(params.code);
   const b = await body(req);
   const player = await identify(req, env, b);
-  const sum = await roomCall<RoomSummary>(env, code, '/summary');
-  if (sum.status !== 200) throw new HttpError(404, 'no_room');
-  const gate = liveHooks().gateJoin;
-  if (sum.data.kind === 'public' && gate && !(await gate(env, sum.data, player))) throw new HttpError(403, 'not_allowed');
-  const k = await blockKey(checkSecret(env.TICKET_SECRET), player.pid);
-  const chk = await roomCall<CheckResult>(env, code, '/check', { p: player.pid, a: player.age, k });
-  if (!chk.data.ok) {
-    const e = chk.data.error;
-    throw new HttpError(e === 'no_room' ? 404 : e === 'full' ? 409 : 403, e);
-  }
-  return json(await grant(env, req, code, player, chk.data.preview));
+  return json(await issueJoin(env, publicOrigin(req, env.PUBLIC_ORIGIN), code, player));
 };
 
 /** Accepts the upgrade and closes at once with `code`, so the page gets a close code instead of a bare failure. */
