@@ -10,3 +10,9 @@ test-results/
 playwright-report/
 blob-report/
 *.tsbuildinfo
+
+# QA: generated test videos, downloaded model assets and capture output (regenerate with npm run traces:videos)
+tests/traces/videos/
+tools/synth-video/assets/
+tools/fake-camera/out/
+qa-out/
