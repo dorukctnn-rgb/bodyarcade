@@ -1,0 +1,5 @@
+# Binary fixtures and model files: never touch their line endings.
+*.task binary
+*.mjpeg binary
+*.y4m binary
+*.webm binary

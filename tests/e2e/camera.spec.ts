@@ -8,16 +8,15 @@ type Harness = {
   createCameraService: typeof import('../../packages/core/camera/camera.ts').createCameraService;
   isAbortError: (e: unknown) => boolean;
 };
-declare global { interface Window { harness: Harness; harnessReady: boolean } }
 
 test.beforeEach(async ({ page }) => {
   await page.goto(`${DEV_URL}/tests/e2e/pages/camera.html`);
-  await page.waitForFunction(() => window.harnessReady === true);
+  await page.waitForFunction(() => (window as unknown as { harnessReady?: boolean }).harnessReady === true);
 });
 
 test('B10: frames arrive, and release stops every track and detaches the video', async ({ page }) => {
   const r = await page.evaluate(async () => {
-    const cam = window.harness.createCameraService();
+    const cam = (window as unknown as { harness: Harness }).harness.createCameraService();
     const lease = await cam.acquire();
     document.body.append(lease.video);
     await lease.start();
@@ -45,14 +44,14 @@ test('B9: Back during a slow permission prompt leaves no live track', async ({ p
     navigator.mediaDevices.getUserMedia = (c) => new Promise((resolve, reject) => {
       setTimeout(() => { real(c).then((s) => { streams.push(s); resolve(s); }, reject); }, 400);
     });
-    const cam = window.harness.createCameraService();
+    const cam = (window as unknown as { harness: Harness }).harness.createCameraService();
     const ac = new AbortController();
     const p = cam.acquire({ signal: ac.signal });
     setTimeout(() => ac.abort(), 50);
     const err = await p.catch((e: unknown) => e);
     await new Promise((res) => setTimeout(res, 900));
     return {
-      aborted: window.harness.isAbortError(err),
+      aborted: (window as unknown as { harness: Harness }).harness.isAbortError(err),
       streams: streams.length,
       states: streams.flatMap((s) => s.getTracks().map((t) => t.readyState)),
       stats: cam.stats(),
@@ -66,7 +65,7 @@ test('B9: Back during a slow permission prompt leaves no live track', async ({ p
 
 test('B8: an ended track marks the lease dead, and a new acquire gets a live camera', async ({ page }) => {
   const r = await page.evaluate(async () => {
-    const cam = window.harness.createCameraService();
+    const cam = (window as unknown as { harness: Harness }).harness.createCameraService();
     const first = await cam.acquire();
     let ended = 0;
     first.onEnded(() => { ended++; });

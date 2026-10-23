@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Pose harness</title></head>
+<body>
+<p>Pose service harness for the e2e tests.</p>
+<script type="module">
+  import { createCameraService } from '/packages/core/camera/camera.ts';
+  import { createPoseService } from '/packages/core/pose/service.ts';
+  import { POSE_MODEL, WASM_BASE } from '/packages/core/pose/assets.ts';
+  window.harness = { createCameraService, createPoseService, wasmBase: WASM_BASE, modelUrl: POSE_MODEL.url };
+  window.harnessReady = true;
+</script>
+</body>
+</html>
