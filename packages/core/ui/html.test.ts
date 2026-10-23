@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cx, escapeHtml, html, jsonForScript, raw, textOf } from './html.ts';
+import { attr, cx, escapeHtml, html, jsonForScript, raw, textOf } from './html.ts';
 
 describe('html templating', () => {
   it('escapes every interpolated string', () => {
@@ -39,5 +39,26 @@ describe('html templating', () => {
 
   it('escapeHtml handles non-strings', () => {
     expect(escapeHtml(42)).toBe('42');
+  });
+});
+
+
+describe('attr', () => {
+  it('writes an escaped attribute with a leading space', () => {
+    expect(attr('aria-current', 'page').value).toBe(' aria-current="page"');
+    expect(attr('title', 'a" onclick="x').value).toBe(' title="a&quot; onclick=&quot;x"');
+    expect(html`<a${attr('aria-current', 'page')}>x</a>`.toString()).toBe('<a aria-current="page">x</a>');
+  });
+
+  it('writes nothing for false, null and undefined and a bare name for true', () => {
+    expect(attr('hidden', false).value).toBe('');
+    expect(attr('hidden', null).value).toBe('');
+    expect(attr('hidden', undefined).value).toBe('');
+    expect(attr('disabled', true).value).toBe(' disabled');
+  });
+
+  it('refuses a name that could break out of the tag', () => {
+    expect(() => attr('x onerror=alert(1) y', 'a')).toThrow(/bad attribute name/);
+    expect(() => attr('', 'a')).toThrow();
   });
 });

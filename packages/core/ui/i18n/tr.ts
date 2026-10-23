@@ -20,6 +20,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'common.skipToContent': 'İçeriğe geç',
   'common.opensNewTab': 'Yeni sekmede açılır',
   'common.loading': 'Yükleniyor',
+  'common.noscript': 'Oynamak için JavaScript gerekir. Oyunlar hakkında yine de okuyabilirsiniz.',
 
   'duration.sec': '{n} sn',
   'duration.min': '{n} dk',
@@ -35,6 +36,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'footer.terms': 'Koşullar',
   'footer.contact': 'İletişim',
   'footer.camera': 'Kamera görüntüsü cihazında kalır.',
+  'footer.language': 'Dil',
 
   'region.legs': 'Bacak ve kalça',
   'region.arms': 'Kol ve omuz',
@@ -89,6 +91,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'game.framing.upper.tip': 'Baştan kalçaya kadar görünmeli. Yaklaşık 1 m uzakta otur ya da dur. Masada da oynanır.',
   'game.framing.side.tip': 'Kameraya yan dur. Omuzdan ayak bileğine kadar görünmeli, yaklaşık 2 m uzakta.',
   'game.measures.not': 'Kalp atışını ölçmez ve tıbbi tavsiye vermez.',
+  'game.lowImpact.note': 'Ayaklarınız yerden kesilmez. Zıplama yok.',
   'game.title': '{game}: kamerayla egzersiz oyunu',
   'game.video': 'Kamerayla egzersiz oyunu, tarayıcında oynanır',
 
@@ -97,6 +100,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'setup.players.one': '1 oyuncu',
   'setup.players.two': '2 oyuncu, aynı kamera',
   'setup.players.twoHint': 'Tek kameranın önünde yan yana durun. Büyük bir ekran ve ikinizin de sığacağı bir alan gerekir.',
+  'setup.players.twoUnavailable': '{game} tek kamerada tek kişilik oynanır.',
   'setup.input': 'Kontrol',
   'setup.input.camera': 'Kamera',
   'setup.input.keyboard': 'Klavye ya da dokunma',
@@ -185,6 +189,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'hud.lives': '{n} can kaldı',
   'hud.moveView': 'Kamera görünümünü taşı ya da gizle',
   'hud.you': 'Sen',
+  'hud.youBoth': 'İkiniz',
   'hud.player1': '1. oyuncu',
   'hud.player2': '2. oyuncu',
   'hud.stepBackIn': '{player}, kadraja geri gir',
@@ -354,7 +359,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'onboarding.s6.body': 'Oynayacağın yerde dur. Her oyun bedenine uysun diye boyunu, kol uzunluğunu ve rahat çömelme derinliğini ölçeriz.',
   'onboarding.s6.waiting': 'Ayakların bekleniyor',
   'onboarding.s7.title': 'İlk oyunun: {game}.',
-  'onboarding.s7.body': 'Kanat çırpmak için çömel, uçmak için ayağa kalk. 30 saniye, yenilecek bir skor yok. Oturarak modunda kanat çırpmak için sandalyeden kalk.',
+  'onboarding.s7.body': 'Çömelmeden kalkınca kanat çırparsın, alçakta kalırsan süzülürsün. 30 saniye, yenilecek bir skor yok. Oturarak modunda kanat çırpmak için sandalyeden kalk.',
   'onboarding.s7.done': 'İlk oyunun bitti.',
   'onboarding.s7.saved': 'Bu cihazda kaydedildi.',
   'onboarding.s7.full': 'Tam turu oyna',

@@ -41,6 +41,17 @@ export function html(strings: TemplateStringsArray, ...values: unknown[]): SafeH
   return new SafeHtml(out);
 }
 
+/**
+ * One attribute, written safely: attr('aria-current', 'page') gives  aria-current="page" (with the leading space);
+ * false, null and undefined give nothing; true gives the bare name (disabled). The value is escaped.
+ */
+export function attr(name: string, value: unknown): SafeHtml {
+  if (!/^[a-zA-Z_:][a-zA-Z0-9_:.-]*$/.test(name)) throw new Error(`bad attribute name: ${name}`);
+  if (value === false || value === null || value === undefined) return new SafeHtml('');
+  if (value === true) return new SafeHtml(` ${name}`);
+  return new SafeHtml(` ${name}="${escapeHtml(value)}"`);
+}
+
 /** Joins class names, skipping anything falsy: cx('a', cond && 'b'). */
 export function cx(...parts: unknown[]): string {
   return parts.filter((p) => typeof p === 'string' && p !== '').join(' ');

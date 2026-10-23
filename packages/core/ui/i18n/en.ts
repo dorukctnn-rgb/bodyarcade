@@ -20,6 +20,7 @@ export const en = {
   'common.skipToContent': 'Skip to content',
   'common.opensNewTab': 'Opens in a new tab',
   'common.loading': 'Loading',
+  'common.noscript': 'Playing needs JavaScript. You can still read about every game.',
 
   'duration.sec': '{n} sec',
   'duration.min': '{n} min',
@@ -35,6 +36,7 @@ export const en = {
   'footer.terms': 'Terms',
   'footer.contact': 'Contact',
   'footer.camera': 'Camera video stays on your device.',
+  'footer.language': 'Language',
 
   'region.legs': 'Legs and hips',
   'region.arms': 'Arms and shoulders',
@@ -89,6 +91,7 @@ export const en = {
   'game.framing.upper.tip': 'Head to hips in view. Sit or stand about 1 m away. Works at a desk.',
   'game.framing.side.tip': 'Stand sideways to the camera with shoulder to ankle in view, about 2 m away.',
   'game.measures.not': 'It does not measure heart rate or give medical advice.',
+  'game.lowImpact.note': 'Your feet stay on the floor. No jumping.',
   'game.title': '{game}: camera workout game',
   'game.video': 'Camera workout game, plays in your browser',
 
@@ -97,6 +100,7 @@ export const en = {
   'setup.players.one': '1 player',
   'setup.players.two': '2 players, same camera',
   'setup.players.twoHint': 'Stand side by side in front of one camera. You need a big screen and room for both of you.',
+  'setup.players.twoUnavailable': '{game} is 1 player on one camera.',
   'setup.input': 'Controls',
   'setup.input.camera': 'Camera',
   'setup.input.keyboard': 'Keyboard or touch',
@@ -185,6 +189,7 @@ export const en = {
   'hud.lives': '{n, plural, one {# life left} other {# lives left}}',
   'hud.moveView': 'Move or hide your camera view',
   'hud.you': 'You',
+  'hud.youBoth': 'You both',
   'hud.player1': 'Player 1',
   'hud.player2': 'Player 2',
   'hud.stepBackIn': '{player}, step back in',
@@ -354,7 +359,7 @@ export const en = {
   'onboarding.s6.body': 'Stand where you will play. We measure your height, arm reach and comfortable squat depth so every game fits your body.',
   'onboarding.s6.waiting': 'Waiting for your feet',
   'onboarding.s7.title': 'Your first game: {game}.',
-  'onboarding.s7.body': 'Squat down to flap, stand up to fly. 30 seconds, nothing to beat yet. In seated mode, stand up from a chair to flap.',
+  'onboarding.s7.body': 'Stand up from a squat to flap, stay low to glide. 30 seconds, nothing to beat yet. In seated mode, stand up from a chair to flap.',
   'onboarding.s7.done': 'Your first game is done.',
   'onboarding.s7.saved': 'Saved on this device.',
   'onboarding.s7.full': 'Play the full round',
