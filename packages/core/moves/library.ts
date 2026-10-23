@@ -22,6 +22,7 @@ import { createPullDetector } from './pull.ts';
 import { createSideBendDetector } from './sideBend.ts';
 import { createSquatDetector } from './squat.ts';
 import { createSquatFlapDetector } from './squatFlap.ts';
+import { createSteadinessDetector } from './steadiness.ts';
 import { createSwipeDetector } from './swipe.ts';
 import { createTwistDetector } from './twist.ts';
 
@@ -40,6 +41,7 @@ export const LIBRARY_DETECTORS: DetectorRegistry = {
   swipe: createSwipeDetector,
   overheadPress: createOverheadPressDetector,
   energy: createEnergyDetector,
+  steadiness: createSteadinessDetector,
 };
 
 export const ALL_DETECTORS: DetectorRegistry = {
