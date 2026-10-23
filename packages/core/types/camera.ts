@@ -62,7 +62,15 @@ export interface CameraAcquireOptions {
 }
 
 /** Why acquire failed, so the UI can show the right message (B8 showed the wrong one). */
-export type CameraErrorCode = 'denied' | 'not_found' | 'in_use' | 'overconstrained' | 'insecure' | 'unsupported' | 'unknown';
+export type CameraErrorCode =
+  | 'denied'           // the player or the browser refused permission
+  | 'not_found'        // no camera
+  | 'in_use'           // the device could not be started (another app, driver)
+  | 'overconstrained'  // no camera matches deviceId or facingMode
+  | 'no_frames'        // the stream started but delivered no frame in time
+  | 'insecure'         // not https (getUserMedia is missing)
+  | 'unsupported'      // no getUserMedia in this browser
+  | 'unknown';
 
 export interface CameraFailure { readonly name: 'CameraError'; readonly code: CameraErrorCode; readonly message: string }
 
