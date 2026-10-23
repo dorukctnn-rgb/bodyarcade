@@ -1,2 +1,12 @@
 # Local Netlify folder
 .netlify
+
+# v2 tooling
+node_modules/
+dist/
+.vite/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+*.tsbuildinfo

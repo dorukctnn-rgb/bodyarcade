@@ -1,6 +1,7 @@
 // Tests BodyArcade's Gumroad licence logic (site/game/store.js) with a fake localStorage, a fake
-// clock and a fake Gumroad verify endpoint. Run from the repo root: node --test tests/store.test.mjs
-import { test, beforeEach } from 'node:test';
+// clock and a fake Gumroad verify endpoint. Runs under Vitest: `npm test` (or `npx vitest run tests/legacy`).
+// Moved from tests/store.test.mjs for v2; the cases are unchanged.
+import { test, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 
 const mem = new Map();
@@ -30,7 +31,7 @@ globalThis.fetch = async (url, opts) => {
   return { json: async () => ({ success: true, uses: 1, purchase: { email: 'buyer@example.com', ...purchase } }) };
 };
 
-const store = await import(process.env.STORE_URL || new URL('../site/game/store.js', import.meta.url).href);
+const store = await import(process.env.STORE_URL || new URL('../../site/game/store.js', import.meta.url).href);
 const KEY = 'AAAAAAAA-BBBBBBBB-CCCCCCCC-DDDDDDDD';
 const DAY = 86400000;
 const iso = ms => new RealDate(ms).toISOString();
