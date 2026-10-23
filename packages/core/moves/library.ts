@@ -20,6 +20,7 @@ import { createPullDetector } from './pull.ts';
 import { createSideBendDetector } from './sideBend.ts';
 import { createSquatDetector } from './squat.ts';
 import { createSquatFlapDetector } from './squatFlap.ts';
+import { createSwipeDetector } from './swipe.ts';
 import { createTwistDetector } from './twist.ts';
 
 export const createSquatRouter: DetectorFactory = (p: BodyProfile, opts) => (opts && opts.flap ? createSquatFlapDetector(p, opts) : createSquatDetector(p, opts));
@@ -34,6 +35,7 @@ export const LIBRARY_DETECTORS: DetectorRegistry = {
   pull: createPullDetector,
   sideBend: createSideBendDetector,
   poseMatch: createPoseMatchDetector,
+  swipe: createSwipeDetector,
 };
 
 export const ALL_DETECTORS: DetectorRegistry = {
