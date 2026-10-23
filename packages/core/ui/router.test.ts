@@ -222,6 +222,22 @@ describe('the navigation controller', () => {
     expect(changes.at(-1)).toMatchObject({ replaced: true, route: { id: 'results' } });
   });
 
+  it('a link marked data-replace takes the place of the page it is on', async () => {
+    const { w, nav, changes } = setup('/');
+    nav.start(); await flush();
+    w.click({ href: '/results/' });
+    await flush();
+    expect(w.entries).toHaveLength(2);
+    w.click({ href: '/games/pad-work/', 'data-replace': '' });
+    await flush();
+    expect(w.entries).toHaveLength(2);
+    expect(w.at()).toBe('/games/pad-work/');
+    expect(changes.at(-1)).toMatchObject({ replaced: true, route: { id: 'game' } });
+    w.back();
+    await flush();
+    expect(w.at()).toBe('/');
+  });
+
   it('refuses another origin and re-renders when the same page is opened again', async () => {
     const { w, nav, changes } = setup('/');
     nav.start(); await flush();

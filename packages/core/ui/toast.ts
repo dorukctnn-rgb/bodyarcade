@@ -44,7 +44,7 @@ export function createToaster(doc: ToastDocument, live: Pick<LiveRegion, 'announ
   host.setAttribute('data-toasts', '');
   doc.body.appendChild(host);
 
-  interface Live { el: ToastElement; timer: unknown; leaving: unknown }
+  interface Live { el: ToastElement; timer: unknown; leaving: unknown; text: string; kind: string }
   const shown: Live[] = [];
 
   const leave = (t: Live): void => {
@@ -60,12 +60,20 @@ export function createToaster(doc: ToastDocument, live: Pick<LiveRegion, 'announ
     show(text, o = {}) {
       const t = text.trim();
       if (!t) return;
+      const kind = o.kind ?? 'info';
+      // The same words are already on the screen (the browser's offline event and ours, a double tap): keep the one, restart its time.
+      const same = shown.find((s) => s.text === t && s.kind === kind);
+      if (same) {
+        if (same.timer !== null) timers.clear(same.timer);
+        same.timer = timers.set(() => leave(same), o.ms ?? toastDuration(t));
+        return;
+      }
       live.announce(t);
       const el = doc.createElement('div');
-      el.className = `ba-toast ba-toast--${o.kind ?? 'info'}`;
+      el.className = `ba-toast ba-toast--${kind}`;
       el.textContent = t;
       host.appendChild(el);
-      const entry: Live = { el, timer: null, leaving: null };
+      const entry: Live = { el, timer: null, leaving: null, text: t, kind };
       entry.timer = timers.set(() => leave(entry), o.ms ?? toastDuration(t));
       shown.push(entry);
       while (shown.length > MAX_TOASTS) leave(shown[0] as Live);

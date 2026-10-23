@@ -135,7 +135,7 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
         ${!hasPro(ctx) && proMore > 0 ? html`<div class="k-card k-procard"><p>${t.t('results.proCard', { n: proMore })}</p><a class="ba-link" href="${ctx.href('pro')}">${t.t('results.proLink')}</a></div>` : ''}
       </div>
       <div class="k-actionbar"><div class="k-actions k-actions--results">
-        <a class="ba-btn ba-btn--primary ba-btn--lg" href="${again}" data-action="again">${icon('replay')}<span>${t.t('results.again')}</span></a>
+        <a class="ba-btn ba-btn--primary ba-btn--lg" href="${again}" data-action="again" data-replace>${icon('replay')}<span>${t.t('results.again')}</span></a>
         <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${t.t('results.other')}</a>
       </div></div>
     </div>`;

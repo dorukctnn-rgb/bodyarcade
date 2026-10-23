@@ -254,7 +254,8 @@ export function createNavigation<Id extends string>(o: NavigatorOptions<Id>): Na
     // A page the router does not know (a file such as /sitemap.xml) is left to the browser.
     if (!router.match(`${u.pathname}${u.search}`)) return;
     e.preventDefault();
-    go(href);
+    // data-replace: the link takes the place of this page in the history ("Play again" from the results), so Back skips it.
+    go(href, { replace: a.hasAttribute('data-replace') });
   };
 
   return {
