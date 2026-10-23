@@ -9,6 +9,7 @@
 // 'squat' is routed here: with the option `flap: 1` it is the Squat Flap detector (glide while down, flap on the rise,
 // squatFlap.ts); without it, it is the runner's plain squat (squat.ts).
 import type { BodyProfile, DetectorFactory, DetectorRegistry } from '../types/index.ts';
+import { createArmDirectionDetector } from './armDirection.ts';
 import { createJumpDetector } from './jump.ts';
 import { createLeanDetector } from './lean.ts';
 import { createSquatDetector } from './squat.ts';
@@ -18,6 +19,7 @@ export const createSquatRouter: DetectorFactory = (p: BodyProfile, opts) => (opt
 
 export const LIBRARY_DETECTORS: DetectorRegistry = {
   squat: createSquatRouter,
+  armDirection: createArmDirectionDetector,
 };
 
 export const ALL_DETECTORS: DetectorRegistry = {
