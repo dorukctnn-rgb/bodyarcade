@@ -69,6 +69,8 @@ export interface BodyArcadeStore extends Store {
   clearAll(): number;
   /** The most recent problems, oldest first (kept short; for diagnostics and tests). */
   problems(): readonly StoreProblem[];
+  /** Lets modules built on the store (progress, legacy import, entitlements) log a problem next to the store's own. */
+  report(p: StoreProblem): void;
 }
 
 const NS_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
@@ -282,5 +284,6 @@ export function createStore(o: StoreOptions = {}): BodyArcadeStore {
       return keys.length;
     },
     problems: () => problemLog.slice(),
+    report,
   };
 }
