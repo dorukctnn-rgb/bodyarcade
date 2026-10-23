@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Road Run camera harness</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:1280px;height:720px}</style></head>
+<body>
+<canvas id="stage" width="1280" height="720"></canvas>
+<script type="module">
+  // The phase 2 gate run (code-audit 11.7): Road Run with the camera on, pose in its worker, the 3D view on the kit.
+  // A small bot (source 'test') keeps the runner alive so the run lasts its full length; the pose pipeline runs as in
+  // a real camera run. ?sec= sets the run length (default 30).
+  import { createSession } from '/packages/core/loop/session.ts';
+  import { createScene3D } from '/packages/core/render3d/scene3d.ts';
+  import { createCameraService } from '/packages/core/camera/camera.ts';
+  import { createPoseService } from '/packages/core/pose/service.ts';
+  import { webglRenderer } from '/packages/core/pose/landmarker.ts';
+  import { roadRunModule, manifest } from '/packages/games/road-run/index.ts';
+  import { botAction } from '/packages/games/runner/testing/bot.ts';
+
+  const sec = Number(new URLSearchParams(location.search).get('sec') || 30);
+  const canvas = document.getElementById('stage');
+  const kit = createScene3D({ canvas, mode: 'auto', level: 2, mobile: false, size: () => ({ width: 1280, height: 720 }) });
+  const games = [];
+  const base = roadRunModule({ ...manifest, durationSec: sec });
+  const module = { ...base, create: () => { const g = base.create(); games.push(g); return g; } };
+  const pose = createPoseService();
+  const camera = createCameraService();
+  const session = createSession({
+    games: () => module,
+    ui: () => ({
+      hud: { set() {}, announce() {}, toast() {} },
+      audio: { unlock() {}, play() {}, clock: () => ({ now: () => 0, schedule() {}, latencyMs: 0 }) },
+      store: { get: (_k, _s, f) => f, set() {}, remove() {} },
+      scene3d: kit,
+      t: (k) => k,
+    }),
+    camera, pose, poseLoad: { prefer: 'GPU', worker: 'auto' },
+    countdownMs: 1000, seed: () => 7, extraSources: ['test'],
+  });
+  const seen = { states: [], over: null, errors: [] };
+  const frames = [];
+  let last = 0;
+  const loop = (t) => {
+    if (session.state === 'running') {
+      if (last) frames.push(t - last);
+      const g = games.at(-1);
+      if (g?.run) {
+        const a = botAction(g.run, 'perfect');
+        g.__ctxInput?.inject('test', { channels: { lane: a.lane, crouch: a.crouch }, events: a.jump ? [{ id: 'jump', kind: 'rep', t: 0 }] : [] });
+      }
+    }
+    last = session.state === 'running' ? t : 0;
+    if (session.state !== 'results' && session.state !== 'error') requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+  // The bot needs the game's input hub: the session hands it to init(), so wrap init to keep it.
+  const create = module.create;
+  module.create = () => { const g = create(); const init = g.init.bind(g); g.init = async (ctx) => { g.__ctxInput = ctx.input; return init(ctx); }; return g; };
+  session.on('state', (s) => seen.states.push(s));
+  session.on('over', (s) => { seen.over = s; });
+  session.on('error', (e) => seen.errors.push(e));
+  window.ba = { session, kit, games, seen, frames, pose, camera, renderer: webglRenderer() };
+  window.harnessReady = true;
+</script>
+</body>
+</html>
