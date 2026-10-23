@@ -111,7 +111,7 @@ describe('sky behaviour', () => {
     const t = byId('sunset');
     const sky = buildSky(t, mulberry32(1), tracker);
     const y0 = sky.sunDir.y;
-    sky.setDay(t, 1);
+    sky.setDay(1);
     expect(sky.sunDir.y).toBeLessThanOrEqual(y0);
     expect(sky.material.uniforms['uSunDir']!.value).toBe(sky.sunDir);
     expect(sky.material.uniforms['uSunColor']!.value).toBe(sky.sunColor);

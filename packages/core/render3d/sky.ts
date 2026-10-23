@@ -50,7 +50,7 @@ export const DUSK_COLOR = '#ff9a5a';
 export const DAY_SINK = 0.2;
 export const DUSK_MIX = 0.16;
 
-const scratchDusk = new THREE.Color();
+const DUSK = new THREE.Color(DUSK_COLOR);
 const clamp01 = (k: number): number => Math.min(1, Math.max(0, k));
 
 /** The sun direction at a point of the day, k from 0 (as the theme says) to 1 (late): a little lower. Pure. */
@@ -60,9 +60,12 @@ export function dayDirection(theme: Theme, k: number, out: THREE.Vector3): THREE
   return out.set(base.x, y, base.z).normalize();
 }
 
-/** A sun or glow colour at a point of the day: a little warmer. Pure; writes into `out`. */
-export function dayColor(hex: string, k: number, out: THREE.Color): THREE.Color {
-  return out.set(hex).lerp(scratchDusk.set(DUSK_COLOR), DUSK_MIX * clamp01(k));
+/**
+ * A sun or glow colour at a point of the day: a little warmer. Pure; writes into `out`. Pass a THREE.Color for `base` in a
+ * frame loop (a hex string is parsed again on every call).
+ */
+export function dayColor(base: string | THREE.Color, k: number, out: THREE.Color): THREE.Color {
+  return (typeof base === 'string' ? out.set(base) : out.copy(base)).lerp(DUSK, DUSK_MIX * clamp01(k));
 }
 
 export interface SkyKit {
@@ -74,13 +77,14 @@ export interface SkyKit {
   /** Lightning: 0 (none) to 1 (full flash). */
   setFlash(v: number): void;
   /** The day: the sun direction and colour in the sky glow follow it. */
-  setDay(theme: Theme, k: number): void;
+  setDay(k: number): void;
   readonly sunDir: THREE.Vector3;
   readonly sunColor: THREE.Color;
 }
 
 /** Builds the sky for a theme. `rng` makes the horizon and the cloud spread the same every time. */
 export function buildSky(theme: Theme, rng: Rng, tracker: ResourceTracker): SkyKit {
+  const glowBase = new THREE.Color(theme.sky.sunGlow);
   const root = new THREE.Group();
   root.name = 'sky';
   const sunDir = sunDirection(theme);
@@ -142,6 +146,6 @@ export function buildSky(theme: Theme, rng: Rng, tracker: ResourceTracker): SkyK
       if (clouds) clouds.position.x = cameraPosition.x;
     },
     setFlash(v) { material.uniforms['uFlash']!.value = v; },
-    setDay(t, k) { dayDirection(t, k, sunDir); dayColor(t.sky.sunGlow, k, sunColor); },
+    setDay(k) { dayDirection(theme, k, sunDir); dayColor(glowBase, k, sunColor); },
   };
 }

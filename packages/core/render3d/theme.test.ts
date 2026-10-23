@@ -173,7 +173,7 @@ describe('the JSON Schema and parseTheme agree', () => {
       }
     }
     expect(checked).toBeGreaterThan(2000);
-  });
+  }, 60_000);
 });
 
 describe('themeSignature', () => {

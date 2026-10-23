@@ -149,6 +149,7 @@ interface World {
   baseHemi: number;
   baseAmbient: number;
   ambientColor: THREE.Color;
+  sunBase: THREE.Color;
   glowColor: THREE.Color | null;
   lightningRng: () => number;
   flash: number;
@@ -265,7 +266,7 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
     scene.add(root);
     const w: World = {
       theme, sig, tracker, root, sky, ground, scenery, weather, pickups, hemi, ambient, sun,
-      baseHemi: hemi.intensity, baseAmbient: ambient.intensity, ambientColor: new THREE.Color(theme.ambient),
+      baseHemi: hemi.intensity, baseAmbient: ambient.intensity, ambientColor: new THREE.Color(theme.ambient), sunBase: new THREE.Color(theme.sun.color),
       glowColor: theme.glow ? new THREE.Color(theme.glow) : null,
       lightningRng: rngStream(seed, `fx:lightning:${theme.id}`), flash: 0, elapsed: 0,
     };
@@ -296,8 +297,8 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
   }
 
   function applyDay(w: World, k: number): void {
-    w.sky.setDay(w.theme, k);
-    dayColor(w.theme.sun.color, k, w.sun.color);
+    w.sky.setDay(k);
+    dayColor(w.sunBase, k, w.sun.color);
   }
 
   function pixelRatio(): number {

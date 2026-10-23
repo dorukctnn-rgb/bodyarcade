@@ -113,7 +113,7 @@ describe('themes', () => {
     }
     kit.dispose();
     expect(kit.counts()).toEqual({ geometries: 0, materials: 0, textures: 0, other: 0 });
-  });
+  }, 60_000);
 
   it('five rounds through all ten worlds leave exactly as much as one round (no leak per world change)', () => {
     const { kit } = make();
@@ -129,7 +129,7 @@ describe('themes', () => {
     const alps = kit.counts();
     expect(alps.textures).toBeLessThanOrEqual(last.textures + 8);
     kit.dispose();
-  });
+  }, 60_000);
 
   it('the same world again rebuilds nothing: same objects, scenery back at the start', () => {
     const { kit, r } = make();

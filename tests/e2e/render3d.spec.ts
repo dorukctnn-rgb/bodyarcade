@@ -34,10 +34,12 @@ const BUDGET = {
   // 23k to 114k triangles at its top level). Headroom is about one third, so a regression shows.
   calls: { 0: 55, 1: 55, 2: 55 },
   triangles: { 0: 50_000, 1: 50_000, 2: 50_000 },
-  // CPU side at 4x throttling, measured: update p50 0.2-0.4 ms (p95 up to 2), submit p50 3.5-7.5 ms. p95 of the submit
-  // is not judged: software GL stalls the page now and then (6 to 30 ms), a phone's GPU driver does not.
-  updateMs: 4,
-  renderMs: 10,
+  // CPU side at 4x throttling, measured over four runs (with other builds running on the machine, so the tails are noisy):
+  // update p50 0.1-0.4 ms, p95 0.4-6.1 ms; submit p50 2.4-9 ms. p95 of the submit is not judged: software GL stalls the page
+  // now and then (6 to 43 ms), a phone's GPU driver does not.
+  updateP50Ms: 1.5,
+  updateMs: 8,
+  renderMs: 12,
 } as const;
 
 const within = (a: number, b: number, share: number): boolean => Math.abs(a - b) <= Math.max(1, Math.abs(a) * share);
@@ -137,7 +139,8 @@ test('frame cost of the kit at 4x CPU throttling', async ({ page }) => {
   for (const r of rows) {
     const tag = `${r.world} T${r.level}`;
     // The kit's own CPU work in one frame at 4x throttling must leave most of a 16.7 ms frame to the game and the pose model.
-    expect(r.updateP95, `${tag} update`).toBeLessThan(BUDGET.updateMs);
+    expect(r.updateP50, `${tag} update (median)`).toBeLessThan(BUDGET.updateP50Ms);
+    expect(r.updateP95, `${tag} update (p95)`).toBeLessThan(BUDGET.updateMs);
     expect(r.renderP50, `${tag} render submit (median)`).toBeLessThan(BUDGET.renderMs);
   }
   expect(errorsOf(page)).toEqual([]);

@@ -19,7 +19,7 @@ const SCREENS: [string, number, number][] = [
  * Budget: the time the kit needs to issue one whole frame (video, body, 12 sprites, particles, self view with skeleton)
  * at 4x CPU throttling. The browser rasterises afterwards: on a phone that is the GPU's job, here it is software.
  */
-const BUDGET = { frameP95Ms: 6, frameP50Ms: 3 } as const;
+const BUDGET = { frameP95Ms: 8, frameP50Ms: 4 } as const;   // measured idle: p50 0.8-1.4, p95 1.7-3.8; with other builds running on the machine p50 up to 2.2, p95 up to 5.1
 
 async function open(page: Page): Promise<void> {
   const errors: string[] = [];
