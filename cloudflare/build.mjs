@@ -16,6 +16,11 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.cpSync(site, out, { recursive: true, filter: (src) => path.relative(site, src) !== 'BodyArcade.html' });
 fs.copyFileSync(path.join(site, 'BodyArcade.html'), path.join(out, 'bodyarcade.html'));
 fs.cpSync(overlay, out, { recursive: true });
+// The rule files must be LF-only whatever the checkout's line-ending setting (Windows git may hand out CRLF).
+for (const f of ['_headers', '_redirects']) {
+  const p = path.join(out, f);
+  fs.writeFileSync(p, fs.readFileSync(p, 'utf8').split('\r\n').join('\n'));
+}
 
 const count = (d) => fs.readdirSync(d, { withFileTypes: true }).reduce((n, e) => n + (e.isDirectory() ? count(path.join(d, e.name)) : 1), 0);
 const must = ['index.html', 'bodyarcade.html', 'sw.js', 'robots.txt', 'sitemap.xml', '_headers', '_redirects', '.well-known/assetlinks.json'];
