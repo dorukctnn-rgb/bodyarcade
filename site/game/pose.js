@@ -20,12 +20,34 @@ export const THRESH = {
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+// Calibration needs about ten pose results a second (twelve steady samples inside 1.2 s). Below that it
+// never finishes, so after a while the player is told why and offered the keyboard instead of staring at
+// "Hold still" for ever (23 Oct 2026 audit, B7). `fps` is what the pose model has really processed.
+export const MIN_POSE_FPS = 10;
+export function calibrationNotice(fps, waitedSeconds) {
+  if (waitedSeconds < 10) return null;
+  if (fps < MIN_POSE_FPS) {
+    return { slow: true, text: fps >= 1
+      ? `This device is processing only about ${Math.round(fps)} camera pictures a second, too few to follow your moves. Close other tabs and apps, or continue with the keyboard.`
+      : 'No camera pictures are reaching the game. Check that no other app is using the camera, or continue with the keyboard.' };
+  }
+  if (waitedSeconds >= 20) return { slow: false, text: 'We still can’t get a steady reading. Make sure your head and hips are in view and the room is lit, or continue with the keyboard.' };
+  return null;
+}
+
+const cameraCancelled = () => Object.assign(new Error('The camera start was cancelled.'), { name: 'AbortError', cancelled: true });
+
 export class PoseTracker {
   constructor(video, input) {
     this.video = video;
     this.input = input;
     this.landmarker = null;
     this.stream = null;
+    this._camGen = 0;               // bumped by stopCamera(): a camera answer that arrives afterwards is discarded
+    this._camPending = null;        // the startCamera() in flight, shared by concurrent callers
+    this._abortWait = null;         // lets stopCamera() end the wait for the first video frame
+    this._loopId = 0;               // bumped by start() and stop(): an older detection loop ends itself
+    this.onCameraEnded = null;      // callback(): a live camera track ended (unplugged, permission withdrawn, taken by the system)
     this.landmarks = null;          // last normalized landmarks (for the preview)
     this.base = null;               // calibration baseline
     this.signals = { hipRise: 0, crouch: 0, lean: 0, visible: false };
@@ -44,7 +66,10 @@ export class PoseTracker {
   async load(onStatus = () => {}) {
     if (this.landmarker) return;
     onStatus('Loading pose model…');
-    const vision = await import(/* @vite-ignore */ MP_BUNDLE);
+    let vision;
+    // The browser remembers a failed module address, so the second try asks for the same file with a new query.
+    try { vision = await import(/* @vite-ignore */ MP_BUNDLE + (this._bundleTries ? '?retry=' + this._bundleTries : '')); }
+    catch (e) { this._bundleTries = (this._bundleTries || 0) + 1; throw e; }
     const fileset = await vision.FilesetResolver.forVisionTasks(MP_WASM);
     const make = (delegate) => vision.PoseLandmarker.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: MODEL_URL, delegate },
@@ -57,27 +82,63 @@ export class PoseTracker {
     onStatus('Pose model ready');
   }
 
-  async startCamera() {
-    if (this.stream) return this.stream;
-    const constraints = { audio: false, video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } } };
-    this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-    this.video.srcObject = this.stream;
-    this.video.muted = true; this.video.playsInline = true;
-    await this.video.play().catch(() => {});
-    await new Promise((res) => { if (this.video.readyState >= 2) res(); else this.video.onloadeddata = () => res(); });
-    return this.stream;
+  // 'none': not open (never started, or released). 'live': a video track is running. 'ended': it was
+  // open and every track has since ended, so the stream is dead and must be asked for again (audit B8).
+  cameraState() {
+    if (!this.stream) return 'none';
+    return this.stream.getVideoTracks().some((t) => t.readyState === 'live') ? 'live' : 'ended';
   }
 
-  stopCamera() {
-    if (this.stream) { for (const t of this.stream.getTracks()) t.stop(); this.stream = null; }
+  // Opens the camera, or returns the live stream. A stream whose tracks have ended is dropped and asked
+  // for again. If stopCamera() is called before the browser answers (Back during the permission prompt,
+  // audit B9), the stream that arrives later is stopped at once and this rejects with { cancelled: true }.
+  async startCamera() {
+    const state = this.cameraState();
+    if (state === 'live') return this.stream;
+    if (this._camPending) return this._camPending;
+    if (state === 'ended') this._dropStream();
+    const p = this._openCamera(this._camGen).finally(() => { if (this._camPending === p) this._camPending = null; });
+    this._camPending = p;
+    return p;
+  }
+
+  async _openCamera(gen) {
+    const constraints = { audio: false, video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } } };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (gen !== this._camGen) { for (const t of stream.getTracks()) t.stop(); throw cameraCancelled(); }
+    this.stream = stream;
+    for (const t of stream.getVideoTracks()) t.addEventListener('ended', () => { if (this.stream === stream && this.onCameraEnded) this.onCameraEnded(); });
+    this.video.srcObject = stream;
+    this.video.muted = true; this.video.playsInline = true;
+    await this.video.play().catch(() => {});
+    if (gen !== this._camGen) throw cameraCancelled(); // stopCamera() came while play() was starting: there is no first frame to wait for
+    await new Promise((res) => { if (this.video.readyState >= 2) res(); else { this.video.onloadeddata = () => res(); this._abortWait = res; } });
+    this._abortWait = null;
+    if (gen !== this._camGen) throw cameraCancelled();
+    return stream;
+  }
+
+  _dropStream() {
+    const s = this.stream; this.stream = null;
+    if (s) for (const t of s.getTracks()) { try { t.stop(); } catch {} }
     this.video.srcObject = null;
+  }
+
+  // Releases the camera for good: every track stops (the light goes off), and a request still waiting for
+  // the browser's answer is cancelled.
+  stopCamera() {
+    this._camGen++;
+    this._camPending = null;
+    if (this._abortWait) { this._abortWait(); this._abortWait = null; }
+    this._dropStream();
   }
 
   start() {
     if (this._running) return;
     this._running = true;
+    const loop = ++this._loopId;
     const step = () => {
-      if (!this._running) return;
+      if (!this._running || loop !== this._loopId) return;
       if (!this.injected && this.landmarker && this.video.readyState >= 2) {
         const now = performance.now();
         if (now > this._lastTs) {
@@ -94,7 +155,7 @@ export class PoseTracker {
     };
     step();
   }
-  stop() { this._running = false; }
+  stop() { this._running = false; this._loopId++; }
 
   // Test hook: feed landmarks directly (same math as the live path).
   inject(lm, t = performance.now() / 1000) { this.injected = true; this.process(lm, t); }

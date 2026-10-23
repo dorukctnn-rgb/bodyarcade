@@ -7,7 +7,7 @@
   "assets": {
     "directory": "./.cf-dist",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "none"
+    "not_found_handling": "404-page"
   },
   "routes": [{ "pattern": "bodyarcade.com", "custom_domain": true }],
   // The production site answers on bodyarcade.com only (the workers.dev copy would be duplicate content).

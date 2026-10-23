@@ -10,6 +10,13 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(self), microphone=()"
+    # Report-only: the browser logs what the policy would block (DevTools console) and blocks nothing.
+    # Switch the name to Content-Security-Policy once normal visits, a camera run and a Pro activation
+    # show no reports. 'sha256-...' is the one inline script every page has
+    # (document.documentElement.classList.add('js')); 'wasm-unsafe-eval' is for the MediaPipe WASM.
+    # When the pose model is self-hosted, drop cdn.jsdelivr.net and storage.googleapis.com.
+    # Keep cloudflare/overlay/_headers (PR #14) in step with this line.
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-Du+OJKJSbdUgz5nrHeWWINvez6XKDDU/tyj/5c2uvwo=' https://cdn.jsdelivr.net https://plausible.io; connect-src 'self' https://api.gumroad.com https://plausible.io https://cdn.jsdelivr.net https://storage.googleapis.com; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
 
 # HTML, the service worker and un-fingerprinted scripts/styles must revalidate so
 # every player gets a new build on the next load. Pages reference ba.css/app.js with
