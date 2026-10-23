@@ -7,8 +7,9 @@
 // - summary(): metSeconds = MET x simulated seconds (B22: calories are derived from it, never invented here); `log`
 //   lets a room recompute the score.
 // - render(alpha): the HUD (score, time, lives, combo, the next move) and, when there is a 3D scene, the view.
-import type { Game, GameContext, GameEvent, GameManifest, InputFrame, RunSummary, StartOptions, StepResult } from '../../core/types/index.ts';
+import type { Game, GameContext, GameEvent, GameManifest, InputFrame, RunSummary, StartOptions, StepResult, ThemeData } from '../../core/types/index.ts';
 import { buildCourse, DIFFS, MOVES, Run, type Course, type MoveId, type ObstacleType, type RunInput } from './sim.ts';
+import { poseOf, type RunnerPose, type RunnerView } from './view.ts';
 
 /** Seated variant: what each obstacle becomes (no jumping, no deep squat). */
 export const SEATED_SWAP: Partial<Record<ObstacleType, ObstacleType>> = { hurdle: 'duck', squat: 'duck' };
@@ -20,15 +21,20 @@ export function seatedCourse(c: Course): Course {
   return { obstacles: c.obstacles.map((o) => ({ ...o, type: SEATED_SWAP[o.type] ?? o.type })), coins: c.coins.map((r) => ({ ...r })) };
 }
 
-/** What the 3D view needs each frame (render3d kit, packages/games/runner/view.ts). */
-export interface RunnerView {
-  render(run: Run, alpha: number): void;
-  dispose(): void;
-}
-
 export interface RunnerOptions {
   /** Builds the 3D view when the context has a scene (left out: HUD only). */
   view?: (ctx: GameContext) => RunnerView | null;
+  /** The worlds a run can take place in; start() uses StartOptions.world, else a free world picked by the seed. */
+  worlds?: readonly ThemeData[];
+}
+
+/** The world of a run: the one asked for when it exists, else a free world chosen by the seed. */
+export function pickWorld(worlds: readonly ThemeData[], seed: number, wanted?: string): ThemeData | null {
+  const asked = wanted ? worlds.find((w) => w.id === wanted) : undefined;
+  if (asked) return asked;
+  const free = worlds.filter((w) => w['free'] === true);
+  const pool = free.length ? free : worlds;
+  return pool.length ? (pool[(seed >>> 0) % pool.length] as ThemeData) : null;
 }
 
 interface Snapshot { v: 1; opts: StartOptions; course: Course; run: Record<string, unknown>; log: RunSummary['log'] }
@@ -51,6 +57,7 @@ export function createRunnerGame(manifest: GameManifest, o: RunnerOptions = {}):
   let opts: StartOptions | null = null;
   let course: Course | null = null;
   let log: RunSummary['log'] = [];
+  let prev: RunnerPose | null = null;
   const shown = new Map<string, string | number>();
 
   const need = (): Run => {
@@ -91,8 +98,11 @@ export function createRunnerGame(manifest: GameManifest, o: RunnerOptions = {}):
       const made = buildCourse(ctx.rng('course'), diffOf(s.difficulty), manifest.durationSec);
       course = s.seated ? seatedCourse(made) : made;
       run = makeRun(s, course);
+      prev = poseOf(run);
       log = [];
       shown.clear();
+      const world = view ? pickWorld(o.worlds ?? [], s.seed, s.world) : null;
+      if (view && world) view.begin(world);
     },
 
     step(dt: number, input: InputFrame): StepResult {
@@ -102,6 +112,7 @@ export function createRunnerGame(manifest: GameManifest, o: RunnerOptions = {}):
       const crouch = Math.max(0, Math.min(1, input.channels.crouch ?? 0));
       const ri: RunInput = { lane, crouch, consumeJump: () => { const j = jump; jump = false; return j; } };
       const out: GameEvent[] = [];
+      prev = poseOf(r);
       for (const e of r.update(dt, ri)) {
         switch (e.type) {
           case 'pass':
@@ -132,7 +143,7 @@ export function createRunnerGame(manifest: GameManifest, o: RunnerOptions = {}):
     render(alpha: number): void {
       const r = run;
       if (!r) return;
-      view?.render(r, alpha);
+      view?.render(r, prev ?? poseOf(r), alpha);
       hud('score', Math.round(r.score));
       hud('timer', Math.max(0, Math.ceil(r.duration - r.t)));
       hud('lives', r.hearts);
@@ -155,6 +166,7 @@ export function createRunnerGame(manifest: GameManifest, o: RunnerOptions = {}):
       const r = makeRun(opts, course);
       Object.assign(r, JSON.parse(JSON.stringify(snap.run)) as Partial<Run>);
       run = r;
+      prev = poseOf(r);
       log = snap.log.map((e) => ({ ...e }));
       shown.clear();
     },

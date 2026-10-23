@@ -48,6 +48,8 @@ export interface StartOptions {
   profile: BodyProfile | null;
   /** Mode 'local2': each player's calibration (profile is then Player 1's). */
   profiles?: Partial<Record<PlayerSlot, BodyProfile>>;
+  /** The world (theme id) the player chose, for games with worlds; a game picks one itself when it is missing. */
+  world?: string;
 }
 
 export type GameEvent = { type: string; t: Ms; [k: string]: unknown };

@@ -23,6 +23,8 @@ export interface SessionOptions {
   difficulty: string;
   input: 'camera' | 'keyboard' | 'touch';
   seated: boolean;
+  /** The world (theme id) the player chose, passed on to Game.start. */
+  world?: string;
 }
 
 export interface SessionEvents {

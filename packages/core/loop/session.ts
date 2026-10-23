@@ -346,6 +346,7 @@ export function createSession(deps: SessionDeps): Session {
       const o = r.options;
       const start: Parameters<Game['start']>[0] = { seed: r.seed, difficulty: o.difficulty, seated: o.seated, mode: o.mode, profile: profiles?.[1] ?? null };
       if (r.players === 2 && profiles) start.profiles = profiles;
+      if (o.world !== undefined) start.world = o.world;
       game.start(start);
       r.started = true;
       r.clock.reset();
