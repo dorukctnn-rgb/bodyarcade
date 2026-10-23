@@ -1,0 +1,108 @@
+[
+ {
+  "page": "step-1",
+  "breakpoint": "phone-390",
+  "ms": 4352,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-phone-390.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "phone-390",
+  "ms": 1134,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-phone-390.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "phone-390",
+  "ms": 863,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-phone-390.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "phone-390",
+  "ms": 973,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-phone-390.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "phone-390",
+  "ms": 833,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-phone-390.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "phone-390",
+  "ms": 1174,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-phone-390.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "phone-390",
+  "ms": 966,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-phone-390.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "phone-390",
+  "ms": 740,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-phone-390.webp"
+ }
+]
