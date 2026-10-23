@@ -1,6 +1,43 @@
 // Local persistence (profile, runs, achievements, daily goal) and Pro licensing.
 // Nothing here talks to a server except Gumroad's public license check.
-const LS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
+
+// Everything read from localStorage is checked against the shape the code expects. A value that is
+// missing, unreadable or the wrong shape (a half-written save, an older build, a hand edit, another
+// script) counts as "not stored" and the default is used, so one damaged key can never throw at boot,
+// mid-run or on the results screen (23 Oct 2026 audit, B4). A bad value is left where it is and is
+// simply overwritten by the next save, so an older page never deletes data a newer build wrote.
+const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const str = (v, d = '') => (typeof v === 'string' ? v : d);
+const onlyNumbers = (o) => Object.fromEntries(Object.entries(o).filter(([, n]) => typeof n === 'number' && Number.isFinite(n)));
+const cleanRun = (r) => (isObj(r) && typeof r.score === 'number' && Number.isFinite(r.score) && typeof r.world === 'string'
+  ? { ...r, dist: num(r.dist), cleared: num(r.cleared), kcal: num(r.kcal), seconds: num(r.seconds), ts: num(r.ts), diff: str(r.diff) } : null);
+// Each entry returns the cleaned value, or null when the stored value is unusable.
+const SCHEMA = {
+  ba_profile: (v) => (isObj(v) ? { ...v, name: str(v.name).slice(0, 20), weight: num(v.weight) >= 25 && num(v.weight) <= 250 ? v.weight : 70 } : null),
+  ba_settings: (v) => (isObj(v) ? { ...v, world: str(v.world, 'alps'), diff: str(v.diff, 'medium'), sound: v.sound !== false, input: str(v.input, 'camera'), skin: str(v.skin, 'runner') } : null),
+  ba_daily: (v) => (isObj(v) ? onlyNumbers(v) : null),
+  // A licence is kept whenever it still has a key: a damaged timestamp only makes it due for a re-check.
+  ba_license: (v) => {
+    if (!isObj(v) || !str(v.key)) return null;
+    const l = { ...v, key: v.key, product: str(v.product), email: str(v.email), verifiedAt: num(v.verifiedAt) };
+    if (l.endsAt !== undefined && !(typeof l.endsAt === 'number' && Number.isFinite(l.endsAt))) delete l.endsAt;
+    return l;
+  },
+  ba_runs: (v) => (Array.isArray(v) ? v.map(cleanRun).filter(Boolean) : null),
+  ba_totals: (v) => (isObj(v) ? { ...v, runs: num(v.runs), kcal: num(v.kcal), cleared: num(v.cleared), seconds: num(v.seconds) } : null),
+  ba_best: (v) => (isObj(v) ? onlyNumbers(v) : null),
+  ba_achievements: (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : null),
+  ba_worlds: (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : null),
+  ba_daily_done: (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null),
+  ba_daily_streak: (v) => (isObj(v) ? { ...v, n: num(v.n), last: num(v.last) } : null),
+};
+const LS = (k, d) => {
+  let v;
+  try { const raw = localStorage.getItem(k); if (raw == null) return d; v = JSON.parse(raw); } catch { return d; }
+  const clean = SCHEMA[k] ? SCHEMA[k](v) : v;
+  return clean == null ? d : clean;
+};
 const SET = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 // Gumroad's license API refuses product_permalink for these products and needs product_id.
@@ -34,6 +71,10 @@ export function countRun() {
 export function runsLeft() { return isPro() ? Infinity : Math.max(0, DAILY_FREE_LIMIT - dailyRuns()); }
 
 // ── Pro license (Gumroad) ──
+const DAY = 86400000;
+// A licence stamped further ahead of the clock than this was not written by a check on this device
+// (23 Oct 2026 audit, B1: a far-future verifiedAt kept Pro on for ever). A few minutes of clock drift are forgiven.
+const CLOCK_SKEW = 10 * 60 * 1000;
 export function license() { return LS('ba_license', null); }
 export function isPro() {
   const l = license();
@@ -41,7 +82,8 @@ export function isPro() {
   // A cancelled monthly plan stays Pro until the paid period ends, and not a moment longer, even offline.
   if (l.endsAt && Date.now() >= l.endsAt) return false;
   const age = Date.now() - l.verifiedAt;
-  return age < 30 * 86400000; // re-verified in the background; 30-day offline grace
+  if (age < -CLOCK_SKEW) return false; // from the future: not Pro until Gumroad confirms the key again (refreshLicense does that at boot)
+  return age < 30 * DAY; // re-verified in the background; 30-day offline grace
 }
 
 // When a Gumroad membership ends, as a millisecond timestamp, or null while it simply renews.
@@ -59,37 +101,61 @@ export function subscriptionEnd(purchase) {
 }
 export function clearLicense() { try { localStorage.removeItem('ba_license'); } catch {} }
 
+// Why a check failed (`reason` on the result). Only Gumroad's own verdict on the key may remove a stored
+// licence: it is not found (a 404 JSON answer from every product), the purchase was refunded, charged back
+// or disputed, or the membership has ended. A network error, a 5xx or 429, a maintenance page, an HTML
+// body or any other answer that is not that verdict says nothing about the key, so Pro stays as it is
+// (23 Oct 2026 audit, B2: one bad answer at the daily check used to delete a paying player's key).
+const REMOVES_LICENSE = new Set(['not_found', 'refunded', 'ended']);
+const NO_ANSWER = { ok: false, reason: 'unavailable', transient: true, error: 'Gumroad isn’t answering properly right now. Try again in a few minutes.' };
+
 // Verifies a key against both products. No secret involved: Gumroad's verify endpoint is public.
 export async function verifyLicense(key, { increment = true } = {}) {
   key = String(key || '').trim();
-  if (!/^[A-Za-z0-9-]{8,}$/.test(key)) return { ok: false, error: 'That doesn’t look like a Gumroad license key.' };
+  if (!/^[A-Za-z0-9-]{8,}$/.test(key)) return { ok: false, reason: 'format', error: 'That doesn’t look like a Gumroad license key.' };
   let lastErr = 'License key not found.';
+  let notFoundEverywhere = true;
   for (const [id, p] of Object.entries(GUMROAD)) {
+    let res;
     try {
       const body = new URLSearchParams({ product_id: p.productId, license_key: key, increment_uses_count: increment ? 'true' : 'false' });
-      const res = await fetch('https://api.gumroad.com/v2/licenses/verify', { method: 'POST', body });
-      const j = await res.json().catch(() => ({}));
-      if (!j.success) { lastErr = j.message || lastErr; continue; }
-      const pu = j.purchase || {};
-      if (pu.refunded || pu.chargebacked || pu.disputed) return { ok: false, error: 'This purchase was refunded.' };
+      res = await fetch('https://api.gumroad.com/v2/licenses/verify', { method: 'POST', body });
+    } catch { return { ok: false, reason: 'network', network: true, error: 'Couldn’t reach Gumroad. Check your connection and try again.' }; }
+    let j = null;
+    try { j = await res.json(); } catch {}
+    if (!isObj(j)) return { ...NO_ANSWER };
+    if (res.ok && j.success === true) {
+      const pu = isObj(j.purchase) ? j.purchase : {};
+      if (pu.refunded || pu.chargebacked || pu.disputed) return { ok: false, reason: 'refunded', error: 'This purchase was refunded.' };
       const endsAt = subscriptionEnd(pu);
-      if (endsAt !== null && endsAt <= Date.now()) return { ok: false, error: 'This subscription has ended. Renew it on Gumroad to keep Pro.' };
+      if (endsAt !== null && endsAt <= Date.now()) return { ok: false, reason: 'ended', error: 'This subscription has ended. Renew it on Gumroad to keep Pro.' };
       const l = { key, product: id, verifiedAt: Date.now(), email: pu.email ? String(pu.email).replace(/(.{2}).+(@.+)/, '$1…$2') : '' };
       if (endsAt !== null) l.endsAt = endsAt;
       SET('ba_license', l);
       return { ok: true, license: l };
-    } catch (e) { lastErr = 'Couldn’t reach Gumroad. Check your connection and try again.'; return { ok: false, error: lastErr, network: true }; }
+    }
+    // Gumroad's own "no": a 4xx JSON answer with success:false (404 = no such license for this product).
+    if (j.success === false && res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+      if (res.status !== 404) notFoundEverywhere = false;
+      if (typeof j.message === 'string' && j.message) lastErr = j.message;
+      continue;
+    }
+    return { ...NO_ANSWER };
   }
-  return { ok: false, error: lastErr };
+  return { ok: false, reason: notFoundEverywhere ? 'not_found' : 'rejected', error: lastErr };
 }
 // Silent re-check once a day, and as soon as a cancelled plan's paid period is over (it may have
-// been restarted since). Keeps the key if the network is down.
+// been restarted since) or the stored date is from the future. Keeps the key unless Gumroad itself
+// says it is gone, refunded or ended.
 export async function refreshLicense() {
-  const l = license(); if (!l || !l.key) return;
-  const periodOver = l.endsAt && Date.now() >= l.endsAt;
-  if (!periodOver && Date.now() - l.verifiedAt < 86400000) return;
-  const r = await verifyLicense(l.key, { increment: false });
-  if (!r.ok && !r.network) clearLicense();
+  try {
+    const l = license(); if (!l || !l.key) return;
+    const age = Date.now() - l.verifiedAt;
+    const periodOver = l.endsAt && Date.now() >= l.endsAt;
+    if (!periodOver && age >= -CLOCK_SKEW && age < DAY) return;
+    const r = await verifyLicense(l.key, { increment: false });
+    if (!r.ok && REMOVES_LICENSE.has(r.reason)) clearLicense();
+  } catch {}
 }
 
 // ── runs, bests, totals ──
@@ -181,7 +247,12 @@ export function worldsPlayed() { return LS('ba_worlds', []); }
 export function markWorld(id) { const w = worldsPlayed(); if (!w.includes(id)) { w.push(id); SET('ba_worlds', w); } return w; }
 
 // Evaluate everything after a run; returns newly unlocked achievement ids and daily info.
+// Never throws: saving is a bonus, and the results screen must show whatever happens to storage.
 export function afterRun(run) {
+  try { return evaluateRun(run); }
+  catch (e) { console.warn('BodyArcade could not save this run', e); return { news: [], daily: null }; }
+}
+function evaluateRun(run) {
   recordRun(run);
   const t = totals();
   const w = markWorld(run.world);
