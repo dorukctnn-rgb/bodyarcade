@@ -176,6 +176,8 @@ export interface FlightState {
   /** Distance travelled along the course, U. */
   scroll: number;
   phase: Phase;
+  /** Sets and rests: the level's own unless the caller asked for shorter ones (the end-to-end runs). */
+  plan: RoundPlan;
   round: RoundState;
   /** Seconds left of the get-ready pause between the warm-up and the first set (the bird floats back to the middle). */
   ready: number;
@@ -232,6 +234,8 @@ export interface FlightOptions {
   seated: boolean;
   /** The 'course' stream. */
   rng: Rng;
+  /** A shorter round for tests and tools. */
+  plan?: Partial<RoundPlan>;
 }
 
 export function createFlight(o: FlightOptions): FlightState {
@@ -239,7 +243,7 @@ export function createFlight(o: FlightOptions): FlightState {
   const lv = LEVELS[difficulty];
   const s: FlightState = {
     v: 1, difficulty, players: o.players, seated: o.seated,
-    t: 0, active: 0, scroll: 0, phase: o.players === 2 ? 'play' : 'warmup', round: newRound(), ready: 0,
+    t: 0, active: 0, scroll: 0, phase: o.players === 2 ? 'play' : 'warmup', plan: { ...planOf(lv), ...o.plan }, round: newRound(), ready: 0,
     warm: { t: 0, flapTimes: [], depths: [] },
     tempo: lv.tempo, need: lv.need, spacing: lv.speed * SPACING_PER_CYCLE * lv.tempo,
     course: makeCourse(o.rng, lv), cursor: 0, pipes: [],
@@ -254,8 +258,7 @@ export const levelFor = (s: FlightState): Level => LEVELS[s.difficulty];
 /** The columns of the set that is about to begin, starting `leadIn` seconds ahead. */
 function placeSet(s: FlightState): void {
   const lv = levelFor(s);
-  const plan = planOf(lv);
-  const span = Math.min(plan.setSec, 600);
+  const span = Math.min(s.plan.setSec, 600);
   const n = Math.ceil((span * lv.speed) / s.spacing) + 3;
   s.pipes = [];
   for (let i = 0; i < n; i++) {
@@ -444,7 +447,7 @@ export function stepFlight(s: FlightState, dt: number, ins: readonly LaneIn[]): 
       if (s.ready <= 1e-9) { s.ready = 0; s.phase = 'play'; s.round = newRound(); placeSet(s); out.push({ type: 'start', set: 1, tempo: s.tempo, need: s.need }); }
       return out;
     }
-    const ch = stepRound(planOf(lv), s.round, dt);
+    const ch = stepRound(s.plan, s.round, dt);
     if (ch === 'set') { placeSet(s); s.phase = 'play'; out.push({ type: 'start', set: s.round.set, tempo: s.tempo, need: s.need }); }
     return out;
   }
@@ -459,7 +462,7 @@ export function stepFlight(s: FlightState, dt: number, ins: readonly LaneIn[]): 
     if (!l.out) columns(s, i, out);
   }
   if (s.lanes.every((l) => l.out)) { s.phase = 'over'; out.push({ type: 'over' }); return out; }
-  const ch = stepRound(planOf(lv), s.round, dt);
+  const ch = stepRound(s.plan, s.round, dt);
   if (ch === 'rest') {
     s.phase = 'rest';
     s.pipes = [];
@@ -494,7 +497,7 @@ export function nextPipe(s: FlightState, i: number): Pipe | null {
 }
 
 /** Seconds left in the set or the rest. */
-export const timeLeft = (s: FlightState): number => phaseLeft(planOf(levelFor(s)), s.round);
+export const timeLeft = (s: FlightState): number => phaseLeft(s.plan, s.round);
 
 /** The points of the whole run, per lane. */
 export const totals = (s: FlightState): { score: number; passes: number; hits: number; flaps: number; bestStreak: number }[] =>

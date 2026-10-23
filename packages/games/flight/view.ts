@@ -14,7 +14,7 @@ import type { SelfView } from '../kit-g1/selfview.ts';
 import type { Say } from '../kit-g1/say.ts';
 import type { Rect, Stage } from '../kit-g1/stage.ts';
 import { BIOMES, BIRD, BIRD_P2, biomeAt, FONT, type Biome } from './content.ts';
-import { gapCentre, levelFor, planOf, timeLeft, WORLD, type FlightEvent, type FlightState, type LaneState } from './sim.ts';
+import { gapCentre, levelFor, timeLeft, WORLD, type FlightEvent, type FlightState, type LaneState } from './sim.ts';
 
 export interface FlightFrame {
   s: Readonly<FlightState>;
@@ -354,7 +354,7 @@ export function createFlightView(o: FlightViewOptions): FlightView {
       return;
     }
     if (s.phase === 'rest') {
-      const plan = planOf(levelFor(s));
+      const plan = s.plan;
       const h = px * 6.6;
       const cy = lane.y + lane.h * 0.3;
       plate(cx, cy, w, h);
@@ -370,7 +370,7 @@ export function createFlightView(o: FlightViewOptions): FlightView {
   }
 
   function setPips(lane: Rect, s: Readonly<FlightState>): void {
-    const plan = planOf(levelFor(s));
+    const plan = s.plan;
     if (plan.sets <= 1 || s.phase === 'warmup') return;
     const r = Math.max(4, lane.h * 0.009);
     const cx = lane.x + lane.w / 2;
