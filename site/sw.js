@@ -1,7 +1,7 @@
-// BodyArcade service worker (v20261023).
+// BodyArcade service worker (v20261023b).
 // Pages and scripts: network first, so a new build reaches every player on the next
 // load. Images, fonts, the 3D library and the pose model: cached after first use.
-const VERSION = '20261023';
+const VERSION = '20261023b';
 const CACHE = 'ba-' + VERSION;
 const STATIC = /\.(png|jpg|jpeg|webp|avif|svg|woff2|ico|mp4|webm)$/i;
 const LIB = /\/vendor\/|cdn\.jsdelivr\.net\/npm\/@mediapipe\/tasks-vision|storage\.googleapis\.com\/mediapipe-models\//;
