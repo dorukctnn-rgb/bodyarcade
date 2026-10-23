@@ -5,7 +5,7 @@
 import path from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { BREAKPOINTS } from '../tokens/layout.mjs';
+import { BREAKPOINTS, duoAvailable } from '../tokens/layout.mjs';
 import { startServer } from './serve.mjs';
 import { launch, saveShot } from './pw.mjs';
 
@@ -20,7 +20,8 @@ const SETS = {
   onboarding: {
     dir: 'onboarding',
     pages: [1, 2, 3, 4, 5, 6, 7].map((s) => ({ name: `step-${s}`, url: `design/onboarding/index.html?step=${s}&static=1&theme=${theme}` }))
-      .concat([{ name: 'step-7-done', url: `design/onboarding/index.html?step=7&done=1&static=1&theme=${theme}` }]),
+      .concat([{ name: 'step-7-done', url: `design/onboarding/index.html?step=7&done=1&static=1&theme=${theme}` },
+        { name: 'step-4-duo', url: `design/onboarding/index.html?step=4&players=2&device=tv&static=1&theme=${theme}`, when: duoAvailable }]),
     sizes: BREAKPOINTS,
   },
   kit: {
@@ -44,6 +45,7 @@ let failures = 0;
 try {
   for (const bp of S.sizes.filter((b) => !only || b.id === only)) {
     for (const p of S.pages) {
+      if (p.when && !p.when(bp)) continue;
       const ctx = await browser.newContext({ viewport: { width: bp.w, height: bp.h }, deviceScaleFactor: 1, colorScheme: theme });
       const page = await ctx.newPage();
       const errors = [];

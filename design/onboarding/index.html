@@ -21,7 +21,8 @@
 
 <script type="module">
 import { glyph, REGIONS } from '../brand/glyphs.mjs';
-import { cameraArt } from '../ui-kit/art.mjs';
+import { cameraArt, cameraArtDuo } from '../ui-kit/art.mjs';
+import { duoAvailable } from '../tokens/layout.mjs';
 
 const q = new URLSearchParams(location.search);
 const ob = document.getElementById('ob');
@@ -39,7 +40,11 @@ const state = {
   level: q.get('level') || 'steady',
   seated: q.has('seated'), quiet: q.has('quiet'),
   device: q.get('device') || 'phone',
+  players: +(q.get('players') || 1),
 };
+const bigScreen = () => duoAvailable({ w: innerWidth, h: innerHeight });
+if (!bigScreen()) state.players = 1;
+if (state.players === 2 && !['laptop', 'tv'].includes(state.device)) state.device = 'laptop';
 
 const ICON = {
   device: '<svg viewBox="0 0 36 36" aria-hidden="true"><rect x="9" y="4" width="18" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="18" cy="17" r="5" fill="#FF4F6E"/><path d="M15.6 17.2l1.7 1.7 3.2-3.4" fill="none" stroke="#1C1433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -52,6 +57,7 @@ const ICON = {
   phoneUp: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="5" y="1.5" width="8" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
   phoneSide: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="1.5" y="5" width="15" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
   laptop: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="3" y="3.5" width="12" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M1 14.5h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  tv: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="1.5" y="3" width="15" height="9.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M6 15.5h6M9 12.5v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
   tick: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4l2.6 2.6L11 4.6" fill="none" stroke="#1C1433" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   dots: '<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="3.5" cy="7" r="1.4" fill="#1C1433"/><circle cx="7" cy="7" r="1.4" fill="#1C1433"/><circle cx="10.5" cy="7" r="1.4" fill="#1C1433"/></svg>',
 };
@@ -61,6 +67,11 @@ const actions = (primary, back = true, extra = '') => `<div class="ob-actions">$
 const next = (label = 'Next') => `<button class="ba-btn ba-btn--primary ba-btn--lg" data-go="next" type="button">${label}</button>`;
 
 const LEVELS = [['gentle', 'Gentle', 'New to exercise or coming back'], ['steady', 'Steady', 'You move a few times a week'], ['strong', 'Strong', 'Ready for deep squats and fast rounds']];
+const DEVICE_TEXT_DUO = {
+  laptop: 'Stand side by side, <strong>about 1 m apart and 3 m</strong> from the laptop. Tilt the screen until the camera sees both of you, head to feet.',
+  tv: 'Put the camera on top of the TV. Stand side by side, <strong>about 1 m apart and 3 m</strong> from the screen.',
+};
+const deviceText = () => (state.players === 2 ? DEVICE_TEXT_DUO[state.device] : DEVICE_TEXT[state.device]);
 const DEVICE_TEXT = {
   phone: 'Stand the phone upright at hip height, <strong>2 to 3 m away</strong>, leaning on something steady.',
   phoneLand: 'Sideways shows more of the room. Step back to <strong>about 3 m</strong> so your feet stay in view.',
@@ -103,11 +114,12 @@ const STEPS = {
     </div>${actions(next())}`,
   4: () => `
     <div class="ob-scroll">${progress(4)}
-      <h2 class="ob-title">Clear about 2 metres around you.</h2>
+      <h2 class="ob-title">${state.players === 2 ? 'Clear about 3 metres for the two of you.' : 'Clear about 2 metres around you.'}</h2>
+      ${bigScreen() ? `<div class="ob-seg" role="radiogroup" aria-label="Players">${[[1, 'Just me'], [2, '2 players, one camera']].map(([n, name]) => `<button type="button" role="radio" data-players="${n}" aria-checked="${state.players === n}">${name}</button>`).join('')}</div>` : ''}
       <div class="ob-seg" role="radiogroup" aria-label="Device">
-        ${[['phone', 'Upright', ICON.phoneUp], ['phoneLand', 'Sideways', ICON.phoneSide], ['laptop', 'Laptop', ICON.laptop]].map(([id, name, ic]) => `<button type="button" role="radio" data-device="${id}" aria-checked="${state.device === id}">${ic}${name}</button>`).join('')}
+        ${(state.players === 2 ? [['laptop', 'Laptop', ICON.laptop], ['tv', 'TV', ICON.tv]] : [['phone', 'Upright', ICON.phoneUp], ['phoneLand', 'Sideways', ICON.phoneSide], ['laptop', 'Laptop', ICON.laptop]]).map(([id, name, ic]) => `<button type="button" role="radio" data-device="${id}" aria-checked="${state.device === id}">${ic}${name}</button>`).join('')}
       </div>
-      <p class="ob-text" id="devtext">${DEVICE_TEXT[state.device]}</p>
+      <p class="ob-text" id="devtext">${deviceText()}</p>
       <div class="ob-health"><b>Before you start.</b> Check with a doctor if you are pregnant, have a heart or joint condition, or feel pain when you move. Stop if you feel dizzy or a sharp pain. Children play with an adult nearby.</div>
     </div>${actions(next('I have the space'))}`,
   5: () => `
@@ -168,9 +180,10 @@ function drawLabels(l) {
     n.className = `ob-tag3d ${cls}`; n.textContent = text;
     n.style.left = `${Math.min(W - 70, Math.max(70, p.x * W))}px`; n.style.top = `${Math.max(36, p.y * H - 8)}px`;
   };
-  put('t-dist', l.distance, '2 to 3 m');
-  put('t-dev', l.device, state.device === 'laptop' ? 'Camera sees your feet' : 'Hip height', 'flush');
-  put('t-space', l.space, '1 m clear all round');
+  const duo = l.players === 2;
+  put('t-dist', l.distance, duo ? 'About 3 m' : '2 to 3 m');
+  put('t-dev', l.device, duo ? 'Camera sees both of you' : state.device === 'laptop' ? 'Camera sees your feet' : 'Hip height', 'flush');
+  put('t-space', l.space, duo ? '1 m apart' : '1 m clear all round');
   // Nudge labels apart if they touch.
   const tags = [...overlay.querySelectorAll('.ob-tag3d')];
   for (let i = 0; i < tags.length; i++) for (let j = 0; j < i; j++) {
@@ -216,6 +229,7 @@ async function renderStage() {
     if (st) {
       st.setRegions([...state.regions]);
       st.setDevice(state.device);
+      st.setPlayers(s === 4 ? state.players : 1);
       st.setStep(s === 7 ? 1 : s, { instant: isStatic, logoBand: s === 1 });
       if (isStatic) st.renderAt(+(q.get('t') || (s === 7 ? 1.7 : 1.7)));
       else { st.start(); autoTier(st); }
@@ -269,7 +283,12 @@ panel.addEventListener('click', (e) => {
   if (b.dataset.go === 'back') go(Math.max(1, state.step - 1));
   if (b.dataset.region) { const r = b.dataset.region; state.regions.has(r) ? state.regions.delete(r) : state.regions.add(r); b.setAttribute('aria-pressed', state.regions.has(r)); stage?.setRegions([...state.regions]); }
   if (b.dataset.level) { state.level = b.dataset.level; panel.querySelectorAll('[data-level]').forEach((x) => x.setAttribute('aria-checked', x === b)); document.getElementById('leveldesc').textContent = LEVELS.find((l) => l[0] === state.level)[2] + '.'; }
-  if (b.dataset.device) { state.device = b.dataset.device; panel.querySelectorAll('[data-device]').forEach((x) => x.setAttribute('aria-checked', x === b)); document.getElementById('devtext').innerHTML = DEVICE_TEXT[state.device]; stage?.setDevice(state.device); }
+  if (b.dataset.device) { state.device = b.dataset.device; panel.querySelectorAll('[data-device]').forEach((x) => x.setAttribute('aria-checked', x === b)); document.getElementById('devtext').innerHTML = deviceText(); stage?.setDevice(state.device); }
+  if (b.dataset.players) {
+    state.players = +b.dataset.players;
+    if (state.players === 2 && !['laptop', 'tv'].includes(state.device)) state.device = 'laptop';
+    renderPanel(); stage?.setDevice(state.device); stage?.setPlayers(state.players);
+  }
 });
 panel.addEventListener('change', (e) => { const m = e.target.dataset.mode; if (m) state[m] = e.target.checked; });
 

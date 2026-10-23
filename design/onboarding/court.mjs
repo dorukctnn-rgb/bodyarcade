@@ -238,6 +238,20 @@ export function createDevice(pal, kind = 'phone', orientation = 'portrait') {
     body.add(screen, lens);
     g.add(body, stand, foot);
     g.userData.lens = new THREE.Vector3(0, cy + h / 2 - 0.03, -0.02);
+  } else if (kind === 'tv') {
+    // A TV on a low cabinet with a small camera on top, facing the players.
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.36, 0.34), std('#C9B79C', 0.7));
+    cab.position.y = 0.18;
+    const screenBox = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.56, 0.035), std(pal.device, 0.35));
+    screenBox.position.y = 0.36 + 0.04 + 0.28;
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshBasicMaterial({ color: pal.screen }));
+    screen.position.z = 0.019; screenBox.add(screen);
+    const cam = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.035, 0.04), std('#0E0A1C', 0.4));
+    cam.position.y = 0.36 + 0.04 + 0.56 + 0.02;
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.04, 0.12), std(pal.device, 0.4));
+    leg.position.y = 0.38;
+    g.add(cab, screenBox, cam, leg);
+    g.userData.lens = new THREE.Vector3(0, 0.36 + 0.04 + 0.56 + 0.02, 0.03);
   } else {
     const table = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.04, 0.45), std('#C9B79C', 0.7));
     table.position.y = 0.5;

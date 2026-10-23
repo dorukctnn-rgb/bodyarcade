@@ -41,7 +41,7 @@ const block = [
   '',
   ...place,
   '',
-  `Rendered check: ${checks} layouts (10 screens x ${checks / 10} modes), ${failed} with problems. Screenshots: \`design/shots/hud/<mode>-<screen>.webp\`.`,
+  `Rendered check: ${checks} layouts (10 screens x 7 modes, plus the 2-player modes on the 4 big screens), ${failed} with problems. Screenshots: \`design/shots/hud/<mode>-<screen>.webp\`.`,
   '<!-- /generated:hud-tables -->',
 ].join('\n');
 
@@ -52,9 +52,19 @@ for (const b of BREAKPOINTS) {
 }
 const shellBlock = ['<!-- generated:shell-table -->', ...shell, '<!-- /generated:shell-table -->'].join('\n');
 
+const duo = ['| Screen | Shared self view | Player 1 score | Timer | Player 2 score | Command | Reasons |', '|---|---|---|---|---|---|---|'];
+for (const b of BREAKPOINTS) {
+  const d = find(b.id, 'duo');
+  if (!d) continue;
+  const R = d.rects;
+  duo.push(`| ${b.label} | ${rr(R.pip)} | ${rr(R.statusP1)} | ${rr(R.timer)} | ${rr(R.statusP2)} | ${d.commandFont} px | ${R.reasonP1.y + R.reasonP1.h <= R.pip.y + 1 ? 'lifted above the self view' : 'beside the self view'} |`);
+}
+const duoBlock = ['<!-- generated:duo-table -->', ...duo, '', `2-player check: ${report.filter((x) => x.mode.startsWith('duo')).length} layouts (duo and the "step back in" state on the 4 big screens), ${report.filter((x) => x.mode.startsWith('duo') && x.problems.length).length} with problems.`, '<!-- /generated:duo-table -->'].join('\n');
+
 const file = path.join(root, 'LAYOUT.md');
 const md = await readFile(file, 'utf8');
 const out = md.replace(/<!-- generated:hud-tables -->[\s\S]*<!-- \/generated:hud-tables -->/, block)
-  .replace(/<!-- generated:shell-table -->[\s\S]*<!-- \/generated:shell-table -->/, shellBlock);
+  .replace(/<!-- generated:shell-table -->[\s\S]*<!-- \/generated:shell-table -->/, shellBlock)
+  .replace(/<!-- generated:duo-table -->[\s\S]*<!-- \/generated:duo-table -->/, duoBlock);
 await writeFile(file, out);
 console.log('LAYOUT.md tables updated');

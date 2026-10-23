@@ -288,3 +288,65 @@ export function shellGrid({ w, h, insets = typicalInsets(w, h) }) {
     gap: Math.round(gap * 10) / 10, tile: Math.round(tile), tileArt: Math.round(tile * 0.75), nav, rail,
   };
 }
+
+// ---------------- 2 players, same camera ----------------
+// Web only, big screens only (tablet landscape, laptop, desktop, TV). Hidden in the Android
+// app and never offered on phones: two people need about 3 m and a wide frame.
+
+/** True when the screen may offer the 2-player same-camera mode. */
+export function duoAvailable({ w, h }) {
+  return deviceClass(w, h) !== 'phone' && w > h && w >= 1000;
+}
+
+/** Shared self view for two players: one wide camera frame that shows both. */
+export function duoPipSize({ w, h, camAspect = 16 / 9 }) {
+  let ph = clamp(90, 0.22 * h, 240);
+  let pw = ph * camAspect;
+  if (pw > 0.3 * w) { pw = 0.3 * w; ph = pw / camAspect; }
+  return { w: r(pw), h: r(ph), aspect: camAspect };
+}
+
+/**
+ * measured: { statusP1, statusP2, timer, command, reasonP1, reasonP2 } (rendered sizes)
+ * options.away: 'p1' | 'p2' | null (a player left the frame)
+ * Returns rects; play areas for each half; the shared self view at the bottom centre.
+ */
+export function placeHudDuo(viewport, measured, options = {}) {
+  const m = viewport.metrics ?? hudMetrics(viewport);
+  const { w, h, insets, margin, gap } = m;
+  const left = insets.left + margin, right = w - insets.right - margin;
+  const top = insets.top + margin, bottom = h - insets.bottom - margin;
+  const rects = {};
+  rects.statusP1 = { x: left, y: top, ...measured.statusP1 };
+  rects.statusP2 = { x: right - measured.statusP2.w, y: top, ...measured.statusP2 };
+  rects.timer = { x: r((left + right) / 2 - measured.timer.w / 2), y: top, ...measured.timer };
+  const rowBottom = top + Math.max(measured.statusP1.h, measured.statusP2.h, measured.timer.h);
+  rects.command = { x: r((left + right) / 2 - measured.command.w / 2), y: rowBottom + gap, ...measured.command };
+  const pip = duoPipSize({ w, h, camAspect: options.camAspect });
+  rects.pip = { x: r((left + right) / 2 - pip.w / 2), y: bottom - pip.h, w: pip.w, h: pip.h, corner: 'bottom-centre' };
+  // Reasons: beside the self view when they fit, otherwise lifted above it, one per side.
+  const sideW = (right - left - pip.w) / 2 - gap;
+  for (const [k, side] of [['reasonP1', 'left'], ['reasonP2', 'right']]) {
+    const rs = measured[k];
+    if (!rs) continue;
+    if (rs.w <= sideW) {
+      const x = side === 'left' ? left : right - rs.w;
+      rects[k] = { x: r(x), y: bottom - rs.h, ...rs, row: 'bottom' };
+    } else {
+      const x = side === 'left' ? left : right - rs.w;
+      rects[k] = { x: r(x), y: rects.pip.y - gap - rs.h, ...rs, row: 'lifted' };
+    }
+  }
+  const hudTop = rects.command.y + rects.command.h + gap;
+  const lowest = Math.min(rects.pip.y, ...['reasonP1', 'reasonP2'].filter((k) => rects[k]).map((k) => rects[k].y)) - gap;
+  const mid = (left + right) / 2;
+  rects.playP1 = { x: left, y: hudTop, w: mid - gap / 2 - left, h: Math.max(0, lowest - hudTop) };
+  rects.playP2 = { x: mid + gap / 2, y: hudTop, w: right - mid - gap / 2, h: Math.max(0, lowest - hudTop) };
+  if (options.away) {
+    const half = options.away === 'p2' ? rects.playP2 : rects.playP1;
+    const aw = Math.min(half.w - 2 * gap, measured.away?.w ?? half.w * 0.8);
+    const ah = measured.away?.h ?? 120;
+    rects.away = { x: r(half.x + (half.w - aw) / 2), y: r(half.y + (half.h - ah) / 2), w: r(aw), h: ah };
+  }
+  return { metrics: m, rects, pip };
+}

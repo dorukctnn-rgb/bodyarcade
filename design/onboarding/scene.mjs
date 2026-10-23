@@ -67,6 +67,21 @@ export function createStage(canvas, opts = {}) {
   mover.root.position.y = court.H;
   scene.add(mover.root);
 
+  // Player 2 for "2 players, same camera" (big screens): same character, sky accents.
+  const mover2 = createMover({ body: pal.body, head: pal.head, left: pal.right, right: pal.right, shoe: pal.right, highlight: pal.highlight });
+  mover2.root.position.set(0.62, court.H, 0);
+  mover2.root.visible = false;
+  scene.add(mover2.root);
+  const duoRings = new THREE.Group();
+  for (const [x, col] of [[-0.62, pal.left], [0.62, pal.right]]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.022, 6, 48), new THREE.MeshBasicMaterial({ color: col }));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(x, court.H + 0.012, 0);
+    duoRings.add(ring);
+  }
+  duoRings.visible = false;
+  scene.add(duoRings);
+  let players = 1;
+
   // 33 tracking points for step 2 (the same count as the pose model): face 11, body 22.
   const mGeo = new THREE.SphereGeometry(0.032, 10, 8);
   const mMat = new THREE.MeshBasicMaterial({ color: pal.line, toneMapped: false });
@@ -94,9 +109,11 @@ export function createStage(canvas, opts = {}) {
   const ghostMat = new THREE.MeshStandardMaterial({ color: pal.body, roughness: 0.6, transparent: true, opacity: 0.22, depthWrite: false });
 
   // Space and safety: device in front, sight cone, distance dashes.
-  const devices = { phone: createDevice(pal, 'phone', 'portrait'), phoneLand: createDevice(pal, 'phone', 'landscape'), laptop: createDevice(pal, 'laptop') };
+  const devices = { phone: createDevice(pal, 'phone', 'portrait'), phoneLand: createDevice(pal, 'phone', 'landscape'), laptop: createDevice(pal, 'laptop'), tv: createDevice(pal, 'tv') };
   for (const d of Object.values(devices)) { d.position.set(0, court.H, 2.45); d.scale.setScalar(1.5); d.visible = false; scene.add(d); }
   devices.laptop.rotation.y = Math.PI;
+  devices.tv.rotation.y = Math.PI;
+  devices.tv.scale.setScalar(1.25);
   // Field of view of the device camera: apex at the lens, opening towards the player.
   const cone = new THREE.Mesh(new THREE.ConeGeometry(1.15, 2.3, 40, 1, true), new THREE.MeshBasicMaterial({ color: pal.arc, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false }));
   cone.rotation.x = Math.PI / 2; cone.visible = false;
@@ -183,7 +200,9 @@ export function createStage(canvas, opts = {}) {
     markerList.forEach((m) => { m.visible = skeleton; });
     if (n === 3) highlightRegions(mover, regions);
     const space = n === 4;
-    court.ring.visible = space; cone.visible = space; dist.visible = space;
+    court.ring.visible = space && players === 1; cone.visible = space; dist.visible = space;
+    mover2.root.visible = space && players === 2; duoRings.visible = space && players === 2;
+    if (!space) mover.root.position.x = 0; else mover.root.position.x = players === 2 ? -0.62 : 0;
     for (const [k, d] of Object.entries(devices)) d.visible = space && k === deviceKind;
     placeCone();
     court.stars.forEach((s) => { s.visible = n === 1; });
@@ -195,12 +214,25 @@ export function createStage(canvas, opts = {}) {
     const d = devices[deviceKind];
     const lens = d.userData.lens.clone().multiplyScalar(d.scale.x).applyEuler(d.rotation).add(d.position);
     const toward = new THREE.Vector3(0, 1.05, 0);
+    const baseR = players === 2 ? 1.55 : 1.05;
     const len = lens.distanceTo(toward);
     cone.geometry.dispose();
-    cone.geometry = new THREE.ConeGeometry(1.05, len, 40, 1, true);
+    cone.geometry = new THREE.ConeGeometry(baseR, len, 40, 1, true);
     cone.position.copy(lens).lerp(toward, 0.5);
     cone.lookAt(toward);
     cone.rotateX(-Math.PI / 2);
+  }
+
+  function setPlayers(n) {
+    players = n;
+    const duo = n === 2;
+    mover.root.position.x = duo ? -0.62 : 0;
+    mover2.root.visible = duo && step === 4;
+    duoRings.visible = duo && step === 4;
+    court.ring.visible = !duo && step === 4;
+    for (const d of Object.values(devices)) d.position.z = duo ? 3.05 : 2.45;
+    dist.position.x = duo ? -0.62 : 0; dist.scale.z = duo ? 1.25 : 1;
+    if (step === 4) { placeCone(); const f = fit(view); camTo = f; if (camT >= 1) { camera.position.copy(f.pos); camera.lookAt(f.target); } }
   }
 
   function setRegions(list) { regions = new Set(list); if (step === 3) highlightRegions(mover, regions); }
@@ -216,6 +248,7 @@ export function createStage(canvas, opts = {}) {
     clock += dt;
     const p = poseFor(clock);
     applyPose(mover, p);
+    if (mover2.root.visible) applyPose(mover2, poseFor(clock + 0.8));
     // Events in the hero loop drive the props.
     if (step === 1) {
       const lt = clock % HERO_LOOP.length;
@@ -254,9 +287,10 @@ export function createStage(canvas, opts = {}) {
     if (step !== 4) return null;
     const d = devices[deviceKind];
     return {
-      distance: project(new THREE.Vector3(0.62, court.H, 1.3)),
+      distance: project(new THREE.Vector3(players === 2 ? 0.0 : 0.62, court.H, players === 2 ? 1.6 : 1.3)),
+      players,
       device: project(new THREE.Vector3(d.position.x, d.position.y + (deviceKind === 'laptop' ? 0.8 : 1.15), d.position.z)),
-      space: project(new THREE.Vector3(1.0, court.H, -0.15)),
+      space: project(new THREE.Vector3(players === 2 ? 1.15 : 1.0, court.H, -0.15)),
     };
   }
 
@@ -283,7 +317,7 @@ export function createStage(canvas, opts = {}) {
     renderer, scene, camera,
     start() { if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); } },
     stop() { running = false; cancelAnimationFrame(raf); },
-    setStep, setRegions, setDevice,
+    setStep, setRegions, setDevice, setPlayers,
     setTier(n) { tier = n; applyTier(); },
     get tier() { return tier; },
     /** Deterministic render for capture: time in seconds since the loop start. */

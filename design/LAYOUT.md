@@ -117,7 +117,7 @@ The whole camera frame is fitted inside the play area (contain, centred). The sp
 | Laptop 1440 x 900 | 288 x 216 at 1125, 657 | in the top row | beside the self view | 207 x 156 at 27, 717 | 331 x 248 at 1082, 625 | fits the play area |
 | TV 1920 x 1080 at 2.5 m | 293 x 220 at 1499, 774 | in the top row | beside the self view | 211 x 158 at 128, 836 | 337 x 253 at 1455, 741 | fits the play area |
 
-Rendered check: 70 layouts (10 screens x 7 modes), 0 with problems. Screenshots: `design/shots/hud/<mode>-<screen>.webp`.
+Rendered check: 78 layouts (10 screens x 7 modes, plus the 2-player modes on the 4 big screens), 0 with problems. Screenshots: `design/shots/hud/<mode>-<screen>.webp`.
 <!-- /generated:hud-tables -->
 
 ## 10. Breakpoints: menus and catalogue (shell)
@@ -144,3 +144,27 @@ TV: a 1920 x 1080 browser can be a desk monitor or a TV across the room, and the
 ## 11. Onboarding and other full-screen steps
 
 Onboarding steps use the shell gutter and a fixed split: on portrait screens the 3D or illustration area takes the top 46 to 52 % of the height and the text block sits below it; on landscape screens the 3D area takes the left 55 % and the text block the right 45 %, vertically centred. The primary button is always visible without scrolling at every breakpoint above (checked by `design/tools/check-pages.mjs`).
+
+## 12. Two players, same camera (web, big screens only)
+
+Two people side by side in front of one camera (MediaPipe `numPoses: 2`). Offered only where `duoAvailable()` is true: a landscape screen at least 1000 px wide that is not a phone (tablet held sideways, laptop, desktop, TV). Hidden in the Android app and on every phone-sized browser screen; there is no phone layout for it.
+
+- Mode choice: tapping Play on a game opens "Who is playing?" with Just me, 2 players on this camera (only when available), Online with friends and Quick match. Games declare `local2`; a game without it shows the option disabled with the reason ("Pad Work is 1 player on one camera").
+- Player colours: Player 1 is always on the left in sun, Player 2 on the right in sky. The same left-sun, right-sky rule as the hand colours in solo play, so nobody has to relearn it. Colour is never alone: every plate also says "Player 1" or "Player 2" next to a figure.
+- HUD: Player 1 score top left, Player 2 score top right, the shared timer and pause top centre, the one command under it (both players do the same move). One reason strip per player at the bottom of their side.
+- Shared self view: one wide frame at the bottom centre that shows both people, each skeleton in the player colour, a dashed line down the middle. Height = clamp(90, 22 % of h, 240) x camera aspect (16:9 on most laptop and TV cameras), width capped at 30 % of w.
+- Play areas: the screen splits into two lanes with a 6 px chalk divider; each lane is half the play area (`rects.playP1`, `rects.playP2`). Both lanes run the same seed.
+- Player leaves the frame: their lane dims, a plate in their lane says "Player 2, step back in", the round pauses for both, and after 20 s the other player may go on alone (the count is on the plate). The tracker keeps the left and right assignment with hysteresis, so swapping places does not swap scores.
+- Framing and distance: both people fully visible, about 3 m from a laptop or TV camera, 1 m apart. The 2-player calibration shows two coloured outlines and checks each person separately (head, hands, feet).
+- Onboarding: the space and safety step shows two players and the 3 m distance in 3D when 2 players is chosen (only offered on big screens).
+
+<!-- generated:duo-table -->
+| Screen | Shared self view | Player 1 score | Timer | Player 2 score | Command | Reasons |
+|---|---|---|---|---|---|---|
+| Tablet landscape 1024 x 768 | 300 x 169 at 362, 576 | 157 x 58 at 23, 23 | 137 x 58 at 443, 23 | 159 x 58 at 842, 23 | 62 px | lifted above the self view |
+| Laptop 1280 x 800 | 313 x 176 at 484, 600 | 167 x 62 at 24, 24 | 146 x 62 at 567, 24 | 169 x 62 at 1087, 24 | 64 px | beside the self view |
+| Laptop 1440 x 900 | 352 x 198 at 544, 675 | 185 x 69 at 27, 27 | 163 x 69 at 638, 27 | 187 x 69 at 1225, 27 | 72 px | beside the self view |
+| TV 1920 x 1080 at 2.5 m | 422 x 238 at 749, 756 | 220 x 82 at 128, 86 | 193 x 82 at 863, 86 | 222 x 82 at 1569, 86 | 87 px | beside the self view |
+
+2-player check: 8 layouts (duo and the "step back in" state on the 4 big screens), 0 with problems.
+<!-- /generated:duo-table -->

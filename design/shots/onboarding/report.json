@@ -1,8 +1,114 @@
 [
  {
   "page": "step-1",
+  "breakpoint": "phone-360",
+  "ms": 2633,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-phone-360.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "phone-360",
+  "ms": 3462,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-phone-360.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "phone-360",
+  "ms": 1765,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-phone-360.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "phone-360",
+  "ms": 2029,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-phone-360.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "phone-360",
+  "ms": 1928,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-phone-360.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "phone-360",
+  "ms": 3083,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-phone-360.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "phone-360",
+  "ms": 1748,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-phone-360.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "phone-360",
+  "ms": 1427,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-phone-360.webp"
+ },
+ {
+  "page": "step-1",
   "breakpoint": "phone-390",
-  "ms": 4352,
+  "ms": 1193,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -17,7 +123,7 @@
  {
   "page": "step-2",
   "breakpoint": "phone-390",
-  "ms": 1134,
+  "ms": 1078,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -32,7 +138,7 @@
  {
   "page": "step-3",
   "breakpoint": "phone-390",
-  "ms": 863,
+  "ms": 1601,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -47,7 +153,7 @@
  {
   "page": "step-4",
   "breakpoint": "phone-390",
-  "ms": 973,
+  "ms": 2277,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -62,7 +168,7 @@
  {
   "page": "step-5",
   "breakpoint": "phone-390",
-  "ms": 833,
+  "ms": 1949,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -77,7 +183,7 @@
  {
   "page": "step-6",
   "breakpoint": "phone-390",
-  "ms": 1174,
+  "ms": 1144,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-6-phone-390.webp"
@@ -85,7 +191,7 @@
  {
   "page": "step-7",
   "breakpoint": "phone-390",
-  "ms": 966,
+  "ms": 4142,
   "problems": [],
   "stats": null,
   "shot": "design/shots/onboarding/step-7-phone-390.webp"
@@ -93,7 +199,7 @@
  {
   "page": "step-7-done",
   "breakpoint": "phone-390",
-  "ms": 740,
+  "ms": 1625,
   "problems": [],
   "stats": {
    "frames": 0,
@@ -104,5 +210,913 @@
    "tier": 1
   },
   "shot": "design/shots/onboarding/step-7-done-phone-390.webp"
+ },
+ {
+  "page": "step-1",
+  "breakpoint": "phone-412",
+  "ms": 5416,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-phone-412.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "phone-412",
+  "ms": 1031,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-phone-412.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "phone-412",
+  "ms": 1065,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-phone-412.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "phone-412",
+  "ms": 1002,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-phone-412.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "phone-412",
+  "ms": 2036,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-phone-412.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "phone-412",
+  "ms": 1427,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-phone-412.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "phone-412",
+  "ms": 3266,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-phone-412.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "phone-412",
+  "ms": 1415,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-phone-412.webp"
+ },
+ {
+  "page": "step-1",
+  "breakpoint": "phone-land-844",
+  "ms": 1187,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-phone-land-844.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "phone-land-844",
+  "ms": 1096,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-phone-land-844.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "phone-land-844",
+  "ms": 1194,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-phone-land-844.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "phone-land-844",
+  "ms": 1260,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-phone-land-844.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "phone-land-844",
+  "ms": 1115,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-phone-land-844.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "phone-land-844",
+  "ms": 1225,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-phone-land-844.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "phone-land-844",
+  "ms": 1432,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-phone-land-844.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "phone-land-844",
+  "ms": 1206,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 33,
+   "triangles": 12314,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-phone-land-844.webp"
+ },
+ {
+  "page": "step-1",
+  "breakpoint": "phone-land-915",
+  "ms": 1078,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-phone-land-915.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "phone-land-915",
+  "ms": 1182,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-phone-land-915.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "phone-land-915",
+  "ms": 1362,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-phone-land-915.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "phone-land-915",
+  "ms": 1524,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-phone-land-915.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "phone-land-915",
+  "ms": 1352,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-phone-land-915.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "phone-land-915",
+  "ms": 1493,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-phone-land-915.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "phone-land-915",
+  "ms": 1463,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-phone-land-915.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "phone-land-915",
+  "ms": 1140,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 33,
+   "triangles": 12314,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-phone-land-915.webp"
+ },
+ {
+  "page": "step-1",
+  "breakpoint": "tablet-768",
+  "ms": 1739,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-tablet-768.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "tablet-768",
+  "ms": 1187,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-tablet-768.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "tablet-768",
+  "ms": 1940,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-tablet-768.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "tablet-768",
+  "ms": 1370,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-tablet-768.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "tablet-768",
+  "ms": 1275,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-tablet-768.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "tablet-768",
+  "ms": 1404,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-tablet-768.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "tablet-768",
+  "ms": 1590,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-tablet-768.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "tablet-768",
+  "ms": 1319,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 33,
+   "triangles": 12314,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-tablet-768.webp"
+ },
+ {
+  "page": "step-1",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1449,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-tablet-land-1024.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1671,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-tablet-land-1024.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1579,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-tablet-land-1024.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1794,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-tablet-land-1024.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1300,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-tablet-land-1024.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1273,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-tablet-land-1024.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1628,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-tablet-land-1024.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1181,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-tablet-land-1024.webp"
+ },
+ {
+  "page": "step-4-duo",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1492,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 54,
+   "triangles": 17000,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-duo-tablet-land-1024.webp"
+ },
+ {
+  "page": "step-1",
+  "breakpoint": "laptop-1280",
+  "ms": 1555,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-laptop-1280.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "laptop-1280",
+  "ms": 1441,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-laptop-1280.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "laptop-1280",
+  "ms": 1254,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-laptop-1280.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "laptop-1280",
+  "ms": 1466,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-laptop-1280.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "laptop-1280",
+  "ms": 1510,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-laptop-1280.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "laptop-1280",
+  "ms": 1384,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-laptop-1280.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "laptop-1280",
+  "ms": 1703,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-laptop-1280.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "laptop-1280",
+  "ms": 1113,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-laptop-1280.webp"
+ },
+ {
+  "page": "step-4-duo",
+  "breakpoint": "laptop-1280",
+  "ms": 1173,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 54,
+   "triangles": 17000,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-duo-laptop-1280.webp"
+ },
+ {
+  "page": "step-1",
+  "breakpoint": "laptop-1440",
+  "ms": 1095,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-laptop-1440.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "laptop-1440",
+  "ms": 1454,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-laptop-1440.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "laptop-1440",
+  "ms": 1313,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-laptop-1440.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "laptop-1440",
+  "ms": 1612,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-laptop-1440.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "laptop-1440",
+  "ms": 1201,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-laptop-1440.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "laptop-1440",
+  "ms": 1337,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-laptop-1440.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "laptop-1440",
+  "ms": 1785,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-laptop-1440.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "laptop-1440",
+  "ms": 1569,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-laptop-1440.webp"
+ },
+ {
+  "page": "step-4-duo",
+  "breakpoint": "laptop-1440",
+  "ms": 1451,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 54,
+   "triangles": 17000,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-duo-laptop-1440.webp"
+ },
+ {
+  "page": "step-1",
+  "breakpoint": "tv-1920",
+  "ms": 1396,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-1-tv-1920.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "tv-1920",
+  "ms": 1313,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-2-tv-1920.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "tv-1920",
+  "ms": 1089,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-3-tv-1920.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "tv-1920",
+  "ms": 1324,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-tv-1920.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "tv-1920",
+  "ms": 1193,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-5-tv-1920.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "tv-1920",
+  "ms": 1117,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-6-tv-1920.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "tv-1920",
+  "ms": 1438,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding/step-7-tv-1920.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "tv-1920",
+  "ms": 983,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 33,
+   "triangles": 12314,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-7-done-tv-1920.webp"
+ },
+ {
+  "page": "step-4-duo",
+  "breakpoint": "tv-1920",
+  "ms": 1142,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 54,
+   "triangles": 17000,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding/step-4-duo-tv-1920.webp"
  }
 ]
