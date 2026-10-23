@@ -191,6 +191,10 @@ a { color: inherit; }
 .res-notes { display: grid; gap: 8px; margin-top: 18px; }
 .res-notes div { padding: 12px 14px; border-radius: 12px; background: var(--ink-2); border: 1px solid var(--line); font-size: 15px; text-align: left; }
 .res-notes div b { color: var(--sun); }
+.res-notes .res-pro { border-color: rgba(255, 201, 60, 0.45); }
+.res-pro p { margin: 0; }
+.res-pro .res-pro-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-top: 12px; }
+.res-pro .pill-btn { display: inline-flex; align-items: center; text-decoration: none; }
 .results .cta { justify-content: center; margin-top: 28px; }
 .res-bests { margin: 34px auto 10px; text-align: left; max-width: 520px; }
 .res-bests h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
