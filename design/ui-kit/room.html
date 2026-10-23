@@ -30,7 +30,7 @@
 <body class="ba-app no-tabbar">
 <main class="ba-page" id="page"></main>
 <script type="module" data-wait>
-import { mountShell, pageHead, ICON, REACTIONS, avatar, artSrc, ready } from './shell.mjs';
+import { mountShell, pageHead, ICON, REACTIONS, avatar, artSrc, q, ready } from './shell.mjs';
 
 mountShell('friends');
 const seats = [
@@ -38,6 +38,9 @@ const seats = [
   { name: 'Elif', color: '#46B4FF', pose: 'reach', ready: true, cam: true },
   { name: 'Mert', color: '#FFC53A', pose: 'stand', ready: false, cam: false },
 ];
+// ?state=ready shows the moment everyone is ready and the host can start.
+const allReady = q.get('state') === 'ready';
+if (allReady) seats[2].ready = true;
 const tick = '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4l2.6 2.6L11 4.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const page = document.getElementById('page');
 page.innerHTML = `
@@ -68,7 +71,7 @@ page.innerHTML = `
         <ul class="k-feed" aria-label="Room messages"><li>${avatar('#46B4FF', 'reach')}<span><b>Elif</b> Ready when you are</span></li><li>${avatar('#FFC53A', 'stand')}<span><b>Mert</b> sent</span><span class="k-react">${REACTIONS.hand}</span></li></ul>
       </section>
     </div>
-    <div class="k-actionbar"><div class="k-actions"><button class="ba-btn ba-btn--primary ba-btn--lg is-waiting" type="button" disabled aria-disabled="true">Waiting for Mert</button><button class="ba-btn ba-btn--secondary ba-btn--lg" type="button">Remind Mert</button></div><p class="k-note">The round starts for everyone when all players are ready.</p></div>
+    <div class="k-actionbar">${allReady ? `<div class="k-actions"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button">${ICON.play}Start the round</button></div><p class="k-note">Everyone is ready. The round starts for all of you at once.</p>` : `<div class="k-actions"><button class="ba-btn ba-btn--primary ba-btn--lg is-waiting" type="button" disabled aria-disabled="true">Waiting for Mert</button><button class="ba-btn ba-btn--secondary ba-btn--lg" type="button">Remind Mert</button></div><p class="k-note">The round starts for everyone when all players are ready.</p>`}</div>
   </div>`;
 await ready();
 </script>

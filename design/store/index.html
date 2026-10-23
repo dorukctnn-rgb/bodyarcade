@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade store graphics</title>
+<meta name="description" content="Google Play listing graphics for BodyArcade: icon, feature graphic, six phone screenshots, and the rules behind them.">
+<link rel="stylesheet" href="../doc.css">
+<style>
+  .shots { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); }
+  .shots figure { margin: 0; }
+  .shots img { width: 100%; height: auto; border-radius: 14px; box-shadow: 0 0 0 1.5px var(--ba-border); display: block; }
+  .shots figcaption { margin-top: 8px; font-size: var(--ba-text-sm); color: var(--ba-text-muted); line-height: 1.4; }
+  .shots figcaption b { color: var(--ba-text); display: block; }
+  .icons { display: flex; flex-wrap: wrap; gap: 18px; align-items: end; }
+  .icons img { border-radius: 22%; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <div class="doc-top"><a href="../index.html"><img src="../brand/logo.svg" alt="BodyArcade design"></a><nav aria-label="Design"><a href="../index.html">Index</a><a href="../brand/index.html">Brand</a><a href="../art/index.html">Art</a><a href="index.html" aria-current="page">Store</a></nav></div>
+  <h1>Google Play graphics</h1>
+  <p class="intro">Daylight and flat colour in a category that is dark, neon and loud. Every image is rendered from the real product: the 3D court from onboarding and real screens from the UI kit, so the listing never promises something the app does not show.</p>
+
+  <h2>Feature graphic</h2>
+  <p class="lede">1024 x 500, 24-bit PNG. Headline and hero sit inside the middle 80 %, nothing important near the edges. The night version is for promotions and dark placements.</p>
+  <div class="doc-wide"><img src="export/feature-graphic.png" alt="Feature graphic: BodyArcade logo, Squat, jump, punch. The game moves when you do. A 3D player jumps on the court." width="1024" height="500"></div>
+  <div class="doc-wide" style="margin-top:14px;max-width:560px"><img src="export/feature-graphic-dark.png" alt="Feature graphic, night version" width="1024" height="500"></div>
+
+  <h2>Icon</h2>
+  <p class="lede">The flat mark ships as the icon: a person made of a stick and a ball, standing on the line. It reads at 48 px where a 3D render turns to mush, and it matches the favicon and the logo. 3D lives in the feature graphic and the screenshots.</p>
+  <div class="icons"><img src="../brand/png/play-icon-512.png" alt="App icon at 128 px" width="128" height="128"><img src="../brand/png/play-icon-512.png" alt="App icon at 64 px" width="64" height="64"><img src="../brand/png/play-icon-512.png" alt="App icon at 48 px" width="48" height="48"></div>
+  <div class="doc-wide" style="margin-top:14px"><img src="../brand/png/preview.png" alt="The adaptive icon under circle, squircle and rounded masks at 192 and 48 px, on light and dark" width="984" height="480"></div>
+
+  <h2>Phone screenshots</h2>
+  <p class="lede">1080 x 1920, in this order. One promise per image, a short caption that is true, the real screen rising from the bottom.</p>
+  <div class="shots">
+    <figure><img src="export/phone-1.png" alt="Screenshot 1" width="1080" height="1920"><figcaption><b>1. The promise</b>A real round of Squat Flap with the command plate.</figcaption></figure>
+    <figure><img src="export/phone-2.png" alt="Screenshot 2" width="1080" height="1920"><figcaption><b>2. Privacy</b>The camera turns you into points on the device.</figcaption></figure>
+    <figure><img src="export/phone-3.png" alt="Screenshot 3" width="1080" height="1920"><figcaption><b>3. The signature</b>Every miss has a reason, measured against your line.</figcaption></figure>
+    <figure><img src="export/phone-4.png" alt="Screenshot 4" width="1080" height="1920"><figcaption><b>4. Breadth</b>Short games by body region, with the 3D art.</figcaption></figure>
+    <figure><img src="export/phone-5.png" alt="Screenshot 5" width="1080" height="1920"><figcaption><b>5. Friends</b>Private rooms for up to four, camera sharing off by default.</figcaption></figure>
+    <figure><img src="export/phone-6.png" alt="Screenshot 6" width="1080" height="1920"><figcaption><b>6. For every home</b>Seated and quiet modes from the first minute.</figcaption></figure>
+  </div>
+
+  <h2>Rules</h2>
+  <ul class="doc-rules">
+    <li><span>No rankings, awards, prices or player counts in any image. No "free" badge on Pro features.</span></li>
+    <li><span>Captions are sentence case, one idea each, readable at thumbnail size; the flush underline marks the key words.</span></li>
+    <li><span>Only features that ship in this release appear. Two players on one camera is a big-screen feature, so it is not in the phone set.</span></li>
+    <li><span>The Turkish set reuses the same layouts with the Turkish strings; each locale gets its own render, never text pasted over an English image.</span></li>
+    <li><span>Re-render after any UI change: <code>node design/tools/render-store.mjs</code>. Icons: <code>node design/tools/render-brand.mjs</code>.</span></li>
+  </ul>
+</main>
+</body>
+</html>

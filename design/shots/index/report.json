@@ -1,0 +1,18 @@
+[
+ {
+  "page": "design-index",
+  "breakpoint": "phone-390",
+  "ms": 1168,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/index/design-index-phone-390.webp"
+ },
+ {
+  "page": "design-index",
+  "breakpoint": "laptop-1440",
+  "ms": 1266,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/index/design-index-laptop-1440.webp"
+ }
+]

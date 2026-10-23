@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Store screenshot render</title>
+<link rel="stylesheet" href="../ui-kit/kit.css">
+<style>
+  /* Google Play phone screenshot, 1080 x 1920: laid out at 540 x 960 and rendered at 2x by
+     design/tools/render-store.mjs. A real kit screen at its true phone size (390 x 844) rises
+     from the bottom edge; one short caption above it. */
+  html, body { margin: 0; width: 540px; height: 960px; overflow: hidden; background: var(--ba-bg); }
+  .shot { position: relative; width: 540px; height: 960px; overflow: hidden; }
+  .cap { position: absolute; left: 44px; right: 44px; top: 54px; }
+  .cap h1 { margin: 0; font-family: var(--ba-font-display); font-weight: 900; font-size: 41px; line-height: 0.98; letter-spacing: -0.022em; color: var(--ba-text); text-wrap: balance; }
+  .cap h1 .ln { box-shadow: inset 0 -9px 0 color-mix(in srgb, var(--ba-accent) 60%, transparent); }
+  .cap p { margin: 12px 0 0; font-size: 18px; font-weight: 650; line-height: 1.35; color: var(--ba-text-muted); max-width: 26em; }
+  .phone { position: absolute; left: 50%; top: 228px; width: 390px; height: 844px; transform: translateX(-50%); border-radius: 46px; padding: 0; background: #0E0A1C;
+    box-shadow: 0 0 0 9px #0E0A1C, 0 0 0 10.5px #3B3263, 0 40px 80px -30px rgba(20, 12, 44, 0.55); overflow: hidden; }
+  .phone iframe { width: 390px; height: 844px; border: 0; display: block; background: var(--ba-bg); }
+  .phone::after { content: ""; position: absolute; left: 50%; top: 10px; width: 92px; height: 26px; transform: translateX(-50%); border-radius: 13px; background: #0E0A1C; }
+  .dot { position: absolute; width: 16px; height: 16px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<div class="shot" id="shot"></div>
+<script type="module">
+// The screenshot set, in store order. Captions are short, true and readable at thumbnail size.
+const SHOTS = {
+  1: { h: 'Squat, jump, punch. <span class="ln">The game moves</span> when you do.', p: '', src: '../ui-kit/hud.html?mode=scene&cmd=Squat&reason=11%20squats%20so%20far' },
+  2: { h: 'Your camera reads your moves <span class="ln">on this device</span>.', p: 'The video is never uploaded or saved.', src: '../onboarding/index.html?step=2&static=1&fallback=1' },
+  3: { h: 'Every miss <span class="ln">tells you why</span>.', p: 'Hips 4 cm above the line? You see it, with a one second skeleton replay.', src: '../ui-kit/results.html' },
+  4: { h: 'Short games for <span class="ln">every part</span> of the body.', p: 'Legs, arms, core, cardio and balance.', src: '../ui-kit/home.html' },
+  5: { h: 'Play with <span class="ln">friends</span>.', p: 'Private rooms for up to four. Camera sharing starts off.', src: '../ui-kit/room.html?state=ready' },
+  6: { h: 'Seated and quiet modes <span class="ln">for every home</span>.', p: 'Play from a chair, or without a single jump.', src: '../onboarding/index.html?step=3&static=1&tier=2&seated=1&quiet=1' },
+};
+const q = new URLSearchParams(location.search);
+const n = +(q.get('n') || 1);
+const theme = q.get('theme') || 'light';
+document.documentElement.dataset.theme = theme;
+const s = SHOTS[n];
+const sep = s.src.includes('?') ? '&' : '?';
+document.getElementById('shot').innerHTML = `<div class="cap"><h1>${s.h}</h1>${s.p ? `<p>${s.p}</p>` : ''}</div><div class="phone"><iframe title="Screen" src="${s.src}${sep}theme=${theme}"></iframe></div>`;
+const f = document.querySelector('iframe');
+await new Promise((ok) => f.addEventListener('load', ok, { once: true }));
+await new Promise((ok) => { const t = setInterval(() => { if (f.contentDocument?.documentElement.dataset.ready === '1') { clearInterval(t); ok(); } }, 50); });
+await document.fonts.ready;
+document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>

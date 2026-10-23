@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade brand</title>
+<meta name="description" content="BodyArcade brand sheet: logo and mark, icon files, colour, type, the line, and how not to use them.">
+<link rel="stylesheet" href="../doc.css">
+<style>
+  .logos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .logos .doc-card { display: grid; place-items: center; min-height: 170px; padding: 28px; }
+  .logos .doc-card.night { background: #1A1430; box-shadow: none; }
+  .logos .doc-card > img { max-height: 64px; width: auto; max-width: 100%; background: none; border-radius: 0; }
+  .logos .stack > img { max-height: 120px; }
+  .type { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+  .type .doc-card { padding: 22px; }
+  .type .big { font-family: var(--ba-font-display); font-weight: 900; font-size: clamp(2.6rem, 2rem + 3vw, 4rem); line-height: 0.95; letter-spacing: -0.024em; margin: 6px 0 10px; }
+  .type .text { font-size: 1.25rem; font-weight: 600; line-height: 1.4; margin: 6px 0 10px; }
+  .type .num { font-weight: 800; font-size: 2.6rem; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .line-demo { position: relative; height: 150px; border-radius: var(--ba-radius-lg); background: #1A1430; overflow: hidden; }
+  .line-demo svg { width: 100%; height: 100%; display: block; }
+  .files { columns: 2 260px; column-gap: 24px; padding: 0; margin: 0; list-style: none; font-size: var(--ba-text-sm); }
+  .files li { break-inside: avoid; padding: 6px 0; border-bottom: 1px solid var(--ba-border); display: flex; justify-content: space-between; gap: 10px; }
+  .files a { font-weight: 700; color: var(--ba-text); }
+  .files span { color: var(--ba-text-muted); white-space: nowrap; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <div class="doc-top"><a href="../index.html"><img src="logo.svg" alt="BodyArcade design"></a><nav aria-label="Design"><a href="../index.html">Index</a><a href="index.html" aria-current="page">Brand</a><a href="../art/index.html">Art</a><a href="../store/index.html">Store</a></nav></div>
+  <h1>A person on the line.</h1>
+  <p class="intro">The mark is a player drawn like a joystick: the ball is the head, the stick is the body, the base is the line every game measures against. Flush for the ball, ink for the person, daylight around it.</p>
+
+  <h2>Logo</h2>
+  <p class="lede">Use the horizontal logo in headers, the stacked one where space is square, the mark alone at icon sizes. Keep clear space of one ball width all round.</p>
+  <div class="logos">
+    <div class="doc-card"><img src="logo.svg" alt="BodyArcade logo" width="300" height="56"></div>
+    <div class="doc-card night"><img src="logo-dark.svg" alt="BodyArcade logo on the night court" width="300" height="56"></div>
+    <div class="doc-card stack"><img src="logo-stacked.svg" alt="BodyArcade stacked logo" width="200" height="120"></div>
+    <div class="doc-card"><img src="mark.svg" alt="BodyArcade mark" width="64" height="64"></div>
+  </div>
+
+  <h2>Colour</h2>
+  <p class="lede">Flush is the hero: the main button, the command plate in games and the line. Text on flush is ink, never white (5.5 to 1). Body regions are shown by pictograms, not by a rainbow.</p>
+  <div class="doc-swatches">
+    <div class="doc-swatch"><i style="background:#FF4F6E"></i><div><b>Flush</b><span>#FF4F6E, action and the line</span></div></div>
+    <div class="doc-swatch"><i style="background:#1C1433"></i><div><b>Ink</b><span>#1C1433, text and the person</span></div></div>
+    <div class="doc-swatch"><i style="background:#F4F2F8"></i><div><b>Chalk</b><span>#F4F2F8, the page</span></div></div>
+    <div class="doc-swatch"><i style="background:#1A1430"></i><div><b>Night court</b><span>#1A1430, dark theme</span></div></div>
+    <div class="doc-swatch"><i style="background:#FFC53A"></i><div><b>Sun</b><span>#FFC53A, left hand, Player 1, stars</span></div></div>
+    <div class="doc-swatch"><i style="background:#46B4FF"></i><div><b>Sky</b><span>#46B4FF, right hand, Player 2, info</span></div></div>
+    <div class="doc-swatch"><i style="background:#22C383"></i><div><b>Go</b><span>#22C383, a hit; text #0E7A4E</span></div></div>
+  </div>
+
+  <h2>Type</h2>
+  <div class="type">
+    <div class="doc-card"><span class="ba-small">Savate, 800 to 900. Headlines, game commands, the logo</span><p class="big">Squat. Reach. Hold.</p><span class="ba-small">Plomb Type, SIL Open Font License. Turkish glyphs included: Çok iyi, şimdi zıpla.</span></div>
+    <div class="doc-card"><span class="ba-small">National Park, 400 to 800. Text, labels, every number</span><p class="text">The camera reads your moves on this device. Nothing is uploaded.</p><span class="num">0:47 &nbsp; 64 &nbsp; ₺149,99</span></div>
+  </div>
+
+  <h2>The line</h2>
+  <p class="lede">Each game measures a move against a line fitted to your body: squat depth, knee height, reach. A miss is explained against the line, and the one second replay draws the skeleton with it.</p>
+  <div class="line-demo" role="img" aria-label="A skeleton in a squat with the flush line 4 cm below the hips">
+    <svg viewBox="0 0 800 150" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><line x1="250" y1="104" x2="560" y2="104" stroke="#FF4F6E" stroke-width="8" stroke-linecap="round" stroke-dasharray="22 12"/><rect x="470" y="70" width="96" height="26" rx="8" fill="#FF4F6E"/><text x="518" y="88" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="14" fill="#1C1433">4 cm to go</text><g stroke="#F4F2F8" stroke-width="6" stroke-linecap="round" fill="none"><path d="M400 34 L400 78"/><path d="M400 44 L372 66 L388 84"/><path d="M400 44 L428 66 L412 84"/><path d="M392 80 L370 104 L384 132"/><path d="M408 80 L430 104 L416 132"/></g><circle cx="400" cy="22" r="13" fill="#FF4F6E"/><g fill="#FF4F6E"><circle cx="392" cy="80" r="5"/><circle cx="408" cy="80" r="5"/><circle cx="370" cy="104" r="5"/><circle cx="430" cy="104" r="5"/></g></svg>
+  </div>
+
+  <h2>Do not</h2>
+  <ul class="doc-rules">
+    <li><span>No neon glows, gradients on the logo, or outlines around the mark.</span></li>
+    <li><span>No mascot. The player is the person in front of the camera.</span></li>
+    <li><span>No white text on flush, no flush text on night court below 24 px.</span></li>
+    <li><span>No capitals for headlines; sentence case, short and true.</span></li>
+  </ul>
+
+  <h2>Files</h2>
+  <ul class="files">
+    <li><a href="logo.svg">logo.svg</a><span>also -dark, -mono, -stacked</span></li>
+    <li><a href="mark.svg">mark.svg</a><span>also -dark, -mono</span></li>
+    <li><a href="wordmark.svg">wordmark.svg</a><span>also -dark, -mono</span></li>
+    <li><a href="png/play-icon-512.png">png/play-icon-512.png</a><span>Play listing</span></li>
+    <li><a href="png/icon-1024.png">png/icon-1024.png</a><span>Expo icon</span></li>
+    <li><a href="png/adaptive-foreground-1024.png">png/adaptive-foreground-1024.png</a><span>background #1C1433</span></li>
+    <li><a href="png/adaptive-monochrome-1024.png">png/adaptive-monochrome-1024.png</a><span>themed icons</span></li>
+    <li><a href="png/web/favicon.ico">png/web/favicon.ico</a><span>16, 32, 48</span></li>
+    <li><a href="png/web/apple-touch-icon.png">png/web/apple-touch-icon.png</a><span>180</span></li>
+    <li><a href="png/web/icon-maskable-512.png">png/web/icon-maskable-512.png</a><span>PWA and TWA</span></li>
+  </ul>
+</main>
+</body>
+</html>

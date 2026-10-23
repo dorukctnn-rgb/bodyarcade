@@ -23,6 +23,7 @@
 import { glyph, REGIONS } from '../brand/glyphs.mjs';
 import { cameraArt, cameraArtDuo } from '../ui-kit/art.mjs';
 import { duoAvailable } from '../tokens/layout.mjs';
+import { GAMES } from '../ui-kit/games.mjs';
 
 const q = new URLSearchParams(location.search);
 const ob = document.getElementById('ob');
@@ -82,7 +83,7 @@ const STEPS = {
   1: () => `
     <div class="ob-scroll">
       <h1 class="ob-title">Squat, jump, punch. The game moves when you do.</h1>
-      <p class="ob-text">40 short games for every part of the body, on your phone, laptop or TV. The camera reads your moves right here on the device.</p>
+      <p class="ob-text">Short games for every part of the body, on your phone, laptop or TV. The camera reads your moves right here on the device.</p>
     </div>
     <div class="ob-actions">${next('Start')}</div>
     <p class="ob-note">About two minutes to your first game.</p>`,
@@ -107,7 +108,7 @@ const STEPS = {
       </div>
       <p class="ob-level-desc" id="leveldesc">${LEVELS.find((l) => l[0] === state.level)[2]}.</p>
       <div class="ob-modes">
-        <label class="ob-mode">${glyph('seated', { highlight: ['armL1', 'armL2', 'armR1', 'armR2'], title: 'Seated' }).replace('<svg', '<svg class="g"')}<div><b>Seated mode</b><span>Play from a chair. 30 games have a seated version.</span></div><span class="ba-switch"><input type="checkbox" data-mode="seated" ${state.seated ? 'checked' : ''} aria-label="Seated mode"><span></span></span></label>
+        <label class="ob-mode">${glyph('seated', { highlight: ['armL1', 'armL2', 'armR1', 'armR2'], title: 'Seated' }).replace('<svg', '<svg class="g"')}<div><b>Seated mode</b><span>Play from a chair. ${GAMES.every((g) => g.seated) ? 'Every game has a seated version.' : `${GAMES.filter((g) => g.seated).length} games have a seated version.`}</span></div><span class="ba-switch"><input type="checkbox" data-mode="seated" ${state.seated ? 'checked' : ''} aria-label="Seated mode"><span></span></span></label>
         <label class="ob-mode">${glyph('stand', { title: 'Quiet' }).replace('<svg', '<svg class="g"')}<div><b>Quiet mode</b><span>No jumping or stamping. Kind to the neighbours below.</span></div><span class="ba-switch"><input type="checkbox" data-mode="quiet" ${state.quiet ? 'checked' : ''} aria-label="Quiet mode"><span></span></span></label>
       </div>
       <p class="ob-note ob-note--wide">Pick one or more. You can change all of this later in Settings.</p>
@@ -146,7 +147,7 @@ const STEPS = {
       <div class="ob-win"><div class="big">18</div><div class="unit">squats in 30 seconds<small>14 reached the line. Your deepest went 6 cm below it.</small></div></div>
       <p class="ob-note">Saved on this device.</p>
     </div>
-    <div class="ob-actions stack">${next('Play the full round')}<button class="ba-btn ba-btn--secondary ba-btn--lg" type="button">See all 40 games</button></div>` : `
+    <div class="ob-actions stack">${next('Play the full round')}<button class="ba-btn ba-btn--secondary ba-btn--lg" type="button">See all games</button></div>` : `
     <div class="ob-scroll">${progress(7)}
       <h2 class="ob-title">Your first game: Squat Flap.</h2>
       <p class="ob-text">Squat down to flap, stand up to fly. <strong>30 seconds</strong>, nothing to beat yet. In seated mode, stand up from a chair to flap.</p>

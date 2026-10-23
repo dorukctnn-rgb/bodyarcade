@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Feature graphic render</title>
+<link rel="stylesheet" href="../ui-kit/kit.css">
+<script type="importmap">{ "imports": { "three": "../../site/vendor/three.module.min.js" } }</script>
+<style>
+  /* Google Play feature graphic, 1024 x 500. design/tools/render-store.mjs renders it at 2x and
+     downscales. Everything that matters sits in the middle 80 %, away from the edges. */
+  html, body { margin: 0; width: 1024px; height: 500px; overflow: hidden; background: var(--ba-bg); }
+  .fg { position: relative; width: 1024px; height: 500px; overflow: hidden; }
+  .stage { position: absolute; right: 40px; top: 0; width: 560px; height: 500px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 90px); mask-image: linear-gradient(to right, transparent, #000 90px); }
+  .stage canvas { width: 100%; height: 100%; display: block; }
+  .copy { position: absolute; left: 104px; top: 50%; transform: translateY(-50%); width: 420px; }
+  .copy img { height: 38px; width: auto; margin-bottom: 26px; }
+  .copy h1 { margin: 0; font-family: var(--ba-font-display); font-weight: 900; font-size: 64px; line-height: 0.94; letter-spacing: -0.025em; color: var(--ba-text); }
+  .copy p { margin: 16px 0 0; font-size: 25px; font-weight: 700; line-height: 1.25; color: var(--ba-text-muted); }
+  .copy p b { color: var(--ba-text); box-shadow: inset 0 -7px 0 color-mix(in srgb, var(--ba-accent) 55%, transparent); }
+</style>
+</head>
+<body>
+<div class="fg">
+  <div class="stage"><canvas id="c"></canvas></div>
+  <div class="copy"><img id="logo" src="../brand/logo.svg" alt="BodyArcade"><h1>Squat, jump, punch.</h1><p>The game moves <b>when you do</b>.</p></div>
+</div>
+<script type="module">
+import { createStage } from '../onboarding/scene.mjs';
+const q = new URLSearchParams(location.search);
+const theme = q.get('theme') || 'light';
+document.documentElement.dataset.theme = theme;
+if (theme === 'dark') document.getElementById('logo').src = '../brand/logo-dark.svg';
+const canvas = document.getElementById('c');
+const stage = createStage(canvas, { tier: 2, step: 1, theme, capture: true, reducedMotion: false });
+const scale = +(q.get('scale') || 2);
+stage.renderer.setPixelRatio(scale);
+stage.renderer.setSize(560, 500, false);
+stage.setStep(1, { instant: true, logoBand: false });
+stage.renderAt(+(q.get('t') || 1.7));
+await document.fonts.ready;
+await Promise.all([...document.images].filter((i) => !i.complete).map((i) => new Promise((ok) => { i.onload = i.onerror = ok; })));
+document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>
