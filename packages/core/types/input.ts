@@ -37,9 +37,9 @@ export interface InputFrame {
 /**
  * Keyboard map, keyed by KeyboardEvent.key. A channel binding holds `value` while the key is down and returns to 0
  * when it is released; an event binding fires once per press (auto-repeat ignored). Keys typed into form fields
- * are ignored.
+ * are ignored. Single letters match in either case. `player` (mode 'local2', default 1) picks the player's stream.
  */
-export type KeyMap = Record<string, { channel?: string; value?: number; event?: MovementId }>;
+export type KeyMap = Record<string, { channel?: string; value?: number; event?: MovementId; player?: PlayerSlot }>;
 
 export type SwipeName = 'up' | 'down' | 'left' | 'right' | 'tap';
 
@@ -63,11 +63,15 @@ export interface InputHub {
   allowed(id: InputSourceId): boolean;
   bindKeyboard(map: KeyMap, target?: EventTarget): Unsubscribe;
   bindTouch(el: HTMLElement, map: TouchMap): Unsubscribe;
-  /** Feeds the engine's events and channels as source 'pose' (or 'trace' for trace playback). */
-  connectPose(m: MovementEngine, source?: 'pose' | 'trace'): Unsubscribe;
+  /**
+   * Feeds the engine's events and channels as source 'pose' (or 'trace' for trace playback). Mode 'local2': one engine
+   * per player, each connected with its `player`.
+   */
+  connectPose(m: MovementEngine, source?: 'pose' | 'trace', player?: PlayerSlot): Unsubscribe;
   /** Programmatic input (tests, tools). Returns false and changes nothing when the source is not allowed. */
-  inject(source: InputSourceId, p: { channels?: Record<string, number>; events?: MovementEvent[] }): boolean;
-  setTracking(t: Tracking): void;
+  inject(source: InputSourceId, p: { channels?: Record<string, number>; events?: MovementEvent[] }, player?: PlayerSlot): boolean;
+  /** Mode 'local2': `player` sets that player's tracking (default 1). */
+  setTracking(t: Tracking, player?: PlayerSlot): void;
   /** Called once per fixed step; drains the queued events. */
   sample(t: Ms): InputFrame;
   /** Clears channels, queued events and held keys (new run, pause). */

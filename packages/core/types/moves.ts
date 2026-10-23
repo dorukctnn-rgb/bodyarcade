@@ -55,7 +55,7 @@ export interface DetectorSpec { id: MovementId; opts?: Record<string, number> }
 export type DetectorRegistry = Partial<Record<MovementId, DetectorFactory>>;
 
 export interface MovementEngine {
-  /** Replaces the active detectors (one per spec). Needs a profile first. */
+  /** Replaces the active detectors (one per spec); built once a profile is set. Throws on an unregistered id. */
   use(specs: DetectorSpec[]): void;
   /** A new calibration rebuilds every active detector with the new profile. */
   setProfile(p: BodyProfile): void;
