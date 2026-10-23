@@ -235,6 +235,8 @@ export interface TicketClaims {
   /** Display name, already filtered. */
   n: string;
   a: AgeBand;
+  /** Opaque block key of this player (derived from the device id with the server secret; safe to show other devices). */
+  k: string;
   /** Expiry, epoch seconds. */
   e: number;
   /** Free text is muted until this epoch ms (three reports from different players, tech.md 5). */

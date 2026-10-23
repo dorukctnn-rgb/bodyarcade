@@ -16,8 +16,14 @@ export function fail(code: string, status: number, extra?: Record<string, unknow
 }
 
 export class HttpError extends Error {
-  constructor(readonly status: number, readonly code: string, readonly extra?: Record<string, unknown>) {
+  readonly status: number;
+  readonly code: string;
+  readonly extra: Record<string, unknown> | undefined;
+  constructor(status: number, code: string, extra?: Record<string, unknown>) {
     super(code);
+    this.status = status;
+    this.code = code;
+    this.extra = extra;
   }
 }
 

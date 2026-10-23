@@ -28,11 +28,11 @@ export function b64url(bytes: Uint8Array): string {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export function fromB64url(s: string): Uint8Array | null {
+export function fromB64url(s: string): Uint8Array<ArrayBuffer> | null {
   if (!/^[A-Za-z0-9_-]*$/.test(s)) return null;
   try {
     const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4));
-    const out = new Uint8Array(bin.length);
+    const out = new Uint8Array(new ArrayBuffer(bin.length));
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
   } catch {
@@ -57,7 +57,7 @@ export interface TicketInput {
 }
 
 export async function signTicket(secret: string, input: TicketInput, nowMs: number, ttlS = TICKET_TTL_S): Promise<{ ticket: string; claims: TicketClaims }> {
-  const claims: TicketClaims = { v: 1, c: input.code, p: input.pid, n: input.name, a: input.age, e: Math.floor(nowMs / 1000) + ttlS };
+  const claims: TicketClaims = { v: 1, c: input.code, p: input.pid, n: input.name, a: input.age, k: await blockKey(secret, input.pid), e: Math.floor(nowMs / 1000) + ttlS };
   if (input.mutedUntil && input.mutedUntil > nowMs) claims.m = Math.floor(input.mutedUntil);
   const body = b64url(enc.encode(JSON.stringify(claims)));
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', await hmacKey(secret), enc.encode(body)));
@@ -92,6 +92,7 @@ export function isClaims(x: unknown): x is TicketClaims {
   const c = x as Record<string, unknown>;
   return c.v === 1 && isRoomCode(c.c) && typeof c.p === 'string' && c.p.length >= 8 && c.p.length <= 64 &&
     typeof c.n === 'string' && c.n.length >= 1 && c.n.length <= 40 && AGES.includes(c.a as AgeBand) &&
+    typeof c.k === 'string' && /^[A-Za-z0-9_-]{16,40}$/.test(c.k) &&
     Number.isInteger(c.e) && (c.m === undefined || (typeof c.m === 'number' && Number.isFinite(c.m)));
 }
 

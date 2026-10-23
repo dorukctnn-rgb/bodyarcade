@@ -26,6 +26,8 @@ export interface DurableObjectNamespaceLike {
 /** The server side of a WebSocket accepted by a Durable Object (Hibernation API). */
 export interface CfWebSocket {
   readonly readyState: number;
+  /** Only for a socket this Worker serves itself (not a Durable Object's hibernating sockets). */
+  accept?(): void;
   send(message: string): void;
   close(code?: number, reason?: string): void;
   serializeAttachment(value: unknown): void;

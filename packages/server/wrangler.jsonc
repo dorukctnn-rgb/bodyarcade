@@ -1,0 +1,23 @@
+{
+  // BodyArcade v2 Worker: static assets (the web app) + /api/* + the Room Durable Object.
+  // A separate Worker name on purpose: the live site is the Worker "bodyarcade" (main branch, cloudflare-hosting).
+  // The release step renames this one, builds the web app into ../../dist and sets the secrets:
+  //   npx wrangler secret put TICKET_SECRET          (32+ random characters)
+  //   npx wrangler secret put TURN_KEY_ID            (Cloudflare Realtime TURN key)
+  //   npx wrangler secret put TURN_KEY_API_TOKEN
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "bodyarcade-v2",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "../../dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application"
+  },
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  "vars": { "PUBLIC_ORIGIN": "https://bodyarcade.com" },
+  "observability": { "enabled": true }
+}
