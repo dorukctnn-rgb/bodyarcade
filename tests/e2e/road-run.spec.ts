@@ -42,6 +42,7 @@ const start = (page: Page) => page.evaluate(() => {
 });
 
 test('keyboard run in 3D: countdown, play, lanes from the keys, results; a pause draws nothing; later runs add no GPU resources', async ({ page }) => {
+  test.skip(!!process.env.CI, 'needs a hardware GPU and real CPU time; runs on the local release gate, not on GitHub runners');
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));

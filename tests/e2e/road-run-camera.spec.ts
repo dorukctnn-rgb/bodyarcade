@@ -15,6 +15,7 @@ test.use({ launchOptions: process.env.BA_GPU === '1' ? { ...video, args: [...(vi
 const SECONDS = Number(process.env.BA_GATE_SECONDS || 30);
 
 test(`camera run of Road Run (${SECONDS} s): pose and 3D together, no console errors, camera off at results`, async ({ page }) => {
+  test.skip(!!process.env.CI, 'needs a hardware GPU and real CPU time; runs on the local release gate, not on GitHub runners');
   test.setTimeout((SECONDS + 90) * 1000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));

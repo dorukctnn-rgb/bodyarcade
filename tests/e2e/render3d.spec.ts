@@ -47,6 +47,7 @@ const within = (a: number, b: number, share: number): boolean => Math.abs(a - b)
 test.describe.configure({ mode: 'serial' });
 
 test('no leak: five sessions in the same world and in changing worlds leave the same GPU and CPU counts (B5)', async ({ page }) => {
+  test.skip(!!process.env.CI, 'needs a hardware GPU and real CPU time; runs on the local release gate, not on GitHub runners');
   test.setTimeout(240_000);
   await open(page);
   for (const level of [2, 0] as const) {
@@ -121,6 +122,7 @@ test('every world draws a real picture at every tier, portrait and landscape, wi
 });
 
 test('frame cost of the kit at 4x CPU throttling', async ({ page }) => {
+  test.skip(!!process.env.CI, 'needs a hardware GPU and real CPU time; runs on the local release gate, not on GitHub runners');
   test.setTimeout(480_000);
   await open(page);
   const rows: Awaited<ReturnType<H['budgetRun']>>[] = [];
