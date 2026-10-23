@@ -6,7 +6,7 @@ import { mulberry32 } from '../../core/loop/rng.ts';
 import { layoutProblems } from '../../core/render2d/layout2d.ts';
 import { createScene2D, type CanvasLike, type Scene2DKit } from '../../core/render2d/scene2d.ts';
 import { fakeSurfaces, recorder, type Recorder } from '../../core/render2d/testing/recorder.ts';
-import { BREAKPOINTS } from '../../core/ui/layout.ts';
+import { BREAKPOINTS, hudMetrics, hudSlots, type MeasuredHud } from '../../core/ui/layout.ts';
 import { profileOf, SHAPE_FULL, SHAPE_UPPER } from '../../core/moves/testing/rig.ts';
 import type { BodyProfile, GameEvent, PoseFrame } from '../../core/types/index.ts';
 import { synthPose, DEFAULT_SHAPE } from '../../core/pose/synth.ts';
@@ -39,6 +39,18 @@ function fakeContext(withText = true): FakeCtx {
   return ctx;
 }
 
+/** The HUD plates as the real HUD measures them: the reason sentence wrapped to the room its row has. */
+function measuredFor(w: number, h: number): MeasuredHud {
+  const f = hudMetrics({ w, h }).font;
+  const statusLeft = { w: Math.round(f.numeral * 4.2), h: Math.round(f.numeral * 1.6) };
+  const statusRight = { w: Math.round(f.numeral * 3.4), h: Math.round(f.numeral * 1.6) };
+  const command = { w: Math.round(f.command * 5.2), h: Math.round(f.command * 1.25) };
+  const slots = hudSlots({ w, h }, { statusLeft, statusRight, command }, { mode: 'mirror', pipCorner: 'hidden' }).reason;
+  const slot = slots[slots.preferred] ?? slots.bottom;
+  const wanted = Math.round(Math.min(w * 0.6, f.reason * 20));
+  return { statusLeft, statusRight, command, reason: { w: Math.min(wanted, Math.floor(slot.w)), h: Math.round(f.reason * 2.4) } };
+}
+
 interface Stage { kit: Scene2DKit; ctx: FakeCtx; surf: ReturnType<typeof fakeSurfaces>; size: { width: number; height: number } }
 
 function stage(w = 1280, h = 800, o: { text?: boolean; reduced?: boolean } = {}): Stage {
@@ -51,7 +63,7 @@ function stage(w = 1280, h = 800, o: { text?: boolean; reduced?: boolean } = {})
   const surf = fakeSurfaces();
   const size = { width: w, height: h };
   const kit = createScene2D({ canvas, size: () => size, devicePixelRatio: () => 1, surfaces: surf.factory, rng: mulberry32(2), reducedMotion: o.reduced ?? false });
-  kit.setHud({ mode: 'mirror', pipCorner: 'hidden' });
+  kit.setHud({ mode: 'mirror', pipCorner: 'hidden', measured: measuredFor(w, h) });
   return { kit, ctx, surf, size };
 }
 
@@ -87,13 +99,11 @@ const padSteer = (mode: 'perfect' | 'sloppy' | 'idle', seed = 3) => (i: number):
 };
 
 describe('what each game draws', () => {
-  it('Star Catch: a star sprite for every star on the screen, hand rings, links, and sparks and a score when one is caught', () => {
+  it('Star Catch: sprites, hand rings and links, and sparks and a score when a star is caught', () => {
     const st = stage();
     const view = createMirrorView(st.kit);
-    let maxStars = 0;
-    const { run } = drive(starCatchRules, st, view, { bots: 'perfect', seed: 2, seconds: 14, frames: (r) => { maxStars = Math.max(maxStars, r.engine.view().lanes[0]!.targets.length); } });
+    const { run } = drive(starCatchRules, st, view, { bots: 'perfect', seed: 2, seconds: 14 });
     expect(run.engine.lane(1)!.state.stats.hits).toBeGreaterThan(3);
-    expect(maxStars).toBeGreaterThan(1);
     expect(st.kit.sprites.stats().misses).toBeGreaterThan(0);
     expect(st.kit.sprites.stats().entries).toBeLessThanOrEqual(6);
     expect(st.ctx.count('drawImage')).toBeGreaterThan(20);
@@ -101,6 +111,19 @@ describe('what each game draws', () => {
     const texts2 = (st.ctx as unknown as Texts).words;
     expect(texts2.some((t) => /^\+\d+$/.test(t.text))).toBe(true);
     expect(st.kit.particles.stats().emitted).toBeGreaterThan(10);
+  });
+
+  it('Star Catch: stars nobody catches stay on the screen together and every one of them is drawn', () => {
+    const st = stage();
+    const view = createMirrorView(st.kit);
+    let maxStars = 0, drawnStars = 0;
+    drive(starCatchRules, st, view, {
+      bots: 'idle', seed: 2, seconds: 14,
+      frames: (r) => { maxStars = Math.max(maxStars, r.engine.view().lanes[0]!.targets.length); drawnStars += r.engine.view().lanes[0]!.targets.length; },
+    });
+    expect(maxStars).toBeGreaterThan(1);
+    // a star fades in over its first 180 ms, so the frame it appears on may stamp nothing
+    expect(st.ctx.count('drawImage')).toBeGreaterThan(drawnStars * 0.9);
   });
 
   it('Pad Work: numbered pads with closing rings, and the grade of a punch', () => {
@@ -268,7 +291,6 @@ describe.each(BREAKPOINTS.map((b) => [b.label, b] as const))('on %s', (_label, b
       [reactionTagRules, { level: 'expert' as const, profiles: [full] as [BodyProfile], feet: true, duration: 40 }],
     ] as const) {
       const st = stage(b.w, b.h);
-      st.kit.setHud({ mode: 'mirror', pipCorner: 'hidden' });
       const view = createMirrorView(st.kit);
       const run = setup(rules as Rules<BaseSpec>, { duration: 30, rounds: 1, bots: 'idle', seed: 21, ...(o as SetupOptions) });
       view.begin({ game: rules.id, players: 1, keyboard: false, seated: false, profiles: run.engine.view().lanes.map((l) => l.profile) });
