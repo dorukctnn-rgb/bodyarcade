@@ -6,6 +6,8 @@
 <title>G1 games harness</title>
 <style>
   html, body { margin: 0; height: 100%; background: #1A1430; overflow: hidden; }
+  /* The shell reserves a scrollbar gutter; this page never scrolls, so the picture uses the whole width. */
+  html { scrollbar-gutter: auto; }
   /* The shell's own self view tile is opaque; the harness lets the picture the game draws show through it. */
   .ba-hud .tile[data-hud="pip"] { background: transparent; box-shadow: none; }
   .ba-hud .tile[data-hud="pip"] .tag, .ba-hud .tile[data-hud="pip"] .move { display: none; }
