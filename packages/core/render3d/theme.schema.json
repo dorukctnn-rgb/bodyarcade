@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bodyarcade.com/schemas/theme-v1.json",
+  "title": "BodyArcade 3D world theme",
+  "description": "A world as data: sky, sun, fog, ground, road, horizon, props and weather. Read by packages/core/render3d (parseTheme). Unknown keys are allowed at the top level (a game keeps its own fields there) and rejected everywhere below it, so a typo in fog or road is caught.",
+  "type": "object",
+  "required": ["id", "sky", "sun", "hemi", "fog", "ground", "groundNoise", "road", "horizon", "props"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" },
+    "name": { "type": "string", "maxLength": 60 },
+    "tagline": { "type": "string", "maxLength": 120 },
+    "free": { "type": "boolean" },
+    "exposure": { "type": "number", "minimum": 0.3, "maximum": 3, "default": 1.05 },
+    "ambient": { "$ref": "#/$defs/hex", "default": "#9db0cc" },
+    "ambientIntensity": { "type": "number", "minimum": 0, "maximum": 3, "default": 0.5 },
+    "sky": {
+      "type": "object",
+      "required": ["top", "mid", "bot", "sunGlow"],
+      "additionalProperties": false,
+      "properties": {
+        "top": { "$ref": "#/$defs/hex" },
+        "mid": { "$ref": "#/$defs/hex" },
+        "bot": { "$ref": "#/$defs/hex" },
+        "sunGlow": { "$ref": "#/$defs/hex" },
+        "stars": { "type": "number", "minimum": 0, "maximum": 1, "default": 0 },
+        "clouds": { "$ref": "#/$defs/hex" },
+        "aurora": { "type": "boolean", "default": false }
+      }
+    },
+    "sun": {
+      "type": "object",
+      "required": ["color", "intensity", "pos"],
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/hex" },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 10 },
+        "pos": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "minimum": -200, "maximum": 200 } }
+      }
+    },
+    "hemi": {
+      "type": "object",
+      "required": ["sky", "ground", "intensity"],
+      "additionalProperties": false,
+      "properties": {
+        "sky": { "$ref": "#/$defs/hex" },
+        "ground": { "$ref": "#/$defs/hex" },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 5 }
+      }
+    },
+    "fog": {
+      "type": "object",
+      "required": ["color", "density"],
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/hex" },
+        "density": { "type": "number", "minimum": 0.001, "maximum": 0.1, "description": "FogExp2 density. Props are hidden where the fog is 98.5 % thick, at 2.05 / density metres." }
+      }
+    },
+    "ground": { "$ref": "#/$defs/hex" },
+    "groundNoise": { "$ref": "#/$defs/hex" },
+    "water": { "type": "boolean", "default": false },
+    "road": {
+      "type": "object",
+      "required": ["base", "edge", "line", "center"],
+      "additionalProperties": false,
+      "properties": {
+        "base": { "$ref": "#/$defs/hex" },
+        "edge": { "$ref": "#/$defs/hex" },
+        "line": { "$ref": "#/$defs/hex" },
+        "center": { "$ref": "#/$defs/hex" },
+        "wet": { "type": "boolean", "default": false },
+        "width": { "type": "number", "minimum": 3, "maximum": 16, "default": 5.6 },
+        "lanes": { "type": "integer", "minimum": 1, "maximum": 8, "default": 3 }
+      }
+    },
+    "horizon": {
+      "type": "object",
+      "required": ["kind", "colorFar", "colorNear"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["mountains", "dunes", "forest", "skyline", "islands", "hills"] },
+        "colorFar": { "$ref": "#/$defs/hex" },
+        "colorNear": { "$ref": "#/$defs/hex" },
+        "snow": { "type": "boolean", "default": false }
+      }
+    },
+    "props": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": ["kind", "every", "side", "scale"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "enum": ["pine", "tree", "jungletree", "bush", "fern", "rock", "ice", "cactus", "dune", "palm", "lamp", "building", "tuft", "post", "rail", "buoy", "lava"] },
+          "every": { "type": "number", "minimum": 0.5, "maximum": 60 },
+          "side": { "$ref": "#/$defs/range", "description": "Distance from the road centre, min and max, metres (min <= max)." },
+          "scale": {
+            "type": "array", "minItems": 2, "maxItems": 2,
+            "items": { "type": "number", "minimum": 0.1, "maximum": 4 }
+          },
+          "tint": { "$ref": "#/$defs/hex" },
+          "snow": { "type": "boolean", "default": false },
+          "fixed": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "weather": {
+      "type": ["object", "null"],
+      "required": ["kind", "count", "color", "size", "opacity", "fall", "drift"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["dust", "leaves", "rain", "snow", "embers"] },
+        "count": { "type": "integer", "minimum": 1, "maximum": 2000 },
+        "color": { "$ref": "#/$defs/hex" },
+        "size": { "type": "number", "minimum": 0.01, "maximum": 2 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fall": { "type": "number", "minimum": -30, "maximum": 40 },
+        "drift": { "type": "number", "minimum": -10, "maximum": 10 }
+      }
+    },
+    "lightning": { "type": "boolean", "default": false },
+    "glow": { "$ref": "#/$defs/hex" },
+    "accent": { "$ref": "#/$defs/hex", "default": "#ffc93c" },
+    "coin": { "$ref": "#/$defs/hex", "default": "#ffd166" }
+  },
+  "$defs": {
+    "hex": { "type": "string", "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+    "range": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": { "type": "number", "minimum": 0, "maximum": 60 }
+    }
+  }
+}
