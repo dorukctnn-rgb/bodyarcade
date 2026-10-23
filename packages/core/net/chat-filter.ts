@@ -18,17 +18,20 @@ export type FilterResult = { ok: true; text: string } | { ok: false; reason: Fil
 // Plain entries match a whole word; `x*` matches words that start with x; `~x` matches anywhere inside a word.
 // Entries written in plain ASCII are matched against the accent-free, look-alike-folded form of each word (so
 // "f0ck" and "orospú" are caught). Entries with accented letters match only the accented form, because their ASCII
-// spelling is an ordinary word elsewhere (göt/got, piç/pic, amına/amina).
+// spelling is an ordinary word elsewhere (göt/got, piç/pic, amına/amina). `=x` entries also match only the
+// accented form, and never a word typed with a capital I: in Turkish "SIK" may be "sık" (often) as well as "sik".
+// Self-censored spellings ("f*ck") are allowed on purpose.
 const WORDS: readonly string[] = [
   // English
-  '~fuck', '~shit', 'cunt', 'cunts', '~nigger', '~nigga', '~faggot', 'fag', 'fags', '~whore', '~bitch', '~asshole',
+  '~fuck', 'fck', 'fcking', 'fuk', 'fuking', 'fking',
+  '~shit', 'cunt', 'cunts', '~nigger', '~nigga', '~faggot', 'fag', 'fags', '~whore', '~bitch', '~asshole',
   '~dickhead', '~cocksuck', '~blowjob', '~handjob', '~dildo', '~jizz', '~porn', '~retard', 'pussy', 'pussies',
   'ass', 'arse', 'dick', 'dicks', 'cock', 'cocks', 'cum', 'slut', 'sluts', 'slutty', 'twat', 'wank', 'wanker',
   'tits', 'boobs', 'nude', 'nudes', 'sex', 'sexting', 'horny', 'rape', 'raped', 'rapist', 'penis', 'vagina',
   'bastard', 'bollocks', 'prick', 'bellend', 'spic', 'chink', 'kike', 'tranny', 'kys',
   // Turkish
-  'amk', 'aq', 'amq', 'amına', 'amcık', 'amcik', '~orospu', 'oç', 'piç', 'piçler', 'sik', 'siktir', 'siktirgit',
-  'sikerim', 'sikeyim', 'sikik', 'sikis', 'sikim', 'siktim', 'sikiyim', 'sikicem', 'sikecem', '~yarrak', 'yarak',
+  'amk', 'aq', 'amq', 'amına', 'amcık', 'amcik', '~orospu', 'oç', 'piç', 'piçler', '=sik', '=sikiş', '=sikim',
+  'siktir', 'siktirgit', 'sikerim', 'sikeyim', 'sikik', 'siktim', 'sikiyim', 'sikicem', 'sikecem', '~yarrak', 'yarak',
   'taşak', 'tasak', 'göt', 'götveren', 'gotveren', 'ibne', 'ibneler', '~pezevenk', '~kahpe', 'kaltak', 'sürtük',
   'surtuk', 'gavat', 'şerefsiz', 'serefsiz', 'yavşak', 'yavsak', 'puşt', 'fahişe', 'fahise', 'kevaşe', 'kevase',
   'seks', 'dalyarak',
@@ -50,10 +53,10 @@ const PHRASES: readonly string[] = ['kill yourself', 'kill urself', 'go die', 's
 // Invisible and direction-changing characters are removed before anything else, so they cannot split a word.
 const INVISIBLE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f­͏؜ᅟᅠ឴឵᠎​-‏‪-‮⁠-⁯ㅤ︀-️﻿ﾠ]/g;
 
-/** Cyrillic and Greek letters that look like Latin ones. */
+/** Cyrillic and Greek letters that look like Latin ones. (Turkish dotless ı is a letter of its own, not a look-alike.) */
 const LOOKALIKE: Record<string, string> = {
   а: 'a', е: 'e', о: 'o', р: 'p', с: 'c', у: 'y', х: 'x', к: 'k', м: 'm', т: 't', н: 'h', в: 'b', і: 'i', ј: 'j',
-  ѕ: 's', ԁ: 'd', ɡ: 'g', α: 'a', ο: 'o', ν: 'v', ρ: 'p', τ: 't', ι: 'i', κ: 'k', υ: 'u', ε: 'e', ı: 'i',
+  ѕ: 's', ԁ: 'd', ɡ: 'g', α: 'a', ο: 'o', ν: 'v', ρ: 'p', τ: 't', ι: 'i', κ: 'k', υ: 'u', ε: 'e',
 };
 const LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'i' };
 
@@ -76,32 +79,31 @@ function fold(s: string): string {
   return out;
 }
 
-const collapse3 = (w: string): string => w.replace(/(.)\1{2,}/g, '$1');
-const collapseAll = (w: string): string => w.replace(/(.)\1+/g, '$1');
+/** Runs of three or more of the same letter become two ("asssshole" -> "asshole"). */
+const collapse2 = (w: string): string => w.replace(/(.)\1{2,}/g, '$1$1');
+/** Every run becomes one letter ("fuuuck" -> "fuck"). */
+const collapse1 = (w: string): string => w.replace(/(.)\1+/g, '$1');
 
-interface Entry { word: string; kind: 'word' | 'prefix' | 'inside'; ascii: boolean }
+interface Entry { word: string; kind: 'word' | 'prefix' | 'inside'; form: 'ascii' | 'accented' | 'strict' }
 const ENTRIES: Entry[] = WORDS.map((w) => {
-  const kind = w.startsWith('~') ? 'inside' : w.endsWith('*') ? 'prefix' : 'word';
-  const word = w.replace(/^~|\*$/g, '');
-  return { word, kind, ascii: /^[a-z]+$/.test(word) };
+  const strict = w.startsWith('=');
+  const body = strict ? w.slice(1) : w;
+  const kind = body.startsWith('~') ? 'inside' : body.endsWith('*') ? 'prefix' : 'word';
+  const word = body.replace(/^~|\*$/g, '');
+  return { word, kind, form: strict ? 'strict' : /^[a-z]+$/.test(word) ? 'ascii' : 'accented' };
 });
 
+function matches(e: Entry, c: string): boolean {
+  return e.kind === 'word' ? c === e.word : e.kind === 'prefix' ? c.startsWith(e.word) : c.includes(e.word);
+}
+
 function entryHits(e: Entry, candidates: readonly string[]): boolean {
+  // Stretched spellings: "asssshole" via the two-letter collapse; "fuuuck" via the one-letter collapse, which is only
+  // safe for entries without doubled letters and at least four long ("yarrak" collapsed would match "oynayarak").
+  const single = e.word.length >= 4 && collapse1(e.word) === e.word;
   for (const c of candidates) {
-    if (e.kind === 'word' && c === e.word) return true;
-    if (e.kind === 'prefix' && c.startsWith(e.word)) return true;
-    if (e.kind === 'inside' && c.includes(e.word)) return true;
-  }
-  // Stretched spellings ("fuuuck", "shiiit"): compare with doubled letters collapsed, only for entries long enough
-  // that the collapsed form cannot be an ordinary short word ("ass" collapses to "as").
-  const ce = collapseAll(e.word);
-  if (ce.length >= 4) {
-    for (const c of candidates) {
-      const cc = collapseAll(c);
-      if (e.kind === 'word' && cc === ce) return true;
-      if (e.kind === 'prefix' && cc.startsWith(ce)) return true;
-      if (e.kind === 'inside' && cc.includes(ce)) return true;
-    }
+    if (matches(e, c) || matches(e, collapse2(c))) return true;
+    if (single && matches(e, collapse1(c))) return true;
   }
   return false;
 }
@@ -128,17 +130,20 @@ function leet(w: string): string {
 
 export function hasProfanity(text: string): boolean {
   const accented = new Set<string>();
+  const strict = new Set<string>();
   const ascii = new Set<string>();
-  for (const lower of lowerForms(text)) {
-    for (const w of words(lower)) {
+  for (const original of words(text)) {
+    const capitalI = original.includes('I');
+    for (const w of lowerForms(original)) {
       const plain = w.replace(/[@$!|]/g, '');
-      if (plain) { accented.add(plain); accented.add(collapse3(plain)); }
-      const f = fold(leet(w)).replace(/[^a-z]/g, '');
-      if (f) { ascii.add(f); ascii.add(collapse3(f)); }
+      if (plain) { accented.add(plain); if (!capitalI) strict.add(plain); }
+      // A word that still holds letters outside a-z after folding (Turkish ı, other scripts) has no ASCII form.
+      const f = fold(leet(w));
+      if (/^[a-z]+$/.test(f)) ascii.add(f);
     }
   }
-  const acc = [...accented], asc = [...ascii];
-  for (const e of ENTRIES) if (entryHits(e, e.ascii ? asc : acc)) return true;
+  const forms = { ascii: [...ascii], accented: [...accented], strict: [...strict] };
+  for (const e of ENTRIES) if (entryHits(e, forms[e.form])) return true;
   const flat = ' ' + fold(leet(text.toLowerCase())).replace(/[^a-z]+/g, ' ').trim() + ' ';
   return PHRASES.some((p) => flat.includes(' ' + p + ' ') || flat.includes(' ' + p));
 }
