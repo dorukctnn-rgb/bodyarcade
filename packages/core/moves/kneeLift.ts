@@ -42,7 +42,7 @@ const blankLeg = (): Leg => ({ k: 0, up: false, emitted: true, peak: 0, peakOthe
 
 export const createKneeLiftDetector: DetectorFactory = (p, opts): ExplainingDetector => {
   const o = withDefaults(KNEE_LIFT_DEFAULTS, opts);
-  const alternate = flag(opts, 'alternate', o.alternate !== 0);
+  const alternate = flag(opts, 'alternate', (KNEE_LIFT_DEFAULTS.alternate as number) !== 0);
   const U = scalesOf(p).u;
   const gate = new PersonGate(o.lostMs);
   const vis = new Visibility();
