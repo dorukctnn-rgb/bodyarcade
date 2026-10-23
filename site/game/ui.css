@@ -4,7 +4,10 @@
 
 :root {
   --paper: #f3eee5; --paper-2: #e9e2d4; --ink: #15130f; --ink-2: #221f1a; --ink-3: #2e2a24; --ink-4: #3a352e;
-  --muted: #a39a8c; --signal: #ff4f24; --signal-deep: #d93a12; --sun: #ffc93c; --sky: #5cdfff; --ok: #6fe39a; --bad: #ff5a4e;
+  --muted: #a39a8c; --signal: #ff4f24; --sun: #ffc93c; --sky: #5cdfff; --ok: #6fe39a; --bad: #ff5a4e;
+  /* Filled buttons carry a white label, which needs 4.5:1 (audit B18: white on #ff4f24 is only 3.28:1).
+     #d93a12 gives 4.60:1 and its hover #cf330d 5.08:1; --signal-deep is the darker edge under the button. */
+  --signal-btn: #d93a12; --signal-btn-hover: #cf330d; --signal-deep: #a82a0a;
   --line: rgba(243, 238, 229, 0.14); --radius: 18px; --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px); --safe-l: env(safe-area-inset-left, 0px); --safe-r: env(safe-area-inset-right, 0px);
 }
@@ -30,8 +33,8 @@ a { color: inherit; }
 
 /* Buttons */
 .btn { --edge: var(--signal-deep); display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; padding: 0 24px; border-radius: 14px; font-weight: 750; font-size: 16px; font-stretch: 112%; letter-spacing: 0.01em; text-decoration: none; border: 0; cursor: pointer; transition: transform 0.12s var(--ease), box-shadow 0.12s var(--ease), background 0.2s; }
-.btn-play { background: var(--signal); color: #fff; box-shadow: 0 4px 0 var(--edge); }
-.btn-play:hover { background: #ff5f37; transform: translateY(-1px); box-shadow: 0 5px 0 var(--edge); }
+.btn-play { background: var(--signal-btn); color: #fff; box-shadow: 0 4px 0 var(--edge); }
+.btn-play:hover { background: var(--signal-btn-hover); transform: translateY(-1px); box-shadow: 0 5px 0 var(--edge); }
 .btn-play:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge); }
 .btn-ghost { background: transparent; color: var(--paper); box-shadow: inset 0 0 0 2px var(--paper); }
 .btn-ghost:hover { background: var(--paper); color: var(--ink); }
@@ -56,6 +59,7 @@ a { color: inherit; }
 .lede { max-width: 32em; margin: 22px 0 0; font-size: clamp(16px, 1.4vw, 19px); color: #d6cdbf; }
 .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
 #runs-left { margin: 14px 0 0; }
+.start-note { margin: 14px 0 0; padding: 12px 14px; max-width: 34em; border-radius: 12px; background: var(--ink-2); border: 1px solid var(--bad); font-size: 14px; }
 .challenge { margin-top: 22px; padding: 14px 16px; border-radius: 14px; background: var(--ink-2); border: 1px solid var(--line); font-size: 15px; }
 .challenge b { color: var(--sun); }
 .daily { margin-top: 22px; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; background: var(--ink-2); border: 1px solid var(--line); }
@@ -88,7 +92,7 @@ a { color: inherit; }
 .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 5px; border-radius: 14px; background: var(--ink-2); border: 1px solid var(--line); }
 .seg button { height: 42px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-weight: 700; cursor: pointer; }
 .seg button[aria-checked="true"] { background: var(--paper); color: var(--ink); }
-.seg button.locked { color: #6f675c; }
+.seg button.locked { color: #908777; } /* dimmer than the other options but still 4.6:1 on --ink-2 (audit B18b: #6f675c was 2.9:1) */
 .links { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 4px; }
 
 /* Setup */
@@ -98,7 +102,7 @@ a { color: inherit; }
 .setup-side h2 { font-size: clamp(30px, 3.6vw, 48px); margin-bottom: 20px; }
 .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .steps li { display: grid; grid-template-columns: 22px 1fr; gap: 4px 12px; align-items: center; color: var(--muted); }
-.steps li small { grid-column: 2; font-size: 13px; color: #7f776b; }
+.steps li small { grid-column: 2; font-size: 13px; color: #8a8174; } /* 4.8:1 on ink (audit B18b: #7f776b was 4.2:1) */
 .steps .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink-4); }
 .steps li.active { color: var(--paper); } .steps li.active .dot { border-color: var(--sun); border-top-color: transparent; animation: spin 0.9s linear infinite; }
 .steps li.done { color: var(--paper); } .steps li.done .dot { background: var(--ok); border-color: var(--ok); }

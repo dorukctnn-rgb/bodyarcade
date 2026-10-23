@@ -5,7 +5,7 @@ import { Run, DIFFS, MOVES } from './sim.js';
 import { Input } from './input.js';
 import * as store from './store.js';
 
-const VERSION = '20261007';
+const VERSION = '20261023b';
 const $ = (id) => document.getElementById(id);
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -16,8 +16,13 @@ const st = {
   screen: 'start', world: 'alps', diff: 'medium', input: 'camera', skin: 'runner',
   engine: null, enginePromise: null, run: null, inputCtl: new Input(), tracker: null, poseModule: null,
   raf: 0, lastT: 0, paused: false, pauseReason: '', calibrated: false, sound: true, challenge: null, lastSummary: null,
+  flow: 0, webgl: false, // flow: bumped whenever a camera start is abandoned (Back, keyboard, quit, end of run)
+  engineTries: 0, poseTries: 0, // a module that failed to load is remembered by the browser for that exact address, so a retry asks for a new one
   test: { enabled: false, fast: false, events: [] },
 };
+const STALL_REASON = 'Camera stopped sending frames';
+const WEBGL_MSG = 'This browser can’t draw the 3D game (WebGL is off or not available). Turn on hardware acceleration in the browser settings, or open BodyArcade in another browser.';
+const ENGINE_MSG = 'The 3D engine couldn’t start. Check your connection and press Play again.';
 
 // ───────────────────────── tiny synth for sound effects ─────────────────────────
 const sfx = (() => {
@@ -200,21 +205,65 @@ function openSkins() {
 
 // ───────────────────────── engine + pose loading ─────────────────────────
 function loadEngine() {
-  if (!st.enginePromise) st.enginePromise = import('./engine.js?v=' + VERSION).then(mod => {
-    const canvas = $('gl');
-    const e = new mod.Engine(canvas, { quality: 'auto', reducedMotion: reduced });
-    st.engine = e; st.engineMod = mod;
-    return e;
-  });
+  if (!st.enginePromise) {
+    const retry = st.engineTries ? '&retry=' + st.engineTries : '';
+    st.enginePromise = import('./engine.js?v=' + VERSION + retry).then(mod => {
+      const canvas = $('gl');
+      const e = new mod.Engine(canvas, { quality: 'auto', reducedMotion: reduced });
+      st.engine = e; st.engineMod = mod;
+      return e;
+    }).catch((e) => { st.enginePromise = null; st.engineTries++; throw e; }); // a failed load (a dropped connection, no WebGL) can be tried again without a reload (audit B6)
+  }
   return st.enginePromise;
 }
+// Can this browser make a WebGL context at all? Asked before a run is offered, so the player gets the real reason
+// instead of a wrong "check your connection" toast or a setup screen that never finishes (audit B6).
+function webglOk() {
+  if (st.webgl) return true;
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (gl) { const x = gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); st.webgl = true; }
+  } catch {}
+  return st.webgl;
+}
+function startNote(msg) { const n = $('start-note'); n.textContent = msg || ''; n.hidden = !msg; }
+// Shows the start screen with the reason a run could not begin.
+function failToStart(msg) { leaveToStart(); startNote(msg); }
+function webglReady() { if (webglOk()) { startNote(''); return true; } failToStart(WEBGL_MSG); return false; }
 async function loadPose() {
-  if (!st.poseModule) st.poseModule = await import('./pose.js?v=' + VERSION);
+  if (!st.poseModule) {
+    try { st.poseModule = await import('./pose.js?v=' + VERSION + (st.poseTries ? '&retry=' + st.poseTries : '')); }
+    catch (e) { st.poseTries++; throw e; }
+  }
   if (!st.tracker) {
     st.tracker = new st.poseModule.PoseTracker($('cam'), st.inputCtl);
     st.tracker.onFrame = drawPreview;
+    // A camera that stops mid-run (unplugged, permission withdrawn): its own pause, not "the camera lost you" (audit B8).
+    st.tracker.onCameraEnded = () => { if (st.screen === 'run' && st.input === 'camera') pauseForDeadCamera(); };
   }
   return st.tracker;
+}
+// The camera light must go off whenever the camera is not needed: Back, Quit, the end of a run, a keyboard start
+// (audit B9, B10). Also cancels a camera request that is still waiting for the browser's permission answer.
+function releaseCamera() {
+  st.flow++;
+  if (st.tracker) { st.tracker.stop(); st.tracker.stopCamera(); }
+  $('pip').hidden = true;
+}
+// Back to the start screen from anywhere: drops the run (and its frame loop) and releases the camera.
+function leaveToStart() {
+  cancelAnimationFrame(st.raf);
+  st.run = null; st.paused = false; st.pauseReason = '';
+  $('pause').hidden = true;
+  releaseCamera();
+  show('start'); renderStart();
+}
+function cameraErrorText(e) {
+  const name = e && e.name;
+  if (name === 'NotAllowedError' || name === 'SecurityError') return 'Camera blocked. Allow it in the address bar and press Back, then try again, or play with the keyboard.';
+  if (name === 'NotReadableError') return 'The camera is busy. Close other apps that use it, then press Back and try again, or play with the keyboard.';
+  return 'No camera found. You can still play with the keyboard.';
 }
 
 // skeleton preview on the mirrored camera canvas
@@ -238,81 +287,96 @@ function canStart() {
   return true;
 }
 async function startWithCamera() {
-  if (!canStart()) return;
+  if (!canStart() || !webglReady()) return;
   sfx.unlock();
   st.input = 'camera'; store.settings.set({ input: 'camera' });
   plausible('Play Click', { where: 'game-camera' });
+  const flow = ++st.flow;
+  const live = () => flow === st.flow && st.screen === 'setup'; // false once Back or "Use keyboard instead" was pressed
   show('setup');
   const pip = $('pip'); pip.hidden = false; pip.className = 'pip mode-setup';
+  $('b-setup-keys').className = 'btn btn-ghost';
   setStep('model', 'active'); setStep('camera', ''); setStep('frame', ''); setStep('still', '');
   $('setup-msg').textContent = '';
   loadEngine().catch(e => console.error(e));
   let tracker;
   try {
-    const camP = loadPose().then(t => (tracker = t) && (st.test.enabled ? null : t.startCamera()));
-    // model + camera in parallel
-    const t = await loadPose();
-    const modelP = t.load((s) => { $('setup-msg').textContent = s; });
+    tracker = await loadPose();
+    if (!live()) return;
+    // model + camera in parallel. Back during the permission prompt cancels the camera request (audit B9).
+    const camP = st.test.enabled ? Promise.resolve() : tracker.startCamera();
+    const modelP = tracker.load((s) => { if (live()) $('setup-msg').textContent = s; });
+    camP.catch(() => {}); modelP.catch(() => {}); // each is awaited below; this keeps the one not awaited yet from being reported unhandled
     await camP.catch(e => { throw Object.assign(e, { stage: 'camera' }); });
+    if (!live()) return;
     setStep('camera', 'done');
     await modelP.catch(e => { throw Object.assign(e, { stage: 'model' }); });
+    if (!live()) return;
     setStep('model', 'done');
   } catch (e) {
+    if (e.cancelled || !live()) return; // the player left; nothing to report
     console.warn(e);
     if (e.stage === 'camera') {
       setStep('camera', 'error');
-      const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
-      $('setup-msg').textContent = denied ? 'Camera blocked. Allow it in the address bar and press Back, then try again, or play with the keyboard.' : 'No camera found. You can still play with the keyboard.';
+      $('setup-msg').textContent = cameraErrorText(e);
     } else {
       setStep('model', 'error');
+      releaseCamera(); // no model, no use for the camera: the light goes off while the message is read
       $('setup-msg').textContent = 'The pose model couldn’t load (check your connection). You can play with the keyboard meanwhile.';
     }
     return;
   }
-  if (st.screen !== 'setup') return; // user backed out while loading
   tracker.resetCalibration(); st.calibrated = false;
   tracker.start();
   setStep('frame', 'active');
   $('setup-msg').textContent = 'Step back until your head and hips fit in the outline.';
   pip.classList.remove('ok');
-  await waitForCalibration(tracker);
-  if (st.screen !== 'setup') return;
+  if (!(await waitForCalibration(tracker, live))) return;
   setStep('frame', 'done'); setStep('still', 'done');
   $('setup-msg').textContent = 'Calibrated. Here we go.';
   st.calibrated = true;
-  await beginRun();
+  try { await beginRun(); } catch (e) { console.error(e); failToStart(webglOk() ? ENGINE_MSG : WEBGL_MSG); }
 }
 function setStep(id, cls) { const li = document.querySelector(`#setup-steps li[data-step="${id}"]`); if (li) li.className = cls; }
-function waitForCalibration(tracker) {
+// Resolves true once calibration is done, false if the player left the setup screen or the camera died.
+// A device that cannot process about ten pictures a second never finishes, so after ten seconds it says so and
+// the keyboard button becomes the main button (audit B7).
+function waitForCalibration(tracker, live = () => st.screen === 'setup') {
   return new Promise((res) => {
-    const pip = $('pip'); const ring = $('pip-ring-fill');
+    const pip = $('pip'); const ring = $('pip-ring-fill'); const keys = $('b-setup-keys');
+    const t0 = performance.now();
     const tick = () => {
-      if (st.screen !== 'setup') return res();
+      if (!live()) return res(false);
+      if (!tracker.injected && tracker.cameraState() === 'ended') {
+        setStep('camera', 'error'); keys.className = 'btn btn-play';
+        $('setup-msg').textContent = 'The camera stopped. Press Back and start again, or continue with the keyboard.';
+        return res(false);
+      }
       const c = tracker.calibrationStatus();
       const vis = tracker.signals.visible;
+      const notice = st.poseModule.calibrationNotice(tracker.fps, (performance.now() - t0) / 1000);
+      keys.className = notice ? 'btn btn-play' : 'btn btn-ghost';
       pip.classList.toggle('ok', vis);
       $('pip-status').textContent = vis ? (c.ready ? 'Calibrated' : c.reason) : (st.inputCtl.tracking.reason || 'Looking for you…');
       ring.style.strokeDashoffset = String(289 * (1 - c.progress));
-      if (vis) { setStep('frame', 'done'); setStep('still', c.ready ? 'done' : 'active'); $('setup-msg').textContent = c.ready ? 'Calibrated.' : c.reason; }
-      else { setStep('frame', 'active'); setStep('still', ''); $('setup-msg').textContent = st.inputCtl.tracking.reason || 'Step back until your head and hips fit in the outline.'; }
-      if (c.ready) return res();
+      if (vis) { setStep('frame', 'done'); setStep('still', c.ready ? 'done' : 'active'); $('setup-msg').textContent = notice && !c.ready ? notice.text : (c.ready ? 'Calibrated.' : c.reason); }
+      else { setStep('frame', 'active'); setStep('still', ''); $('setup-msg').textContent = notice ? notice.text : (st.inputCtl.tracking.reason || 'Step back until your head and hips fit in the outline.'); }
+      if (c.ready) return res(true);
       setTimeout(tick, 100);
     };
     tick();
   });
 }
 async function startWithKeys() {
-  if (!canStart()) return;
+  if (!canStart() || !webglReady()) return;
   sfx.unlock();
   st.input = 'keys'; store.settings.set({ input: 'keys' });
   plausible('Play Click', { where: 'game-keyboard' });
-  if (st.tracker) { st.tracker.stop(); st.tracker.stopCamera(); }
-  $('pip').hidden = true;
+  releaseCamera();
   st.inputCtl.source = 'keys';
   show('run');
   $('countdown').hidden = false; $('countdown').innerHTML = '<b>…</b>';
-  try { await loadEngine(); } catch (e) { console.error(e); toast('The 3D engine couldn’t load. Check your connection and reload.'); show('start'); return; }
-  await beginRun();
+  try { await loadEngine(); await beginRun(); } catch (e) { console.error(e); failToStart(webglOk() ? ENGINE_MSG : WEBGL_MSG); }
 }
 
 async function beginRun() {
@@ -374,9 +438,12 @@ function frame(now) {
 
   // tracking loss → auto pause (camera runs only)
   if (st.input === 'camera' && !st.paused) {
-    if (st.tracker && !st.tracker.injected && st.tracker.lastFrameT && now / 1000 - st.tracker.lastFrameT > 1.5 && input.tracking.ok) input.tracking = { ok: false, reason: 'Camera stopped sending frames' };
-    if (!input.tracking.ok) { lostT += dt; if (lostT > 1.0) pause('lost'); $('track-warn').hidden = false; $('track-warn').textContent = input.tracking.reason; }
-    else { lostT = 0; $('track-warn').hidden = true; }
+    if (st.tracker && !st.tracker.injected && st.tracker.cameraState() === 'ended') pauseForDeadCamera(); // unplugged or permission withdrawn (audit B8)
+    else {
+      if (st.tracker && !st.tracker.injected && st.tracker.lastFrameT && now / 1000 - st.tracker.lastFrameT > 1.5 && input.tracking.ok) input.tracking = { ok: false, reason: STALL_REASON };
+      if (!input.tracking.ok) { lostT += dt; if (lostT > 1.0) pause('lost'); $('track-warn').hidden = false; $('track-warn').textContent = input.tracking.reason; }
+      else { lostT = 0; $('track-warn').hidden = true; }
+    }
   }
   if (st.paused) {
     if (st.pauseReason === 'lost' && input.tracking.ok) { resume(); }
@@ -423,8 +490,23 @@ function pause(reason = 'user') {
   if (!st.run || st.paused || st.run.phase !== 'running') return;
   st.paused = true; st.pauseReason = reason; st.run.paused = true; st.inputCtl.enabled = false;
   $('pause').hidden = false;
-  $('pause-msg').textContent = reason === 'lost' ? 'The camera lost you. Step back into view and the run continues.' : reason === 'hidden' ? 'You switched away. Ready when you are.' : '';
+  const stalled = reason === 'lost' && st.inputCtl.tracking.reason === STALL_REASON;
+  $('pause-msg').textContent = reason === 'camera' ? 'The camera stopped, so the game can’t see you. Restart it to carry on.'
+    : stalled ? 'The camera stopped sending pictures. The run carries on when they come back.'
+    : reason === 'lost' ? 'The camera lost you. Step back into view and the run continues.'
+    : reason === 'hidden' ? 'You switched away. Ready when you are.' : '';
+  // A dead camera cannot "resume": the way forward is to restart it.
+  $('b-resume').hidden = reason === 'camera';
   $('b-recal').hidden = st.input !== 'camera';
+  $('b-recal').textContent = reason === 'camera' ? 'Restart camera' : 'Recalibrate';
+  $('b-recal').className = reason === 'camera' ? 'btn btn-play' : 'btn btn-ghost'; // the one way forward is the main button
+}
+function pauseForDeadCamera() {
+  st.inputCtl.tracking = { ok: false, reason: 'The camera stopped' };
+  $('track-warn').hidden = true;
+  if (st.tracker) st.tracker.stop(); // the detection loop has nothing left to read; "Restart camera" starts it again
+  $('pip-status').textContent = 'Camera stopped'; $('pip').classList.remove('ok'); drawPreview(null); // no frozen skeleton and no "Tracking" on a dead feed
+  pause('camera');
 }
 async function resume() {
   if (!st.paused) return;
@@ -434,21 +516,39 @@ async function resume() {
   if (!st.test.fast) { $('countdown').hidden = false; $('countdown').innerHTML = `<b class="go">${wasLost ? 'Go' : 'Go'}</b>`; await new Promise(r => setTimeout(r, 700)); $('countdown').hidden = true; }
   st.paused = false; st.run.paused = false; st.inputCtl.enabled = true; st.inputCtl.reset(); st.lastT = performance.now(); lostT = 0;
 }
-function quitRun() {
-  cancelAnimationFrame(st.raf); st.run = null; st.paused = false;
-  $('pause').hidden = true; $('pip').hidden = true;
-  if (st.tracker) { st.tracker.stop(); st.tracker.stopCamera(); }
-  show('start'); renderStart();
-}
+function quitRun() { leaveToStart(); }
+// "Recalibrate" in the pause menu, and "Restart camera" when the camera itself has stopped: the dead stream is
+// dropped and the browser is asked for the camera again before calibrating (audit B8).
 async function recalibrate() {
-  if (!st.tracker) return;
+  const tracker = st.tracker;
+  if (!tracker) return;
+  const needCamera = !tracker.injected && tracker.cameraState() !== 'live';
   $('pause').hidden = true;
   st.pauseReason = 'recal';
-  st.tracker.resetCalibration();
+  tracker.resetCalibration();
+  const flow = ++st.flow;
+  const live = () => flow === st.flow && st.screen === 'setup';
   const pip = $('pip'); pip.className = 'pip mode-setup'; show('setup');
-  setStep('model', 'done'); setStep('camera', 'done'); setStep('frame', 'active'); setStep('still', '');
-  await waitForCalibration(st.tracker);
-  if (st.screen !== 'setup') return;
+  $('b-setup-keys').className = 'btn btn-ghost';
+  setStep('model', 'done'); setStep('camera', needCamera ? 'active' : 'done'); setStep('frame', needCamera ? '' : 'active'); setStep('still', '');
+  $('setup-msg').textContent = needCamera ? 'Restarting the camera…' : '';
+  if (needCamera) {
+    try {
+      tracker.stop();
+      await tracker.startCamera();
+    } catch (e) {
+      if (e.cancelled || !live()) return;
+      console.warn(e);
+      setStep('camera', 'error');
+      $('b-setup-keys').className = 'btn btn-play';
+      $('setup-msg').textContent = cameraErrorText(e);
+      return;
+    }
+    if (!live()) return;
+    setStep('camera', 'done'); setStep('frame', 'active');
+    tracker.start();
+  }
+  if (!(await waitForCalibration(tracker, live))) return;
   show('run'); pip.className = 'pip mode-run'; st.engine.resize();
   resume();
 }
@@ -456,35 +556,40 @@ async function recalibrate() {
 // ───────────────────────── end of run ─────────────────────────
 function endRun(complete) {
   cancelAnimationFrame(st.raf);
+  releaseCamera(); // the camera light goes off as the run ends, not when the player leaves the results (audit B10)
   const run = st.run; const s = run.summary(); st.lastSummary = s;
   const world = WORLD_BY_ID[st.world];
   st.inputCtl.enabled = false;
-  $('pip').hidden = true;
-  if (st.tracker) st.tracker.stop();
-  if (s.seconds >= store.MIN_COUNTED_RUN && !store.isPro()) store.countRun();
-  const prevBest = store.best(world.id);
-  const res = store.afterRun({ ...s, world: world.id, ts: Date.now(), friend: st.challenge });
   if (complete) sfx.done(); else sfx.hit();
+  // The results screen comes first and is filled from the run itself, so nothing in storage can keep it from appearing (audit B4).
   show('results');
   $('res-kicker').textContent = complete ? `Run complete in ${world.name}` : `Out of lives in ${world.name}`;
   $('res-score').textContent = s.score.toLocaleString();
-  $('res-best').textContent = s.score > prevBest && prevBest > 0 ? 'New best' : (prevBest === 0 ? 'First run here' : '');
+  $('res-best').textContent = '';
   $('res-dist').textContent = s.dist + ' m'; $('res-cleared').textContent = s.cleared; $('res-combo').textContent = s.bestCombo; $('res-kcal').textContent = s.kcal;
+  $('res-notes').innerHTML = ''; $('res-bests').innerHTML = '';
   const notes = [];
-  if (st.challenge) notes.push(s.score > st.challenge.score ? `<div>You beat <b>${esc(st.challenge.name)}</b>’s ${st.challenge.score.toLocaleString()}. Send your score back.</div>` : `<div><b>${esc(st.challenge.name)}</b> still leads with ${st.challenge.score.toLocaleString()}. ${(st.challenge.score - s.score).toLocaleString()} to go.</div>`);
-  if (res.daily) notes.push(`<div>Daily goal done. <b>${res.daily.streak}-day streak.</b></div>`);
-  for (const id of res.news) { const a = store.ACHIEVEMENTS.find(x => x.id === id); if (a) notes.push(`<div>Achievement: <b>${esc(a.name)}</b>. ${esc(a.desc)}</div>`); }
-  if (!complete && s.hits >= 3 && s.cleared < 3 && st.input === 'camera') notes.push(`<div>Tip: the ring fills as an obstacle approaches. Make your move when it turns <b>yellow</b>.</div>`);
-  if (!store.isPro() && store.runsLeft() === 0) notes.push(`<div>That was your last free run today. <b>Pro</b> removes the limit.</div>`);
-  $('res-notes').innerHTML = notes.join('');
-  const bests = store.runs().filter(r => r.world === world.id).sort((a, b) => b.score - a.score).slice(0, 5);
-  $('res-bests').innerHTML = bests.length ? `<h3>Your best in ${world.name}</h3><ol>${bests.map((r, i) => `<li><b>${i + 1}</b><span>${new Date(r.ts).toLocaleDateString()}, ${esc((DIFFS[r.diff] || {}).label || '')}</span><span>${r.dist} m</span><b>${r.score.toLocaleString()}</b></li>`).join('')}</ol>` : '';
+  try {
+    if (s.seconds >= store.MIN_COUNTED_RUN && !store.isPro()) store.countRun();
+    const prevBest = store.best(world.id);
+    const res = store.afterRun({ ...s, world: world.id, ts: Date.now(), friend: st.challenge });
+    $('res-best').textContent = s.score > prevBest && prevBest > 0 ? 'New best' : (prevBest === 0 ? 'First run here' : '');
+    if (st.challenge) notes.push(s.score > st.challenge.score ? `<div>You beat <b>${esc(st.challenge.name)}</b>’s ${st.challenge.score.toLocaleString()}. Send your score back.</div>` : `<div><b>${esc(st.challenge.name)}</b> still leads with ${st.challenge.score.toLocaleString()}. ${(st.challenge.score - s.score).toLocaleString()} to go.</div>`);
+    if (res.daily) notes.push(`<div>Daily goal done. <b>${res.daily.streak}-day streak.</b></div>`);
+    for (const id of res.news) { const a = store.ACHIEVEMENTS.find(x => x.id === id); if (a) notes.push(`<div>Achievement: <b>${esc(a.name)}</b>. ${esc(a.desc)}</div>`); }
+    if (!complete && s.hits >= 3 && s.cleared < 3 && st.input === 'camera') notes.push(`<div>Tip: the ring fills as an obstacle approaches. Make your move when it turns <b>yellow</b>.</div>`);
+    if (!store.isPro() && store.runsLeft() === 0) notes.push(`<div>That was your last free run today. <b>Pro</b> removes the limit.</div>`);
+    $('res-notes').innerHTML = notes.join('');
+    const bests = store.runs().filter(r => r.world === world.id).sort((a, b) => b.score - a.score).slice(0, 5);
+    $('res-bests').innerHTML = bests.length ? `<h3>Your best in ${world.name}</h3><ol>${bests.map((r, i) => `<li><b>${i + 1}</b><span>${new Date(r.ts).toLocaleDateString()}, ${esc((DIFFS[r.diff] || {}).label || '')}</span><span>${r.dist} m</span><b>${r.score.toLocaleString()}</b></li>`).join('')}</ol>` : '';
+  } catch (e) { console.warn('BodyArcade could not show everything about this run', e); }
   plausible('Run Complete', { world: world.id, diff: st.diff, complete: String(complete) });
 }
+// The camera was released when the last run ended, so a camera run goes through the camera check again
+// (camera on, a second of standing still); the pose model and the 3D engine are already loaded.
 async function runAgain() {
   if (!canStart()) return;
-  if (st.input === 'camera' && st.tracker && st.calibrated) { st.tracker.start(); await beginRun(); }
-  else if (st.input === 'camera') startWithCamera();
+  if (st.input === 'camera') startWithCamera();
   else startWithKeys();
 }
 function share() {
@@ -512,13 +617,14 @@ function boot() {
   if (q.get('live')) setTimeout(() => toast('Live races are offline for now. Solo runs and friend challenges work.', 4200), 600);
   if (q.get('pro')) history.replaceState(null, '', location.pathname); // the old ?pro=1 shortcut is gone
   renderStart();
-  store.refreshLicense().then(renderStart);
+  if (!webglOk()) startNote(WEBGL_MSG);
+  store.refreshLicense().then(renderStart, () => {});
   if (q.get('license')) { openPro(); setTimeout(() => { const i = $('i-key'); if (i) { i.value = q.get('license'); $('b-key').click(); } }, 50); history.replaceState(null, '', location.pathname); }
 
   $('b-play').onclick = startWithCamera;
   $('b-play-keys').onclick = startWithKeys;
-  $('b-setup-keys').onclick = () => { if (st.tracker) { st.tracker.stop(); st.tracker.stopCamera(); } startWithKeys(); };
-  $('b-setup-back').onclick = () => { if (st.tracker) { st.tracker.stop(); st.tracker.stopCamera(); } $('pip').hidden = true; show('start'); };
+  $('b-setup-keys').onclick = () => { releaseCamera(); startWithKeys(); };
+  $('b-setup-back').onclick = leaveToStart; // also cancels a camera request still waiting for the permission prompt (audit B9)
   $('b-pro').onclick = () => openPro();
   $('b-ach').onclick = openAchievements; $('b-hist').onclick = openHistory; $('b-skins').onclick = openSkins;
   $('b-sound').onclick = () => { st.sound = !st.sound; store.settings.set({ sound: st.sound }); renderStart(); };
@@ -526,7 +632,7 @@ function boot() {
   $('i-weight').onchange = () => { const w = parseFloat($('i-weight').value); if (w >= 25 && w <= 250) store.profile.set({ weight: w }); };
   $('b-pause').innerHTML = ICON.pause; $('b-pause').onclick = () => pause('user');
   $('b-resume').onclick = resume; $('b-quit').onclick = quitRun; $('b-recal').onclick = recalibrate;
-  $('b-again').onclick = runAgain; $('b-change').onclick = () => { $('pip').hidden = true; if (st.tracker) st.tracker.stopCamera(); show('start'); renderStart(); }; $('b-share').onclick = share;
+  $('b-again').onclick = runAgain; $('b-change').onclick = leaveToStart; $('b-share').onclick = share;
   document.addEventListener('click', (e) => { const a = e.target.closest('[data-ev]'); if (a) plausible(a.dataset.ev, { where: a.dataset.where || '' }); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && st.screen === 'run') { if (st.paused && st.pauseReason === 'user') resume(); else pause('user'); } });
   document.addEventListener('visibilitychange', () => { if (document.hidden && st.screen === 'run') pause('hidden'); });
