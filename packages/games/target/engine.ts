@@ -267,7 +267,7 @@ export class TargetEngine<S extends BaseSpec> {
     const t = this.t;
     return {
       slot: s.slot, state: s, env: l.env, stats: s.stats, x: s.x, ch: l.ch, level: this.level, seated: this.seated, quiet: this.quiet,
-      keyboard: s.cursor !== null, t, seg: segmentAt(this.timeline, t),
+      keyboard: s.cursor !== null, t, seg: segmentAt(this.timeline, t), latencyMs: this.latencyMs,
       poseNow: () => (s.poseT === null ? t : s.poseT + (t - s.poseSeen)),
       simOf: (p) => (s.poseT === null ? p : s.poseSeen + (p - s.poseT)),
     };

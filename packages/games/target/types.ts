@@ -142,6 +142,8 @@ export interface LaneApi {
   /** Simulation time of this step (ms), and the round or rest it is in. */
   readonly t: number;
   readonly seg: { kind: 'play' | 'rest'; round: number; start: number; end: number };
+  /** System latency taken off beat offsets and reaction times (ms). */
+  readonly latencyMs: number;
   /** The pose clock's best guess of "now" (ms on the pose clock), for reaction times. */
   poseNow(): number;
   /** The simulation time a pose-clock moment (a judgement's `t`) corresponds to. */

@@ -1,6 +1,7 @@
-// A virtual player for tests and tools: two hands with a top speed, a hip that can drop, a lean, and a pose rate. Each pose
-// frame goes through the REAL handHit detector of the movement library, so what the game reads is exactly what a camera
-// round would give it (positions in T, speeds in A per second, `hit.t` on a pose clock that is not the simulation clock).
+// A virtual player for tests and tools: two hands with a top speed and an arm that is only so long, a torso that can step
+// sideways, feet that can move along the floor, a hip that can drop, a lean, and a pose rate. Each pose frame goes
+// through the REAL handHit detector of the movement library, so what the game reads is exactly what a camera round would
+// give it (positions in T, speeds in A per second, `hit.t` on a pose clock that is not the simulation clock).
 // Test support only; nothing in production imports it.
 import type { BodyProfile, Features, InputFrame, Vec2 } from '../../../core/types/index.ts';
 import { FIXED_DT } from '../../../core/types/index.ts';
@@ -24,15 +25,28 @@ export interface BodyOptions {
 export interface Goal { x: number; y: number; /** top speed in T per second */ speed: number }
 
 const SIDES = ['L', 'R'] as const;
+/** Half the shoulder width and the floor line in T, as the rig's figure has them. */
+const HALF_W = 0.4;
+const FLOOR_Y = -1.8;
 
 export class VirtualBody {
   readonly profile: BodyProfile;
   readonly hz: number;
   readonly offset: number;
   readonly feet: boolean;
+  /** Arm length in T. */
+  readonly arm: number;
   /** Hand centres, body space (T). */
   hand: Record<Hand, Vec2> = { L: { x: -0.5, y: 0.1 }, R: { x: 0.5, y: 0.1 } };
   goal: Record<Hand, Goal> = { L: { x: -0.5, y: 0.1, speed: 0 }, R: { x: 0.5, y: 0.1, speed: 0 } };
+  /** The torso's sideways step: where it is, where it is going, and how fast (T per second). */
+  shift = 0;
+  shiftGoal = 0;
+  shiftSpeed = 2.5;
+  /** Where the feet are along the floor (x, T) and where they are going; null: stay put. */
+  foot: Record<Hand, number> = { L: -0.25, R: 0.25 };
+  footGoal: Record<Hand, number | null> = { L: null, R: null };
+  footSpeed = 4;
   /** Hip drop (T, positive = down) and the lean in shoulder widths, set by the test. */
   drop = 0;
   lean = 0;
@@ -47,6 +61,7 @@ export class VirtualBody {
   constructor(o: BodyOptions = {}) {
     this.feet = o.feet ?? false;
     this.profile = o.profile ?? profileOf(this.feet ? SHAPE_FULL : SHAPE_UPPER, this.feet ? 'full' : 'upper');
+    this.arm = (this.profile.A ?? this.profile.T * 1.15) / this.profile.T;
     this.hz = o.hz ?? 30;
     this.offset = o.clockOffset ?? 123_456;
     this.every = Math.max(1, Math.round(60 / this.hz));
@@ -56,20 +71,32 @@ export class VirtualBody {
   /** Aims a hand at a point; `speed` is the top speed in T per second. */
   aim(h: Hand, x: number, y: number, speed: number): void { this.goal[h] = { x, y, speed }; }
 
-  /** Both hands to rest, by the sides at belly height. */
+  /** Both hands to rest, by the sides at belly height (following the torso's step). */
   rest(): void {
-    this.aim('L', -0.5, 0.1, 6);
-    this.aim('R', 0.5, 0.1, 6);
+    this.aim('L', this.shiftGoal - 0.5, 0.1, 6);
+    this.aim('R', this.shiftGoal + 0.5, 0.1, 6);
   }
 
-  /** Moves the hands for step k (dt = 1/60) and, on the steps a pose frame is due, runs the detector. Returns this step's channels. */
+  /** The torso's shoulder for a hand, where the arm hangs from. */
+  shoulderOf(h: Hand): Vec2 { return { x: this.shift + (h === 'L' ? -HALF_W : HALF_W), y: 1 - this.drop }; }
+
+  /** Moves the body for step k (dt = 1/60) and, on the steps a pose frame is due, runs the detector. Returns this step's channels. */
   step(k: number): Record<string, number> {
+    const mv = (v: number, goal: number, speed: number): number => { const d = goal - v; const r = speed * FIXED_DT; return Math.abs(d) <= r ? goal : v + Math.sign(d) * r; };
+    this.shift = mv(this.shift, this.shiftGoal, this.shiftSpeed);
     for (const h of SIDES) {
       const p = this.hand[h], g = this.goal[h];
       const dx = g.x - p.x, dy = g.y - p.y;
       const d = Math.hypot(dx, dy);
       const reach = g.speed * FIXED_DT;
       if (d <= reach || d < 1e-9) { p.x = g.x; p.y = g.y; } else { p.x += (dx / d) * reach; p.y += (dy / d) * reach; }
+      // an arm is only so long
+      const s = this.shoulderOf(h);
+      const ax = p.x - s.x, ay = p.y - s.y;
+      const len = Math.hypot(ax, ay);
+      if (len > this.arm) { p.x = s.x + (ax / len) * this.arm; p.y = s.y + (ay / len) * this.arm; }
+      const fg = this.footGoal[h];
+      if (fg !== null) this.foot[h] = mv(this.foot[h], fg, this.footSpeed);
     }
     if (k % this.every === 0) {
       const f = this.features(stepTime(k) + this.offset);
@@ -82,20 +109,20 @@ export class VirtualBody {
   private features(t: number): Features {
     const z: Vec2 = { x: 0, y: 0 };
     const hipY = -this.drop;
+    const s = this.shift;
     const hand: [Vec2, Vec2] = [{ ...this.hand.L }, { ...this.hand.R }];
-    const ankleY = -1.8;
-    const ankle: [Vec2, Vec2] = [{ x: -0.25, y: ankleY }, { x: 0.25, y: ankleY }];
+    const ankle: [Vec2, Vec2] = [{ x: this.foot.L, y: FLOOR_Y }, { x: this.foot.R, y: FLOOR_Y }];
     return {
       t, seq: this.seq++, ok: !this.absent,
       seen: { head: true, shoulders: true, elbows: true, hands: this.handsSeen, hips: true, knees: this.feet, ankles: this.feet, feet: this.feet },
-      head: { x: 0, y: 1.45 + hipY }, shoulder: { x: 0, y: 1 + hipY }, hip: { x: 0, y: hipY },
-      shoulders: [{ x: -0.4, y: 1 + hipY }, { x: 0.4, y: 1 + hipY }],
-      hips: [{ x: -0.25, y: hipY }, { x: 0.25, y: hipY }],
-      elbow: [{ x: -0.5, y: 0.6 + hipY }, { x: 0.5, y: 0.6 + hipY }],
+      head: { x: s, y: 1.45 + hipY }, shoulder: { x: s, y: 1 + hipY }, hip: { x: s, y: hipY },
+      shoulders: [{ x: s - HALF_W, y: 1 + hipY }, { x: s + HALF_W, y: 1 + hipY }],
+      hips: [{ x: s - 0.25, y: hipY }, { x: s + 0.25, y: hipY }],
+      elbow: [{ x: s - 0.5, y: 0.6 + hipY }, { x: s + 0.5, y: 0.6 + hipY }],
       hand,
-      knee: [{ x: -0.25, y: -0.9 }, { x: 0.25, y: -0.9 }],
+      knee: [{ x: s - 0.25, y: -0.9 }, { x: s + 0.25, y: -0.9 }],
       ankle,
-      foot: [{ x: ankle[0].x, y: ankleY - 0.05 }, { x: ankle[1].x, y: ankleY - 0.05 }],
+      foot: [{ x: ankle[0].x, y: FLOOR_Y - 0.05 }, { x: ankle[1].x, y: FLOOR_Y - 0.05 }],
       rise: -this.drop, drop: this.drop, headDrop: this.drop, lean: this.lean, shoulderSpan: 1, vel: { nose: [z, z] },
     };
   }

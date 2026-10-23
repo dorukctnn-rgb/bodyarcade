@@ -7,6 +7,9 @@ import type { BaseSpec, Level, Rules, ViewLane } from '../types.ts';
 import { frame2, frameOf, VirtualBody, type Hand } from './body.ts';
 import { Chaser, type BotMode, type Seen } from './bots.ts';
 
+/** Decides, once per step, where a player's hands go. `t` is the simulation time (ms). */
+export type Steer = (lane: ViewLane, body: VirtualBody, t: number) => void;
+
 export interface SetupOptions {
   /** Whole run, seconds. */
   duration?: number;
@@ -23,26 +26,27 @@ export interface SetupOptions {
   keyboard?: boolean;
   met?: number;
   profiles?: [BodyProfile?, BodyProfile?];
+  /** Another way to play than chasing targets: one function per player (called with the player's index). */
+  steer?: (i: number) => Steer;
 }
 
 export interface Run<S extends BaseSpec> {
   engine: TargetEngine<S>;
   bodies: VirtualBody[];
-  chasers: Chaser[];
+  steers: Steer[];
   k: number;
   events: GameEvent[];
-  /** Pose rate and clock offset of each body (the two players' clocks differ in the product too). */
-  steer(lane: ViewLane, chaser: Chaser, body: VirtualBody): void;
 }
 
 /** What a Chaser sees of a target of any of the three games. */
 export function seenOf(lane: ViewLane): Seen[] {
   return lane.targets.map((t) => {
-    const s = t.spec as BaseSpec & { side?: Hand; hand?: Hand; trap?: boolean };
+    const s = t.spec as BaseSpec & { side?: Hand; hand?: Hand; trap?: boolean; limb?: 'hand' | 'foot' };
     return {
       id: t.id, x: t.x, y: t.y, age: t.age * s.life, life: s.life,
       ...((s.side ?? s.hand) ? { side: (s.side ?? s.hand) as Hand } : {}),
       ...(s.trap ? { avoid: true } : {}),
+      ...(s.limb ? { limb: s.limb } : {}),
     };
   });
 }
@@ -58,12 +62,16 @@ export function setup<S extends BaseSpec>(rules: Rules<S>, o: SetupOptions = {})
     ...(o.profiles?.[i] ? { profile: o.profiles[i] as BodyProfile } : {}), ...(o.hz !== undefined ? { hz: o.hz } : {}),
     clockOffset: 50_000 + i * 777, feet: o.feet ?? false,
   }));
-  const chasers = modes.map((m, i) => new Chaser(m, (o.seed ?? 1) + i));
+  const steers: Steer[] = modes.map((m, i) => {
+    if (o.steer) return o.steer(i);
+    const chaser = new Chaser(m, (o.seed ?? 1) + i);
+    return (lane, body) => chaser.steer(body, seenOf(lane));
+  });
   const profiles: [BodyProfile | null, (BodyProfile | null)?] = o.keyboard
     ? [null]
     : two ? [(bodies[0] as VirtualBody).profile, (bodies[1] as VirtualBody).profile] : [(bodies[0] as VirtualBody).profile];
   engine.start({ rng: rngStream(o.seed ?? 1, 'course'), level: o.level ?? 'normal', seated: o.seated ?? false, quiet: o.quiet ?? false, profiles });
-  return { engine, bodies, chasers, k: 0, events: [], steer: (lane, chaser, body) => chaser.steer(body, seenOf(lane)) };
+  return { engine, bodies, steers, k: 0, events: [] };
 }
 
 /** One step of the whole table: bots decide, bodies move, the engine steps. Returns what it returned. */
@@ -72,8 +80,8 @@ export function tick<S extends BaseSpec>(r: Run<S>, o: { keyboard?: boolean; tra
   const view = r.engine.view();
   const chans = r.bodies.map((b, i) => {
     const lane = view.lanes[i];
-    const chaser = r.chasers[i];
-    if (lane && chaser) r.steer(lane, chaser, b);
+    const steer = r.steers[i];
+    if (lane && steer) steer(lane, b, r.engine.t);
     return b.step(r.k);
   });
   const ok = o.tracked ?? [true, true];

@@ -3,8 +3,9 @@
 // movement library's handHit detector would (hand.L.x ...), so the games have one way to read a hand and a keyboard
 // round plays the same game, with the same judging, as a camera round.
 //
-// A cursor position is given in arm lengths from the shoulder midpoint, like the plans. The speed is constant while a key
-// is held (1.9 A per second, above the 1.5 A per second a punch needs): a pad is hit by moving through it.
+// A cursor position is given in arm lengths from the shoulder midpoint, like the plans. It moves at a steady 1.9 A per
+// second while a key is held. A hand made from a cursor always counts as fast enough for a punch (speed is a quality of a
+// body, and a keyboard player is not asked for it): what is left is where the hand is and when.
 import type { KeyMap } from '../../core/types/index.ts';
 import { SEATED_SCALE, type Envelope } from './envelope.ts';
 import type { Cursor } from './types.ts';
@@ -61,7 +62,7 @@ export function cursorChannels(c: Cursor, env: Envelope, t: number): Record<stri
     out[`hand.${h}.y`] = env.shoulderY + p.ay * k;
     out[`hand.${h}.vx`] = p.vx;
     out[`hand.${h}.vy`] = p.vy;
-    out[`hand.${h}.speed`] = p.speed;
+    out[`hand.${h}.speed`] = CURSOR_SPEED;
     out[`hand.${h}.rx`] = p.ax * (env.seated ? SEATED_SCALE : 1);
     out[`hand.${h}.ry`] = p.ay * (env.seated ? SEATED_SCALE : 1);
     out[`hand.${h}.seen`] = 1;

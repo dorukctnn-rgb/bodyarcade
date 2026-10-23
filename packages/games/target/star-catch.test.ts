@@ -286,8 +286,10 @@ describe('seated and keyboard variants', () => {
     expect(hand('R')!.y).toBeGreaterThan(r0.y + 0.4);
     expect(Math.abs(hand('R')!.x - r0.x)).toBeLessThan(0.01);
     expect(hand('L')!.x).toBeLessThan(l0.x - 0.4);
+    const stopped = { ...hand('R')! };
     hold({}, 5);
-    expect(hand('R')!.speed).toBe(0);
+    expect(hand('R')!.y).toBe(stopped.y);
+    expect(hand('R')!.x).toBe(stopped.x);
   });
 
   it('a keyboard player can catch stars by moving a cursor onto them', () => {
@@ -322,7 +324,7 @@ describe('snapshot and restore', () => {
     b.engine.restore(snap);
     // the bots carry their own memory (which hand they chose), so give b the same bot and body state
     b.bodies[0] = a.bodies[0]!;
-    b.chasers[0] = a.chasers[0]!;
+    b.steers[0] = a.steers[0]!;
     b.k = a.k;
     const ea: unknown[] = [], eb: unknown[] = [];
     // a copy of the future: play a on from here, then replay b on the same inputs by recording what a saw
@@ -330,7 +332,7 @@ describe('snapshot and restore', () => {
     while (a.engine.phase === 'running') {
       a.k++;
       const lane = a.engine.view().lanes[0]!;
-      a.steer(lane, a.chasers[0]!, a.bodies[0]!);
+      a.steers[0]!(lane, a.bodies[0]!, a.engine.t);
       const f = frameOf(a.k, a.bodies[0]!.step(a.k));
       inputs.push(f);
       ea.push(a.engine.step(f).events);
