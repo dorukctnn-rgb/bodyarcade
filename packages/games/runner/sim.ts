@@ -1,7 +1,10 @@
 // Run simulation: speed, spawning, collisions and scoring. Pure logic, no rendering.
 // Ported from site/game/sim.js WITHOUT behaviour changes (types added only). The parity test
-// (sim.parity.test.ts) keeps it identical to the live game; the fixed-step, pre-generated-course version for the
-// platform (WP10) builds on this file.
+// (sim.parity.test.ts) keeps it identical to the live game.
+// Platform addition (WP10): a course made in advance from the seed (buildCourse) can drive the spawns instead of the
+// run's own random numbers. Obstacles and coins then come at fixed distances whatever happens in the run, so two
+// players (or a player and their ghost) meet the same course; a run without hits meets exactly what today's random
+// spawning gives for the same random numbers (course.test.ts).
 export const LANE_W = 1.6;
 
 export type DiffId = 'easy' | 'medium' | 'hard' | 'insane';
@@ -42,7 +45,13 @@ export type SimEvent =
 /** What the run reads each frame: target lane (-1, 0, 1), crouch level (0..1) and a one-shot jump. */
 export interface RunInput { lane?: number; crouch?: number; consumeJump(): boolean }
 
-export interface RunOptions { diff?: string; duration?: number; weight?: number; seed?: number }
+/** One obstacle of a course: it appears when the run's distance reaches `at`. */
+export interface CourseObstacle { at: number; type: ObstacleType; side: number }
+/** A row of up to five coins in one lane, appearing at distance `at`. */
+export interface CourseCoins { at: number; lane: number }
+export interface Course { obstacles: CourseObstacle[]; coins: CourseCoins[] }
+
+export interface RunOptions { diff?: string; duration?: number; weight?: number; seed?: number; course?: Course }
 
 export interface RunSummaryV1 {
   score: number; dist: number; cleared: number; hits: number; bestCombo: number; coins: number; kcal: number;
@@ -71,8 +80,12 @@ export class Run {
   _grace: number;
   _moveZ?: number;
   paused: boolean;
+  /** Course mode: spawns come from here (indices of the next obstacle and coin row). */
+  course: Course | null;
+  _ci: number;
+  _cc: number;
 
-  constructor({ diff = 'medium', duration = 90, weight = 70, seed = Date.now() & 0xffffffff }: RunOptions = {}) {
+  constructor({ diff = 'medium', duration = 90, weight = 70, seed = Date.now() & 0xffffffff, course }: RunOptions = {}) {
     this.diff = (DIFFS as Record<string, DiffSpec | undefined>)[diff] || DIFFS.medium; this.diffId = diff;
     this.duration = duration; this.weight = weight;
     this.rand = seedRand(seed);
@@ -86,6 +99,7 @@ export class Run {
     this._lastType = null;
     this._grace = 2.5;                 // seconds before the first obstacle
     this.paused = false;
+    this.course = course ?? null; this._ci = 0; this._cc = 0;
   }
 
   get runnerState() { return { x: this.x, y: this.y, crouch: this.crouch, lean: this.lean, speed: this.speed, jumpU: this.jumpU, hitT: this.hitT, invuln: this.invuln }; }
@@ -107,6 +121,10 @@ export class Run {
 
   _spawn(): void {
     const { type, side } = this._pick();
+    this._spawnAs(type, side);
+  }
+
+  _spawnAs(type: ObstacleType, side: number): void {
     const ob: Obstacle = { id: this._id++, type, side, z: SPAWN_Z, resolved: false, safe: true, inWindow: false, move: 'hurdle' };
     ob.move = type === 'wall' ? (side > 0 ? 'wallL' : 'wallR') : type;
     this.obstacles.push(ob);
@@ -114,7 +132,10 @@ export class Run {
   }
 
   _spawnCoins(): void {
-    const lane = [-1, 0, 1][Math.floor(this.rand() * 3)] as number;
+    this._coinsIn([-1, 0, 1][Math.floor(this.rand() * 3)] as number);
+  }
+
+  _coinsIn(lane: number): void {
     for (let i = 0; i < 5; i++) {
       const z = SPAWN_Z - 6 - i * 1.4;
       if (this.obstacles.some(o => Math.abs(o.z - z) < 3.5)) continue;
@@ -154,13 +175,19 @@ export class Run {
     if (this.invuln > 0) this.invuln -= dt;
 
     // spawning (distance based so difficulty scales with speed)
-    if (this._grace > 0) this._grace -= dt;
-    else if (this.dist >= this._nextSpawn) {
-      this._spawn();
-      const gap = this.speed * this.diff.react * (0.9 + this.rand() * 0.35);
-      this._nextSpawn = this.dist + gap;
+    if (this.course) {
+      const c = this.course;
+      for (let o = c.obstacles[this._ci]; o && this.dist >= o.at; o = c.obstacles[++this._ci]) this._spawnAs(o.type, o.side);
+      for (let r = c.coins[this._cc]; r && this.dist >= r.at; r = c.coins[++this._cc]) this._coinsIn(r.lane);
+    } else {
+      if (this._grace > 0) this._grace -= dt;
+      else if (this.dist >= this._nextSpawn) {
+        this._spawn();
+        const gap = this.speed * this.diff.react * (0.9 + this.rand() * 0.35);
+        this._nextSpawn = this.dist + gap;
+      }
+      if (this.dist >= this._nextCoin) { this._spawnCoins(); this._nextCoin = this.dist + 14 + this.rand() * 10; }
     }
-    if (this.dist >= this._nextCoin) { this._spawnCoins(); this._nextCoin = this.dist + 14 + this.rand() * 10; }
 
     // move + resolve obstacles
     for (const o of this.obstacles) {
@@ -218,3 +245,22 @@ export class Run {
     };
   }
 }
+
+/**
+ * The course of a run made in advance: today's spawning rules replayed on the nominal run (no hits, so no slowdown)
+ * at the fixed step, with the given random numbers. A run without hits meets the same obstacles at the same
+ * distances as today's random spawning with the same numbers; a slowed run meets them a little later.
+ */
+export function buildCourse(rand: () => number, diffId: string, duration = 90, dt = 1 / 60): Course {
+  const probe = new Run({ diff: diffId, duration, seed: 0 });
+  probe.rand = rand;
+  const course: Course = { obstacles: [], coins: [] };
+  let n = 0;
+  probe._spawnAs = (type, side) => { course.obstacles.push({ at: probe.dist, type, side }); };
+  probe._coinsIn = (lane) => { course.coins.push({ at: probe.dist, lane }); };
+  const still: RunInput = { lane: 0, crouch: 0, consumeJump: () => false };
+  // Nothing spawns on the probe, so it never gets hit; it only runs the clock, speed and spawn rules.
+  while (probe.phase === 'running' && n++ < duration / dt + 10) probe.update(dt, still);
+  return course;
+}
+
