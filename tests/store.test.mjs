@@ -114,3 +114,30 @@ test('the stored licence keeps only a masked email', async () => {
   await store.verifyLicense(KEY);
   assert.ok(!JSON.stringify(store.license()).includes('buyer@example.com'));
 });
+
+// Friend challenge links arrive in other people's URLs: only a plain name, a whole score and string ids get through.
+const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64').replace(/=+$/, '');
+const readC = (c) => { globalThis.location = { search: '?c=' + c, origin: 'https://bodyarcade.com' }; return store.readChallenge(); };
+
+test('a challenge link round-trips', () => {
+  globalThis.location = { search: '', origin: 'https://bodyarcade.com' };
+  const url = store.challengeLink({ name: 'Ayşe', score: 1234, world: 'alps', diff: 'hard' });
+  assert.deepEqual(readC(url.split('?c=')[1]), { name: 'Ayşe', score: 1234, world: 'alps', diff: 'hard' });
+});
+
+test('a challenge whose score is not a whole positive number is ignored', () => {
+  assert.equal(readC(b64({ n: 'x', s: '<img src=x onerror=alert(1)>', w: 'alps', d: 'medium' })), null);
+  assert.equal(readC(b64({ n: 'x', s: 1.5 })), null);
+  assert.equal(readC(b64({ n: 'x', s: -5 })), null);
+  assert.equal(readC(b64({ n: 'x', s: 1e12 })), null);
+});
+
+test('a broken challenge link is ignored without throwing', () => {
+  assert.equal(readC('%E0%A4%A'), null);
+  assert.equal(readC('not-base64!!'), null);
+  assert.equal(readC(b64('just a string')), null);
+});
+
+test('challenge names are cut to 20 characters and ids become strings', () => {
+  assert.deepEqual(readC(b64({ n: 'A'.repeat(40), s: '250', w: 7, d: null })), { name: 'A'.repeat(20), score: 250, world: '7', diff: '' });
+});
