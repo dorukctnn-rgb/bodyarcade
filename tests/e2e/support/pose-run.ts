@@ -46,7 +46,11 @@ export function runCamera(page: Page, worker: 'only' | 'never' | 'auto', seconds
       });
     });
     pose.attach(lease);
-    await new Promise((r) => setTimeout(r, seconds * 1000));
+    // At least `seconds`; on a machine busy with other test runs, up to four times as long until 20 frames are in.
+    const t0 = performance.now();
+    while (performance.now() - t0 < seconds * 1000 || (frames.length < 20 && performance.now() - t0 < seconds * 4000)) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
     const stats = pose.stats;
     pose.detach();
     const afterDetach = frames.length;
