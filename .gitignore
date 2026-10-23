@@ -1,2 +1,7 @@
 # Local Netlify folder
 .netlify
+
+# Cloudflare Workers: local state and the generated asset folder
+.wrangler
+.cf-dist
+node_modules

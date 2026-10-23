@@ -1,0 +1,12 @@
+{
+  // BodyArcade on Cloudflare Workers static assets (replaces Netlify, Oct 2026).
+  // Build the asset folder first, then deploy from the repo root:
+  //   node cloudflare/build.mjs && npx wrangler deploy
+  "name": "bodyarcade",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./.cf-dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  }
+}
