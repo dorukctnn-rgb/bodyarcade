@@ -139,6 +139,23 @@ describe('toaster', () => {
     expect(el.removed).toBe(true);
   });
 
+  it('does not stack the same words twice: one toast, its time starts over, spoken once', () => {
+    const { w, said, toaster, host } = setup();
+    toaster.show('You are offline', { kind: 'warn' });
+    w.advance(2000);
+    toaster.show('You are offline', { kind: 'warn' });
+    expect(host.children).toHaveLength(1);
+    expect(said).toEqual(['You are offline']);
+    w.advance(2000);
+    expect((host.children[0] as El).className).not.toContain('is-leaving');
+    w.advance(1000);
+    expect((host.children[0] as El).className).toContain('is-leaving');
+    // The same words in another kind, or once the first has gone, are a new toast.
+    toaster.show('You are offline', { kind: 'info' });
+    expect(host.children.filter((c) => !c.className.includes('is-leaving'))).toHaveLength(1);
+    expect(said).toEqual(['You are offline', 'You are offline']);
+  });
+
   it('shows at most three and lets the oldest go first', () => {
     const { w, toaster, host } = setup();
     for (let i = 1; i <= MAX_TOASTS + 1; i++) toaster.show(`Message ${i}`);
