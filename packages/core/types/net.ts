@@ -2,6 +2,7 @@
 // JSON over one WebSocket per player to the Room Durable Object, the single authority for members, the clock, the
 // seed, pauses and the result. The fast 15 Hz state goes peer to peer (WebRTC data channel) or through the Room.
 // Players never see each other's device id: inside a room everyone is a seat id, stable for that room only.
+// Who a player is (device id, name, age band) comes from the signed join ticket, never from a message.
 // This file is shared by the browser client and the Worker, so it must not use DOM or Workers types.
 
 /** Bumped on any breaking change; the Room closes other versions with code 4005 (the page must reload). */
@@ -16,15 +17,21 @@ export type RoomKind = 'private' | 'public';
 export type AgeBand = 'child' | 'teen' | 'adult';
 export type Outcome = 'pass' | 'hit';
 export type MatchPhase = 'running' | 'paused' | 'settling' | 'over';
+/** complete: played to the end. forfeit: players left or stayed away the whole grace, one or more finished.
+ *  no_contest: it ended that way before 30% of the match was played. abandoned: nobody was left. */
 export type ResultReason = 'complete' | 'forfeit' | 'abandoned' | 'no_contest';
-/** Why a player holds the match paused. offline and left are set by the Room, the rest by the client. */
-export type NetPauseReason = 'hidden' | 'camera' | 'calibrating' | 'framing' | 'user' | 'offline' | 'left';
+/** Why a player holds the match paused. offline is set by the Room, the rest by the client. */
+export type NetPauseReason = 'hidden' | 'camera' | 'calibrating' | 'framing' | 'user' | 'offline';
 export const CLIENT_PAUSE_REASONS: readonly NetPauseReason[] = ['hidden', 'camera', 'calibrating', 'framing', 'user'];
 /** text: free text (private room, every member adult). preset: preset messages and reactions only. */
 export type ChatMode = 'text' | 'preset';
 
 export const MIN_SEATS = 2;
 export const MAX_SEATS = 4;
+/** Match length bounds (ms). */
+export const MIN_DURATION_MS = 15_000;
+export const MAX_DURATION_MS = 180_000;
+export const DEFAULT_DURATION_MS = 90_000;
 
 export interface RoomConfig {
   gameId: string;
@@ -41,8 +48,11 @@ export interface RoomInfo {
   size: number;
   host: SeatId | null;
   config: RoomConfig;
-  /** What the room allows right now; it follows the members (one teen makes the whole room preset-only). */
+  /** What the room allows right now; it follows the members (one under-18 member makes the room preset-only). */
   chat: ChatMode;
+  /** Whether video can be switched on in this room at all (private rooms only; per member it also needs 18+). */
+  video: boolean;
+  phase: 'lobby' | 'playing';
 }
 
 export interface MemberInfo {
@@ -53,7 +63,11 @@ export interface MemberInfo {
   ready: boolean;
   /** Peer-connection epoch; a new value means this member rebuilt its connection (tech.md 2.5 rule 3). */
   sess: string;
-  /** Opted in to video and allowed to (adult, private room). Video flows only between two members who both have it. */
+  /**
+   * Video between this member and the one reading the message: true only when this member switched video on and
+   * is allowed to (adult, private room) and neither of the two blocked the other. Video flows between two members
+   * only when each sees the other with video true.
+   */
   video: boolean;
 }
 
@@ -64,8 +78,9 @@ export interface MatchResult {
   reason: ResultReason;
   /** The single best seat, or null for a draw, an abandoned match or no contest. */
   winner: SeatId | null;
-  /** Place per seat (1 = first; equal results share a place). Forfeited seats have no place. */
+  /** Place per seat that finished (1 = first; equal results share a place). Forfeited seats have no place. */
   places: Record<SeatId, number>;
+  /** Scores of every seat that started, forfeited ones included. */
   scores: Record<SeatId, SeatScore>;
   forfeited: SeatId[];
 }
@@ -87,6 +102,8 @@ export interface MatchInfo {
   reasons: Record<SeatId, NetPauseReason>;
   /** The players of this match (members who join later wait for the next one). */
   seats: SeatId[];
+  /** Seats out of this match (left, removed, or away for the whole grace). */
+  forfeited: SeatId[];
   result: MatchResult | null;
 }
 
@@ -114,8 +131,12 @@ export interface SignalData {
 }
 
 export type ClientMessage =
-  /** Join or resume. `token` (from the first welcome) proves the seat; `reasons` are this client's pause reasons now. */
-  | { t: 'hello'; v: number; pid: string; token: string | null; sess: string; video: boolean; reasons: NetPauseReason[]; blocks: string[] }
+  /**
+   * First message on every socket (join or resume). `tab` is a random id per page load: a newer tab of the same
+   * player takes the seat over, and a tab that was replaced can never take it back. `reasons` are this client's
+   * pause reasons now; `blocks` the block keys this device holds (see RoomMessage 'blocked').
+   */
+  | { t: 'hello'; v: number; tab: string; sess: string; video: boolean; reasons: NetPauseReason[]; blocks: string[] }
   | { t: 'sync'; c: number }
   | { t: 'signal'; to: SeatId; d: SignalData }
   | { t: 'sess'; sess: string }
@@ -123,9 +144,12 @@ export type ClientMessage =
   | { t: 'ready'; ready: boolean }
   /** Host only, between matches. */
   | { t: 'config'; gameId?: string; durationMs?: number }
+  /** Host only, private rooms: remove a member for the rest of this room's life. */
+  | { t: 'kick'; seat: SeatId }
   | { t: 'ev'; mid: string; seq: number; ob: number; k: Outcome }
   /** End of match: the full outcome list fills anything lost on the way. */
   | { t: 'final'; mid: string; evs: ObstacleResult[] }
+  /** Game state while the peer path is down (at most 20 per second, 2 KB each). */
   | { t: 'relay'; d: unknown }
   | { t: 'pause'; reason: NetPauseReason }
   | { t: 'unpause' }
@@ -134,15 +158,16 @@ export type ClientMessage =
   | { t: 'react'; id: ReactionId }
   | { t: 'block'; seat: SeatId }
   | { t: 'report'; seat: SeatId; reason: ReportReason; block: boolean }
+  /** Leaving on purpose: during a match the seat forfeits at once. Never sent on page unload (a reload is not a leave). */
   | { t: 'bye' };
 
 export type AckRejection = 'bad' | 'early' | 'over' | 'no_match' | 'not_player';
 
-export type RoomErrorCode =
-  | 'version' | 'no_hello' | 'bad_pid' | 'bad_token' | 'full' | 'removed' | 'no_room' | 'not_host' | 'bad_config' | 'busy' | 'rate';
+/** Non-fatal errors; the socket stays open. */
+export type RoomErrorCode = 'no_hello' | 'bad' | 'not_host' | 'bad_config' | 'busy' | 'not_allowed' | 'rate' | 'no_seat';
 
 export type RoomMessage =
-  | { t: 'welcome'; v: number; you: SeatId; token: string; now: number; room: RoomInfo; members: MemberInfo[]; match: MatchInfo | null; mine: ObstacleResult[] }
+  | { t: 'welcome'; v: number; you: SeatId; now: number; room: RoomInfo; members: MemberInfo[]; match: MatchInfo | null; mine: ObstacleResult[]; blocked: SeatId[] }
   | { t: 'sync'; c: number; s: number }
   | { t: 'presence'; members: MemberInfo[] }
   | { t: 'room'; room: RoomInfo }
@@ -150,6 +175,8 @@ export type RoomMessage =
   | { t: 'start'; match: MatchInfo }
   | { t: 'paused'; by: SeatId | null; match: MatchInfo }
   | { t: 'resumed'; match: MatchInfo }
+  /** A seat left the running match (forfeit) and the others play on; `match` has it in `forfeited`. */
+  | { t: 'forfeit'; seat: SeatId; match: MatchInfo }
   | { t: 'settling'; mid: string }
   | { t: 'ack'; seq: number; rejected?: AckRejection }
   | { t: 'relay'; from: SeatId; d: unknown }
@@ -158,21 +185,26 @@ export type RoomMessage =
   | { t: 'preset'; from: SeatId; id: PresetId; at: number }
   | { t: 'react'; from: SeatId; id: ReactionId; at: number }
   | { t: 'chat_rejected'; reason: ChatRejectReason; retryAt?: number }
+  /** This device blocked `seat`; `key` is the opaque block key to keep and send in every hello. */
+  | { t: 'blocked'; seat: SeatId; key: string }
   | { t: 'reported'; seat: SeatId }
   /** Sent to the one who is being removed, just before the socket closes with 4003. */
-  | { t: 'removed'; reason: 'blocked' | 'banned' }
+  | { t: 'removed'; reason: 'kicked' | 'banned' | 'dropped' }
   | { t: 'error'; code: RoomErrorCode };
 
-/** WebSocket close codes the Room uses; the client stops for good on all of them except TICKET and RATE. */
+/** WebSocket close codes the Room uses. The client stops for good on all of them except TICKET and RATE. */
 export const CLOSE = {
-  /** Another tab or device of the same player took the seat. */
+  /** Another tab or device of the same player took the seat, or this tab was replaced earlier. */
   REPLACED: 4000,
   FULL: 4001,
   /** Ticket missing, invalid or expired: fetch a new one and reconnect. */
   TICKET: 4002,
+  /** Kicked by the host, banned, or dropped after being away from the lobby too long. */
   REMOVED: 4003,
   NO_ROOM: 4004,
   VERSION: 4005,
+  /** Not allowed in this room (age band, a block with someone in a public room). */
+  NOT_ALLOWED: 4006,
   /** Too many messages: the socket is dropped and the client reconnects after its backoff. */
   RATE: 4008,
 } as const;
@@ -183,6 +215,8 @@ export interface RoomSummary {
   kind: RoomKind;
   gameId: string;
   band: string | null;
+  /** Public rooms: who may join ('teen' or 'adult'; strangers of different bands never meet). Null in private rooms. */
+  audience: AgeBand | null;
   size: number;
   players: number;
   open: number;
@@ -196,7 +230,7 @@ export interface TicketClaims {
   v: 1;
   /** Room code. */
   c: RoomCode;
-  /** Device player id (secret to the device and the server). */
+  /** Device player id (never shown to other players). */
   p: string;
   /** Display name, already filtered. */
   n: string;
@@ -214,6 +248,17 @@ export interface JoinGrant {
   ticket: string;
   /** Epoch seconds. */
   exp: number;
+  room: RoomPreview;
+}
+
+/** Answer of GET /api/rooms/:code (the invite page): enough to show what you are joining, no names. */
+export interface RoomPreview {
+  code: RoomCode;
+  kind: RoomKind;
+  gameId: string;
+  size: number;
+  players: number;
+  phase: 'lobby' | 'playing';
 }
 
 /** Answer of POST /api/ice. TURN credentials are minted by the Worker; the key never reaches the browser. */
@@ -221,4 +266,6 @@ export interface IceGrant {
   iceServers: { urls: string | string[]; username?: string; credential?: string }[];
   /** False when only STUN is offered (no TURN key, or the daily free allowance guard is reached). */
   turn: boolean;
+  /** Epoch seconds after which the credentials stop working; ask again before. */
+  exp: number;
 }
