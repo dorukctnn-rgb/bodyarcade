@@ -16,6 +16,9 @@
 // - Input sources: solo, ghost and local2 accept pose, keyboard and touch (accessibility, tech.md 4.5); duel accepts
 //   pose only (code-audit rule 7). Mode 'local2' needs Capabilities.local2, a game that lists it, and the camera.
 // - Determinism: the game only sees FIXED_DT steps, and InputHub frames stamped with simulation time.
+// - A camera that stops delivering pictures without ending (iPhone: the track is muted by a call or another app; a
+//   stuck pose worker) is caught by a watchdog: no pose frame for stallMs (2.5 s) while calibrating, counting down or
+//   playing pauses with 'camera_ended' and gives the lease back, so resume() asks for the camera again.
 // - The screen stays on (Wake Lock) while calibrating, counting down, playing and waiting for a lost player: a camera
 //   player never touches the phone, which would otherwise dim and lock mid-run. A pause by hand, the results and
 //   errors let the screen sleep again.
@@ -36,7 +39,10 @@ import { createPoseFeed, type PoseFeed, type PoseFeedOptions, type PresenceChang
 import { createFixedStepClock, stepTime, type FixedStepClock } from './clock.ts';
 import { rngStream } from './rng.ts';
 
-export const SESSION_DEFAULTS = { countdownMs: 3000, fpsEveryMs: 1000 } as const;
+export const SESSION_DEFAULTS = { countdownMs: 3000, fpsEveryMs: 1000, stallMs: 2500 } as const;
+
+/** The first pose frame of a new camera may take this long (the first GPU inference took 3.1 s cold). */
+const FIRST_FRAME_MS = 12_000;
 
 export type SessionErrorCode =
   | 'game_not_found' | 'game_init' | 'game_step' | 'mode_unavailable' | 'local2_unavailable' | 'camera_required'
@@ -72,6 +78,8 @@ export interface SessionDeps {
   countdownMs?: number;
   /** The gate: a player not seen for this long is lost (default 500 ms, tech.md 4.1). */
   lostMs?: number;
+  /** No pose frame for this long in a camera run counts as a stopped camera (default 2500 ms). */
+  stallMs?: number;
   /** Extra input sources for tests and tools ('test', 'trace'); never added in duel. */
   extraSources?: InputSourceId[];
   /** Where the game's keys are bound (default window, when there is one). */
@@ -94,6 +102,10 @@ interface Run {
   offControls: Unsubscribe[];
   /** The 'video' event said a picture is showing. */
   videoShown: boolean;
+  /** now() of the last pose frame (or of the camera start), for the stall watchdog. */
+  lastFrameAt: number;
+  /** Pose frames since the lease was attached: the first one may take long (a cold GPU model, tech.md 3.1). */
+  leaseFrames: number;
   players: 1 | 2;
   manifest: GameManifest | null;
   game: Game | null;
@@ -147,6 +159,7 @@ export function createSession(deps: SessionDeps): Session {
   const raf = deps.raf ?? ((cb: (t: number) => void) => requestAnimationFrame(cb));
   const cancelRaf = deps.cancelRaf ?? ((id: number) => cancelAnimationFrame(id));
   const countdownMs = deps.countdownMs ?? SESSION_DEFAULTS.countdownMs;
+  const stallMs = deps.stallMs ?? SESSION_DEFAULTS.stallMs;
   const listeners: Listeners = {};
   let state: SessionState = 'idle';
   let reason: PauseReason | null = null;
@@ -228,6 +241,12 @@ export function createSession(deps: SessionDeps): Session {
   function tick(r: Run): void {
     if (!live(r) || !r.game) return;
     const t = now();
+    const limit = r.leaseFrames > 0 ? stallMs : Math.max(stallMs, FIRST_FRAME_MS);
+    if (r.lease && (state === 'calibrating' || state === 'countdown' || state === 'running') && t - r.lastFrameAt > limit) {
+      stalled(r);
+      return;
+    }
+    if (state === 'calibrating') { schedule(r); return; }   // only the watchdog runs: nothing is drawn
     if (state === 'countdown') {
       const left = Math.max(0, Math.ceil((r.countdownEnd - t) / 1000));
       if (t >= r.countdownEnd) {
@@ -303,6 +322,8 @@ export function createSession(deps: SessionDeps): Session {
     if (!live(r) || r.lease !== lease) return false;
     for (const s of slots(r)) r.hub.setTracking({ ok: true }, s);
     r.offPose = pose.onFrame((f) => onPoseFrame(r, f));
+    r.lastFrameAt = now();
+    r.leaseFrames = 0;
     pose.attach(lease);
     r.videoShown = true;
     emit('video', { el: lease.video });
@@ -341,11 +362,22 @@ export function createSession(deps: SessionDeps): Session {
     }
     setState('calibrating');
     // A camera that ended while starting up: say so (B8) instead of waiting for frames that never come.
-    if (live(r) && r.lease && !r.lease.alive) pauseRun(r, 'camera_ended');
+    if (live(r) && r.lease && !r.lease.alive) { pauseRun(r, 'camera_ended'); return; }
+    r.lastFrameAt = Math.max(r.lastFrameAt, now() - stallMs / 2);   // a fresh calibration gets time for its first frame
+    if (live(r) && state === 'calibrating') schedule(r);
+  }
+
+  /** The camera stopped delivering pictures without ending: treat it as ended, so resume() acquires a new one. */
+  function stalled(r: Run): void {
+    for (const s of slots(r)) r.hub.setTracking({ ok: false, code: 'stalled' }, s);
+    pauseRun(r, 'camera_ended');
+    releaseCamera(r);
   }
 
   function onPoseFrame(r: Run, f: PoseFrame): void {
     if (!live(r) || !r.feed) return;
+    r.lastFrameAt = now();
+    r.leaseFrames++;
     if (state === 'calibrating') {
       const frames = r.feed.push(f, { engines: false });
       let status: CalibrationStatus | TwoPlayerCalibrationStatus;
@@ -502,7 +534,7 @@ export function createSession(deps: SessionDeps): Session {
       const players: 1 | 2 = o.mode === 'local2' ? 2 : 1;
       const hub = (deps.hub ?? createInputHub)({ players, now: () => r.clock.simMs });
       const r: Run = {
-        options: { ...o }, module: null, offControls: [], videoShown: false, players, manifest: null, game: null, started: false, hub, feed: null, lease: null, offLease: null,
+        options: { ...o }, module: null, offControls: [], videoShown: false, lastFrameAt: 0, leaseFrames: 0, players, manifest: null, game: null, started: false, hub, feed: null, lease: null, offLease: null,
         offPose: null, offPresence: null, abort: new AbortController(), calibrator: null, calibrator2: null,
         clock: createFixedStepClock(), rafId: null, alpha: 0, countdownEnd: 0, countdownShown: -1, fpsFrames: 0, fpsSince: 0,
         seed: (o.seed ?? deps.seed?.() ?? randomSeed()) >>> 0,

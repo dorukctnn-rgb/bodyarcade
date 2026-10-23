@@ -79,7 +79,9 @@ function fakePose() {
     async setNumPoses(n: 1 | 2) { p.numPoses.push(n); },
     stats: { hz: 0, p50: 0, p95: 0, dropped: 0, frames: 0 },
     dispose() {},
-    emit(f: PoseFrame) { if (p.attached) for (const cb of [...cbs]) cb(f); },
+    /** The camera picture freezes (iPhone: track muted) when true: no frames reach the session. */
+    frozen: false,
+    emit(f: PoseFrame) { if (p.attached && !p.frozen) for (const cb of [...cbs]) cb(f); },
     get listeners() { return cbs.size; },
   };
   return p satisfies PoseService & Record<string, unknown>;
@@ -520,6 +522,34 @@ describe('Session, camera run', () => {
     expect(h.game.log.starts.length).toBe(1);
     h.session.quit();
     expect(h.cam.stats().live).toBe(0);
+  });
+
+  it('a camera that stops sending pictures without ending (muted track) pauses as camera_ended after 2.5 s; resume asks for it again', async () => {
+    const h = harness();
+    await h.session.start('fake', CAMERA);
+    h.until('running', 6000);
+    h.pose.frozen = true;
+    h.pass(2400);
+    expect(h.session.state).toBe('running');
+    h.pass(200);
+    expect(h.session.pauseReason).toBe('camera_ended');
+    expect(h.game.log.ctx!.input.sample(0).tracking).toEqual({ ok: false, code: 'stalled' });
+    expect(h.cam.stats()).toEqual({ acquired: 1, released: 1, live: 0 });
+    h.pose.frozen = false;
+    await h.session.resume();
+    expect(h.cam.stats()).toEqual({ acquired: 2, released: 1, live: 1 });
+    h.until('running', 6000);
+    expect(h.game.log.starts.length).toBe(1);
+  });
+
+  it('the watchdog also covers calibration, but gives a new camera time for its first (cold) frame', async () => {
+    const h = harness();
+    h.pose.frozen = true;
+    await h.session.start('fake', CAMERA);
+    h.pass(10_000);
+    expect(h.session.state).toBe('calibrating');
+    h.pass(2500);
+    expect(h.session.pauseReason).toBe('camera_ended');
   });
 
   it('recalibrate() mid-run keeps a live lease, calibrates and continues', async () => {
