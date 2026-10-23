@@ -6,9 +6,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# v2 and main get a push every few minutes while the builders work; cancelling the running job on every push meant
+# that no run ever finished. On those two branches the running job completes and only the newest waiting run
+# follows it; pull requests still cancel their older runs.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/v2' && github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -16,7 +19,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The e2e suite (camera, pose, render kits, the Road Run gate run) takes about 10 minutes on a desktop.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
