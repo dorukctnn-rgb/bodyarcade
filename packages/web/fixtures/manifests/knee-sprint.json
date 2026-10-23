@@ -1,0 +1,38 @@
+{
+  "id": "knee-sprint",
+  "template": "runner",
+  "version": 1,
+  "title": "Knee Sprint",
+  "regions": ["cardio", "legs"],
+  "framing": "full",
+  "seated": true,
+  "lowImpact": false,
+  "silentSafe": false,
+  "durationSec": 180,
+  "met": 8,
+  "detectors": [{ "id": "kneeLift" }],
+  "free": true,
+  "modes": ["solo", "local2"],
+  "seo": { "slug": "knee-sprint", "keywords": ["high knees game", "run in place game", "cardio game"] },
+  "catalogue": {
+    "tagline": { "en": "Run on the spot. Higher knees, more speed.", "tr": "Olduğunuz yerde koşun. Dizler ne kadar yüksekse hız o kadar fazla." },
+    "about": {
+      "en": "Run on the spot and the runner on screen runs with you. The camera counts how high you lift each knee, and higher knees give you more speed.",
+      "tr": "Olduğunuz yerde koşarsınız, ekrandaki koşucu sizinle koşar. Kamera her dizi ne kadar yükselttiğinizi sayar; daha yüksek dizler daha fazla hız demektir."
+    },
+    "how": [
+      { "en": "Stand where the camera sees you from head to feet.", "tr": "Kameranın sizi baştan ayağa gördüğü bir yere durun." },
+      { "en": "Run on the spot and lift each knee to about hip height.", "tr": "Olduğunuz yerde koşun ve her dizi kalça hizasına kadar kaldırın." },
+      { "en": "The higher and steadier your knees, the faster the runner goes.", "tr": "Dizleriniz ne kadar yüksek ve düzenliyse koşucu o kadar hızlı gider." }
+    ],
+    "measures": [
+      { "en": "How high each knee comes up.", "tr": "Her dizin ne kadar yükseldiği." },
+      { "en": "How steady your rhythm is.", "tr": "Ritminizin ne kadar düzenli olduğu." }
+    ],
+    "move": "highKnee",
+    "tile": "knee-sprint",
+    "order": 2,
+    "related": ["road-run", "firework-jacks"],
+    "seatedNote": { "en": "Seated march: lift each knee in turn while you sit.", "tr": "Oturarak yürüyüş: otururken dizlerinizi sırayla kaldırın." }
+  }
+}

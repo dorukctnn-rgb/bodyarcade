@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bodyarcade.com/schema/game-manifest.json",
+  "title": "BodyArcade game manifest (contract GameManifest plus the catalogue block)",
+  "type": "object",
+  "required": ["id", "template", "version", "title", "regions", "framing", "seated", "lowImpact", "silentSafe", "durationSec", "met", "detectors", "free", "modes", "seo", "catalogue"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$", "maxLength": 40 },
+    "template": { "enum": ["runner", "flight", "target", "rhythm", "strength", "gate", "balance", "duel"] },
+    "version": { "type": "integer", "minimum": 1 },
+    "title": { "$ref": "#/$defs/localized" },
+    "regions": {
+      "type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true,
+      "items": { "enum": ["legs", "arms", "chest-back", "core", "cardio", "mobility", "seated"] }
+    },
+    "framing": { "enum": ["full", "upper", "side"] },
+    "seated": { "type": "boolean" },
+    "lowImpact": { "type": "boolean" },
+    "silentSafe": { "type": "boolean" },
+    "durationSec": { "type": "number", "minimum": 10, "maximum": 3600 },
+    "met": { "type": "number", "minimum": 1, "maximum": 12 },
+    "detectors": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "opts": { "type": "object", "additionalProperties": { "type": "number" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "free": { "type": "boolean" },
+    "modes": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "enum": ["solo", "ghost", "duel", "local2"] },
+      "contains": { "const": "solo" }
+    },
+    "minPoseHz": { "type": "number", "minimum": 5, "maximum": 60 },
+    "seo": {
+      "type": "object", "required": ["slug", "keywords"],
+      "properties": {
+        "slug": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$", "maxLength": 60 },
+        "keywords": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "string", "minLength": 2, "maxLength": 60 } }
+      },
+      "additionalProperties": false
+    },
+    "catalogue": {
+      "type": "object",
+      "required": ["tagline", "about", "how", "measures", "move", "tile", "order"],
+      "properties": {
+        "tagline": { "$ref": "#/$defs/localized" },
+        "about": { "$ref": "#/$defs/localized" },
+        "how": { "type": "array", "minItems": 3, "maxItems": 5, "items": { "$ref": "#/$defs/localized" } },
+        "measures": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "$ref": "#/$defs/localized" } },
+        "move": { "enum": ["stand", "squat", "highKnee", "jackOpen", "punch", "reach", "twist", "sideBend", "pull", "tPose", "balance", "seated", "leanLeft"] },
+        "tile": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" },
+        "order": { "type": "integer", "minimum": 1, "maximum": 999 },
+        "related": { "type": "array", "maxItems": 6, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" } },
+        "seatedNote": { "$ref": "#/$defs/localized" },
+        "quietNote": { "$ref": "#/$defs/localized" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "localized": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object", "required": ["en"], "minProperties": 1,
+          "properties": { "en": { "type": "string", "minLength": 1 } },
+          "propertyNames": { "enum": ["en", "tr", "de", "es", "fr"] },
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      ]
+    }
+  }
+}

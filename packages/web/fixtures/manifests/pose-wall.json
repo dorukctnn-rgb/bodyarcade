@@ -1,0 +1,38 @@
+{
+  "id": "pose-wall",
+  "template": "gate",
+  "version": 1,
+  "title": "Pose Wall",
+  "regions": ["mobility", "arms"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 240,
+  "met": 3,
+  "detectors": [{ "id": "poseMatch" }],
+  "free": true,
+  "modes": ["solo", "local2"],
+  "seo": { "slug": "pose-wall", "keywords": ["pose game", "pose matching game", "body shape game"] },
+  "catalogue": {
+    "tagline": { "en": "Make the shape before the wall reaches you.", "tr": "Duvar size ulaşmadan şekli yapın." },
+    "about": {
+      "en": "A wall with a person-shaped hole moves toward you. Strike the pose in time and pass through.",
+      "tr": "İnsan biçiminde bir boşluğu olan duvar size doğru gelir. Zamanında aynı duruşu alın ve içinden geçin."
+    },
+    "how": [
+      { "en": "Stand or sit where the camera sees you from head to hips.", "tr": "Kameranın sizi baştan kalçaya kadar gördüğü bir yerde durun ya da oturun." },
+      { "en": "Look at the shape cut into the wall.", "tr": "Duvara oyulmuş şekle bakın." },
+      { "en": "Copy it with your arms before the wall arrives.", "tr": "Duvar gelmeden önce kollarınızla onu taklit edin." }
+    ],
+    "measures": [
+      { "en": "How closely your arms and shoulders match the shape.", "tr": "Kollarınızın ve omuzlarınızın şekle ne kadar uyduğu." }
+    ],
+    "move": "tPose",
+    "tile": "pose-wall",
+    "order": 10,
+    "related": ["limbo-bend", "star-catch"],
+    "seatedNote": { "en": "Upper body walls: the shapes need only your arms and shoulders.", "tr": "Üst vücut duvarları: şekiller yalnızca kollarınızı ve omuzlarınızı kullanır." },
+    "quietNote": { "en": "Held poses only, nothing loud.", "tr": "Yalnızca sabit duruşlar, gürültü yok." }
+  }
+}
