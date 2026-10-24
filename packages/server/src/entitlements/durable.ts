@@ -83,6 +83,16 @@ export class EntitlementsDO {
     if (current === null || current > wake) await this.storage.setAlarm(wake);
   }
 
+  /** Arming never fails the call it follows, and never makes an alarm throw (the platform retries a thrown alarm at once). */
+  private async safeArm(engine: Engine, fired = false): Promise<void> {
+    try {
+      await this.arm(engine, fired);
+    } catch (e) {
+      this.log('error', { where: 'arm', error: String((e as { message?: unknown })?.message ?? e).slice(0, 200) });
+      try { await this.storage.setAlarm(this.now() + 3_600_000); } catch { /* the next request arms it again */ }
+    }
+  }
+
   async fetch(req: Request): Promise<Response> {
     try {
       const engine = await this.getEngine();
@@ -123,7 +133,7 @@ export class EntitlementsDO {
           const p = parseReminderBody(body);
           if (!p.ok) throw new HttpError(400, 'bad_request');
           result = await engine.reminder(p.value, ip);
-          if (result.status === 200) await this.arm(engine);
+          if (result.status === 200) await this.safeArm(engine);
           break;
         }
         default:
@@ -150,7 +160,7 @@ export class EntitlementsDO {
       // An alarm that throws is retried at once by the platform; a broken sweep must not turn into a storm.
       this.log('error', { where: 'sweep', error: String((e as { message?: unknown })?.message ?? e).slice(0, 200) });
     }
-    await this.arm(engine, true);
+    await this.safeArm(engine, true);
   }
 }
 

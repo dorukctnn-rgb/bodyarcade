@@ -134,7 +134,7 @@ export class FakePlay implements PlayUpstream {
 
   async check(productId: string, token: string): Promise<PlayCheck> {
     this.checks.push({ productId, token });
-    if (this.down) return { kind: 'unreadable' };
+    if (this.down) return { kind: 'unreadable', outage: true };
     return this.purchases.get(token) ?? { kind: 'refused', code: 'not_found' };
   }
 

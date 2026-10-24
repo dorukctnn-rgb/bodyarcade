@@ -345,7 +345,7 @@ export function createEngine(deps: EngineDeps): Engine {
     if (!play || breakerOpen('play')) return { kind: 'unreadable' };
     const c = await play.check(ref.productId, ref.purchaseToken);
     switch (c.kind) {
-      case 'unreadable': trip('play'); return c;
+      case 'unreadable': if (c.outage) trip('play'); return { kind: 'unreadable' };
       case 'pending': return c;
       case 'refused': return { kind: 'refused', code: c.code };
       case 'active': {

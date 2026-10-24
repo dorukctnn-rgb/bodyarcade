@@ -17,7 +17,8 @@ export type PlayCheck =
   | { kind: 'refused'; code: 'not_found' | 'ended' | 'refunded' }
   /** Bought but not paid yet (a cash payment method): no access, and no verdict either. */
   | { kind: 'pending' }
-  | { kind: 'unreadable' };
+  /** No verdict. `outage`: Google could not be reached or refused us (so the next calls would fail too); false: this one purchase is in a state this code does not know. */
+  | { kind: 'unreadable'; outage: boolean };
 
 export interface PlayUpstream {
   check(productId: string, purchaseToken: string): Promise<PlayCheck>;
@@ -29,7 +30,7 @@ const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'obj
 
 /** Google's SubscriptionPurchaseV2 as a verdict. `nowS`: epoch seconds. */
 export function judgeSubscription(body: unknown, productId: string, nowS: number): PlayCheck {
-  if (!isRecord(body)) return { kind: 'unreadable' };
+  if (!isRecord(body)) return { kind: 'unreadable', outage: true };
   const items = Array.isArray(body['lineItems']) ? body['lineItems'] : [];
   const item = items.find((i): i is Record<string, unknown> => isRecord(i) && i['productId'] === productId);
   const state = body['subscriptionState'];
@@ -54,14 +55,14 @@ export function judgeSubscription(body: unknown, productId: string, nowS: number
     case 'SUBSCRIPTION_STATE_PENDING':
       return { kind: 'pending' };
     default:
-      // UNSPECIFIED or a state added after this code was written: not a verdict.
-      return { kind: 'unreadable' };
+      // UNSPECIFIED or a state added after this code was written: not a verdict, and not a reason to leave Google alone.
+      return { kind: 'unreadable', outage: false };
   }
 }
 
 /** Google's ProductPurchase (the one-time Lifetime product) as a verdict. */
 export function judgeProduct(body: unknown): PlayCheck {
-  if (!isRecord(body)) return { kind: 'unreadable' };
+  if (!isRecord(body)) return { kind: 'unreadable', outage: true };
   const startedAt = timeToSec(body['purchaseTimeMillis']);
   const acknowledged = body['acknowledgementState'] === 1;
   const test = body['purchaseType'] === 0;
@@ -69,7 +70,7 @@ export function judgeProduct(body: unknown): PlayCheck {
     case 0: return { kind: 'active', expiry: null, startedAt, cancelled: false, acknowledged, test };
     case 1: return { kind: 'refused', code: 'refunded' };            // cancelled: a refund or a chargeback voided it
     case 2: return { kind: 'pending' };
-    default: return { kind: 'unreadable' };
+    default: return { kind: 'unreadable', outage: false };
   }
 }
 
@@ -126,7 +127,7 @@ export function createPlayUpstream(o: PlayUpstreamOptions): PlayUpstream {
         ? `${PLAY_API}/${enc(pkg)}/purchases/products/${enc(productId)}/tokens/${enc(purchaseToken)}`
         : `${PLAY_API}/${enc(pkg)}/purchases/subscriptionsv2/tokens/${enc(purchaseToken)}`;
       const r = await call('GET', url);
-      if (!r) return { kind: 'unreadable' };
+      if (!r) return { kind: 'unreadable', outage: true };
       if (r.status === 200) return isOnce(productId) ? judgeProduct(r.body) : judgeSubscription(r.body, productId, Math.floor(now() / 1000));
       // 400 and 404: Google has no such purchase (or does not accept the token). The engine decides what that is worth for a
       // purchase it has seen before (a wrong package name looks the same).
@@ -134,7 +135,7 @@ export function createPlayUpstream(o: PlayUpstreamOptions): PlayUpstream {
       // 410: a subscription that has been expired for too long to be looked up.
       if (r.status === 410) return { kind: 'refused', code: 'ended' };
       // 403 (no permission: our setup), 429, 5xx, anything else: not a verdict.
-      return { kind: 'unreadable' };
+      return { kind: 'unreadable', outage: true };
     },
 
     async acknowledge(productId, purchaseToken) {
