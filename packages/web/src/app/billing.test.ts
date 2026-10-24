@@ -2,8 +2,8 @@
 // one that development and test builds use, and the two stand-ins for the moment before the real one has answered.
 import { describe, expect, it } from 'vitest';
 import { bootEntitlements, type BootWindow } from '../../../core/entitlements/boot.ts';
-import { checkoutOf, GUMROAD_CHECKOUT, placeholdersIn } from '../../../core/entitlements/catalog.ts';
-import { SOLD_PLAN_IDS } from '../../../core/entitlements/plans.ts';
+import { checkoutOf, GUMROAD_CHECKOUT, placeholdersIn, type GumroadListing } from '../../../core/entitlements/catalog.ts';
+import { SOLD_PLAN_IDS, type SoldPlanId } from '../../../core/entitlements/plans.ts';
 import { Clock, FakeServer, makeKeys } from '../../../core/entitlements/testkit.ts';
 import { createStore, memoryStorage } from '../../../core/store/store.ts';
 import { loadPlayDetails, pendingBilling, practiceBilling, PREVIEW_CHECKOUT, realBilling, withPreviewOffers } from './billing.ts';
@@ -39,7 +39,7 @@ describe('the real billing', () => {
   });
 
   it('a catalogue that still holds placeholders offers nothing, and a real link is told from a placeholder or a typo', () => {
-    const placeholders = Object.fromEntries(SOLD_PLAN_IDS.map((id) => [id, { productId: '<GUMROAD_PRODUCT_ID>', checkout: '<GUMROAD_CHECKOUT>' }])) as Parameters<typeof checkoutOf>[0];
+    const placeholders = Object.fromEntries(SOLD_PLAN_IDS.map((id) => [id, { productId: '<GUMROAD_PRODUCT_ID>', checkout: '<GUMROAD_CHECKOUT>' }])) as Record<SoldPlanId, GumroadListing>;
     expect(checkoutOf(placeholders)).toEqual({});
     expect(placeholdersIn(placeholders)).toHaveLength(SOLD_PLAN_IDS.length * 2);
     expect(checkoutOf({ ...placeholders, lifetime: { productId: 'abcdefgh12345678', checkout: 'https://someone.gumroad.com/l/x' } })).toEqual({ lifetime: 'https://someone.gumroad.com/l/x' });
