@@ -5,13 +5,15 @@
 // Production first runs its gates (release/gates.ts): the Gumroad catalog must hold no placeholder
 // (node tools/entitlements/check-catalog.mjs --release), and a failed gate stops everything before anything is built or uploaded.
 // --dry-run runs the gates too. They are not part of the CI build: they fail until the Gumroad products exist.
+// Settings that only the preview may carry (SOCIAL_ALLOW_UNSIGNED) stop a production deploy while the preview still has them,
+// and stop a preview deploy once the shell signs its room calls (release/gates.ts, PREVIEW_ONLY).
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TARGETS, type TargetId } from './site.ts';
 import { SECRETS, readSecrets, secretsFile } from './secrets.ts';
-import { gatesFor, runGates, secretProblems } from './gates.ts';
+import { bridgeProblems, gatesFor, readShellSources, runGates, secretProblems, shellSignsRoomCalls } from './gates.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const args = process.argv.slice(2);
@@ -47,6 +49,12 @@ if (optional.length) console.warn(`not set (features off): ${optional.join(', ')
 // 2. The config must not carry placeholders.
 const config = readFileSync(join(root, target.config), 'utf8');
 if (/SET_AT_DEPLOY|TODO|<[A-Z_]+>/.test(config)) { console.error(`${target.config} still has a placeholder`); process.exit(1); }
+
+// 2b. Preview-only settings (PREVIEW_ONLY in release/gates.ts, today SOCIAL_ALLOW_UNSIGNED): production never has one and waits until the
+// preview has dropped them too (the final test runs there, on the rules production has); the preview drops them once the shell signs its room calls.
+const configText = (file: string): string => readFileSync(join(root, file), 'utf8');
+const bridges = bridgeProblems(id, { preview: configText(TARGETS.preview.config), production: configText(TARGETS.production.config), server: configText('packages/server/wrangler.jsonc') }, shellSignsRoomCalls(readShellSources(root)));
+if (bridges.length) { console.error(`${bridges.join('\n')}\nstopped: a setting that only the preview may carry (release/gates.ts)`); process.exit(1); }
 
 // 3. Build for this target (or check that dist/ was built for it).
 if (!args.includes('--skip-build')) run(process.execPath, [join(root, 'release/build.ts'), id]);

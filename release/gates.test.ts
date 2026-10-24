@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { gatesFor, runGates, secretProblems, type Gate } from './gates.ts';
+import { bridgeProblems, gatesFor, PREVIEW_ONLY, runGates, secretProblems, shellSignsRoomCalls, withoutComments, type Gate } from './gates.ts';
 import { SECRETS } from './secrets.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -61,6 +61,20 @@ describe('release/deploy.ts', () => {
     expect(src).toMatch(/secretProblems\(secrets\)/);
     expect(src.indexOf('secretProblems(secrets)')).toBeLessThan(src.indexOf("'deploy'"));
   });
+
+  it('checks the preview-only settings before the build and before anything goes to wrangler, also with --dry-run, and stops on a problem', () => {
+    const at = src.indexOf('bridgeProblems(id,');
+    expect(at).toBeGreaterThan(0);
+    expect(at).toBeLessThan(src.indexOf("release/build.ts'"));
+    expect(at).toBeLessThan(src.indexOf("'deploy'"));
+    const stop = src.slice(src.indexOf('if (bridges.length)'), src.indexOf('\n', src.indexOf('if (bridges.length)')));
+    expect(stop).toMatch(/process\.exit\(1\)/);
+    // it reads all three configs and the shell's sources, not a flag
+    expect(src).toMatch(/TARGETS\.preview\.config/);
+    expect(src).toMatch(/TARGETS\.production\.config/);
+    expect(src).toMatch(/packages\/server\/wrangler\.jsonc/);
+    expect(src).toMatch(/shellSignsRoomCalls\(readShellSources\(root\)\)/);
+  });
 });
 
 describe('the gate stays out of the CI build', () => {
@@ -98,5 +112,104 @@ describe('secrets', () => {
     expect(secretProblems({ ENT_MAIL_TOKEN: 't' })).toEqual([expect.stringContaining('go together')]);
     expect(secretProblems({ ENT_MAIL_FROM: 'info@bodyarcade.com' })).toEqual([expect.stringContaining('go together')]);
     expect(secretProblems({ TICKET_SECRET: 'x' })).toEqual([]);
+  });
+});
+
+describe('preview-only settings', () => {
+  const NAME = 'SOCIAL_ALLOW_UNSIGNED';
+  const clean = '{ "name": "bodyarcade", "vars": { "PUBLIC_ORIGIN": "https://bodyarcade.com" } }';
+  const withBridge = `{
+    // ${NAME}: a guest may make rooms until the shell signs
+    "vars": { "PUBLIC_ORIGIN": "https://x.example", "${NAME}": "1" }
+  }`;
+  const onlyInAComment = `{ // ${NAME} used to be here
+    /* ${NAME} */ "vars": { "PUBLIC_ORIGIN": "https://x.example" } }`;
+
+  it('the list names SOCIAL_ALLOW_UNSIGNED with its reason', () => {
+    expect(Object.keys(PREVIEW_ONLY)).toContain(NAME);
+    expect(PREVIEW_ONLY[NAME]).toMatch(/signs? its room calls/);
+  });
+
+  it('withoutComments drops line, trailing and block comments and leaves strings alone (URLs, quotes, escapes)', () => {
+    expect(withoutComments('{ // a\n"a": 1 }')).toBe('{ \n"a": 1 }');
+    expect(withoutComments('{ "u": "https://x.example/a//b" } // tail')).toBe('{ "u": "https://x.example/a//b" } \n');
+    expect(withoutComments('{ /* one\ntwo */ "a": "/* not a comment */" }')).toBe('{  "a": "/* not a comment */" }');
+    expect(withoutComments('{ "q": "say \\"hi\\" // still a string" } // gone')).toBe('{ "q": "say \\"hi\\" // still a string" } \n');
+    expect(withoutComments("const u = 'http://x.example'; // gone\nconst fetcher = 1;")).toBe("const u = 'http://x.example'; \nconst fetcher = 1;");
+    expect(withoutComments('/* unterminated')).toBe('');
+  });
+
+  describe('production', () => {
+    it('is fine when no config names one', () => {
+      expect(bridgeProblems('production', { preview: clean, production: clean, server: clean }, true)).toEqual([]);
+      expect(bridgeProblems('production', { preview: clean, production: clean }, false)).toEqual([]);
+    });
+
+    it('stops while the preview still sets one, and says why and what to do (a comment in the preview is fine)', () => {
+      const p = bridgeProblems('production', { preview: withBridge, production: clean, server: clean }, false);
+      expect(p).toHaveLength(1);
+      expect(p[0]).toContain(NAME);
+      expect(p[0]).toMatch(/preview/);
+      expect(p[0]).toMatch(/final test/);
+      expect(bridgeProblems('production', { preview: onlyInAComment, production: clean, server: clean }, false)).toEqual([]);
+    });
+
+    it('never lets production or the server config name one, not even in a comment', () => {
+      const prod = bridgeProblems('production', { preview: clean, production: withBridge }, false);
+      expect(prod).toHaveLength(1);
+      expect(prod[0]).toMatch(/^wrangler\.prod\.jsonc names SOCIAL_ALLOW_UNSIGNED/);
+      expect(bridgeProblems('production', { preview: clean, production: onlyInAComment }, false)).toHaveLength(1);
+      const server = bridgeProblems('production', { preview: clean, production: clean, server: onlyInAComment }, false);
+      expect(server).toHaveLength(1);
+      expect(server[0]).toMatch(/^packages\/server\/wrangler\.jsonc names/);
+    });
+
+    it('reports every config that is wrong at once', () => {
+      expect(bridgeProblems('production', { preview: withBridge, production: withBridge, server: withBridge }, false)).toHaveLength(3);
+    });
+  });
+
+  describe('preview', () => {
+    it('may carry one while the shell does not sign', () => {
+      expect(bridgeProblems('preview', { preview: withBridge, production: clean }, false)).toEqual([]);
+    });
+
+    it('has to drop it once the shell signs its room calls (a comment about it is fine)', () => {
+      const p = bridgeProblems('preview', { preview: withBridge, production: clean }, true);
+      expect(p).toHaveLength(1);
+      expect(p[0]).toMatch(/^wrangler\.jsonc still sets SOCIAL_ALLOW_UNSIGNED but the shell signs/);
+      expect(bridgeProblems('preview', { preview: clean, production: clean }, true)).toEqual([]);
+      expect(bridgeProblems('preview', { preview: onlyInAComment, production: clean }, true)).toEqual([]);
+    });
+  });
+
+  describe('does the shell sign its room calls', () => {
+    const wired = `import { createLiveRoomPort } from './live-room.ts';
+      const rooms = createLiveRoomPort({ origin, identity: () => social.roomIdentity(), fetcher: social.fetcher });`;
+    it('yes: a source of the web app calls createLiveRoomPort and hands it a fetcher', () => {
+      expect(shellSignsRoomCalls({ 'packages/web/src/app/boot.ts': wired })).toBe(true);
+      expect(shellSignsRoomCalls({ 'a.ts': 'x', 'packages/web/src/boot.ts': wired })).toBe(true);
+    });
+    it('no: nothing calls it yet, the call has no fetcher, or only a test or a comment does', () => {
+      expect(shellSignsRoomCalls({})).toBe(false);
+      expect(shellSignsRoomCalls({ 'packages/web/src/app/boot.ts': 'const x = 1;' })).toBe(false);
+      expect(shellSignsRoomCalls({ 'packages/web/src/app/boot.ts': 'const rooms = createLiveRoomPort({ origin, identity });' })).toBe(false);
+      expect(shellSignsRoomCalls({ 'packages/web/src/app/live-room.test.ts': wired })).toBe(false);
+      expect(shellSignsRoomCalls({ 'packages/web/src/app/x.spec.ts': wired })).toBe(false);
+      expect(shellSignsRoomCalls({ 'packages/web/src/app/boot.ts': `// createLiveRoomPort({ fetcher }) comes later\nconst x = 1;` })).toBe(false);
+      // the definition itself (with its `fetcher` option) is not a call
+      expect(shellSignsRoomCalls({ 'packages/web/src/app/live-room.ts': 'export function createLiveRoomPort(deps: LiveRoomDeps) { return deps.fetcher; }' })).toBe(false);
+    });
+    it('a URL string before the call does not hide it (a // inside a string is not a comment)', () => {
+      expect(shellSignsRoomCalls({ 'packages/web/src/boot.ts': `const o = 'https://x.example'; const r = createLiveRoomPort({ origin: o, fetcher: f });` })).toBe(true);
+    });
+  });
+});
+
+describe('the preview-only settings stay out of the CI build', () => {
+  it('neither the build nor a workflow runs the check (CI builds with the preview line still in place; the unit test of the configs is what runs there)', () => {
+    const flows = existsSync(join(root, '.github', 'workflows')) ? readdirSync(join(root, '.github', 'workflows')) : [];
+    for (const f of flows) expect(text(`.github/workflows/${f}`), f).not.toMatch(/bridgeProblems|release\/deploy/);
+    expect(text('release/build.ts')).not.toMatch(/bridgeProblems/);
   });
 });

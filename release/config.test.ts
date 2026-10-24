@@ -2,7 +2,9 @@
 // Worker exports and everything the development config of the server binds, so a module added in packages/server
 // (a Durable Object, a database) cannot ship without its binding. A builder who adds one adds it to both files here.
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { bridgeProblems, PREVIEW_ONLY, readShellSources, shellSignsRoomCalls } from './gates.ts';
 
 const ROOT = new URL('../', import.meta.url);
 const jsonc = (file: string): Record<string, unknown> => JSON.parse(readFileSync(new URL(file, ROOT), 'utf8').replace(/^\s*\/\/.*$/gm, '')) as Record<string, unknown>;
@@ -48,3 +50,38 @@ for (const file of ['wrangler.jsonc', 'wrangler.prod.jsonc']) {
     });
   });
 }
+
+// Settings only the preview may carry (PREVIEW_ONLY in release/gates.ts; today SOCIAL_ALLOW_UNSIGNED: guests may make rooms while the shell
+// does not sign its room calls). Production and the server's own config never have one; the preview drops it once the shell signs.
+describe('preview-only settings', () => {
+  const text = (file: string): string => readFileSync(new URL(file, ROOT), 'utf8');
+  const names = Object.keys(PREVIEW_ONLY);
+
+  it('every name is spelled like a Worker variable and says why it is allowed', () => {
+    for (const name of names) {
+      expect(name).toMatch(/^[A-Z][A-Z0-9_]+$/);
+      expect(PREVIEW_ONLY[name], name).toMatch(/\S{10}/);
+    }
+  });
+
+  for (const file of ['wrangler.prod.jsonc', 'packages/server/wrangler.jsonc']) {
+    it(`${file} never names one, not even in a comment (a grep finds nothing)`, () => {
+      for (const name of names) expect(text(file), name).not.toContain(name);
+    });
+  }
+
+  it('the production deploy refuses a production config that names one, whatever the preview has', () => {
+    const preview = text('wrangler.jsonc');
+    for (const name of names) {
+      const bad = bridgeProblems('production', { preview, production: `{ "vars": { "${name}": "1" } }` }, true);
+      expect(bad.some((p) => p.includes('wrangler.prod.jsonc') && p.includes(name)), name).toBe(true);
+    }
+  });
+
+  it('the preview drops its bridge once the shell signs its room calls (a source of the web app gives createLiveRoomPort the signed fetcher)', () => {
+    const signs = shellSignsRoomCalls(readShellSources(fileURLToPath(ROOT)));
+    const problems = bridgeProblems('preview', { preview: text('wrangler.jsonc'), production: text('wrangler.prod.jsonc'), server: text('packages/server/wrangler.jsonc') }, signs);
+    // Red means: the shell signs now, so delete the line from wrangler.jsonc (the message names it) and run the preview's live races signed.
+    expect(problems).toEqual([]);
+  });
+});
