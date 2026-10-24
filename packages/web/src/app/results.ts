@@ -3,7 +3,7 @@
 import type { RunSummary, Schema } from '../../../core/types/index.ts';
 import type { I18n } from '../../../core/ui/i18n/index.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
-import type { PlayerResult, RoundResult } from '../views/results.ts';
+import type { PlayerResult, ResultExtra, RoundResult } from '../views/results.ts';
 import type { SetupState } from '../views/setup.ts';
 
 /**
@@ -26,6 +26,21 @@ export function reasonsFrom(log: RunSummary['log'], i18n: I18n): { text: string;
     .map(([kind, count]) => ({ text: i18n.has(`miss.${kind}`) ? i18n.tx(`miss.${kind}`) : i18n.t('results.why.other'), count }));
 }
 
+/**
+ * Reaction times: the log entries of kind 'tag' that were tapped in time carry the time in ms (Reaction Tag). The average
+ * and the best are shown only when there is at least one; a round with no tap has no reaction time to talk about.
+ */
+export function reactionExtras(log: RunSummary['log'], i18n: I18n, player?: 1 | 2): ResultExtra[] {
+  const times = log.filter((e) => e.kind === 'tag' && e.ok && typeof e.v === 'number' && e.v > 0 && (player === undefined || (e.player ?? 1) === player)).map((e) => e.v as number);
+  if (times.length === 0) return [];
+  const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+  const best = Math.round(Math.min(...times));
+  return [
+    { label: i18n.t('results.reaction.avg'), value: i18n.t('results.reaction.value', { n: i18n.number(avg) }) },
+    { label: i18n.t('results.reaction.best'), value: i18n.t('results.reaction.value', { n: i18n.number(best) }) },
+  ];
+}
+
 export interface BuildInput {
   game: ShellGame;
   setup: SetupState;
@@ -44,9 +59,11 @@ export function buildRoundResult(i: BuildInput): RoundResult {
     ? ([1, 2] as const).flatMap((slot) => {
       const p = s.players?.[slot];
       if (!p) return [];
-      return [{ slot, score: p.score, ...(p.reps !== undefined ? { reps: p.reps } : {}), ...(p.hits !== undefined ? { hits: p.hits } : {}), ...(p.cleared !== undefined ? { cleared: p.cleared } : {}) }];
+      const extras = reactionExtras(s.log, i.i18n, slot);
+      return [{ slot, score: p.score, ...(p.reps !== undefined ? { reps: p.reps } : {}), ...(p.hits !== undefined ? { hits: p.hits } : {}), ...(p.cleared !== undefined ? { cleared: p.cleared } : {}), ...(extras.length ? { extras } : {}) }];
     })
     : undefined;
+  const extras = players ? [] : reactionExtras(s.log, i.i18n);
   return {
     gameId: i.game.id,
     setup: i.setup,
@@ -60,6 +77,7 @@ export function buildRoundResult(i: BuildInput): RoundResult {
     calories: caloriesFor(s.metSeconds, i.weightKg),
     personalBest: i.previousBest !== null && s.score > i.previousBest && i.setup.players === 1,
     reasons: reasonsFrom(s.log, i.i18n),
+    ...(extras.length ? { extras } : {}),
     ...(players ? { players } : {}),
     replay: i.replay ?? null,
   };

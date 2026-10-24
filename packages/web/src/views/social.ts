@@ -259,28 +259,32 @@ function feedRow(ctx: ViewContext, f: FeedItem, members: readonly MemberInfo[]):
 
 const PROBLEMS: readonly RoomProblem[] = ['full', 'no_room', 'removed', 'replaced', 'version', 'not_allowed', 'ticket', 'offline'];
 
+/**
+ * Everybody gets ready (the game's camera is calibrated first); the Room starts the match by itself the moment all
+ * players are ready and online, so nobody presses a start button and nobody waits for a host.
+ */
 function roomActionBar(ctx: ViewContext, v: RoomView): SafeHtml {
   const t = ctx.i18n;
   const r = v.room;
   const me = r.members.find((m) => m.seat === r.me);
   if (!me) return html``;
-  if (r.phase === 'playing') return html`<div class="k-actionbar"><p class="k-note">${t.t('room.playing')}</p></div>`;
-  if (!me.host) {
-    return html`<div class="k-actionbar"><div class="k-actions">${me.ready
-      ? html`<button class="ba-btn ba-btn--secondary ba-btn--lg" type="button" data-action="room.ready" data-ready="0">${t.t('room.unready')}</button>`
-      : html`<button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="room.ready" data-ready="1">${t.t('room.ready')}</button>`}</div>
-      <p class="k-note">${me.ready ? t.t('room.hostWaits') : t.t('room.waiting.note')}</p></div>`;
+  if (r.phase === 'playing') {
+    return html`<div class="k-actionbar"><div class="k-actions"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="room.return">${icon('play')}${t.t('room.return')}</button></div><p class="k-note">${t.t('room.playing')}</p></div>`;
   }
-  const others = r.members.filter((m) => !m.host);
+  const others = r.members.filter((m) => m.seat !== me.seat);
   const waiting = others.filter((m) => !m.ready || !m.online);
-  if (others.length === 0) return html`<div class="k-actionbar"><div class="k-actions"><button class="ba-btn ba-btn--primary ba-btn--lg is-waiting" type="button" disabled aria-disabled="true">${t.t('room.alone')}</button></div></div>`;
-  if (waiting.length === 0) {
-    return html`<div class="k-actionbar"><div class="k-actions"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="room.start">${icon('play')}${t.t('room.start')}</button></div><p class="k-note">${t.t('room.start.note')}</p></div>`;
-  }
   const first = waiting[0];
-  const label = waiting.length === 1 && first ? t.t('room.waiting', { name: first.name }) : t.t('room.waitingMany', { n: waiting.length });
-  return html`<div class="k-actionbar"><div class="k-actions"><button class="ba-btn ba-btn--primary ba-btn--lg is-waiting" type="button" disabled aria-disabled="true">${label}</button>${waiting.length === 1 && first && first.online
-    ? html`<button class="ba-btn ba-btn--secondary ba-btn--lg" type="button" data-action="room.remind" data-seat="${first.seat}">${t.t('room.remind', { name: first.name })}</button>` : ''}</div><p class="k-note">${t.t('room.waiting.note')}</p></div>`;
+  const note = others.length === 0 ? t.t('room.alone')
+    : me.ready && waiting.length === 0 ? t.t('room.starting')
+      : me.ready && waiting.length === 1 && first ? t.t('room.waiting', { name: first.name })
+        : me.ready ? t.t('room.waitingMany', { n: waiting.length })
+          : t.t('room.ready.note');
+  const button = me.ready
+    ? html`<button class="ba-btn ba-btn--secondary ba-btn--lg" type="button" data-action="room.ready" data-ready="0">${t.t('room.unready')}</button>`
+    : html`<button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="room.ready" data-ready="1">${icon('camera')}${t.t('room.ready')}</button>`;
+  const remind = me.ready && waiting.length === 1 && first && first.online
+    ? html`<button class="ba-btn ba-btn--secondary ba-btn--lg" type="button" data-action="room.remind" data-seat="${first.seat}">${t.t('room.remind', { name: first.name })}</button>` : '';
+  return html`<div class="k-actionbar"><div class="k-actions">${button}${remind}</div><p class="k-note" role="status">${note}</p></div>`;
 }
 
 export function roomPage(ctx: ViewContext, v: RoomView): SafeHtml {

@@ -103,7 +103,7 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(looking).not.toContain('data-action="lobby.quick"');
   });
 
-  it('a room: the host waits for the one who is not ready, then may start; a guest gets the ready button', async () => {
+  it('a room: everybody gets ready, nobody presses start, and the page says what the Room is waiting for', async () => {
     const { ctx, missing } = ctxOf(lang, '/r/K7Q2MX/');
     const { state, svc } = await ready();
     await svc.rooms.create({ game: 'squat-flap', kind: 'private', size: 4, band: null });
@@ -111,17 +111,30 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     const game = games.find((g) => g.id === 'squat-flap') ?? null;
     const view = (r: RoomState, profile = state().profile): RoomView => ({ room: r, game, profile, games: onlineGames(ctx), draft: '', chatNote: '' });
 
-    const waiting = roomPage(ctx, view(room)).value;
+    // I am ready and one of the others is not: the page names who it waits for and offers a nudge
+    const hostReady = { ...room, members: room.members.map((m, i) => ({ ...m, ready: m.seat === room.me || i === 1 })) };
+    const waiting = roomPage(ctx, view(hostReady)).value;
     expect(missing).toEqual([]);
     expect(textOf(waiting)).not.toMatch(NO_LEAK);
-    expect(waiting).toContain('is-waiting');
     expect(waiting).toContain('data-action="room.remind"');
+    expect(waiting).toContain('data-action="room.ready" data-ready="0"');
     expect(waiting).not.toContain('data-action="room.start"');
     expect(waiting).toContain('K7Q2MX');
 
+    // not ready yet: the way in is Get ready, which goes through the camera
+    const notYet = roomPage(ctx, view({ ...room, members: room.members.map((m) => ({ ...m, ready: false })) })).value;
+    expect(notYet).toContain('data-action="room.ready" data-ready="1"');
+    expect(textOf(notYet)).toContain(ctx.i18n.t('room.ready.note'));
+
+    // everybody ready: the Room starts the match itself, there is no button for it
     const allReady = { ...room, members: room.members.map((m) => ({ ...m, ready: true })) };
     const start = roomPage(ctx, view(allReady)).value;
-    expect(start).toContain('data-action="room.start"');
+    expect(start).not.toContain('data-action="room.start"');
+    expect(textOf(start)).toContain(ctx.i18n.t('room.starting'));
+
+    // a match is running: the way back to it
+    const playing = roomPage(ctx, view({ ...room, phase: 'playing' })).value;
+    expect(playing).toContain('data-action="room.return"');
 
     const g = createDemoSocial({ mode: 'ready' });
     await g.social.open();

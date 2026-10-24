@@ -465,7 +465,7 @@ export interface DuoLayout { metrics: HudMetrics; rects: DuoRects; pip: PipSize 
 export function placeHudDuo(
   viewport: Viewport & { metrics?: HudMetrics },
   measured: MeasuredDuo,
-  options: { away?: DuoAway; camAspect?: number } = {},
+  options: { away?: DuoAway; camAspect?: number; mirror?: boolean } = {},
 ): DuoLayout {
   const m = viewport.metrics ?? hudMetrics(viewport);
   const { w, h, insets, margin, gap } = m;
@@ -478,7 +478,10 @@ export function placeHudDuo(
   const timer: PlacedRect = { x: r((left + right) / 2 - measured.timer.w / 2), y: top, ...measured.timer };
   const rowBottom = top + Math.max(measured.statusP1.h, measured.statusP2.h, measured.timer.h);
   const command: PlacedRect = { x: r((left + right) / 2 - measured.command.w / 2), y: rowBottom + gap, ...measured.command };
-  const pipSize2 = duoPipSize({ w, h, ...(options.camAspect !== undefined ? { camAspect: options.camAspect } : {}) });
+  // A mirror game (target hit, rhythm) shows the camera as its scene: there is no shared self view window, the lanes get the room.
+  const pipSize2: PipSize = options.mirror === true
+    ? { w: 0, h: 0, aspect: options.camAspect ?? 16 / 9 }
+    : duoPipSize({ w, h, ...(options.camAspect !== undefined ? { camAspect: options.camAspect } : {}) });
   const pip: PlacedRect = { x: r((left + right) / 2 - pipSize2.w / 2), y: bottom - pipSize2.h, w: pipSize2.w, h: pipSize2.h, corner: 'bottom-centre' };
   const rects: DuoRects = { statusP1, statusP2, timer, command, pip, playP1: { x: 0, y: 0, w: 0, h: 0 }, playP2: { x: 0, y: 0, w: 0, h: 0 } };
 

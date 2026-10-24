@@ -137,3 +137,26 @@ describe('layout details', () => {
     expect(r.hud['statusLeft']!.y).toBeGreaterThanOrEqual(typicalInsets(b.w, b.h).top);
   });
 });
+
+describe.each(BREAKPOINTS.filter((b) => Math.min(b.w, b.h) >= 500 && b.w > b.h).map((b) => [b.label, b] as const))('two players in a mirror game, %s', (_label, b) => {
+  const f = hudMetrics({ w: b.w, h: b.h }).font;
+  const measured: MeasuredDuo = {
+    statusP1: { w: Math.round(f.numeral * 4), h: Math.round(f.numeral * 1.6) },
+    statusP2: { w: Math.round(f.numeral * 4), h: Math.round(f.numeral * 1.6) },
+    timer: { w: Math.round(f.numeral * 3), h: Math.round(f.numeral * 1.6) },
+    command: { w: Math.round(f.command * 3.6), h: Math.round(f.command * 1.25) },
+    reasonP1: { w: Math.round(f.reason * 9), h: Math.round(f.reason * 2.4) },
+    reasonP2: { w: Math.round(f.reason * 9), h: Math.round(f.reason * 2.4) },
+  };
+
+  it('has no self view window: the camera is the scene, and the lanes are taller than with one', () => {
+    const plain = layoutDuo({ w: b.w, h: b.h, camAspect: 16 / 9, measured });
+    const mirror = layoutDuo({ w: b.w, h: b.h, camAspect: 16 / 9, measured, mirror: true });
+    expect(plain.pip).not.toBeNull();
+    expect(mirror.pip).toBeNull();
+    expect(mirror.hud['pip']).toBeUndefined();
+    expect(layoutProblems(mirror)).toEqual([]);
+    expect(mirror.lanes![0].h).toBeGreaterThan(plain.lanes![0].h);
+    expect(mirror.mirror.h).toBeGreaterThanOrEqual(plain.mirror.h);
+  });
+});

@@ -88,7 +88,7 @@ test.describe('two players on one camera', () => {
     await expect(page).toHaveURL(/players=2/);
 
     await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.locator('.cal h2')).toContainText('Two players');
+    await expect(page.locator('.cal h2')).toContainText('Both of you in view');
     await inRound(page);
     for (const slot of ['statusP1', 'statusP2', 'timer']) await expect(page.locator(`[data-hud="${slot}"]`)).toBeVisible();
     expect(await page.evaluate(() => window.__BA__?.debug().playProblems)).toEqual([]);
@@ -103,7 +103,7 @@ test.describe('two players on one camera', () => {
 
   test('on a phone there is no two player choice, and an address asking for two plays one', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await withHooks(page, { timeScale: 8, roundSeconds: 120, forceDemo: true });
+    await withHooks(page, { timeScale: 8, roundSeconds: 120, forceDemo: true, keyboard: true });
     await page.goto(`${WEB_DEV_URL}/games/squat-flap/`);
     await expect(page.locator('input[name="players"]')).toHaveCount(0);
     await page.goto(`${WEB_DEV_URL}/play/squat-flap/?players=2&input=keyboard`);
@@ -116,6 +116,8 @@ test.describe('two players on one camera', () => {
 test.describe('calibration', () => {
   test('the screen shows the four checks and the distance gauge, fills in as the player is found, then counts down', async ({ page }) => {
     const errors = collectErrors(page);
+    // the practice session never asks the browser for the camera, so the permission a real first round would have given is given here
+    await page.context().grantPermissions(['camera']);
     await withHooks(page, { timeScale: 3, roundSeconds: 120, forceDemo: true });
     await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera`);
 

@@ -24,7 +24,7 @@ export function boot(o: BootOptions): App {
 
   const makeSessionFactory = (s: AppServices): SessionFactory => {
     const real = createRealSessionFactory({
-      store: (id) => s.store.ns(id), i18n: s.i18n, reducedMotion: s.reducedMotion, soundOn: s.soundOn, quiet: s.quiet,
+      store: (id) => s.store.ns(id), i18n: s.i18n, reducedMotion: s.reducedMotion, soundOn: s.soundOn,
     });
     return (r) => {
       if (o.demo && (hooks.forceDemo === true || !playable.has(r.game.id))) {

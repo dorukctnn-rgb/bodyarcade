@@ -10,6 +10,8 @@ export interface Hooks {
   forceDemo?: boolean;
   social?: boolean | 'fresh' | 'offline';
   plan?: 'free' | 'pro';
+  /** A keyboard is there even on a phone-sized touch screen (the shell offers it only on laptops and TVs). */
+  keyboard?: boolean;
 }
 
 /** Sets the test hooks before the page's own scripts run. Development builds only read them. */

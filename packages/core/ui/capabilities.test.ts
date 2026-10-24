@@ -37,6 +37,16 @@ describe('shell capabilities on top of the platform answer', () => {
     expect(c).toMatchObject({ camera: false, secure: false, touch: true, landscape: true });
   });
 
+  it('offers the keyboard as a way around the camera only where keys are worth using', () => {
+    expect(uiCapabilities(ok, env(1280, 800)).keyboard).toBe(true);
+    expect(uiCapabilities({ device: 'tv', local2: true, local2Reason: 'ok' }, env(1920, 1080)).keyboard).toBe(true);
+    expect(uiCapabilities({ device: 'phone', local2: false, local2Reason: 'phone' }, env(390, 844)).keyboard).toBe(false);
+    expect(uiCapabilities({ device: 'tablet', local2: true, local2Reason: 'ok' }, env(1024, 768)).keyboard).toBe(false);
+    expect(uiCapabilities({ device: 'android_app', local2: false, local2Reason: 'android_app' }, env(412, 915)).keyboard).toBe(false);
+    // tests and tools can say a keyboard is there
+    expect(uiCapabilities({ device: 'phone', local2: false, local2Reason: 'phone' }, { ...env(390, 844), keyboard: true }).keyboard).toBe(true);
+  });
+
   it('never claims two players on the server', () => {
     expect(SERVER_CAPABILITIES.local2).toBe(false);
     expect(SERVER_CAPABILITIES.platform).toBe('web');

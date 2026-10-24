@@ -10,12 +10,16 @@ import { chrome } from './chrome.ts';
 import { pageHead } from './parts.ts';
 import { playHref, type SetupState } from './setup.ts';
 
+/** A number a game adds to its results beyond the common ones (Reaction Tag: the average and the best reaction), already in words. */
+export interface ResultExtra { label: string; value: string }
+
 export interface PlayerResult {
   slot: 1 | 2;
   score: number;
   reps?: number;
   hits?: number;
   cleared?: number;
+  extras?: ResultExtra[];
 }
 
 export interface RoundResult {
@@ -36,6 +40,8 @@ export interface RoundResult {
   previousBest?: number | null;
   /** What the missed moves were, most frequent first. */
   reasons: { text: string; count: number }[];
+  /** More numbers of this game: reaction times and the like. */
+  extras?: ResultExtra[];
   /** Mode local2: each player's own numbers. */
   players?: PlayerResult[];
   /** There is a one second skeleton replay of a miss. The slot stays out of the page until the session gives frames. */
@@ -57,6 +63,7 @@ function stats(ctx: ViewContext, r: RoundResult): SafeHtml {
   if (r.cleared !== undefined) items.push(stat(t.t('results.cleared'), t.number(r.cleared)));
   if (r.bestStreak !== undefined) items.push(stat(t.t('results.streak'), t.number(r.bestStreak)));
   if (r.quality !== undefined) items.push(stat(t.t('results.quality'), t.number(r.quality, { style: 'percent', maximumFractionDigits: 0 })));
+  for (const x of r.extras ?? []) items.push(stat(x.label, x.value));
   return html`<div class="k-stats">${items}</div>`;
 }
 
@@ -93,7 +100,7 @@ function duo(ctx: ViewContext, r: RoundResult): SafeHtml {
   const verdict = a && b ? (a.score === b.score ? t.t('results.draw') : t.t('results.winner', { who: t.t(a.score > b.score ? 'hud.player1' : 'hud.player2') })) : '';
   return html`${verdict ? html`<p class="k-verdict" role="status">${verdict}</p>` : ''}
     <div class="k-duocols">${ps.map((p) => html`<section class="k-duocol k-duocol--p${p.slot}" aria-labelledby="r-p${p.slot}"><h2 id="r-p${p.slot}">${t.t(p.slot === 1 ? 'hud.player1' : 'hud.player2')}</h2><p class="n">${t.number(p.score)}</p>
-      <div class="k-stats">${[p.reps !== undefined ? stat(t.t('results.reps'), t.number(p.reps)) : '', p.hits !== undefined ? stat(t.t('results.hits'), t.number(p.hits)) : '', p.cleared !== undefined ? stat(t.t('results.cleared'), t.number(p.cleared)) : '']}</div></section>`)}</div>`;
+      <div class="k-stats">${[p.reps !== undefined ? stat(t.t('results.reps'), t.number(p.reps)) : '', p.hits !== undefined ? stat(t.t('results.hits'), t.number(p.hits)) : '', p.cleared !== undefined ? stat(t.t('results.cleared'), t.number(p.cleared)) : '', ...(p.extras ?? []).map((x) => stat(x.label, x.value))]}</div></section>`)}</div>`;
 }
 
 function score(ctx: ViewContext, r: RoundResult, g: ShellGame | undefined): SafeHtml {

@@ -87,11 +87,22 @@ export function overlayHtml(ctx: ViewContext, g: ShellGame, o: PlayOverlay): Saf
       return panel(html`<div class="ba-explain">${icon('camera')}<h2 class="ba-h3" id="ov-title">${t.t('play.camera.title')}</h2><p>${t.t('play.camera.body')}</p>
         <div class="ba-actions ba-actions--stack"><button type="button" class="ba-btn ba-btn--primary ba-btn--lg ba-btn--block" data-action="camera-continue" autofocus>${t.t('play.camera.continue')}</button>
         <a class="ba-btn ba-btn--quiet ba-btn--block" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${t.t('common.back')}</a></div></div>`);
-    case 'camera-error':
-      return panel(html`<div class="ba-explain">${icon('cameraOff')}<h2 class="ba-h3" id="ov-title">${t.t('play.error.title')}</h2><p role="alert">${cameraErrorText(ctx, o.code)}</p>
+    case 'camera-error': {
+      // Where a keyboard is a way around the camera it is offered. On a phone the game needs the camera, so the panel says so
+      // and walks through allowing it (a blocked camera is the usual reason) instead of offering a mode nobody can play.
+      if (ctx.caps.keyboard) {
+        return panel(html`<div class="ba-explain">${icon('cameraOff')}<h2 class="ba-h3" id="ov-title">${t.t('play.error.title')}</h2><p role="alert">${cameraErrorText(ctx, o.code)}</p>
+          <div class="ba-actions ba-actions--stack"><button type="button" class="ba-btn ba-btn--primary ba-btn--block" data-action="camera-retry" autofocus>${t.t('common.retry')}</button>
+          <button type="button" class="ba-btn ba-btn--secondary ba-btn--block" data-action="use-keyboard">${t.t('setup.input.keyboard')}</button>
+          <a class="ba-btn ba-btn--quiet ba-btn--block" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${t.t('common.back')}</a></div></div>`);
+      }
+      const fixable = o.code === 'denied' || o.code === 'in_use' || o.code === 'no_frames' || o.code === 'unknown' || o.code === 'overconstrained';
+      return panel(html`<div class="ba-explain">${icon('cameraOff')}<h2 class="ba-h3" id="ov-title">${t.t('play.needsCamera.title')}</h2>
+        <p>${t.t('play.needsCamera.body', { game: titleOf(ctx, g) })}</p><p role="alert">${cameraErrorText(ctx, o.code)}</p>
+        ${fixable ? html`<div class="ba-fix"><b>${t.t('play.needsCamera.fix')}</b><ol><li>${t.t('play.needsCamera.step1')}</li><li>${t.t('play.needsCamera.step2')}</li><li>${t.t('play.needsCamera.step3')}</li></ol></div>` : ''}
         <div class="ba-actions ba-actions--stack"><button type="button" class="ba-btn ba-btn--primary ba-btn--block" data-action="camera-retry" autofocus>${t.t('common.retry')}</button>
-        <button type="button" class="ba-btn ba-btn--secondary ba-btn--block" data-action="use-keyboard">${t.t('setup.input.keyboard')}</button>
         <a class="ba-btn ba-btn--quiet ba-btn--block" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${t.t('common.back')}</a></div></div>`);
+    }
     case 'loading':
       return html`<div class="ba-loading" role="status"><span class="ba-spinner" aria-hidden="true"></span><span>${t.t('play.loading')}</span></div>`;
     case 'calibrating': {
@@ -112,7 +123,9 @@ export function overlayHtml(ctx: ViewContext, g: ShellGame, o: PlayOverlay): Saf
         <div class="panel">
           <p class="msg" role="status" data-calib-msg>${o.message}</p>
           <div class="gauge" data-calib-gauge data-pos="${o.gauge}"${attr('hidden', o.gauge === 'none')} role="img" aria-label="${t.t('calib.gauge.label', { state: o.gauge === 'none' ? '' : gaugeText[o.gauge] })}"><div class="bar"><em></em></div><div class="lbl"><span>${gaugeText.close}</span><span>${gaugeText.good}</span><span>${gaugeText.far}</span></div></div>
-          <div class="slow" data-calib-slow${attr('hidden', !o.slow)}><p class="sub">${t.t('calib.slow.body')}</p><button type="button" class="ba-btn ba-btn--secondary" data-action="use-keyboard">${t.t('calib.slow.cta')}</button></div>
+          <div class="slow" data-calib-slow${attr('hidden', !o.slow)}>${ctx.caps.keyboard
+            ? html`<p class="sub">${t.t('calib.slow.body')}</p><button type="button" class="ba-btn ba-btn--secondary" data-action="use-keyboard">${t.t('calib.slow.cta')}</button>`
+            : html`<p class="sub">${t.t('calib.slow.phone')}</p>`}</div>
           ${g.seated ? html`<button class="seated" type="button" data-action="seated-instead">${t.t('calib.seatedInstead')}</button>` : ''}
         </div>
       </div>`;

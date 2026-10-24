@@ -102,6 +102,23 @@ describe('two players, one camera', () => {
     });
   }
 
+  it('leaves the shared self view out for a mirror game and gives its room to the lanes', () => {
+    for (const bp of BREAKPOINTS.filter((b) => duoAvailable(b))) {
+      const withPip = placeHudDuo({ w: bp.w, h: bp.h }, duoMeasured(false), { away: null });
+      const mirror = placeHudDuo({ w: bp.w, h: bp.h }, duoMeasured(false), { away: null, mirror: true });
+      expect(mirror.pip, bp.id).toMatchObject({ w: 0, h: 0 });
+      expect(mirror.rects.pip, bp.id).toMatchObject({ w: 0, h: 0 });
+      expect(mirror.rects.playP1.h, bp.id).toBeGreaterThan(withPip.rects.playP1.h);
+      expect(mirror.rects.playP2.h, bp.id).toBeGreaterThan(withPip.rects.playP2.h);
+      // the plates keep their places
+      expect(mirror.rects.statusP1).toEqual(withPip.rects.statusP1);
+      expect(mirror.rects.timer).toEqual(withPip.rects.timer);
+      const flat: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      for (const [k, v] of Object.entries(mirror.rects)) if (v && !k.startsWith('play') && k !== 'pip') flat[k] = v as never;
+      expect(checkRects(flat, { w: bp.w, h: bp.h }), bp.id).toEqual([]);
+    }
+  });
+
   it('is offered only on landscape screens of at least 1000 px that are not phones', () => {
     const offered = BREAKPOINTS.filter((b) => duoAvailable(b)).map((b) => b.id);
     expect(offered).toEqual(['tablet-land-1024', 'laptop-1280', 'laptop-1440', 'tv-1920']);

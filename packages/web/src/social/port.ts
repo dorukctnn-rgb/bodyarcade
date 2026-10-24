@@ -83,6 +83,10 @@ export interface RoomState {
   shareVideo: boolean;
   /** The link to share: `<origin>/r/<CODE>`. */
   link: string;
+  /** The connection to the Room: it comes back by itself after a drop ('reconnecting'). Missing in the practice port. */
+  connection?: 'online' | 'reconnecting' | 'stopped';
+  /** The last message the Room turned away (too fast, not allowed, muted), for a note under the box. */
+  rejected?: { reason: ChatRejectReason; at: number };
 }
 
 export const NO_ROOM_STATE: RoomState = { phase: 'idle', info: null, members: [], me: null, feed: [], problem: null, shareVideo: false, link: '' };
@@ -91,7 +95,7 @@ export interface RoomPort {
   state(): RoomState;
   subscribe(cb: () => void): Unsubscribe;
   /** Opens a new room and joins it; the value is its code. */
-  create(o: { game: string; kind: 'private' | 'public'; size: number; band: LevelBand | null }): Promise<RoomDone<string>>;
+  create(o: { game: string; kind: 'private' | 'public'; size: number; band: LevelBand | null; /** Match length; the Room's default when missing. */ durationMs?: number }): Promise<RoomDone<string>>;
   join(code: string): Promise<RoomDone>;
   setReady(ready: boolean): void;
   /** Host only. */
@@ -104,8 +108,8 @@ export interface RoomPort {
   /** Free text; only rooms whose chat is 'text' take it (the room says no otherwise). The text has passed the local filter. */
   sendText(text: string): { ok: true } | { ok: false; reason: ChatRejectReason };
   setShareVideo(on: boolean): void;
-  /** Asks a member who is not ready to get ready (a preset nudge, not free text). */
-  remind(seat: SeatId): void;
+  /** Asks the members who are not ready to get ready (a preset nudge, not free text). */
+  remind(seat?: SeatId): void;
 }
 
 /** Both ports, or null while this build has no social server (the Friends tab then stays hidden). */

@@ -18,6 +18,8 @@ export interface UiEnv {
   /** https or localhost; the camera needs it (B8 showed the wrong message for this). */
   secure: boolean;
   touch: boolean;
+  /** Tests and tools: a keyboard is there whatever the device is. */
+  keyboard?: boolean;
 }
 
 export interface UiCapabilities {
@@ -30,6 +32,11 @@ export interface UiCapabilities {
   secure: boolean;
   /** A TV platform: the shell turns big text on by default. */
   tv: boolean;
+  /**
+   * Keyboard play is offered as a way around the camera (laptops, desktops, TVs with arrow keys). A phone or a tablet has
+   * no keys worth using: a camera game there says it needs the camera and helps with the permission instead.
+   */
+  keyboard: boolean;
   /** Offer "2 players, same camera". Both the device rule and the split-HUD width rule must pass. */
   local2: boolean;
   local2Reason: Local2Reason;
@@ -50,24 +57,26 @@ export function uiCapabilities(device: DeviceCapabilities, env: UiEnv): UiCapabi
     camera: env.camera,
     secure: env.secure,
     tv: device.device === 'tv',
+    keyboard: env.keyboard ?? (device.device === 'desktop' || device.device === 'tv'),
     local2,
     local2Reason: reason,
   };
 }
 
 /** Reads the browser. Only called in the browser; the page generator never needs it. */
-export function detectUiCapabilities(win: Window & typeof globalThis): UiCapabilities {
+export function detectUiCapabilities(win: Window & typeof globalThis, o: { keyboard?: boolean } = {}): UiCapabilities {
   const nav = win.navigator;
   return uiCapabilities(detectDevice(win), {
     viewport: { w: win.innerWidth, h: win.innerHeight },
     camera: !!nav.mediaDevices?.getUserMedia,
     secure: win.isSecureContext,
     touch: 'ontouchstart' in win || nav.maxTouchPoints > 0,
+    ...(o.keyboard !== undefined ? { keyboard: o.keyboard } : {}),
   });
 }
 
 /** What the page generator and the tests use when there is no browser: a laptop with a camera, no claim about two players. */
 export const SERVER_CAPABILITIES: UiCapabilities = {
-  device: 'desktop', platform: 'web', deviceClass: 'medium', landscape: true, touch: false, camera: true, secure: true, tv: false,
+  device: 'desktop', platform: 'web', deviceClass: 'medium', landscape: true, touch: false, camera: true, secure: true, tv: false, keyboard: true,
   local2: false, local2Reason: 'small_screen',
 };

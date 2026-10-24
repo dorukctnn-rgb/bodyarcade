@@ -7,6 +7,9 @@
 
 /* ---------- Base ---------- */
 html { scrollbar-gutter: stable; }
+/* A round is a full-screen stage: no scrollbar and no reserved strip beside it. */
+html:has(.ba-stage) { scrollbar-gutter: auto; overflow: hidden; }
+html:has(.ba-stage) body { overflow: hidden; }
 html.ba-noscroll { overflow: hidden; }
 html[data-big-text="1"] { font-size: 150%; }
 body { overflow-x: hidden; }
@@ -342,6 +345,9 @@ progress.k-linebar::-moz-progress-bar { background: var(--ba-go-400); border-rad
 [data-theme="dark"] .k-danger { color: var(--ba-flush-500); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .k-danger { color: var(--ba-flush-500); } }
 
+/* The live regions sit at the end of the body: left in the flow they stand one pixel below the page and make every page, the game stage included, scroll by a pixel. */
+body > .ba-visually-hidden { position: fixed; top: 0; left: 0; }
+
 /* ---------- Game stage ---------- */
 .ba-app--play { display: block; min-height: 100svh; background: #1A1430; color: #F4F2F8; }
 .ba-app--play > main { height: 100svh; }
@@ -349,6 +355,9 @@ progress.k-linebar::-moz-progress-bar { background: var(--ba-go-400); border-rad
 .ba-stage-scene { position: absolute; inset: 0; }
 .ba-stage-scene canvas { display: block; width: 100%; height: 100%; }
 .ba-camera-host { position: absolute; inset: 0; pointer-events: none; }
+/* A mirror game draws the camera picture on its own canvas; the element only has to keep playing, so it stays in the page, rendered, two pixels big and see-through. */
+.ba-video-holder { position: absolute; left: 0; top: 0; width: 2px; height: 2px; overflow: hidden; opacity: 0.02; pointer-events: none; }
+.ba-video-holder video { display: block; width: 2px; height: 2px; }
 .ba-hud { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
 .ba-hud > * { pointer-events: auto; }
 .ba-overlay { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; pointer-events: none; }
@@ -358,6 +367,9 @@ progress.k-linebar::-moz-progress-bar { background: var(--ba-go-400); border-rad
 .ba-explain { display: grid; gap: 12px; justify-items: center; text-align: center; }
 .ba-explain > svg { width: 44px; height: 44px; }
 .ba-explain h2, .ba-explain p { margin: 0; }
+.ba-fix { width: 100%; text-align: left; padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-surface-sunken); }
+.ba-fix b { display: block; margin-bottom: 6px; }
+.ba-fix ol { margin: 0; padding-left: 1.25em; display: grid; gap: 4px; color: var(--ba-text-muted); font-size: 0.9375rem; }
 .ba-explain p { color: var(--ba-text-muted); }
 .ba-explain .ba-actions { width: 100%; margin-top: 8px; }
 .ba-loading { display: inline-flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 999px; background: var(--ba-hud-plate-bg); color: var(--ba-hud-plate-text); font-weight: 650; }
@@ -495,7 +507,8 @@ progress.k-linebar::-moz-progress-bar { background: var(--ba-go-400); border-rad
 .k-ghostnote p { margin: 0; }
 .k-ghostnote .pic { width: 64px; height: 64px; border-radius: 14px; overflow: hidden; background: #1A1430; display: grid; place-items: center; }
 .k-ghostnote .pic svg { width: 80%; height: 80%; }
-.k-lobbies .full { opacity: 0.55; }
+.k-lobbies .full img { opacity: 0.5; filter: grayscale(1); }
+.k-lobbies .full b, .k-lobbies .full small, .k-lobbies .full small span { color: var(--ba-text-muted); }
 .k-gamechips { margin-top: 2px; }
 .k-gamechips .ba-chip img { width: 34px; height: 26px; border-radius: 6px; object-fit: cover; }
 

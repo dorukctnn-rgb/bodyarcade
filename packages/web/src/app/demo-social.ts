@@ -159,15 +159,19 @@ export function createDemoSocial(o: DemoSocialOptions): SocialServices {
       roomListeners.fire();
       return OK_ROOM;
     },
-    setReady(ready) { patchMember(meSeat, { ready }); },
+    setReady(ready) {
+      patchMember(meSeat, { ready });
+      // The Room starts the match by itself when every member is ready and online.
+      if (ready && room.members.length >= 2 && room.members.every((m) => m.ready && m.online)) setTimeout(() => { if (room.info) setRoom({ phase: 'playing', info: { ...room.info, phase: 'playing' } }); }, 600);
+    },
     chooseGame(game) { if (room.info) setRoom({ info: { ...room.info, config: { ...room.info.config, gameId: game } } }); },
-    start() { if (room.info) setRoom({ phase: 'playing', info: { ...room.info, phase: 'playing' } }); },
+    start() { /* the Room starts the match by itself */ },
     leave() { if (room.phase !== 'idle') { room = NO_ROOM_STATE; roomListeners.fire(); } },
     say(id) { setRoom({ feed: [...room.feed, feed({ seat: meSeat, say: id })] }); },
     react(id) { setRoom({ feed: [...room.feed, feed({ seat: meSeat, react: id })] }); },
     sendText(text) { setRoom({ feed: [...room.feed, feed({ seat: meSeat, text })] }); return { ok: true }; },
     setShareVideo(on) { setRoom({ shareVideo: on }); patchMember(meSeat, { video: on }); },
-    remind(seat) { setTimeout(() => patchMember(seat, { ready: true }), 250); },
+    remind(seat) { for (const m of room.members) if (m.seat !== meSeat && !m.ready && (seat === undefined || m.seat === seat)) setTimeout(() => patchMember(m.seat, { ready: true }), 250); },
   };
 
   return { social, rooms };

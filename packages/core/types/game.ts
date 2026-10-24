@@ -40,6 +40,20 @@ export interface GameManifest {
   seo: { slug: string; keywords: string[] };
 }
 
+/**
+ * A live race (mode 'duel'): the Room fixes WHEN the obstacles of the match arrive (the same list for every player, a pure
+ * function of the match's seed and length: makeSchedule in core/net), the game fixes what each one looks like from its
+ * own seed and the obstacle's id. A game that can be raced (its manifest's `modes` has 'duel') keeps three promises:
+ *   1. the obstacle with id n arrives `schedule[..].t` ms into the play, whatever the player does;
+ *   2. when an obstacle is settled it puts { type: 'duel', ob, k: 'pass' | 'hit' } among the events of that step;
+ *   3. it completes `durationMs` of play after the start.
+ * The shell holds the game back until the Room's match time zero and keeps its play time in step with the Room's.
+ */
+export interface DuelSetup {
+  schedule: readonly { id: number; t: number }[];
+  durationMs: number;
+}
+
 export interface StartOptions {
   seed: number;
   difficulty: string;
@@ -50,6 +64,8 @@ export interface StartOptions {
   profiles?: Partial<Record<PlayerSlot, BodyProfile>>;
   /** The world (theme id) the player chose, for games with worlds; a game picks one itself when it is missing. */
   world?: string;
+  /** Mode 'duel' only: the obstacles of the match and its length. */
+  duel?: DuelSetup;
 }
 
 export type GameEvent = { type: string; t: Ms; [k: string]: unknown };

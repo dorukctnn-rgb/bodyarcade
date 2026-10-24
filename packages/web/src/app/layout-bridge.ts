@@ -33,12 +33,18 @@ type KitLayout = Pick<Scene2DKit, 'setHud' | 'setHudDuo' | 'setCamera'>;
  */
 export function followHud(kit: KitLayout, info: HudLayoutInfo, mode: HudMode): void {
   const duo = measuredDuoOf(info);
+  const measured = duo ? null : measuredHudOf(info);
+  if (!duo && !measured) return;
+  // The HUD reports after every change of its words; the kit lays itself out again only when a rectangle really moved.
+  const stamp = JSON.stringify(duo ? [mode === 'mirror', duo] : [mode, info.pipCorner, info.metrics.pip.aspect, measured]);
+  if (stamps.get(kit) === stamp) return;
+  stamps.set(kit, stamp);
   if (duo) {
-    kit.setHudDuo(duo);
+    kit.setHudDuo(duo, { mirror: mode === 'mirror' });
     return;
   }
-  const measured = measuredHudOf(info);
-  if (!measured) return;
   if (mode !== 'mirror') kit.setCamera(info.metrics.pip.aspect);
-  kit.setHud({ mode, pipCorner: mode === 'mirror' ? 'hidden' : info.pipCorner, measured });
+  kit.setHud({ mode, pipCorner: mode === 'mirror' ? 'hidden' : info.pipCorner, measured: measured as MeasuredHud });
 }
+
+const stamps = new WeakMap<object, string>();

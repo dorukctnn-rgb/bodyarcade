@@ -30,8 +30,9 @@ export const cameraUsable = (ctx: ViewContext): boolean => ctx.caps.camera && ct
 export function sanitizeSetup(ctx: ViewContext, g: ShellGame, s: SetupState): SetupState {
   const players: 1 | 2 = s.players === 2 && twoPlayersPossible(ctx, g) ? 2 : 1;
   const camera = cameraUsable(ctx);
-  // Two players need the camera; so does anything the keyboard cannot do, which the game decides later.
-  const input = players === 2 ? 'camera' : s.input === 'camera' && !camera ? 'keyboard' : s.input;
+  // Two players need the camera; so does anything on a phone or a tablet, where the keyboard is no way around it
+  // (the game then says it needs the camera and helps with the permission). Anything else the game decides later.
+  const input = players === 2 || !ctx.caps.keyboard ? 'camera' : s.input === 'camera' && !camera ? 'keyboard' : s.input;
   const difficulty = PRO_DIFFICULTIES.includes(s.difficulty) && !hasPro(ctx) ? 'normal' : DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'normal';
   return { players, input, difficulty, seated: s.seated && g.seated, quiet: s.quiet && g.silentSafe };
 }
@@ -39,7 +40,7 @@ export function sanitizeSetup(ctx: ViewContext, g: ShellGame, s: SetupState): Se
 export function defaultSetup(ctx: ViewContext, g: ShellGame): SetupState {
   return sanitizeSetup(ctx, g, {
     players: 1,
-    input: cameraUsable(ctx) ? 'camera' : 'keyboard',
+    input: cameraUsable(ctx) || !ctx.caps.keyboard ? 'camera' : 'keyboard',
     difficulty: 'normal',
     seated: ctx.settings.seated,
     quiet: ctx.settings.quiet,
@@ -119,15 +120,17 @@ export function setupFields(ctx: ViewContext, g: ShellGame, s: SetupState): Safe
     })), { describedBy: 'setup-difficulty-hint', legendClass: 'k-label', className: 'k-block' })}
     ${hasPro(ctx) ? '' : html`<p class="ba-small k-hint" id="setup-difficulty-hint">${t.t('setup.difficulty.hint')}</p>`}`;
 
-  const inputNote = !ctx.caps.camera ? t.t('setup.noCamera') : !ctx.caps.secure ? t.t('setup.insecure') : t.t('setup.input.hint');
+  const inputNote = !ctx.caps.camera ? t.t(ctx.caps.keyboard ? 'setup.noCamera' : 'setup.noCamera.phone')
+    : !ctx.caps.secure ? t.t('setup.insecure')
+      : t.t(ctx.caps.keyboard ? 'setup.input.hint' : 'setup.cameraOnly');
   const more = html`<details class="k-more"><summary>${icon('settings')}<span>${t.t('setup.more')}</span></summary>
     <div>
       ${flag({ id: 'setup-seated', name: 'seated', label: t.t('setup.seated'), hint: g.seated ? undefined : t.t('setup.seated.none'), checked: s.seated, disabled: !g.seated })}
       ${flag({ id: 'setup-quiet', name: 'quiet', label: t.t('setup.quiet'), hint: g.silentSafe ? undefined : t.t('setup.quiet.none'), checked: s.quiet, disabled: !g.silentSafe })}
-      ${segmented('input', t.t('setup.input'), [
+      ${ctx.caps.keyboard ? segmented('input', t.t('setup.input'), [
         { value: 'camera', label: t.t('setup.input.camera'), checked: s.input === 'camera', disabled: !camera },
         { value: 'keyboard', label: t.t('setup.input.keyboard'), checked: s.input === 'keyboard', disabled: s.players === 2 },
-      ], { describedBy: 'setup-input-hint', legendClass: 'k-label' })}
+      ], { describedBy: 'setup-input-hint', legendClass: 'k-label' }) : html`<input type="hidden" name="input" value="camera">`}
       <p class="ba-small k-hint" id="setup-input-hint">${inputNote}</p>
     </div>
   </details>`;

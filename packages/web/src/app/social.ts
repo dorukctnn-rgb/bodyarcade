@@ -42,7 +42,17 @@ export interface SocialPageState {
 
 export const SOCIAL_ROUTES: ReadonlySet<RouteId> = new Set<RouteId>(['friends', 'lobbies', 'room', 'friendlink', 'safety']);
 
+/** The room a page belongs to: the room page itself, or the stage of a race played in it (`/play/<game>/?room=<code>`). */
+export function roomOfRoute(route: Matched<RouteId> | null): string | null {
+  if (!route) return null;
+  const raw = route.id === 'room' ? (route.params['code'] ?? '') : route.id === 'play' ? (route.query.get('room') ?? '') : '';
+  return raw ? codeFromInvite(raw) : null;
+}
+
 const BAND_OF_AGE: Record<AgeBand, LevelBand> = { child: 'easy', teen: 'easy', adult: 'medium' };
+
+/** A race lasts as long as the game's round, up to a minute and a half (a friend race is a sprint, not a workout). */
+export const raceMs = (g: Pick<ShellGame, 'durationSec'>): number => Math.max(30, Math.min(90, g.durationSec)) * 1000;
 
 export class SocialController {
   private readonly host: SocialHost;
@@ -50,6 +60,8 @@ export class SocialController {
   private readonly cleanups: (() => void)[] = [];
   private active = false;
   private route: Matched<RouteId> | null = null;
+  /** The room this controller keeps open: the room page and the stage of a race in it both belong to it. */
+  private openCode: string | null = null;
   private redrawTimer: ReturnType<typeof setTimeout> | null = null;
 
   private add = { value: '', busy: false, note: null as { ok: boolean; text: string } | null };
@@ -80,17 +92,29 @@ export class SocialController {
 
   /** A page of the social area is about to be drawn (or another page, with `route` null or outside the area). */
   enter(route: Matched<RouteId> | null): void {
-    const was = this.route;
     this.route = route && SOCIAL_ROUTES.has(route.id) ? route : null;
     this.sheet?.handle.close('cancel');
-    if (!this.route) {
+    const code = roomOfRoute(route);
+    // Leaving the room's pages (or going to another room) leaves the room; going from its page to its stage and back does not.
+    if (this.openCode && this.openCode !== code) this.svc.rooms.leave();
+    this.openCode = code;
+    if (!this.route && !code) {
       if (this.active) { this.active = false; this.svc.rooms.leave(); this.svc.social.close(); }
       return;
     }
     if (!this.active) { this.active = true; void this.svc.social.open(); }
-    if (was?.id === 'room' && (this.route.id !== 'room' || was.params['code'] !== this.route.params['code'])) this.svc.rooms.leave();
+    if (!this.route) return;                                        // the stage of a race: the race controller joins the room itself
     if (this.route.id === 'lobbies') void this.loadLobbies();
     if (this.route.id === 'room') void this.enterRoom(this.route.params['code'] ?? '');
+  }
+
+  /** The services of the room and the friends, for the stage of a race. */
+  services(): SocialServices { return this.svc; }
+
+  /** Asks the age and the name when this player has no profile yet; true once there is one. */
+  async ensureProfile(): Promise<boolean> {
+    if (this.svc.social.state().profile) return true;
+    return this.openProfileSheet();
   }
 
   private async enterRoom(raw: string): Promise<void> {
@@ -158,6 +182,7 @@ export class SocialController {
       case 'social.unblock': void this.unblock(d['fid'] ?? ''); return true;
       case 'friendlink.send': void this.sendFriendLink(); return true;
       case 'room.new': void this.newRoom(); return true;
+      case 'race.new': void this.newRace(d['game'] ?? ''); return true;
       case 'lobby.game': this.lobby = { ...this.lobby, gameId: d['game'] ?? null, list: null, failed: false, search: 'idle', token: this.lobby.token + 1 }; this.host.rerender(); void this.loadLobbies(); return true;
       case 'lobby.quick': void this.quickMatch(); return true;
       case 'lobby.stop': this.lobby = { ...this.lobby, search: 'idle', token: this.lobby.token + 1 }; this.host.rerender(); return true;
@@ -166,8 +191,8 @@ export class SocialController {
       case 'room.leave': this.svc.rooms.leave(); this.host.go(this.host.context().href('friends'), { replace: true }); return true;
       case 'room.copy': void this.copyRoom(d['what'] ?? ''); return true;
       case 'room.qr': this.openQr(); return true;
-      case 'room.ready': this.svc.rooms.setReady(d['ready'] === '1'); return true;
-      case 'room.start': this.svc.rooms.start(); return true;
+      case 'room.ready': this.ready(d['ready'] === '1'); return true;
+      case 'room.return': this.toStage(); return true;
       case 'room.remind': this.remind(d['seat'] ?? ''); return true;
       case 'room.say': if (isPresetMessage(d['id'])) this.svc.rooms.say(d['id']); return true;
       case 'room.react': if (isReaction(d['id'])) this.svc.rooms.react(d['id']); return true;
@@ -525,6 +550,34 @@ export class SocialController {
     const sent = this.svc.rooms.sendText(check.text);
     this.room = sent.ok ? { ...this.room, draft: '', chatNote: '' } : { ...this.room, chatNote: sent.reason === 'rate' ? t.t('room.chat.rate') : sent.reason === 'muted' ? t.t('room.chat.muted') : t.t('room.chat.rejected') };
     this.host.rerender();
+  }
+
+  /** The way into a race from a game's page: a private room for two, then the room page where the friend is asked in. */
+  private async newRace(gameId: string): Promise<void> {
+    const t = this.host.context().i18n;
+    const g = this.host.context().games.find((x) => x.id === gameId);
+    if (!g || !g.modes.includes('duel')) return;
+    if (!(await this.ensureProfile())) return;
+    const r = await this.svc.rooms.create({ game: g.id, kind: 'private', size: 2, band: null, durationMs: raceMs(g) });
+    if (!r.ok) { this.host.toast(this.failure(r.code), 'warn'); return; }
+    this.room.joining = r.value;
+    this.host.announce(t.t('room.created'));
+    this.host.go(this.host.context().href('room', { params: { code: r.value } }));
+  }
+
+  /** Getting ready is calibrating the camera on the stage first; undoing it is only a flag. */
+  private ready(on: boolean): void {
+    if (!on) { this.svc.rooms.setReady(false); return; }
+    this.toStage();
+  }
+
+  /** To the stage of the race in this room (the game of the room, its camera and its calibration). */
+  private toStage(): void {
+    const ctx = this.host.context();
+    const info = this.svc.rooms.state().info;
+    const g = info ? ctx.games.find((x) => x.id === info.config.gameId) : undefined;
+    if (!info || !g) return;
+    this.host.go(ctx.href('play', { params: { slug: g.seo.slug }, query: { room: info.code } }));
   }
 
   private confirm(o: ConfirmOptions): Promise<boolean> {

@@ -1,0 +1,39 @@
+{
+  "id": "duel-test",
+  "template": "strength",
+  "version": 1,
+  "title": "Duel Test",
+  "regions": ["cardio"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 30,
+  "met": 3,
+  "detectors": [],
+  "free": true,
+  "modes": ["solo", "duel"],
+  "seo": { "slug": "duel-test", "keywords": ["duel test"] },
+  "catalogue": {
+    "tagline": { "en": "A race for the tests of the shell: every obstacle is passed or hit as the test says.", "tr": "Kabuğun testleri için bir yarış: her engel testin söylediği gibi geçilir ya da çarpılır." },
+    "about": {
+      "en": "This game exists only in test builds. It keeps the three promises of a game that can be raced: obstacles at the schedule's times, one result for each, completion at the match length.",
+      "tr": "Bu oyun yalnızca test sürümlerinde bulunur. Yarışılabilen bir oyunun üç sözünü tutar: programın zamanlarında engeller, her biri için bir sonuç, yarışın süresinde bitiş."
+    },
+    "how": [
+      { "en": "Stand where the camera sees you.", "tr": "Kameranın seni gördüğü bir yerde dur." },
+      { "en": "The obstacles arrive on their own.", "tr": "Engeller kendiliğinden gelir." },
+      { "en": "The test decides what you do with them.", "tr": "Onlarla ne yapacağını test belirler." }
+    ],
+    "measures": [
+      { "en": "Nothing.", "tr": "Hiçbir şey." },
+      { "en": "Nothing at all.", "tr": "Hiçbir şey." }
+    ],
+    "move": "stand",
+    "tile": "squat-flap",
+    "order": 99,
+    "related": [],
+    "seatedNote": { "en": "The same as standing.", "tr": "Ayakta olanla aynı." },
+    "quietNote": { "en": "The same as standing.", "tr": "Ayakta olanla aynı." }
+  }
+}

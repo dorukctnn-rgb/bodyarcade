@@ -12,5 +12,8 @@ function portBase(): number {
 export const WEB_DEV_PORT = portBase();
 /** A static server of the built site (what a host serves). */
 export const WEB_SITE_PORT = WEB_DEV_PORT + 1;
+/** The Vite dev server with the real catalogue (playwright.real.config.ts). */
+export const WEB_REAL_PORT = WEB_DEV_PORT + 2;
+export const WEB_REAL_URL = `http://127.0.0.1:${WEB_REAL_PORT}`;
 export const WEB_DEV_URL = `http://127.0.0.1:${WEB_DEV_PORT}`;
 export const WEB_SITE_URL = `http://127.0.0.1:${WEB_SITE_PORT}`;

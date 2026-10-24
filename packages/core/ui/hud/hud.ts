@@ -116,14 +116,16 @@ export class PlayHud implements Hud {
       }
       case 'combo': {
         const n = typeof v === 'number' ? v : Number.parseInt(asText(v), 10);
-        const chip = this.el['combo'] as HTMLElement;
+        const chip = this.el['combo'] as HTMLElement | undefined;
+        if (!chip) break;
         chip.hidden = !(n >= 2);
         chip.textContent = n >= 2 ? `×${t.number(n)}` : '';
         break;
       }
       case 'prompt': {
         const text = asText(v);
-        const command = this.el['command'] as HTMLElement;
+        const command = this.el['command'] as HTMLElement | undefined;
+        if (!command) break;
         command.hidden = text === '';
         (this.el['commandText'] as HTMLElement).textContent = text;
         const pose = typeof v === 'object' && v.icon ? (v.icon as PoseName) : null;
@@ -133,8 +135,11 @@ export class PlayHud implements Hud {
       }
       case 'hint': {
         const text = asText(v);
-        (this.el['reason'] as HTMLElement).hidden = text === '';
-        (this.el['reasonText'] as HTMLElement).textContent = text;
+        const reason = this.el['reason'] as HTMLElement | undefined;
+        const span = this.el['reasonText'] as HTMLElement | undefined;
+        if (!reason || !span) break;
+        reason.hidden = text === '';
+        span.textContent = text;
         break;
       }
     }
@@ -151,9 +156,11 @@ export class PlayHud implements Hud {
     const t = this.o.i18n;
     if (slot === 'score') this.text(`score${player}`, typeof v === 'number' ? t.number(v) : asText(v));
     else {
-      const strip = this.el[`reason${player}`] as HTMLElement;
+      const strip = this.el[`reason${player}`] as HTMLElement | undefined;
+      const span = this.el[`reason${player}Text`] as HTMLElement | undefined;
+      if (!strip || !span) return;
       strip.hidden = asText(v) === '';
-      (this.el[`reason${player}Text`] as HTMLElement).textContent = asText(v);
+      span.textContent = asText(v);
     }
     this.schedule();
   }
@@ -303,7 +310,8 @@ export class PlayHud implements Hud {
   }
 
   private setLives(left: number, total: number): void {
-    const box = this.el['lives'] as HTMLElement;
+    const box = this.el['lives'] as HTMLElement | undefined;
+    if (!box) return;
     box.hidden = total <= 0;
     box.setAttribute('aria-label', this.o.i18n.t('hud.lives', { n: left }));
     box.setAttribute('role', 'img');
@@ -377,7 +385,8 @@ export class PlayHud implements Hud {
     const pip = this.el['pip'] as HTMLElement;
     // Two players always see the shared view; one player can hide theirs, and gets a button to bring it back.
     const calibrating = this.phase === 'calibrate';
-    pip.hidden = duo || calibrating ? false : this.corner === 'hidden' || this.mode === 'mirror';
+    // Two players always see the shared view, except in a mirror game, where the camera picture is the scene itself.
+    pip.hidden = calibrating ? false : this.mode === 'mirror' ? true : duo ? false : this.corner === 'hidden';
     const showPip = this.el['showPip'];
     if (showPip) showPip.hidden = calibrating || !(this.corner === 'hidden' && this.mode !== 'mirror');
     const play: Rect = { x: 0, y: 0, w: vp.w, h: vp.h };
@@ -390,7 +399,7 @@ export class PlayHud implements Hud {
         ...(this.visible('reason2') ? { reasonP2: this.size(this.el['reason2'] as HTMLElement) } : {}),
         away: this.away ? this.size(away as HTMLElement) : null,
       };
-      const layout = placeHudDuo({ w: vp.w, h: vp.h, metrics }, measured, { away: this.away ? (this.away.player === 1 ? 'p1' : 'p2') : null });
+      const layout = placeHudDuo({ w: vp.w, h: vp.h, metrics }, measured, { away: this.away ? (this.away.player === 1 ? 'p1' : 'p2') : null, ...(this.mode === 'mirror' ? { mirror: true } : {}) });
       const r = layout.rects;
       this.put(this.el['statusP1'], r.statusP1); this.put(this.el['statusP2'], r.statusP2); this.put(this.el['timerPlate'], r.timer); this.put(command, r.command);
       this.put(this.el['reason1'], r.reasonP1); this.put(this.el['reason2'], r.reasonP2);

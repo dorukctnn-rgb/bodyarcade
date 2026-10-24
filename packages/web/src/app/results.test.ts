@@ -4,7 +4,7 @@ import { createI18n } from '../../../core/ui/i18n/index.ts';
 import { loadCatalogue } from '../../catalogue/load.ts';
 import { makeContext } from '../make-context.ts';
 import { defaultSetup } from '../views/setup.ts';
-import { BESTS_SCHEMA, bestOf, buildRoundResult, caloriesFor, reasonsFrom, withBest } from './results.ts';
+import { BESTS_SCHEMA, bestOf, buildRoundResult, caloriesFor, reactionExtras, reasonsFrom, withBest } from './results.ts';
 
 const games = loadCatalogue({ fixtures: 'only', requiredLangs: ['en', 'tr'] }).catalogue.games;
 const game = games[0]!;
@@ -74,6 +74,34 @@ describe('building the result', () => {
       summary: summary({ log: [], players: { 1: { score: 9, reps: 8, metSeconds: 1 }, 2: { score: 12, metSeconds: 1 } } }), weightKg: null, i18n, previousBest: null,
     });
     expect(r.players).toEqual([{ slot: 1, score: 9, reps: 8 }, { slot: 2, score: 12 }]);
+  });
+});
+
+describe('reaction times', () => {
+  const taps = [
+    { t: 1, kind: 'tag', ok: true, v: 420 }, { t: 2, kind: 'tag', ok: true, v: 310 }, { t: 3, kind: 'tag', ok: true, v: 380 },
+    { t: 4, kind: 'trap', ok: false }, { t: 5, kind: 'tag', ok: false, v: 900 },
+  ];
+  it('show the average and the best of the taps that were in time', () => {
+    const x = reactionExtras(taps, i18n);
+    expect(x).toEqual([{ label: 'Average reaction', value: '370 ms' }, { label: 'Best reaction', value: '310 ms' }]);
+  });
+  it('are left out of a round with no tap in time and of games that log no taps', () => {
+    expect(reactionExtras([{ t: 1, kind: 'tag', ok: false, v: 900 }], i18n)).toEqual([]);
+    expect(reactionExtras(summary().log, i18n)).toEqual([]);
+  });
+  it('are told per player in a two player round, and reach the results', () => {
+    const log = [{ t: 1, kind: 'tag', ok: true, v: 300, player: 1 as const }, { t: 2, kind: 'tag', ok: true, v: 500, player: 2 as const }, { t: 3, kind: 'tag', ok: true, v: 400, player: 2 as const }];
+    expect(reactionExtras(log, i18n, 1)[1]?.value).toBe('300 ms');
+    expect(reactionExtras(log, i18n, 2)[0]?.value).toBe('450 ms');
+    const solo = buildRoundResult({ game, setup, summary: summary({ log: taps }), weightKg: null, i18n, previousBest: null });
+    expect(solo.extras?.map((e) => e.value)).toEqual(['370 ms', '310 ms']);
+    const duo = buildRoundResult({ game, setup: { ...setup, players: 2 }, summary: summary({ log, players: { 1: { score: 1, metSeconds: 1 }, 2: { score: 2, metSeconds: 1 } } }), weightKg: null, i18n, previousBest: null });
+    expect(duo.extras).toBeUndefined();
+    expect(duo.players?.[1]?.extras?.[1]?.value).toBe('400 ms');
+  });
+  it('are spoken in Turkish too', () => {
+    expect(reactionExtras(taps, createI18n('tr'))[0]).toEqual({ label: 'Ortalama tepki', value: '370 ms' });
   });
 });
 

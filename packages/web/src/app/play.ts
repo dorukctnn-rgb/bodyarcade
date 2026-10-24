@@ -436,6 +436,18 @@ export class PlayController {
     }
   }
 
+  /** A round is on (calibrating, counting down, playing or paused): leaving it drops the score, so the player is asked first. */
+  isLive(): boolean {
+    const st = this.session?.state;
+    return !this.disposed && (st === 'calibrating' || st === 'countdown' || st === 'running' || st === 'paused');
+  }
+
+  /** Pauses the round while the player is asked whether to leave it (a round that is paused already stays so). */
+  holdForLeave(): void {
+    const st = this.session?.state;
+    if (st === 'running' || st === 'countdown') this.session?.pause('user');
+  }
+
   /** Problems found in the HUD as it is drawn (tests and the screenshot tool). */
   problems(): string[] { return this.hud?.problems() ?? []; }
 

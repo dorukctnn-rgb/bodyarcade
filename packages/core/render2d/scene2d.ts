@@ -90,8 +90,8 @@ export interface Scene2DKit extends Scene2D {
   readonly disposed: boolean;
   /** Places the HUD plates, the self view and the play area. Call when the HUD's plates change size, and once at the start. */
   setHud(h: HudSetup): void;
-  /** Two players on one camera: lanes, the shared self view. */
-  setHudDuo(m: MeasuredDuo, o?: { away?: DuoAway }): void;
+  /** Two players on one camera: lanes, the shared self view (none in a mirror game, where the camera is the scene). */
+  setHudDuo(m: MeasuredDuo, o?: { away?: DuoAway; mirror?: boolean }): void;
   /** Width / height of the camera frame (from the pose frames). */
   setCamera(aspect: number): void;
   /** The calibrated profile; before it, `project` works from a stand-in and `calibrated` is false. */
@@ -129,7 +129,7 @@ export function createScene2D(options: Scene2DOptions): Scene2DKit {
   let camAspect = 4 / 3;
   let profile: BodyProfile | null = null;
   let hud: HudSetup = { mode: 'scene', pipCorner: 'bottom-right' };
-  let duo: { m: MeasuredDuo; away?: DuoAway } | null = null;
+  let duo: { m: MeasuredDuo; away?: DuoAway; mirror?: boolean } | null = null;
   let rects: SceneRects = layoutScene({ w: 800, h: 600, camAspect, mode: 'scene', pipCorner: 'bottom-right', measured: defaultMeasured(800, 600) });
   let projector: Projector = makeProjector(null, rects.mirror, camAspect);
   let show = { silhouette: false, skeleton: false };
@@ -158,7 +158,7 @@ export function createScene2D(options: Scene2DOptions): Scene2DKit {
     if (css.w <= 0 || css.h <= 0) return;
     const insets = options.insets;
     rects = duo
-      ? layoutDuo({ w: css.w, h: css.h, ...(insets ? { insets } : {}), camAspect, measured: duo.m, ...(duo.away !== undefined ? { away: duo.away } : {}) })
+      ? layoutDuo({ w: css.w, h: css.h, ...(insets ? { insets } : {}), camAspect, measured: duo.m, ...(duo.away !== undefined ? { away: duo.away } : {}), ...(duo.mirror ? { mirror: true } : {}) })
       : layoutScene({ w: css.w, h: css.h, ...(insets ? { insets } : {}), camAspect, mode: hud.mode, pipCorner: hud.pipCorner, measured: hud.measured ?? defaultMeasured(css.w, css.h) });
     projector = makeProjector(profile, rects.mirror, camAspect);
   }
@@ -196,7 +196,7 @@ export function createScene2D(options: Scene2DOptions): Scene2DKit {
     resize,
 
     setHud(h) { hud = h; duo = null; relayout(); },
-    setHudDuo(m, o = {}) { duo = { m, ...(o.away !== undefined ? { away: o.away } : {}) }; relayout(); },
+    setHudDuo(m, o = {}) { duo = { m, ...(o.away !== undefined ? { away: o.away } : {}), ...(o.mirror ? { mirror: true } : {}) }; relayout(); },
     setCamera(aspect) {
       if (!(aspect > 0) || Math.abs(aspect - camAspect) < 1e-4) return;
       camAspect = aspect;

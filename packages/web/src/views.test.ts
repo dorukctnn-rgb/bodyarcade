@@ -11,7 +11,8 @@ import { makeContext, type ContextInit } from './make-context.ts';
 import { EMPTY_STATE, renderPage, snippet, type Rendered } from './pages.ts';
 import { REGION_ORDER, router, type RouteId } from './routes.ts';
 import type { RoundResult } from './views/results.ts';
-import { defaultSetup } from './views/setup.ts';
+import { overlayHtml } from './views/play.ts';
+import { defaultSetup, setupFromQuery } from './views/setup.ts';
 
 const games = loadCatalogue({ fixtures: 'only', requiredLangs: ['en', 'tr'] }).catalogue.games;
 const LANGS: Lang[] = ['en', 'tr'];
@@ -26,7 +27,7 @@ function draw(lang: Lang, url: string, init: Partial<ContextInit> = {}, state = 
 const ids = (html: string): string[] => [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1] as string);
 const hrefs = (html: string): string[] => [...html.matchAll(/\shref="([^"]*)"/g)].map((m) => m[1] as string);
 
-const bigScreen: UiCapabilities = { device: 'desktop', platform: 'web', deviceClass: 'medium', landscape: true, touch: false, camera: true, secure: true, tv: false, local2: true, local2Reason: 'ok' };
+const bigScreen: UiCapabilities = { device: 'desktop', platform: 'web', deviceClass: 'medium', landscape: true, touch: false, camera: true, secure: true, tv: false, keyboard: true, local2: true, local2Reason: 'ok' };
 
 function pageUrls(lang: Lang): string[] {
   const p = lang === 'en' ? '' : `/${lang}`;
@@ -268,5 +269,46 @@ describe('results', () => {
     expect(t).toContain('Player 2 wins');
     const tie = textOf(draw('en', '/results/', {}, { ...EMPTY_STATE, result: { ...duo, players: [{ slot: 1, score: 7 }, { slot: 2, score: 7 }] } }).html);
     expect(tie).toContain('Draw');
+  });
+});
+
+describe('a phone has no keyboard way around the camera', () => {
+  const phone: UiCapabilities = { device: 'phone', platform: 'web', deviceClass: 'phone', landscape: false, touch: true, camera: true, secure: true, tv: false, keyboard: false, local2: false, local2Reason: 'phone' };
+
+  it('the game page keeps the controls to the camera and says so', () => {
+    const { html } = draw('en', '/games/squat-flap/', { caps: phone });
+    expect(html).not.toContain('value="keyboard"');
+    expect(html).toContain('<input type="hidden" name="input" value="camera">');
+    expect(textOf(html)).toContain('plays with the camera');
+    const laptop = draw('en', '/games/squat-flap/', { caps: bigScreen }).html;
+    expect(laptop).toContain('value="keyboard"');
+  });
+
+  it('a round on a phone is camera play even when the address asks for the keyboard', () => {
+    const g = games.find((x) => x.id === 'squat-flap') as ShellGame;
+    const ctx = makeContext({ lang: 'en', games, url: '/', caps: phone });
+    expect(setupFromQuery(ctx, g, new URLSearchParams('input=keyboard')).input).toBe('camera');
+    expect(defaultSetup(makeContext({ lang: 'en', games, url: '/', caps: { ...phone, camera: false } }), g).input).toBe('camera');
+    const laptopCtx = makeContext({ lang: 'en', games, url: '/', caps: bigScreen });
+    expect(setupFromQuery(laptopCtx, g, new URLSearchParams('input=keyboard')).input).toBe('keyboard');
+  });
+
+  it('a blocked camera gets the "needs the camera" panel with the steps to allow it, and no keyboard button', () => {
+    const g = games.find((x) => x.id === 'squat-flap') as ShellGame;
+    const onPhone = overlayHtml(makeContext({ lang: 'en', games, url: '/', caps: phone }), g, { kind: 'camera-error', code: 'denied' }).value;
+    expect(textOf(onPhone)).toContain('This game needs the camera');
+    expect(textOf(onPhone)).toContain('To allow the camera');
+    expect(onPhone).toContain('data-action="camera-retry"');
+    expect(onPhone).not.toContain('data-action="use-keyboard"');
+    const onLaptop = overlayHtml(makeContext({ lang: 'en', games, url: '/', caps: bigScreen }), g, { kind: 'camera-error', code: 'denied' }).value;
+    expect(onLaptop).toContain('data-action="use-keyboard"');
+    expect(textOf(onLaptop)).not.toContain('This game needs the camera');
+  });
+
+  it('speaks Turkish when asked', () => {
+    const g = games.find((x) => x.id === 'squat-flap') as ShellGame;
+    const tr = overlayHtml(makeContext({ lang: 'tr', games, url: '/tr/', caps: phone }), g, { kind: 'camera-error', code: 'denied' }).value;
+    expect(textOf(tr)).toContain('Bu oyun için kamera gerekli');
+    expect(textOf(tr)).toContain('Kameraya izin vermek için');
   });
 });

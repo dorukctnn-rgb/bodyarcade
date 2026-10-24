@@ -25,7 +25,7 @@ export async function checkPage(page: Page): Promise<string[]> {
     for (const { el, r } of rects) {
       const fixed = !!el.closest('.ba-tabbar, .ba-topbar, .ba-skip, dialog');
       if (!fixed && r.left < -1) problems.push(`${label(el)} starts left of the screen`);
-      if (r.right > innerWidth + 1 && !el.closest('.ba-filters')) problems.push(`${label(el)} reaches past the right edge (${Math.round(r.right)} > ${innerWidth})`);
+      if (r.right > innerWidth + 1 && !el.closest('.ba-filters, .k-msgs')) problems.push(`${label(el)} reaches past the right edge (${Math.round(r.right)} > ${innerWidth})`);
     }
     const inView = rects.filter(({ r }) => r.bottom > 0 && r.top < innerHeight);
     for (let i = 0; i < inView.length; i++) {

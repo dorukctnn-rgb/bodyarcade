@@ -44,7 +44,7 @@ export interface OpenOptions {
   plan?: 'free' | 'pro';
   dark?: boolean;
   /** Pages with a camera view ask for the camera; the practice session does not need one. */
-  hooks?: { timeScale?: number; roundSeconds?: number; forceDemo?: boolean };
+  hooks?: { timeScale?: number; roundSeconds?: number; forceDemo?: boolean; keyboard?: boolean };
 }
 
 export interface Opened {
@@ -66,7 +66,9 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  const hooks = o.hooks ?? (name === 'play' ? { timeScale: 5, roundSeconds: 120, forceDemo: true } : name === 'calibrate' ? { timeScale: 1, roundSeconds: 120, forceDemo: true } : { timeScale: 40, roundSeconds: 6, forceDemo: true });
+  // A keyboard is there in every scenario: the screens of a round are reached with it even at phone sizes (a real phone
+  // has none, and a camera game there says it needs the camera; e2e-real/games.spec.ts looks at that).
+  const hooks = o.hooks ?? (name === 'play' ? { timeScale: 5, roundSeconds: 120, forceDemo: true, keyboard: true } : name === 'calibrate' ? { timeScale: 1, roundSeconds: 120, forceDemo: true, keyboard: true } : { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true });
   await page.addInitScript((h) => { window.__BA_TEST__ = h; }, hooks);
   await page.addInitScript(`window.__SEED__ = ${JSON.stringify(name)};`);
   await page.addInitScript(SEED);

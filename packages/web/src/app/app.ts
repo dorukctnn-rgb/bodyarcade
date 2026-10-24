@@ -93,6 +93,8 @@ export class App {
   private bests: Bests;
   private history: RoundRecord[];
   private play: PlayController | null = null;
+  /** Back during a round: the page goes forward again and asks ('restoring'); a yes goes back for real ('leaving'). */
+  private backGuard: 'idle' | 'restoring' | 'leaving' = 'idle';
   private readonly social: SocialController | null;
   private plan: Plan;
   private capsTimer: ReturnType<typeof setTimeout> | null = null;
@@ -112,7 +114,7 @@ export class App {
     this.shell = this.store.ns('shell');
     const first = !this.shell.has('settings');
     this.settings = createSettingsStore(this.shell);
-    this.caps = detectUiCapabilities(this.win);
+    this.caps = this.detectCaps();
     if (first && this.caps.tv) this.settings.set({ bigText: true });
     this.entitlements = o.entitlements ?? localEntitlements({
       demo: o.demo,
@@ -134,6 +136,12 @@ export class App {
   }
 
   // ---- context -----------------------------------------------------------------------------------------------------
+
+  /** What this device offers. A test can say a keyboard is there (a phone-sized window in a test browser has none worth using). */
+  private detectCaps(): UiCapabilities {
+    const hooks = this.o.demo ? this.win.__BA_TEST__ : undefined;
+    return detectUiCapabilities(this.win, hooks?.keyboard !== undefined ? { keyboard: hooks.keyboard } : {});
+  }
 
   private currentSettings(): Readonly<Settings> { return this.settings.get(); }
 
@@ -209,6 +217,11 @@ export class App {
         return;
       }
     }
+    if (this.backGuard === 'restoring') { this.backGuard = 'idle'; return; }        // back at the round after the Back button: nothing changed
+    if (change.popped && this.play?.isLive() && route?.id !== 'play') {
+      if (this.backGuard === 'leaving') this.backGuard = 'idle';
+      else { this.askToLeave(); return; }
+    }
     if (!change.initial && !change.replaced) this.moves += 1;
     this.endPlay();
     this.route = route;
@@ -276,7 +289,7 @@ export class App {
   private onResize(): void {
     if (this.capsTimer) clearTimeout(this.capsTimer);
     this.capsTimer = setTimeout(() => {
-      const next = detectUiCapabilities(this.win);
+      const next = this.detectCaps();
       const changed = next.local2 !== this.caps.local2 || next.deviceClass !== this.caps.deviceClass || next.landscape !== this.caps.landscape;
       this.caps = next;
       if (changed) this.rerender();
@@ -303,6 +316,19 @@ export class App {
       ...(this.o.onRoundEnded ? { release: this.o.onRoundEnded } : {}),
     });
     void this.play.begin();
+  }
+
+  /** The Back button during a round is a way out like any other: the round is held, the page returns to it and asks. */
+  private askToLeave(): void {
+    const t = this.ctx().i18n;
+    this.backGuard = 'restoring';
+    this.win.history.forward();
+    this.play?.holdForLeave();
+    void this.confirm({ title: t.t('leave.title'), body: t.t('leave.body'), confirm: t.t('leave.confirm'), cancel: t.t('leave.keep'), danger: true }).then((yes) => {
+      if (!yes) return;
+      this.backGuard = 'leaving';
+      this.win.history.back();
+    });
   }
 
   private endPlay(): void {

@@ -71,18 +71,21 @@ export interface DuoInput {
   camAspect: number;
   measured: MeasuredDuo;
   away?: DuoAway;
+  /** A mirror game: the camera is the scene, so there is no shared self view window. */
+  mirror?: boolean;
 }
 
 /** Two players on one camera: the shared self view at the bottom centre, a lane for each player. */
 export function layoutDuo(i: DuoInput): SceneRects {
-  const d = placeHudDuo({ w: i.w, h: i.h, ...(i.insets ? { insets: i.insets } : {}) }, i.measured, { camAspect: i.camAspect, ...(i.away !== undefined ? { away: i.away } : {}) });
+  const d = placeHudDuo({ w: i.w, h: i.h, ...(i.insets ? { insets: i.insets } : {}) }, i.measured, { camAspect: i.camAspect, ...(i.away !== undefined ? { away: i.away } : {}), ...(i.mirror ? { mirror: true } : {}) });
   const r = d.rects;
   const lanes: [Rect, Rect] = [r.playP1, r.playP2];
   const play: Rect = { x: lanes[0].x, y: lanes[0].y, w: lanes[1].x + lanes[1].w - lanes[0].x, h: Math.max(lanes[0].h, lanes[1].h) };
-  const hud: SceneRects['hud'] = { statusP1: r.statusP1, statusP2: r.statusP2, timer: r.timer, command: r.command, pip: r.pip };
+  const hud: SceneRects['hud'] = { statusP1: r.statusP1, statusP2: r.statusP2, timer: r.timer, command: r.command };
+  if (!i.mirror) hud['pip'] = r.pip;
   if (r.reasonP1) hud['reasonP1'] = r.reasonP1;
   if (r.reasonP2) hud['reasonP2'] = r.reasonP2;
-  return { w: i.w, h: i.h, play, mirror: fitContain(i.camAspect, play), pip: { x: r.pip.x, y: r.pip.y, w: r.pip.w, h: r.pip.h }, own: null, friend: null, hud, lanes, source: null };
+  return { w: i.w, h: i.h, play, mirror: fitContain(i.camAspect, play), pip: i.mirror ? null : { x: r.pip.x, y: r.pip.y, w: r.pip.w, h: r.pip.h }, own: null, friend: null, hud, lanes, source: null };
 }
 
 /**
