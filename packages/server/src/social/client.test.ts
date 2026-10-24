@@ -22,13 +22,18 @@ class FakeWs implements WebSocketLike {
   static all: FakeWs[] = [];
   readonly sent: string[] = [];
   closed: number | null = null;
+  /** The platform answers the text 'ping' with 'pong' by itself; a test that wants a half-open socket turns this off. */
+  autoPong = true;
   onopen: ((ev: unknown) => void) | null = null;
   onmessage: ((ev: { data: unknown }) => void) | null = null;
   onclose: ((ev: { code: number }) => void) | null = null;
   onerror: ((ev: unknown) => void) | null = null;
   readonly url: string;
   constructor(url: string) { this.url = url; FakeWs.all.push(this); }
-  send(data: string): void { this.sent.push(data); }
+  send(data: string): void {
+    this.sent.push(data);
+    if (data === 'ping' && this.autoPong) queueMicrotask(() => this.receive('pong'));
+  }
   close(code = 1000): void { this.closed = code; }
   open(): void { this.onopen?.({}); }
   receive(ev: HubEvent | 'pong'): void { this.onmessage?.({ data: typeof ev === 'string' ? ev : JSON.stringify(ev) }); }
@@ -37,10 +42,20 @@ class FakeWs implements WebSocketLike {
 }
 const lastWs = (): FakeWs => FakeWs.all[FakeWs.all.length - 1] as FakeWs;
 
-/** Lets real asynchronous work (WebCrypto runs on a thread) finish while timers stay fake. */
-async function idle(rounds = 8): Promise<void> {
-  for (let i = 0; i < rounds; i++) await new Promise<void>((r) => setImmediate(r));
+const realSetTimeout = globalThis.setTimeout;
+/** Lets real asynchronous work (WebCrypto runs on a thread) finish while timers stay fake: `ms` of real time. */
+async function idle(ms = 8): Promise<void> {
+  await new Promise<void>((r) => realSetTimeout(r, ms));
 }
+/** Waits in real time until the condition holds (the fake clock does not move meanwhile). */
+async function until(cond: () => boolean, what = 'the condition', ms = 8000): Promise<void> {
+  const t0 = performance.now();
+  while (!cond()) {
+    if (performance.now() - t0 > ms) throw new Error(`timed out waiting for ${what}`);
+    await new Promise<void>((r) => realSetTimeout(r, 2));
+  }
+}
+const clients: SocialClient[] = [];
 
 interface Dev {
   client: SocialClient;
@@ -66,7 +81,9 @@ function makeClient(store: MemoryKeyStore, ip: string, skew: { ms: number }): So
     if (!res) throw new Error(`no route for ${req.method} ${url}`);
     return res;
   };
-  return new SocialClient({ origin: TEST_ORIGIN, keys: store, fetch: net as typeof fetch, WebSocket: FakeWs, now: () => Date.now() + skew.ms, random: () => 0.5 });
+  const client = new SocialClient({ origin: TEST_ORIGIN, keys: store, fetch: net as typeof fetch, WebSocket: FakeWs, now: () => Date.now() + skew.ms, random: () => 0.5 });
+  clients.push(client);
+  return client;
 }
 
 async function device(band: AgeBand = 'adult', extra: Partial<SignUp> = {}, signUp = true): Promise<Dev> {
@@ -87,12 +104,12 @@ async function device(band: AgeBand = 'adult', extra: Partial<SignUp> = {}, sign
 async function online(d: Dev): Promise<FakeWs> {
   const before = FakeWs.all.length;
   d.client.connect();
-  await vi.waitFor(() => expect(FakeWs.all.length).toBeGreaterThan(before));
+  await until(() => FakeWs.all.length > before, 'the hub socket to be opened');
   const ws = lastWs();
   app.hubs.connect(d.pid());
   ws.open();
-  await vi.waitFor(() => expect(d.client.hub).toBe('online'));
-  await idle();
+  expect(d.client.hub).toBe('online');
+  await d.client.sync();                                      // the lists the hub loads when it opens
   return ws;
 }
 
@@ -111,7 +128,11 @@ beforeEach(() => {
   calls = [];
   ipSeq = 0;
 });
-afterEach(() => vi.useRealTimers());
+afterEach(async () => {
+  for (const c of clients.splice(0)) c.disconnect();         // no reconnect of one test may open a socket in the next
+  vi.useRealTimers();
+  await idle(5);
+});
 
 describe('the device identity', () => {
   it('a new device has no profile, signing up makes one and the key never leaves the device', async () => {
@@ -236,7 +257,10 @@ describe('friends', () => {
     await b.client.loadRequests();
     expect(b.client.requests.incoming).toMatchObject([{ name: 'Ada', via: 'code' }]);
     await c.client.loadRequests();
-    expect(c.client.requests.incoming).toMatchObject([{ name: 'Ada', via: 'link' }]);
+    // asking again by the link leaves the one request, the first way of asking stays
+    expect(c.client.requests.incoming).toMatchObject([{ name: 'Ada', via: 'code' }]);
+    await d.client.loadRequests();
+    expect(d.client.requests.incoming).toMatchObject([{ name: 'Ada', via: 'link' }]);
     await b.client.respond(a.fid(), true);
     expect(b.client.requests.incoming).toEqual([]);
     expect(b.client.friends.map((f) => f.name)).toEqual(['Ada']);
@@ -355,16 +379,14 @@ describe('the hub socket', () => {
     const d = await device('adult');
     const ws = await online(d);
     await vi.advanceTimersByTimeAsync(PRESENCE.pingEveryMs);
-    ws.receive('pong');
     expect(ws.sent.filter((s) => s === 'ping')).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(PRESENCE.beatEveryMs);
     expect(ws.commands().filter((c) => (c as { t: string }).t === 'beat').length).toBeGreaterThanOrEqual(1);
     const beats = (): number => ws.commands().filter((c) => (c as { t: string }).t === 'beat').length;
     d.client.setActive(false);
     const before = beats();
-    for (let i = 0; i < 6; i++) { await vi.advanceTimersByTimeAsync(PRESENCE.pingEveryMs); ws.receive('pong'); }
-    await vi.advanceTimersByTimeAsync(PRESENCE.beatEveryMs);
-    ws.receive('pong');
+    await vi.advanceTimersByTimeAsync(PRESENCE.beatEveryMs * 2);
+    expect(ws.sent.filter((s) => s === 'ping').length).toBeGreaterThan(10);
     expect(beats()).toBe(before);
     d.client.setActive(true);
     expect(beats()).toBe(before + 1);
@@ -425,24 +447,25 @@ describe('the hub socket', () => {
     const sigOf = (w: FakeWs): string => new URL(w.url).searchParams.get('ba_auth') ?? '';
     ws.drop(1006);
     expect(d.client.hub).toBe('connecting');
-    await vi.advanceTimersByTimeAsync(700);
+    await vi.advanceTimersByTimeAsync(700);                   // the first wait is 750 ms with the middle random number
     await idle();
-    expect(FakeWs.all).toHaveLength(2);
+    expect(FakeWs.all).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(100);
+    await until(() => FakeWs.all.length === 2, 'the second socket');
     expect(sigOf(lastWs())).not.toBe(sigOf(ws));
     lastWs().drop(1006);                                      // never opened: the second wait is doubled
-    await vi.advanceTimersByTimeAsync(1500);
+    await vi.advanceTimersByTimeAsync(1400);
     await idle();
     expect(FakeWs.all).toHaveLength(2);
-    await vi.advanceTimersByTimeAsync(1000);
-    await idle();
-    expect(FakeWs.all).toHaveLength(3);
+    await vi.advanceTimersByTimeAsync(200);
+    await until(() => FakeWs.all.length === 3, 'the third socket');
     app.hubs.connect(d.pid());
     lastWs().open();
-    await vi.waitFor(() => expect(d.client.hub).toBe('online'));
-    lastWs().drop(1006);
-    await vi.advanceTimersByTimeAsync(700);
-    await idle();
-    expect(FakeWs.all).toHaveLength(4);
+    expect(d.client.hub).toBe('online');
+    await d.client.sync();
+    lastWs().drop(1006);                                      // a good connection: the wait starts again at 750 ms
+    await vi.advanceTimersByTimeAsync(800);
+    await until(() => FakeWs.all.length === 4, 'the fourth socket');
   });
 
   it('another tab taking the socket stops the client until the player asks again; a ban stops it for good', async () => {
@@ -453,6 +476,7 @@ describe('the hub socket', () => {
     await vi.advanceTimersByTimeAsync(120_000);
     expect(FakeWs.all).toHaveLength(1);
     const again = await online(d);
+    expect(FakeWs.all).toHaveLength(2);
     expect(again).not.toBe(ws);
     again.drop(HUB_CLOSE.BANNED);
     expect(d.client.hub).toBe('banned');
@@ -465,12 +489,11 @@ describe('the hub socket', () => {
     const ws = await online(d);
     ws.drop(HUB_CLOSE.AUTH);
     await vi.advanceTimersByTimeAsync(1);
-    await idle();
-    expect(FakeWs.all).toHaveLength(2);
+    await until(() => FakeWs.all.length === 2, 'the retry');
     const signedOut: string[] = [];
     d.client.on('signedOut', (e) => signedOut.push(e.reason));
     lastWs().drop(HUB_CLOSE.DELETED);
-    await idle();
+    await until(() => signedOut.length > 0, 'the sign out');
     expect(signedOut).toEqual(['deleted']);
     expect(await d.store.load()).toBeNull();
   });
@@ -478,12 +501,13 @@ describe('the hub socket', () => {
   it('a socket that has been silent for three pings is dropped and replaced', async () => {
     const d = await device('adult');
     const ws = await online(d);
+    ws.autoPong = false;                                      // half open: the pings go nowhere
     await vi.advanceTimersByTimeAsync(PRESENCE.pingEveryMs * 3 + 1000);
-    await idle();
+    expect(ws.closed).toBeNull();                             // three pings unanswered is not yet more than three pings of silence
+    await vi.advanceTimersByTimeAsync(PRESENCE.pingEveryMs);
     expect(ws.closed).toBe(4999);
     await vi.advanceTimersByTimeAsync(1500);
-    await idle();
-    expect(FakeWs.all.length).toBeGreaterThanOrEqual(2);
+    await until(() => FakeWs.all.length >= 2, 'the replacement socket');
   });
 
   it('disconnect closes the socket and nothing reconnects; the status is replayed after a reconnect', async () => {
@@ -492,11 +516,11 @@ describe('the hub socket', () => {
     d.client.setStatus('playing', 'squat-flap');
     expect(ws.commands()).toContainEqual({ t: 'status', status: 'playing', game: 'squat-flap' });
     ws.drop(1006);
-    await vi.advanceTimersByTimeAsync(700);
-    await idle();
+    await vi.advanceTimersByTimeAsync(800);
+    await until(() => FakeWs.all.length === 2, 'the second socket');
     app.hubs.connect(d.pid());
     lastWs().open();
-    await vi.waitFor(() => expect(d.client.hub).toBe('online'));
+    expect(d.client.hub).toBe('online');
     expect(lastWs().commands()).toContainEqual({ t: 'status', status: 'playing', game: 'squat-flap' });
     d.client.setStatus('online');
     expect(lastWs().commands().at(-1)).toEqual({ t: 'status', status: 'online' });
@@ -562,7 +586,7 @@ describe('quick match', () => {
   async function drive<T>(p: Promise<T>, stepMs = 1000, limit = 400): Promise<T> {
     let done = false;
     void p.finally(() => { done = true; }).catch(() => undefined);
-    for (let i = 0; i < limit && !done; i++) { await vi.advanceTimersByTimeAsync(stepMs); await idle(3); }
+    for (let i = 0; i < limit && !done; i++) { await vi.advanceTimersByTimeAsync(stepMs); await idle(6); }
     return p;
   }
 
@@ -582,12 +606,14 @@ describe('quick match', () => {
     const stop = new AbortController();
     const progress: string[] = [];
     const run = me.client.quickMatch('jacks', dr, { pollMs: 1000, signal: stop.signal, onProgress: (p) => progress.push(`${p.phase}:${p.code}`) });
+    await until(() => dr.log.length > 0, 'the room to be opened');   // the first answer was "open a room"
     // the room appears in the directory once the host sits in it
-    await vi.advanceTimersByTimeAsync(10);
-    await idle();
     await publishRoom(app.db, room('CREATE', 'Mia', { band: 'easy' }), [me.pid()], Date.now());
-    await vi.advanceTimersByTimeAsync(3000);
-    await idle(10);
+    for (let i = 0; i < 3; i++) {
+      const seen = progress.length;
+      await vi.advanceTimersByTimeAsync(1000);
+      await until(() => progress.length > seen, 'the next answer');
+    }
     stop.abort();
     await vi.advanceTimersByTimeAsync(1000);
     const out = await run;

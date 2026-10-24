@@ -135,6 +135,8 @@ type Listener<T> = (value: T) => void;
 
 const BACKOFF_BASE_MS = 1000;
 const BACKOFF_MAX_MS = 30_000;
+/** A round trip longer than this does not correct the clock offset. */
+const MAX_SYNC_ROUND_TRIP_MS = 10_000;
 /** Silence for this long (three missed pings) and the socket is treated as half open. */
 const STALE_AFTER_MS = PRESENCE.pingEveryMs * 3;
 
@@ -157,6 +159,7 @@ export class SocialClient {
   private requestsCache: RequestsView = { incoming: [], outgoing: [] };
   private blocksCache: BlockEntry[] = [];
   private invitesCache: PendingInvite[] = [];
+  private syncing: Promise<void> | null = null;
 
   private hubStatus: HubStatus = 'idle';
   private hubWanted = false;
@@ -231,10 +234,7 @@ export class SocialClient {
       const out = await this.call<{ me: MyProfile }>('GET', '/api/social/me');
       this.setProfile(out.me);
     } catch (e) {
-      if (e instanceof SocialApiError && e.code === 'unknown_device') {
-        await this.forget('unknown_device');
-        return null;
-      }
+      if (e instanceof SocialApiError && e.code === 'unknown_device') return null;   // call() has signed the device out
       if (!(e instanceof SocialApiError && e.status === 0)) throw e;
       // offline: the profile saved on the device is what the screen shows until the network is back
     }
@@ -295,10 +295,16 @@ export class SocialClient {
     const init: RequestInit = { method, headers, cache: 'no-store' };
     if (body !== undefined) { headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(body); }
     let res: Response;
+    const sentAt = this.clock();
     try { res = await this.fetchFn(url, init); } catch { throw new SocialApiError(0, 'network'); }
     let data: Record<string, unknown> | null = null;
     try { const j: unknown = await res.json(); data = typeof j === 'object' && j !== null ? (j as Record<string, unknown>) : null; } catch { data = null; }
-    if (data && typeof data.serverTime === 'number') this.offset = data.serverTime - this.clock();
+    if (data && typeof data.serverTime === 'number') {
+      // The server stamped its answer about half way through the round trip. An answer that was held up for long (a page
+      // that slept with a request in flight) says nothing about the clocks, so it is not used.
+      const heardAt = this.clock();
+      if (heardAt - sentAt <= MAX_SYNC_ROUND_TRIP_MS) this.offset = data.serverTime - (sentAt + heardAt) / 2;
+    }
     return { res, data };
   }
 
@@ -313,6 +319,8 @@ export class SocialClient {
       const code = typeof data?.error === 'string' ? data.error : `http_${res.status}`;
       // A wrong device clock is the one failure worth a silent second try: the answer carried the server time.
       if (code === 'clock_skew' && attempt === 0 && typeof data?.serverTime === 'number') continue;
+      // The server has no record of this key (its data was erased, or the profile idled for over a year): start over.
+      if (code === 'unknown_device' && path !== '/api/social/register') await this.forget('unknown_device');
       throw new SocialApiError(res.status, code, data as SocialErrorBody | null);
     }
   }
@@ -382,13 +390,23 @@ export class SocialClient {
     return out.blocks;
   }
 
-  /** Friends, requests and blocks together (after sign in, after a reconnect). */
+  /** Friends, requests, blocks and the profile together (after sign in, after a reconnect). */
   async refresh(): Promise<void> {
-    await Promise.all([this.loadFriends(), this.loadRequests(), this.loadBlocks()]);
-    if (this.meCache) {
-      const out = await this.call<{ me: MyProfile }>('GET', '/api/social/me');
-      this.setProfile(out.me);
-    }
+    await Promise.all([
+      this.loadFriends(), this.loadRequests(), this.loadBlocks(),
+      this.meCache ? this.call<{ me: MyProfile }>('GET', '/api/social/me').then((out) => this.setProfile(out.me)) : undefined,
+    ]);
+  }
+
+  /**
+   * refresh() for the moments the hub opens or the page comes back: while one is running, the callers share it (a flapping
+   * network does not pile up requests). Resolves when the lists are current.
+   */
+  sync(): Promise<void> {
+    if (this.syncing) return this.syncing;
+    const run: Promise<void> = this.refresh().finally(() => { if (this.syncing === run) this.syncing = null; });
+    this.syncing = run;
+    return run;
   }
 
   /**
@@ -602,7 +620,7 @@ export class SocialClient {
         this.setHub('online');
         this.startTimers();
         if (this.desired) this.sendCommand(this.desired);
-        void this.refresh().catch(() => undefined);
+        void this.sync().catch(() => undefined);
       };
       ws.onmessage = (ev) => this.onHubMessage(ev.data);
       ws.onclose = (ev) => this.onHubClose(ws, ev.code);
