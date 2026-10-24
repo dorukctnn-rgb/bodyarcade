@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:live": "playwright test -c tests/live/playwright.config.ts",
+    "test:social": "playwright test -c tests/social/playwright.config.ts",
     "check": "npm run typecheck && npm test && npm run test:e2e",
     "web:dev": "vite --config packages/web/vite.config.ts",
     "web:build": "node packages/web/tools/build.ts",
