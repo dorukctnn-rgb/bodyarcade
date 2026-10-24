@@ -13,3 +13,10 @@ two-standing-640x360.mjpeg
   -i standing-640x360.mjpeg -filter_complex "[0:v]crop=320:360:160:0,setpts=PTS-STARTPTS[a];[1:v]trim=start_frame=37,
   setpts=PTS-STARTPTS,crop=320:360:160:0,hflip[b];[a][b]hstack=inputs=2:shortest=1" -c:v mjpeg -q:v 5 -an
   -f mjpeg two-standing-640x360.mjpeg
+
+desk-640x480.mjpeg
+  A person at a desk: head and shoulders like a laptop camera at about 0.6 m, the hips under the picture (the real model gives
+  them a visibility of 0.02). The same public-domain Army clip as above, cropped from the 1920x1080 original to 300x225 at
+  (822, 254), scaled to 640x480, seconds 0 to 6, 15 fps, MJPEG. The landmark trace of the same pictures is
+  tests/traces/video/army-desk-near-6s.trace.json (see SOURCES.txt there for the ffmpeg line).
+  Made with: ffmpeg -i desk-near.webm -vf fps=15 -c:v mjpeg -q:v 6 -an -f mjpeg desk-640x480.mjpeg

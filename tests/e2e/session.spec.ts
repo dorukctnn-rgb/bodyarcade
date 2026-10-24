@@ -51,3 +51,15 @@ test('calibrate, count down, run; pause renders nothing (B12); resume calibrates
   }));
   expect(tracksLive).toBe(false);
 });
+
+test('a person standing in full view is never taken for a desk, even when the game has a seated variant: the full profile, measured, played standing', async ({ page }) => {
+  test.setTimeout(90_000);
+  await open(page, { seated: true });
+  await page.evaluate(() => { void (window as unknown as { run: any }).run.session.start('test', { mode: 'solo', difficulty: 'normal', input: 'camera', seated: false }); });
+  await waitState(page, 'running');
+  const v = await view(page);
+  expect(v.seen.errors).toEqual([]);
+  expect(v.seen.profile).toEqual([{ profile: 'full', outcome: 'measured', seated: false, supports: { full: true, upper: true, seated: true, side: false } }]);
+  expect(v.startDetail).toEqual([{ seated: false, kind: 'full', framing: 'full', hipsEstimated: false, headroom: null }]);
+  await page.evaluate(() => (window as unknown as { run: any }).run.session.quit());
+});

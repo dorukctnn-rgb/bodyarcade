@@ -10,10 +10,10 @@
   import { detectCapabilities } from '/packages/core/device/capabilities.ts';
 
   /** A game that records what the session gives it; `log.end = true` ends the run at the next step. */
-  function testGame() {
-    const log = { steps: 0, renders: 0, starts: [], events: [], twoStreams: false, end: false, disposed: 0, inits: 0 };
+  function testGame(o = {}) {
+    const log = { steps: 0, renders: 0, starts: [], startDetail: [], events: [], twoStreams: false, end: false, disposed: 0, inits: 0 };
     const manifest = {
-      id: 'test', template: 'runner', version: 1, title: 'Test', regions: ['legs'], framing: 'full', seated: false,
+      id: 'test', template: 'runner', version: 1, title: 'Test', regions: ['legs'], framing: 'full', seated: o.seated === true, ...(o.headroom ? { headroom: o.headroom } : {}),
       lowImpact: false, silentSafe: true, durationSec: 60, met: 5, detectors: [{ id: 'jump' }, { id: 'squat' }, { id: 'lean' }],
       free: true, modes: ['solo', 'local2'], seo: { slug: 'test', keywords: [] },
     };
@@ -22,7 +22,10 @@
       create: () => ({
         manifest,
         async init() { log.inits++; },
-        start(s) { log.starts.push({ seed: s.seed, mode: s.mode, profile: s.profile !== null, profiles: s.profiles ? Object.keys(s.profiles) : null }); },
+        start(s) {
+          log.starts.push({ seed: s.seed, mode: s.mode, profile: s.profile !== null, profiles: s.profiles ? Object.keys(s.profiles) : null });
+          log.startDetail.push({ seated: s.seated, kind: s.profile ? s.profile.kind : null, framing: s.profile ? s.profile.framing : null, hipsEstimated: s.profile ? s.profile.hipsEstimated === true : false, headroom: s.profile ? s.profile.headroom ?? null : null });
+        },
         step(_dt, input) {
           log.steps++;
           if (input.players) log.twoStreams = true;
@@ -46,8 +49,8 @@
     t: (k) => k,
   };
 
-  window.makeRun = () => {
-    const game = testGame();
+  window.makeRun = (o = {}) => {
+    const game = testGame(o);
     const camera = createCameraService();
     const pose = createPoseService();
     const caps = detectCapabilities();
@@ -60,11 +63,12 @@
       capabilities: () => caps,
       countdownMs: 1000,
     });
-    const seen = { states: [], pauses: [], countdown: [], calibration: 0, over: null, errors: [], players: [] };
+    const seen = { states: [], pauses: [], countdown: [], calibration: 0, over: null, errors: [], players: [], profile: [], codes: [] };
     session.on('state', (s) => seen.states.push(s));
     session.on('pause', (r) => seen.pauses.push(r));
     session.on('countdown', (c) => seen.countdown.push(c.remaining));
-    session.on('calibration', (c) => { seen.calibration++; window.run.lastCal = c; });
+    session.on('calibration', (c) => { seen.calibration++; window.run.lastCal = c; if (seen.codes[seen.codes.length - 1] !== c.code) seen.codes.push(c.code); });
+    session.on('profile', (p) => seen.profile.push(p));
     session.on('over', (s) => { seen.over = s; });
     session.on('error', (e) => seen.errors.push(e));
     session.on('player', (p) => seen.players.push(p));
