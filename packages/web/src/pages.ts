@@ -9,12 +9,10 @@ import { aboutOf, regionLabel, titleOf, type ViewContext } from './context.ts';
 import { INDEXABLE, isRegion, type RouteId } from './routes.ts';
 import { homePage, NO_HOME_DATA, type HomeData } from './views/home.ts';
 import { gamePage, NO_GAME_DATA, type GameData } from './views/game.ts';
-import type { SocialPageState } from './app/social.ts';
 import { notFoundPage } from './views/misc.ts';
-import { friendLinkPage, friendsPage, lobbiesPage, NO_FRIENDS_VIEW, roomPage, safetyPage } from './views/social.ts';
+import { socialPage, type SocialPageState } from './views/social.ts';
 import { childSocialPage, profilesPage } from './views/profiles.ts';
 import { NO_PROFILES_STATE, type ProfilesPageState } from './app/profiles-model.ts';
-import { NO_ROOM_STATE } from './social/port.ts';
 import { defaultPaywallState, paywallPage, type PaywallState } from './views/paywall.ts';
 import { NO_PLANS_DATA, plansPage, type PlansData } from './views/plans.ts';
 import { playPage } from './views/play.ts';
@@ -137,15 +135,8 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       // A child has no online identity: the friends pages say so and lead to the main player instead of looking missing.
       if (!ctx.flags.social && ctx.flags.socialChild) return { body: childSocialPage(ctx), title: named(t.t('social.title')), description: t.t('profile.child.social'), noindex: true, status: 200, jsonLd: [] };
       if (!ctx.flags.social) return notFound();
-      const s = state.social;
-      const room = { room: NO_ROOM_STATE, game: null, profile: null, games: [], draft: '', chatNote: '' };
-      const body = route.id === 'friends' ? friendsPage(ctx, s?.friends ?? NO_FRIENDS_VIEW)
-        : route.id === 'lobbies' ? lobbiesPage(ctx, s?.lobbies ?? { state: NO_FRIENDS_VIEW.state, games: [], game: null, band: 'medium', region: 'eu', list: null, failed: false, search: 'idle' })
-        : route.id === 'room' ? roomPage(ctx, s?.room ?? room)
-        : route.id === 'friendlink' ? friendLinkPage(ctx, s?.friendLink ?? { code: null, profile: false, busy: false, note: null })
-        : safetyPage(ctx, s?.friends.state.blocks ?? []);
-      const title = route.id === 'lobbies' ? t.t('lobby.title') : route.id === 'room' ? t.t('room.title') : route.id === 'safety' ? t.t('safety.title') : t.t('social.title');
-      return { body, title: named(title), description: t.t('social.intro.body'), noindex: true, status: 200, jsonLd: [] };
+      const p = socialPage(ctx, route, state.social);
+      return { body: p.body, title: named(p.title), description: t.t('social.intro.body'), noindex: true, status: 200, jsonLd: [] };
     }
     case 'profiles':
       // Who is playing: drawn by the browser app only, from the players of this device.

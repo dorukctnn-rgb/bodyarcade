@@ -1,0 +1,125 @@
+/* The friends screens beyond the art director's kit pages: banners and state panels, my profile, the weekly boards, quick match,
+   the recovery code, the friend link, the tray of invitations. Built on the design tokens only; the kit's own classes (k-card,
+   k-stack, ba-list, ba-btn ...) come from app.css. Imported by app/social.ts (the views import no CSS). */
+
+/* ---------- banners and state panels ---------- */
+.k-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 0 0 14px; padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.k-banner svg { width: 24px; height: 24px; flex: none; }
+.k-banner p { margin: 0; flex: 1 1 14em; min-width: 0; font-size: var(--ba-text-sm); line-height: 1.45; }
+.k-banner .ba-btn { min-height: 40px; padding: 0 14px; font-size: var(--ba-text-sm); }
+.k-banner--warn { background: color-mix(in srgb, var(--ba-sun-400) 16%, var(--ba-surface)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ba-sun-400) 55%, var(--ba-border)); }
+.k-banner--warn svg { color: var(--ba-reward-text); }
+.k-banner--info svg { color: var(--ba-info); }
+.k-statepanel .ba-actions { gap: 10px 14px; }
+.k-statepanel p { max-width: 40em; }
+.k-minor { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: var(--ba-text-sm); min-height: 44px; }
+.k-minor svg { width: 18px; height: 18px; }
+
+/* The three ways in on the Friends page: new room, lobbies, weekly boards. */
+.k-start { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.k-start .ba-btn { white-space: normal; text-align: center; line-height: 1.15; padding: 8px 12px; gap: 8px; }
+.k-start .ba-btn:nth-child(3) { grid-column: 1 / -1; }
+@media (min-width: 640px) { .k-start { grid-template-columns: repeat(3, minmax(0, 1fr)); } .k-start .ba-btn:nth-child(3) { grid-column: auto; } }
+@media (min-width: 900px) and (max-width: 1199px) { .k-start { grid-template-columns: repeat(2, minmax(0, 1fr)); } .k-start .ba-btn:nth-child(3) { grid-column: 1 / -1; } }
+
+/* ---------- my profile ---------- */
+.k-me__head { display: flex; align-items: center; gap: 14px; }
+.k-me__head .ba-avatar { width: 64px; height: 64px; }
+.k-me__head .ba-avatar svg { width: 50px; height: 50px; }
+.k-me__name { margin: 2px 0 0; font-family: var(--ba-font-display); font-weight: 800; font-size: 1.5rem; line-height: 1.1; overflow-wrap: anywhere; color: var(--ba-text); }
+.k-addrow .k-nameinput { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.k-codebox { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; }
+.k-codebox .ba-qr { width: 112px; height: 112px; padding: 8px; }
+@media (max-width: 479px) { .k-codebox { grid-template-columns: minmax(0, 1fr); } .k-codebox .ba-qr { justify-self: start; } }
+.k-linkline { margin: 0; font-size: var(--ba-text-sm); color: var(--ba-text-muted); overflow-wrap: anywhere; }
+.k-rowbtns--wrap { flex-wrap: wrap; }
+.k-canlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.k-canlist li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; font-size: var(--ba-text-sm); line-height: 1.4; }
+.k-canlist svg { width: 20px; height: 20px; margin-top: 1px; }
+.k-canlist .yes svg { color: var(--ba-hit-text); }
+.k-canlist .no { color: var(--ba-text-muted); }
+.k-canlist .no svg { color: var(--ba-text-muted); }
+.k-facts { margin: 0; display: grid; gap: 10px; }
+.k-facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+.k-facts dt { color: var(--ba-text-muted); font-size: var(--ba-text-sm); }
+.k-facts dd { margin: 0; font-weight: 700; }
+.k-cols-wide { grid-column: 1 / -1; }
+.k-prefs .ba-field select { max-width: 320px; }
+.k-prefs small { display: block; margin-top: 6px; }
+.k-me .k-namepick { align-items: flex-start; }
+.k-me .k-namepick .ba-small { flex: 1 1 16em; }
+
+/* ---------- weekly boards ---------- */
+.k-boardctl { display: grid; gap: 14px; }
+.k-boardsegs { display: flex; flex-wrap: wrap; gap: 8px 28px; }
+.k-boardsegs .ba-fieldset { margin: 0; }
+.k-board { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; background: var(--ba-border); border-radius: var(--ba-radius-lg); overflow: hidden; }
+.k-board li { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; background: var(--ba-surface); min-height: 56px; }
+.k-board li:has(.ba-avatar) { grid-template-columns: 2.4em 40px minmax(0, 1fr) auto; }
+.k-board .ba-avatar { width: 40px; height: 40px; }
+.k-board .ba-avatar svg { width: 30px; height: 30px; }
+.k-board .rank { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ba-text-muted); }
+.k-board b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-board .score { font-weight: 800; font-variant-numeric: tabular-nums; }
+.k-board li.you { background: var(--ba-accent-tint); box-shadow: inset 4px 0 0 var(--ba-accent); }
+.k-board li.you .rank { color: var(--ba-text); }
+.k-board li.gap { margin-top: 10px; border-radius: var(--ba-radius-md); }
+.k-yours { margin: 12px 0 0; font-weight: 700; }
+
+/* ---------- lobbies and quick match ---------- */
+.k-regionpick { display: inline-flex; align-items: center; gap: 8px; }
+.k-regionselect { height: 44px; padding: 0 10px; max-width: 170px; font-size: var(--ba-text-sm); }
+.k-regionpick .ba-icon-btn { width: 44px; height: 44px; }
+.k-searching { display: flex; align-items: center; gap: 12px; }
+.k-searching b { display: block; }
+.k-searching p { margin: 4px 0 0; }
+.k-spinner { width: 24px; height: 24px; flex: none; border-radius: 50%; border: 3px solid var(--ba-border); border-top-color: var(--ba-accent); animation: k-spin 900ms linear infinite; }
+@keyframes k-spin { to { transform: rotate(360deg); } }
+:root[data-motion="reduce"] .k-spinner { animation: none; border-top-color: var(--ba-accent); border-right-color: var(--ba-accent); }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .k-spinner { animation: none; } }
+.k-ghostcard { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-surface-sunken); }
+.k-ghostcard b { font-weight: 800; }
+.k-ghostcard p { margin: 0; font-size: var(--ba-text-sm); color: var(--ba-text-muted); }
+
+/* ---------- the recovery code and its sheet ---------- */
+.k-recoverybox { margin: 0; display: grid; gap: 12px; }
+.k-recoverybox dt { font-size: var(--ba-text-xs); font-weight: 700; color: var(--ba-text-muted); margin: 0 0 4px; }
+.k-recoverybox dd { margin: 0; }
+.k-recoverycode { padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-surface-sunken); font-weight: 800; font-size: 1.3rem; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+.k-recoverycode--friend { font-size: 1.05rem; }
+.k-codeinput { text-transform: uppercase; letter-spacing: 0.06em; font-weight: 800; }
+.k-sheet .k-fine { display: flex; gap: 6px; align-items: flex-start; }
+.k-sheet .k-fine svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.k-sheet .ba-callout { margin: 0; }
+
+/* ---------- the friend link ---------- */
+.k-linkcard { max-width: 640px; }
+.k-card .k-linkcode { margin: 4px 0 10px; font-size: 2rem; font-weight: 800; letter-spacing: 0.1em; color: var(--ba-text); line-height: 1.1; overflow-wrap: anywhere; }
+.k-linkcard .ba-actions { margin-top: 14px; }
+
+/* ---------- a room: invitations and the seat menu ---------- */
+.k-seat .k-seatmore { position: absolute; right: 6px; bottom: 6px; width: 36px; height: 36px; }
+.k-seat .k-seatmore svg { width: 18px; height: 18px; }
+.k-seat { padding-bottom: 14px; }
+.k-invitecard .ba-list > li { min-height: 56px; }
+.k-invitecard .ba-btn { min-height: 40px; padding: 0 14px; font-size: var(--ba-text-sm); }
+
+/* ---------- the safety page ---------- */
+.k-prose { max-width: 46em; margin: 0 0 14px; color: var(--ba-text-muted); line-height: 1.55; }
+.k-factcards { display: grid; gap: 12px; }
+@media (min-width: 800px) { .k-factcards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.k-factcards .k-card h3 { margin: 0 0 6px; }
+
+/* ---------- invitations from friends: a tray over the page ---------- */
+.ba-invites { position: fixed; z-index: 60; left: 0; right: 0; top: 0; display: flex; justify-content: center; padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 0; pointer-events: none; }
+.ba-invites:empty { display: none; }
+.k-tray { display: grid; gap: 8px; width: min(100%, 520px); pointer-events: auto; }
+.k-tray__card { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 10px 12px; border-radius: var(--ba-radius-lg); background: var(--ba-surface); box-shadow: var(--ba-elev-float), inset 0 0 0 2px var(--ba-border-strong); animation: ba-pop var(--ba-dur-enter) var(--ba-ease-pop); }
+.k-tray__card .grow { flex: 1 1 11em; min-width: 0; }
+.k-tray__card b { display: block; font-weight: 750; line-height: 1.25; }
+.k-tray__card small { color: var(--ba-text-muted); font-size: var(--ba-text-xs); }
+.k-tray__card .ba-avatar { width: 40px; height: 40px; }
+.k-tray__card .ba-avatar svg { width: 30px; height: 30px; }
+.k-tray__card .k-rowbtns { flex: 1 1 100%; justify-content: flex-end; }
+@media (min-width: 560px) { .k-tray__card .k-rowbtns { flex: none; } }
+:root[data-motion="reduce"] .k-tray__card { animation: none; }

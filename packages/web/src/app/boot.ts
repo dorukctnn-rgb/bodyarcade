@@ -8,14 +8,15 @@
 // what the device kept and drawn again when they answer.
 import { bootEntitlements, type BootResult, type BootWindow } from '../../../core/entitlements/boot.ts';
 import { createProfileBook, type ProfileBook } from '../../../core/store/index.ts';
-import type { StorageLike } from '../../../core/store/store.ts';
+import { createStore, type StorageLike } from '../../../core/store/store.ts';
 import { createI18n } from '../../../core/ui/i18n/index.ts';
 import type { Catalogue } from '../../catalogue/types.ts';
 import { App, autoLang, type AppServices } from './app.ts';
 import { localEntitlements } from './entitlements.ts';
 import { loadPlayDetails, pendingBilling, practiceBilling, realBilling, withPreviewOffers } from './billing.ts';
 import { createDemoSession } from './demo-session.ts';
-import { createDemoSocial, type DemoSocialMode } from './demo-social.ts';
+import { isLinkEntry, startSocial } from '../social/services.ts';
+import type { SocialServices } from '../social/port.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { createRealSessionFactory, pageAudio, playableGameIds } from './session.ts';
 
@@ -52,6 +53,9 @@ export const ROOM_PRO_ON = false;
 
 /** How long the first page waits for the entitlements before it is drawn from what the device kept. */
 export const ENTITLEMENTS_WAIT_MS = 600;
+
+/** How long a friend link or a room link waits for the friends service before the page is drawn without it (the Friends tab then appears when it answers). */
+export const SOCIAL_ENTRY_WAIT_MS = 5000;
 
 interface RealParts { port: EntitlementsPort; billing: BillingPort }
 
@@ -90,10 +94,17 @@ export async function boot(o: BootOptions): Promise<App> {
     };
   };
 
-  // The friends side needs a server that does not exist yet: development and test builds can ask for the practice one
-  // (`?social=1`, `?social=fresh` for a player with no profile, `?social=offline`); a published build has none.
+  // The friends side: a development or test build can ask for the practice ports (`?social=1`, `?social=fresh` for a player with
+  // no profile, `?social=offline`, and the other states of social/demo-social.ts); everywhere else the real services start in the
+  // background and the Friends tab appears when the site's social service answers (see social/services.ts).
   const socialParam = o.demo ? (hooks.social === true ? '1' : typeof hooks.social === 'string' ? hooks.social : query.get('social')) : null;
-  const social = socialParam ? createDemoSocial({ mode: (socialParam === 'fresh' || socialParam === 'offline' ? socialParam : 'ready') as DemoSocialMode, origin: o.win.location.origin }) : null;
+  let social: SocialServices | null = null;
+  if (socialParam) {
+    const { createDemoSocial, DEMO_SOCIAL_MODES } = await import('./demo-social.ts');
+    const mode = (DEMO_SOCIAL_MODES as readonly string[]).includes(socialParam) ? socialParam : 'ready';
+    const quick = hooks.socialQuick ?? query.get('quick');
+    social = createDemoSocial({ mode: mode as Parameters<typeof createDemoSocial>[0]['mode'], origin: o.win.location.origin, timeScale: hooks.timeScale ?? 1, ...(quick === 'never' || quick === 'lobby' ? { quick } : {}) });
+  }
 
   // The players of this device, before anything else: every record the app keeps is the active player's, and what the plan allows
   // (how many players, whether one has the online identity) comes from the entitlements, which are read a moment later.
@@ -117,6 +128,18 @@ export async function boot(o: BootOptions): Promise<App> {
   })();
   o.win.addEventListener('pagehide', () => { offTabs(); book.dispose(); }, { once: true });
 
+  // The friends services start in the background (the players above are what decides whether they are used): the owner of the
+  // device is the only player with an online identity, and the few device facts of the services (the answer to the age question,
+  // the players blocked in rooms) live in the owner's own namespace whoever is playing, so they get a store on that prefix.
+  const url = `${o.win.location.pathname}${o.win.location.search}`;
+  const linkEntry = isLinkEntry(url);
+  const realSocial = social ? null : startSocial({
+    win: o.win,
+    store: createStore({ ...(o.profiles?.storage !== undefined ? { storage: o.profiles.storage } : {}) }),
+    entry: linkEntry,
+    kidProfile: () => !book.online(),
+  });
+  const socialDeadline = realSocial ? new Promise<'late'>((resolve) => { setTimeout(() => resolve('late'), linkEntry ? SOCIAL_ENTRY_WAIT_MS : ENTITLEMENTS_WAIT_MS); }) : null;
   let billing: BillingPort;
   let entitlements: EntitlementsPort | undefined;
   let later: Promise<RealParts | null> | null = null;
@@ -156,15 +179,26 @@ export async function boot(o: BootOptions): Promise<App> {
     else billing = pendingBilling('unavailable');
   }
 
+  // The first page does not wait long for the friends service either; a visitor who came by a friend link or a room link waits for it.
+  let lateSocial: Promise<SocialServices | null> | null = null;
+  let lateServices: SocialServices | null = null;
+  if (realSocial && socialDeadline) {
+    const first = await Promise.race([realSocial, socialDeadline]);
+    if (first === 'late') lateSocial = realSocial; else social = first;
+  }
+
   const app = new App({
     win: o.win, catalogue: o.catalogue, version: o.version, demo: o.demo, profiles: book, family: FAMILY_ON, roomsPro: ROOM_PRO_ON, billing,
     ...(entitlements ? { entitlements } : {}),
     ...(o.sessionFactory ? { sessionFactory: o.sessionFactory } : { makeSessionFactory }),
     social,
+    // The documents the arcade keeps in step (streak, daily challenge, plans) go through the friends client, and only for the owner.
+    syncPort: () => social?.social.syncPort() ?? lateServices?.social.syncPort() ?? null,
     onPlayGesture: () => { try { pageAudio().unlock(); } catch { /* no Web Audio here: the round plays without sound */ } },
   });
   app.start();
   if (later) void later.then((r) => app.attach(r ? { entitlements: r.port, billing: r.billing } : { billing: pendingBilling('unavailable') }));
+  if (lateSocial) void lateSocial.then((svc) => { if (svc) { lateServices = svc; app.attachSocial(svc); } });
   if (o.demo) {
     o.win.__BA__ = app;
   }

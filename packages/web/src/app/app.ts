@@ -154,7 +154,7 @@ export class App {
   private raceParam: string | null = null;
   /** Back during a round: the page goes forward again and asks ('restoring'); a yes goes back for real ('leaving'). */
   private backGuard: 'idle' | 'restoring' | 'leaving' = 'idle';
-  private readonly social: SocialController | null;
+  private social: SocialController | null;
   private plan: Plan;
   private capsTimer: ReturnType<typeof setTimeout> | null = null;
   /** The choices on each game's page, kept while the app is open. */
@@ -381,6 +381,15 @@ export class App {
     this.social?.start();
     this.apply();
     this.nav.start();
+  }
+
+  /** The friends services arrived after the page started (the first page does not wait long for them): the Friends tab appears. */
+  attachSocial(svc: SocialServices): void {
+    if (this.social) return;
+    this.social = new SocialController(this.socialHost(), svc);
+    this.social.start();
+    this.social.enter(this.route);
+    this.rerender();
   }
 
   private watchEntitlements(): void {
@@ -721,6 +730,8 @@ export class App {
       this.raceParam = ghostParam(spec);
     }
     const factory = this.factory;
+    // A solo round counts for the weekly board when the server saw it start (a race in a room has its own score).
+    void this.social?.runBegan(g, setup.players === 1 && !route.query.get('room'));
     this.play = new PlayController({
       host: this.playHost(g), game: g, setup, stage,
       makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}), ...(race ? { race } : {}) }) ?? null,
@@ -857,6 +868,7 @@ export class App {
       ...(race ? { score: race.you, race: { ...race, again } } : {}),
     };
     this.state = { ...this.state, result };
+    void this.social?.runEnded(game, summary.score);
     this.shell.set('rounds', this.rounds() + 1);
     void this.arcade.sync.sync();
     this.nav.go(ctx.href('results'), { replace: true });
@@ -1076,7 +1088,7 @@ export class App {
   private onSubmit(e: Event): void {
     const form = e.target as HTMLFormElement | null;
     if (!form) return;
-    if (form.matches('[data-form="friend-add"], [data-form="room-say"], [data-form="lobby"]')) { e.preventDefault(); this.social?.submit(form); }
+    if (form.matches('[data-form="friend-add"], [data-form="room-say"], [data-form="lobby"], [data-form="me-name"], [data-form="boards"]')) { e.preventDefault(); this.social?.submit(form); }
     else if (form.matches('[data-form="profile"]')) { e.preventDefault(); this.profiles?.submit(form); }
     else if (form.matches('[data-form="gate"]')) { /* the gate's own window answers it */ }
     else if (form.matches('[data-form="setup"]')) { e.preventDefault(); this.startRound(form); }
