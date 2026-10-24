@@ -12,7 +12,7 @@ test.skip(!!process.env['CI'], 'whole-chain runs in real time (the pose feed, th
 interface Box { x: number; y: number; w: number; h: number }
 interface Ba {
   start(): Promise<void>;
-  state(): { session: string; game: { phase: string; round: { set: number } | null; heat: number | null; lanes: { score: number; lives?: number; hits?: number; passes?: number; flaps?: number; results?: { medal: string; time: number }[] }[] } | null; seen: { states: string[]; errors: unknown[]; over: { score: number; seconds: number; reps?: number; cleared?: number; hits?: number; players?: Record<string, { score: number }> }[] } };
+  state(): { session: string; game: { phase: string; warned?: boolean; round: { set: number } | null; heat: number | null; lanes: { score: number; lives?: number; hits?: number; passes?: number; flaps?: number; results?: { medal: string; time: number }[] }[] } | null; seen: { states: string[]; errors: unknown[]; over: { score: number; seconds: number; reps?: number; cleared?: number; hits?: number; players?: Record<string, { score: number }> }[] } };
   birds(): ({ x: number; y: number; r: number } | null)[];
   plates(): ({ name: string } & Box)[];
   rects(): { play: Box; pip: Box | null; lanes?: [Box, Box] | null };
@@ -60,6 +60,11 @@ async function waitResults(page: Page, label: string, timeout: number): Promise<
       climbSince = Date.now();
       await page.waitForTimeout(350);
       await page.screenshot({ path: join(shots, `${label}-${phase}.png`) });
+    }
+    // A rock on its way down.
+    if (shots && st.game?.warned && !seen.has('rock')) {
+      seen.add('rock');
+      await page.screenshot({ path: join(shots, `${label}-rock.png`) });
     }
     // A second look into a climb or a race, well after it began.
     if (shots && phase === 'climb' && !seen.has('climb-later') && Date.now() - climbSince > 9000) {

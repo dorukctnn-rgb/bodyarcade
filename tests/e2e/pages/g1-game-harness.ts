@@ -139,7 +139,11 @@ window.ba = {
   start: async () => { audio.unlock(); resize(); await chain.start(); chain.pump(); },
   state: () => {
     const g = chain.game() as unknown as { state?: Record<string, unknown> } | null;
-    return { session: chain.session.state, game: g?.state ? { phase: g.state['phase'], round: g.state['round'] ?? null, heat: g.state['heat'] ?? null, lanes: g.state['lanes'] } : null, seen: chain.seen };
+    // Summit Climb: is a rock coming down right now (for a screenshot of the warning).
+    const st = g?.state as { rocks?: { t: number }[]; setT?: number; phase?: string; c?: { rock?: number } } | undefined;
+    const next = st?.rocks?.[st.c?.rock ?? 0];
+    const warned = !!next && st?.phase === 'climb' && next.t - (st.setT ?? 0) <= 1.2 && next.t - (st.setT ?? 0) > 0.3;
+    return { session: chain.session.state, game: g?.state ? { phase: g.state['phase'], round: g.state['round'] ?? null, heat: g.state['heat'] ?? null, lanes: g.state['lanes'], warned } : null, seen: chain.seen };
   },
   /** The hero of each lane as the view drew it (the bird of Squat Flap, the runner of Knee Sprint). */
   birds: () => {

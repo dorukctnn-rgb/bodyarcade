@@ -105,6 +105,9 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
   let stepLeg = 0;
   let lastSet = 0;
 
+  /** The pulses of the picture stand still when motion is reduced. */
+  const wv = (p: number): number => (o.reducedMotion ? 0 : wave(p));
+
   const grad = (key: string, make: () => CanvasGradient): CanvasGradient => {
     let g = gradients.get(key);
     if (!g) { g = make(); gradients.set(key, g); if (gradients.size > 32) gradients.delete(gradients.keys().next().value as string); }
@@ -286,7 +289,7 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
       ctx.globalAlpha = 1;
       if (active && !done && h >= hb - 1e-6) {
         ctx.fillStyle = '#FFC53A';
-        ctx.globalAlpha = 0.5 + 0.3 * wave(h * 2 + i);
+        ctx.globalAlpha = 0.5 + 0.3 * wv(h * 2 + i);
         ctx.fillRect(g.wallL - g.U * 0.25, yt, w + g.U * 0.5, Math.max(2, g.U * 0.17));
         ctx.globalAlpha = 1;
       }
@@ -311,7 +314,7 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
     if (yb < g.lane.y - g.U || yt > g.lane.y + g.lane.h + g.U) return;
     const w = g.wallR - g.wallL;
     ctx.fillStyle = '#FF4F6E';
-    ctx.globalAlpha = active ? 0.2 + 0.1 * wave(spent * 2) : 0.12;
+    ctx.globalAlpha = active ? 0.2 + 0.1 * wv(spent * 2) : 0.12;
     ctx.fillRect(g.wallL, yt, w, yb - yt);
     ctx.globalAlpha = 1;
     // Hazard stripes down both edges.
@@ -357,7 +360,7 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
       ctx.lineWidth = Math.max(2, g.U * 0.07);
       ctx.globalAlpha = 0.8;
       ctx.beginPath();
-      ctx.arc(cx, cy, g.U * (0.85 + 0.15 * wave(left * 0.4)), 0, TAU);
+      ctx.arc(cx, cy, g.U * (0.85 + 0.15 * wv(left * 0.4)), 0, TAU);
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
@@ -433,10 +436,10 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
         const isClosed = closed[k + 1] as boolean;
         if (u <= 1) {
           // The warning: the closed columns glow red from top to bottom and the open ones show a green mark at the climber's height.
-          const pulse = 0.5 + 0.5 * wave(time * 2.2);
+          const pulse = 0.5 + 0.5 * wv(time * 2.2);
           if (isClosed) {
             ctx.fillStyle = ROCK.warn;
-            ctx.globalAlpha = (0.1 + 0.16 * pulse) * (0.4 + 0.6 * u);
+            ctx.globalAlpha = (0.16 + 0.2 * pulse) * (0.5 + 0.5 * u);
             ctx.fillRect(x - COL * g.U / 2, lane.y, COL * g.U, lane.h);
             ctx.globalAlpha = 1;
             // The marker at the top and the rock coming down.
@@ -640,7 +643,8 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
   function heightLabel(g: Geo, h: number, th: Theme): void {
     const px = clamp(g.lane.h * 0.05, 15, 40);
     const x = g.cx;
-    const y = g.lane.y + g.lane.h * 0.055;
+    // Under the markers of a falling rock, which hang at the top of the columns.
+    const y = g.lane.y + g.U * 0.62 + px * 0.6;
     ctx.save();
     ctx.lineJoin = 'round';
     ctx.lineWidth = Math.max(3, px * 0.2);
