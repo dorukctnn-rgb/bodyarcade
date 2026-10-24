@@ -30,7 +30,7 @@ import { MAX_DEVICES } from '../../server/src/social/recovery.ts';
 import { AUDIT_KEEP_MS, LOBBY_GONE_MS, ORPHAN_REPORT_KEEP_MS, RESOLVED_REPORT_KEEP_MS, UNUSED_PROFILE_DAYS } from '../../server/src/social/sweep.ts';
 import { REPO_ROOT, build, outOfDate, pages } from './build.ts';
 import { renderPage, type PageSpec } from './chrome.ts';
-import { gameList } from './copy/games.ts';
+import { gameList, snapshotIsCurrent } from './copy/games.ts';
 import * as F from './facts.ts';
 
 const read = (rel: string): string => readFileSync(join(REPO_ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -49,6 +49,12 @@ describe('the pages are build products', () => {
 
   it('every file the build writes is a page or a shared file that exists', () => {
     for (const o of build()) expect(o.content.length, o.file).toBeGreaterThan(100);
+  });
+
+  it('the pages count the games the manifests describe: a warning when a manifest moved on, a failure at the launch check (BA_RELEASE=1)', () => {
+    const current = snapshotIsCurrent();
+    if (!current) console.warn('content pages: the game catalogue changed since the pages were built; run node packages/web/content/build.ts and commit site/ and the snapshot');
+    if (process.env['BA_RELEASE'] === '1') expect(current, 'run node packages/web/content/build.ts').toBe(true);
   });
 
   it('the release builder takes every page from site/: LEGACY_PAGES (release/assemble.ts) is the list of pages', async () => {

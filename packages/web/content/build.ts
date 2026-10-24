@@ -1,17 +1,19 @@
 // Writes the content pages (the policies, the FAQ, the guides, the blog) and the files they share into site/, where the
 // release build picks them up (release/assemble.ts: LEGACY_PAGES for the pages, the whole assets folder for the rest).
 //
-//   node packages/web/content/build.ts            write what changed
-//   node packages/web/content/build.ts --check    change nothing; list what is out of date and exit 1 if anything is
+//   node packages/web/content/build.ts                   refresh the catalogue snapshot from the manifests, write what changed
+//   node packages/web/content/build.ts --check           change nothing; list what is out of date and exit 1 if anything is
+//   node packages/web/content/build.ts --check --strict  also exit 1 while the snapshot is behind the manifests (the launch check)
 //
-// The pages are generated from copy/*.ts and chrome.ts, so site/*.html are build products: edit the sources, run this, and
-// commit both. content.test.ts runs the check, so a page that was edited by hand or a source that was changed without a
-// rebuild fails the test run.
+// The pages are generated from copy/*.ts, chrome.ts and the catalogue snapshot (copy/games.ts), so site/*.html are build
+// products: edit the sources, run this, and commit them together. content.test.ts runs the check, so a page that was edited by
+// hand or a source that was changed without a rebuild fails the test run.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { OG_IMAGE, renderPage, type PageSpec } from './chrome.ts';
 import { allPages } from './copy/index.ts';
+import { refreshSnapshot, snapshotIsCurrent } from './copy/games.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(here, '..', '..', '..');
@@ -73,9 +75,13 @@ if (direct) {
   if (process.argv.includes('--check')) {
     const stale = outOfDate();
     for (const f of stale) console.error(`out of date: site/${f}`);
-    console.log(stale.length === 0 ? 'the content pages are up to date' : `${stale.length} file(s) out of date: run node packages/web/content/build.ts`);
-    process.exit(stale.length === 0 ? 0 : 1);
+    const behind = !snapshotIsCurrent();
+    if (behind) console.error('the game catalogue changed since the pages were built (packages/games/*/manifest.json)');
+    console.log(stale.length === 0 && !behind ? 'the content pages are up to date' : `${stale.length} file(s) out of date: run node packages/web/content/build.ts`);
+    process.exit(stale.length === 0 && !(behind && process.argv.includes('--strict')) ? 0 : 1);
   }
+  const refreshed = refreshSnapshot();
+  if (refreshed) console.log('the catalogue snapshot was refreshed from the manifests');
   const changed = write();
   console.log(changed.length === 0 ? 'nothing to write: the content pages are up to date' : `wrote ${changed.length} file(s): ${changed.join(', ')}`);
 }
