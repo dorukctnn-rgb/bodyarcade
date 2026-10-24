@@ -148,6 +148,7 @@ for (const c of CASES) {
 
     // Mid-play: the HUD is whole, the picture is drawn, the key objects are clear of the plates and of the self view.
     const mid = await ba(page, (b) => ({ problems: b.problems(), colours: b.pixelCheck(), keep: b.keep(), plates: b.plates(), rects: b.rects(), command: b.command() }));
+    if (process.env['BA_G3_SHOTS']) await page.screenshot({ path: join(process.env['BA_G3_SHOTS'], `${label}-play.png`) });
     expect(mid.problems, 'HUD problems').toEqual([]);
     expect(mid.colours, 'colours on the canvas').toBeGreaterThan(5);
     expect(mid.keep.length).toBeGreaterThan(0);
@@ -171,7 +172,6 @@ for (const c of CASES) {
       for (const k of mid.keep) expect(inside(k, (lanes as [Box, Box])[0]) || inside(k, (lanes as [Box, Box])[1]), `a key object ${JSON.stringify(k)} in one lane (lanes ${JSON.stringify(lanes)})`).toBe(true);
     }
     expect(mid.command.length, 'the command is on the screen').toBeGreaterThan(0);
-    if (process.env['BA_G3_SHOTS']) await page.screenshot({ path: join(process.env['BA_G3_SHOTS'], `${label}-play.png`) });
 
     const seen = await playToResults(page, label, 150_000);
     const end = await ba(page, (b) => ({ state: b.state(), audio: b.audioStats(), frames: b.frames(), summary: b.summary() }));

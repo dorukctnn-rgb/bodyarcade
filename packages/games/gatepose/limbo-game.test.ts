@@ -117,7 +117,7 @@ describe('the game on the contract', () => {
     expect(r.ctx.hudLog.map(([s]) => s).sort()).toEqual(['combo', 'hint', 'prompt', 'score', 'timer']);
     const prompt = r.ctx.last['prompt'] as { icon: string; text: string; progress?: number };
     expect(prompt.icon).toBe('sideBend');
-    expect(['Lean left', 'Lean right', 'Up and left', 'Up and right']).toContain(prompt.text);
+    expect(['Lean left', 'Lean right', 'Up, left', 'Up, right']).toContain(prompt.text);
     expect(r.ctx.last['timer']).toBe(24);
     expect(r.ctx.last['score']).toBe(0);
     expect(r.ctx.last['hint']).toBe('');
@@ -145,7 +145,7 @@ describe('the game on the contract', () => {
     }
     expect(seen.length).toBeGreaterThan(50);
     for (const s of seen) {
-      const word = s.target < 0 ? (s.tall ? 'Up and left' : 'Lean left') : (s.tall ? 'Up and right' : 'Lean right');
+      const word = s.target < 0 ? (s.tall ? 'Up, left' : 'Lean left') : (s.tall ? 'Up, right' : 'Lean right');
       expect(s.text).toBe(word);
       expect(s.progress).toBeGreaterThanOrEqual(0);
       expect(s.progress).toBeLessThanOrEqual(1);

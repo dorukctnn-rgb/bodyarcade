@@ -184,12 +184,14 @@ window.ba = {
   frames: () => [...frames],
   audioStats: () => ({ ...audio.stats(), names: SFX_NAMES.length }),
   pixelCheck: () => {
-    // Is the canvas drawn at all: count distinct colours on a coarse grid (one read-back of the whole picture).
+    // Is the canvas drawn at all: count distinct colours on a grid of 40 by 40 points (one read-back of the whole picture). A wide
+    // night corridor has a big plain sky and floor, so a coarse grid would find the same few colours whether the avatar is there or not.
     const c = canvas.getContext('2d') as CanvasRenderingContext2D;
     const img = c.getImageData(0, 0, canvas.width, canvas.height);
     const seen = new Set<string>();
-    for (let gx = 1; gx < 12; gx++) for (let gy = 1; gy < 12; gy++) {
-      const i = (Math.floor((canvas.height * gy) / 12) * canvas.width + Math.floor((canvas.width * gx) / 12)) * 4;
+    const N = 40;
+    for (let gx = 0; gx < N; gx++) for (let gy = 0; gy < N; gy++) {
+      const i = (Math.min(canvas.height - 1, Math.floor((canvas.height * (gy + 0.5)) / N)) * canvas.width + Math.min(canvas.width - 1, Math.floor((canvas.width * (gx + 0.5)) / N))) * 4;
       seen.add(`${img.data[i]! >> 4},${img.data[i + 1]! >> 4},${img.data[i + 2]! >> 4}`);
     }
     return seen.size;
