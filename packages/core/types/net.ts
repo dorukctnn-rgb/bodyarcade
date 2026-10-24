@@ -192,7 +192,7 @@ export type RoomMessage =
   | { t: 'removed'; reason: 'kicked' | 'banned' | 'dropped' }
   | { t: 'error'; code: RoomErrorCode };
 
-/** WebSocket close codes the Room uses. The client stops for good on all of them except TICKET and RATE. */
+/** WebSocket close codes the Room uses. The client stops for good on all of them except TICKET, RATE and SILENT. */
 export const CLOSE = {
   /** Another tab or device of the same player took the seat, or this tab was replaced earlier. */
   REPLACED: 4000,
@@ -207,6 +207,8 @@ export const CLOSE = {
   NOT_ALLOWED: 4006,
   /** Too many messages: the socket is dropped and the client reconnects after its backoff. */
   RATE: 4008,
+  /** Nothing was heard from the socket (not even a keep-alive ping) for too long: the Room dropped it, the client reconnects. */
+  SILENT: 4010,
 } as const;
 
 /** What the lobby directory (builder SO) sees of a room. Names only, never device ids. */

@@ -977,3 +977,109 @@ describe('message shape', () => {
     for (const t of types) expect(['welcome', 'sync', 'presence', 'room', 'signal', 'start', 'paused', 'resumed', 'forfeit', 'settling', 'ack', 'relay', 'result', 'chat', 'preset', 'react', 'chat_rejected', 'blocked', 'reported', 'removed', 'error']).toContain(t);
   });
 });
+
+// A phone that locks or loses its network usually sends no FIN: the platform keeps the socket open and, without the
+// sweep, the seat would look online for ever. Keep-alive pings are answered by the platform (Room.ping stands for that).
+describe('silent sockets', () => {
+  const SILENT = { silentLobbyMs: 40_000, silentMatchMs: 9000, sweepLobbyMs: 15_000, sweepMatchMs: 3000 };
+  const presenceOf = (p: TestPlayer, seat: string) => p.last('presence')?.members.find((m) => m.seat === seat);
+
+  it('closes a lobby socket that has been silent past the limit with 4010, shows the member offline and frees the seat later', async () => {
+    const r = await Room.make({}, SILENT);
+    const a = r.join('alice'); const b = r.join('bob');
+    r.advanceWithPings(30_000, [a], 5000);                      // alice only pings (the platform answers: the engine hears nothing)
+    expect(b.closeCode).toBeNull();                             // 30 s of silence is not enough
+    r.advanceWithPings(30_000, [a], 5000);
+    expect(b.closeCode).toBe(CLOSE.SILENT);
+    expect(a.closeCode).toBeNull();                             // a socket that only pings is alive
+    expect(presenceOf(a, 's2')).toMatchObject({ online: false });
+    r.advanceWithPings(T.lobbyDropMs + 20_000, [a], 5000);
+    expect(r.engine.inspect().members.map((m) => m.seat)).toEqual(['s1']);
+    expect(a.closeCode).toBeNull();
+  });
+
+  it('keeps a socket that sends messages and no pings, and one that only pings, for minutes', async () => {
+    const r = await Room.make({}, SILENT);
+    const a = r.join('alice'); const b = r.join('bob');
+    for (let i = 0; i < 90; i++) { r.advance(2000); b.send({ t: 'sync', c: i }); r.ping(a); }   // 3 minutes
+    expect(a.closeCode).toBeNull(); expect(b.closeCode).toBeNull();
+    expect(r.engine.inspect().members.every((m) => m.online)).toBe(true);
+  });
+
+  it('closes a socket that never says hello', async () => {
+    const r = await Room.make({}, SILENT);
+    const a = r.join('alice');
+    const ghost = r.connect('carol');
+    r.advanceWithPings(30_000, [a], 5000);
+    expect(ghost.closeCode).toBeNull();
+    r.advanceWithPings(30_000, [a], 5000);
+    expect(ghost.closeCode).toBe(CLOSE.SILENT);
+    expect(r.engine.inspect().members).toHaveLength(1);
+  });
+
+  it('in a match a silent player is dropped within 9 s plus a sweep, the match pauses after the debounce and the grace forfeits the seat', async () => {
+    const r = await Room.make({}, SILENT);
+    const a = r.join('alice'); const b = r.join('bob');
+    startMatch(r, a, b);
+    r.advanceWithPings(T.startCountdownMs + 10_000, [a, b], 2000);
+    expect(r.match().phase).toBe('running');
+    r.advanceWithPings(8000, [a], 2000);                        // bob's phone locks: nothing from him from now on
+    expect(b.closeCode).toBeNull();                             // under 9 s
+    r.advanceWithPings(6000, [a], 2000);
+    expect(b.closeCode).toBe(CLOSE.SILENT);
+    expect(r.match().phase).toBe('running');                    // still inside the 5 s debounce
+    r.advanceWithPings(T.offlineDebounceMs + 500, [a], 2000);
+    expect(r.match().phase).toBe('paused');
+    expect(r.match().reasons).toEqual({ s2: 'offline' });
+    expect(a.last('paused')).toMatchObject({ by: 's2' });
+    r.advanceWithPings(T.graceMs + 1000, [a], 2000);
+    expect(a.last('forfeit')).toMatchObject({ seat: 's2' });
+    expect(resultOf(a)).toMatchObject({ reason: 'forfeit', winner: 's1', forfeited: ['s2'] });
+    expect(a.closeCode).toBeNull();
+  });
+
+  it('a player dropped for silence comes back on a new socket and the match resumes', async () => {
+    const r = await Room.make({}, SILENT);
+    const a = r.join('alice'); const b = r.join('bob');
+    startMatch(r, a, b);
+    r.advanceWithPings(T.startCountdownMs + 5000, [a, b], 2000);
+    r.advanceWithPings(20_000, [a], 2000);
+    expect(b.closeCode).toBe(CLOSE.SILENT);
+    expect(r.match().phase).toBe('paused');
+    const b2 = r.join('bob', {}, {}, b.tab);
+    expect(b2.last('welcome')?.match?.phase).toBe('running');
+    expect(a.last('resumed')).toBeDefined();
+    r.advanceWithPings(T.graceMs + 5000, [a, b2], 2000);        // nothing is left of the old pause: no forfeit
+    expect(a.all('forfeit')).toHaveLength(0);
+  });
+
+  it('a late close event for a socket the sweep already dropped does not restart the offline time', async () => {
+    const r = await Room.make({}, SILENT);
+    const a = r.join('alice'); const b = r.join('bob');
+    startMatch(r, a, b);
+    r.advanceWithPings(T.startCountdownMs + 10_000, [a, b], 2000);
+    r.advanceWithPings(14_000, [a], 2000);
+    expect(b.closeCode).toBe(CLOSE.SILENT);
+    const at = r.engine.inspect().members.find((m) => m.seat === 's2')?.offlineAt;
+    r.advanceWithPings(2000, [a], 2000);
+    r.engine.closed(b.conn);                                    // the platform finally notices, minutes later in real life
+    expect(r.engine.inspect().members.find((m) => m.seat === 's2')?.offlineAt).toBe(at);
+  });
+
+  it('judges sockets by the platform\'s last ping after a hibernation wake, and wakes in between never postpone the verdict', async () => {
+    const r = await Room.make({}, SILENT);
+    const a = r.join('alice'); const b = r.join('bob');
+    for (let i = 0; i < 12; i++) { r.advanceWithPings(6000, [a], 2000); await r.reload(); }   // the Room sleeps and wakes every few seconds
+    expect(b.closeCode).toBe(CLOSE.SILENT);
+    expect(a.closeCode).toBeNull();
+    expect(r.engine.inspect().members.find((m) => m.seat === 's1')?.online).toBe(true);
+  });
+
+  it('does nothing when silence is not judged (the unit-test default) and sets no sweep alarm', async () => {
+    const r = await Room.make();
+    const a = r.join('alice'); const b = r.join('bob');
+    r.advance(10 * 60_000);
+    expect(a.closeCode).toBeNull(); expect(b.closeCode).toBeNull();
+    expect(r.host.alarmAt).toBeGreaterThan(r.host.t + 3600_000);   // only the idle deadline is armed
+  });
+});

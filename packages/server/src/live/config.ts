@@ -24,6 +24,17 @@ export interface Timing {
   roomTtlMs: number;
   /** A forfeit or an abandoned match before this share of its length is "no contest". */
   noContestShare: number;
+  /**
+   * A socket that has sent nothing for this long (no message, no keep-alive ping) is dead. A phone that locks or loses its
+   * network usually never sends a FIN, so the platform keeps the socket open and the seat would look online for ever.
+   * The match limit applies to a socket whose player is in the running match, the lobby limit to every other socket.
+   * Infinity: never (the unit tests, which have no keep-alives).
+   */
+  silentLobbyMs: number;
+  silentMatchMs: number;
+  /** How often the Room looks for silent sockets while any socket is open (the alarm wakes it). */
+  sweepLobbyMs: number;
+  sweepMatchMs: number;
 }
 
 export const DEFAULT_TIMING: Readonly<Timing> = {
@@ -38,6 +49,12 @@ export const DEFAULT_TIMING: Readonly<Timing> = {
   emptyTtlMs: 10 * 60_000,
   roomTtlMs: 24 * 3600_000,
   noContestShare: 0.3,
+  // The client pings every 2 s in a match and every 5 s in a lobby: nine seconds is four missed pings in a match, forty
+  // seconds eight in a lobby (a browser tab in the background may stretch its timers to a second or two).
+  silentLobbyMs: 40_000,
+  silentMatchMs: 9000,
+  sweepLobbyMs: 15_000,
+  sweepMatchMs: 3000,
 };
 
 /** Per-seat pause budget in one match: the third manual pause and the ninth pause of any kind are not held. */

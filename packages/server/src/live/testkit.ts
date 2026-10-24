@@ -13,6 +13,8 @@ export class FakeConn implements EngineConn {
   open = true;
   closeInfo: { code: number; reason: string } | null = null;
   readonly inbox: RoomMessage[] = [];
+  /** When the platform last answered a keep-alive ping on this socket by itself (Room.ping sets it). */
+  autoHeard: number | null = null;
   private readonly hostRef: FakeHost;
 
   constructor(host: FakeHost, id: string) {
@@ -20,6 +22,8 @@ export class FakeConn implements EngineConn {
     this.id = id;
     this.att = { c: id, p: '', n: '', a: 'adult', k: '', m: 0, s: null, t: null, h: false };
   }
+
+  heardAt(): number | null { return this.autoHeard; }
 
   send(text: string): void {
     if (!this.open) throw new Error('socket closed');
@@ -132,7 +136,8 @@ export class Room {
 
   static async make(init: Partial<InitInput> = {}, timing: Partial<Timing> = {}): Promise<Room> {
     const host = new FakeHost();
-    const t: Timing = { ...DEFAULT_TIMING, ...timing };
+    // Fake sockets send no keep-alive pings by themselves, so silence is not judged unless a test asks for it.
+    const t: Timing = { ...DEFAULT_TIMING, silentLobbyMs: Infinity, silentMatchMs: Infinity, ...timing };
     const r = new Room(host, init.code ?? 'K7P2QX', t);
     r.engine = await RoomEngine.create(host, t);
     const res = r.engine.init({
@@ -178,6 +183,22 @@ export class Room {
     p.conn.closeInfo = { code: 1006, reason: 'drop' };
     this.engine.closed(p.conn);
     this.flush();
+  }
+
+  /** The platform answered a keep-alive ping on this player's socket (it never reaches the engine). */
+  ping(p: TestPlayer): void {
+    p.conn.autoHeard = this.host.t;
+  }
+
+  /** Moves the clock forward like advance(), pinging every given player each `every` ms: players who are alive but quiet. */
+  advanceWithPings(ms: number, who: TestPlayer[], every = 2000): void {
+    let left = ms;
+    while (left > 0) {
+      const step = Math.min(every, left);
+      this.advance(step);
+      for (const p of who) if (p.conn.open) this.ping(p);
+      left -= step;
+    }
   }
 
   /** Moves the clock forward, running every alarm that falls due on the way. */

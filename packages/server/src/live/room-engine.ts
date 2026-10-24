@@ -47,6 +47,8 @@ export interface ConnAtt {
   t: string | null;
   /** hello done. */
   h: boolean;
+  /** When the socket was accepted (epoch ms): the least known about when it last spoke, after a hibernation wake. */
+  at?: number;
 }
 
 export interface EngineConn {
@@ -54,6 +56,11 @@ export interface EngineConn {
   att: ConnAtt;
   send(text: string): void;
   close(code: number, reason?: string): void;
+  /**
+   * When the platform last answered a keep-alive ping on this socket by itself (epoch ms), or null. Pings are answered
+   * without waking the Room, so only the platform knows; the silent-socket sweep reads it.
+   */
+  heardAt?(): number | null;
 }
 
 export interface EngineHooks {
@@ -189,6 +196,10 @@ export class RoomEngine {
   private lastChatAt = new Map<SeatId, number>();
   private lastPresetAt = new Map<SeatId, number>();
   private sched: { key: string; list: Obstacle[]; byId: Map<number, Obstacle> } | null = null;
+  /** When this engine last received a message on each socket (memory only; after a hibernation wake a socket counts from its last keep-alive, or from when it was accepted). */
+  private heard = new Map<string, number>();
+  /** When the silent-socket sweep last ran; null while no socket is open. */
+  private lastSweep: number | null = null;
 
   private constructor(host: EngineHost, timing: Timing, raw: Record<string, unknown>) {
     this.host = host;
@@ -303,13 +314,15 @@ export class RoomEngine {
   /** A socket was accepted with a verified ticket. Rejects it at once when the room is gone or the player is banned. */
   accept(conn: EngineConn, claims: TicketClaims): void {
     const m = this.meta;
+    this.heard.set(conn.id, this.now());
     if (!m || m.code !== claims.c) { conn.close(CLOSE.NO_ROOM, 'no room'); return; }
-    conn.att = { c: conn.id, p: claims.p, n: claims.n, a: claims.a, k: claims.k, m: claims.m ?? 0, s: null, t: null, h: false };
+    conn.att = { c: conn.id, p: claims.p, n: claims.n, a: claims.a, k: claims.k, m: claims.m ?? 0, s: null, t: null, h: false, at: this.now() };
     if (m.banned.includes(claims.p)) { this.send(conn, { t: 'removed', reason: 'banned' }); conn.close(CLOSE.REMOVED, 'banned'); }
   }
 
   message(conn: EngineConn, raw: unknown): void {
     try {
+      this.heard.set(conn.id, this.now());
       this.tick();
       this.handle(conn, raw);
     } catch (e) {
@@ -324,11 +337,13 @@ export class RoomEngine {
   closed(conn: EngineConn): void {
     try {
       this.rates.delete(conn.id);
+      this.heard.delete(conn.id);
       const att = conn.att;
       const meta = this.meta;
       if (!meta || !att.h || !att.s) return;
       const mem = this.members[att.p];
       if (!mem || mem.conn !== att.c) return;              // a replaced socket closing: nothing to do
+      if (!mem.online) return;                             // already offline (the silent sweep got there first): keep the first time
       mem.online = false; mem.offlineAt = this.now(); mem.offlineHandled = false;
       this.dirty.add('members');
       this.flushEvents();
@@ -813,6 +828,13 @@ export class RoomEngine {
     const t = this.timing;
     const slack = 25;
     if (!force && this.armed !== undefined && this.armed !== null && now + slack < this.armed) { /* nothing due yet */ return; }
+    // 0. a socket that went silent without closing (a locked phone, a dead network) is dropped; its player goes offline
+    // (a Room that just woke from hibernation has no sweep time yet and looks at once: the platform kept the sockets)
+    const every = this.sweepEvery();
+    if (Number.isFinite(every) && this.hasOpenSockets() && (this.lastSweep === null || now + slack >= this.lastSweep + every)) {
+      this.lastSweep = now;
+      this.sweepSilent(now);
+    }
     // 1. a socket gone for the whole debounce pauses the match; in the lobby a long absence loses the seat
     for (const mem of Object.values(this.members)) {
       if (mem.online || mem.offlineAt === null) continue;
@@ -871,7 +893,52 @@ export class RoomEngine {
       else if (m.phase === 'settling' && m.settleUntil !== null) want(m.settleUntil);
     }
     if (this.evDirtyAt !== null) want(this.evDirtyAt + t.eventFlushMs);
+    if (this.hasOpenSockets()) {
+      if (this.lastSweep === null) this.lastSweep = this.now();
+      want(this.lastSweep + this.sweepEvery());
+    } else this.lastSweep = null;
     return min === Infinity ? null : min;
+  }
+
+  /** Is any socket open? (Members that say they are online, and sockets this engine has heard from and not seen close.) */
+  private hasOpenSockets(): boolean {
+    if (this.heard.size > 0) return true;
+    for (const mem of Object.values(this.members)) if (mem.online) return true;
+    return false;
+  }
+
+  /** The gap between two silent-socket sweeps: short while a match runs, Infinity when silence is not judged at all. */
+  private sweepEvery(): number {
+    const t = this.timing;
+    const active = this.matchActive();
+    if (!Number.isFinite(active ? t.silentMatchMs : t.silentLobbyMs)) return Infinity;
+    return active ? t.sweepMatchMs : t.sweepLobbyMs;
+  }
+
+  /**
+   * Drops every socket that has been silent for longer than its limit. The close is sent but never awaited: a dead
+   * socket never answers a close frame, so the member is marked offline here and the platform's own close event
+   * (which may come minutes later) finds nothing left to do.
+   */
+  private sweepSilent(now: number): void {
+    const t = this.timing;
+    const match = this.match;
+    const seen = new Set<string>();
+    for (const c of this.host.conns()) {
+      seen.add(c.id);
+      const att = c.att;
+      const mem = att.h && att.s ? this.members[att.p] : undefined;
+      const inMatch = !!match && match.phase !== 'over' && !!mem && this.isPlayer(match, mem.seat);
+      const limit = inMatch ? t.silentMatchMs : t.silentLobbyMs;
+      if (!Number.isFinite(limit)) continue;
+      const last = Math.max(this.heard.get(c.id) ?? att.at ?? now, c.heardAt?.() ?? 0);
+      const quiet = now - last;
+      if (quiet <= limit) continue;
+      this.host.log({ evt: 'silent_socket', quietMs: Math.round(quiet), limitMs: limit, inMatch, hello: att.h });
+      try { c.close(CLOSE.SILENT, 'silent'); } catch { /* already closing */ }
+      this.closed(c);
+    }
+    for (const id of [...this.heard.keys()]) if (!seen.has(id)) this.heard.delete(id);
   }
 
   // ───────── relay, signalling ─────────

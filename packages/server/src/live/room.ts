@@ -12,6 +12,7 @@ import { upgradeResponse, workersRuntime } from '../cf.ts';
 import { b64url, fromB64url, isClaims } from './tickets.ts';
 import { RoomEngine, type ConnAtt, type EngineConn, type EngineHost, type InitInput } from './room-engine.ts';
 import { liveHooks } from './hooks.ts';
+import { DEFAULT_TIMING } from './config.ts';
 import type { LiveEnv } from './env.ts';
 
 const OPEN = 1;
@@ -27,11 +28,13 @@ export function encodeClaims(claims: unknown): string {
 class WsConn implements EngineConn {
   readonly id: string;
   private readonly ws: CfWebSocket;
+  private readonly state: DurableObjectStateLike;
   private cache: ConnAtt;
 
   /** `freshId` is given for a socket that was just accepted; later wrappers read the id from the attachment. */
-  constructor(ws: CfWebSocket, freshId?: string) {
+  constructor(ws: CfWebSocket, state: DurableObjectStateLike, freshId?: string) {
     this.ws = ws;
+    this.state = state;
     const a = ws.deserializeAttachment() as ConnAtt | null | undefined;
     this.cache = a && typeof a === 'object' ? a : { c: freshId ?? '', p: '', n: '', a: 'adult', k: '', m: 0, s: null, t: null, h: false };
     this.id = freshId ?? this.cache.c;
@@ -45,6 +48,11 @@ class WsConn implements EngineConn {
 
   send(text: string): void { this.ws.send(text); }
   close(code: number, reason?: string): void { this.ws.close(code, reason); }
+
+  /** Keep-alive pings never reach the Room; the platform remembers when it last answered one. */
+  heardAt(): number | null {
+    try { return this.state.getWebSocketAutoResponseTimestamp?.(this.ws)?.getTime() ?? null; } catch { return null; }
+  }
 }
 
 export class Room {
@@ -57,8 +65,12 @@ export class Room {
     this.env = env;
     // Keep-alive pings are answered by the platform without waking the object.
     state.setWebSocketAutoResponse(new (workersRuntime().WebSocketRequestResponsePair)('ping', 'pong'));
+    // Silence is judged by the platform's keep-alive timestamps; without that API a socket that only pings would look dead.
+    const canHear = typeof state.getWebSocketAutoResponseTimestamp === 'function';
+    if (!canHear) console.log(JSON.stringify({ evt: 'no_autoresponse_timestamp' }));
+    const timing = canHear ? DEFAULT_TIMING : { ...DEFAULT_TIMING, silentLobbyMs: Infinity, silentMatchMs: Infinity };
     void state.blockConcurrencyWhile(async () => {
-      this.engine = await RoomEngine.create(this.host());
+      this.engine = await RoomEngine.create(this.host(), timing);
     });
   }
 
@@ -69,7 +81,7 @@ export class Room {
     };
     return {
       now: () => Date.now(),
-      conns: () => state.getWebSockets().filter((ws) => ws.readyState === OPEN).map((ws) => new WsConn(ws)),
+      conns: () => state.getWebSockets().filter((ws) => ws.readyState === OPEN).map((ws) => new WsConn(ws, state)),
       load: async () => {
         const got = await state.storage.get<unknown>(STORED_KEYS);
         return Object.fromEntries(got);
@@ -135,21 +147,21 @@ export class Room {
     const server = pair[1];
     this.state.acceptWebSocket(server);
     // engine.accept stores the new id in the attachment together with the claims
-    this.engine.accept(new WsConn(server, crypto.randomUUID()), claims);
+    this.engine.accept(new WsConn(server, this.state, crypto.randomUUID()), claims);
     return upgradeResponse(client);
   }
 
   webSocketMessage(ws: CfWebSocket, message: string | ArrayBuffer): void {
-    this.engine.message(new WsConn(ws), message);
+    this.engine.message(new WsConn(ws, this.state), message);
   }
 
   webSocketClose(ws: CfWebSocket, code: number, reason: string): void {
     try { ws.close(code === 1005 || code === 1006 || code === 1015 || code < 1000 ? 1000 : code, reason); } catch { /* already closed */ }
-    this.engine.closed(new WsConn(ws));
+    this.engine.closed(new WsConn(ws, this.state));
   }
 
   webSocketError(ws: CfWebSocket): void {
-    this.engine.closed(new WsConn(ws));
+    this.engine.closed(new WsConn(ws, this.state));
   }
 
   alarm(): void {

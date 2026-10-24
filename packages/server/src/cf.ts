@@ -51,6 +51,8 @@ export interface DurableObjectStateLike {
   acceptWebSocket(ws: CfWebSocket, tags?: string[]): void;
   getWebSockets(tag?: string): CfWebSocket[];
   setWebSocketAutoResponse(pair?: unknown): void;
+  /** The last time the platform answered a keep-alive ping on this socket by itself, or null. */
+  getWebSocketAutoResponseTimestamp?(ws: CfWebSocket): Date | null;
   waitUntil(promise: Promise<unknown>): void;
   blockConcurrencyWhile<T>(fn: () => Promise<T>): Promise<T>;
 }
