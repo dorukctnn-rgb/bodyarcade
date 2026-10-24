@@ -48,6 +48,9 @@ export function makeSchedule(seed: number, durationMs: number, spec: ScheduleSpe
   return out;
 }
 
+/** Points of a pass that is the `combo`-th in a row (1 = the first): 100, plus 10% per step up to +100%. */
+export const passPoints = (combo: number): number => Math.round(100 * (1 + Math.min(10, Math.max(1, combo) - 1) * 0.1));
+
 /**
  * Race scoring from per-obstacle outcomes, the same function on the Room and the clients.
  * A pass is worth 100, plus 10% per combo step up to +100%; a hit breaks the combo. A missing outcome (the player
@@ -62,7 +65,7 @@ export function scoreOf(schedule: readonly Obstacle[], events: readonly Obstacle
     if (k === 'pass') {
       combo++; passes++;
       bestCombo = Math.max(bestCombo, combo);
-      score += Math.round(100 * (1 + Math.min(10, combo - 1) * 0.1));
+      score += passPoints(combo);
     } else if (k === 'hit') {
       combo = 0; hits++;
     }

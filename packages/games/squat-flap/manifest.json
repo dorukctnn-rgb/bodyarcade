@@ -15,7 +15,7 @@
     { "id": "squat", "opts": { "flap": 1, "down": 0.3 } }
   ],
   "free": true,
-  "modes": ["solo", "local2"],
+  "modes": ["solo", "local2", "duel"],
   "minPoseHz": 12,
   "seo": { "slug": "squat-flap", "keywords": ["squat game", "webcam squat game", "exercise game for legs", "flappy bird workout"] },
   "catalogue": {

@@ -8,6 +8,7 @@
 // - summary(): metSeconds = MET x the seconds spent flapping (warm-up and sets, not the rests); `log` lets a room recompute
 //   the score (every pass with its points) and names every miss in the body's words (a MissCode).
 import type { Game, GameContext, GameEvent, GameManifest, InputEvent, InputFrame, RunSummary, StartOptions, StepResult } from '../../core/types/index.ts';
+import { rngStream } from '../../core/loop/rng.ts';
 import { clamp, createSay, hudWriter, lanesOf, round, type HudWriter, type LaneInput, type RoundPlan, type Say } from '../kit-g1/index.ts';
 import { createSelfView, type SelfView } from '../kit-g1/selfview.ts';
 import { createStage, type Stage } from '../kit-g1/stage.ts';
@@ -130,10 +131,13 @@ export function createFlightGame(manifest: GameManifest, o: FlightGameOptions = 
     if (players === 1) {
       const l = s.lanes[0];
       if (l) {
-        h.set('score', l.score);
-        h.set('lives', l.lives);
-        const mult = 1 + Math.min(2, Math.floor(l.streak / 5));
-        h.set('combo', mult > 1 ? mult : 0);
+        // In a race the score, the combo and the plates are the race's (the Room's formula, written by the shell); no feathers.
+        if (!s.duel) {
+          h.set('score', l.score);
+          h.set('lives', l.lives);
+          const mult = 1 + Math.min(2, Math.floor(l.streak / 5));
+          h.set('combo', mult > 1 ? mult : 0);
+        }
         h.set('hint', l.hint && s.t - l.hint.at < HINT_SEC ? reasonText(l.hint.code) : '');
       }
     } else {
@@ -177,9 +181,13 @@ export function createFlightGame(manifest: GameManifest, o: FlightGameOptions = 
     start(s: StartOptions): void {
       if (!ctx) throw new Error('Call init() before start().');
       opts = { ...s };
+      const duel = s.mode === 'duel' ? s.duel : undefined;
+      if (s.mode === 'duel' && !duel) throw new Error("Mode 'duel' needs the Room's course (StartOptions.duel).");
       players = s.mode === 'local2' ? 2 : 1;
       seated = s.seated || ctx.flags.seated;
-      state = createFlight({ difficulty: s.difficulty, players, seated, rng: ctx.rng('course'), ...(o.plan ? { plan: o.plan } : {}) });
+      // A race is flown on the match's seed: the Room's seed reaches the page after the session began, so the session's own
+      // 'course' stream is not the one both players share.
+      state = createFlight({ difficulty: s.difficulty, players, seated, rng: duel ? rngStream(s.seed, 'course') : ctx.rng('course'), ...(duel ? { duel } : o.plan ? { plan: o.plan } : {}) });
       log = [];
       flapsAll = [0, 0];
       flapsDeep = [0, 0];

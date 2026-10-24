@@ -420,7 +420,7 @@ export function createFlightView(o: FlightViewOptions): FlightView {
     const by = lane.y + (f.y[laneNo] ?? l.y) * lane.h;
     birds[laneNo] = { x: birdX, y: by, r };
     bird(laneNo, l, birdX, by, r, l.vy, f.time);
-    feathers(lane, l.lives, lv.lives, laneNo === 1 ? '#46B4FF' : '#FF4F6E');
+    if (!s.duel) feathers(lane, l.lives, lv.lives, laneNo === 1 ? '#46B4FF' : '#FF4F6E');
     setPips(lane, s);
     if (flash[laneNo]! > 0.01 && !o.reducedMotion) {
       ctx.globalAlpha = flash[laneNo]! * 0.28;

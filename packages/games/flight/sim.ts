@@ -14,6 +14,7 @@
 //   channels: drop (hip drop, T), glide (deep enough), armed (a flap is coming), up (rise speed).
 import { clamp, median, newRound, phaseLeft, smoothstep, stepRound, wave, type RoundPlan, type RoundState } from '../kit-g1/index.ts';
 import type { Rng } from '../../core/types/index.ts';
+import { passPoints } from '../../core/net/schedule.ts';
 
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'normal', 'hard', 'expert'];
@@ -119,7 +120,20 @@ export function makeCourse(rng: Rng, lv: Level, count = 360): CourseEntry[] {
   return out;
 }
 
-export interface Pipe { x: number; y: number; h: number; amp: number; phase: number }
+export interface Pipe {
+  x: number; y: number; h: number; amp: number; phase: number;
+  /** A live race only: the Room's id of this obstacle. */
+  id?: number;
+}
+
+/**
+ * A live race (mode 'duel', see DuelSetup in core/types): the Room fixes WHEN each column reaches the bird (`t`, ms of play),
+ * so the columns are placed by time, not by the player's tempo, and there are no sets, no warm-up and no feathers: every
+ * column is its own pass or hit and the run ends when the match does. Everybody races on one level, whatever they play
+ * alone on; what a column looks like comes from (seed, id) alone, so two devices fly the same course.
+ */
+export interface DuelCourse { schedule: readonly { id: number; t: number }[]; durationMs: number }
+export const DUEL_LEVEL: Difficulty = 'normal';
 
 /** The gap centre of a column at active time `t`. */
 export const gapCentre = (p: Pipe, t: number): number => p.y + p.amp * wave(p.phase + t / 6);
@@ -191,6 +205,8 @@ export interface FlightState {
   cursor: number;
   pipes: Pipe[];
   lanes: LaneState[];
+  /** A live race (see DuelCourse): set when the run was made for one. */
+  duel?: boolean;
 }
 
 export interface FlapIn { power: number; depth: number | undefined }
@@ -220,7 +236,9 @@ export type FlightEvent =
   | { type: 'rest'; set: number }
   | { type: 'out'; lane: number }
   | { type: 'over' }
-  | { type: 'complete' };
+  | { type: 'complete' }
+  /** A live race: the column `ob` (the Room's id) is settled, once, as it is passed or hit. */
+  | { type: 'duel'; lane: number; ob: number; k: 'pass' | 'hit' };
 
 const newLane = (lv: Level): LaneState => ({
   y: 0.5, vy: 0, lives: lv.lives, invul: 0, score: 0, passes: 0, centres: 0, hits: 0, flaps: 0, streak: 0, bestStreak: 0,
@@ -236,24 +254,43 @@ export interface FlightOptions {
   rng: Rng;
   /** A shorter round for tests and tools. */
   plan?: Partial<RoundPlan>;
+  /** A live race: the Room's columns and the match length. `difficulty` and `plan` are then ignored (everybody races on DUEL_LEVEL). */
+  duel?: DuelCourse;
 }
 
 export function createFlight(o: FlightOptions): FlightState {
-  const difficulty = ((DIFFICULTIES as readonly string[]).includes(o.difficulty) ? o.difficulty : 'normal') as Difficulty;
+  const duel = o.duel;
+  const difficulty = duel ? DUEL_LEVEL : (((DIFFICULTIES as readonly string[]).includes(o.difficulty) ? o.difficulty : 'normal') as Difficulty);
   const lv = LEVELS[difficulty];
   const s: FlightState = {
     v: 1, difficulty, players: o.players, seated: o.seated,
-    t: 0, active: 0, scroll: 0, phase: o.players === 2 ? 'play' : 'warmup', plan: { ...planOf(lv), ...o.plan }, round: newRound(), ready: 0,
+    t: 0, active: 0, scroll: 0, phase: duel || o.players === 2 ? 'play' : 'warmup',
+    plan: duel ? { sets: 1, setSec: duel.durationMs / 1000, restSec: 0 } : { ...planOf(lv), ...o.plan }, round: newRound(), ready: 0,
     warm: { t: 0, flapTimes: [], depths: [] },
     tempo: lv.tempo, need: lv.need, spacing: lv.speed * SPACING_PER_CYCLE * lv.tempo,
     course: makeCourse(o.rng, lv), cursor: 0, pipes: [],
     lanes: Array.from({ length: o.players }, () => newLane(lv)),
   };
-  if (s.phase === 'play') placeSet(s);
+  if (duel) { s.duel = true; placeDuel(s, duel); }
+  else if (s.phase === 'play') placeSet(s);
   return s;
 }
 
 export const levelFor = (s: FlightState): Level => LEVELS[s.difficulty];
+
+/** The columns of a live race: column `id` reaches the bird `t` ms into the play, whatever the player does. */
+function placeDuel(s: FlightState, d: DuelCourse): void {
+  const lv = levelFor(s);
+  s.pipes = d.schedule.map((ob) => {
+    // The look of a column is a function of its id (and the seed the course was made from), never of its place in a list.
+    const k = clamp(ob.id - 1, 0, s.course.length - 1);
+    const c = s.course[k] as CourseEntry;
+    // The first two columns are kinder, as in a run alone.
+    const easing = k < 2 ? 1.25 : 1;
+    return { id: ob.id, x: lv.speed * (ob.t / 1000), y: c.y, h: lv.gapH * easing, amp: c.amp, phase: c.phase };
+  });
+  s.cursor = s.pipes.length;
+}
 
 /** The columns of the set that is about to begin, starting `leadIn` seconds ahead. */
 function placeSet(s: FlightState): void {
@@ -356,6 +393,16 @@ function physics(s: FlightState, i: number, inp: LaneIn, dt: number, soft: boole
 
 function lose(s: FlightState, i: number, what: 'pipe' | 'floor', side: 'high' | 'low', out: FlightEvent[]): void {
   const l = s.lanes[i] as LaneState;
+  if (s.duel) {
+    // A race has no feathers and no protection after a hit: the column is lost, the next one is judged on its own.
+    l.hits++;
+    l.streak = 0;
+    const why = reasonOf(s, l, side);
+    l.hint = { code: why, at: s.t };
+    l.vy = side === 'low' ? -0.3 : 0.2;
+    out.push({ type: 'hit', lane: i, what, reason: why, lives: l.lives, y: l.y });
+    return;
+  }
   l.lives--;
   l.hits++;
   l.streak = 0;
@@ -388,9 +435,11 @@ function columns(s: FlightState, i: number, out: FlightEvent[]): void {
         // Inside the wall: no pass, and while the feather's protection lasts no feather is lost either.
         l.insideHit = true;
         if (l.invul <= 0) lose(s, i, 'pipe', l.y < c ? 'high' : 'low', out);
+        if (s.duel && p.id !== undefined) out.push({ type: 'duel', lane: i, ob: p.id, k: 'hit' });
       }
     } else if (x - p.x >= half) {
       // Past it. A pass counts when the bird was never hit inside this column.
+      if (l.inside === k && !l.insideHit && s.duel && p.id !== undefined) out.push({ type: 'duel', lane: i, ob: p.id, k: 'pass' });
       if (l.inside === k && !l.insideHit) {
         l.passes++;
         const centre = l.insideCentre;
@@ -398,7 +447,8 @@ function columns(s: FlightState, i: number, out: FlightEvent[]): void {
         l.streak++;
         l.bestStreak = Math.max(l.bestStreak, l.streak);
         const mult = multOf(l.streak);
-        const pts = (1 + (centre ? 1 : 0)) * mult;
+        // In a race a pass is worth what the Room says it is worth, so the plates, the pops and the Room agree.
+        const pts = s.duel ? passPoints(l.streak) : (1 + (centre ? 1 : 0)) * mult;
         l.score += pts;
         out.push({ type: 'pass', lane: i, pts, centre, streak: l.streak, mult, y: l.y });
       }
@@ -458,7 +508,8 @@ export function stepFlight(s: FlightState, dt: number, ins: readonly LaneIn[]): 
   for (let i = 0; i < s.lanes.length; i++) {
     const l = s.lanes[i] as LaneState;
     if (l.out) { l.y = Math.min(WORLD.floor - WORLD.birdRy, l.y + 0.5 * dt); l.glide = 0; continue; }
-    physics(s, i, ins[i] ?? IDLE, dt, false, out);
+    // The floor is only a floor in a race: it costs nothing, the columns are what count.
+    physics(s, i, ins[i] ?? IDLE, dt, s.duel === true, out);
     if (!l.out) columns(s, i, out);
   }
   if (s.lanes.every((l) => l.out)) { s.phase = 'over'; out.push({ type: 'over' }); return out; }
