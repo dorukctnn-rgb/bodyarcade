@@ -3,6 +3,7 @@
 // says so and keeps the licence key box and the way back; the Android app never says a word about another shop; Family has
 // no free trial, whatever a config says; and the reminder is promised only where a trial is on offer.
 import { describe, expect, it } from 'vitest';
+import { checkoutOf, type GumroadListing } from '../../core/entitlements/catalog.ts';
 import { paywallModel, type PaywallMode, type PaywallModel } from '../../core/entitlements/paywall.ts';
 import { PLANS, SOLD_PLAN_IDS, playProductOf, type PlayItemDetails } from '../../core/entitlements/plans.ts';
 import { textOf } from '../../core/ui/html.ts';
@@ -27,6 +28,11 @@ const REAL = {
   lifetime: 'https://bodyarcade.gumroad.com/l/lifetime',
 } as const;
 
+/** The catalogue as it is before the Gumroad products exist: every id and link is a placeholder, whatever the real catalogue holds today. */
+const PLACEHOLDERS = Object.fromEntries(SOLD_PLAN_IDS.map((id) => [id, { productId: `<GUMROAD_PRODUCT_ID_${id.toUpperCase().replace(/-/g, '_')}>`, checkout: `<GUMROAD_CHECKOUT_${id.toUpperCase().replace(/-/g, '_')}>` }])) as Record<(typeof SOLD_PLAN_IDS)[number], GumroadListing>;
+/** What the paywall is given while that is so: no address at all, because a placeholder is not one. */
+const NOTHING_TO_SELL = checkoutOf(PLACEHOLDERS);
+
 const DETAILS: PlayItemDetails[] = SOLD_PLAN_IDS.map((id) => ({
   itemId: playProductOf(id),
   price: { currency: 'EUR', value: String(PLANS[id].price) },
@@ -49,7 +55,8 @@ const actions = (html: string): string[] => [...html.matchAll(/data-action="([^"
 
 describe('where nothing can be bought, no button pretends it can', () => {
   it('the Gumroad products that do not exist yet are not offered: no plan, no buy button, the note, the key box and the way back', () => {
-    const m = web({});                                           // no address at all: the catalog of the repository changes the day the products exist
+    expect(NOTHING_TO_SELL).toEqual({});
+    const m = web(NOTHING_TO_SELL);
     expect(m.plans.offers).toEqual([]);
     for (const lang of LANGS) {
       const html = page(lang, m);
@@ -103,7 +110,7 @@ describe('where nothing can be bought, no button pretends it can', () => {
 
 describe('every button that is on the page is one the page can answer', () => {
   const states: [string, PaywallModel][] = [
-    ['web, nothing to sell', web({})],
+    ['web, nothing to sell', web(NOTHING_TO_SELL)],
     ['web, all four plans', web()],
     ['web, a trial already used', web(REAL, { trialEligible: false })],
     ['play with products', play()],

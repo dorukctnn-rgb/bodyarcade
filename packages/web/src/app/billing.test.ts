@@ -2,7 +2,8 @@
 // one that development and test builds use, and the two stand-ins for the moment before the real one has answered.
 import { describe, expect, it } from 'vitest';
 import { bootEntitlements, type BootWindow } from '../../../core/entitlements/boot.ts';
-import type { SoldPlanId } from '../../../core/entitlements/plans.ts';
+import { checkoutOf, GUMROAD_CHECKOUT, placeholdersIn } from '../../../core/entitlements/catalog.ts';
+import { SOLD_PLAN_IDS } from '../../../core/entitlements/plans.ts';
 import { Clock, FakeServer, makeKeys } from '../../../core/entitlements/testkit.ts';
 import { createStore, memoryStorage } from '../../../core/store/store.ts';
 import { loadPlayDetails, pendingBilling, practiceBilling, PREVIEW_CHECKOUT, realBilling, withPreviewOffers } from './billing.ts';
@@ -10,26 +11,39 @@ import { loadPlayDetails, pendingBilling, practiceBilling, PREVIEW_CHECKOUT, rea
 const HOUR = 3_600_000;
 const win = (search = ''): BootWindow => ({ location: { search, hostname: 'bodyarcade.test' }, document: { referrer: '' }, sessionStorage: null });
 
-/** `checkout`: the addresses the paywall may offer. Without it the catalog of the repository (what the player sees); `{}` is the day before the products exist. */
-async function bootOnTestServer(search = '', checkout?: Readonly<Partial<Record<SoldPlanId, string>>>) {
+async function bootOnTestServer(search = '') {
   const clock = new Clock();
   const keys = await makeKeys();
   const server = new FakeServer(keys, clock);
-  const boot = await bootEntitlements({
-    store: createStore({ storage: memoryStorage() }), keys: [keys.pub], window: win(search), fetch: server.fetch, now: clock.now, autoRefresh: false, legacyStorage: null,
-    ...(checkout ? { checkout } : {}),
-  });
+  const boot = await bootEntitlements({ store: createStore({ storage: memoryStorage() }), keys: [keys.pub], window: win(search), fetch: server.fetch, now: clock.now, autoRefresh: false, legacyStorage: null });
   return { boot, clock, server };
 }
 
 describe('the real billing', () => {
-  it('offers nothing while the Gumroad products are placeholders, and says so: no plan, no address, the key box stays', async () => {
-    const { boot } = await bootOnTestServer('', {});
-    const b = realBilling(boot, { family: true, details: () => [] });
-    const { plans, info } = b.paywall();
-    expect(plans.offers).toEqual([]);
-    expect(info).toMatchObject({ mode: 'web', note: 'unavailable', preview: false, manageUrl: null, keyEntry: { visible: true, wording: 'web' } });
+  it('takes its links from the Gumroad catalogue and from nowhere else: the plans that have a real link, with that link', async () => {
+    const { boot } = await bootOnTestServer();
+    const { plans, info } = realBilling(boot, { family: true, details: () => [] }).paywall();
+    const real = SOLD_PLAN_IDS.filter((id) => GUMROAD_CHECKOUT[id] !== undefined);
+    expect(plans.offers.map((o) => o.id)).toEqual(real);
+    for (const o of plans.offers) expect(o.checkout, o.id).toEqual({ web: GUMROAD_CHECKOUT[o.id] });
+    // a placeholder of the catalogue never reaches the page; where nothing is real yet the page says so honestly and keeps the key box
+    for (const o of plans.offers) expect(o.checkout.web, o.id).toMatch(/^https:\/\/[a-z0-9-]+\.gumroad\.com\//);
+    expect(info).toMatchObject({ mode: 'web', note: real.length === 0 ? 'unavailable' : null, preview: false, manageUrl: null, keyEntry: { visible: true, wording: 'web' } });
     boot.service.dispose();
+  });
+
+  it('Family stays off the page until the shell sells it, whatever the catalogue holds', async () => {
+    const { boot } = await bootOnTestServer();
+    expect(realBilling(boot, { family: false, details: () => [] }).paywall().plans.offers.map((o) => o.id)).not.toContain('family-yearly');
+    boot.service.dispose();
+  });
+
+  it('a catalogue that still holds placeholders offers nothing, and a real link is told from a placeholder or a typo', () => {
+    const placeholders = Object.fromEntries(SOLD_PLAN_IDS.map((id) => [id, { productId: '<GUMROAD_PRODUCT_ID>', checkout: '<GUMROAD_CHECKOUT>' }])) as Parameters<typeof checkoutOf>[0];
+    expect(checkoutOf(placeholders)).toEqual({});
+    expect(placeholdersIn(placeholders)).toHaveLength(SOLD_PLAN_IDS.length * 2);
+    expect(checkoutOf({ ...placeholders, lifetime: { productId: 'abcdefgh12345678', checkout: 'https://someone.gumroad.com/l/x' } })).toEqual({ lifetime: 'https://someone.gumroad.com/l/x' });
+    expect(checkoutOf({ ...placeholders, lifetime: { productId: 'abcdefgh12345678', checkout: 'https://evil.example/l/x' } })).toEqual({});
   });
 
   it('hands the trial of the entitlements through as it is', async () => {
@@ -61,8 +75,10 @@ describe('the real billing', () => {
 
 describe('made-up offers', () => {
   it('a build made to look at the design gets four preview plans where the real ones are missing, and the buy button knows it', async () => {
-    const { boot } = await bootOnTestServer('', {});
-    const real = realBilling(boot, { family: false, details: () => [] });
+    const { boot } = await bootOnTestServer();
+    // the real boot on a catalogue with no real link yet (whatever the catalogue holds today)
+    const real = realBilling({ ...boot, paywall: (i) => boot.paywall({ ...i, checkout: {} }) }, { family: false, details: () => [] });
+    expect(real.paywall().plans.offers).toEqual([]);
     const { plans, info } = withPreviewOffers(real).paywall();
     expect(plans.offers.map((o) => o.id)).toEqual(['pro-monthly', 'pro-yearly', 'family-yearly', 'lifetime']);
     expect(info.preview).toBe(true);
