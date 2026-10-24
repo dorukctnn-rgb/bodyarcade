@@ -11,17 +11,19 @@
 // keeps its play area clear of them with the same rectangles the HUD uses.
 import type { GameModule, Session, Unsubscribe } from '../../../core/types/index.ts';
 import { createAudio, type AudioKit } from '../../../core/audio/index.ts';
-import { createBrowserSession } from '../../../core/loop/browser.ts';
+import { browserServices, createBrowserSession } from '../../../core/loop/browser.ts';
 import { rngStream } from '../../../core/loop/rng.ts';
 import { createScene2D, type Scene2DKit } from '../../../core/render2d/index.ts';
 import { createScene3D, initialQualityLevel, type Scene3DKit } from '../../../core/render3d/index.ts';
 import { registerGameStrings, type I18n, type Lang } from '../../../core/ui/i18n/index.ts';
 import type { StoreNamespace } from '../../../core/store/store.ts';
 import { setMirrorVideo } from '../../../games/target/video.ts';
+import { duelModule } from './duel.ts';
 import { followHud } from './layout-bridge.ts';
 import { FIRST_GAME_ID, FIRST_SECONDS } from './welcome-model.ts';
 import { hudModeFor } from './play.ts';
 import type { SessionFactory, SessionRequest } from './ports.ts';
+import type { RaceSource } from './race.ts';
 
 type StringTables = Partial<Record<Lang, Readonly<Record<string, string>>>>;
 /** What a game folder's index.ts may export: the module, and its words (named `strings` or `STRINGS`, or on the module). */
@@ -35,6 +37,12 @@ export function playableGameIds(): string[] {
 }
 
 const withWords = new Set<string>();
+
+/** A game played as a race: the game itself, wrapped so that the feed's clock rules its play. */
+async function loadRace(id: string, race: RaceSource): Promise<GameModule | null> {
+  const inner = await loadGame(id);
+  return inner ? duelModule(inner, race.feed) : null;
+}
 
 /** The first game of the welcome tour: the real game with one set of thirty seconds and no rest, so the first win is quick. */
 async function loadFirstRound(): Promise<GameModule | null> {
@@ -114,7 +122,7 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
     };
 
     const session = createBrowserSession({
-      games: (id) => (r.first === true && id === FIRST_GAME_ID ? loadFirstRound() : loadGame(id)),
+      games: (id) => (r.race && id === r.game.id ? loadRace(id, r.race) : r.first === true && id === FIRST_GAME_ID ? loadFirstRound() : loadGame(id)),
       ui: (m, o) => {
         // A round that was left and started again draws into the same canvas, with a new kit.
         dropKit();
@@ -151,11 +159,18 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
       flags: () => ({ reducedMotion: deps.reducedMotion(), silent: r.setup.quiet }),
     });
 
+    // A race keeps the player's skeleton with their run (a recording is about 15 KB of it, never a picture) from the pose frames of the page.
+    let offPose: Unsubscribe | null = null;
+    const sendPose = r.race?.sendPose;
+    if (sendPose) offPose = browserServices().pose.onFrame((f) => sendPose(f.landmarks));
+
     // A mirror game draws the camera's picture itself: it gets the element when the camera runs and loses it when the camera is released.
     if (mode === 'mirror') session.on('video', ({ el }) => { if (kit2) setMirrorVideo(kit2, el); });
 
     // Giving the round back also gives back the scene.
     const release = (): void => {
+      offPose?.();
+      offPose = null;
       dropKit();
       canvas.remove();
     };

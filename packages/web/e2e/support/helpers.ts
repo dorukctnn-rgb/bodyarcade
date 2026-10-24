@@ -20,6 +20,8 @@ export interface Hooks {
   billing?: 'unavailable' | 'checking';
   /** The welcome tour: the stage drawn once and still ('static'), the pre-rendered pictures ('fallback'), or a first visit that is taken to it ('first'). */
   tour?: 'static' | 'fallback' | 'first';
+  /** How long a race against a recording lasts, in seconds, at least 15 (tests). */
+  raceSeconds?: number;
   /** Players added to a fresh device before the app starts (the plan must be 'family'); `active` is the one that plays. */
   players?: { name: string; kid?: boolean; avatar?: string; active?: boolean }[];
 }

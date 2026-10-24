@@ -2,6 +2,7 @@
 // command a game can show ("miss.*", "*.prompt.*" and "*.cmd.*" of the shell and of the games), in every language, asked to
 // fit. Nothing here asserts; the spec does.
 import '../../src/styles/app.css';
+import { NAME_MAX_CHARS } from '../../../core/net/chat-filter.ts';
 import { PlayHud } from '../../../core/ui/hud/hud.ts';
 import { createI18n, LANGS, stringTables, type Lang } from '../../../core/ui/i18n/index.ts';
 import type { HudMode, PipPlacement } from '../../../core/ui/layout.ts';
@@ -100,6 +101,34 @@ function check(c: Case): Found[] {
   return found;
 }
 
+/**
+ * The others of a race under the score: every name the plates say in this language (the practice bot, the player's own best, a
+ * recording, a friend with the longest name there is) with the largest score, under the longest reason and a command, in every
+ * corner of the self view. A race is for one player: the two-player HUD has no rows for them.
+ */
+function rivals(c: Case): { who: string; problems: string[] }[] {
+  const i18n = createI18n(c.lang);
+  const names: [string, string][] = [
+    ['bot', i18n.t('race.plate.bot')], ['own', i18n.t('race.plate.own')], ['recording', i18n.t('race.plate.recording')],
+    ['friend', 'W'.repeat(NAME_MAX_CHARS)], ['friend-wide', 'Ağ'.repeat(Math.ceil(NAME_MAX_CHARS / 2))],
+  ];
+  const out: { who: string; problems: string[] }[] = [];
+  const h = open(c);
+  const all = commands(c.lang);
+  h.set('prompt', { text: all.find((t) => t.length >= 6 && t.length <= 12) ?? all[0] ?? 'Jack', icon: 'stand' });
+  say(h, c.duo, longest(reasons(c.lang)));
+  for (const [who, name] of names) {
+    h.setRivals([{ name, score: 99_999 }]);
+    out.push({ who, problems: h.problems() });
+  }
+  // a room of friends: three rows (the limit of a live race is a handful; three is already more than the plate is meant to carry)
+  h.setRivals([{ name: names[3]?.[1] ?? 'W', score: 99_999 }, { name: names[2]?.[1] ?? 'R', score: 12_840 }, { name: names[0]?.[1] ?? 'B', score: 80 }]);
+  out.push({ who: 'three rows', problems: h.problems() });
+  h.setRivals([]);
+  out.push({ who: 'rows taken away', problems: h.problems() });
+  return out;
+}
+
 /** Leaves one reason (and a command) on the screen, for a picture of it. */
 function show(c: Case, text: string, command = 'Jack'): string[] {
   const h = open(c);
@@ -109,6 +138,6 @@ function show(c: Case, text: string, command = 'Jack'): string[] {
 }
 
 declare global {
-  interface Window { __HUD__: { check(c: Case): Found[]; reasons(lang: Lang): string[]; commands(lang: Lang): string[]; show(c: Case, text: string, command?: string): string[] } }
+  interface Window { __HUD__: { check(c: Case): Found[]; rivals(c: Case): { who: string; problems: string[] }[]; reasons(lang: Lang): string[]; commands(lang: Lang): string[]; show(c: Case, text: string, command?: string): string[] } }
 }
-window.__HUD__ = { check, reasons, commands, show };
+window.__HUD__ = { check, rivals, reasons, commands, show };

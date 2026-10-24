@@ -6,6 +6,7 @@
 @import url("../../../../design/ui-kit/pages.css");
 @import url("./welcome.css");
 @import url("./profiles.css");
+@import url("./race.css");
 
 /* ---------- Base ---------- */
 html { scrollbar-gutter: stable; }

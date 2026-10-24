@@ -21,6 +21,22 @@ const SOLO: Config[] = [
 const DUO: Config = { mode: 'scene', corner: 'bottom-right', duo: true };
 
 for (const bp of BREAKPOINTS) {
+  test(`${bp.label}: the others of a race under the score keep the HUD whole, in every language`, async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: bp.w, height: bp.h });
+    await page.goto(`${WEB_DEV_URL}/e2e/pages/hud.html`, { waitUntil: 'networkidle' });
+    await page.evaluate(() => document.fonts.ready);
+    const found: string[] = [];
+    for (const lang of LANGS) {
+      for (const c of SOLO) {
+        for (const r of await page.evaluate((x) => window.__HUD__.rivals(x), { lang, ...c })) {
+          if (r.problems.length > 0) found.push(`${lang} ${c.mode} ${c.corner} rivals "${r.who}": ${r.problems.join('; ')}`);
+        }
+      }
+    }
+    expect(found, found.join('\n')).toEqual([]);
+  });
+
   test(`${bp.label}: every reason and command a game can show fits, in every language`, async ({ page }) => {
     test.setTimeout(300_000);
     await page.setViewportSize({ width: bp.w, height: bp.h });

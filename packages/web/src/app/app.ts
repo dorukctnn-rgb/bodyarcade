@@ -42,6 +42,13 @@ import { PlayController, type PlayHost } from './play.ts';
 import { WelcomeController, type WelcomeHost } from './welcome.ts';
 import { askParentGate, ProfilesController, type ProfilesHost } from './profiles.ts';
 import { factsOf, OPEN_RULES, type PlayerFacts } from './profiles-model.ts';
+import { GhostBook } from '../../../core/net/ghost-book.ts';
+import { GhostRace } from '../../../core/net/ghost-race.ts';
+import { decodeRun, type GhostRun } from '../../../core/net/ghost.ts';
+import { keyValueOf } from '../../../core/store/index.ts';
+import { canRace } from './duel.ts';
+import { openGhostDialog, type GhostDialogHost } from './ghost-dialog.ts';
+import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceWorld } from './race.ts';
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
@@ -139,6 +146,10 @@ export class App {
   private tour: WelcomeController | null = null;
   /** The round on the stage is the first game of the welcome tour. */
   private firstRound = false;
+  /** The recordings each player keeps, read once per player and let go when the player changes. */
+  private readonly ghostBooks = new Map<string, GhostBook>();
+  /** What the race on the stage was asked for (`?ghost=`): "Race again" asks for the same kind of race. */
+  private raceParam: string | null = null;
   /** Back during a round: the page goes forward again and asks ('restoring'); a yes goes back for real ('leaving'). */
   private backGuard: 'idle' | 'restoring' | 'leaving' = 'idle';
   private readonly social: SocialController | null;
@@ -262,6 +273,7 @@ export class App {
     this.offSettings = this.settings.subscribe(() => this.apply());
     this.arcade = this.buildArcade();
     this.setups.clear();
+    this.ghostBooks.clear();
     this.state = { ...EMPTY_STATE };
     this.trialDismissed = false;
     this.endTour();
@@ -482,7 +494,97 @@ export class App {
 
   private gameData(g: ShellGame, ctx: ViewContext): GameData {
     const today = this.arcade.challenge.today();
-    return { best: this.bestAnyLevel(g.id), setup: this.setupFor(g, ctx), challenge: today.challenge?.game === g.id ? { done: today.done, bonus: today.bonus } : null, family: this.book ? this.book.family(g.id) : [] };
+    return { best: this.bestAnyLevel(g.id), setup: this.setupFor(g, ctx), challenge: today.challenge?.game === g.id ? { done: today.done, bonus: today.bonus } : null, family: this.book ? this.book.family(g.id) : [], ghostOffer: this.ghostOfferFor(g, ctx) };
+  }
+
+  // ---- races against a recording -----------------------------------------------------------------------------------------
+
+  /** The recordings of the player that plays (each player keeps their own, in their own record; without players, the device's). */
+  private ghostBook(): GhostBook {
+    const id = this.space?.id ?? 'device';
+    let b = this.ghostBooks.get(id);
+    if (!b) {
+      b = new GhostBook(keyValueOf(this.store.ns('ghosts')));
+      this.ghostBooks.set(id, b);
+    }
+    return b;
+  }
+
+  /** A look at the recordings of another player of this device, to read and never to write. */
+  private familyBook(id: string): GhostBook | null {
+    const look = this.book?.peek(id);
+    return look ? new GhostBook(keyValueOf(look.store.ns('ghosts'))) : null;
+  }
+
+  /** What the address of the round carries besides the choices (the workout plan, the tour's first game, the race): a reload starts the same round. */
+  private roundExtra(): Record<string, string | number> {
+    return { ...(this.planRound ? { plan: 1 } : {}), ...(this.firstRound ? { first: 1 } : {}), ...(this.raceParam ? { ghost: this.raceParam } : {}) };
+  }
+
+  /** How long a race is: the game's round within half a minute and a minute and a half (a test can shorten it). */
+  private raceLength(g: ShellGame): number {
+    const s = this.o.demo ? this.win.__BA_TEST__?.raceSeconds : undefined;
+    return typeof s === 'number' && s >= 15 ? Math.round(s) * 1000 : raceMsOf(g);
+  }
+
+  private raceWorld(g: ShellGame): RaceWorld {
+    return { game: g, ghosts: this.ghostBook(), family: (id) => this.familyBook(id), now: () => Date.now(), seed: () => Math.floor(Math.random() * 0x1_0000_0000), durationMs: this.raceLength(g) };
+  }
+
+  /** What this player may race in this game now (their rules say whose recordings they may open). */
+  private ghostMenuFor(g: ShellGame): GhostMenu {
+    const book = this.book;
+    const others = book ? book.list().filter((p) => p.id !== book.active().id && p.state === 'ready').flatMap((p) => {
+      const ghosts = this.familyBook(p.id);
+      return ghosts ? [{ id: p.id, name: p.name, avatar: p.avatar, ghosts }] : [];
+    }) : [];
+    return ghostMenu({ game: g, ghosts: this.ghostBook(), rules: this.rules(), others, durationMs: this.raceLength(g) });
+  }
+
+  private ghostHost(): GhostDialogHost {
+    return {
+      document: this.doc,
+      context: () => this.ctx(),
+      menu: (g) => this.ghostMenuFor(g),
+      keep: (run) => { if (this.rules().ghosts === 'all') this.ghostBook().addFriend(run); },
+      start: (g, ghost) => {
+        this.o.onPlayGesture?.();
+        const c = this.ctx();
+        this.nav.go(playHref(c, g, { ...this.setupFor(g, c), players: 1 }, { ghost }));
+      },
+    };
+  }
+
+  /** A friend's link opened on the page of a game: the recording in it, when it is of this game and this player may race a stranger's recording. */
+  private ghostOfferFor(g: ShellGame, ctx: ViewContext): { run: GhostRun; startHref: string } | null {
+    const spec = this.route ? parseGhost(this.route.query.get('ghost')) : null;
+    if (!spec || spec.kind !== 'code' || !canRace(g) || this.rules().ghosts !== 'all') return null;
+    const run = decodeRun(spec.text);
+    if (!run || run.gameId !== g.id) return null;
+    return { run, startHref: playHref(ctx, g, { ...this.setupFor(g, ctx), players: 1 }, { ghost: ghostParam(spec) }) };
+  }
+
+  /** A race against the recording an address asks for. Null, with the reason said, when there is none to race. */
+  private ghostRace(g: ShellGame, spec: GhostSpec): RaceSource | null {
+    const t = this.ctx().i18n;
+    const rules = this.rules();
+    const run = spec.kind === 'code' && rules.ghosts !== 'all' ? null : ghostRunOf(spec, this.raceWorld(g));
+    if (!run) {
+      this.toaster.show(t.t(spec.kind === 'code' ? 'race.error.bad' : 'race.error.none'), { kind: 'warn' });
+      return null;
+    }
+    const ghost = new GhostRace(run, { name: this.playerFacts()?.name ?? '', book: this.ghostBook() });
+    return ghostSource(ghost, { share: rules.share });
+  }
+
+  /** "Send my run": the link of the game's page with the run as a short code, to the share sheet or the clipboard. */
+  private async sendRun(code: string): Promise<void> {
+    const r = this.state.result;
+    const g = r ? gameById(this.games, r.gameId) : undefined;
+    if (!g || !code || !this.rules().share) return;
+    const ctx = this.ctx();
+    const link = `${this.win.location.origin}${ctx.href('game', { params: { slug: g.seo.slug }, query: { ghost: code } })}`;
+    if (await this.shareText(link, { link: true })) this.toaster.show(ctx.i18n.t('race.result.sent'));
   }
 
   private setupFor(g: ShellGame, ctx: ViewContext): SetupState {
@@ -590,7 +692,11 @@ export class App {
     const stage = this.doc.querySelector<HTMLElement>('[data-stage]');
     if (!g || !stage) return;
     const ctx = this.ctx();
-    const setup = setupFromQuery(ctx, g, route.query);
+    // A race is one player's round (the other side is the recording, or the friends of a room), whatever the game's page had chosen.
+    const spec = parseGhost(route.query.get('ghost'));
+    const racing = spec !== null && canRace(g);
+    const asked = setupFromQuery(ctx, g, route.query);
+    const setup: SetupState = racing ? { ...asked, players: 1 } : asked;
     this.planRound = route.query.get('plan') === '1' && this.arcade.plans.active()?.current?.game === g.id;
     this.firstRound = route.query.get('first') === '1' && g.id === FIRST_GAME_ID;
     // A Pro game without Pro and without a free round left goes to the offer, not to a round that cannot count.
@@ -598,10 +704,22 @@ export class App {
       this.nav.go(ctx.href('pro', { query: { game: g.id } }), { replace: true });
       return;
     }
+    // A race against a recording: the address says which; a race needs a game that can be raced, and a recording that exists.
+    let race: RaceSource | null = null;
+    this.raceParam = null;
+    if (spec && racing) {
+      race = this.ghostRace(g, spec);
+      if (!race) {
+        this.nav.go(ctx.href('game', { params: { slug: g.seo.slug } }), { replace: true });
+        return;
+      }
+      this.raceParam = ghostParam(spec);
+    }
     const factory = this.factory;
     this.play = new PlayController({
       host: this.playHost(g), game: g, setup, stage,
-      makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}) }) ?? null,
+      makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}), ...(race ? { race } : {}) }) ?? null,
+      ...(race ? { race } : {}),
       ...(this.o.onRoundEnded ? { release: this.o.onRoundEnded } : {}),
       ...(this.firstRound ? { explained: true } : {}),
     });
@@ -635,7 +753,7 @@ export class App {
       toast: (t) => this.toaster.show(t),
       confirmLeave: () => this.confirm({ title: this.ctx().i18n.t('leave.title'), body: this.ctx().i18n.t('leave.body'), confirm: this.ctx().i18n.t('leave.confirm'), cancel: this.ctx().i18n.t('leave.keep'), danger: true }),
       leave: () => this.nav.go(this.ctx().href('game', { params: { slug: g.seo.slug } }), { replace: true }),
-      finish: (game, setup, summary) => this.finishRound(game, setup, summary),
+      finish: (game, setup, summary, race) => this.finishRound(game, setup, summary, race ?? null),
       pipCorner: () => this.currentSettings().pipCorner,
       cyclePip: () => {
         const cur = this.currentSettings().pipCorner;
@@ -653,7 +771,7 @@ export class App {
       setupChanged: (s) => {
         const c = this.ctx();
         this.setups.set(g.id, s);
-        this.win.history.replaceState(this.win.history.state, '', playHref(c, g, s));
+        this.win.history.replaceState(this.win.history.state, '', playHref(c, g, s, this.roundExtra()));
       },
       deskChosen: () => {
         if (!this.currentSettings().seated) this.settings.set({ seated: true });
@@ -705,14 +823,15 @@ export class App {
    * The round is over: it goes into the record (a plan's game moves the plan on), and the results screen is built from what the
    * record says happened. Two players on one camera add their minutes to the habit and set no personal record.
    */
-  private finishRound(game: ShellGame, setup: SetupState, summary: Parameters<PlayHost['finish']>[2]): void {
+  private finishRound(game: ShellGame, setup: SetupState, summary: Parameters<PlayHost['finish']>[2], race: RaceOutcome | null = null): void {
     const ctx = this.ctx();
     // A child's profile has no weight and no calories.
     const weightKg = this.rules().calories ? this.currentSettings().weightKg : null;
     const first = this.firstRound;
     this.firstRound = false;
     const input = runInputOf({ game: first ? { durationSec: FIRST_SECONDS } : game, setup, summary, kcal: caloriesFor(summary.metSeconds, weightKg) });
-    const solo = setup.players === 1;
+    // A race is played for the time, like two players on one camera: its minutes count for the habit, and its score (the Room's sum, not the game's) is no personal best.
+    const solo = setup.players === 1 && !race;
     const before = this.arcade.plans.active();
     let report: RunReport | null = null;
     let step: PlanStepReport | null = null;
@@ -727,7 +846,11 @@ export class App {
     const previous = report?.outcome.saved && report.outcome.previousBest > 0 ? report.outcome.previousBest : null;
     const progress = this.progressOf(report ? { play: report.play, challenge: report.challenge, habit: report.habit, news: report.outcome.news } : { play: shared?.play ?? null, challenge: null, habit: shared?.habit ?? this.arcade.habit.view(), news: [] });
     const plan = step?.progress && before ? this.panelOf(step.progress, before.plan, before.total) : null;
-    const result: RoundResult = { ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous }), progress, plan, ...(first ? { first: true } : {}) };
+    const again = this.raceParam ? playHref(ctx, game, setup, { ghost: this.raceParam }) : '';
+    const result: RoundResult = {
+      ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous }), progress, plan, ...(first ? { first: true } : {}),
+      ...(race ? { score: race.you, race: { ...race, again } } : {}),
+    };
     this.state = { ...this.state, result };
     this.shell.set('rounds', this.rounds() + 1);
     void this.arcade.sync.sync();
@@ -884,6 +1007,16 @@ export class App {
       case 'plan-leave':
         e.preventDefault();
         this.leavePlan();
+        break;
+      case 'ghost-open': {
+        e.preventDefault();
+        const g = gameById(this.games, el.dataset['game'] ?? '');
+        if (g) openGhostDialog(this.ghostHost(), g);
+        break;
+      }
+      case 'ghost-send':
+        e.preventDefault();
+        void this.sendRun(el.dataset['code'] ?? '');
         break;
       case 'trial-dismiss':
         e.preventDefault();

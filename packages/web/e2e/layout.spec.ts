@@ -7,7 +7,7 @@ import { checkPage } from '../tools/layout-check.ts';
 import { openScenario, type Scenario } from '../tools/scenarios.ts';
 import { WEB_DEV_URL } from './support/ports.ts';
 
-const PAGES: Scenario[] = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'home-week', 'notfound', 'friends', 'friends-new', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'];
+const PAGES: Scenario[] = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'home-week', 'notfound', 'friends', 'friends-new', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'race-dialog', 'race-offer'];
 
 for (const bp of BREAKPOINTS) {
   test(`${bp.label}: every page keeps the layout rule`, async ({ browser }) => {
@@ -31,7 +31,7 @@ test('the Turkish pages keep the layout rule on a narrow phone and a laptop (lon
   test.setTimeout(300_000);
   const found: string[] = [];
   for (const [w, h] of [[360, 780], [1280, 800]] as const) {
-    for (const name of ['home', 'game', 'game-more', 'settings', 'pro', 'results', 'calibrate', 'calibrate-desk', 'calibrate-headroom'] as const) {
+    for (const name of ['home', 'game', 'game-more', 'settings', 'pro', 'results', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'race-dialog', 'race-offer'] as const) {
       const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, name, { w, h, lang: 'tr' });
       try {
         for (const p of [...(await checkPage(page)), ...errors.map((e) => `console: ${e}`)]) found.push(`tr ${name} ${w}: ${p}`);

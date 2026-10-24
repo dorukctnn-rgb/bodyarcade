@@ -4,6 +4,7 @@
 import type {
   CalibrationStatus, PauseReason, PlayerSlot, RunSummary, Session, SessionEvents, TwoPlayerCalibrationStatus, Unsubscribe,
 } from '../../../core/types/index.ts';
+import { bridgeSession } from '../../../core/net/session-bridge.ts';
 import { PlayHud, type HudLayoutInfo } from '../../../core/ui/hud/hud.ts';
 import type { HudMode, PipPlacement } from '../../../core/ui/layout.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
@@ -15,6 +16,7 @@ import {
   bandsFor, bothSeen, calibMessage, checksFor, deskCard, DeskOffer, extrasOf, gaugeFor, guideMessage, keepsChecks, needsHeadroom, screenFraming, STUCK_MS,
 } from './calib.ts';
 import type { StageHandles } from './ports.ts';
+import { plateName, type RaceOutcome, type RaceRival, type RaceSource } from './race.ts';
 
 export interface PlayHost {
   document: Document;
@@ -26,8 +28,8 @@ export interface PlayHost {
   confirmLeave(): Promise<boolean>;
   /** Back to the game's page. */
   leave(): void;
-  /** The round is over: show the results. */
-  finish(game: ShellGame, setup: SetupState, summary: RunSummary): void;
+  /** The round is over: show the results (of a race, how it ended). */
+  finish(game: ShellGame, setup: SetupState, summary: RunSummary, race?: RaceOutcome | null): void;
   pipCorner(): PipPlacement;
   /** Moves the self view to the next corner (or hides it) and returns where it is now. */
   cyclePip(): PipPlacement;
@@ -56,6 +58,8 @@ export interface PlayControllerOptions {
   release?(): void;
   /** The player has just read what the camera is for (the welcome tour's page does it): the camera is asked for without that panel again. */
   explained?: boolean;
+  /** A race against a recording (or friends in a room): the other side of it. */
+  race?: RaceSource | null;
 }
 
 const CAMERA_CODES = new Set(['denied', 'not_found', 'in_use', 'overconstrained', 'no_frames', 'insecure', 'unsupported', 'unknown']);
@@ -147,11 +151,25 @@ export class PlayController {
       return;
     }
     this.wire(this.session);
+    this.joinRace(this.session, hud);
     if (this.setup.input === 'camera' && this.o.explained !== true && !(await this.cameraReady())) {
       this.show({ kind: 'camera-explainer' });
       return;
     }
     await this.launch();
+  }
+
+  /**
+   * A race: the others are under the score, and the Session's readiness and holds go to the other side (a recording starts its
+   * 3-2-1 when the player is ready and waits while anything holds them; the Room does the same for friends).
+   */
+  private joinRace(s: Session, hud: PlayHud): void {
+    const race = this.o.race;
+    if (!race) return;
+    const i18n = this.ctx().i18n;
+    const rows = (list: readonly RaceRival[]): { name: string; score: number }[] => list.map((r) => ({ name: race.label ? plateName(race.label, i18n) : r.name, score: r.score }));
+    hud.setRivals(rows(race.rivals()));
+    this.offs.push(race.onRivals((list) => hud.setRivals(rows(list))), bridgeSession(s, race.side));
   }
 
   /** The explainer is shown until the player has read it once and the browser has the camera allowed. */
@@ -171,7 +189,7 @@ export class PlayController {
     on('pause', (r) => this.onPause(r));
     on('countdown', ({ remaining }) => this.onCountdown(remaining));
     on('calibration', (c) => this.onCalibration(c));
-    on('over', (summary) => this.host.finish(this.game, this.setup, summary));
+    on('over', (summary) => this.host.finish(this.game, this.setup, summary, this.o.race?.outcome() ?? null));
     on('error', (e) => this.onError(e.code, e.message));
     on('player', (p) => this.onPlayer(p.player, p.present));
     on('video', ({ el }) => this.onVideo(el));
@@ -184,7 +202,7 @@ export class PlayController {
     this.show({ kind: 'loading' });
     try {
       await s.start(this.game.id, {
-        mode: this.setup.players === 2 ? 'local2' : 'solo', difficulty: this.setup.difficulty, input: this.setup.input, seated: this.setup.seated,
+        mode: this.o.race ? 'duel' : this.setup.players === 2 ? 'local2' : 'solo', difficulty: this.setup.difficulty, input: this.setup.input, seated: this.setup.seated,
       });
     } catch (e) {
       const code = (e as { code?: string }).code ?? 'unknown';
@@ -531,6 +549,7 @@ export class PlayController {
     for (const off of this.offs.splice(0)) off();
     this.guideObserver?.disconnect();
     this.session?.quit();
+    this.o.race?.dispose();
     this.layoutListeners.clear();
     this.videoHolder?.remove();
     this.videoHolder = null;

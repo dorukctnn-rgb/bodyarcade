@@ -167,6 +167,25 @@ export class PlayHud implements Hud {
     this.schedule();
   }
 
+  /** The others of a race under the score: a name and the points they have now. An empty list takes the rows away. */
+  setRivals(list: readonly { name: string; score: number }[]): void {
+    const ul = this.el['rivals'] as HTMLElement | undefined;
+    if (!ul) return;
+    const t = this.o.i18n;
+    ul.hidden = list.length === 0;
+    ul.replaceChildren(...list.map((r) => {
+      const li = this.doc.createElement('li');
+      const name = this.doc.createElement('span');
+      name.className = 'rn';
+      name.textContent = r.name;
+      const score = this.doc.createElement('b');
+      score.textContent = t.number(r.score);
+      li.append(name, score);
+      return li;
+    }));
+    this.schedule();
+  }
+
   setLabels(l: { score?: string; timer?: string }): void {
     if (l.score !== undefined) for (const k of ['scoreLabel', 'score1Label', 'score2Label']) (this.el[k] as HTMLElement).textContent = l.score;
     if (l.timer !== undefined) (this.el['timerLabel'] as HTMLElement).textContent = l.timer;
@@ -282,7 +301,7 @@ export class PlayHud implements Hud {
     const status = (key: string, n: 1 | 2, left: boolean): SafeHtml => html`<div class="hud-plate status p${n}" data-hud="status${n === 1 ? 'P1' : 'P2'}" data-ref="${key}">${left ? who(n) : ''}<div class="stack"><b data-ref="score${n}">0</b><small data-ref="score${n}Label">${t.t('hud.score')}</small></div>${left ? '' : who(n)}</div>`;
 
     if (!this.duo) {
-      add(this.make(html`<div class="hud-plate status" data-hud="statusLeft" data-ref="statusLeft"><div class="stack"><b data-ref="score">0</b><small data-ref="scoreLabel">${t.t('hud.score')}</small></div><div class="feathers" data-ref="lives" hidden></div><span class="ba-combo" data-ref="combo" hidden></span></div>`));
+      add(this.make(html`<div class="hud-plate status" data-hud="statusLeft" data-ref="statusLeft"><div class="row"><div class="stack"><b data-ref="score">0</b><small data-ref="scoreLabel">${t.t('hud.score')}</small></div><div class="feathers" data-ref="lives" hidden></div><span class="ba-combo" data-ref="combo" hidden></span></div><ul class="rivals" data-ref="rivals" hidden></ul></div>`));
       add(this.make(html`<div class="hud-plate status" data-hud="statusRight" data-ref="statusRight"><div class="stack"><b data-ref="timer">0:00</b><small data-ref="timerLabel">${t.t('hud.time')}</small></div>${pauseBtn}</div>`));
       add(this.make(html`<div class="hud-command" data-hud="command" data-ref="command" aria-hidden="true" hidden><span class="hud-command-glyph" data-ref="commandGlyph"></span><span data-ref="commandText"></span></div>`));
       add(this.make(html`<div class="hud-plate reason" data-hud="reason" data-ref="reason" aria-hidden="true" hidden>${raw(LINE_ICON)}<span data-ref="reasonText"></span></div>`));
@@ -426,7 +445,7 @@ export class PlayHud implements Hud {
 
     this.resetPlates();
     for (const k of ['statusLeft', 'statusRight', 'statusP1', 'statusP2', 'timerPlate']) { const n = this.el[k]; if (n) n.style.fontSize = `${F.numeral}px`; }
-    for (const k of ['scoreLabel', 'timerLabel', 'score1Label', 'score2Label']) { const n = this.el[k]; if (n) n.style.fontSize = `${F.label}px`; }
+    for (const k of ['scoreLabel', 'timerLabel', 'score1Label', 'score2Label', 'rivals']) { const n = this.el[k]; if (n) n.style.fontSize = `${F.label}px`; }
     for (const k of ['reason', 'reason1', 'reason2']) { const n = this.el[k]; if (n) n.style.fontSize = `${F.reason}px`; }
     const away = this.el['away'];
     if (away) away.style.fontSize = `${Math.round(F.reason * 1.05)}px`;

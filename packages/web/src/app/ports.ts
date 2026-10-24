@@ -6,6 +6,7 @@ import type { HudLayoutInfo } from '../../../core/ui/hud/hud.ts';
 import type { PaywallInfo, PlansConfig } from '../../../core/ui/plans.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import type { SetupState } from '../views/setup.ts';
+import type { RaceSource } from './race.ts';
 
 /** Who may use what. The real one is core/entitlements (builder S). */
 export interface EntitlementsPort {
@@ -50,6 +51,8 @@ export interface SessionRequest {
   stage: StageHandles;
   /** The first game of the welcome tour: the real game, one set of thirty seconds and nothing to beat. */
   first?: boolean;
+  /** A race: the game plays by this feed (a recording's clock, or the Room's), through the duel wrapper. */
+  race?: RaceSource | null;
 }
 
 /**

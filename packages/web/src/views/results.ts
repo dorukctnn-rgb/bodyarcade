@@ -10,6 +10,8 @@ import { durationLabel, hasPro, titleOf, type ViewContext } from '../context.ts'
 import { chrome } from './chrome.ts';
 import { pageHead } from './parts.ts';
 import { planPanel, type PlanPanel } from './plans.ts';
+import type { RaceOutcome } from '../app/race.ts';
+import { raceBlock } from './race.ts';
 import { playHref, type SetupState } from './setup.ts';
 
 /** A number a game adds to its results beyond the common ones (Reaction Tag: the average and the best reaction), already in words. */
@@ -69,6 +71,8 @@ export interface RoundResult {
   plan?: PlanPanel | null;
   /** This was the first game of the welcome tour: the page says so and leads on to the full round and the other games. */
   first?: boolean;
+  /** This was a race: how it ended, and where "Race again" goes. */
+  race?: (RaceOutcome & { again: string }) | null;
 }
 
 export function formatClock(seconds: number): string {
@@ -171,6 +175,7 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
           ${r.personalBest ? html`<span class="k-pb">${icon('star')}${t.t('results.personalBest')}</span>` : ''}
         </div>
         ${r.setup.players === 2 && r.players ? duo(ctx, r) : html`${score(ctx, r, g)}${counted(ctx, r)}`}
+        ${r.race ? raceBlock(ctx, r.race, { again: r.race.again, sendable: rulesOf(ctx.player).share }) : ''}
         ${stats(ctx, r)}
         ${calories(ctx, r)}
         ${first ? html`<p class="k-sub" data-first-saved>${t.t('onboarding.s7.saved')}</p>` : ''}

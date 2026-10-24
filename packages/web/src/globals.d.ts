@@ -51,6 +51,8 @@ interface Window {
     billing?: 'unavailable' | 'checking';
     /** The welcome tour: 'static' draws the stage once, still (pictures and tests), 'fallback' shows the pre-rendered pictures, 'first' is a first visit that is taken to the tour (a script never is, in a published build). */
     tour?: 'static' | 'fallback' | 'first';
+    /** How long a race against a recording lasts, in seconds, at least 15 (tests; a published build has the game's round, half a minute to a minute and a half). */
+    raceSeconds?: number;
     /** Players added to a fresh device before the app starts (the plan must be 'family'); `active` is the one that plays. */
     players?: { name: string; kid?: boolean; avatar?: string; active?: boolean }[] };
 }

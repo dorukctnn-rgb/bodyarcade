@@ -13,7 +13,10 @@ import { accessOf, aboutOf, durationLabel, regionLabel, taglineOf, titleOf, type
 import type { FamilyEntry } from '../../../core/store/index.ts';
 import { chrome } from './chrome.ts';
 import { pageHead } from './parts.ts';
+import type { GhostRun } from '../../../core/net/ghost.ts';
+import { canRace } from '../app/duel.ts';
 import { familyTable } from './profiles.ts';
+import { ghostOffer } from './race.ts';
 import { defaultSetup, setupFields, startLabel, type SetupState } from './setup.ts';
 import { gameGrid } from './tiles.ts';
 
@@ -29,6 +32,8 @@ export interface GameData {
   challenge?: { done: boolean; bonus: boolean } | null;
   /** The players of this device and their best in this game (the table is drawn from two players on). */
   family?: readonly FamilyEntry[];
+  /** A friend's link (`?ghost=<code>`) opened on this page: the recording in it and the address of the race. */
+  ghostOffer?: { run: GhostRun; startHref: string } | null;
 }
 
 export const NO_GAME_DATA: GameData = { best: null, challenge: null };
@@ -82,11 +87,14 @@ function play(ctx: ViewContext, g: ShellGame, data: GameData, access: Access): S
   // A race with a friend: only where the game can be raced and the friends side exists in this build.
   const race = ctx.flags.social && g.modes.includes('duel')
     ? html`<button type="button" class="ba-btn ba-btn--secondary ba-btn--lg" data-action="race.new" data-game="${g.id}">${icon('users')}<span>${t.t('game.race')}</span></button>` : '';
-  return html`<form data-form="setup" data-game="${g.id}" method="get" action="${ctx.href('play', { params: { slug: g.seo.slug } })}" novalidate>
+  // A race against a recording: any game that can be raced, on its own at any time (the window asks who to race).
+  const ghost = canRace(g)
+    ? html`<button type="button" class="ba-btn ba-btn--secondary ba-btn--lg" data-action="ghost-open" data-game="${g.id}">${icon('replay')}<span>${t.t('race.ghost')}</span></button>` : '';
+  return html`${data.ghostOffer ? ghostOffer(ctx, data.ghostOffer) : ''}<form data-form="setup" data-game="${g.id}" method="get" action="${ctx.href('play', { params: { slug: g.seo.slug } })}" novalidate>
     <div data-setup-fields>${setupFields(ctx, g, state)}</div>
     ${data.best !== null ? html`<div class="k-block k-best">${icon('star')}<span>${t.t('game.best', { score: ctx.i18n.number(data.best) })}</span></div>` : ''}
-    <div class="k-actionbar"><div class="k-actions"><button type="submit" class="ba-btn ba-btn--primary ba-btn--lg" data-key="play">${icon('play')}<span>${startLabel(ctx, g)}</span></button>${race}</div>
-      <p class="k-note">${access === 'once' ? `${t.t('setup.note.once')} ` : ''}${t.t('game.cameraNote')}${race ? html` ${t.t('game.race.note')}` : ''}</p></div>
+    <div class="k-actionbar"><div class="k-actions"><button type="submit" class="ba-btn ba-btn--primary ba-btn--lg" data-key="play">${icon('play')}<span>${startLabel(ctx, g)}</span></button>${race}${ghost}</div>
+      <p class="k-note">${access === 'once' ? `${t.t('setup.note.once')} ` : ''}${t.t('game.cameraNote')}${race ? html` ${t.t('game.race.note')}` : ''}${ghost ? html` ${t.t('game.ghost.note')}` : ''}</p></div>
   </form>`;
 }
 

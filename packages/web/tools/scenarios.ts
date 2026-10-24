@@ -4,14 +4,21 @@
 // Everything runs against a server the caller started with the fixtures as the catalogue (BA_FIXTURES=only or fill), where
 // the practice session and the test hooks exist.
 import type { Browser, BrowserContext, Page } from '@playwright/test';
+import { botRun, encodeRun, type BotLevel } from '../../core/net/ghost.ts';
 import { createArcade } from '../../core/store/arcade.ts';
 import { addDays, dayOf } from '../../core/store/date.ts';
 import { createStore, memoryStorage } from '../../core/store/store.ts';
 import { weekdayIndex } from '../src/app/arcade.ts';
 import type { Hooks } from '../e2e/support/helpers.ts';
 
-export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'welcome', 'welcome-2', 'welcome-3', 'welcome-4', 'welcome-5', 'players', 'players-manage', 'players-add', 'players-kid'] as const;
+export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'welcome', 'welcome-2', 'welcome-3', 'welcome-4', 'welcome-5', 'players', 'players-manage', 'players-add', 'players-kid', 'race-dialog', 'race-offer'] as const;
 export type Scenario = (typeof SCENARIOS)[number];
+
+/** A friend's recording of Squat Flap as the short code they would send (made from the practice partner's code, so it is always a real course). */
+export function friendCode(o: { name?: string; seconds?: number; level?: BotLevel; game?: string } = {}): string {
+  const at = Date.now() - 3 * 86_400_000;
+  return encodeRun({ ...botRun({ gameId: o.game ?? 'squat-flap', seed: 20_241_024, durationMs: (o.seconds ?? 15) * 1000, level: o.level ?? 'hard', at }), source: 'friend', name: o.name ?? 'Ada' });
+}
 
 /** The address of each scenario, without the language prefix. */
 const PATHS: Record<Scenario, string> = {
@@ -20,6 +27,7 @@ const PATHS: Record<Scenario, string> = {
   calibrate: '/play/squat-flap/?input=camera', 'calibrate-desk': '/play/squat-flap/?input=camera', 'calibrate-headroom': '/play/summit-climb/?input=camera', plans: '/plans/', 'plans-pro': '/plans/', 'results-plan': '/plans/', 'results-progress': '/games/squat-flap/', 'pro-unavailable': '/pro/', 'pro-trial': '/pro/', 'home-trial': '/', notfound: '/nope/', friends: '/friends/?social=1', 'friends-new': '/friends/?social=fresh', 'friends-offline': '/friends/?social=offline', lobbies: '/lobbies/?social=1',
   room: '/r/K7Q2MX/?social=1', 'room-host': '/friends/?social=1', safety: '/safety/?social=1', friendlink: '/f/BA-9PXMR3/?social=1',
   players: '/profiles/', 'players-manage': '/profiles/?manage=1', 'players-add': '/profiles/', 'players-kid': '/settings/',
+  'race-dialog': '/games/squat-flap/', 'race-offer': `/games/squat-flap/?ghost=${friendCode()}`,
   welcome: '/welcome/', 'welcome-2': '/welcome/?step=2', 'welcome-3': '/welcome/?step=3', 'welcome-4': '/welcome/?step=4', 'welcome-5': '/welcome/?step=5',
 };
 
@@ -117,6 +125,13 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
   }
   if (name.startsWith('welcome')) await page.waitForSelector('[data-welcome][data-ready="1"]', { timeout: 30_000 });
   if (name.startsWith('players')) await page.waitForSelector('main h1', { timeout: 15_000 });
+  if (name === 'race-offer') await page.waitForSelector('[data-ghost-offer]', { timeout: 15_000 });
+  if (name === 'race-dialog') {
+    await page.locator('[data-action="ghost-open"]').click();
+    await page.waitForSelector('dialog[open] .rc-sheet', { timeout: 15_000 });
+    // the window slides in: it is looked at where it stops
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))));
+  }
   if (name === 'players-add') {
     await page.locator('[data-action="profile-add"]').first().click();
     await page.waitForSelector('form[data-form="profile"]', { timeout: 10_000 });
