@@ -12,6 +12,7 @@ export default mergeConfig(
         'tests/unit/**/*.test.ts',
         'tests/legacy/**/*.test.mjs',
         'tools/**/*.test.ts',
+        'release/**/*.test.ts',
       ],
       exclude: ['**/node_modules/**', 'tests/e2e/**', 'site/**', 'dist/**'],
       environment: 'node',

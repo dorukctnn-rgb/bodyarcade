@@ -1,16 +1,28 @@
 {
-  // Production config: the same Worker as wrangler.jsonc plus the custom domain.
-  // Use only once bodyarcade.com is an ACTIVE zone in this Cloudflare account (nameservers switched):
-  //   node cloudflare/build.mjs && npx wrangler deploy -c wrangler.prod.jsonc
+  // PRODUCTION: BodyArcade v2 on bodyarcade.com. The same Worker as the preview (wrangler.jsonc) under the live
+  // Worker's name, so deploying it replaces the live site on the custom domain. Only the main session runs it,
+  // after the final test on the preview passed:
+  //   node release/deploy.ts production        build, check (no placeholders, every secret present), deploy
+  // The www host stays on its own tiny Worker (cloudflare/www-redirect).
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "bodyarcade",
-  "compatibility_date": "2026-10-01",
+  "main": "packages/server/src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "routes": [{ "pattern": "bodyarcade.com", "custom_domain": true }],
+  // The production site answers on bodyarcade.com only (a workers.dev copy would be duplicate content).
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": {
-    "directory": "./.cf-dist",
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/bodyarcade", "/bodyarcade/", "/BodyArcade", "/BodyArcade/", "/BodyArcade.html", "/bodyarcade.html", "/play", "/play/", "/app", "/app/", "/index.html"],
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
   },
-  "routes": [{ "pattern": "bodyarcade.com", "custom_domain": true }],
-  // The production site answers on bodyarcade.com only (the workers.dev copy would be duplicate content).
-  "workers_dev": false,
-  "preview_urls": false
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "HUB", "class_name": "PlayerHub" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["PlayerHub"] }],
+  // The social D1 database ("DB", bodyarcade-social) goes here once created (RELEASE NEEDS in the release notes).
+  "vars": { "PUBLIC_ORIGIN": "https://bodyarcade.com", "SITE_TARGET": "production" },
+  "observability": { "enabled": true },
+  "upload_source_maps": false
 }
