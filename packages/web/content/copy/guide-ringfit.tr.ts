@@ -49,7 +49,7 @@ export function guideRingfitTr(): PageSpec {
       title: 'BodyArcade’ın daha güçlü olduğu yerler',
       html: ul([
         '<strong>Satın alınacak bir şey yok.</strong> Zaten sahip olduğun dizüstü, masaüstü, tablet ya da telefonda çalışır.',
-        '<strong>Saniyeler içinde başlar.</strong> Sayfayı aç, kameraya izin ver ve oyna. Kurulacak bir şey ve açılacak bir hesap yok.',
+        '<strong>Hızlı başlar.</strong> Sayfayı aç, kameraya izin ver ve oyna. İlk ziyarette yaklaşık iki dakikalık bir karşılama turu olur. Kurulacak bir şey ve açılacak bir hesap yok.',
         `<strong>Kısa turlar.</strong> Bir tur ${roundLength(c.shortest, 'tr')} ile ${roundLength(c.longest, 'tr')} arasında sürer; bu yüzden masa molası ya da hızlı bir ısınma olarak işe yarar.`,
         `<strong>Oturarak ve sessiz.</strong> Her oyunun oturarak sürümü var ve ${c.total} oyunun ${c.quiet} tanesi zıplamadan ve yere vurmadan oynanabilir.`,
         '<strong>Birlikte oyna.</strong> İki kişi büyük bir ekranda tek kamerayı paylaşabilir; arkadaşlar iki ile dört oyunculu çevrimiçi bir odaya katılabilir.',
@@ -80,7 +80,7 @@ ${table(null, ['Oyun', 'Ne yaparsın', 'Tur', 'Plan'], gameList('tr').map((g) =>
   ];
   const title = 'Tarayıcıda oynayabileceğin bir Ring Fit Adventure alternatifi';
   const description = 'Ring Fit Adventure ile BodyArcade’ın dürüst bir karşılaştırması: ne gerekir, her biri seni nasıl takip eder, antrenman türü ve maliyet.';
-  const lead = 'Ring Fit Adventure, şimdiye kadar yapılmış en sevilen spor oyunlarından biri. Ayrıca bir Nintendo Switch, Joy-Con kumandaları ve kutuda gelen Ring-Con ile Leg Strap ister. Bir Switch’in yoksa ya da bir dizüstünde birkaç saniyede başlayabileceğin bir şey istiyorsan, farklı türde bir oyun isteyeceksin.';
+  const lead = 'Ring Fit Adventure, şimdiye kadar yapılmış en sevilen spor oyunlarından biri. Ayrıca bir Nintendo Switch, Joy-Con kumandaları ve kutuda gelen Ring-Con ile Leg Strap ister. Bir Switch’in yoksa ya da elindeki bir dizüstünde hemen başlayabileceğin bir şey istiyorsan, farklı türde bir oyun isteyeceksin.';
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {
     file: 'tr/ring-fit-adventure-alternatifi.html',

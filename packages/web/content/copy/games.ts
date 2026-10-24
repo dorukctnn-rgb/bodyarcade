@@ -89,9 +89,15 @@ export function titlesOf(filter: (g: GameInfo) => boolean, lang: Lang): string {
   return listWords(gameList(lang).filter(filter).map((g) => g.title), lang);
 }
 
-/** Seconds as the pages say a round: "90 seconds", "7 minutes" (Turkish: "90 saniye", "7 dakika"). */
+/**
+ * Seconds as the pages say a round: "90 seconds", "7 minutes", and "about 5 minutes" for a round that is not a whole number of
+ * minutes (Turkish: "90 saniye", "7 dakika", "yaklaşık 5 dakika"). The shortest and the longest round are whole numbers, so the
+ * range the pages give ("from 90 seconds to 7 minutes") is exact.
+ */
 export function roundLength(seconds: number, lang: Lang): string {
   if (seconds < 120) return lang === 'tr' ? `${seconds} saniye` : `${seconds} seconds`;
   const m = Math.round(seconds / 60);
-  return lang === 'tr' ? `${m} dakika` : `${m} minutes`;
+  const exact = seconds % 60 === 0;
+  if (lang === 'tr') return `${exact ? '' : 'yaklaşık '}${m} dakika`;
+  return `${exact ? '' : 'about '}${m} minutes`;
 }

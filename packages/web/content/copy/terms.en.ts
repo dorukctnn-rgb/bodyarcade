@@ -71,7 +71,7 @@ ${note('Not medical advice', 'BodyArcade does not measure your heart rate and gi
 ${ul([
   `<strong>Names.</strong> Players aged ${F.AGE.video} and older choose a display name of up to ${F.NAME_MAX_CHARS} characters. Younger players get a generated name. A name must not pretend to be someone else, carry personal details or be rude.`,
   '<strong>Friend codes and links.</strong> Share them only with people you want to hear from. A friend request needs the other person to accept it.',
-  `<strong>Rooms.</strong> A room holds ${F.SEATS.min} to ${F.SEATS.max} players. The host picks the game and can remove a player from the room.`,
+  `<strong>Rooms.</strong> A room holds ${F.SEATS.min} to ${F.SEATS.max} players. The host picks the game, and in a private room the host can remove a player.`,
   `<strong>Public lobbies.</strong> You meet players of your own age group. They see your display name and a skeleton in your colour, and can send preset messages and reactions. Nobody you do not know receives typed text or video from you.`,
   `<strong>Typed chat</strong> exists only in private rooms where every player is ${F.AGE.video} or older. <strong>Video</strong> between friends is optional, off by default, and works only in such a room when both friends switch it on.`,
   'Do not record, capture or share another person&rsquo;s video or messages without their agreement.',

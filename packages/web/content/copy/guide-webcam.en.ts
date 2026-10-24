@@ -46,7 +46,7 @@ ${ul([
   '<strong>Light.</strong> Put the light in front of you or beside you, not behind you. A window behind you turns you into a silhouette and the model loses your joints.',
   '<strong>People.</strong> Only the player should be in the picture, unless you play with two. A passer-by can confuse the tracking for a moment.',
   '<strong>Clothes.</strong> Anything that contrasts with the wall behind you helps.',
-  '<strong>Phones.</strong> Sideways shows more of the room, so wide moves have space; upright gives a taller picture. Turn off auto-lock so the screen does not dim in the middle of a round.',
+  '<strong>Phones.</strong> Sideways shows more of the room, so wide moves have space; upright gives a taller picture. BodyArcade asks the browser to keep the screen on during a round where the browser allows it. In other camera apps, turn off auto-lock so the screen does not dim in the middle of a round.',
 ])}`,
     },
     {

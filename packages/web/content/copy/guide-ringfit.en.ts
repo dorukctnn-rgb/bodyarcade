@@ -50,7 +50,7 @@ export function guideRingfitEn(): PageSpec {
       title: 'Where BodyArcade is stronger',
       html: ul([
         '<strong>Nothing to buy.</strong> It runs on the laptop, desktop, tablet or phone you already have.',
-        '<strong>Seconds to start.</strong> Open the page, allow the camera and play. There is nothing to install and no account to make.',
+        '<strong>Quick to start.</strong> Open the page, allow the camera and play. The first visit adds a welcome tour of about two minutes. There is nothing to install and no account to make.',
         `<strong>Short rounds.</strong> A round lasts from ${roundLength(c.shortest, 'en')} to ${roundLength(c.longest, 'en')}, so it works as a desk break or a quick warm-up.`,
         `<strong>Seated and quiet.</strong> Every game has a seated version, and ${c.quiet} of ${c.total} can be played without jumping or stamping.`,
         '<strong>Play together.</strong> Two people can share one camera on a big screen, and friends can join an online room of two to four players.',
@@ -81,7 +81,7 @@ ${table(null, ['Game', 'What you do', 'Round', 'Plan'], gameList('en').map((g) =
   ];
   const title = 'A Ring Fit Adventure alternative you can play in a browser';
   const description = 'An honest comparison of Ring Fit Adventure and BodyArcade: what you need, how each tracks you, the kind of workout, and what each costs.';
-  const lead = 'Ring Fit Adventure is one of the best-loved fitness games ever made. It also needs a Nintendo Switch, its Joy-Con controllers, and the Ring-Con and Leg Strap that come in the box. If you do not own a Switch, or you want something you can start on a laptop in a few seconds, you will want a different kind of game.';
+  const lead = 'Ring Fit Adventure is one of the best-loved fitness games ever made. It also needs a Nintendo Switch, its Joy-Con controllers, and the Ring-Con and Leg Strap that come in the box. If you do not own a Switch, or you want something you can start on a laptop you already have, you will want a different kind of game.';
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {
     file: 'ring-fit-adventure-alternative.html',

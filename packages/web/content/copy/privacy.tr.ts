@@ -81,7 +81,7 @@ ${ul([
         html: `<p>Bir odada ${F.SEATS.min} ile ${F.SEATS.max} oyuncu bulunur. Odayı davet bağlantısı, ${F.ROOM_CODE_CHARS} karakterli bir kod ya da QR kodla açarsın ya da herkese açık bir lobiye katılırsın. Oda var olduğu sürece sunucusu şunları tutar:</p>
 ${ul([
   'rastgele bir oyuncu numarası (hiçbir oyuncunun görmediği bir cihaz numarası), görünen adın, yaş grubun ve diğer oyuncuların oyuncu numaran yerine gördüğü bir koltuk numarası;',
-  'kimin hazır, kimin çevrimiçi olduğu, oyun ve ayarları, ve odadaki engellediğin oyuncular (karıştırılmış anahtarlar olarak);',
+  'kimin hazır, kimin çevrimiçi olduğu, oyun ve ayarları, odadaki engellediğin oyuncular (karıştırılmış anahtarlar olarak) ve özel bir odada ev sahibinin çıkardığı oyuncular (geri gelemesinler diye oyuncu numarasıyla);',
   'turların sonuçları ve skorları;',
   `son ${F.CHAT_KEEP_LINES} sohbet mesajı (her birinde yazanın görünen adıyla) ve odada yapılan bildirimler (hangi koltuktan hangi koltuğa, hangi nedenle ve ne zaman).`,
 ])}

@@ -82,7 +82,7 @@ ${ul([
         html: `<p>A room holds ${F.SEATS.min} to ${F.SEATS.max} players. You open one with an invite link, a ${F.ROOM_CODE_CHARS}-character code or a QR code, or you join a public lobby. While a room exists, its server holds:</p>
 ${ul([
   'a random player number (a device number that no other player ever sees), your display name, your age group, and a seat number, which is what the other players see instead of your player number;',
-  'who is ready and who is online, the game and its settings, and the players of the room you blocked (as scrambled keys);',
+  'who is ready and who is online, the game and its settings, the players of the room you blocked (as scrambled keys) and, in a private room, the players the host removed (by player number, so that they cannot come back);',
   'the results and scores of the rounds;',
   `the last ${F.CHAT_KEEP_LINES} chat messages, each with the display name of whoever wrote it, and the reports made in the room (which seat reported which seat, why and when).`,
 ])}

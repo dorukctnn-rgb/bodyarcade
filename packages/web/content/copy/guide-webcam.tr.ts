@@ -45,7 +45,7 @@ ${ul([
   '<strong>Işık.</strong> Işığı önüne ya da yanına al, arkana değil. Arkandaki bir pencere seni siluete çevirir ve model eklemlerini kaybeder.',
   '<strong>İnsanlar.</strong> İki kişi oynamıyorsan görüntüde yalnızca oyuncu olmalı. Yoldan geçen biri takibi bir an karıştırabilir.',
   '<strong>Kıyafet.</strong> Arkandaki duvarla zıtlık oluşturan her şey yardımcı olur.',
-  '<strong>Telefonlar.</strong> Yatay, odanın daha çoğunu gösterir; geniş hareketlere yer olur. Dik ise daha uzun bir görüntü verir. Ekran bir turun ortasında kararmasın diye otomatik kilidi kapat.',
+  '<strong>Telefonlar.</strong> Yatay, odanın daha çoğunu gösterir; geniş hareketlere yer olur. Dik ise daha uzun bir görüntü verir. BodyArcade, tarayıcı izin veriyorsa bir tur boyunca ekranı açık tutmasını ister. Başka kameralı uygulamalarda, ekran bir turun ortasında kararmasın diye otomatik kilidi kapat.',
 ])}`,
     },
     {

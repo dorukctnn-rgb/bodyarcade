@@ -71,7 +71,7 @@ ${note('Tıbbi tavsiye değildir', 'BodyArcade kalp atış hızını ölçmez ve
 ${ul([
   `<strong>Adlar.</strong> ${F.AGE.video} yaş ve üzeri oyuncular en çok ${F.NAME_MAX_CHARS} karakterlik bir görünen ad seçer. Daha küçük oyunculara üretilmiş bir ad verilir. Ad, başkası gibi davranmamalı, kişisel bilgi taşımamalı ve kaba olmamalıdır.`,
   '<strong>Arkadaş kodları ve bağlantıları.</strong> Onları yalnızca haber almak istediğin kişilerle paylaş. Bir arkadaşlık isteği, karşı taraf kabul edene kadar arkadaşlık sayılmaz.',
-  `<strong>Odalar.</strong> Bir odada ${F.SEATS.min} ile ${F.SEATS.max} oyuncu bulunur. Oyunu ev sahibi seçer ve bir oyuncuyu odadan çıkarabilir.`,
+  `<strong>Odalar.</strong> Bir odada ${F.SEATS.min} ile ${F.SEATS.max} oyuncu bulunur. Oyunu ev sahibi seçer; özel bir odada ev sahibi bir oyuncuyu odadan da çıkarabilir.`,
   '<strong>Herkese açık lobiler.</strong> Kendi yaş grubundaki oyuncularla karşılaşırsın. Onlar görünen adını ve renginde bir iskelet görür, sana hazır mesajlar ve tepkiler gönderebilir. Tanımadığın hiç kimse senden yazılı metin ya da görüntü almaz.',
   `<strong>Yazılı sohbet</strong> yalnızca her oyuncunun ${F.AGE.video} yaşında ya da daha büyük olduğu özel odalarda vardır. Arkadaşlar arasında <strong>görüntü</strong> isteğe bağlıdır, varsayılan olarak kapalıdır ve yalnızca böyle bir odada iki arkadaş da açtığında çalışır.`,
   'Başka birinin görüntüsünü ya da mesajlarını onun onayı olmadan kaydetme, ekran görüntüsünü alma ya da paylaşma.',
