@@ -68,6 +68,8 @@ async function leakGame(browser: Awaited<ReturnType<typeof chromium.launch>>, ba
       if (started.phase !== 'running') return { ...result, status: 'skipped', skipped: started.phase === 'failed' ? `the round did not start: ${started.text}` : `round ${r} did not reach the running state (last phase: ${started.phase})` };
       await page.waitForTimeout(o.seconds * 1000);
       await page.goBack({ waitUntil: 'domcontentloaded' });
+      // The shell asks "Leave this round?" first: answer yes (a shell that does not ask just shows the game page).
+      await page.locator('[data-dialog-close="yes"]').first().click({ timeout: 3000 }).catch(() => undefined);
       await page.waitForSelector('form[data-form="setup"]', { timeout: 15_000 });
       await page.waitForTimeout(400);
       result.rounds.push(await state(cdp, page, r));

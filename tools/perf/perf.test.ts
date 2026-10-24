@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { QaSnapshot } from './instrument.ts';
 import { judge, type RoundState } from './judge.ts';
-import { stats } from './stats.ts';
+import { busyBetween, cpuLook, stats } from './stats.ts';
 
 const qa = (o: Partial<{ gl: Record<string, number>; listeners: Record<string, number>; intervals: number; raf: number; workers: number; tracks: number; audio: [number, number] }> = {}): QaSnapshot => ({
   gl: { live: o.gl ?? { Texture: 10, Buffer: 20 }, created: 100, deleted: 70, contexts: 1, contextsLost: 0 },
@@ -48,5 +48,16 @@ describe('stats', () => {
     const s = stats(Array.from({ length: 100 }, (_, i) => i + 1));
     expect(s).toEqual({ p50: 51, p95: 96, p99: 100, max: 100 });
     expect(stats([])).toEqual({ p50: 0, p95: 0, p99: 0, max: 0 });
+  });
+});
+
+describe('machine load', () => {
+  const cpu = (user: number, idle: number): { times: { user: number; nice: number; sys: number; idle: number; irq: number } } => ({ times: { user, nice: 0, sys: 0, idle, irq: 0 } });
+  it('says how much of the processors was in use between two looks', () => {
+    const a = cpuLook([cpu(100, 900), cpu(100, 900)]);
+    const b = cpuLook([cpu(400, 1000), cpu(300, 1100)]);
+    // 500 busy of 700 elapsed per... two cpus: busy +300 +200 = 500, idle +100 +200 = 300 -> 500 / 800
+    expect(busyBetween(a, b)).toBe(0.625);
+    expect(busyBetween(a, a)).toBe(0);
   });
 });

@@ -11,8 +11,8 @@ export type ServerKind = 'web' | 'site' | 'dev' | 'external';
 
 export type Step =
   | { click: string }
-  | { waitFor: string }
-  | { waitGone: string }
+  | { waitFor: string; timeout?: number }
+  | { waitGone: string; timeout?: number }
   | { waitUrl: string }
   | { wait: number }
   | { press: string }
@@ -35,6 +35,8 @@ export interface Target {
   primary?: string[];
   /** Console and network messages (text or URL) that are not errors for this page. */
   allowMessages?: string[];
+  /** Needs a camera that shows a person (run with --camera <video>); left out of the run otherwise. */
+  needsCamera?: boolean;
   /** The game scene must show something behind the HUD (a flat colour over the whole scene is an error). */
   expectScene?: boolean;
   /** Breakpoint ids this target is opened at (default: all ten). */
@@ -46,8 +48,16 @@ export interface Target {
 // A round with the keyboard: the HUD (or the panel that says the round could not start) shows, the countdown is over.
 // ':visible' matters: a list of selectors waits for the FIRST match in the page to turn visible, and the HUD plates come first.
 const PLAY_WAIT: Step[] = [{ waitFor: '[data-hud="statusLeft"]:visible, [data-hud="statusP1"]:visible, #ov-title:visible' }, { waitGone: '.ba-countdown, [data-cal-view]' }, { wait: 1200 }];
+// A whole start on the camera: explainer, calibration on the person, countdown, then the game runs for a moment.
+const CAMERA_ROUND: Step[] = [
+  { waitFor: '[data-action="camera-continue"]' }, { click: '[data-action="camera-continue"]' },
+  { waitFor: '[data-cal-view]:visible, .ba-countdown:visible, #ov-title:visible', timeout: 40000 }, { waitGone: '[data-cal-view]', timeout: 90000 }, { waitGone: '.ba-countdown', timeout: 40000 }, { wait: 1800 },
+];
 // The camera flow: the explainer, then (after "Continue") whatever follows with a camera that shows no person: the calibration of a real game, the countdown of the practice session.
 const CAMERA_CONTINUE: Step[] = [{ waitFor: '[data-action="camera-continue"]' }, { click: '[data-action="camera-continue"]' }, { waitFor: '[data-cal-view]:visible, .ba-countdown:visible, #ov-title:visible' }, { wait: 1500 }];
+
+/** The sizes of the rounds that run on a camera picture (each takes a calibration and a countdown, so not all ten). */
+const CAMERA_SIZES = ['phone-390', 'phone-land-844', 'tablet-768', 'laptop-1280'];
 
 /** Sizes where two players on one camera are offered (desktop, laptop, TV and landscape tablets). */
 const BIG_SIZES = ['tablet-land-1024', 'laptop-1280', 'laptop-1440', 'tv-1920'];
@@ -106,6 +116,8 @@ export function webTargets(prefix: string): Target[] {
       out.push({ id: `web:camera:${g.id}`, server: 'web', path: `${prefix}/play/${slug}/?input=camera`, hooks: { timeScale: 5, roundSeconds: 120 }, steps: [{ waitFor: '[data-action="camera-continue"]' }, { wait: 300 }], note: `camera explainer (framing ${g.framing})` });
       out.push({ id: `web:calibrate:${g.id}`, server: 'web', path: `${prefix}/play/${slug}/?input=camera`, hooks: { timeScale: 5, roundSeconds: 120 }, steps: CAMERA_CONTINUE, probe: playProbe(g.id), note: `screen after "Continue" with a camera that shows nobody (framing ${g.framing})` });
     }
+    // A round on a camera that shows a person: the explainer, the calibration, the countdown, and the game running (needs --camera).
+    if (hasGameCode(g.id)) out.push({ id: `web:cam:${g.id}`, server: 'web', path: `${prefix}/play/${slug}/?input=camera`, hooks: { timeScale: 5, roundSeconds: 120 }, steps: CAMERA_ROUND, probe: playProbe(g.id), expectScene: true, needsCamera: true, sizes: CAMERA_SIZES, note: 'a real round on the camera picture of a person' });
     out.push({ id: `web:results:${g.id}`, server: 'web', path: play, hooks: { forceDemo: true, timeScale: 40, roundSeconds: 6 }, steps: [{ waitUrl: 'results' }, { wait: 400 }], note: 'results view with the practice score of this game' });
   }
   if (paid) {

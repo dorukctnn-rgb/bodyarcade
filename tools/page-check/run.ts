@@ -7,18 +7,20 @@
 //   npm run qa:pages -- --sizes 360x780,1280x800      some sizes (or breakpoint ids: phone-390)
 //   npm run qa:pages -- --url http://127.0.0.1:5173/x.html [--click "#start"] [--wait-for ".ready"] [--hook '{"timeScale":5}']
 //   npm run qa:pages -- --list                        what would be checked
-//   options: --lang tr --dark --plan pro --out qa-out/page-check --png --no-shots --warn-as-error --jobs 1 --camera tests/traces/videos/x.mjpeg
+//   options: --lang tr --dark --plan pro --out qa-out/page-check --png --no-shots --warn-as-error --jobs 1 --camera tests/e2e/fixtures/standing-640x360.mjpeg --base qa-out/older/report.json
 //            --groups web,site   --fixtures fill|only|none   --allow-external   --ignore ".selector,.other"
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { baseLaunchOptions, withFakeVideo } from '../../tests/e2e/support/browser.ts';
+import { convertVideo, probeSeconds } from '../fake-camera/convert.ts';
 import { BREAKPOINTS } from '../../packages/core/ui/layout.ts';
 import { startDev, startStatic, startWeb, repoRoot, type Served } from './servers.ts';
 import { builtinTargets, type Step, type Target } from './targets.ts';
 import { layoutProbe, type Finding, type ProbeResult } from './probe.ts';
+import { mergeReports, type Report } from './summarize.ts';
 import { analyseScene, decodePng, isBlank, type Rect } from './scene.ts';
 import { beNice } from './nice.ts';
 
@@ -78,6 +80,7 @@ if (flag('url')) {
   const only = list('only');
   if (only.length) targets = targets.filter((t) => only.some((o) => t.id === o || t.id.startsWith(`${o}:`) || t.id.startsWith(o)));
 }
+if (!flag('camera')) targets = targets.filter((t) => !t.needsCamera);
 if (has('list')) {
   for (const t of targets) console.log(`${t.id.padEnd(34)} ${t.server.padEnd(8)} ${t.path}${t.steps?.length ? `  (${t.steps.length} step(s))` : ''}${t.sizes ? `  [${t.sizes.length} size(s)]` : ''}`);
   console.log(`${targets.length} target(s) x ${sizes.length} size(s) = ${targets.reduce((n, t) => n + sizes.filter((s) => !t.sizes || t.sizes.includes(s.id)).length, 0)} screen(s)`);
@@ -118,8 +121,8 @@ async function settle(page: Page): Promise<void> {
 
 async function runStep(page: Page, s: Step): Promise<void> {
   if ('click' in s) await page.locator(s.click).first().click({ timeout: 8000 });
-  else if ('waitFor' in s) await page.waitForSelector(s.waitFor, { timeout: 20000 });
-  else if ('waitGone' in s) await page.waitForFunction((sel) => !document.querySelector(sel), s.waitGone, { timeout: 20000 });
+  else if ('waitFor' in s) await page.waitForSelector(s.waitFor, { timeout: s.timeout ?? 20000 });
+  else if ('waitGone' in s) await page.waitForFunction((sel) => !document.querySelector(sel), s.waitGone, { timeout: s.timeout ?? 20000 });
   else if ('waitUrl' in s) await page.waitForURL(new RegExp(s.waitUrl), { timeout: 30000 });
   else if ('wait' in s) await page.waitForTimeout(s.wait);
   else if ('press' in s) await page.keyboard.press(s.press);
@@ -213,8 +216,16 @@ const results: PageResult[] = [];
 let browser: Browser | null = null;
 const t00 = Date.now();
 try {
-  // --camera <file.mjpeg|file.y4m>: the fake camera shows this video instead of Chromium's test picture (a person to calibrate on).
-  browser = await chromium.launch(flag('camera') ? withFakeVideo(flag('camera') as string) : baseLaunchOptions);
+  // --camera <video>: the fake camera shows this video instead of Chromium's test picture (a person to calibrate on). A raw .mjpeg
+  // is read at --camera-input-fps (default 15). The pages that need a person (web:cam:*) are only checked with it.
+  let cameraFile: string | null = null;
+  if (flag('camera')) {
+    const src = resolve(flag('camera') as string);
+    const clip = (await probeSeconds(src)) || 6;
+    const conv = await convertVideo({ input: src, out: join(out, 'camera', 'camera.mjpeg'), repeat: Math.ceil(150 / clip), ...(src.endsWith('.mjpeg') ? { inputFps: Number(flag('camera-input-fps') ?? 15) } : {}) });
+    cameraFile = conv.file;
+  }
+  browser = await chromium.launch(cameraFile ? withFakeVideo(cameraFile) : baseLaunchOptions);
   // Start the servers before the workers race for them.
   for (const k of new Set(targets.map((t) => t.server))) await serverFor(k);
   let next = 0;
@@ -236,11 +247,22 @@ try {
   for (const s of servers.values()) await s.close();
 }
 
-results.sort((a, b) => a.target.localeCompare(b.target) || sizes.findIndex((s) => s.id === a.size) - sizes.findIndex((s) => s.id === b.size));
 mkdirSync(out, { recursive: true });
+// --base <older report.json>: a run of a few pages or sizes adds to the report of an earlier run instead of replacing it (see mergeReports).
+let carried = 0;
+let reportSizes = sizes.map((s) => s.id);
+if (flag('base')) {
+  const baseFile = resolve(flag('base') as string);
+  const merged = mergeReports({ generated: '', lang, dark, sizes: reportSizes, checked: results.length, failing: 0, results }, JSON.parse(readFileSync(baseFile, 'utf8')) as Report, { fresh: out, old: dirname(baseFile) });
+  carried = (merged as Report & { carried: number }).carried;
+  results.splice(0, results.length, ...merged.results);
+  reportSizes = merged.sizes;
+} else {
+  results.sort((a, b) => a.target.localeCompare(b.target) || reportSizes.indexOf(a.size) - reportSizes.indexOf(b.size));
+}
 const failing = results.filter((r) => r.errors > 0 || (warnAsError && r.warnings > 0));
 const warnOnly = results.filter((r) => r.errors === 0 && r.warnings > 0);
-writeFileSync(join(out, 'report.json'), JSON.stringify({ generated: new Date().toISOString(), lang, dark, sizes: sizes.map((s) => s.id), checked: results.length, failing: failing.length, results }, null, 1));
+writeFileSync(join(out, 'report.json'), JSON.stringify({ generated: new Date().toISOString(), lang, dark, sizes: reportSizes, carried, checked: results.length, failing: failing.length, results }, null, 1));
 // The list a builder works through (FINDINGS.md next to the report): one line per page and problem, with the sizes and the element.
 try { execFileSync(process.execPath, [fileURLToPath(new URL('./summarize.ts', import.meta.url)), join(out, 'report.json'), '--md', join(out, 'FINDINGS.md'), '--warnings'], { stdio: 'ignore' }); } catch { /* exit code 1 only says that errors are listed */ }
 const kinds = new Map<string, number>();

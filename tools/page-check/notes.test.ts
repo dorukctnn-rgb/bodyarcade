@@ -66,3 +66,16 @@ describe('notes section', () => {
     expect(crlf.replace(/\r\n/g, '')).not.toContain('\n');
   });
 });
+
+describe('merge', () => {
+  it('keeps what a smaller run did not check again and points to the old pictures', async () => {
+    const { mergeReports } = await import('./summarize.ts');
+    const old = report([res('web:home', 'phone-360', { errors: 1, findings: [overlap('a', 'b')] }), res('web:play:x', 'phone-360', { errors: 1, probe: ['old problem'] })]);
+    const fresh = report([res('web:play:x', 'phone-360')]);
+    const merged = mergeReports(fresh, old, { fresh: 'C:/runs/new', old: 'C:/runs/old' });
+    expect(merged.results.map((r) => `${r.target}@${r.size}`)).toEqual(['web:home@phone-360', 'web:play:x@phone-360']);
+    expect(merged.results[0]?.shot).toBe('../old/web-home/phone-360.jpg');
+    expect(merged.results.find((r) => r.target === 'web:play:x')?.errors).toBe(0);
+    expect(merged.failing).toBe(1);
+  });
+});

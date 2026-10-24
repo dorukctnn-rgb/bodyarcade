@@ -96,5 +96,9 @@ export function analyseScene(img: Raster, scene: Rect, covered: readonly Rect[],
   return { looked, colours: counts.size, flatShare: looked ? top / looked : 1, flatColour: `#${hex(topKey >> 8)}${hex((topKey >> 4) & 15)}${hex(topKey & 15)}` };
 }
 
-/** A scene with nothing drawn: one colour over (nearly) everything that is not covered. */
-export const isBlank = (r: SceneReport): boolean => r.looked >= 200 && r.flatShare >= 0.995;
+/**
+ * A scene with nothing drawn: one colour over everything that is not covered. A silhouette made of thin lines on a flat
+ * background (Pad Work in the mirror) is a scene: it differs from the background in a few hundredths of a percent of the
+ * picture, a blank one in none.
+ */
+export const isBlank = (r: SceneReport): boolean => r.looked >= 200 && (r.colours <= 1 || r.flatShare >= 0.9995);

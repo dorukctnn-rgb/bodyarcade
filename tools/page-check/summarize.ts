@@ -6,10 +6,23 @@
 // Without --warnings only errors are listed (warnings are counted). The exit code is 1 when there is any error.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
+import { BREAKPOINTS } from '../../packages/core/ui/layout.ts';
 import { fileURLToPath } from 'node:url';
 import type { PageResult } from './run.ts';
 
 export interface Report { generated: string; lang: string; dark: boolean; sizes: string[]; checked: number; failing: number; results: PageResult[] }
+
+/**
+ * A run of a few pages or sizes added to the report of an earlier run: what was checked again takes the place of the old result
+ * of the same page and size, everything else stays (its picture is found by a path from the new folder to the old one).
+ */
+export function mergeReports(fresh: Report, old: Report, dirs: { fresh: string; old: string }): Report {
+  const have = new Set(fresh.results.map((r) => `${r.target}|${r.size}`));
+  const carried = old.results.filter((r) => !have.has(`${r.target}|${r.size}`)).map((r) => ({ ...r, shot: r.shot ? relative(dirs.fresh, join(dirs.old, r.shot)).split('\\').join('/') : null }));
+  const sizes = BREAKPOINTS.map((b) => b.id);
+  const results = [...fresh.results, ...carried].sort((a, b) => a.target.localeCompare(b.target) || sizes.indexOf(a.size) - sizes.indexOf(b.size));
+  return { ...fresh, sizes, checked: results.length, failing: results.filter((r) => r.errors > 0).length, results, carried: carried.length } as Report & { carried: number };
+}
 
 export interface Entry {
   page: string;

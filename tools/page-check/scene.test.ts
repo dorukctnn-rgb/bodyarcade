@@ -79,6 +79,12 @@ describe('scene', () => {
     expect(isBlank(analyseScene(img, scene, []))).toBe(false);
     expect(isBlank(analyseScene(img, scene, [{ x: 0, y: 0, w: 60, h: 30 }]))).toBe(true);
   });
+  it('sees a few thin lines on a flat background as a drawn scene', () => {
+    const lines = fill(400, 300, [27, 18, 51], (x, y) => (x === 200 || y === 150 ? [120, 120, 160] : null));
+    const r = analyseScene(lines, { x: 0, y: 0, w: 400, h: 300 }, [], 2);
+    expect(r.flatShare).toBeLessThan(0.9995);
+    expect(isBlank(r)).toBe(false);
+  });
   it('does not judge a scene it can hardly see', () => {
     expect(isBlank(analyseScene(fill(200, 120, [0, 0, 0]), { x: 0, y: 0, w: 20, h: 20 }, []))).toBe(false);
   });

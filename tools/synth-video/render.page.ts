@@ -62,7 +62,7 @@ export interface FrameResult {
 
 const canvas = document.getElementById('gl') as HTMLCanvasElement;
 let renderer: THREE.WebGLRenderer | null = null;
-let scene: THREE.Scene;
+let scene: THREE.Scene | null = null;
 let camera: THREE.PerspectiveCamera;
 let people: { human: Humanoid; def: PersonDef }[] = [];
 let backend: MainBackend | null = null;
@@ -88,12 +88,15 @@ async function init(d: SceneDef, o: { detect: boolean }): Promise<{ people: { T:
   def = d;
   canvas.width = d.width;
   canvas.height = d.height;
-  renderer?.dispose();
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+  // One renderer for the whole session (a second one on the same canvas would share its context); the scene of the last clip goes.
+  if (!renderer) {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
   renderer.setSize(d.width, d.height, false);
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  if (scene) disposeScene(scene);
   scene = new THREE.Scene();
   scene.background = new THREE.Color(d.background);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshStandardMaterial({ color: d.floor, roughness: 0.9 }));
@@ -140,6 +143,16 @@ async function init(d: SceneDef, o: { detect: boolean }): Promise<{ people: { T:
   return { people: dims, camera: { x: 0, y: d.camHeight, z: d.camDist, fovY: d.fovY, aspect: d.width / d.height } };
 }
 
+/** Gives the graphics memory of a scene back (geometries and materials; the skin textures are cached and stay). */
+function disposeScene(sc: THREE.Scene): void {
+  sc.traverse((n) => {
+    const m = n as THREE.Mesh;
+    if (!m.isMesh) return;
+    m.geometry.dispose();
+    for (const mat of Array.isArray(m.material) ? m.material : [m.material]) mat.dispose();
+  });
+}
+
 const v3 = new THREE.Vector3();
 const currentYaw = new WeakMap<Humanoid, number>();
 
@@ -176,7 +189,7 @@ function blobToBase64(b: Blob): Promise<string> {
 }
 
 async function frame(specs: PoseSpec[], o: { quality: number; detect: boolean; tMs: number }): Promise<FrameResult> {
-  if (!renderer) throw new Error('call init first');
+  if (!renderer || !scene) throw new Error('call init first');
   const truth: TruthPerson[] = [];
   people.forEach((p, i) => {
     // Where the person stands: the spec's own x and z (in T) plus the place of this person in the scene (metres).
