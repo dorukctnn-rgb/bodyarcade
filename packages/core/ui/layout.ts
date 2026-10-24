@@ -459,6 +459,19 @@ export interface DuoRects {
 export interface DuoLayout { metrics: HudMetrics; rects: DuoRects; pip: PipSize }
 
 /**
+ * The room a reason of one of two players may take, before it is measured (placeHudDuo then puts it where it fits): beside
+ * the shared self view ('bottom', the preferred place) or lifted above it ('lifted', up to a half of the safe width each).
+ * The same sums as placeHudDuo's own, so a reason fitted to these widths is placed in the row it was fitted for.
+ */
+export function duoReasonRows(viewport: Viewport & { metrics?: HudMetrics }, options: { camAspect?: number; mirror?: boolean } = {}): { preferred: 'bottom'; bottom: { w: number }; lifted: { w: number } } {
+  const m = viewport.metrics ?? hudMetrics(viewport);
+  const { w, h, insets, margin, gap } = m;
+  const span = w - insets.right - insets.left - 2 * margin;
+  const pipW = options.mirror === true ? 0 : duoPipSize({ w, h, ...(options.camAspect !== undefined ? { camAspect: options.camAspect } : {}) }).w;
+  return { preferred: 'bottom', bottom: { w: Math.floor((span - pipW) / 2 - gap) }, lifted: { w: Math.floor((span - gap) / 2) } };
+}
+
+/**
  * Two players: Player 1's score top left, Player 2's top right, the shared timer top centre, the one command under it,
  * the shared self view at the bottom centre and one reason strip per player. `away` is the player who left the frame.
  */

@@ -8,10 +8,10 @@ import { glyph, type PoseName } from '../glyphs.ts';
 import { html, raw, type SafeHtml } from '../html.ts';
 import type { I18n } from '../i18n/index.ts';
 import {
-  checkRects, duoAvailable, hudMetrics, hudSlots, placeHud, placeHudDuo, typicalInsets,
+  checkRects, duoAvailable, duoReasonRows, hudMetrics, hudSlots, placeHud, placeHudDuo, typicalInsets,
   type DuoLayout, type HudLayout, type HudMetrics, type HudMode, type Insets, type PipPlacement, type PlacedRect, type Rect, type Size,
 } from '../layout.ts';
-import { calibrationPip, chooseReasonRow, fitCommand } from './fit.ts';
+import { calibrationPip, chooseReasonRow, fitCommand, fitReasonFont, fitStatusFont, type ReasonRows } from './fit.ts';
 
 export interface PlayHudOptions {
   document: Document;
@@ -73,6 +73,8 @@ export class PlayHud implements Hud {
   private away: { player: PlayerSlot } | null = null;
   private phase: 'calibrate' | 'play' = 'play';
   private info: HudLayoutInfo | null = null;
+  /** The signature of what the last layout was done for. */
+  private laidOut = '';
   private raf = 0;
   private disposed = false;
   private maxLives = 0;
@@ -209,7 +211,7 @@ export class PlayHud implements Hud {
 
   /** Problems found in what is on the screen: cut off, overlapping, command under 8 % of the height, text spilling out. */
   problems(): string[] {
-    this.relayout();
+    this.relayout(true);
     const out: string[] = [];
     const info = this.info;
     if (!info) return ['the HUD has not been laid out'];
@@ -271,6 +273,7 @@ export class PlayHud implements Hud {
 
   private build(): void {
     const t = this.o.i18n;
+    this.laidOut = '';
     this.o.root.replaceChildren();
     for (const k of Object.keys(this.el)) delete this.el[k];
     const add = (node: HTMLElement): HTMLElement => { this.o.root.append(node); return node; };
@@ -349,21 +352,84 @@ export class PlayHud implements Hud {
     if (withSize) { n.style.width = `${r.w}px`; n.style.height = `${r.h}px`; }
   }
 
+  /**
+   * Everything that decides where the plates go: the screen, the way the HUD is set, and what is written on it. When none of
+   * it changed since the last layout, the layout is not done again (a game that sets the timer every frame costs nothing).
+   */
+  private signature(vp: { w: number; h: number; insets: Insets }): string {
+    const flag = (k: string): string => (this.el[k]?.hidden ? '0' : '1');
+    const lives = this.el['lives']?.innerHTML.length ?? 0;
+    return [
+      vp.w, vp.h, vp.insets.top, vp.insets.right, vp.insets.bottom, vp.insets.left,
+      this.mode, this.corner, this.duo, this.phase, this.away?.player ?? 0,
+      ['command', 'reason', 'reason1', 'reason2', 'combo', 'lives', 'showPip'].map(flag).join(''), lives, this.o.root.textContent,
+    ].join('|');
+  }
+
+  /**
+   * A plate is measured from the corner of the stage, never from where it stood last time: its width, and with it the number of
+   * lines of a text in it, depends on the room to its right, and the place a plate was left in while it was hidden is no room.
+   */
+  private resetPlates(): void {
+    for (const n of this.o.root.querySelectorAll<HTMLElement>('[data-hud]')) {
+      if (n.dataset['hud'] === 'pip') continue;
+      n.style.left = '0px';
+      n.style.top = '0px';
+    }
+  }
+
+  /** The status plates sit side by side inside the safe area: when a long score, lives and a combo would touch, the numerals shrink. */
+  private fitStatus(keys: readonly string[], m: HudMetrics): void {
+    const plates = keys.map((k) => this.el[k]).filter((n): n is HTMLElement => !!n);
+    if (plates.length < 2) return;
+    const widthAt = (font: number): number => {
+      for (const p of plates) p.style.fontSize = `${font}px`;
+      return plates.reduce((sum, p) => sum + p.getBoundingClientRect().width, 0) + m.gap * (plates.length - 1);
+    };
+    const font = fitStatusFont({ start: m.font.numeral, floor: Math.max(18, Math.floor(m.font.numeral * 0.72)), safeW: m.safe.w }, widthAt);
+    for (const p of plates) p.style.fontSize = `${font}px`;
+  }
+
+  /** How many lines a reason takes in a plate that may be this wide, at the plate's own font size (the clamp is lifted to count them). */
+  private reasonLines(plate: HTMLElement, span: HTMLElement, maxW: number): number {
+    plate.style.maxWidth = `${Math.floor(maxW)}px`;
+    span.style.webkitLineClamp = 'unset';
+    const lh = Number.parseFloat(this.doc.defaultView?.getComputedStyle(span).lineHeight ?? '') || Number.parseFloat(plate.style.fontSize) * 1.2;
+    const lines = Math.round(span.getBoundingClientRect().height / lh);
+    span.style.webkitLineClamp = '';
+    return lines;
+  }
+
+  /** A reason takes two lines in the room it has: its own size while that holds, then smaller; the plate keeps that size and width. */
+  private fitReason(plate: HTMLElement, span: HTMLElement, maxW: number, start: number): void {
+    const { font } = fitReasonFont({ start, floor: Math.max(12, Math.floor(start * 0.72)) }, (f) => {
+      plate.style.fontSize = `${f}px`;
+      return this.reasonLines(plate, span, maxW);
+    });
+    plate.style.fontSize = `${font}px`;
+    this.reasonLines(plate, span, maxW);
+  }
+
   /** Measures, fits, places and reports. Called after every content change (next frame) and on every resize. */
-  relayout(): void {
+  relayout(force = false): void {
     if (this.disposed) return;
     const vp = this.viewport();
     if (vp.w < 2 || vp.h < 2) return;
+    const sig = this.signature(vp);
+    if (!force && sig === this.laidOut) return;
+    this.laidOut = sig;
     const metrics = hudMetrics({ w: vp.w, h: vp.h, insets: vp.insets });
     const F = metrics.font;
     const duo = this.duo && duoAvailable({ w: vp.w, h: vp.h });
     const command = this.el['command'] as HTMLElement;
 
+    this.resetPlates();
     for (const k of ['statusLeft', 'statusRight', 'statusP1', 'statusP2', 'timerPlate']) { const n = this.el[k]; if (n) n.style.fontSize = `${F.numeral}px`; }
     for (const k of ['scoreLabel', 'timerLabel', 'score1Label', 'score2Label']) { const n = this.el[k]; if (n) n.style.fontSize = `${F.label}px`; }
     for (const k of ['reason', 'reason1', 'reason2']) { const n = this.el[k]; if (n) n.style.fontSize = `${F.reason}px`; }
     const away = this.el['away'];
     if (away) away.style.fontSize = `${Math.round(F.reason * 1.05)}px`;
+    this.fitStatus(duo ? ['statusP1', 'timerPlate', 'statusP2'] : ['statusLeft', 'statusRight'], metrics);
 
     // The command: shrink, then drop the glyph, then wrap (design/LAYOUT.md section 8).
     const setCommand = (font: number, st: { noGlyph: boolean; wrap: boolean }): void => {
@@ -392,6 +458,15 @@ export class PlayHud implements Hud {
     const play: Rect = { x: 0, y: 0, w: vp.w, h: vp.h };
 
     if (duo) {
+      // Each player's reason stands beside the shared view when it takes two lines there, else above it in their half of the screen.
+      const rows: ReasonRows = duoReasonRows({ w: vp.w, h: vp.h, metrics }, this.mode === 'mirror' ? { mirror: true } : {});
+      for (const n of [1, 2] as const) {
+        const plate = this.el[`reason${n}`];
+        const span = this.el[`reason${n}Text`];
+        if (!plate || !span || plate.hidden) continue;
+        const pick = chooseReasonRow(rows, (_row, w) => this.reasonLines(plate, span, w));
+        this.fitReason(plate, span, rows[pick.row]?.w ?? metrics.safe.w / 2, F.reason);
+      }
       const measured = {
         statusP1: this.size(this.el['statusP1'] as HTMLElement), statusP2: this.size(this.el['statusP2'] as HTMLElement),
         timer: this.size(this.el['timerPlate'] as HTMLElement), command: command.hidden ? { w: 1, h: 1 } : this.size(command),
@@ -420,17 +495,10 @@ export class PlayHud implements Hud {
       let reasonRow = slots.reason.preferred;
       if (!reason.hidden) {
         const span = this.el['reasonText'] as HTMLElement;
-        const linesAt = (_row: string, maxW: number): number => {
-          reason.style.maxWidth = `${Math.floor(maxW)}px`;
-          span.style.webkitLineClamp = 'unset';
-          const lh = Number.parseFloat(this.doc.defaultView?.getComputedStyle(span).lineHeight ?? '') || F.reason * 1.2;
-          const n = Math.round(span.getBoundingClientRect().height / lh);
-          span.style.webkitLineClamp = '';
-          return n;
-        };
-        const pick = chooseReasonRow(slots.reason, linesAt);
+        const pick = chooseReasonRow(slots.reason, (_row, maxW) => this.reasonLines(reason, span, maxW));
         reasonRow = pick.row;
-        linesAt(pick.row, (slots.reason[pick.row]?.w ?? metrics.safe.w));
+        // When no row has room for two lines, the words are made smaller, never cut off.
+        this.fitReason(reason, span, slots.reason[pick.row]?.w ?? metrics.safe.w, F.reason);
       }
       const measured = { ...status, command: cmdSize, reason: reason.hidden ? { w: 1, h: 1 } : this.size(reason) };
       const layout = placeHud({ w: vp.w, h: vp.h, metrics }, measured, { ...options, reasonRow });

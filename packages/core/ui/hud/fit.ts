@@ -1,7 +1,7 @@
 // How text is made to fit the HUD plates, with the measuring injected so the rules are testable without a browser.
 // Ported from the art director's HUD page (design/ui-kit/hud.html): a long command (other languages) first shrinks, never
 // below the floor, then loses its move glyph, then wraps; a reason goes where it needs at most two lines.
-import type { ReasonRow, ReasonSlots } from '../layout.ts';
+import type { ReasonRow } from '../layout.ts';
 
 export interface CommandFit {
   font: number;
@@ -42,17 +42,58 @@ export function fitCommand(i: CommandFitInput, widthAt: (font: number, state: { 
 }
 
 /**
- * Picks the row for the reason strip: the preferred row if its text takes two lines or fewer at that row's width,
- * otherwise the next one, and when none do, the one with the fewest lines (the check then reports it).
+ * The largest whole size from `start` down to `floor` at which `fits(size)` holds, for a test that only gets easier as the
+ * size falls (a text takes fewer lines, two plates take less room). `floor` when even that does not fit: the caller then
+ * knows the rule could not be kept and the checks report it.
  */
-export function chooseReasonRow(slots: ReasonSlots, linesAt: (row: ReasonRow, maxWidth: number) => number): { row: ReasonRow; lines: number } {
+export function largestFit(start: number, floor: number, fits: (size: number) => boolean): number {
+  if (fits(start)) return start;
+  if (!fits(floor)) return floor;
+  let lo = floor; // fits
+  let hi = start; // does not
+  while (lo < hi - 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (fits(mid)) lo = mid; else hi = mid;
+  }
+  return lo;
+}
+
+/** A reason may take this many lines of its plate (the kit's own clamp). */
+export const REASON_LINES = 2;
+
+/**
+ * The size of a reason that takes two lines or fewer in a plate of the width it was given: the size it starts at while that
+ * holds, then smaller, never under the floor. `linesAt(font)` is the number of lines the text takes at a size.
+ */
+export function fitReasonFont(i: { start: number; floor: number }, linesAt: (font: number) => number): { font: number; lines: number } {
+  const font = largestFit(i.start, i.floor, (f) => linesAt(f) <= REASON_LINES);
+  return { font, lines: linesAt(font) };
+}
+
+/**
+ * The size of the numerals of the status plates at which the plates sit side by side inside the safe area: the size the
+ * layout gives them while that holds (a score of four digits, the lives and a combo on a narrow phone may not), then
+ * smaller, never under the floor. `widthAt(font)` is the width the plates take together, the gaps between them included.
+ */
+export function fitStatusFont(i: { start: number; floor: number; safeW: number }, widthAt: (font: number) => number): number {
+  return largestFit(i.start, i.floor, (f) => widthAt(f) <= i.safeW);
+}
+
+/** What the reason strip can be given: the width of each row it may stand in. */
+export type ReasonRows = { preferred: ReasonRow } & Partial<Record<ReasonRow, { w: number }>>;
+
+/**
+ * Picks the row for the reason strip: the preferred row if its text takes two lines or fewer at that row's width,
+ * otherwise the next one, and when none do, the one with the fewest lines (the text is then made smaller to fit).
+ */
+export function chooseReasonRow(slots: ReasonRows, linesAt: (row: ReasonRow, maxWidth: number) => number): { row: ReasonRow; lines: number } {
   const order = ([slots.preferred, 'bottom', 'lifted', 'side'] as const).filter((k, i, a) => slots[k] && a.indexOf(k) === i);
   let best: { row: ReasonRow; lines: number } | null = null;
   for (const row of order) {
     const slot = slots[row];
     if (!slot) continue;
     const lines = linesAt(row, slot.w);
-    if (lines <= 2) return { row, lines };
+    if (lines <= REASON_LINES) return { row, lines };
     if (!best || lines < best.lines) best = { row, lines };
   }
   return best ?? { row: 'bottom', lines: 0 };

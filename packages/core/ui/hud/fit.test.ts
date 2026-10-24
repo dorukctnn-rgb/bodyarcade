@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ReasonSlots } from '../layout.ts';
-import { calibrationPip, chooseReasonRow, fitCommand } from './fit.ts';
+import { calibrationPip, chooseReasonRow, fitCommand, fitReasonFont, fitStatusFont, largestFit } from './fit.ts';
 
 // A command plate whose width is 0.6 em per character plus 1.2 em for the glyph; wrapping makes it as narrow as it likes.
 const widthOf = (text: string) => (font: number, s: { noGlyph: boolean; wrap: boolean }): number => {
@@ -55,6 +55,53 @@ describe('choosing the row of the reason strip', () => {
     const asked: string[] = [];
     chooseReasonRow({ ...slots, preferred: 'lifted' }, (row) => { asked.push(row); return 9; });
     expect(asked).toEqual(['lifted', 'bottom']);
+  });
+});
+
+describe('the largest size that fits', () => {
+  it('is the start when it fits, the floor when nothing does, and the largest whole size in between', () => {
+    expect(largestFit(40, 20, () => true)).toBe(40);
+    expect(largestFit(40, 20, () => false)).toBe(20);
+    for (const limit of [20, 21, 27, 33, 39]) expect(largestFit(40, 20, (s) => s <= limit), `limit ${limit}`).toBe(limit);
+  });
+
+  it('asks about the start and the floor first, then halves: a handful of measurements, not one per size', () => {
+    let asked = 0;
+    largestFit(60, 12, (s) => { asked += 1; return s <= 31; });
+    expect(asked).toBeLessThanOrEqual(9);
+  });
+});
+
+describe('fitting a reason to two lines', () => {
+  // A text of 20 em of width: the lines are its width over the width of the plate, rounded up.
+  const linesOf = (em: number, plateW: number) => (font: number): number => Math.ceil((em * font) / plateW);
+
+  it('keeps its own size while it takes two lines or fewer', () => {
+    expect(fitReasonFont({ start: 24, floor: 16 }, linesOf(20, 300))).toEqual({ font: 24, lines: 2 });
+  });
+
+  it('gets smaller until it takes two lines, never under the floor', () => {
+    // two lines of a 220 px plate hold 440 px of text: 22 px of this one
+    expect(fitReasonFont({ start: 24, floor: 16 }, linesOf(20, 220))).toEqual({ font: 22, lines: 2 });
+    // even 16 px takes four lines in a plate of 100 px: the floor, and the number of lines says so
+    expect(fitReasonFont({ start: 24, floor: 16 }, linesOf(20, 100))).toEqual({ font: 16, lines: 4 });
+  });
+});
+
+describe('fitting the status plates', () => {
+  // Two plates of 7.2 em and 4.4 em, with a gap of 10 between them.
+  const widthAt = (font: number): number => 11.6 * font + 10;
+
+  it('keeps the size of the layout while the plates fit side by side', () => {
+    expect(fitStatusFont({ start: 33, floor: 24, safeW: 400 }, widthAt)).toBe(33);
+  });
+
+  it('shrinks the numerals when a long score makes the plates touch, never under the floor', () => {
+    const font = fitStatusFont({ start: 33, floor: 24, safeW: 336 }, widthAt);
+    expect(font).toBe(28);
+    expect(widthAt(font)).toBeLessThanOrEqual(336);
+    expect(widthAt(font + 1)).toBeGreaterThan(336);
+    expect(fitStatusFont({ start: 33, floor: 24, safeW: 200 }, widthAt)).toBe(24);
   });
 });
 

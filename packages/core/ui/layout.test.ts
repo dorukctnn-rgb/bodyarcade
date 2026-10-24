@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  BREAKPOINTS, checkRects, deviceClass, duoAvailable, duoPipSize, hudMetrics, hudSlots, mirrorRect, pipSize, placeHud,
+  BREAKPOINTS, checkRects, deviceClass, duoAvailable, duoPipSize, duoReasonRows, hudMetrics, hudSlots, mirrorRect, pipSize, placeHud,
   placeHudDuo, shellGrid, typicalInsets,
   type HudMode, type MeasuredDuo, type MeasuredHud, type PipPlacement,
 } from './layout.ts';
@@ -130,6 +130,28 @@ describe('two players, one camera', () => {
       const flat: Record<string, { x: number; y: number; w: number; h: number }> = {};
       for (const [k, v] of Object.entries(rects)) if (v && !k.startsWith('play')) flat[k] = v as never;
       expect(checkRects(flat, { w: bp.w, h: bp.h }), bp.id).toEqual([]);
+    }
+  });
+
+  it('gives a reason the room beside the shared view, then a half of the screen above it: a reason fitted to those never overlaps the other player', () => {
+    for (const bp of BREAKPOINTS.filter((b) => duoAvailable(b))) {
+      for (const mirror of [false, true]) {
+        const rows = duoReasonRows({ w: bp.w, h: bp.h }, mirror ? { mirror: true } : {});
+        const m = hudMetrics({ w: bp.w, h: bp.h });
+        expect(rows.preferred).toBe('bottom');
+        expect(rows.lifted.w, bp.id).toBeGreaterThan(rows.bottom.w);
+        // a plate of exactly the room of each row is placed in that row, and the two plates of a row never touch each other or the view
+        for (const row of ['bottom', 'lifted'] as const) {
+          const w = rows[row].w;
+          const placed = placeHudDuo({ w: bp.w, h: bp.h }, { ...duoMeasured(false), reasonP1: { w, h: 50 }, reasonP2: { w, h: 50 } }, mirror ? { mirror: true } : {});
+          const p1 = placed.rects.reasonP1 as { x: number; w: number; row?: string };
+          const p2 = placed.rects.reasonP2 as { x: number; w: number; row?: string };
+          expect(p1.row, `${bp.id} ${row}`).toBe(row);
+          expect(p2.row, `${bp.id} ${row}`).toBe(row);
+          expect(p1.x + p1.w + m.gap, `${bp.id} ${row}`).toBeLessThanOrEqual(p2.x);
+          if (row === 'bottom' && !mirror) expect(p1.x + p1.w, bp.id).toBeLessThanOrEqual(placed.rects.pip.x);
+        }
+      }
     }
   });
 });
