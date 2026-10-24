@@ -52,10 +52,22 @@ export async function callOp<T>(env: LiveEnv, op: OpName, input: Record<string, 
 }
 
 export const socialHooks: LiveHooks = {
-  /** Signed device requests and the stored profile: the name, the band and the mute come from the profile, never from the body. */
+  /**
+   * Signed device requests and the stored profile: the name, the band and the mute come from the profile, never from the body.
+   *
+   * A bridge for a build whose pages do not sign their room calls yet (SOCIAL_ALLOW_UNSIGNED = "1", the preview only): a call with
+   * no signature at all is a guest, who is the anonymous identity of the body, as live play alone has it. A call that carries a
+   * signature is always checked, and a bad one is refused; a guest is never in a public room (the gate needs a profile), never
+   * counts in a report, and has no block list. Production does not set it: every room call there is the player's own.
+   */
   async verifyPlayer(req: Request, env: LiveEnv, body: Record<string, unknown>): Promise<LivePlayer | null> {
     if (!hasSocial(raw(env))) return anonymousPlayer(body);
     const auth = req.headers.get(AUTH_HEADER) ?? new URL(req.url).searchParams.get(AUTH_QUERY);
+    if (!auth && raw(env).SOCIAL_ALLOW_UNSIGNED === '1') {
+      // a guest has no profile to ban or suspend, so the public lobby directory (where strangers meet) is not theirs to fill
+      if (body.kind === 'public' && new URL(req.url).pathname === '/api/rooms') throw new HttpError(403, 'not_allowed', { serverTime: Date.now() });
+      return anonymousPlayer(body);
+    }
     return callOp<LivePlayer>(env, 'verify', { method: req.method, url: req.url, auth, body });
   },
 

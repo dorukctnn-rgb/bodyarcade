@@ -27,7 +27,11 @@
   // migration v4): its SQLite storage holds every table and the players' sockets, so there is no database to create. HUB and
   // PlayerHub stay only because migration v2 made that class on the preview; nothing uses them. Optional secret: ADMIN_TOKEN
   // (the moderation API answers 404 without it); optional variable: SOCIAL_MAX_SIGNUPS_PER_DAY (default 4000).
-  "vars": { "PUBLIC_ORIGIN": "https://bodyarcade-v2-preview.railer-iot.workers.dev", "SITE_TARGET": "preview" },
+  // SOCIAL_ALLOW_UNSIGNED: until the pages sign their room calls with the social profile (the shell wiring of the social client:
+  // its signed `fetcher` and `roomIdentity()` in LiveRoomDeps), a room call with no signature is a guest, as live play alone has
+  // it (tests/release/live.spec.ts plays that way). A call that carries a signature is always checked, and a guest has no public
+  // lobbies. REMOVE THIS LINE when the shell signs; wrangler.prod.jsonc never has it.
+  "vars": { "PUBLIC_ORIGIN": "https://bodyarcade-v2-preview.railer-iot.workers.dev", "SITE_TARGET": "preview", "SOCIAL_ALLOW_UNSIGNED": "1" },
   "observability": { "enabled": true },
   "upload_source_maps": false
 }

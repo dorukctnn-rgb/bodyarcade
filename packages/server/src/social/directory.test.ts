@@ -312,6 +312,25 @@ describe('the operations live play asks for', () => {
     expect(h.calls).toHaveLength(before);
   });
 
+  it('a build whose pages do not sign their room calls yet (SOCIAL_ALLOW_UNSIGNED) lets a guest make private rooms, and nothing else: a signature that is there is always checked', async () => {
+    const guest = { pid: 'guest-device-1', name: 'Mia', age: 'adult' as const };
+    const bridge = { ...h.env, SOCIAL_ALLOW_UNSIGNED: '1' } as unknown as LiveEnv;
+    const req = (path = '/api/rooms', headers: Record<string, string> = {}) => new Request(`${TEST_ORIGIN}${path}`, { method: 'POST', headers });
+    // without the setting an unsigned call is refused, as always
+    await expect(socialHooks.verifyPlayer?.(req(), env(), guest)).rejects.toMatchObject({ status: 401, code: 'unauthorized' });
+    // with it, a guest is the anonymous identity of the body (and the body is still checked like live play checks it)
+    expect(await socialHooks.verifyPlayer?.(req(), bridge, guest)).toEqual(guest);
+    await expect(socialHooks.verifyPlayer?.(req(), bridge, { ...guest, name: 'http://x.example' })).rejects.toMatchObject({ status: 400 });
+    // not a public room, not a seat in one
+    await expect(socialHooks.verifyPlayer?.(req(), bridge, { ...guest, kind: 'public' })).rejects.toMatchObject({ status: 403, code: 'not_allowed' });
+    expect(await socialHooks.gateJoin?.(bridge, summary('ABCDEF'), guest)).toBe(false);
+    // a signature that is there is checked: a bad one is refused even where guests are let in
+    await expect(socialHooks.verifyPlayer?.(req('/api/rooms', { 'X-BA-Auth': await wellFormedAuth() }), bridge, guest)).rejects.toMatchObject({ status: 401, code: 'unknown_device' });
+    // what a guest does in a room leaves no trace in the tables: no presence row, no report that counts
+    await socialHooks.setPlaying?.(bridge, { code: 'ABCDEF', pid: guest.pid, inRoom: true, playing: true, gameId: 'jacks' });
+    expect(h.storage.raw.prepare('SELECT COUNT(*) AS n FROM soc_presence').get()).toEqual({ n: 0 });
+  });
+
   it('a directory that cannot be reached is a 503 for the hook, never a crash', async () => {
     const broken = { SOCIAL: { idFromName: (n: string) => ({ name: n, toString: () => n }), get: () => ({ fetch: async () => { throw new Error('boom'); } }) } } as unknown as LiveEnv;
     await expect(socialHooks.publishRoom?.(broken, summary('ABCDEF'), ['p'])).rejects.toMatchObject({ status: 503, code: 'unavailable' });
