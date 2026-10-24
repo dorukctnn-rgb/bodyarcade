@@ -20,6 +20,8 @@
 //   POST /api/social/invite/decline      {fid, id}
 //   GET  /api/social/lobbies             ?game=&region=                                                      -> {lobbies}
 //   POST /api/social/match               {game, searchId?, hosting?}                                         -> QuickAction
+//   GET  /api/social/sync                the player's synced documents                                       -> {docs}
+//   PUT  /api/social/sync/:key           {baseRev, data}                                                     -> {rev, at}
 //   POST /api/social/scores/start        {game}                                                              -> {run, game, at}
 //   POST /api/social/scores              {run, game, score}                                                  -> {improved, best, week}
 //   GET  /api/social/leaderboard         ?game=&scope=friends|country&week=current|previous                  -> {board}
@@ -41,6 +43,7 @@ import { declineInvite, invite, listLobbies, quickMatch } from './lobbies.ts';
 import { adminAct, adminReports, adminStats, report } from './moderation.ts';
 import { deleteMe, exportMe, getMe, recover, register, renewCode, renewRecovery, updateMe } from './profile.ts';
 import { finishRun, leaderboard, startRun } from './scores.ts';
+import { getSync, putSync } from './sync.ts';
 import { authed, guardRequest, open } from './util.ts';
 
 /** GET /api/social/hub: verify the signed request, then hand the socket to the player's PlayerHub. */
@@ -104,6 +107,8 @@ export function registerSocialRoutes(router: Router): void {
   router.add('POST', '/api/social/invite/decline', authed(declineInvite));
   router.add('GET', '/api/social/lobbies', authed(listLobbies));
   router.add('POST', '/api/social/match', authed(quickMatch));
+  router.add('GET', '/api/social/sync', authed(getSync));
+  router.add('PUT', '/api/social/sync/:key', authed(putSync));
   router.add('POST', '/api/social/scores/start', authed(startRun));
   router.add('POST', '/api/social/scores', authed(finishRun));
   router.add('GET', '/api/social/leaderboard', authed(leaderboard));

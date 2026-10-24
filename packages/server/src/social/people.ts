@@ -78,6 +78,7 @@ export async function eraseProfile(db: D1Like, pid: string): Promise<{ friends: 
     stmt(db, 'DELETE FROM soc_declines WHERE from_pid = ?1 OR to_pid = ?1', pid),
     stmt(db, 'DELETE FROM soc_presence WHERE pid = ?1', pid),
     stmt(db, 'DELETE FROM soc_scores WHERE pid = ?1', pid),
+    stmt(db, 'DELETE FROM soc_sync WHERE pid = ?1', pid),
     stmt(db, 'UPDATE soc_reports SET reporter = NULL WHERE reporter = ?1', pid),
     stmt(db, "UPDATE soc_reports SET target_name = '', note = NULL WHERE target = ?1", pid),
     stmt(db, 'DELETE FROM soc_profiles WHERE pid = ?1', pid),

@@ -17,6 +17,7 @@ import { MAX_DEVICES, newRecovery, recoveryHash, sameHash } from './recovery.ts'
 import { eraseProfile } from './people.ts';
 import { hubClose, hubSend, pushPresence } from './presence.ts';
 import { scoresOf } from './scores.ts';
+import { syncDocs } from './sync.ts';
 import { addressHash, ok, randomId, type Ctx, type SocialHandler } from './util.ts';
 
 export const DEFAULT_MAX_SIGNUPS_PER_DAY = 4000;
@@ -291,6 +292,7 @@ export const exportMe: SocialHandler = async (c) => {
     outgoing,
     blocks,
     scores: await scoresOf(db, me.pid, now),
+    sync: await syncDocs(db, me.pid),
     reportsFiled: counts?.filed ?? 0,
     reportsAgainstYou: counts?.against ?? 0,
   };

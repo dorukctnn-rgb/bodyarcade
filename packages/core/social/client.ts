@@ -22,7 +22,7 @@ import { AUTH_HEADER, AUTH_QUERY, generateDeviceKey, signRequest } from './sign.
 import {
   HUB_CLOSE,
   type AgeBand, type BlockEntry, type BoardScope, type BoardView, type DataExport, type FriendEntry, type HubCommand, type HubEvent, type LevelBand, type LobbyEntry,
-  type MyProfile, type QuickAction, type ReportReason, type RequestResult, type RequestsView, type RunTicket, type ScoreResult, type SocialErrorBody,
+  type MyProfile, type QuickAction, type ReportReason, type RequestResult, type RequestsView, type RunTicket, type ScoreResult, type SocialErrorBody, type SyncDoc, type SyncKey,
 } from './types.ts';
 
 // ───────── errors ─────────
@@ -346,7 +346,7 @@ export class SocialClient {
     return { res, data };
   }
 
-  private async call<T>(method: 'GET' | 'POST', path: string, body?: Record<string, unknown>): Promise<T> {
+  private async call<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: Record<string, unknown>): Promise<T> {
     const payload = method === 'GET' ? undefined : (body ?? {});
     for (let attempt = 0; ; attempt++) {
       const { res, data } = await this.send(method, path, payload);
@@ -577,6 +577,41 @@ export class SocialClient {
       opts.onProgress?.({ phase: hosting ? 'hosting' : 'searching', waitedMs, code: hosting, offerGhost });
       if (this.clock() - began > MAX_SEARCH_MS) return { outcome: 'timeout', hosting };
       await sleep(poll, opts.signal);
+    }
+  }
+
+  // ───────── synced documents ─────────
+
+  /** Every synced document of the player (the daily challenge and the streak, progress, plans, preferences). */
+  async loadSync(): Promise<Partial<Record<SyncKey, SyncDoc>>> {
+    return (await this.call<{ docs: Partial<Record<SyncKey, SyncDoc>> }>('GET', '/api/social/sync')).docs;
+  }
+
+  /**
+   * One write of a document, from the revision it was read at (0 for a document that does not exist yet). Throws a 409
+   * `conflict` when the document moved on; its `body.current` is the current document (null when there is none).
+   */
+  async saveSync(key: SyncKey, data: unknown, baseRev: number): Promise<{ rev: number; at: number }> {
+    return this.call<{ rev: number; at: number }>('PUT', `/api/social/sync/${key}`, { baseRev, data });
+  }
+
+  /**
+   * Read, change, write. `change` gets the current data (null when there is none) and returns the new data. When another
+   * device wrote in the meantime the document is read again and `change` runs again on the new data, so it has to be a merge
+   * (keep the longer streak, the later day), never an overwrite. Gives up after `tries` conflicts.
+   */
+  async updateSync<T>(key: SyncKey, change: (current: T | null) => T, tries = 4): Promise<{ rev: number; at: number; data: T }> {
+    let cur: SyncDoc | null = (await this.loadSync())[key] ?? null;
+    for (let attempt = 1; ; attempt++) {
+      const data = change(cur ? (cur.data as T) : null);
+      try {
+        const saved = await this.saveSync(key, data, cur?.rev ?? 0);
+        return { ...saved, data };
+      } catch (e) {
+        if (!(e instanceof SocialApiError) || e.code !== 'conflict' || attempt >= tries) throw e;
+        const now = e.body?.current;
+        cur = typeof now === 'object' && now !== null ? (now as SyncDoc) : null;
+      }
     }
   }
 

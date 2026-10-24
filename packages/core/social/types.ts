@@ -109,6 +109,25 @@ export type QuickAction =
   /** An older fitting lobby exists and the caller's own room is still empty: leave it and join this one. */
   | { action: 'merge'; code: string; searchId: string };
 
+// ───────── synced documents ─────────
+
+/** The documents a profile can keep on the server (src/social/sync.ts): what is in them is the store module's business. */
+export const SYNC_KEYS = ['daily', 'habit', 'progress', 'plans', 'prefs'] as const;
+export type SyncKey = typeof SYNC_KEYS[number];
+export const isSyncKey = (x: unknown): x is SyncKey => typeof x === 'string' && (SYNC_KEYS as readonly string[]).includes(x);
+/** A document is at most this many characters of JSON. */
+export const SYNC_MAX_CHARS = 3000;
+/** A document may be written this many times a day. */
+export const SYNC_WRITES_PER_DAY = 60;
+
+export interface SyncDoc {
+  /** Counts the writes; a write names the revision it was made from. */
+  rev: number;
+  /** Server time of the last write. */
+  at: number;
+  data: unknown;
+}
+
 // ───────── weekly boards ─────────
 
 export type BoardScope = 'friends' | 'country';
@@ -154,6 +173,8 @@ export interface DataExport {
   blocks: BlockEntry[];
   /** The player's best score of each game this week and last week (the boards keep nothing older). */
   scores: { week: number; game: string; score: number }[];
+  /** The synced documents, as they are stored. */
+  sync: Record<string, SyncDoc>;
   reportsFiled: number;
   reportsAgainstYou: number;
 }
