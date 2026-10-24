@@ -2,22 +2,36 @@
 // game-design 2.9 and 3.x). The band is self-declared once, at first social use, with a neutral question; this module is
 // the single place where the consequences are written down, and the Worker, the Room and the interface all ask it.
 //
-//   child (under 13): NO ONLINE IDENTITY AT ALL (decided 24 Oct, COPPA-safe): `online` is false, so no device key is made, no
-//                     profile and no friend code are registered, and there are no friends, lobbies, boards or chat. The rest
-//                     of the row (names, friends, requests) is what the band would be allowed the day `online` is switched
-//                     on; nothing reads it while the switch is off. Local play, family ghost races and local records work
-//                     without any of it.
-//   teen (13-17):     preset names, preset messages, no video; public lobbies and quick match, but only among teens.
-//   adult (18+):      filtered free names; free text and video only in private rooms where every member is an adult.
+//   child (under 16): NO ONLINE IDENTITY AT ALL (decided 24 Oct, first at 13 and raised to 16 the same night: GDPR art. 8 lets a
+//                     country set the age of digital consent up to 16 and KVKK needs a guardian for minors; reversible after a
+//                     lawyer has looked): `online` is false, so no device key is made, no profile and no friend code are
+//                     registered, and there are no friends, lobbies, boards or chat. The rest of the row (names, friends,
+//                     requests) is what the band would be allowed the day `online` is switched on; nothing reads it while the
+//                     switch is off. Local play, family ghost races and local records work without any of it.
+//   teen (16-17):     preset names, preset messages, no video, no free text; friends only by a code or a link; public lobbies and
+//                     quick match, but only among teens.
+//   adult (18+):      filtered free names; free text and optional two-way video, only in private rooms where every member is
+//                     an adult and, for video, both friends switched it on.
 //
 // Nobody can look players up: the only ways to meet are a friend code, an invite link or a public lobby, so there is
 // no search box and no "people you may know" list.
 import type { AgeBand, LobbyGroup } from './types.ts';
 
+/**
+ * From this age a player may have an online identity (a device key, a profile and a friend code). Under it nothing is registered and
+ * nothing is sent. The words of the screens and the pages, and their tests, read this number; the behaviour is `POLICY.child.online`.
+ */
+export const ONLINE_MIN_AGE = 16;
+/** From this age a player is an adult here: a free display name, typed chat with friends and optional two-way video. */
+export const ADULT_AGE = 18;
+
+/** The band of a player of this age. The app asks for the band (three neutral choices), never for the age itself; this is where the numbers meet it. */
+export const bandOfAge = (age: number): AgeBand => (age >= ADULT_AGE ? 'adult' : age >= ONLINE_MIN_AGE ? 'teen' : 'child');
+
 export interface BandPolicy {
   /**
    * May have an online identity: a device key and a profile registered on the server, with a friend code. THE SWITCH of the
-   * under-13 rule (BUILD-PLAN: "the only switch is POLICY in core/social/age.ts"): false for `child`, and then the client makes
+   * under-16 rule (BUILD-PLAN: "the only switch is POLICY in core/social/age.ts"): false for `child`, and then the client makes
    * no key, the Worker refuses the registration (403 child_no_online) and a profile cannot be lowered to this band.
    */
   online: boolean;
@@ -47,7 +61,7 @@ const RANK: Record<AgeBand, number> = { child: 0, teen: 1, adult: 2 };
 export const isAgeBand = (x: unknown): x is AgeBand => x === 'child' || x === 'teen' || x === 'adult';
 export const isMinor = (band: AgeBand): boolean => band !== 'adult';
 export const policyFor = (band: AgeBand): BandPolicy => POLICY[band];
-/** May a player of this band have an online identity (a device key, a profile, a friend code) at all? False under 13. */
+/** May a player of this band have an online identity (a device key, a profile, a friend code) at all? False under 16. */
 export const canGoOnline = (band: AgeBand): boolean => POLICY[band].online;
 export const lobbyGroupOf = (band: AgeBand): LobbyGroup | null => POLICY[band].lobbyGroup;
 

@@ -13,7 +13,7 @@ import type { SocialState } from '../port.ts';
 import { qrSvg } from '../qr.ts';
 import { ux } from '../strings.ts';
 import { avatar, stateBanners } from '../ui.ts';
-import { kidPanel, needProfile, under13Panel } from './friends.ts';
+import { kidPanel, needProfile, youngPanel } from './friends.ts';
 
 export interface ProfileView {
   state: SocialState;
@@ -148,7 +148,7 @@ export function profileMain(ctx: ViewContext, v: ProfileView): SafeHtml {
   const head = pageHead(ctx, u('me.title'), { back: ctx.href('friends') });
   const banners = stateBanners(ctx, s);
   const p = s.profile;
-  if (s.noOnline === 'under13') return html`${head}${under13Panel(ctx)}`;
+  if (s.noOnline === 'young') return html`${head}${youngPanel(ctx)}`;
   if (s.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
   if (!p) return html`${head}${banners}<div class="k-mt">${needProfile(ctx, s, { icon: 'friends', title: t.t('social.intro.title'), body: t.t('social.intro.body') })}</div>`;
   // A suspended profile can still be downloaded and deleted, and nothing else.

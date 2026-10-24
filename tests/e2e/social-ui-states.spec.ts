@@ -29,21 +29,21 @@ const choose = (value: string) => async (page: Page): Promise<void> => { await p
 
 const STATES: State[] = [
   // the friends page
-  ...(['ready', 'teen', 'alone', 'fresh', 'offline', 'under13', 'kid', 'banned', 'replaced', 'reconnecting', 'recovery', 'deleted', 'unknown', 'muted', 'suspended'] as const).map((m) => ({ id: `friends-${m}`, path: `/friends/?social=${m}` })),
+  ...(['ready', 'teen', 'alone', 'fresh', 'offline', 'young', 'kid', 'banned', 'replaced', 'reconnecting', 'recovery', 'deleted', 'unknown', 'muted', 'suspended'] as const).map((m) => ({ id: `friends-${m}`, path: `/friends/?social=${m}` })),
   { id: 'friends-offline-saved', path: '/friends/?social=ready', prepare: async (p) => { await control(p, 'c.offline(true);'); await p.waitForSelector('[data-banner="offline"]'); } },
   { id: 'friends-add-error', path: '/friends/?social=ready', prepare: async (p) => { await p.locator('#friend-code').fill('BA-DDDDDD'); await p.locator('[data-form="friend-add"] button[type="submit"]').click(); await p.waitForSelector('#add-note.is-error'); } },
   { id: 'friends-tray', path: '/friends/?social=ready', window: true, overlay: true, prepare: async (p) => { await control(p, "c.invite('Elif', 'squat-flap');"); await p.waitForSelector('.k-tray__card'); } },
   { id: 'friends-toast', path: '/friends/?social=ready', window: true, prepare: async (p) => { await control(p, "c.request('Zed');"); await p.waitForSelector('.ba-toast'); } },
   // my profile
-  ...(['ready', 'teen', 'banned', 'fresh', 'under13', 'recovery', 'muted'] as const).map((m) => ({ id: `profile-${m}`, path: `/friends/?view=profile&social=${m}` })),
+  ...(['ready', 'teen', 'banned', 'fresh', 'young', 'recovery', 'muted'] as const).map((m) => ({ id: `profile-${m}`, path: `/friends/?view=profile&social=${m}` })),
   { id: 'profile-notes', path: '/friends/?view=profile&social=ready', prepare: async (p) => { await p.locator('#me-name').fill('www.example.com'); await p.locator('[data-form="me-name"] button[type="submit"]').click(); await p.waitForSelector('[data-form="me-name"] .is-error'); } },
   { id: 'profile-delete-confirm', path: '/friends/?view=profile&social=ready', window: true, prepare: click('[data-action="me.delete"]') },
   // the weekly boards
-  ...(['ready', 'fresh', 'under13', 'teen'] as const).map((m) => ({ id: `boards-${m}`, path: `/friends/?view=boards&social=${m}` })),
+  ...(['ready', 'fresh', 'young', 'teen'] as const).map((m) => ({ id: `boards-${m}`, path: `/friends/?view=boards&social=${m}` })),
   { id: 'boards-country', path: '/friends/?view=boards&social=ready', prepare: async (p) => { await p.locator('label:has(input[name="scope"][value="country"])').click(); await p.waitForSelector('[data-board="country"]'); } },
   { id: 'boards-previous', path: '/friends/?view=boards&social=ready', prepare: async (p) => { await p.locator('label:has(input[name="week"][value="previous"])').click(); await p.waitForSelector('[data-board]'); } },
   // lobbies and quick match
-  ...(['ready', 'fresh', 'under13', 'suspended', 'teen', 'offline'] as const).map((m) => ({ id: `lobbies-${m}`, path: `/lobbies/?social=${m}` })),
+  ...(['ready', 'fresh', 'young', 'suspended', 'teen', 'offline'] as const).map((m) => ({ id: `lobbies-${m}`, path: `/lobbies/?social=${m}` })),
   { id: 'lobbies-searching', path: '/lobbies/?social=ready&quick=never', hooks: { timeScale: 1 }, prepare: async (p) => { await p.locator('[data-action="lobby.quick"]').click(); await p.waitForSelector('.k-searching'); } },
   { id: 'lobbies-hosting', path: '/lobbies/?social=ready&quick=never', hooks: { timeScale: 2 }, prepare: async (p) => { await p.locator('[data-action="lobby.quick"]').click(); await p.waitForSelector('.k-searching p', { timeout: 20_000 }); } },
   { id: 'lobbies-ghost', path: '/lobbies/?social=ready&quick=never', hooks: { timeScale: 40 }, prepare: async (p) => { await p.locator('[data-action="lobby.quick"]').click(); await p.waitForSelector('[data-action="lobby.ghost"]', { timeout: 20_000 }); } },
@@ -53,20 +53,20 @@ const STATES: State[] = [
   { id: 'room-host', path: '/friends/?social=ready', prepare: async (p) => { await p.locator('[data-action="room.new"]').click(); await p.waitForURL(/\/r\//); await p.waitForSelector('.k-seat'); } },
   { id: 'room-full', path: '/r/FULL22/?social=ready' },
   { id: 'room-seat-menu', path: '/r/K7Q2MX/?social=ready', window: true, prepare: click('[data-action="room.seat"]') },
-  { id: 'room-under13', path: '/r/K7Q2MX/?social=under13' },
+  { id: 'room-young', path: '/r/K7Q2MX/?social=young' },
   // the friend link
   { id: 'link-member', path: '/f/BA-9PXMR3/?social=ready' },
   { id: 'link-new', path: '/f/BA-9PXMR3/?social=fresh' },
   { id: 'link-bad', path: '/f/BA-12/?social=ready' },
   { id: 'link-own', path: '/f/BA-7K2Q4X/?social=ready' },
-  { id: 'link-under13', path: '/f/BA-9PXMR3/?social=under13' },
+  { id: 'link-young', path: '/f/BA-9PXMR3/?social=young' },
   { id: 'link-offline', path: '/f/BA-9PXMR3/?social=offline' },
   { id: 'link-sent', path: '/f/BA-9PXMR3/?social=ready', prepare: async (p) => { await p.locator('[data-action="friendlink.send"]').click(); await p.waitForSelector('.k-linkcard .k-note-line:not(:empty)'); } },
   { id: 'safety', path: '/safety/?social=ready' },
   // the windows
   { id: 'sheet-age', path: '/friends/?social=fresh', window: true, prepare: click('[data-action="social.profile"]') },
   { id: 'sheet-age-adult', path: '/friends/?social=fresh', window: true, prepare: async (p) => { await p.locator('[data-action="social.profile"]').click(); await choose('adult')(p); } },
-  { id: 'sheet-under13', path: '/friends/?social=fresh', window: true, prepare: async (p) => { await p.locator('[data-action="social.profile"]').click(); await choose('child')(p); await p.locator('[data-action="sheet.age.next"]').click(); } },
+  { id: 'sheet-young', path: '/friends/?social=fresh', window: true, prepare: async (p) => { await p.locator('[data-action="social.profile"]').click(); await choose('child')(p); await p.locator('[data-action="sheet.age.next"]').click(); } },
   { id: 'sheet-name-adult', path: '/friends/?social=fresh', window: true, prepare: async (p) => { await p.locator('[data-action="social.profile"]').click(); await choose('adult')(p); await p.locator('[data-action="sheet.age.next"]').click(); await p.locator('#profile-name').fill('www.example.com'); await p.locator('[data-action="sheet.name.create"]').click(); await p.waitForSelector('#profile-note:not(:empty)'); } },
   { id: 'sheet-name-teen', path: '/friends/?social=fresh', window: true, prepare: async (p) => { await p.locator('[data-action="social.profile"]').click(); await choose('teen')(p); await p.locator('[data-action="sheet.age.next"]').click(); } },
   { id: 'sheet-recovery', path: '/friends/?social=fresh', window: true, prepare: async (p) => { await p.locator('[data-action="social.profile"]').click(); await choose('adult')(p); await p.locator('[data-action="sheet.age.next"]').click(); await p.locator('#profile-name').fill('Ada'); await p.locator('[data-action="sheet.name.create"]').click(); await p.waitForSelector('[data-recovery-code]'); } },

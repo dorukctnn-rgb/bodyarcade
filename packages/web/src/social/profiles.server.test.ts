@@ -61,7 +61,7 @@ function device(book: ProfileBook, store = new MemoryKeyStore()): { port: Social
     return res;
   };
   const client = new SocialClient({ origin: TEST_ORIGIN, keys: store, fetch: net as typeof fetch, WebSocket: IdleWs as never });
-  const port = createSocialPort({ client, age: { under13: () => false, remember: () => undefined }, kidProfile: () => !book.online() });
+  const port = createSocialPort({ client, age: { tooYoung: () => false, remember: () => undefined }, kidProfile: () => !book.online() });
   ports.push(port);
   return { port, client, store };
 }

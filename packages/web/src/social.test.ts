@@ -95,20 +95,20 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(friendsPage(ctx, { state: off.state(), add }).value).toContain('data-action="social.retry"');
   });
 
-  it('under 13 and kid profiles are told there is no online profile, with a way back to the games and nothing to press for a profile', async () => {
+  it('under 16 and kid profiles are told there is no online profile, with a way back to the games and nothing to press for a profile', async () => {
     const { ctx, missing } = ctxOf(lang);
-    for (const mode of ['under13', 'kid'] as const) {
+    for (const mode of ['young', 'kid'] as const) {
       const s = (await ready(mode)).state();
       const html = friendsPage(ctx, { state: s, add }).value;
       expect(html, mode).not.toContain('data-action="social.profile"');
       expect(html, mode).not.toContain('data-action="social.recover"');
       expect(html, mode).toContain(`href="${ctx.href('home')}"`);
-      expect(textOf(html), mode).toContain(ctx.i18n.tx(`ux.${mode === 'kid' ? 'kid' : 'under13'}.title`));
+      expect(textOf(html), mode).toContain(ctx.i18n.tx(`ux.${mode === 'kid' ? 'kid' : 'young'}.title`));
       // every other page of the area says the same instead of asking
       for (const body of [
         profileMain(ctx, { ...NO_PROFILE_VIEW, state: s }).value, boardsMain(ctx, boardsView(s)).value, friendLinkPage(ctx, { ...NO_LINK_VIEW, code: 'BA-9PXMR3', noOnline: s.noOnline }).value,
         roomPage(ctx, { ...NO_ROOM_VIEW, noOnline: s.noOnline }).value, lobbiesPage(ctx, lobbiesView(s, [])).value,
-      ]) expect(body, mode).toContain(ctx.i18n.tx(`ux.${mode === 'kid' ? 'kid' : 'under13'}.title`));
+      ]) expect(body, mode).toContain(ctx.i18n.tx(`ux.${mode === 'kid' ? 'kid' : 'young'}.title`));
     }
     expect(missing).toEqual([]);
   });
@@ -166,7 +166,7 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     const t = profileMain(ctx, { ...NO_PROFILE_VIEW, state: teen }).value;
     expect(t).not.toContain('data-form="me-name"');
     expect(t).toContain('data-action="me.reroll"');
-    expect(t).not.toContain('data-action="me.ageDown"');                                   // there is nothing below 13 to 17 but no profile
+    expect(t).not.toContain('data-action="me.ageDown"');                                   // there is nothing below 16 to 17 but no profile
     expect(t).toContain('data-action="me.ageChild"');
     expect(new Set(ids(html)).size).toBe(ids(html).length);
     expect((html.match(/<h1[\s>]/g) ?? []).length).toBe(1);
@@ -432,7 +432,7 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(missing).toEqual([]);
   });
 
-  it('safety explains the moments, the rules of each age group (under 13 has no profile), what is kept, and lists who is blocked, with a way to undo it', () => {
+  it('safety explains the moments, the rules of each age group (under 16 has no profile), what is kept, and lists who is blocked, with a way to undo it', () => {
     const { ctx, missing } = ctxOf(lang, '/safety/');
     const html = safetyPage(ctx, [{ fid: 'BLOCKED234', name: 'Rude Raven 42', at: 0 }]).value;
     expect(missing).toEqual([]);
@@ -440,15 +440,15 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(textOf(html)).toContain('Rude Raven 42');
     expect(textOf(html)).not.toMatch(NO_LEAK);
     expect(textOf(safetyPage(ctx, []).value)).toContain(ctx.i18n.t('safety.blocked.empty'));
-    for (const key of ['ux.age.child.1', 'ux.safety.keepBody', 'ux.safety.searchBody', 'ux.safety.sentBody', 'ux.safety.under13Body']) expect(textOf(html), key).toContain(ctx.i18n.tx(key));
+    for (const key of ['ux.age.child.1', 'ux.safety.keepBody', 'ux.safety.searchBody', 'ux.safety.sentBody', 'ux.safety.youngBody']) expect(textOf(html), key).toContain(ctx.i18n.tx(key));
     // the sample windows of a report and a block name nobody (no placeholder dots where a name would stand)
     for (const key of ['ux.safety.reportTitle', 'ux.safety.reportFine', 'ux.safety.blockTitle', 'ux.safety.blockBody']) expect(textOf(html), key).toContain(ctx.i18n.tx(key));
     expect(textOf(html)).not.toContain('...');
-    // the old promise that under 13 plays in private rooms is gone
+    // the old promise that under 16 plays in private rooms is gone
     expect(textOf(html)).not.toContain(ctx.i18n.tx('safety.age.child.3'));
   });
 
-  it('the sign-up: the age question has three neutral choices, under 13 says there is no profile, a made-up name for the young, the code for the grown-up', async () => {
+  it('the sign-up: the age question has three neutral choices, under 16 says there is no profile, a made-up name for the young, the code for the grown-up', async () => {
     const { ctx, missing } = ctxOf(lang);
     const age = profileSheet(ctx, sheet()).value;
     expect((age.match(/type="radio" name="age"/g) ?? []).length).toBe(3);
@@ -458,8 +458,8 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     const picked = profileSheet(ctx, sheet({ band: 'teen' })).value;
     expect(picked).not.toMatch(/data-action="sheet.age.next"[^>]*disabled/);
     expect(picked).toContain('value="teen" data-key="age-teen" checked');
-    const under = profileSheet(ctx, sheet({ step: 'under13', band: 'child' })).value;
-    expect(textOf(under)).toContain(ctx.i18n.tx('ux.under13.body'));
+    const under = profileSheet(ctx, sheet({ step: 'young', band: 'child' })).value;
+    expect(textOf(under)).toContain(ctx.i18n.tx('ux.young.body'));
     expect(under).toContain('data-dialog-close="games"');
     expect(under).not.toContain('name="name"');
     const adultName = profileSheet(ctx, sheet({ step: 'name', band: 'adult', name: 'Doruk', error: 'That name cannot be used.' })).value;

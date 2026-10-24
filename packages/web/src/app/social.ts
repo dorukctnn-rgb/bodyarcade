@@ -575,8 +575,8 @@ export class SocialController {
     if (a?.kind !== 'profile' || !a.sheet.band) return;
     if (a.sheet.band === 'child') {
       // Nothing is made and nothing is sent: the answer is remembered on this device and that is all.
-      this.svc.social.declareUnder13();
-      a.sheet.step = 'under13';
+      this.svc.social.declareTooYoung();
+      a.sheet.step = 'young';
     } else {
       a.sheet.step = 'name';
       a.sheet.name = a.sheet.band === 'adult' ? '' : randomPresetName();
@@ -782,7 +782,7 @@ export class SocialController {
     this.note('age', r.ok ? { ok: true, text: u('me.ageDownDone') } : { ok: false, text: this.text(r) });
   }
 
-  /** Under 13 has no online profile: the profile is erased and the answer is kept on the device. */
+  /** Under 16 has no online profile: the profile is erased and the answer is kept on the device. */
   private async ageChild(): Promise<void> {
     const ctx = this.host.context();
     const u = ux(ctx);
@@ -790,7 +790,7 @@ export class SocialController {
     if (!yes) return;
     const r = await this.busy('age', () => this.svc.social.deleteProfile());
     if (!r.ok) { this.note('age', { ok: false, text: this.text(r) }); return; }
-    this.svc.social.declareUnder13();
+    this.svc.social.declareTooYoung();
     this.me = { draft: null, notes: {}, busy: null };
     this.host.toast(u('me.dataDeleted'));
     this.host.go(ctx.href('friends'), { replace: true });

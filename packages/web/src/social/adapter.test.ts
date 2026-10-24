@@ -1,5 +1,5 @@
 // The social port on a scripted client: what the screens are told in each situation (no profile, saved profile and no
-// network, a suspended profile, under 13, a kid profile, the recovery code, a profile deleted elsewhere) and that no call of
+// network, a suspended profile, under 16, a kid profile, the recovery code, a profile deleted elsewhere) and that no call of
 // the port ever throws. The real client against the real routes is in adapter.server.test.ts.
 import { describe, expect, it, vi } from 'vitest';
 import { SocialApiError, type MatchProgress, type PendingInvite, type SignUp, type SocialEvents } from '../../../core/social/client.ts';
@@ -93,12 +93,12 @@ class FakeClient implements SocialClientLike {
   setStatus(s: string, game?: string): void { this.calls.push(`setStatus ${s} ${game ?? ''}`); }
 }
 
-function make(opts: { under13?: boolean; kid?: boolean } = {}) {
+function make(opts: { young?: boolean; kid?: boolean } = {}) {
   const client = new FakeClient();
-  let under13 = opts.under13 === true;
-  const remembered = vi.fn(() => { under13 = true; });
+  let tooYoung = opts.young === true;
+  const remembered = vi.fn(() => { tooYoung = true; });
   let kid = opts.kid === true;
-  const port = createSocialPort({ client, age: { under13: () => under13, remember: remembered }, kidProfile: () => kid, lang: () => 'tr' });
+  const port = createSocialPort({ client, age: { tooYoung: () => tooYoung, remember: remembered }, kidProfile: () => kid, lang: () => 'tr' });
   const notices: SocialNotice[] = [];
   port.notices((n) => notices.push(n));
   return { client, port, notices, remembered, setKid: (v: boolean) => { kid = v; } };
@@ -129,25 +129,25 @@ describe('opening', () => {
     expect(client.calls.filter((c) => c === 'init')).toHaveLength(1);
   });
 
-  it('under 13: the page sends nothing, not even a question to the server', async () => {
-    const { client, port } = make({ under13: true });
+  it('under 16: the page sends nothing, not even a question to the server', async () => {
+    const { client, port } = make({ young: true });
     await port.open();
     expect(client.calls).toEqual([]);
-    expect(port.state()).toMatchObject({ status: 'ready', noOnline: 'under13', profile: null });
+    expect(port.state()).toMatchObject({ status: 'ready', noOnline: 'young', profile: null });
     const made = await port.createProfile({ band: 'child', name: null });
     expect(made).toMatchObject({ ok: false, code: 'child_no_online' });
     expect(client.calls).toEqual([]);
   });
 
-  it('saying under 13 is remembered on the device and changes the state at once', async () => {
+  it('saying under 16 is remembered on the device and changes the state at once', async () => {
     const { client, port, remembered } = make();
     await port.open();
     const seen: string[] = [];
     port.subscribe(() => seen.push(String(port.state().noOnline)));
-    port.declareUnder13();
+    port.declareTooYoung();
     expect(remembered).toHaveBeenCalledOnce();
-    expect(port.state().noOnline).toBe('under13');
-    expect(seen).toEqual(['under13']);
+    expect(port.state().noOnline).toBe('young');
+    expect(seen).toEqual(['young']);
     // the age band chosen in the sign-up never reaches the client: a child band is refused before any call
     expect(await port.createProfile({ band: 'child', name: 'Mia' })).toMatchObject({ ok: false, code: 'child_no_online' });
     expect(client.calls.filter((c) => c.startsWith('signUp'))).toEqual([]);

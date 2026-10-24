@@ -55,7 +55,7 @@ export type HubStatus = 'idle' | 'connecting' | 'online' | 'replaced' | 'banned'
 export interface PendingInvite { id: string; from: { fid: string; name: string }; room: string; game: string; exp: number }
 
 export interface SignUp {
-  /** The age declaration (child under 13, teen 13-17, adult 18+). It decides everything the profile may do. */
+  /** The age declaration (child under 16, teen 16-17, adult 18+). It decides everything the profile may do. */
   band: AgeBand;
   /** Adults: a name of their own, filtered by the server. Under 18: only a generated name (core/social/presets.ts randomPresetName) is taken; anything else is ignored and the server generates one. */
   name?: string;
@@ -261,7 +261,7 @@ export class SocialClient {
 
   /** Makes the profile (a new device key signs the request, which proves the key is held). */
   async signUp(input: SignUp): Promise<MyProfile> {
-    // Under 13 has no online identity at all (POLICY in age.ts): not even a device key is made, and nothing is sent.
+    // Under 16 has no online identity at all (POLICY in age.ts): not even a device key is made, and nothing is sent.
     if (!canGoOnline(input.band)) throw new SocialApiError(403, 'child_no_online');
     await this.load();
     if (this.identity?.registered) throw new SocialApiError(409, 'conflict');

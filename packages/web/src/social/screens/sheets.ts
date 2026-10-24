@@ -17,7 +17,7 @@ export type { PresetId };
 // ---- the sign-up --------------------------------------------------------------------------------------------------------
 
 export interface ProfileSheet {
-  step: 'age' | 'name' | 'under13' | 'recovery' | 'recover';
+  step: 'age' | 'name' | 'young' | 'recovery' | 'recover';
   band: AgeBand | null;
   /** Adults type the name; for under 18 this is the generated name shown. */
   name: string;
@@ -72,10 +72,10 @@ export function profileSheet(ctx: ViewContext, s: ProfileSheet): SafeHtml {
       <fieldset class="ba-fieldset"><legend class="ba-visually-hidden">${u('age.title')}</legend><div class="k-agecards">${(['child', 'teen', 'adult'] as const).map((b) => ageCard(ctx, b, s.band === b))}</div></fieldset>
       <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="sheet.age.next"${attr('disabled', s.band === null)}>${u('age.continue')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="sheet.recover.open">${u('age.have')}</button><button class="ba-btn ba-btn--quiet" type="button" data-dialog-close="cancel">${t.t('common.cancel')}</button></div></div>`;
   }
-  if (s.step === 'under13') {
-    return html`<div class="k-sheet k-sheet--bare"><h2 id="sheet-h">${u('under13.title')}</h2>
-      <p class="k-flat" id="sheet-d">${u('under13.body')}</p><p class="ba-small k-flat">${u('under13.kept')}</p>
-      <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-dialog-close="games" autofocus>${u('under13.games')}</button></div></div>`;
+  if (s.step === 'young') {
+    return html`<div class="k-sheet k-sheet--bare"><h2 id="sheet-h">${u('young.title')}</h2>
+      <p class="k-flat" id="sheet-d">${u('young.body')}</p><p class="ba-small k-flat">${u('young.kept')}</p>
+      <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-dialog-close="games" autofocus>${u('young.games')}</button></div></div>`;
   }
   if (s.step === 'recovery' && s.recovery) return html`<div class="k-sheet k-sheet--bare">${recoveryBody(ctx, { friend: s.recovery.friend, code: s.recovery.code, persistent: s.persistent }, 'created')}</div>`;
   if (s.step === 'recover') {
@@ -115,11 +115,14 @@ export function seatMenuSheet(ctx: ViewContext, who: { seat: string; name: strin
 
 export interface ReportSheet { reason: ReportReason; alsoBlock: boolean; details: string }
 
+/** The words of a reason in the report sheet: the shell's own, except "seems too young", whose age is the rule's (ONLINE_MIN_AGE). */
+const reasonLabel = (ctx: ViewContext, r: ReportReason): string => (r === 'underage' ? ux(ctx)('report.underage') : ctx.i18n.tx(`safety.report.reason.${r}`));
+
 /** A report names a reason and may carry a typed note; only a grown-up's report does (a young player picks a reason and nothing else). */
 export function reportSheet(ctx: ViewContext, who: { fid: string; name: string }, s: ReportSheet, canNote = true): SafeHtml {
   const t = ctx.i18n;
   return html`<div class="k-sheet k-sheet--bare"><div class="who">${avatar(who.fid)}<h2 id="sheet-h">${t.t('safety.report.title', { name: who.name })}</h2></div>
-    <fieldset class="ba-fieldset"><legend class="ba-visually-hidden">${t.t('safety.report.reason')}</legend><div class="k-radios">${REPORT_REASONS.map((r) => html`<label class="k-radio"><input type="radio" name="reason" value="${r}" data-key="reason-${r}"${attr('checked', s.reason === r)}>${t.tx(`safety.report.reason.${r}`)}</label>`)}</div></fieldset>
+    <fieldset class="ba-fieldset"><legend class="ba-visually-hidden">${t.t('safety.report.reason')}</legend><div class="k-radios">${REPORT_REASONS.map((r) => html`<label class="k-radio"><input type="radio" name="reason" value="${r}" data-key="reason-${r}"${attr('checked', s.reason === r)}>${reasonLabel(ctx, r)}</label>`)}</div></fieldset>
     ${canNote ? html`<textarea class="ba-input k-textarea" name="details" maxlength="500" aria-label="${t.t('safety.report.details')}" placeholder="${t.t('safety.report.details')}" data-key="report-details">${s.details}</textarea>` : ''}
     <label class="k-check"><input type="checkbox" name="alsoBlock" data-key="report-block"${attr('checked', s.alsoBlock)}>${t.t('safety.report.alsoBlock', { name: who.name })}</label>
     <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="sheet.report.send">${icon('flag')}${t.t('safety.report.send')}</button><button class="ba-btn ba-btn--quiet" type="button" data-dialog-close="cancel">${t.t('common.cancel')}</button></div>

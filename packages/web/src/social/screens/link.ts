@@ -11,7 +11,7 @@ import { pageHead } from '../../views/parts.ts';
 import type { NoOnline } from '../port.ts';
 import { ux } from '../strings.ts';
 import { avatar } from '../ui.ts';
-import { kidPanel, panel, under13Panel } from './friends.ts';
+import { kidPanel, panel, youngPanel } from './friends.ts';
 
 export interface FriendLinkView {
   /** The friend code in the link, or null when the link holds none that is valid. */
@@ -35,7 +35,7 @@ export function friendLinkMain(ctx: ViewContext, v: FriendLinkView): SafeHtml {
   const u = ux(ctx);
   const head = pageHead(ctx, u('link.title'), { back: ctx.href('friends') });
   if (v.code === null) return html`${head}<p class="ba-lead k-mt" role="alert">${t.t('friendlink.bad')}</p><div class="ba-actions"><a class="ba-btn ba-btn--secondary" href="${ctx.href('friends')}">${t.t('room.problem.back')}</a></div>`;
-  if (v.noOnline === 'under13') return html`${head}${under13Panel(ctx)}`;
+  if (v.noOnline === 'young') return html`${head}${youngPanel(ctx)}`;
   if (v.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
   if (v.offline && !v.profile) {
     return html`${head}${panel({ icon: 'wifi', title: t.t('social.offline.title'), body: u('link.offline'), actions: html`<button class="ba-btn ba-btn--secondary" type="button" data-action="social.retry">${t.t('social.retry')}</button>` })}`;
@@ -85,7 +85,7 @@ export function safetyMain(ctx: ViewContext, blocks: readonly BlockEntry[]): Saf
       <div class="k-factcards">
         <div class="k-card"><h3>${u('safety.searchTitle')}</h3><p>${u('safety.searchBody')}</p></div>
         <div class="k-card"><h3>${u('safety.sentTitle')}</h3><p>${u('safety.sentBody')}</p></div>
-        <div class="k-card"><h3>${u('safety.under13Title')}</h3><p>${u('safety.under13Body')}</p></div>
+        <div class="k-card"><h3>${u('safety.youngTitle')}</h3><p>${u('safety.youngBody')}</p></div>
       </div>
     </section>
     <section class="ba-section" aria-labelledby="blocked"><header><h2 id="blocked">${t.t('safety.blocked.title')}</h2></header>

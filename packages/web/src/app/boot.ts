@@ -7,7 +7,7 @@
 // page does not wait long for the entitlements (a licence kept from the old site is checked on the way): it is drawn from
 // what the device kept and drawn again when they answer.
 import { bootEntitlements, type BootResult, type BootWindow } from '../../../core/entitlements/boot.ts';
-import { createProfileBook, type ProfileBook } from '../../../core/store/index.ts';
+import { createProfileBook, watchOnline, type ProfileBook } from '../../../core/store/index.ts';
 import { createStore, type StorageLike } from '../../../core/store/store.ts';
 import { createI18n } from '../../../core/ui/i18n/index.ts';
 import type { Catalogue } from '../../catalogue/types.ts';
@@ -133,12 +133,15 @@ export async function boot(o: BootOptions): Promise<App> {
   // the players blocked in rooms) live in the owner's own namespace whoever is playing, so they get a store on that prefix.
   const url = `${o.win.location.pathname}${o.win.location.search}`;
   const linkEntry = isLinkEntry(url);
-  const realSocial = social ? null : startSocial({
+  const startServices = (): ReturnType<typeof startSocial> => startSocial({
     win: o.win,
     store: createStore({ ...(o.profiles?.storage !== undefined ? { storage: o.profiles.storage } : {}) }),
     entry: linkEntry,
     kidProfile: () => !book.online(),
   });
+  // A page opened under a child's profile asks the service nothing, not even whether it exists (startSocial answers null at once);
+  // the services start the moment the main player plays (see below).
+  const realSocial = social ? null : startServices();
   const socialDeadline = realSocial ? new Promise<'late'>((resolve) => { setTimeout(() => resolve('late'), linkEntry ? SOCIAL_ENTRY_WAIT_MS : ENTITLEMENTS_WAIT_MS); }) : null;
   let billing: BillingPort;
   let entitlements: EntitlementsPort | undefined;
@@ -197,6 +200,24 @@ export async function boot(o: BootOptions): Promise<App> {
     onPlayGesture: () => { try { pageAudio().unlock(); } catch { /* no Web Audio here: the round plays without sound */ } },
   });
   app.start();
+  // The connection to the friends service follows the player: open while a profile with an online identity plays (the owner), closed
+  // while a child's profile does (the owner then looks offline and gets no invitations). Nothing is made or sent for a child either way.
+  const follow = (svc: SocialServices): void => { watchOnline(book, { open: () => svc.social.open(), close: () => svc.social.close() }); };
+  if (realSocial) void realSocial.then((svc) => { if (svc) follow(svc); });
+  // The page was opened under a child's profile: the friends services start when the main player takes over (through the parent gate).
+  if (!social && !book.online()) {
+    const off = book.onChange(() => {
+      if (!book.online()) return;
+      off();
+      void startServices().then((svc) => {
+        if (!svc) return;
+        lateServices = svc;
+        app.attachSocial(svc);
+        follow(svc);
+        if (o.demo) o.win.__BA_SOCIAL_PORTS__ = svc;
+      });
+    });
+  }
   if (later) void later.then((r) => app.attach(r ? { entitlements: r.port, billing: r.billing } : { billing: pendingBilling('unavailable') }));
   if (lateSocial) void lateSocial.then((svc) => { if (svc) { lateServices = svc; app.attachSocial(svc); if (o.demo) o.win.__BA_SOCIAL_PORTS__ = svc; } });
   if (o.demo) {

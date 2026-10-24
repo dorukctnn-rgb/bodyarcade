@@ -14,7 +14,7 @@ import { pageHead } from '../../views/parts.ts';
 import type { FeedItem, NoOnline, RoomProblem, RoomState } from '../port.ts';
 import { ux } from '../strings.ts';
 import { avatar, DOT_OF, presenceText } from '../ui.ts';
-import { kidPanel, under13Panel } from './friends.ts';
+import { kidPanel, youngPanel } from './friends.ts';
 
 export interface RoomView {
   room: RoomState;
@@ -133,7 +133,7 @@ export function roomMain(ctx: ViewContext, v: RoomView): SafeHtml {
   const r = v.room;
   const back = ctx.href('friends');
   const leave = html`<button class="ba-btn ba-btn--quiet" type="button" data-action="room.leave">${icon('door')}${t.t('room.leave')}</button>`;
-  if (v.noOnline === 'under13') return html`${pageHead(ctx, t.t('room.title'), { back })}${under13Panel(ctx)}`;
+  if (v.noOnline === 'young') return html`${pageHead(ctx, t.t('room.title'), { back })}${youngPanel(ctx)}`;
   if (v.noOnline === 'kid') return html`${pageHead(ctx, t.t('room.title'), { back })}${kidPanel(ctx)}`;
   if (r.problem || r.phase === 'closed' || r.phase === 'idle') {
     const problem: RoomProblem = r.problem && PROBLEMS.includes(r.problem) ? r.problem : 'no_room';

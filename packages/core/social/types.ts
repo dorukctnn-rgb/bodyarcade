@@ -11,7 +11,7 @@ import type { AgeBand, ReportReason } from '../types/net.ts';
 export type { AgeBand, ReportReason };
 export { REPORT_REASONS } from '../types/net.ts';
 
-/** Self-declared at first social use: child under 13, teen 13-17, adult 18+ (tech.md 5, game-design 2.9). */
+/** Self-declared at first social use: child under 16 (no online identity), teen 16-17, adult 18+ (tech.md 5, game-design 2.9; the numbers are ONLINE_MIN_AGE and ADULT_AGE in age.ts). */
 export const AGE_BANDS: readonly AgeBand[] = ['child', 'teen', 'adult'];
 
 /** Public lobbies and quick match never mix teens with adults, and children have none. */

@@ -2,6 +2,7 @@
 // carries a dash, an arrow, a check mark, an emoji or an exclamation mark (the shell's copy rules), the Turkish uses its own
 // letters, and the sentence of every failure code is there.
 import { describe, expect, it } from 'vitest';
+import { ADULT_AGE, ONLINE_MIN_AGE } from '../../../core/social/age.ts';
 import { createI18n, variablesOf } from '../../../core/ui/i18n/index.ts';
 import type { Failed, SocialFailure } from './port.ts';
 import { failText, waitText } from './messages.ts';
@@ -81,6 +82,46 @@ describe('the two languages', () => {
       const u = ux({ i18n: createI18n(lang) });
       expect(u('age.title')).toBe(en['age.title']);
     }
+  });
+});
+
+describe('the ages the words name', () => {
+  const all = (table: Readonly<Record<string, string>>): string[] => Object.keys(table).map((k) => table[k] as string);
+
+  it('are the ones of the rule in core/social/age.ts: online play starts at 16, the grown-up settings at 18, and no word still says 13', () => {
+    for (const [name, table] of [['en', en], ['tr', tr]] as const) {
+      for (const k of ['age.child', 'young.title', 'young.body', 'me.band.child', 'me.ageChild', 'me.ageChildBody', 'safety.youngTitle', 'safety.youngBody', 'err.child_no_online'] as const) {
+        expect(table[k], `${name} ${k}`).toContain(String(ONLINE_MIN_AGE));
+      }
+      for (const k of ['age.teen', 'me.band.teen', 'me.ageDownTitle', 'me.ageDownDone'] as const) {
+        expect(table[k], `${name} ${k}`).toContain(String(ONLINE_MIN_AGE));
+        expect(table[k], `${name} ${k}`).toContain(String(ADULT_AGE - 1));
+      }
+      expect(table['age.adult'], `${name} age.adult`).toContain(String(ADULT_AGE));
+      for (const text of all(table)) expect(text).not.toMatch(/13/);
+    }
+    expect(en['young.title']).toBe('Online play starts at 16');
+    expect(tr['young.title']).toBe('Çevrimiçi oyun 16 yaşında başlar');
+    expect(en['age.child']).toBe('Under 16');
+    expect(en['age.teen']).toBe('16 to 17');
+    expect(en['age.adult']).toBe('18 or older');
+  });
+
+  it('say kindly what a player under 16 keeps, and that nothing leaves the device', () => {
+    expect(en['young.body']).toMatch(/no profile, friend code or account/);
+    expect(en['young.body']).toMatch(/nothing about you is sent to a server/);
+    expect(en['young.body']).toMatch(/work on this device/);
+    expect(tr['young.body']).toMatch(/hiçbir bilgi bir sunucuya gönderilmez/);
+    expect(tr['young.body']).toMatch(/bu cihazda çalışır/);
+  });
+
+  it('keep the names of the two buttons of the data card the way the FAQ and the release gate of the pages say them, and the confirmation says it is the account', () => {
+    expect(en['me.dataDownload']).toBe('Download my data');
+    expect(en['me.dataDelete']).toBe('Delete my profile');
+    expect(tr['me.dataDownload']).toBe('Verilerimi indir');
+    expect(tr['me.dataDelete']).toBe('Profilimi sil');
+    expect(en['me.dataDeleteBody']).toMatch(/deletes your account/);
+    expect(tr['me.dataDeleteBody']).toMatch(/hesabını siler/);
   });
 });
 

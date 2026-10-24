@@ -116,22 +116,22 @@ describe('starting the services', () => {
     expect(added).toMatchObject({ ok: false });
   });
 
-  it('a player who said under 13 sends nothing: the service is not even asked', async () => {
+  it('a player who said under 16 sends nothing: the service is not even asked', async () => {
     const st = store();
-    st.ns('social').set('under13', true, { version: 1, parse: (r: unknown) => (typeof r === 'boolean' ? r : null) });
+    st.ns('social').set('tooYoung', true, { version: 1, parse: (r: unknown) => (typeof r === 'boolean' ? r : null) });
     const fetchFn = vi.fn(async () => json(401, { error: 'unauthorized' }));
     const s = await startSocial({ win: WIN, store: st, fetch: fetchFn as unknown as typeof fetch, keys: new MemoryKeyStore() });
     expect(s).not.toBeNull();
     await s?.social.open();
-    expect(s?.social.state()).toMatchObject({ noOnline: 'under13', profile: null });
+    expect(s?.social.state()).toMatchObject({ noOnline: 'young', profile: null });
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
-  it('saying under 13 is kept in the store of the page', async () => {
+  it('saying under 16 is kept in the store of the page', async () => {
     const st = store();
     const s = await startSocial({ win: WIN, store: st, fetch: (async () => json(401, { error: 'unauthorized' })) as unknown as typeof fetch, keys: new MemoryKeyStore() });
-    s?.social.declareUnder13();
-    expect(st.ns('social').get('under13', { version: 1, parse: (r: unknown) => (typeof r === 'boolean' ? r : null) }, false)).toBe(true);
+    s?.social.declareTooYoung();
+    expect(st.ns('social').get('tooYoung', { version: 1, parse: (r: unknown) => (typeof r === 'boolean' ? r : null) }, false)).toBe(true);
   });
 
   it('a device that already has a profile does not ask whether the service exists', async () => {

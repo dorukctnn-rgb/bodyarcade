@@ -141,7 +141,7 @@ test('a new friend code makes the old link stale; a new recovery code replaces t
   expect(data.profile).toMatchObject({ name: 'Ada', code: newCode });
 });
 
-test('stepping down an age group takes the typed name and the typed chat away; under 13 erases the profile and closes online play on the device', async () => {
+test('stepping down an age group takes the typed name and the typed chat away; under 16 erases the profile and closes online play on the device', async () => {
   test.setTimeout(120_000);
   const ada = await member('Ada', 'Ada', { phone: true });
   const fid = (await profileOf(ada))?.fid ?? '';
@@ -150,7 +150,7 @@ test('stepping down an age group takes the typed name and the typed chat away; u
   await ada.page.locator('[data-action="me.ageDown"]').click();
   await expect(ada.page.locator('dialog .ba-confirm')).toContainText('You cannot move back up');
   await ada.page.locator('dialog [data-dialog-close="yes"]').click();
-  await expect(ada.page.locator('main')).toContainText('Moved to the 13 to 17 settings');
+  await expect(ada.page.locator('main')).toContainText('Moved to the 16 to 17 settings');
   await expect(ada.page.locator('[data-form="me-name"]')).toHaveCount(0);
   await expect(ada.page.locator('[data-action="me.reroll"]')).toBeVisible();
   await expect(ada.page.locator('main')).toContainText('Preset messages only, no typed chat');
@@ -160,9 +160,9 @@ test('stepping down an age group takes the typed name and the typed chat away; u
   await expect(ada.page.locator('main')).toContainText('Name changed to');
 
   await ada.page.locator('[data-action="me.ageChild"]').click();
-  await expect(ada.page.locator('dialog .ba-confirm')).toContainText('Players under 13 have no online profile');
+  await expect(ada.page.locator('dialog .ba-confirm')).toContainText('Players under 16 have no online profile');
   await ada.page.locator('dialog [data-dialog-close="yes"]').click();
-  await expect(ada.page.locator('main')).toContainText('Online play starts at 13', { timeout: 20_000 });
+  await expect(ada.page.locator('main')).toContainText('Online play starts at 16', { timeout: 20_000 });
   const left = await site.stack.db.prepare('SELECT COUNT(*) AS n FROM soc_profiles WHERE fid = ?1').bind(fid).first<{ n: number }>();
   expect(left?.n).toBe(0);
   const requests: string[] = [];
@@ -343,7 +343,7 @@ test('the screens speak Turkish with Turkish letters, from the age question to t
   expect(await inspect(ada.page)).toEqual([]);
   await ada.page.locator('[data-action="social.profile"]').click();
   await expect(ada.page.locator('dialog h2')).toHaveText('Kaç yaşındasın?');
-  await expect(ada.page.locator('dialog')).toContainText('13 yaşından küçük');
+  await expect(ada.page.locator('dialog')).toContainText('16 yaşından küçük');
   await ada.page.locator('label:has(input[name="age"][value="adult"])').click();
   await ada.page.locator('[data-action="sheet.age.next"]').click();
   await ada.page.locator('#profile-name').fill('Ayşe');

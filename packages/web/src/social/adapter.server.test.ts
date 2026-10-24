@@ -26,7 +26,7 @@ let ipSeq = 0;
 let calls: string[] = [];
 const ports: SocialPortHandle[] = [];
 
-interface Device { port: SocialPortHandle; client: SocialClient; store: MemoryKeyStore; under13: { value: boolean } }
+interface Device { port: SocialPortHandle; client: SocialClient; store: MemoryKeyStore; tooYoung: { value: boolean } }
 
 function device(): Device {
   const store = new MemoryKeyStore();
@@ -45,10 +45,10 @@ function device(): Device {
     return res;
   };
   const client = new SocialClient({ origin: TEST_ORIGIN, keys: store, fetch: net as typeof fetch, WebSocket: IdleWs as never });
-  const under13 = { value: false };
-  const port = createSocialPort({ client, age: { under13: () => under13.value, remember: () => { under13.value = true; } }, lang: () => 'en' });
+  const tooYoung = { value: false };
+  const port = createSocialPort({ client, age: { tooYoung: () => tooYoung.value, remember: () => { tooYoung.value = true; } }, lang: () => 'en' });
   ports.push(port);
-  return { port, client, store, under13 };
+  return { port, client, store, tooYoung };
 }
 
 beforeEach(() => { app = createTestApp(); calls = []; });
@@ -88,16 +88,16 @@ describe('a profile through the port', () => {
     expect(up).toMatchObject({ ok: false, code: 'band_locked' });
   });
 
-  it('under 13 makes no key, sends nothing and the Worker never hears of the player', async () => {
+  it('under 16 makes no key, sends nothing and the Worker never hears of the player', async () => {
     // The test kit turns the switch on so that every band can be exercised; this is the production rule.
     POLICY.child.online = false;
     const d = device();
-    d.port.declareUnder13();
+    d.port.declareTooYoung();
     await d.port.open();
     expect(await d.port.createProfile({ band: 'child', name: null })).toMatchObject({ ok: false, code: 'child_no_online' });
     expect(calls).toEqual([]);
     expect(await d.store.load()).toBeNull();
-    expect(d.port.state().noOnline).toBe('under13');
+    expect(d.port.state().noOnline).toBe('young');
   });
 
   it('a name the filter refuses is told with its reason; the rename limit is three a day and says how long to wait', async () => {

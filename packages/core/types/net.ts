@@ -13,7 +13,7 @@ export type SeatId = string;
 export type RoomCode = string;
 /** private: invite link, code or QR (friends). public: lobby or quick match (strangers: ghosts and presets only). */
 export type RoomKind = 'private' | 'public';
-/** Self-declared at first social use: child under 13, teen 13-17, adult 18+ (BUILD-PLAN, tech.md 5). */
+/** Self-declared at first social use: child under 16 (no online identity), teen 16-17, adult 18+ (BUILD-PLAN, tech.md 5). */
 export type AgeBand = 'child' | 'teen' | 'adult';
 export type Outcome = 'pass' | 'hit';
 export type MatchPhase = 'running' | 'paused' | 'settling' | 'over';

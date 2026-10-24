@@ -1,4 +1,4 @@
-// Public lobbies and quick match, for players 13 and older. Strangers appear as ghosts (a skeleton and a display name,
+// Public lobbies and quick match, for players 16 and older. Strangers appear as ghosts (a skeleton and a display name,
 // preset messages, no video). Quick match looks for a lobby at the player's level every four seconds; after twenty seconds
 // it offers a race against a practice ghost, and after two minutes it says nobody came.
 import { attr, html, type SafeHtml } from '../../../../core/ui/html.ts';
@@ -14,7 +14,7 @@ import { dateTimeText } from '../messages.ts';
 import type { SocialState } from '../port.ts';
 import { ux } from '../strings.ts';
 import { stateBanners } from '../ui.ts';
-import { kidPanel, needProfile, under13Panel } from './friends.ts';
+import { kidPanel, needProfile, youngPanel } from './friends.ts';
 
 /** The state of a quick match search, as the page draws it. */
 export interface QuickView {
@@ -91,7 +91,7 @@ export function lobbiesMain(ctx: ViewContext, v: LobbiesView): SafeHtml {
   const g = v.game;
   const head = pageHead(ctx, t.t('lobby.title'), { back: ctx.href('friends') });
   if (v.games.length === 0) return html`${head}<p class="ba-lead k-mt">${t.t('lobby.noGames')}</p>`;
-  if (s.noOnline === 'under13') return html`${head}${under13Panel(ctx)}`;
+  if (s.noOnline === 'young') return html`${head}${youngPanel(ctx)}`;
   if (s.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
   const banners = stateBanners(ctx, s).filter((b) => !b.value.includes('data-banner="suspended"'));
   let body: SafeHtml;

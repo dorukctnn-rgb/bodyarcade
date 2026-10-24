@@ -1,20 +1,24 @@
 // The words of the friends screens that the shell's own tables (core/ui/i18n) do not have: the age question under the
-// under-13 rule, the recovery code, my profile, the weekly boards, invitations, the friend link and what a failed call
+// online-age rule (nobody under ONLINE_MIN_AGE has an online identity), the recovery code, my profile, the weekly boards, invitations, the friend link and what a failed call
 // means. They live in this file under the `ux` namespace (registerGameStrings, the same door the games' words use), so the
 // shell's tables stay as they are. English is the source; Turkish is complete (the type says so: a missing key is a compile
 // error), German, Spanish and French fall back to English like every other string. The tests check that both languages use
 // the same variables and that no text carries a dash, an arrow, an emoji or an exclamation mark.
+import { ADULT_AGE, ONLINE_MIN_AGE } from '../../../core/social/age.ts';
 import { registerGameStrings, type I18n, type Vars } from '../../../core/ui/i18n/index.ts';
+
+// The ages are written once, in core/social/age.ts: a change of the rule there changes every line below (and a test reads them).
+const TEEN_TOP = ADULT_AGE - 1;
 
 export const en = {
   // ---- the age question and the sign-up ----
   'age.title': 'How old are you?',
   'age.body': 'We ask once, before you make a profile. Your answer decides what you can share.',
-  'age.child': 'Under 13',
+  'age.child': `Under ${ONLINE_MIN_AGE}`,
   'age.child.1': 'No online profile and no friend code',
   'age.child.2': 'No friends, lobbies, rooms, boards or chat',
   'age.child.3': 'All games, your records and ghost races stay on this device',
-  'age.teen': '13 to 17',
+  'age.teen': `${ONLINE_MIN_AGE} to ${TEEN_TOP}`,
   'age.teen.1': 'Friends only by code or link',
   'age.teen.2': 'A name is made for you, and only preset messages',
   'age.teen.3': 'Lobbies with players your age, never video',
@@ -32,10 +36,10 @@ export const en = {
   'name.contact': 'Names cannot hold links, phone numbers or contact details.',
   'name.profanity': 'That name cannot be used. Try another.',
   'name.minor': 'Under 18 a name is made for you.',
-  'under13.title': 'Online play starts at 13',
-  'under13.body': 'Players under 13 do not get a profile, a friend code or an account, and nothing about you is sent to a server. Every game, your records and races against your own ghost work on this device as before.',
-  'under13.kept': 'The app remembers this answer on this device.',
-  'under13.games': 'Back to the games',
+  'young.title': `Online play starts at ${ONLINE_MIN_AGE}`,
+  'young.body': `Friends, rooms and lobbies are for players ${ONLINE_MIN_AGE} and older, so there is no profile, friend code or account to make before then, and nothing about you is sent to a server. All your games, your records and races against your own ghost work on this device, as always.`,
+  'young.kept': 'The app remembers this answer on this device.',
+  'young.games': 'Back to the games',
   'kid.title': 'Kid profiles play on this device only',
   'kid.body': 'Friends, rooms and lobbies belong to a grown-up’s own profile. Ask a parent to switch to theirs. Games, records and ghost races work as always.',
 
@@ -127,24 +131,24 @@ export const en = {
   'me.syncBody': 'Your streak, the daily challenge and your workout plans follow this profile to your other devices.',
   'me.dataTitle': 'Your data',
   'me.dataDownload': 'Download my data',
-  'me.dataDownloadHint': 'One file with your profile, friends, requests, blocks and weekly scores.',
+  'me.dataDownloadHint': 'One file with your profile, friends, requests, blocks, weekly scores and synced records.',
   'me.dataDownloaded': 'Your data file was saved',
   'me.dataDelete': 'Delete my profile',
   'me.dataDeleteTitle': 'Delete your profile?',
-  'me.dataDeleteBody': 'Your profile, friend code, friends, requests and weekly scores are erased on the server and on this device. Your friends are told you are gone. This cannot be undone.',
+  'me.dataDeleteBody': 'This deletes your account. Your profile, friend code, friends, requests, blocks, weekly scores and synced records are erased on the server and on this device, and your friends are told you are gone. Your games and records on this device stay. This cannot be undone.',
   'me.dataDeleted': 'Your profile was deleted',
   'me.ageTitle': 'Your age group',
   'me.ageNow': 'You said you are {band}.',
-  'me.band.child': 'under 13',
-  'me.band.teen': '13 to 17',
+  'me.band.child': `under ${ONLINE_MIN_AGE}`,
+  'me.band.teen': `${ONLINE_MIN_AGE} to ${TEEN_TOP}`,
   'me.band.adult': '18 or older',
   'me.ageDown': 'I am under 18',
-  'me.ageDownTitle': 'Move to the 13 to 17 settings?',
+  'me.ageDownTitle': `Move to the ${ONLINE_MIN_AGE} to ${TEEN_TOP} settings?`,
   'me.ageDownBody': 'Your name becomes a made-up name, typed chat and video stop, and adults cannot send you requests. You cannot move back up: a new profile starts over.',
-  'me.ageDownDone': 'Moved to the 13 to 17 settings',
-  'me.ageChild': 'I am under 13',
+  'me.ageDownDone': `Moved to the ${ONLINE_MIN_AGE} to ${TEEN_TOP} settings`,
+  'me.ageChild': `I am under ${ONLINE_MIN_AGE}`,
   'me.ageChildTitle': 'Delete your online profile?',
-  'me.ageChildBody': 'Players under 13 have no online profile. Your profile, friends and weekly scores are erased, and online play closes on this device. Games and records stay.',
+  'me.ageChildBody': `Players under ${ONLINE_MIN_AGE} have no online profile. Your profile, friends and weekly scores are erased, and online play closes on this device. Games and records stay.`,
   'me.noticesTitle': 'Notices',
 
   // ---- weekly boards ----
@@ -237,6 +241,7 @@ export const en = {
 
   // ---- the safety page ----
   'safety.reportTitle': 'Report this player',
+  'report.underage': `Seems younger than ${ONLINE_MIN_AGE}`,
   'safety.reportFine': 'A person reads every report. The player is not told who sent it.',
   'safety.blockTitle': 'Block this player?',
   'safety.blockBody': 'You will not be matched, invited or shown to each other again. The player is not told. You can unblock below.',
@@ -246,8 +251,8 @@ export const en = {
   'safety.searchBody': 'People find you only with your friend code, your link, or in a public lobby, where you appear as a ghost with your display name.',
   'safety.sentTitle': 'What Request sent means',
   'safety.sentBody': 'The app always says Request sent, whatever happens next. It never tells you whether the other person received it, so nobody can use requests to find out who plays BodyArcade.',
-  'safety.under13Title': 'Under 13',
-  'safety.under13Body': 'Players under 13 have no online profile at all: no friend code, no friends, no lobbies, no boards and no chat. Local play, your records and ghost races stay on the device.',
+  'safety.youngTitle': `Under ${ONLINE_MIN_AGE}`,
+  'safety.youngBody': `Players under ${ONLINE_MIN_AGE} have no online profile at all: no friend code, no friends, no lobbies, no boards and no chat. Local play, your records and ghost races stay on the device.`,
 
   // ---- toasts ----
   'notice.request': '{name} sent you a friend request',
@@ -285,7 +290,7 @@ export const en = {
   'err.you_blocked': 'You blocked this player. Unblock them first.',
   'err.not_friends': 'You are not friends with this player.',
   'err.child_no_public': 'Public lobbies are not open for this age group.',
-  'err.child_no_online': 'Online play starts at 13.',
+  'err.child_no_online': `Online play starts at ${ONLINE_MIN_AGE}.`,
   'err.public_suspended': 'Public lobbies are closed for you until {until}.',
   'err.not_joinable': 'That room cannot take more players.',
   'err.not_in_room': 'Open your room first, then invite.',
@@ -312,11 +317,11 @@ export const tr: Words = {
   // ---- yaş sorusu ve kayıt ----
   'age.title': 'Kaç yaşındasın?',
   'age.body': 'Profil oluşturmadan önce bir kez soruyoruz. Cevabın neleri paylaşabileceğini belirler.',
-  'age.child': '13 yaşından küçük',
+  'age.child': `${ONLINE_MIN_AGE} yaşından küçük`,
   'age.child.1': 'Çevrimiçi profil ve arkadaş kodu yok',
   'age.child.2': 'Arkadaş, lobi, oda, sıralama ve sohbet yok',
   'age.child.3': 'Bütün oyunlar, rekorların ve hayalet yarışları bu cihazda kalır',
-  'age.teen': '13 ile 17 yaş arası',
+  'age.teen': `${ONLINE_MIN_AGE} ile ${TEEN_TOP} yaş arası`,
   'age.teen.1': 'Arkadaşlar yalnızca kod ya da bağlantıyla',
   'age.teen.2': 'Adın senin için seçilir, yalnızca hazır mesajlar',
   'age.teen.3': 'Yaşıtlarınla lobiler, görüntü hiçbir zaman',
@@ -334,10 +339,10 @@ export const tr: Words = {
   'name.contact': 'Adlarda bağlantı, telefon numarası ya da iletişim bilgisi olamaz.',
   'name.profanity': 'Bu ad kullanılamaz. Başka bir tane dene.',
   'name.minor': '18 yaşın altında adı senin için seçeriz.',
-  'under13.title': 'Çevrimiçi oyun 13 yaşında başlar',
-  'under13.body': '13 yaşından küçük oyuncular için profil, arkadaş kodu ya da hesap açılmaz ve hakkında hiçbir bilgi bir sunucuya gönderilmez. Bütün oyunlar, rekorların ve kendi hayaletinle yarışlar eskisi gibi bu cihazda çalışır.',
-  'under13.kept': 'Uygulama bu cevabı bu cihazda hatırlar.',
-  'under13.games': 'Oyunlara dön',
+  'young.title': `Çevrimiçi oyun ${ONLINE_MIN_AGE} yaşında başlar`,
+  'young.body': `Arkadaşlar, odalar ve lobiler ${ONLINE_MIN_AGE} yaş ve üzeri oyuncular içindir; o yaşa kadar profil, arkadaş kodu ya da hesap açılmaz ve senin hakkında hiçbir bilgi bir sunucuya gönderilmez. Bütün oyunlar, rekorların ve kendi hayaletinle yarışlar her zamanki gibi bu cihazda çalışır.`,
+  'young.kept': 'Uygulama bu cevabı bu cihazda hatırlar.',
+  'young.games': 'Oyunlara dön',
   'kid.title': 'Çocuk profilleri yalnızca bu cihazda oynar',
   'kid.body': 'Arkadaşlar, odalar ve lobiler bir yetişkinin kendi profiline aittir. Bir ebeveynden kendi profiline geçmesini iste. Oyunlar, rekorlar ve hayalet yarışları her zamanki gibi çalışır.',
 
@@ -429,24 +434,24 @@ export const tr: Words = {
   'me.syncBody': 'Serin, günlük meydan okuma ve antrenman planların bu profille diğer cihazlarına gelir.',
   'me.dataTitle': 'Verilerin',
   'me.dataDownload': 'Verilerimi indir',
-  'me.dataDownloadHint': 'Profilin, arkadaşların, isteklerin, engellerin ve haftalık skorlarınla tek bir dosya.',
+  'me.dataDownloadHint': 'Profilin, arkadaşların, isteklerin, engellerin, haftalık skorların ve eşitlenen kayıtlarınla tek bir dosya.',
   'me.dataDownloaded': 'Veri dosyan kaydedildi',
   'me.dataDelete': 'Profilimi sil',
   'me.dataDeleteTitle': 'Profilin silinsin mi?',
-  'me.dataDeleteBody': 'Profilin, arkadaş kodun, arkadaşların, isteklerin ve haftalık skorların sunucuda ve bu cihazda silinir. Arkadaşlarına gittiğin bildirilir. Bu geri alınamaz.',
+  'me.dataDeleteBody': 'Bu işlem hesabını siler. Profilin, arkadaş kodun, arkadaşların, isteklerin, engellerin, haftalık skorların ve eşitlenen kayıtların sunucuda ve bu cihazda silinir; arkadaşlarına gittiğin bildirilir. Bu cihazdaki oyunların ve rekorların kalır. Bu geri alınamaz.',
   'me.dataDeleted': 'Profilin silindi',
   'me.ageTitle': 'Yaş grubun',
   'me.ageNow': '{band} olduğunu söyledin.',
-  'me.band.child': '13 yaşından küçük',
-  'me.band.teen': '13 ile 17 yaş arası',
+  'me.band.child': `${ONLINE_MIN_AGE} yaşından küçük`,
+  'me.band.teen': `${ONLINE_MIN_AGE} ile ${TEEN_TOP} yaş arası`,
   'me.band.adult': '18 yaş ve üzeri',
   'me.ageDown': '18 yaşından küçüğüm',
-  'me.ageDownTitle': '13 ile 17 yaş ayarlarına geçilsin mi?',
+  'me.ageDownTitle': `${ONLINE_MIN_AGE} ile ${TEEN_TOP} yaş ayarlarına geçilsin mi?`,
   'me.ageDownBody': 'Adın uydurulmuş bir ada dönüşür, yazılı sohbet ve görüntü durur, yetişkinler sana istek gönderemez. Geri yukarı çıkamazsın: yeni bir profil baştan başlar.',
-  'me.ageDownDone': '13 ile 17 yaş ayarlarına geçildi',
-  'me.ageChild': '13 yaşından küçüğüm',
+  'me.ageDownDone': `${ONLINE_MIN_AGE} ile ${TEEN_TOP} yaş ayarlarına geçildi`,
+  'me.ageChild': `${ONLINE_MIN_AGE} yaşından küçüğüm`,
   'me.ageChildTitle': 'Çevrimiçi profilin silinsin mi?',
-  'me.ageChildBody': '13 yaşından küçük oyuncuların çevrimiçi profili olmaz. Profilin, arkadaşların ve haftalık skorların silinir, çevrimiçi oyun bu cihazda kapanır. Oyunlar ve rekorlar kalır.',
+  'me.ageChildBody': `${ONLINE_MIN_AGE} yaşından küçük oyuncuların çevrimiçi profili olmaz. Profilin, arkadaşların ve haftalık skorların silinir, çevrimiçi oyun bu cihazda kapanır. Oyunlar ve rekorlar kalır.`,
   'me.noticesTitle': 'Bildirimler',
 
   // ---- haftalık sıralamalar ----
@@ -539,6 +544,7 @@ export const tr: Words = {
 
   // ---- güvenlik sayfası ----
   'safety.reportTitle': 'Bu oyuncuyu bildir',
+  'report.underage': `${ONLINE_MIN_AGE} yaşından küçük görünüyor`,
   'safety.reportFine': 'Her bildirimi bir insan okur. Oyuncu, bildirimi kimin gönderdiğini öğrenmez.',
   'safety.blockTitle': 'Bu oyuncu engellensin mi?',
   'safety.blockBody': 'Bir daha eşleşmez, davet edilmez ve birbirinize gösterilmezsiniz. Oyuncu bundan haberdar edilmez. Engeli aşağıdan kaldırabilirsin.',
@@ -548,8 +554,8 @@ export const tr: Words = {
   'safety.searchBody': 'İnsanlar seni yalnızca arkadaş kodunla, bağlantınla ya da görünen adınla hayalet olarak göründüğün herkese açık bir lobide bulur.',
   'safety.sentTitle': 'İstek gönderildi ne demek',
   'safety.sentBody': 'Uygulama, sonrasında ne olursa olsun her zaman İstek gönderildi der. Karşı tarafın isteği alıp almadığını asla söylemez, böylece kimse isteklerle kimlerin BodyArcade oynadığını öğrenemez.',
-  'safety.under13Title': '13 yaşından küçük',
-  'safety.under13Body': '13 yaşından küçük oyuncuların çevrimiçi profili hiç olmaz: arkadaş kodu, arkadaş, lobi, sıralama ve sohbet yok. Yerel oyun, rekorların ve hayalet yarışları cihazda kalır.',
+  'safety.youngTitle': `${ONLINE_MIN_AGE} yaşından küçük`,
+  'safety.youngBody': `${ONLINE_MIN_AGE} yaşından küçük oyuncuların çevrimiçi profili hiç olmaz: arkadaş kodu, arkadaş, lobi, sıralama ve sohbet yok. Yerel oyun, rekorların ve hayalet yarışları cihazda kalır.`,
 
   // ---- bildirimler ----
   'notice.request': '{name} sana arkadaşlık isteği gönderdi',
@@ -587,7 +593,7 @@ export const tr: Words = {
   'err.you_blocked': 'Bu oyuncuyu engelledin. Önce engeli kaldır.',
   'err.not_friends': 'Bu oyuncuyla arkadaş değilsin.',
   'err.child_no_public': 'Herkese açık lobiler bu yaş grubuna kapalı.',
-  'err.child_no_online': 'Çevrimiçi oyun 13 yaşında başlar.',
+  'err.child_no_online': `Çevrimiçi oyun ${ONLINE_MIN_AGE} yaşında başlar.`,
   'err.public_suspended': 'Herkese açık lobiler {until} tarihine kadar sana kapalı.',
   'err.not_joinable': 'Bu oda daha fazla oyuncu alamaz.',
   'err.not_in_room': 'Önce odanı aç, sonra davet et.',

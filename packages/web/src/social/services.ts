@@ -4,7 +4,7 @@
 //
 // Whether the social service exists is asked once, with a plain unsigned GET: a Worker that has it answers 401 with a JSON
 // error, a static host answers 404 or its start page. A device that already has a registered profile does not ask (it has
-// talked to the service before; the page will say so if it is down), and a device that said "under 13" sends nothing at all.
+// talked to the service before; the page will say so if it is down), and a device that said "under 16" sends nothing at all.
 //
 // Room calls are signed: `createLiveRoomPort` gets the client's own `fetcher` and `roomIdentity()`, so the Worker knows which
 // profile opens and joins a room (age band, name and the blocks of that profile) and never takes it from the page's say-so.
@@ -52,7 +52,7 @@ const KEY_DATABASE = 'bodyarcade-social';
 
 /**
  * The device's key store, opened only when something is saved or when its database exists already: a visitor who never makes a
- * profile, or who says they are under 13, never has a database made for them. `exists()` says whether one is there (when the
+ * profile, or who says they are under 16, never has a database made for them. `exists()` says whether one is there (when the
  * browser cannot tell, it is opened).
  */
 export function lazyKeyStore(o: { open(): Promise<KeyStore>; exists(): Promise<boolean> }): KeyStore {
@@ -96,13 +96,17 @@ export interface RealSocial extends SocialServices {
   client: SocialClient;
 }
 
-/** The real services, or null when this site has no social service. Never throws. */
+/**
+ * The real services, or null when this site has no social service, or while a child's profile is playing (nothing is asked of the
+ * service then, not even whether it exists: the page starts the services again when the main player plays). Never throws.
+ */
 export async function startSocial(o: StartSocialOptions): Promise<RealSocial | null> {
   try {
+    if (o.kidProfile?.() === true) return null;
     const ns = o.store.ns('social');
-    const under13 = (): boolean => ns.get('under13', FLAG, false);
+    const tooYoung = (): boolean => ns.get('tooYoung', FLAG, false);
     const keys = o.keys ?? lazyKeyStore({ open: openKeyStore, exists: keyDatabaseExists });
-    let known = under13();
+    let known = tooYoung();
     if (!known) {
       const saved = await keys.load().catch(() => null);
       known = saved?.registered === true;
@@ -116,7 +120,7 @@ export async function startSocial(o: StartSocialOptions): Promise<RealSocial | n
     const kid = o.kidProfile ?? ((): boolean => false);
     const social = createSocialPort({
       client: checked,
-      age: { under13, remember: () => ns.set('under13', true, FLAG) },
+      age: { tooYoung, remember: () => ns.set('tooYoung', true, FLAG) },
       kidProfile: kid,
       lang: () => detectLang(o.win.navigator.languages),
     });

@@ -4,7 +4,7 @@
 // (a request, a new friend, an invitation, being signed out), and turns every failure into a plain answer: the calls here never throw.
 //
 // What it adds to the client, and nothing else:
-//   - under 13 and kid profiles: the page asks, and nothing leaves the device (no key, no request, no socket);
+//   - under 16 and kid profiles: the page asks, and nothing leaves the device (no key, no request, no socket);
 //   - the recovery code of a sign-up or a renewal, handed to the screen once (`state().recovery`, gone at `dismissRecovery()`);
 //   - the profile that left the device without the player asking (deleted on another device, or the server no longer knows the key);
 //   - the profile's saved copy while the server does not answer: the page shows it and says it is offline.
@@ -63,8 +63,8 @@ export interface SocialClientLike extends SyncPort {
 
 export interface SocialPortDeps {
   client: SocialClientLike;
-  /** The shell's memory of "I am under 13": one flag on this device, nothing else, nothing sent. */
-  age: { under13(): boolean; remember(): void };
+  /** The shell's memory of "I am under 16": one flag on this device, nothing else, nothing sent. */
+  age: { tooYoung(): boolean; remember(): void };
   /** The profile in use is a kid profile of the Family plan (it never goes online). Asked again at `recheck()`. */
   kidProfile?: () => boolean;
   /** The language a new profile is made with ('en', 'tr'); the server's own default when missing. */
@@ -92,7 +92,7 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
   const seenInvites = new Set<string>();
 
   const kid = (): boolean => deps.kidProfile?.() === true;
-  const noOnlineNow = (): NoOnline | null => (kid() ? 'kid' : !client.profile && deps.age.under13() ? 'under13' : null);
+  const noOnlineNow = (): NoOnline | null => (kid() ? 'kid' : !client.profile && deps.age.tooYoung() ? 'young' : null);
 
   const build = (): SocialState => {
     const none = noOnlineNow();
@@ -186,7 +186,7 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
   }
 
   /**
-   * Every call that reaches the server goes through here, and none goes when this device has no online identity to use (under 13, or
+   * Every call that reaches the server goes through here, and none goes when this device has no online identity to use (under 16, or
    * a kid profile of the Family plan): the answer is the same one the server gives and no request, no key and no socket is made. The
    * screens are hidden for those players already; this is the last guard against a mistake in a screen.
    */
@@ -218,7 +218,7 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
     setActive(active) { if (!noOnlineNow()) client.setActive(active); },
     setStatus(s, game) { if (!noOnlineNow()) client.setStatus(s, game); },
     takeOver() { if (!noOnlineNow()) client.connect(); },
-    declareUnder13() {
+    declareTooYoung() {
       deps.age.remember();
       emit();
     },

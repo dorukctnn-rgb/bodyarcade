@@ -20,7 +20,7 @@ async function found(body: string, css = ''): Promise<string[]> {
 }
 
 test('words over words, a picture over a control and a paragraph in a sliver are found', async () => {
-  const over = await found('<div style="position:absolute;left:10px;top:10px">Under 13</div><ul style="position:absolute;left:10px;top:12px;margin:0"><li>No online profile and no friend code</li></ul>');
+  const over = await found('<div style="position:absolute;left:10px;top:10px">Under 16</div><ul style="position:absolute;left:10px;top:12px;margin:0"><li>No online profile and no friend code</li></ul>');
   expect(over.join('\n')).toMatch(/texts overlap/);
 
   const picture = await found('<button type="button" style="position:absolute;left:10px;top:120px;width:200px;height:48px">Share invite link</button><span class="ba-qr" style="position:absolute;left:150px;top:100px;width:100px;height:100px;background:#000"></span>');

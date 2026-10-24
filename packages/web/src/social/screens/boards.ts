@@ -13,7 +13,7 @@ import { dateText } from '../messages.ts';
 import type { SocialState } from '../port.ts';
 import { ux } from '../strings.ts';
 import { avatar, stateBanners } from '../ui.ts';
-import { kidPanel, needProfile, under13Panel } from './friends.ts';
+import { kidPanel, needProfile, youngPanel } from './friends.ts';
 
 export interface BoardsView {
   state: SocialState;
@@ -64,7 +64,7 @@ export function boardsMain(ctx: ViewContext, v: BoardsView): SafeHtml {
   const u = ux(ctx);
   const s = v.state;
   const head = pageHead(ctx, u('boards.title'), { back: ctx.href('friends') });
-  if (s.noOnline === 'under13') return html`${head}${under13Panel(ctx)}`;
+  if (s.noOnline === 'young') return html`${head}${youngPanel(ctx)}`;
   if (s.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
   const banners = stateBanners(ctx, s);
   if (!s.profile) return html`${head}${banners}<div class="k-mt">${needProfile(ctx, s, { icon: 'trophy', title: u('boards.title'), body: u('boards.needProfile') })}</div>`;

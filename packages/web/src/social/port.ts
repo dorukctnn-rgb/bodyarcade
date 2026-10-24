@@ -42,10 +42,10 @@ export type Done<T = void> = { ok: true; value: T } | Failed;
 export type SignedOut = 'deleted' | 'unknown_device';
 
 /**
- * Why there is no online profile on this device and none is offered: the player said they are under 13 (nothing is made or sent:
+ * Why there is no online profile on this device and none is offered: the player said they are under 16 (nothing is made or sent:
  * core/social/age.ts POLICY), or the profile in use is a kid profile of the Family plan (kid profiles never register online).
  */
-export type NoOnline = 'under13' | 'kid';
+export type NoOnline = 'young' | 'kid';
 
 export interface SocialState {
   /** loading: the first answer has not come yet; offline: the server does not answer. */
@@ -114,8 +114,8 @@ export interface SocialPort {
   setStatus(status: 'online' | 'playing', game?: string): void;
   /** Takes the connection back after another window took it (`hub` is 'replaced'). */
   takeOver(): void;
-  /** The player said they are under 13: remembered on this device, nothing else (no key, no request). */
-  declareUnder13(): void;
+  /** The player said they are under 16: remembered on this device, nothing else (no key, no request). */
+  declareTooYoung(): void;
   /** The recovery code was shown: it is gone from memory. */
   dismissRecovery(): void;
   /** Asks again whether this device may have an online profile (the active profile of the Family plan changed). */

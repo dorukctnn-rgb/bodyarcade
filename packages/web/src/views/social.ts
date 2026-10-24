@@ -18,7 +18,7 @@ import { NO_ROOM_VIEW, roomPage, type RoomView } from '../social/screens/room.ts
 import { ux } from '../social/strings.ts';
 
 export { avatar, avatarLook, boardGames, onlineGames, type Dot } from '../social/ui.ts';
-export { friendsPage, friendsMain, kidPanel, NO_FRIENDS_VIEW, panel, under13Panel, type FriendsView } from '../social/screens/friends.ts';
+export { friendsPage, friendsMain, kidPanel, NO_FRIENDS_VIEW, panel, youngPanel, type FriendsView } from '../social/screens/friends.ts';
 export { NO_PROFILE_VIEW, profileMain, profilePage, type ProfileView } from '../social/screens/profile.ts';
 export { boardsMain, boardsPage, type BoardsView } from '../social/screens/boards.ts';
 export { IDLE_QUICK, lobbiesMain, lobbiesPage, type LobbiesView, type QuickView } from '../social/screens/lobbies.ts';

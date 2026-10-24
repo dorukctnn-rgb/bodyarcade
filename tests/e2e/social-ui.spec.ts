@@ -65,7 +65,7 @@ test('closing the sign-up window before the recovery code was saved leaves a ban
   await expect(bo.page.locator('[data-banner="recovery"]')).toHaveCount(0);
 });
 
-test('under 13: nothing is made and nothing is sent, the answer is remembered on the device, and the page says why', async () => {
+test('under 16: nothing is made and nothing is sent, the answer is remembered on the device, and the page says why', async () => {
   const kid = await who('Kid', { phone: true });
   const requests: string[] = [];
   kid.page.on('request', (r) => { if (r.url().includes('/api/')) requests.push(`${r.method()} ${new URL(r.url()).pathname}`); });
@@ -74,7 +74,7 @@ test('under 13: nothing is made and nothing is sent, the answer is remembered on
   await kid.page.locator('[data-action="social.profile"]').click();
   await kid.page.locator('label:has(input[name="age"][value="child"])').click();
   await kid.page.locator('[data-action="sheet.age.next"]').click();
-  await expect(kid.page.locator('dialog h2')).toHaveText(/Online play starts at 13/);
+  await expect(kid.page.locator('dialog h2')).toHaveText(/Online play starts at 16/);
   await kid.page.locator('[data-dialog-close="games"]').click();
   await expect(kid.page).toHaveURL(/\/$/);
   // only the question whether the service is there was ever asked (an unsigned GET), never a registration
@@ -84,14 +84,14 @@ test('under 13: nothing is made and nothing is sent, the answer is remembered on
   // the answer stays: a reload of the Friends page says so and asks for nothing, and the page sends nothing at all
   requests.length = 0;
   await kid.open('/friends/');
-  await expect(kid.page.locator('main')).toContainText('Online play starts at 13');
+  await expect(kid.page.locator('main')).toContainText('Online play starts at 16');
   await expect(kid.page.locator('[data-action="social.profile"]')).toHaveCount(0);
   await expect(kid.page.locator('[data-action="social.recover"]')).toHaveCount(0);
   expect(requests).toEqual([]);
-  await shot(kid.page, 'under13-phone');
+  await shot(kid.page, 'young-phone');
 });
 
-test('a 13 to 17 player is given a made-up name, never types one, and has no way to raise the age', async () => {
+test('a 16 to 17 player is given a made-up name, never types one, and has no way to raise the age', async () => {
   const teen = await who('Teen', { phone: true });
   await teen.open('/friends/');
   await ready(teen.page);
@@ -197,7 +197,7 @@ test('a request appears on the other side at once with a notice, is accepted the
   await shot(ada.page, 'friends-live-phone');
 });
 
-test('a request that nobody receives still says "Request sent": an adult to a 13 to 17 player, and one to a player who blocked the sender', async () => {
+test('a request that nobody receives still says "Request sent": an adult to a 16 to 17 player, and one to a player who blocked the sender', async () => {
   const adult = await who('Ada', { phone: true });
   const teen = await who('Teen', { phone: true });
   await adult.open('/friends/');

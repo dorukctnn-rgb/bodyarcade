@@ -1,5 +1,5 @@
 // The Friends page: what the player sees first. Every state of it is a function of the port's state: no profile (the age
-// question waits behind a button), under 13 and kid profiles (no online identity, said plainly), the service not answering,
+// question waits behind a button), under 16 and kid profiles (no online identity, said plainly), the service not answering,
 // a suspended profile, and the profile itself with its code, its friends and their presence, the requests and the way into rooms,
 // lobbies and the weekly boards.
 import { attr, html, type SafeHtml } from '../../../../core/ui/html.ts';
@@ -41,11 +41,11 @@ export function needProfile(ctx: ViewContext, s: SocialState, o: { icon: Paramet
   });
 }
 
-export function under13Panel(ctx: ViewContext): SafeHtml {
+export function youngPanel(ctx: ViewContext): SafeHtml {
   const u = ux(ctx);
   return panel({
-    icon: 'shield', title: u('under13.title'), body: u('under13.body'), note: u('under13.kept'),
-    actions: html`<a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('home')}">${u('under13.games')}</a><a class="ba-link" href="${ctx.href('safety')}">${ctx.i18n.t('social.safetyLink')}</a>`,
+    icon: 'shield', title: u('young.title'), body: u('young.body'), note: u('young.kept'),
+    actions: html`<a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('home')}">${u('young.games')}</a><a class="ba-link" href="${ctx.href('safety')}">${ctx.i18n.t('social.safetyLink')}</a>`,
   });
 }
 
@@ -53,7 +53,7 @@ export function kidPanel(ctx: ViewContext): SafeHtml {
   const u = ux(ctx);
   return panel({
     icon: 'users', title: u('kid.title'), body: u('kid.body'),
-    actions: html`<a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('home')}">${u('under13.games')}</a><a class="ba-link" href="${ctx.href('safety')}">${ctx.i18n.t('social.safetyLink')}</a>`,
+    actions: html`<a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('home')}">${u('young.games')}</a><a class="ba-link" href="${ctx.href('safety')}">${ctx.i18n.t('social.safetyLink')}</a>`,
   });
 }
 
@@ -139,7 +139,7 @@ export function friendsMain(ctx: ViewContext, v: FriendsView): SafeHtml {
   const s = v.state;
   const banners = stateBanners(ctx, s);
   let body: SafeHtml;
-  if (s.noOnline === 'under13') body = under13Panel(ctx);
+  if (s.noOnline === 'young') body = youngPanel(ctx);
   else if (s.noOnline === 'kid') body = kidPanel(ctx);
   else if (s.profile && s.bannedUntil !== null) body = html`<p class="ba-lead k-mt"><a class="ba-link" href="${ctx.href('friends', { query: { view: 'profile' } })}">${u('friends.profile')}</a></p>`;
   else if (s.profile) body = friendsBody(ctx, v, s.profile);

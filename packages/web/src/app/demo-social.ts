@@ -23,10 +23,10 @@ import {
 
 export type DemoSocialMode =
   | 'ready' | 'fresh' | 'offline'
-  /** A profile of a 13 to 17 player. */
+  /** A profile of a 16 to 17 player. */
   | 'teen'
-  /** The player said they are under 13, or the profile in use is a kid profile of the Family plan: no online identity. */
-  | 'under13' | 'kid'
+  /** The player said they are under 16, or the profile in use is a kid profile of the Family plan: no online identity. */
+  | 'young' | 'kid'
   /** A suspended profile; another window took the connection; the profile was deleted elsewhere; the server forgot the device. */
   | 'banned' | 'replaced' | 'deleted' | 'unknown'
   /** The profile is new and its recovery code has not been saved yet. */
@@ -39,7 +39,7 @@ export type DemoSocialMode =
   | 'reconnecting';
 
 export const DEMO_SOCIAL_MODES: readonly DemoSocialMode[] = [
-  'ready', 'fresh', 'offline', 'teen', 'under13', 'kid', 'banned', 'replaced', 'deleted', 'unknown', 'recovery', 'suspended', 'muted', 'alone', 'reconnecting',
+  'ready', 'fresh', 'offline', 'teen', 'young', 'kid', 'banned', 'replaced', 'deleted', 'unknown', 'recovery', 'suspended', 'muted', 'alone', 'reconnecting',
 ];
 
 export interface DemoSocialOptions {
@@ -136,7 +136,7 @@ export function createDemoSocial(o: DemoSocialOptions): SocialServices {
     }
     : {
       ...NO_SOCIAL_STATE,
-      noOnline: o.mode === 'under13' ? 'under13' : o.mode === 'kid' ? 'kid' : null,
+      noOnline: o.mode === 'young' ? 'young' : o.mode === 'kid' ? 'kid' : null,
       signedOut: o.mode === 'deleted' ? 'deleted' : o.mode === 'unknown' ? 'unknown_device' : null,
     };
   state = { ...state, status: 'loading' };
@@ -167,7 +167,7 @@ export function createDemoSocial(o: DemoSocialOptions): SocialServices {
     setActive(active) { note('setActive', active); },
     setStatus(status, game) { note('setStatus', status, game); },
     takeOver() { note('takeOver'); set({ hub: 'online' }); },
-    declareUnder13() { note('declareUnder13'); set({ noOnline: 'under13' }); },
+    declareTooYoung() { note('declareTooYoung'); set({ noOnline: 'young' }); },
     dismissRecovery() { set({ recovery: null }); },
     recheck() { /* the practice port has one profile */ },
 
