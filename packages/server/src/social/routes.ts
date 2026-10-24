@@ -1,9 +1,11 @@
 // HTTP routes of the social module. Registered on the Worker's router with registerSocialRoutes(router).
 //
 //   POST /api/social/register            a new passwordless profile (signed with the key it registers)      -> {me, created}
+//   POST /api/social/recover             the profile back on a new device {pub, code, recovery}             -> {me}
 //   GET  /api/social/me                  the player's profile                                               -> {me}
 //   POST /api/social/me                  change name, region, language, level, appear-offline, band (down)  -> {me}
 //   POST /api/social/me/code             a new friend code                                                   -> {me}
+//   POST /api/social/me/recovery         a new recovery code                                                 -> {recovery}
 //   GET  /api/social/me/export           every stored byte about the player                                  -> {export}
 //   POST /api/social/me/delete           erase the profile {confirm: 'delete'}                               -> {deleted}
 //   GET  /api/social/friends             friends with presence                                               -> {friends}
@@ -37,7 +39,7 @@ import { cancel, addBlock, listBlocks, listFriends, listRequests, removeBlock, r
 import { HUB_HEADERS, closedSocket } from './hub.ts';
 import { declineInvite, invite, listLobbies, quickMatch } from './lobbies.ts';
 import { adminAct, adminReports, adminStats, report } from './moderation.ts';
-import { deleteMe, exportMe, getMe, register, renewCode, updateMe } from './profile.ts';
+import { deleteMe, exportMe, getMe, recover, register, renewCode, renewRecovery, updateMe } from './profile.ts';
 import { finishRun, leaderboard, startRun } from './scores.ts';
 import { authed, guardRequest, open } from './util.ts';
 
@@ -81,9 +83,11 @@ const hubConnect: Handler = async (req, raw, ctx) => {
 
 export function registerSocialRoutes(router: Router): void {
   router.add('POST', '/api/social/register', open(register));
+  router.add('POST', '/api/social/recover', open(recover));
   router.add('GET', '/api/social/me', authed(getMe));
   router.add('POST', '/api/social/me', authed(updateMe));
   router.add('POST', '/api/social/me/code', authed(renewCode));
+  router.add('POST', '/api/social/me/recovery', authed(renewRecovery));
   router.add('GET', '/api/social/me/export', authed(exportMe, { allowBanned: true }));
   router.add('POST', '/api/social/me/delete', authed(deleteMe, { allowBanned: true }));
   router.add('GET', '/api/social/friends', authed(listFriends));

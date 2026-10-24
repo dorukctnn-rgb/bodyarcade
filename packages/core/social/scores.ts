@@ -36,6 +36,7 @@ export const BOARD_GAMES = {
   'limbo-bend': { seconds: 180, ratePerSecond: 300 },
   'pose-wall': { seconds: 210, ratePerSecond: 300 },
   'road-run': { seconds: 90, ratePerSecond: 300 },
+  'summit-climb': { seconds: 300, ratePerSecond: 300 },
 } as const satisfies Record<string, { seconds: number; ratePerSecond: number }>;
 
 export type BoardGame = keyof typeof BOARD_GAMES;

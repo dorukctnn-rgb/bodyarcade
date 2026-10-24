@@ -212,6 +212,8 @@ export interface TestPlayer {
   dev: TestDevice;
   /** The profile as the server returned it at sign-up. */
   me: MyProfile;
+  /** The recovery code the server showed at sign-up. */
+  recovery: string;
   /** A signed request as this player. */
   api<T = Record<string, any>>(method: string, path: string, body?: unknown): Promise<ApiResult<T>>;
   get<T = Record<string, any>>(path: string): Promise<ApiResult<T>>;
@@ -290,11 +292,11 @@ export function createTestApp(opts: AppOptions = {}): TestApp {
     async signup(band, extra = {}, so = {}) {
       const dev = await app.newDevice(so.ip);
       const body = { pub: dev.keys.publicRaw, band, ...extra };
-      const r = await app.call<{ me: MyProfile; error?: string }>('POST', '/api/social/register', { dev, body });
+      const r = await app.call<{ me: MyProfile; recovery: string; error?: string }>('POST', '/api/social/register', { dev, body });
       if (r.status !== 201 && r.status !== 200) throw new Error(`register failed: ${r.status} ${JSON.stringify(r.body)}`);
       const me = r.body.me;
       const player: TestPlayer = {
-        dev, me,
+        dev, me, recovery: r.body.recovery,
         api: (method, path, b) => app.call(method, path, { dev, ...(b === undefined ? {} : { body: b }) }),
         get: (path) => app.call('GET', path, { dev }),
         post: (path, b = {}) => app.call('POST', path, { dev, body: b }),

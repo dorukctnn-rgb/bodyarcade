@@ -7,7 +7,7 @@
 //   - the profile row's `seen_day` is written at most once a day (retention sweep of unused profiles).
 import type { AgeBand, Region } from '../../../core/social/types.ts';
 import { DAY } from '../../../core/social/rules.ts';
-import { AUTH_HEADER, AUTH_QUERY, importPublicKey, parseAuth, verifyRequest } from '../../../core/social/sign.ts';
+import { AUTH_HEADER, AUTH_QUERY, importPublicKey, keyId, parseAuth, verifyRequest } from '../../../core/social/sign.ts';
 import { HttpError } from '../http.ts';
 import { one, run, type D1Like } from './db.ts';
 
@@ -113,4 +113,23 @@ export async function authenticate(c: AuthInput, body: unknown, opts: { allowBan
     c.wait(run(c.db, 'UPDATE soc_profiles SET seen_day = ?2 WHERE pid = ?1', me.pid, today));
   }
   return me;
+}
+
+/**
+ * A request signed with the key its own body carries (`pub`): the sender holds the private half. Register and recover use it
+ * (the device is not known to the server yet). Returns the key and its id; throws 400 `bad_request` for a key that is not one,
+ * 401 `unauthorized`, `clock_skew` or `replayed`.
+ */
+export async function proveKey(c: { req: Request; body: Record<string, unknown>; now: number }): Promise<{ pub: string; kid: string }> {
+  const pub = c.body.pub;
+  const key = await importPublicKey(pub);
+  if (!key || typeof pub !== 'string') throw new HttpError(400, 'bad_request', { field: 'pub' });
+  const parts = parseAuth(c.req.headers.get(AUTH_HEADER));
+  const kid = await keyId(pub);
+  if (!parts || parts.kid !== kid) throw new HttpError(401, 'unauthorized');
+  const verdict = await verifyRequest(parts, key, { method: c.req.method, url: c.req.url, body: c.body }, c.now);
+  if (verdict === 'clock_skew') throw new HttpError(401, 'clock_skew');
+  if (verdict !== 'ok') throw new HttpError(401, 'unauthorized');
+  if (replayed(kid, parts.nonce, c.now)) throw new HttpError(401, 'replayed');
+  return { pub, kid };
 }

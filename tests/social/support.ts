@@ -53,6 +53,8 @@ export async function startSite(): Promise<Site> {
 /** What a page's client holds (tests/social/harness/main.ts `snapshot`). */
 export interface Snapshot {
   persistent: boolean;
+  /** The recovery code the page holds (sign-up, recovery or renewal), null after a reload. */
+  recovery: string | null;
   profile: null | {
     fid: string; name: string; band: 'child' | 'teen' | 'adult'; code: string; link: string; level: number; region: string; dnd: boolean;
     can: { freeName: boolean; freeText: boolean; video: boolean; publicPlay: boolean };

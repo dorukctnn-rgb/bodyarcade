@@ -2,18 +2,18 @@
 // export every stored byte, delete everything.
 import { isAgeBand, lowerBand, policyFor } from '../../../core/social/age.ts';
 import { clampLevel } from '../../../core/social/levels.ts';
-import { friendLink, formatFriendCode, randomFid, randomFriendChars } from '../../../core/social/codes.ts';
+import { friendLink, formatFriendCode, parseFriendCode, parseRecoveryCode, randomFid, randomFriendChars } from '../../../core/social/codes.ts';
 import { nameAfterBandChange, resolveName } from '../../../core/social/names.ts';
 import { randomPresetName } from '../../../core/social/presets.ts';
 import { DAY, LIMITS, REQUEST_TTL_MS, isLang, isRegion, regionFromContinent } from '../../../core/social/rules.ts';
-import { AUTH_HEADER, importPublicKey, keyId, parseAuth, verifyRequest } from '../../../core/social/sign.ts';
 import type { AgeBand, BlockEntry, DataExport, IncomingRequest, MyProfile, OutgoingRequest, Region } from '../../../core/social/types.ts';
 import { HttpError } from '../http.ts';
-import { meFromRow, PROFILE_COLUMNS, replayed, type Me } from './auth.ts';
+import { meFromRow, PROFILE_COLUMNS, proveKey, type Me } from './auth.ts';
 import { isUniqueError, one, rows, run, stmt } from './db.ts';
 import type { D1Like } from './db.ts';
 import type { SocialEnv } from './env.ts';
-import { bumpStmt, enforce, guard, used } from './limits.ts';
+import { bump, bumpStmt, enforce, guard, used } from './limits.ts';
+import { MAX_DEVICES, newRecovery, recoveryHash, sameHash } from './recovery.ts';
 import { eraseProfile } from './people.ts';
 import { hubClose, hubSend, pushPresence } from './presence.ts';
 import { scoresOf } from './scores.ts';
@@ -78,16 +78,7 @@ function fresh(): NewProfile {
  */
 export const register = async (c: Omit<Ctx, 'me'>): Promise<Record<string, unknown> | Response> => {
   const b = c.body;
-  const pub = b.pub;
-  const key = await importPublicKey(pub);
-  if (!key || typeof pub !== 'string') throw new HttpError(400, 'bad_request', { field: 'pub' });
-  const parts = parseAuth(c.req.headers.get(AUTH_HEADER));
-  const kid = await keyId(pub);
-  if (!parts || parts.kid !== kid) throw new HttpError(401, 'unauthorized');
-  const verdict = await verifyRequest(parts, key, { method: c.req.method, url: c.req.url, body: b }, c.now);
-  if (verdict === 'clock_skew') throw new HttpError(401, 'clock_skew');
-  if (verdict !== 'ok') throw new HttpError(401, 'unauthorized');
-  if (replayed(kid, parts.nonce, c.now)) throw new HttpError(401, 'replayed');
+  const { pub, kid } = await proveKey(c);
 
   const existing = await one<Parameters<typeof meFromRow>[0]>(c.db, `SELECT ${PROFILE_COLUMNS} FROM soc_devices d JOIN soc_profiles p ON p.pid = d.pid WHERE d.kid = ?1`, kid);
   if (existing) return known(c, meFromRow(existing, kid));
@@ -112,16 +103,18 @@ export const register = async (c: Omit<Ctx, 'me'>): Promise<Record<string, unkno
 
   for (let attempt = 0; attempt < 6; attempt++) {
     const np = fresh();
+    const rec = await newRecovery(np.pid);
     try {
       await c.db.batch([
-        stmt(c.db, 'INSERT INTO soc_profiles (pid, fid, code, name, band, level, region, lang, dnd, created_at, seen_day) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9, ?10)',
-          np.pid, np.fid, np.code, nm.name, band, level, region, lang, c.now, Math.floor(c.now / DAY)),
+        stmt(c.db, 'INSERT INTO soc_profiles (pid, fid, code, name, band, level, region, lang, dnd, created_at, seen_day, recovery) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9, ?10, ?11)',
+          np.pid, np.fid, np.code, nm.name, band, level, region, lang, c.now, Math.floor(c.now / DAY), rec.hash),
         stmt(c.db, 'INSERT INTO soc_devices (kid, pid, pub, created_at) VALUES (?1, ?2, ?3, ?4)', kid, np.pid, pub, c.now),
         bumpStmt(c.db, 'all', specAll, c.now),
         ...(addr ? [bumpStmt(c.db, addr, LIMITS.registerHour, c.now), bumpStmt(c.db, addr, LIMITS.registerDay, c.now)] : []),
       ]);
       const me = await loadMe(c.db, np.pid, kid);
-      return ok({ created: true, me: await myProfile(c.db, me, c.origin, c.now) }, 201, c.now);
+      // The recovery code is in this answer and nowhere else, ever: the server keeps a hash.
+      return ok({ created: true, me: await myProfile(c.db, me, c.origin, c.now), recovery: rec.shown }, 201, c.now);
     } catch (e) {
       if (!isUniqueError(e)) throw e;
       // Two requests with the same key at once: the other one won, answer with its profile.
@@ -131,6 +124,48 @@ export const register = async (c: Omit<Ctx, 'me'>): Promise<Record<string, unkno
     }
   }
   throw new HttpError(503, 'unavailable');
+};
+
+/**
+ * POST /api/social/recover {pub, code, recovery}: signed with the NEW device's key. The friend code names the profile and the
+ * recovery code proves it is yours; the new key is added to the profile (the oldest device goes when there are five). The code
+ * stays the same, so an answer that was lost on the way can be asked for again; a new one comes from renewRecovery.
+ */
+export const recover = async (c: Omit<Ctx, 'me'>): Promise<Record<string, unknown>> => {
+  const { pub, kid } = await proveKey(c);
+  const chars = parseFriendCode(c.body.code);
+  const typed = parseRecoveryCode(c.body.recovery);
+  if (!chars) throw new HttpError(400, 'bad_request', { field: 'code' });
+  if (!typed) throw new HttpError(400, 'bad_request', { field: 'recovery' });
+  const addr = c.env.SOCIAL_NO_LIMITS === '1' ? null : `a:${await addressHash(c.env, c.req)}`;
+  if (addr) await guard(c.db, addr, LIMITS.recoverAddress, c.now, 'too_many_attempts');
+  await guard(c.db, `rc:${chars}`, LIMITS.recoverCode, c.now, 'too_many_attempts');
+  const prof = await one<{ pid: string; recovery: string }>(c.db, 'SELECT pid, recovery FROM soc_profiles WHERE code = ?1', chars);
+  if (!prof || !sameHash(prof.recovery, await recoveryHash(prof.pid, typed))) {
+    await bump(c.db, `rc:${chars}`, LIMITS.recoverCode, c.now);
+    if (addr) await bump(c.db, addr, LIMITS.recoverAddress, c.now);
+    throw new HttpError(403, 'recovery_failed');
+  }
+  const had = await one<{ pid: string }>(c.db, 'SELECT pid FROM soc_devices WHERE kid = ?1', kid);
+  if (had && had.pid !== prof.pid) throw new HttpError(409, 'conflict');
+  if (!had) {
+    const n = (await one<{ n: number }>(c.db, 'SELECT COUNT(*) AS n FROM soc_devices WHERE pid = ?1', prof.pid))?.n ?? 0;
+    const drop = Math.max(0, n - MAX_DEVICES + 1);
+    await c.db.batch([
+      ...(drop > 0 ? [stmt(c.db, 'DELETE FROM soc_devices WHERE kid IN (SELECT kid FROM soc_devices WHERE pid = ?1 ORDER BY created_at, kid LIMIT ?2)', prof.pid, drop)] : []),
+      stmt(c.db, 'INSERT INTO soc_devices (kid, pid, pub, created_at) VALUES (?1, ?2, ?3, ?4)', kid, prof.pid, pub, c.now),
+    ]);
+  }
+  const me = await loadMe(c.db, prof.pid, kid);
+  return { me: await myProfile(c.db, me, c.origin, c.now) };
+};
+
+/** POST /api/social/me/recovery: a new recovery code (the old one stops working); three a day. */
+export const renewRecovery: SocialHandler = async (c) => {
+  await enforce(c.db, c.me.pid, LIMITS.renewRecovery, c.now);
+  const next = await newRecovery(c.me.pid);
+  await run(c.db, 'UPDATE soc_profiles SET recovery = ?2 WHERE pid = ?1', c.me.pid, next.hash);
+  return { recovery: next.shown };
 };
 
 async function known(c: Omit<Ctx, 'me'>, me: Me): Promise<Record<string, unknown>> {

@@ -21,6 +21,7 @@ function snapshot(): Record<string, unknown> {
   return {
     persistent: social.persistent,
     profile: social.profile,
+    recovery: social.recoveryCode,
     friends: social.friends,
     requests: social.requests,
     blocks: social.blocks,
@@ -100,6 +101,12 @@ const ba = {
     matchRun = social.quickMatch(game, driver, { signal: matchCtl.signal, pollMs: 400 })
       .then((r) => { events.push(`match:${r.outcome}`); render(); return r; })
       .catch((e: unknown) => { const x = e as { status?: number; code?: string }; events.push(`match:error:${x.status}:${x.code}`); render(); return { outcome: 'error', status: x.status, code: x.code }; });
+  },
+  /** Test only: the connection breaks the way a lost network breaks it (the page did not close it), so the client must reconnect. */
+  dropSocket: (): boolean => {
+    const ws = (social as unknown as { socket: { close(code?: number, reason?: string): void } | null }).socket;
+    ws?.close(4999, 'test drop');
+    return ws !== null;
   },
   stopQuickMatch: async (): Promise<unknown> => { matchCtl?.abort(); return matchRun; },
   matchResult: (): Promise<unknown> | null => matchRun,

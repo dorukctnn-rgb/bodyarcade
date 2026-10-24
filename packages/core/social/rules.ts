@@ -47,6 +47,12 @@ export const LIMITS = {
   /** All new profiles per day: the free-plan budget breaker (the server can raise it with SOCIAL_MAX_SIGNUPS_PER_DAY). */
   signupsDay: { name: 'sg', max: 4000, windowMs: DAY },
   deleteMe: { name: 'dl', max: 5, windowMs: DAY },
+  /** Wrong recovery codes for one profile: five an hour, then nobody can try that profile for the rest of the hour. */
+  recoverCode: { name: 'rv', max: 5, windowMs: HOUR },
+  /** Wrong recovery codes from one network address: ten an hour. */
+  recoverAddress: { name: 'ra', max: 10, windowMs: HOUR },
+  /** A new recovery code on request: three a day. */
+  renewRecovery: { name: 'rr', max: 3, windowMs: DAY },
   /** Calls of the operator's statistics a day: each reads at most STATS_COUNT_CAP rows of five tables, and a day has 5,000,000 free row reads. */
   adminStats: { name: 'st', max: 12, windowMs: DAY },
 } as const satisfies Record<string, LimitSpec>;

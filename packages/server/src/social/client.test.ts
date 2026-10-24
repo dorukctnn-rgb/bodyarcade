@@ -737,3 +737,58 @@ describe('weekly boards', () => {
     expect((await kid.client.leaderboard({ game: 'squat-flap', scope: 'friends' })).entries).toEqual([]);
   });
 });
+
+describe('the recovery code', () => {
+  it('is shown to the page at sign-up, and a second device that has it gets the same profile, friends and all', async () => {
+    const a = await device('adult', { name: 'Ada' });
+    const b = await device('adult', { name: 'Bo' });
+    await a.client.sendRequest(b.client.profile?.code ?? '');
+    await b.client.respond(a.fid(), true);
+    const code = a.client.recoveryCode;
+    expect(code).toMatch(/^[2-9A-HJ-NP-Z]{4}(-[2-9A-HJ-NP-Z]{4}){3}$/);
+    expect(await a.store.load()).not.toHaveProperty('recovery');                     // not kept on the device
+    const phone = makeClient(new MemoryKeyStore(), '10.61.0.1', { ms: 0 });
+    const me = await phone.recoverProfile({ code: a.client.profile?.code ?? '', recovery: (code ?? '').toLowerCase() });
+    expect(me.fid).toBe(a.fid());
+    expect(phone.profile?.name).toBe('Ada');
+    expect(phone.recoveryCode).toBe(code);
+    expect((await phone.loadFriends()).map((f) => f.name)).toEqual(['Bo']);
+    expect((await a.client.loadFriends()).map((f) => f.name)).toEqual(['Bo']);          // the first device still works
+    await expect(phone.recoverProfile({ code: a.client.profile?.code ?? '', recovery: code ?? '' })).rejects.toMatchObject({ status: 409, code: 'conflict' });
+    // the phone comes back after a restart with what it saved
+    const restarted = makeClient((phone as unknown as { store: MemoryKeyStore }).store, '10.61.0.1', { ms: 0 });
+    expect((await restarted.init())?.fid).toBe(a.fid());
+    expect(restarted.recoveryCode).toBeNull();                                           // the code was not kept
+  });
+
+  it('wrong or badly typed codes are refused, and text that is no code never leaves the page', async () => {
+    const a = await device('adult', { name: 'Ada' });
+    const store = new MemoryKeyStore();
+    const phone = makeClient(store, '10.61.0.2', { ms: 0 });
+    calls = [];
+    await expect(phone.recoverProfile({ code: 'nope', recovery: a.client.recoveryCode ?? '' })).rejects.toMatchObject({ status: 400, code: 'bad_request' });
+    await expect(phone.recoverProfile({ code: a.client.profile?.code ?? '', recovery: 'short' })).rejects.toMatchObject({ status: 400, code: 'bad_request' });
+    expect(calls).toEqual([]);
+    expect(await store.load()).toBeNull();
+    await expect(phone.recoverProfile({ code: a.client.profile?.code ?? '', recovery: 'AAAA-AAAA-AAAA-AAAA' })).rejects.toMatchObject({ status: 403, code: 'recovery_failed' });
+    expect((await store.load())?.registered).toBe(false);                                // a key was made, the profile is not this device's
+    expect(phone.profile).toBeNull();
+    // the right code works after a wrong one, with the same key
+    const keyBefore = (await store.load())?.keys.kid;
+    expect((await phone.recoverProfile({ code: a.client.profile?.code ?? '', recovery: a.client.recoveryCode ?? '' })).fid).toBe(a.fid());
+    expect((await store.load())?.keys.kid).toBe(keyBefore);
+  });
+
+  it('can be renewed from a device; the old code then fails and the new one works; erasing the profile forgets it', async () => {
+    const a = await device('adult', { name: 'Ada' });
+    const old = a.client.recoveryCode ?? '';
+    const fresh = await a.client.renewRecovery();
+    expect(fresh).not.toBe(old);
+    expect(a.client.recoveryCode).toBe(fresh);
+    const phone = makeClient(new MemoryKeyStore(), '10.61.0.3', { ms: 0 });
+    await expect(phone.recoverProfile({ code: a.client.profile?.code ?? '', recovery: old })).rejects.toMatchObject({ code: 'recovery_failed' });
+    expect((await phone.recoverProfile({ code: a.client.profile?.code ?? '', recovery: fresh })).fid).toBe(a.fid());
+    await a.client.deleteProfile();
+    expect(a.client.recoveryCode).toBeNull();
+  });
+});

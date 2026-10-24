@@ -60,6 +60,29 @@ export function isFriendChars(s: unknown): s is string {
 export const isFid = (s: unknown): s is string =>
   typeof s === 'string' && s.length === FID_LEN && [...s].every((c) => CODE_ALPHABET.includes(c));
 
+// ───────── the recovery code ─────────
+//
+// The device key cannot leave the device it was made on, so a player who loses the device, clears the browser's data or
+// wants the game on a second device needs something else: a code shown once at sign-up and kept by the player. Sixteen
+// characters of the same alphabet are 80 bits (a guesser is stopped long before: five wrong tries an hour per profile).
+
+export const RECOVERY_LEN = 16;
+
+/** A new recovery code: sixteen characters, without separators. */
+export const randomRecoveryChars = (rb?: RandomBytes): string => randomChars(RECOVERY_LEN, rb);
+
+/** The written form: 7K2Q-4XMV-ABCD-EFGH. */
+export const formatRecoveryCode = (chars: string): string => (chars.match(/.{1,4}/g) ?? []).join('-');
+
+/** The sixteen characters of whatever a person typed or pasted, or null when it is not a recovery code. */
+export function parseRecoveryCode(input: unknown): string | null {
+  if (typeof input !== 'string' || input.length > 60) return null;
+  const s = input.normalize('NFKC').toUpperCase().replace(SEPARATORS, '');
+  if (s.length !== RECOVERY_LEN) return null;
+  for (const ch of s) if (!CODE_ALPHABET.includes(ch)) return null;
+  return s;
+}
+
 /** https://bodyarcade.com/f/BA-7K2Q4X. `origin` may have trailing slashes. (Rooms use /r/CODE: core/net/codes.ts.) */
 export const friendLink = (origin: string, chars: string): string => `${origin.replace(/\/+$/, '')}/f/${formatFriendCode(chars)}`;
 

@@ -186,6 +186,7 @@ export type SocialErrorCode =
   | 'offline'
   | 'conflict'
   | 'closed'
+  | 'recovery_failed'
   | 'unknown_game'
   | 'bad_run'
   | 'bad_score'

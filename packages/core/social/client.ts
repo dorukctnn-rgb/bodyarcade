@@ -14,7 +14,7 @@
 //   await social.invite(fid, grant.code);                  // a push to the friend's open hub socket
 import { createRoom as apiCreateRoom, joinRoom as apiJoinRoom, type Identity, type NewRoomRequest } from '../net/api.ts';
 import type { JoinGrant } from '../types/net.ts';
-import { parseFriendCode, parseFriendLink } from './codes.ts';
+import { formatRecoveryCode, parseFriendCode, parseFriendLink, parseRecoveryCode } from './codes.ts';
 import type { KeyStore, StoredIdentity } from './keystore.ts';
 import { MAX_SEARCH_MS, POLL_EVERY_MS } from './quickmatch.ts';
 import { PRESENCE } from './rules.ts';
@@ -154,6 +154,7 @@ export class SocialClient {
   /** serverTime minus the client clock, from the last answer. */
   private offset = 0;
 
+  private recovery: string | null = null;
   private meCache: MyProfile | null = null;
   private friendsCache: FriendEntry[] = [];
   private requestsCache: RequestsView = { incoming: [], outgoing: [] };
@@ -191,6 +192,12 @@ export class SocialClient {
   get blocks(): readonly BlockEntry[] { return this.blocksCache; }
   get invites(): readonly PendingInvite[] { return this.invitesCache; }
   get hub(): HubStatus { return this.hubStatus; }
+  /**
+   * The recovery code, from sign-up, a recovery or renewRecovery(): the one way back onto a new device (the device key cannot
+   * be copied) and after the browser cleared its data. Show it once, ask the player to keep it; it is held in memory only and is
+   * gone after a reload. Null when the page does not have it.
+   */
+  get recoveryCode(): string | null { return this.recovery; }
   /** False when the profile will be lost with the page (no IndexedDB): say so before the sign-up. */
   get persistent(): boolean { return this.store.persistent; }
   /** The server's clock as far as this client knows it (epoch ms). */
@@ -253,11 +260,41 @@ export class SocialClient {
     if (input.region !== undefined) body.region = input.region;
     if (input.lang !== undefined) body.lang = input.lang;
     if (input.level !== undefined) body.level = input.level;
-    const out = await this.call<{ me: MyProfile }>('POST', '/api/social/register', body);
+    const out = await this.call<{ me: MyProfile; recovery?: string }>('POST', '/api/social/register', body);
     this.identity = { keys, registered: true, me: out.me };
     await this.store.save(this.identity);
+    this.recovery = out.recovery ?? null;
     this.setProfile(out.me);
     return out.me;
+  }
+
+  /**
+   * The profile back on this device: the friend code names it and the recovery code proves it is the player's. A new device key
+   * is made here and added to the profile; the friends, the requests and the scores are all there. Throws recovery_failed (the
+   * same answer for a code nobody has and a wrong recovery code) and too_many_attempts.
+   */
+  async recoverProfile(input: { code: string; recovery: string }): Promise<MyProfile> {
+    await this.load();
+    if (this.identity?.registered) throw new SocialApiError(409, 'conflict');
+    const chars = parseFriendCode(input.code);
+    const typed = parseRecoveryCode(input.recovery);
+    if (!chars || !typed) throw new SocialApiError(400, 'bad_request', { error: 'bad_request', field: chars ? 'recovery' : 'code' });
+    const keys = this.identity?.keys ?? (await generateDeviceKey());
+    this.identity = { keys, registered: false };
+    await this.store.save(this.identity);
+    const out = await this.call<{ me: MyProfile }>('POST', '/api/social/recover', { pub: keys.publicRaw, code: chars, recovery: typed });
+    this.identity = { keys, registered: true, me: out.me };
+    await this.store.save(this.identity);
+    this.recovery = formatRecoveryCode(typed);
+    this.setProfile(out.me);
+    return out.me;
+  }
+
+  /** A new recovery code (the old one stops working). Three a day. */
+  async renewRecovery(): Promise<string> {
+    const out = await this.call<{ recovery: string }>('POST', '/api/social/me/recovery');
+    this.recovery = out.recovery;
+    return out.recovery;
   }
 
   /** Removes everything this device keeps and stops the hub. The server's copy goes with deleteMe(). */
@@ -265,6 +302,7 @@ export class SocialClient {
     this.disconnect();
     this.identity = null;
     this.meCache = null;
+    this.recovery = null;
     this.friendsCache = [];
     this.requestsCache = { incoming: [], outgoing: [] };
     this.blocksCache = [];

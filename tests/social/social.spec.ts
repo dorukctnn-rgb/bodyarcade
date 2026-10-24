@@ -83,6 +83,45 @@ test('a profile without a password: the key stays on the device and the profile 
   expect(await bo.try((ba, code) => ba.social.sendRequest(code), renewed.code)).toEqual({ ok: true, value: { status: 'sent' } });
 });
 
+test('a second device and cleared browser data: the recovery code brings the profile back with its friends, and nobody else can use it', async () => {
+  const { a, b, aMe, bMe } = await friends('Ada', 'Bo');
+  const code = (await a.snap()).recovery as string;
+  expect(code).toMatch(/^[2-9A-HJ-NP-Z]{4}(-[2-9A-HJ-NP-Z]{4}){3}$/);
+
+  // a second device: a wrong code is refused, the right one (typed in lower case) brings the profile
+  const phone = await who('Ada phone');
+  expect((await phone.snap()).profile).toBeNull();
+  expect(await phone.try((ba, x) => ba.social.recoverProfile(x), { code: aMe.code, recovery: 'AAAA-AAAA-AAAA-AAAA' })).toMatchObject({ ok: false, status: 403, code: 'recovery_failed' });
+  await phone.run((ba, x) => ba.social.recoverProfile(x), { code: aMe.code.toLowerCase(), recovery: code.toLowerCase() });
+  const there = await phone.snap();
+  expect(there.profile).toMatchObject({ fid: aMe.fid, code: aMe.code, name: 'Ada' });
+  expect(there.recovery).toBe(code);
+  expect(((await phone.run((ba) => ba.social.loadFriends(), undefined)) as { name: string }[]).map((f) => f.name)).toEqual(['Bo']);
+  // one player, one connection: the phone takes it, the first page is told
+  await goOnline(phone);
+  await a.until((s) => s.hub === 'replaced', 'the first device to be told');
+  expect((await b.snap()).friends[0]?.presence.status).toBe('online');
+
+  // the first device's browser clears the site's data: the key is gone, and so is the profile on that page
+  const cdp = await a.ctx.newCDPSession(a.page);
+  await cdp.send('Storage.clearDataForOrigin', { origin: site.origin, storageTypes: 'indexeddb' });
+  await a.open();
+  expect((await a.snap()).profile).toBeNull();
+  expect(await a.try((ba) => ba.social.loadFriends(), undefined)).toMatchObject({ ok: false });
+  // the code brings it back on the same page, with a new key; the friends are all there
+  expect((await a.run((ba, x) => ba.social.recoverProfile(x), { code: aMe.code, recovery: code }) as { fid: string }).fid).toBe(aMe.fid);
+  expect(((await a.run((ba) => ba.social.loadFriends(), undefined)) as { name: string }[]).map((f) => f.name)).toEqual(['Bo']);
+  await goOnline(a);
+  await phone.until((s) => s.hub === 'replaced', 'the phone to be told in its turn');
+
+  // a new code makes the old one useless, on every device
+  const fresh = await a.run((ba) => ba.social.renewRecovery(), undefined) as string;
+  expect(fresh).not.toBe(code);
+  const stranger = await who('Eve');
+  expect(await stranger.try((ba, x) => ba.social.recoverProfile(x), { code: aMe.code, recovery: code })).toMatchObject({ ok: false, status: 403, code: 'recovery_failed' });
+  expect(bMe.fid).toBeTruthy();
+});
+
 test('a teen and a child never type a name, and what the band allows is told to the page', async () => {
   const teen = await who('Teen');
   const kid = await who('Kid');
@@ -184,6 +223,19 @@ test('presence as it happens: playing, back online, the page closing, and coming
   await a.until((s) => s.friends[0]?.presence.status === 'offline', 'Bo hidden by do-not-disturb');
   await b.run((ba) => ba.social.updateProfile({ dnd: false }), undefined);
   await a.until((s) => s.friends[0]?.presence.status === 'online', 'Bo visible again');
+});
+
+test('a broken connection: the friend sees the player go offline, the page reconnects by itself and everything is current again', async () => {
+  const { a, b, aMe } = await friends('Ada', 'Bo');
+  expect(await b.run((ba) => ba.dropSocket(), undefined)).toBe(true);
+  await a.until((s) => s.friends[0]?.presence.status === 'offline', 'Bo to be seen offline when the connection broke');
+  // the page notices, waits a moment and connects again without anybody touching it, and loads the lists again
+  await b.until((s) => s.hub === 'online' && s.events.filter((e) => e === 'hub:online').length >= 2, 'the page to reconnect by itself', 20_000);
+  await a.until((s) => s.friends[0]?.presence.status === 'online', 'Bo to be online again');
+  expect((await b.snap()).friends.map((f) => f.fid)).toEqual([aMe.fid]);
+  // and it keeps working after it: a status change still reaches the friend
+  await b.run((ba) => { ba.social.setStatus('playing', 'pad-work'); return null; });
+  await a.until((s) => s.friends[0]?.presence.status === 'playing' && s.friends[0]?.presence.game === 'pad-work', 'the status after the reconnect');
 });
 
 test('the same player in two tabs: the newest tab holds the connection, the older one is told and can take it back', async () => {

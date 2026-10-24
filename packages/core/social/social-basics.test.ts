@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PRESETS, REACTIONS } from '../types/net.ts';
 import {
   CODE_ALPHABET, FRIEND_CODE_LEN, fromB64u, friendLink, isFid, isFriendChars, parseFriendCode, parseFriendLink,
-  randomFid, randomFriendChars, randomToken, toB64u, formatFriendCode,
+  randomFid, randomFriendChars, randomToken, toB64u, formatFriendCode, RECOVERY_LEN, formatRecoveryCode, parseRecoveryCode, randomRecoveryChars,
 } from './codes.ts';
 import {
   NAME_ADJECTIVES, NAME_ANIMALS, PRESET_MESSAGES, REACTION_IDS, isPresetMessage, isPresetName, isReaction,
@@ -239,5 +239,43 @@ describe('age policy', () => {
     expect(POLICY.child.maxFriends).toBeLessThan(POLICY.teen.maxFriends);
     expect(POLICY.teen.maxFriends).toBeLessThan(POLICY.adult.maxFriends);
     expect(POLICY.child.requestsPerDay).toBeLessThan(POLICY.adult.requestsPerDay);
+  });
+});
+
+describe('recovery codes', () => {
+  it('are sixteen characters of the alphabet, written in four groups, and read back from any way of typing them', () => {
+    const rb = seeded(5);
+    for (let i = 0; i < 200; i++) {
+      const chars = randomRecoveryChars(rb);
+      expect(chars).toHaveLength(RECOVERY_LEN);
+      const shown = formatRecoveryCode(chars);
+      expect(shown).toMatch(/^[2-9A-HJ-NP-Z]{4}(-[2-9A-HJ-NP-Z]{4}){3}$/);
+      expect(parseRecoveryCode(shown)).toBe(chars);
+      expect(parseRecoveryCode(shown.toLowerCase())).toBe(chars);
+      expect(parseRecoveryCode(shown.replace(/-/g, ' '))).toBe(chars);
+      expect(parseRecoveryCode(` ${shown} `)).toBe(chars);
+      expect(parseRecoveryCode(chars)).toBe(chars);
+    }
+  });
+
+  it('spreads like the friend code does: every character about equally often, no repeats in a thousand', () => {
+    const rb = seeded(77);
+    const seen = new Set<string>();
+    const counts = new Map<string, number>();
+    for (let i = 0; i < 1000; i++) {
+      const c = randomRecoveryChars(rb);
+      seen.add(c);
+      for (const ch of c) counts.set(ch, (counts.get(ch) ?? 0) + 1);
+    }
+    expect(seen.size).toBe(1000);
+    for (const n of counts.values()) expect(Math.abs(n - 500)).toBeLessThan(120);
+  });
+
+  it('refuses what is not one: wrong length, the characters the alphabet leaves out, text of any other kind', () => {
+    const good = randomRecoveryChars(seeded(1));
+    for (const bad of [good.slice(1), good + 'A', good.replace(/^./, '0'), good.replace(/^./, 'O'), good.replace(/^./, 'I'), good.replace(/^./, '1'), '', 'x'.repeat(100), 'BA-7K2Q4X', 5, null, undefined, {}]) {
+      expect(parseRecoveryCode(bad), String(bad)).toBeNull();
+    }
+    expect(parseFriendCode(formatRecoveryCode(good))).toBeNull();     // a recovery code is not a friend code and the other way round
   });
 });

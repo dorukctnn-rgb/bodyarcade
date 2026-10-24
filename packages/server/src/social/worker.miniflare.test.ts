@@ -357,6 +357,39 @@ describe('moderation, export and deletion in the platform', () => {
   });
 });
 
+describe('a new device on the platform', () => {
+  it('the recovery code brings the profile back on a new key, counts wrong guesses in the real database, and the two devices take turns on one hub', async () => {
+    const ada = await player({ band: 'adult', name: 'Ada' });
+    const bo = await player({ band: 'adult', name: 'Bo' });
+    await befriend(ada, bo);
+    const code = ada.client.recoveryCode as string;
+    expect(code).toMatch(/^[2-9A-HJ-NP-Z]{4}(-[2-9A-HJ-NP-Z]{4}){3}$/);
+    const phone = new SocialClient({ origin: stack.origin, keys: new MemoryKeyStore() });
+    await expect(phone.recoverProfile({ code: ada.client.profile?.code ?? '', recovery: 'AAAA-AAAA-AAAA-AAAA' })).rejects.toMatchObject({ status: 403, code: 'recovery_failed' });
+    await expect(phone.recoverProfile({ code: 'BA-ZZZZZZ', recovery: code })).rejects.toMatchObject({ status: 403, code: 'recovery_failed' });
+    expect((await phone.recoverProfile({ code: ada.client.profile?.code ?? '', recovery: code })).fid).toBe(ada.fid);
+    expect((await phone.loadFriends()).map((f) => f.name)).toEqual(['Bo']);
+    const devices = await stack.db.prepare('SELECT COUNT(*) AS n FROM soc_devices d JOIN soc_profiles p ON p.pid = d.pid WHERE p.fid = ?1').bind(ada.fid).first<{ n: number }>();
+    expect(devices?.n).toBe(2);
+    // one player, one connection: the phone takes it, the first device is told, and takes it back when asked
+    await goOnline(ada);
+    phone.connect();
+    await until(() => phone.hub === 'online', 'the phone to connect');
+    await until(() => ada.client.hub === 'replaced', 'the first device to be told');
+    ada.client.connect();
+    await until(() => ada.client.hub === 'online', 'the first device to take it back');
+    await until(() => phone.hub === 'replaced', 'the phone to be told');
+    phone.disconnect();
+    ada.client.disconnect();
+    // five wrong guesses lock the profile for the hour, even for the right code
+    const victim = await player({ band: 'adult', name: 'Vic' });
+    for (let i = 0; i < 5; i++) {
+      await expect(new SocialClient({ origin: stack.origin, keys: new MemoryKeyStore() }).recoverProfile({ code: victim.client.profile?.code ?? '', recovery: 'BBBB-BBBB-BBBB-BBBB' })).rejects.toMatchObject({ status: 403 });
+    }
+    await expect(new SocialClient({ origin: stack.origin, keys: new MemoryKeyStore() }).recoverProfile({ code: victim.client.profile?.code ?? '', recovery: victim.client.recoveryCode ?? '' })).rejects.toMatchObject({ status: 429, code: 'too_many_attempts' });
+  });
+});
+
 describe('weekly boards on the platform', () => {
   it('a run is timed by the server, the best of the week is kept, and both boards come out of the real index', async () => {
     const ada = await player({ band: 'adult', name: 'Ada' });
