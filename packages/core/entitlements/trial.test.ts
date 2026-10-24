@@ -272,11 +272,27 @@ describe('the e-mail, only for a person who gives an address', () => {
     expect(await r.trial.view()).toMatchObject({ email: 'offer', masked: null });
   });
 
-  it('is not asked of a taken-back address that was never given', async () => {
+  it('does not ask the server to take back an address that was never given', async () => {
     const r = await rig();
     await r.service.activateKey(KEY_A);
     expect(await r.trial.clearEmail()).toEqual({ ok: true, sendAt: null });
+    expect(r.server.calls.filter((c) => c.path === API.reminder)).toEqual([]);
     expect((await r.trial.view()).email).toBe('offer');
+  });
+
+  it('keeps the address, and says so, when the server could not be asked to take it back', async () => {
+    let down = false;
+    const r = await rig({ fetch: async (url, init) => { if (down && url.endsWith(API.reminder)) throw new TypeError('Failed to fetch'); return r2.server.fetch(url, init); } });
+    var r2 = r;   // eslint-disable-line no-var
+    await r.service.activateKey(KEY_A);
+    await r.trial.setEmail('alice@example.com', 'en');
+    down = true;
+    expect(await r.trial.clearEmail()).toEqual({ ok: false, code: 'network' });
+    expect(await r.trial.view()).toMatchObject({ email: 'set', masked: 'a***@example.com' });   // not pretended to be gone
+    expect(r.server.reminders.size).toBe(1);
+    down = false;
+    expect(await r.trial.clearEmail()).toEqual({ ok: true, sendAt: null });
+    expect(r.server.reminders.size).toBe(0);
   });
 });
 

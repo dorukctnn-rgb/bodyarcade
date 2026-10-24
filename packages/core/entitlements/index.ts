@@ -31,6 +31,10 @@ export { createGumroadProvider, type GumroadProviderOptions } from './providers/
 export { createPlayProvider, type DigitalGoodsService, type PaymentRequestLike, type PlayProvider, type PlayProviderOptions } from './providers/play.ts';
 export { CANCELLED } from './providers/shared.ts';
 export type { ManagedProvider, RefreshContext, FetchLike } from './providers/shared.ts';
+export {
+  NOTICE_LEAD_MS, createTrial, maskEmail, reminderLangOf, trialNotice,
+  type TrialFailure, type TrialNotice, type TrialOptions, type TrialResult, type TrialService, type TrialSubject, type TrialView,
+} from './trial.ts';
 export { loadDeviceId, newDeviceId } from './device.ts';
 export { legacyFallback, planOfLegacy } from './legacy-license.ts';
 export { toShellPort, type PortOptions, type ShellEntitlementsPort } from './port.ts';

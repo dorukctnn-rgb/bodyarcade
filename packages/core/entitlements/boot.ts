@@ -17,6 +17,7 @@ import { toShellPort, type ShellEntitlementsPort } from './port.ts';
 import { createGumroadProvider } from './providers/gumroad.ts';
 import { createPlayProvider, type PaymentRequestLike } from './providers/play.ts';
 import { createServerProvider } from './providers/server.ts';
+import { createTrial, type TrialService } from './trial.ts';
 import type { FetchLike, ManagedProvider } from './providers/shared.ts';
 import type { TokenKey } from './token.ts';
 
@@ -48,6 +49,8 @@ export interface BootResult {
   port: ShellEntitlementsPort;
   /** What suggested the Android app before the proof came in (billing-env.ts). */
   hint: Hint;
+  /** The notice in the last two days of a free trial and, on the web, the box for the one reminder e-mail (trial.ts). */
+  trial: TrialService;
   /** The paywall for what is known now; pass the Play details and checkout addresses you have. */
   paywall(inputs?: PaywallInputs): PaywallModel;
 }
@@ -90,8 +93,11 @@ export async function bootEntitlements(o: BootOptions): Promise<BootResult> {
   didOf = service.deviceId;
   await service.ready();
 
+  // The e-mail is for the browser only: in the Android app Google Play sends its own reminder.
+  const trial = createTrial({ service, store: o.store, mode: env.mode === 'web' ? 'web' : 'play', ...common });
+
   return {
-    service, env, hint,
+    service, env, hint, trial,
     port: toShellPort(service, { play: env.mode === 'play' }),
     paywall(inputs = {}) {
       return paywallModel(env.mode, { trialEligible: !service.status().everPaid, checkout: GUMROAD_CHECKOUT, ...inputs });

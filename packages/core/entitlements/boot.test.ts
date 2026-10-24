@@ -2,6 +2,7 @@
 // all, not even as a request.
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createStore, memoryStorage } from '../store/index.ts';
+import { API } from './api.ts';
 import { bootEntitlements, type BootWindow } from './boot.ts';
 import { PLAY_BILLING_URL } from './billing-env.ts';
 import type { DigitalGoodsService, PaymentRequestLike } from './providers/play.ts';
@@ -49,6 +50,19 @@ describe('in a browser', () => {
     expect(live.getItem('ba_license')).not.toBeNull();                       // the live site's key is left exactly where it was
   });
 
+  it('keeps the trial promise: the notice in the last two days and the box for the one e-mail', async () => {
+    const p = pieces();
+    p.server.licenses.set(KEY_A, { plan: 'pro-yearly', status: 'active', trialEnd: p.clock.now() + 7 * DAY });
+    const boot = await bootEntitlements({ store: p.store, keys: [keys.pub], window: browserWindow(), fetch: p.fetch, now: p.clock.now, legacyStorage: null, autoRefresh: false });
+    expect(await boot.trial.view()).toMatchObject({ trialEnds: null, email: 'none', notice: null });   // no purchase yet
+    expect(await boot.port.activate(KEY_A)).toEqual({ ok: true, plan: 'pro' });
+    expect(await boot.trial.view()).toMatchObject({ email: 'offer', notice: null });
+    expect(await boot.trial.setEmail('alice@example.com', 'en')).toEqual({ ok: true, sendAt: p.clock.now() + 5 * DAY });
+    p.clock.advance(5 * DAY + 3_600_000);
+    expect(boot.trial.notice()).toMatchObject({ where: 'web', cancelled: false, dayOffset: 2 });
+    expect(await boot.trial.view()).toMatchObject({ email: 'set', masked: 'a***@example.com' });
+  });
+
   it('works without a window at all (the page generator, a test)', async () => {
     const p = pieces();
     const boot = await bootEntitlements({ store: p.store, keys: [keys.pub], fetch: p.fetch, now: p.clock.now, legacyStorage: null, autoRefresh: false, window: undefined as unknown as BootWindow });
@@ -86,6 +100,20 @@ describe('in the Android app', () => {
     expect(await boot.port.purchase?.('bodyarcade_pro_yearly')).toBe(true);
     expect(FakePayment.sku).toBe('bodyarcade_pro_yearly');
     expect(boot.port.plan()).toBe('pro');
+    expect(p.gumroad.calls).toHaveLength(0);
+  });
+
+  it('asks for no address and calls no reminder route: Google Play sends its own reminder', async () => {
+    const p = pieces();
+    p.server.playPurchases.set('purchase-token-aaaaaaaaaaaaaaaaaaaa', { productId: 'bodyarcade_pro_yearly', plan: 'pro-yearly', status: 'active', trialEnd: p.clock.now() + 7 * DAY });
+    const boot = await bootEntitlements({ store: p.store, keys: [keys.pub], window: appWindow(), fetch: p.fetch, now: p.clock.now, autoRefresh: false });
+    expect(await boot.port.purchase?.('bodyarcade_pro_yearly')).toBe(true);
+    p.clock.advance(6 * DAY);
+    const v = await boot.trial.view();
+    expect(v.email).toBe('none');
+    expect(v.notice).toMatchObject({ where: 'play', dayOffset: 1 });         // the notice itself is still kept, naming Play
+    expect(await boot.trial.setEmail('alice@example.com', 'en')).toEqual({ ok: false, code: 'not_offered' });
+    expect(p.server.calls.filter((c) => c.path === API.reminder || c.path === API.key)).toEqual([]);
     expect(p.gumroad.calls).toHaveLength(0);
   });
 

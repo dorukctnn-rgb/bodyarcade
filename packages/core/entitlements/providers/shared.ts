@@ -34,12 +34,12 @@ export interface HttpAnswer {
 
 export const DEFAULT_TIMEOUT_MS = 15_000;
 
-/** A POST that gives back the answer, or null for a network error or a timeout. It never throws. */
-export async function post(f: FetchLike, url: string, init: { body: string; headers: Record<string, string> }, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<HttpAnswer | null> {
+/** A request that gives back the answer, or null for a network error or a timeout. It never throws. */
+async function send(f: FetchLike, url: string, init: RequestInit, timeoutMs: number): Promise<HttpAnswer | null> {
   const ctl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null;
   try {
-    const res = await f(url, { method: 'POST', headers: init.headers, body: init.body, cache: 'no-store', credentials: 'omit', ...(ctl ? { signal: ctl.signal } : {}) });
+    const res = await f(url, { ...init, cache: 'no-store', credentials: 'omit', ...(ctl ? { signal: ctl.signal } : {}) });
     let body: unknown;
     try { body = JSON.parse(await res.text()) as unknown; } catch { body = undefined; }
     return { status: res.status, body };
@@ -49,6 +49,14 @@ export async function post(f: FetchLike, url: string, init: { body: string; head
     if (timer !== null) clearTimeout(timer);
   }
 }
+
+/** A POST that gives back the answer, or null for a network error or a timeout. It never throws. */
+export const post = (f: FetchLike, url: string, init: { body: string; headers: Record<string, string> }, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<HttpAnswer | null> =>
+  send(f, url, { method: 'POST', headers: init.headers, body: init.body }, timeoutMs);
+
+/** A GET with the same promise: the answer, or null. It never throws. */
+export const getJson = (f: FetchLike, url: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<HttpAnswer | null> =>
+  send(f, url, { method: 'GET', headers: { Accept: 'application/json' } }, timeoutMs);
 
 export const postJson = (f: FetchLike, url: string, data: unknown, timeoutMs?: number): Promise<HttpAnswer | null> =>
   post(f, url, { body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } }, timeoutMs);
