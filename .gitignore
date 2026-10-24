@@ -10,3 +10,7 @@ test-results/
 playwright-report/
 blob-report/
 *.tsbuildinfo
+
+# Cloudflare Workers: local state and the generated asset folders
+.wrangler
+.cf-dist

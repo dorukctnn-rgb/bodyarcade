@@ -1,0 +1,16 @@
+# Cloudflare Workers static assets: the same 301s as netlify.toml.
+# Canonical URLs are extensionless; html_handling "auto-trailing-slash" serves /privacy from privacy.html.
+# The game page file is lowercase (bodyarcade.html, see build.mjs) because the Worker matches paths case-sensitively.
+/BodyArcade.html /bodyarcade 301
+/play /bodyarcade 301
+/app /bodyarcade 301
+/BodyArcade%20v1.html /bodyarcade 301
+/BodyArcade%20v2-neon.html /bodyarcade 301
+/uploads/* / 301
+# The platform alone would answer 307 for the old .html addresses; Netlify answered 301.
+/privacy.html /privacy 301
+/terms.html /terms 301
+/ring-fit-adventure-alternative.html /ring-fit-adventure-alternative 301
+/webcam-fitness-games.html /webcam-fitness-games 301
+/blog/why-browser-fitness-games-are-the-future.html /blog/why-browser-fitness-games-are-the-future 301
+/blog /blog/ 301

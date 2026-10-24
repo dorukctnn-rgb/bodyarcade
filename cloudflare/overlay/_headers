@@ -1,0 +1,37 @@
+# Cloudflare Workers static assets. Mirrors the headers in netlify.toml (Netlify keeps reading netlify.toml only).
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=()
+  Strict-Transport-Security: max-age=31536000
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-Du+OJKJSbdUgz5nrHeWWINvez6XKDDU/tyj/5c2uvwo=' https://cdn.jsdelivr.net https://plausible.io; connect-src 'self' https://api.gumroad.com https://plausible.io https://cdn.jsdelivr.net https://storage.googleapis.com; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'
+
+# HTML, the service worker and un-fingerprinted scripts/styles must revalidate so every
+# player gets a new build on the next load (pages reference ba.css/app.js with ?v=).
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+/game/*
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/ba.css
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/ba.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Immutable-by-name assets: the 3D library (renamed on upgrade), fonts and images.
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/worlds/*
+  Cache-Control: public, max-age=2592000
+/assets/screens/*
+  Cache-Control: public, max-age=2592000
+/*.png
+  Cache-Control: public, max-age=2592000
+
+# Digital Asset Links for the Android app (Trusted Web Activity): plain JSON, never redirected.
+/.well-known/assetlinks.json
+  Content-Type: application/json
+  Cache-Control: public, max-age=300
+  Access-Control-Allow-Origin: *

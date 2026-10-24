@@ -1,0 +1,7 @@
+{
+  // Attach only after bodyarcade.com is an active Cloudflare zone:  npx wrangler deploy -c cloudflare/www-redirect/wrangler.jsonc
+  "name": "bodyarcade-www",
+  "main": "index.js",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "www.bodyarcade.com", "custom_domain": true }]
+}

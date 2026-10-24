@@ -1,0 +1,16 @@
+{
+  // Production config: the same Worker as wrangler.jsonc plus the custom domain.
+  // Use only once bodyarcade.com is an ACTIVE zone in this Cloudflare account (nameservers switched):
+  //   node cloudflare/build.mjs && npx wrangler deploy -c wrangler.prod.jsonc
+  "name": "bodyarcade",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./.cf-dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "bodyarcade.com", "custom_domain": true }],
+  // The production site answers on bodyarcade.com only (the workers.dev copy would be duplicate content).
+  "workers_dev": false,
+  "preview_urls": false
+}

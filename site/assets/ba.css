@@ -20,7 +20,13 @@
   --muted: #6b645a;
   --muted-2: #9a9185;
   --signal: #ff4f24;
-  --signal-deep: #d93a12;
+  /* Filled buttons carry a white label, which needs 4.5:1 (audit B18: white on #ff4f24 is only 3.28:1).
+     #d93a12 gives 4.60:1 and its hover #cf330d 5.08:1; --signal-deep is the darker edge under the button. */
+  --signal-btn: #d93a12;
+  --signal-btn-hover: #cf330d;
+  --signal-deep: #a82a0a;
+  /* Small orange text on the paper backgrounds: #ff4f24 is 2.84:1 there (audit B18b), this is 5.24:1 on paper and 4.70:1 on paper-2. */
+  --signal-text: #b8300e;
   --sun: #ffc93c;
   --sky: #a9c3de;
   --dusk: #ecbcb2;
@@ -109,8 +115,8 @@ a { color: inherit; }
   cursor: pointer;
   transition: transform 0.12s var(--ease), box-shadow 0.12s var(--ease), background 0.2s;
 }
-.btn-play { background: var(--signal); color: #fff; box-shadow: 0 4px 0 var(--edge); }
-.btn-play:hover { background: #ff5f37; transform: translateY(-1px); box-shadow: 0 5px 0 var(--edge); }
+.btn-play { background: var(--signal-btn); color: #fff; box-shadow: 0 4px 0 var(--edge); }
+.btn-play:hover { background: var(--signal-btn-hover); transform: translateY(-1px); box-shadow: 0 5px 0 var(--edge); }
 .btn-play:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge); }
 .btn-line { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
 .btn-line:hover { background: var(--ink); color: var(--paper); }
@@ -194,7 +200,8 @@ a { color: inherit; }
 .sec-head { display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); gap: 32px; align-items: end; margin-bottom: clamp(36px, 5vw, 64px); }
 .sec-head h2 { font-size: clamp(34px, 4.5vw, 66px); }
 .sec-lede { margin: 0; font-size: 18px; color: var(--muted); max-width: 34em; }
-.kicker { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 18px; color: var(--signal); }
+.kicker { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 18px; color: var(--signal-text); }
+.on-ink .kicker { color: var(--signal); }
 .kicker::before { content: ""; width: 28px; height: 3px; background: currentColor; border-radius: 2px; }
 
 /* ---------- Controller: five real moves ---------- */
