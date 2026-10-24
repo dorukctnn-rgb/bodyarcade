@@ -194,10 +194,20 @@ export const bendGateOf = (g: LbGate, tol: number): BendGate => ({ id: g.id, tar
 /**
  * The reason a gate was missed, as the player should hear it. The tester says "bend further" for a lean that never came near the
  * tilt; when the whole lean was to the other side (its closest approach to the gate's side is on the wrong side of upright) that is
- * "wrong side", which is what the player has to change.
+ * "wrong side", which is what the player has to change. And it says "hold it longer" for a lean that was inside the tolerance for a
+ * moment on its way somewhere else: when the lean at the arrival is outside it, that lean is what to change, so that is said
+ * (`at`: the angle at the arrival and the tolerance).
  */
-export function reasonFor(why: Miss, g: Pick<LbGate, 'target'>): Miss {
+export function reasonFor(why: Miss, g: Pick<LbGate, 'target'>, at?: { theta: number; tol: number }): Miss {
   if (why.code === 'bend_more' && why.got !== undefined && why.got * g.target < 0 && Math.abs(why.got) >= 3) return { code: 'wrong_side' };
+  if (why.code === 'held_too_short' && at && Math.abs(at.theta - g.target) > at.tol) {
+    const off = at.theta - g.target;
+    const beyond = g.target >= 0 ? off > 0 : off < 0;
+    const edge = g.target >= 0 ? g.target + (beyond ? at.tol : -at.tol) : g.target + (beyond ? -at.tol : at.tol);
+    if (beyond) return { code: 'bend_less', got: round(at.theta, 1), need: round(edge, 1) };
+    if (at.theta * g.target < 0 && Math.abs(at.theta) >= 3) return { code: 'wrong_side' };
+    return { code: 'bend_more', got: round(at.theta, 1), need: round(edge, 1) };
+  }
   return why;
 }
 
@@ -356,7 +366,7 @@ export class LimboSim implements HostSim {
         passedLanes.push(g.lane);
       } else {
         const asked = tester.explain(bendGateOf(g, s.plan.tol));
-        const why = asked === null ? null : reasonFor(asked, g);
+        const why = asked === null ? null : reasonFor(asked, g, { theta: p.theta, tol: s.plan.tol });
         if (!p.seen || why === null || why.code === 'person_out') {
           // nobody to judge: nothing is won, nothing is lost
           gs.done = 3;

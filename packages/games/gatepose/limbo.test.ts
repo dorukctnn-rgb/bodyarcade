@@ -531,4 +531,18 @@ describe('the reason that is told', () => {
     expect(reasonFor({ code: 'hips_shifted', got: 0.5, need: 0.35 }, { target: 26 }).code).toBe('hips_shifted');
     expect(reasonFor({ code: 'wrong_side' }, { target: 26 })).toEqual({ code: 'wrong_side' });
   });
+
+  it('a lean that was inside the tolerance for a moment and is outside it at the arrival says which way to go, not "hold it longer"', () => {
+    const held = { code: 'held_too_short' as const, got: 120, need: 300 };
+    // a gate to the right (26, within 7): leaning to 40 at the arrival is too far, 12 is not far enough, -8 is the other side
+    expect(reasonFor(held, { target: 26 }, { theta: 40, tol: 7 })).toEqual({ code: 'bend_less', got: 40, need: 33 });
+    expect(reasonFor(held, { target: 26 }, { theta: 12, tol: 7 })).toEqual({ code: 'bend_more', got: 12, need: 19 });
+    expect(reasonFor(held, { target: 26 }, { theta: -8, tol: 7 }).code).toBe('wrong_side');
+    // the mirror image, for a gate to the left
+    expect(reasonFor(held, { target: -26 }, { theta: -40, tol: 7 })).toEqual({ code: 'bend_less', got: -40, need: -33 });
+    expect(reasonFor(held, { target: -26 }, { theta: -12, tol: 7 })).toEqual({ code: 'bend_more', got: -12, need: -19 });
+    // still inside the tolerance at the arrival: it really was not held long enough
+    expect(reasonFor(held, { target: 26 }, { theta: 24, tol: 7 })).toEqual(held);
+    expect(reasonFor(held, { target: 26 })).toEqual(held);
+  });
 });

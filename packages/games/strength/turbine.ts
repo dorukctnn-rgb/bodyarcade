@@ -351,7 +351,14 @@ export class TurbineSim implements HostSim {
     let note: MissNote | null = null;
     if (gapMid > TWIST_DEFAULTS.handsApart) note = { code: 'hands_apart', got: round(gapMid, 2), need: TWIST_DEFAULTS.handsApart };
     else if (tauMax >= turn && spanMin > TWIST_DEFAULTS.maxSpan) note = { code: 'turn_shoulders', got: round(spanMin, 2), need: TWIST_DEFAULTS.maxSpan };
-    else if (tauMax < turn) note = { code: 'turn_more', got: round(tauMax, 2), need: turn };
+    else if (tauMax < turn) {
+      // short of the turn and stopped there: the last three looks (0.3 s) are level, after a few that were trying. A twist on its
+      // way to the turn passes through here too, and must not be told "Turn further" on the way.
+      const tail = recent.slice(-3).map((h) => Math.abs(h[1]));
+      const level = Math.max(...tail) - Math.min(...tail) < 0.08;
+      const trying = recent.filter((h) => Math.abs(h[1]) >= 0.25).length >= 4;
+      if (level && trying) note = { code: 'turn_more', got: round(tauMax, 2), need: turn };
+    }
     if (note) this.say(note, k, t, out);
   }
 
