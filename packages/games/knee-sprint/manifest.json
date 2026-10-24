@@ -1,0 +1,45 @@
+{
+  "id": "knee-sprint",
+  "template": "runner",
+  "version": 1,
+  "title": "Knee Sprint",
+  "regions": ["cardio", "legs"],
+  "framing": "full",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 180,
+  "met": 6,
+  "detectors": [
+    { "id": "jump" },
+    { "id": "energy" },
+    { "id": "kneeLift", "opts": { "enter": 0.5, "alternate": 1 } }
+  ],
+  "free": true,
+  "modes": ["solo", "local2"],
+  "minPoseHz": 15,
+  "seo": { "slug": "knee-sprint", "keywords": ["high knees game", "run in place game", "webcam cardio game", "marching exercise game"] },
+  "catalogue": {
+    "tagline": { "en": "Run on the spot. Higher knees, more speed.", "tr": "Olduğun yerde koş. Dizler ne kadar yüksekse hız o kadar fazla." },
+    "about": {
+      "en": "Run on the spot and the runner on screen runs with you. The camera counts every knee lift: a quicker pace and higher knees give more speed. Race a computer over 100 metres, clear the hurdles, and rest properly between heats.",
+      "tr": "Olduğun yerde koşarsın, ekrandaki koşucu seninle koşar. Kamera her diz kaldırışını sayar: daha hızlı tempo ve daha yüksek dizler daha çok hız demektir. 100 metrede bilgisayara karşı yarış, engelleri aş, depar aralarında gerçekten dinlen."
+    },
+    "how": [
+      { "en": "Stand where the camera sees you from head to feet.", "tr": "Kameranın seni baştan ayağa gördüğü bir yere dur." },
+      { "en": "March on the spot for eight steps. That sets the pace the race asks of you.", "tr": "Yerinde sekiz adım yürü. Yarışın senden isteyeceği tempo buna göre ayarlanır." },
+      { "en": "Run with your knees up, left and right in turn. Higher knees and a quicker pace run faster.", "tr": "Dizlerini yukarı kaldırıp sırayla sol ve sağ ayakla koş. Daha yüksek dizler ve daha hızlı tempo daha hızlı koşturur." },
+      { "en": "When a hurdle comes, jump or lift a knee to your hip. Rest between the heats.", "tr": "Engel gelince zıpla ya da dizini kalçana kadar kaldır. Depar aralarında dinlen." }
+    ],
+    "measures": [
+      { "en": "How high each knee comes up and how often.", "tr": "Her dizin ne kadar yükseldiği ve ne sıklıkla kalktığı." },
+      { "en": "Whether your legs go in turn, and when you jump at a hurdle.", "tr": "Bacaklarının sırayla gidip gitmediği ve engelde ne zaman zıpladığın." }
+    ],
+    "move": "highKnee",
+    "tile": "knee-sprint",
+    "order": 2,
+    "related": ["road-run", "firework-jacks"],
+    "seatedNote": { "en": "Sit and swing your arms while you march your knees. You race on a ranking of your own, with no hurdles.", "tr": "Otur, dizlerini yürütürken kollarını salla. Ayrı bir sıralamada yarışırsın, engel yok." },
+    "quietNote": { "en": "March instead of running high, and lift a knee to your hip to clear a hurdle. No jumping and no stamping.", "tr": "Yüksek koşmak yerine yürü, engeli aşmak için dizini kalçana kadar kaldır. Zıplama ve yere vurma yok." }
+  }
+}

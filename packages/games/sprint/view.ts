@@ -224,7 +224,7 @@ export function createSprintView(o: SprintViewOptions): SprintView {
     for (let k = k0; k <= k1; k++) {
       const d0 = Math.max(NEAR - 0.2, k * BAND - runnerDist), d1 = Math.min(FAR, (k + 1) * BAND - runnerDist);
       if (d1 <= d0) continue;
-      ctx.fillStyle = th.track[((k % 2) + 2) % 2];
+      ctx.fillStyle = th.track[((k % 2) + 2) % 2] ?? th.track[0];
       quad(c, -HALF, HALF, d0, d1);
     }
     // Chalk: the edges and the lane lines.
