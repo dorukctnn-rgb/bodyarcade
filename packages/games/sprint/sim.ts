@@ -180,6 +180,8 @@ export interface LaneState {
   finishT: number;
   idleFor: number;
   sinceStep: number;
+  /** The lift of each knee now (the picture's knee meters). */
+  kneeNow: [number, number];
   /** Best lift of a knee since the last counted step, and whether each knee is up (for naming "same leg twice"). */
   lowPeak: number;
   up: [boolean, boolean];
@@ -189,8 +191,9 @@ export interface LaneState {
   dnfStreak: number;
   hint: { code: HintCode; at: number } | null;
   results: HeatResult[];
-  /** Sum of the peak lifts of all counted steps, for the quality of the run. */
-  kSum: number;
+  /** For the quality of the run: the share of the full knee lift of every counted step (or of the full effort, seated), and how many. */
+  qSum: number;
+  qN: number;
   /** Seconds of the run spent running (the calories). */
   ran: number;
 }
@@ -231,8 +234,8 @@ export interface SprintState {
 
 const newLane = (): LaneState => ({
   dist: 0, v: 0, steps: 0, stepT: [], kHist: [], stepAt: [-99, -99], lastLeg: -1, stumble: 0, sinceAct: 9, knockAt: -99, next: 0, streak: 0, bestStreak: 0,
-  cleared: 0, knocked: 0, score: 0, eff: 0, finished: false, dnf: false, finishT: 0, idleFor: 0, sinceStep: 9, lowPeak: 0, up: [false, false],
-  lastUp: -1, lastUpT: -99, leanFor: 0, dnfStreak: 0, hint: null, results: [], kSum: 0, ran: 0,
+  cleared: 0, knocked: 0, score: 0, eff: 0, finished: false, dnf: false, finishT: 0, idleFor: 0, sinceStep: 9, kneeNow: [0, 0], lowPeak: 0, up: [false, false],
+  lastUp: -1, lastUpT: -99, leanFor: 0, dnfStreak: 0, hint: null, results: [], qSum: 0, qN: 0, ran: 0,
 });
 
 export interface StepIn { k: number; side: 'L' | 'R' | '' }
@@ -360,7 +363,8 @@ function takeStep(s: SprintState, i: number, st: StepIn, out: SprintEvent[]): vo
   const k = clamp(st.k, 0, 1.4);
   l.kHist.push(k);
   if (l.kHist.length > 6) l.kHist.shift();
-  l.kSum += clamp(k / s.kFull, 0, 1);
+  l.qSum += clamp(k / s.kFull, 0, 1);
+  l.qN += 1;
   const high = k >= HURDLE.highK;
   out.push({ type: 'step', lane: i, k, leg, high });
   // The way over a hurdle without leaving the ground: a knee at the hip.
@@ -419,6 +423,7 @@ function dnfLane(s: SprintState, i: number, out: SprintEvent[]): void {
 function run(s: SprintState, i: number, inp: LaneIn, dt: number, racing: boolean, out: SprintEvent[]): void {
   const l = s.lanes[i] as LaneState;
   l.eff += (inp.effort - l.eff) * Math.min(1, dt * 4);
+  l.kneeNow = [inp.knees[0], inp.knees[1]];
   l.sinceAct += dt;
   l.sinceStep += dt;
   l.stumble = Math.max(0, l.stumble - dt);
@@ -447,6 +452,7 @@ function run(s: SprintState, i: number, inp: LaneIn, dt: number, racing: boolean
 
   const before = l.dist;
   l.dist += l.v * dt;
+  if (s.seated && moving) { l.qSum += clamp(l.eff / s.effFull, 0, 1) * dt; l.qN += dt; }
   // Why it is slow, in the body's words.
   const still = s.seated ? l.eff < s.effFull * 0.2 : l.sinceStep >= HURDLE.moveHint;
   l.idleFor = still ? l.idleFor + dt : 0;
@@ -599,7 +605,7 @@ function endWarmup(s: SprintState, out: SprintEvent[]): void {
   }
   if (s.warm.ks.length > 0) s.kFull = clamp(0.85 * Math.max(...s.warm.ks), 0.55, lv.kFull);
   if (s.seated && s.warm.eff.length >= 30) s.effFull = clamp(1.3 * median(s.warm.eff), 0.35, 1.5);
-  for (const l of s.lanes) { l.kHist = []; l.stepT = []; l.v = 0; l.dist = 0; l.sinceStep = 0; l.steps = 0; l.kSum = 0; l.ran = 0; }
+  for (const l of s.lanes) { l.kHist = []; l.stepT = []; l.v = 0; l.dist = 0; l.sinceStep = 0; l.steps = 0; l.qSum = 0; l.qN = 0; l.ran = 0; }
   s.phase = 'ready';
   s.hc = 0;
   s.ticked = 99;
