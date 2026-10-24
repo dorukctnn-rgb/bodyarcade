@@ -129,6 +129,7 @@ export function createHostedGame<S extends HostSim>(spec: HostSpec<S>): HostedGa
   function freshView(): void {
     view?.dispose();
     stage?.clearParticles();
+    stage?.resetLayout();
     const c = ctx as GameContext;
     view = stage && spec.makeView ? spec.makeView(c, stage, { reducedMotion: c.flags.reducedMotion }) : null;
   }

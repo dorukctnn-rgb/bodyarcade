@@ -10,7 +10,7 @@
 import type { GameContext, Rng } from '../../core/types/index.ts';
 import type { HostView, SimEvent } from '../_shared/host.ts';
 import { drawFigure, mixLimbs, MOVER_NIGHT, STAND } from '../_shared/mover.ts';
-import type { Stage } from '../_shared/stage.ts';
+import { sceneUnit, type Stage } from '../_shared/stage.ts';
 import { clamp } from '../_shared/util.ts';
 import type { LbGate, LimboSim } from './limbo.ts';
 import { approachU, depthScale, PASS_END } from './plan.ts';
@@ -23,7 +23,7 @@ export interface LbLayout { zones: Zone[] }
 /** Where each player's avatar stands. Pure, so the layout can be checked on all ten screens without a canvas. */
 export function lbLayout(g: Geometry, players: 1 | 2): LbLayout {
   const areas = players === 2 && g.lanes ? [g.lanes[0], g.lanes[1]] : [g.play];
-  return { zones: areas.map((a) => zoneIn(a, g.pip, { halfW: 2.0, above: 3.3, below: 1.8 })) };
+  return { zones: areas.map((a) => zoneIn(a, g.pip, { halfW: 2.0, above: 3.3, below: 1.8, unit: sceneUnit(g.w, g.h) })) };
 }
 
 export function createLimboView(ctx: GameContext, stage: Stage, o: { reducedMotion: boolean }): HostView<LimboSim> {

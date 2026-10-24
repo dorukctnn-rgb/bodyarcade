@@ -9,8 +9,13 @@
   /* The shell reserves a scrollbar gutter; this page never scrolls, so the picture uses the whole width. */
   html { scrollbar-gutter: auto; }
   /* The shell's own self view tile is opaque; the harness lets the picture the game draws show through it. */
-  .ba-hud .tile[data-hud="pip"] { background: transparent; box-shadow: none; }
-  .ba-hud .tile[data-hud="pip"] .tag, .ba-hud .tile[data-hud="pip"] .move { display: none; }
+  body:not(.tile-real) .ba-hud .tile[data-hud="pip"] { background: transparent; box-shadow: none; }
+  body:not(.tile-real) .ba-hud .tile[data-hud="pip"] .tag, body:not(.tile-real) .ba-hud .tile[data-hud="pip"] .move { display: none; }
+  /* ?tile=1: the self view tile as the player has it (opaque, with a stand-in for the camera picture), to look at the layout. */
+  .tile-real .stand-in { position: absolute; inset: 0; background: linear-gradient(#5b6572, #3d4550); overflow: hidden; }
+  .tile-real .stand-in i { position: absolute; left: 50%; transform: translateX(-50%); background: #c9ced6; }
+  .tile-real .stand-in .head { top: 14%; width: 22%; aspect-ratio: 1; border-radius: 50%; }
+  .tile-real .stand-in .body { top: 40%; width: 46%; height: 70%; border-radius: 40% 40% 0 0; }
 </style>
 </head>
 <body class="ba-app--play">

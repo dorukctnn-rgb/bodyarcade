@@ -397,7 +397,7 @@ export class FireworkSim implements HostSim {
     this.s.doubles++;
     this.s.log.push(logOf(k, 'double', true, { v: DOUBLE_BONUS * 2 }));
     const x = (unit(this.seed, 'fj.dx', this.s.doubles) * 0.4) + 0.3;
-    out.push({ type: 'double', t, beat, x: round(x, 3), pts: DOUBLE_BONUS });
+    out.push({ type: 'double', t, beat, x: round(x, 3), pts: DOUBLE_BONUS, n: this.s.doubles });
   }
 
   /** Why a try did not count, from the channels of the detector (the detector's own explain() is not reachable from a game). */

@@ -12,7 +12,7 @@ import type { Rect } from '../../core/render2d/view.ts';
 import type { GameContext, Rng } from '../../core/types/index.ts';
 import type { HostView, SimEvent } from '../_shared/host.ts';
 import { drawFigure, mixLimbs, MOVER_NIGHT, STAND, type Limbs } from '../_shared/mover.ts';
-import type { Stage } from '../_shared/stage.ts';
+import { sceneUnit, type Stage } from '../_shared/stage.ts';
 import { clamp, lerp } from '../_shared/util.ts';
 import { drawCity, makeCity, type City } from './city.ts';
 import type { Geometry } from './fireworks-view.ts';
@@ -48,12 +48,15 @@ const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a
 /** Where everything stands. Pure, so the layout can be checked on all ten screens without a canvas. */
 export function ttLayout(g: Geometry): TtLayout {
   const P = g.play;
+  const unit = sceneUnit(g.w, g.h);
   const landscape = P.w > P.h * 1.25;
   const roofY = P.y + P.h * 0.68;
   const band: Rect = { x: 0, y: roofY, w: g.w, h: Math.max(1, g.h - roofY) };
-  const paceH = clamp(P.h * 0.034, 8, 20);
-  const paceMax = clamp(P.w * (landscape ? 0.42 : 0.62), 110, 360);
-  const baseT = clamp(Math.min(P.w, P.h) * 0.15, 20, 80);
+  const paceH = clamp(P.h * 0.034, 8, 20 * unit);
+  const paceMax = clamp(P.w * (landscape ? 0.42 : 0.62), 110, 360 * unit);
+  // the avatar beside the turbine (landscape) is as tall as the height allows (4.05 torso lengths in a play area that is all its own);
+  // below the turbine (portrait) it takes a share of the width
+  const baseT = clamp(landscape ? Math.min(P.w * 0.15, P.h * 0.19) : Math.min(P.w, P.h) * 0.15, 20, 80 * unit);
 
   const make = (T: number, shiftA: number, shiftH: number, rScale: number): TtLayout | null => {
     const acx = P.x + P.w * ((landscape ? 0.7 : 0.5) + shiftA);
@@ -150,7 +153,7 @@ export function createTurbineView(ctx: GameContext, stage: Stage, o: { reducedMo
     c.fillStyle = CHALK;
     for (const s of stars) {
       c.globalAlpha = (o.reducedMotion ? 0.5 : 0.3 + 0.3 * Math.sin(viewT * 0.8 + s.ph)) * (1 - 0.7 * dark);
-      c.fillRect(s.x * stage.w, s.y * stage.h, s.r, s.r);
+      c.fillRect(s.x * stage.w, s.y * stage.h, s.r * stage.unit, s.r * stage.unit);
     }
     c.globalAlpha = 1;
     // a warm glow over the roofs that grows with the share of the city that is lit
@@ -280,8 +283,9 @@ export function createTurbineView(ctx: GameContext, stage: Stage, o: { reducedMo
 
   function drawRain(c: Stage['ctx'], viewT: number, amount: number): void {
     if (amount < 0.02) return;
+    const u = stage.unit;
     c.strokeStyle = CHALK;
-    c.lineWidth = 1.2;
+    c.lineWidth = 1.2 * u;
     c.globalAlpha = 0.28 * amount;
     c.beginPath();
     const W = stage.w, H = stage.h;
@@ -290,7 +294,7 @@ export function createTurbineView(ctx: GameContext, stage: Stage, o: { reducedMo
       const x = ((d.x * W - fall * 70 * d.s) % W + W) % W;
       const y = ((d.y * H + fall * 520 * d.s) % H + H) % H;
       c.moveTo(x, y);
-      c.lineTo(x - 5, y + 16);
+      c.lineTo(x - 5 * u, y + 16 * u);
     }
     c.stroke();
     c.globalAlpha = 1;

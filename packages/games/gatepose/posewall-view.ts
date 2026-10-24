@@ -17,7 +17,7 @@ import type { PoseTarget } from '../../core/moves/poses.ts';
 import type { GameContext, Rng } from '../../core/types/index.ts';
 import type { HostView, SimEvent } from '../_shared/host.ts';
 import { MOVER_NIGHT, STAND, drawFigure, mixLimbs, type Limbs, type MoverStyle } from '../_shared/mover.ts';
-import type { Stage } from '../_shared/stage.ts';
+import { sceneUnit, type Stage } from '../_shared/stage.ts';
 import { clamp, lerp } from '../_shared/util.ts';
 import { approachU, depthScale, PASS_END } from './plan.ts';
 import type { PoseWallSim, PwWall } from './posewall.ts';
@@ -38,7 +38,7 @@ export interface PwLayout { zones: Zone[] }
 /** Where each player's avatar and wall stand. Pure, so the layout can be checked on all ten screens without a canvas. */
 export function pwLayout(g: Geometry, players: 1 | 2): PwLayout {
   const areas = players === 2 && g.lanes ? [g.lanes[0], g.lanes[1]] : [g.play];
-  return { zones: areas.map((a) => zoneIn(a, g.pip, { halfW: WALL.halfW, above: WALL.top, below: WALL.bottom, vyShare: 0.24 })) };
+  return { zones: areas.map((a) => zoneIn(a, g.pip, { halfW: WALL.halfW, above: WALL.top, below: WALL.bottom, vyShare: 0.24, unit: sceneUnit(g.w, g.h) })) };
 }
 
 /** What a shape looks like as a hole: the ten limbs (standing legs for the ones it does not ask for) and how far the hip is let down. */
@@ -58,14 +58,17 @@ export function mixHex(a: string, b: string, u: number): string {
 }
 
 /**
- * How big a wall is at progress u, as a share of its size at the arrival. It starts at two fifths of it and grows nearly in step with
- * the time: a shape has to be read from afar, so the wall is not a speck at first (as a gate is in Limbo Bend, where only the
- * tilt matters). Past the player it rushes up and fades, as every obstacle does (plan.ts).
+ * How big a wall is at progress u, as a share of its size at the arrival. It starts at two fifths of it (more on a small screen, see
+ * wallStart) and grows nearly in step with the time: a shape has to be read from afar, so the wall is not a speck at first (as a gate
+ * is in Limbo Bend, where only the tilt matters). Past the player it rushes up and fades, as every obstacle does (plan.ts).
  */
-export function wallScale(u: number): number {
-  if (u <= 1) return 0.42 + 0.58 * Math.pow(Math.max(0, u), 1.7);
+export function wallScale(u: number, start = 0.42): number {
+  if (u <= 1) return start + (1 - start) * Math.pow(Math.max(0, u), 1.7);
   return depthScale(u);
 }
+
+/** The share of its size a wall starts at: two fifths, or what makes it 80 px wide where the screen is so small that two fifths of it is not a shape (a phone on its side). */
+export const wallStart = (T: number): number => clamp(80 / (2 * WALL.halfW * T), 0.42, 0.8);
 
 const holeStyle = (rim: string): MoverStyle => ({ body: rim, head: rim, edge: null, bandL: rim, bandR: rim });
 const HOLE_DARK: MoverStyle = holeStyle(NIGHT.hole);
@@ -128,7 +131,7 @@ export function createPoseWallView(ctx: GameContext, stage: Stage, o: { reducedM
 
   /** The wall at progress u: the slab, and the hole in it. `glow` (0..1) warms the rim of a pending wall. */
   function drawWall(c: Ctx2D, z: Zone, sim: PoseWallSim, w: PwWall, u: number, state: Look, glow: number, seated: boolean): void {
-    const s = wallScale(u);
+    const s = wallScale(u, wallStart(z.T));
     const px = z.vx + (z.hipX - z.vx) * s;
     const py = z.vy + (z.hipY - z.vy) * s;
     const T = z.T * s;
@@ -295,7 +298,12 @@ export function createPoseWallView(ctx: GameContext, stage: Stage, o: { reducedM
           c.restore();
         }
         const away = !!p && !p.seen;
-        drawFigure(c, { x: z.hipX, y: z.hipY + dy, T: z.T, limbs, upperOnly: seated, alpha: away ? 0.3 : resting ? 0.75 : 1 }, MOVER_NIGHT);
+        // While a wall is on its way the avatar is a little see-through where the body is far from the shape: the hole behind it (it
+        // is the avatar who stands in front of the wall) can be read, and the avatar fills in as the body fits.
+        const next = sim.nextWall(i as 0 | 1);
+        const onItsWay = !!next && approachU(k, next.arriveK, approachK) > 0.04;
+        const fitted = p && onItsWay && !resting && !hold ? 0.55 + 0.45 * clamp(p.live, 0, 1) : 1;
+        drawFigure(c, { x: z.hipX, y: z.hipY + dy, T: z.T, limbs, upperOnly: seated, alpha: away ? 0.3 : resting ? 0.75 : fitted }, MOVER_NIGHT);
       }
       c.restore();
 

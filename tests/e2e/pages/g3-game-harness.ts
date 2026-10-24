@@ -5,6 +5,7 @@
 // the spec does.
 //   ?game=firework-jacks|twist-turbine|limbo-bend|pose-wall  &mode=solo|local2  &difficulty=easy  &seated=1  &quiet=1
 //   &body=perfect|late|sloppy|idle  &corner=bottom-right  &workS=18  (the length of the one set that is played)
+//   &tile=1  keeps the shell's self view tile opaque with a stand-in picture, so a screenshot shows the layout as the player sees it
 import '../../../packages/web/src/styles/app.css';
 import { createAudio } from '../../../packages/core/audio/audio.ts';
 import { SFX_NAMES } from '../../../packages/core/audio/sfx.ts';
@@ -21,6 +22,7 @@ import { fireworkJacksModule, manifest as fjManifest, strings as fjStrings } fro
 import { twistTurbineModule, manifest as ttManifest, strings as ttStrings } from '../../../packages/games/twist-turbine/index.ts';
 import { limboBendModule, manifest as lbManifest, strings as lbStrings } from '../../../packages/games/limbo-bend/index.ts';
 import { poseWallModule, manifest as pwManifest, strings as pwStrings } from '../../../packages/games/pose-wall/index.ts';
+import { stageOf } from '../../../packages/games/_shared/stage.ts';
 import { fjLayout } from '../../../packages/games/strength/fireworks-view.ts';
 import { ttLayout } from '../../../packages/games/strength/turbine-view.ts';
 import { lbLayout } from '../../../packages/games/gatepose/limbo-view.ts';
@@ -103,6 +105,13 @@ const hud: PlayHud = new PlayHud({
   announce: (t) => { announced.push(t); }, toast: () => undefined, onPause: () => undefined, onMovePip: () => undefined,
   onLayout: () => sync(),
 });
+if (q.get('tile') === '1') {
+  document.body.classList.add('tile-real');
+  const standIn = document.createElement('div');
+  standIn.className = 'stand-in';
+  standIn.innerHTML = '<i class="head"></i><i class="body"></i>';
+  hud.pipHost.append(standIn);
+}
 
 /** The shell keeps the scene kit's layout in step with the plates the HUD really drew. */
 function size(name: string): { w: number; h: number } {
@@ -160,7 +169,9 @@ function rect(el: Element | null): { x: number; y: number; w: number; h: number 
   return { x: r.x, y: r.y, w: r.width, h: r.height };
 }
 
-const geometry = (): Geometry => ({ w: kit.rects.w, h: kit.rects.h, play: kit.rects.play, pip: kit.rects.pip, lanes: kit.rects.lanes ?? null });
+/** The geometry the games lay themselves out from: through the same stage adapter, so the play area is the steady one (the smallest of the run so far). */
+const stage = stageOf(kit) as NonNullable<ReturnType<typeof stageOf>>;
+const geometry = (): Geometry => ({ w: stage.w, h: stage.h, play: stage.play, pip: stage.pip, lanes: stage.lanes });
 
 window.ba = {
   id, mode, difficulty, seated, quiet, body, say,
@@ -179,6 +190,8 @@ window.ba = {
   reasons: () => ['reason', 'reasonP1', 'reasonP2'].map((n) => hudEl.querySelector<HTMLElement>(`[data-hud="${n}"]`)).filter((e): e is HTMLElement => !!e && !e.hidden).map((e) => (e.textContent ?? '').trim()).filter((t) => t.length > 0),
   command: () => (hudEl.querySelector<HTMLElement>('[data-hud="command"]')?.textContent ?? '').trim(),
   rects: () => kit.rects,
+  /** The play area and lanes the games work from (held still: the smallest of the run so far). */
+  steady: () => ({ play: stage.play, lanes: stage.lanes }),
   bodyLog: () => bodyLog.slice(),
   problems: () => hud.problems(),
   frames: () => [...frames],

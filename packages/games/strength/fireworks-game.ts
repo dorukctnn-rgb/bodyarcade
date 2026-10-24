@@ -77,7 +77,8 @@ export function createFireworkJacksGame(manifest: GameManifest, o: FireworkGameO
             io.play(g === 'perfect' ? 'perfect' : g === 'good' ? 'good' : g === 'off' ? 'late' : 'rep');
             break;
           }
-          case 'double': io.play('star'); break;
+          // the first double of a run is said once (they come on every beat of a good pair, and the screen reader is not told about every move)
+          case 'double': io.play('star'); if (Number(e['n']) === 1) io.hud.announce(io.say('fj.announce.double')); break;
           case 'set': io.hud.announce(io.say('fj.announce.set', { n: Number(e['set']) + 1, of: Number(e['of']), bpm: Number(e['bpm']) })); break;
           case 'rest': io.play('done'); io.hud.announce(io.say('fj.announce.rest', { n: Number(e['next']) + 1, of: Number(e['of']) })); break;
           case 'finale': io.play('win'); io.hud.announce(io.say('fj.announce.finale')); break;

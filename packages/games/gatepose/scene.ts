@@ -5,6 +5,7 @@
 import type { Ctx2D } from '../../core/render2d/ctx.ts';
 import type { Rect } from '../../core/render2d/view.ts';
 import type { Rng } from '../../core/types/index.ts';
+import { sceneUnit } from '../_shared/stage.ts';
 import { clamp } from '../_shared/util.ts';
 
 export const NIGHT = { top: '#140F27', mid: '#1A1430', low: '#241C40', floor: '#2A2150', line: '#40366E', wall: '#3B2F6B', hole: '#0B0818' } as const;
@@ -47,6 +48,8 @@ export interface ZoneOptions {
   baseShare?: number;
   /** The vanishing point's height as a share of the area, from its top. */
   vyShare?: number;
+  /** How much bigger than on a phone this screen draws its figures (Stage.unit, sceneUnit): the figure may grow that much. */
+  unit?: number;
 }
 
 /**
@@ -56,7 +59,8 @@ export interface ZoneOptions {
 export function zoneIn(area: Rect, pip: Rect | null, o: ZoneOptions): Zone {
   const u = Math.min(area.w, area.h);
   const vy = area.y + area.h * (o.vyShare ?? 0.34);
-  let T = clamp(u * 0.16, 20, 84);
+  // as big as the width gives room for (0.16 of it) and the height allows (the avatar's box with a margin), on a big screen bigger than on a phone's
+  let T = clamp(Math.min(area.w * 0.16, area.h / (o.above + o.below + 0.35)), 20, 84 * (o.unit ?? 1));
   const make = (cx: number, t: number): Zone => {
     const footY = area.y + area.h - 0.2 * t;
     const hipY = footY - o.below * t;
@@ -106,9 +110,10 @@ export class Backdrop {
     c.fillStyle = this.gradient(c, w, h);
     c.fillRect(0, 0, w, h);
     c.fillStyle = CHALK;
+    const unit = sceneUnit(w, h);
     for (const s of this.stars) {
       c.globalAlpha = (this.reducedMotion ? 0.5 : 0.3 + 0.3 * Math.sin(viewT * 0.8 + s.ph)) * (1 - 0.6 * dim);
-      c.fillRect(s.x * w, s.y * h, s.r, s.r);
+      c.fillRect(s.x * w, s.y * h, s.r * unit, s.r * unit);
     }
     c.globalAlpha = 1;
     const phase = this.reducedMotion ? 0 : viewT * 0.45;

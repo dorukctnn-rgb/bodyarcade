@@ -112,6 +112,7 @@ const CASES: Case[] = [
   { game: 'firework-jacks', size: 'laptop-1280x800', mode: 'local2' },
   { game: 'firework-jacks', size: 'phone-390x844', seated: true },
   { game: 'firework-jacks', size: 'phone-390x844', quiet: true },
+  { game: 'firework-jacks', size: 'phone-390x844', body: 'sloppy', reason: /Feet not wide enough/ },
   { game: 'twist-turbine', size: 'phone-390x844' },
   { game: 'twist-turbine', size: 'phone-844x390' },
   { game: 'twist-turbine', size: 'laptop-1280x800' },

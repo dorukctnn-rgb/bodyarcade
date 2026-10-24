@@ -10,13 +10,13 @@ import type { Rect } from '../../core/render2d/view.ts';
 import type { GameContext, Rng } from '../../core/types/index.ts';
 import type { HostView, SimEvent } from '../_shared/host.ts';
 import { drawFigure, JACK_OPEN, MOVER_NIGHT, mixLimbs, STAND } from '../_shared/mover.ts';
-import type { Stage } from '../_shared/stage.ts';
+import { sceneUnit, type Stage } from '../_shared/stage.ts';
 import { clamp, lerp } from '../_shared/util.ts';
 import { drawCity, makeCity, type City } from './city.ts';
 import type { FireworkSim } from './fireworks.ts';
 
 export const FIREWORK_COLORS = ['#FF4F6E', '#FFC53A', '#46B4FF', '#22C383', '#F4F2F8'] as const;
-const NIGHT = { top: '#140F27', mid: '#1A1430', low: '#241C40', pad: '#31285A', rim: '#F4F2F8', dim: '#40366E' } as const;
+const NIGHT = { top: '#140F27', mid: '#1A1430', low: '#241C40', pad: '#31285A', rim: '#F4F2F8', dim: '#40366E', dot: '#6A5BB0' } as const;
 
 export interface Geometry { w: number; h: number; play: Rect; pip: Rect | null; lanes: readonly [Rect, Rect] | null }
 
@@ -52,9 +52,11 @@ export function fjLayout(g: Geometry, players: 1 | 2): FjLayout {
   const zones: FjZone[] = [];
   const areas: Rect[] = players === 2 && g.lanes ? [g.lanes[0], g.lanes[1]] : [g.play];
   const roofY = g.play.y + g.play.h * 0.68;
+  const unit = sceneUnit(g.w, g.h);
   for (const area of areas) {
-    const u = Math.min(area.w, area.h);
-    let T = clamp(u * 0.15, 22, 84);
+    // as big as the width gives room for and the height allows (a hand over the head and the four dots above it stay apart at 0.18 of
+    // the height), and on a big screen bigger than on a phone's
+    let T = clamp(Math.min(area.w * 0.15, area.h * 0.18), 22, 84 * unit);
     let zone: FjZone | null = null;
     for (let tries = 0; tries < 6 && !zone; tries++) {
       for (const shift of [0, -0.16, 0.16, -0.28, 0.28]) {
@@ -182,7 +184,7 @@ export function createFireworksView(ctx: GameContext, stage: Stage, o: { reduced
     c.fillStyle = '#F4F2F8';
     for (const s of stars) {
       c.globalAlpha = o.reducedMotion ? 0.55 : 0.35 + 0.35 * Math.sin(viewT * 0.9 + s.ph);
-      c.fillRect(s.x * stage.w, s.y * stage.h, s.r, s.r);
+      c.fillRect(s.x * stage.w, s.y * stage.h, s.r * stage.unit, s.r * stage.unit);
     }
     c.globalAlpha = 1;
     // a warm glow over the roofs that grows with the energy of the play
@@ -258,8 +260,8 @@ export function createFireworksView(ctx: GameContext, stage: Stage, o: { reduced
           const inBar = beatN % 4;
           for (let d = 0; d < 4; d++) {
             const on = d === inBar && since < 0.5;
-            c.fillStyle = on ? (d === 0 ? '#FF4F6E' : '#FFC53A') : NIGHT.dim;
-            c.globalAlpha = on ? 1 : 0.55;
+            c.fillStyle = on ? (d === 0 ? '#FF4F6E' : '#FFC53A') : NIGHT.dot;
+            c.globalAlpha = on ? 1 : 0.7;
             c.beginPath();
             c.arc(z.dotsX + (d - 1.5) * z.dotR * 3.2, z.dotsY, z.dotR * (sim.countingIn ? 1.25 : 1) * (on ? 1.2 : 1), 0, Math.PI * 2);
             c.fill();
@@ -274,7 +276,7 @@ export function createFireworksView(ctx: GameContext, stage: Stage, o: { reduced
         const u = (viewT - r.t0) / 0.5;
         c.strokeStyle = r.color;
         c.globalAlpha = (1 - u) * 0.8;
-        c.lineWidth = 2;
+        c.lineWidth = 2 * stage.unit;
         c.beginPath();
         c.ellipse(r.x, r.y, r.r * (1 + 0.9 * u), r.r * 0.3 * (1 + 0.9 * u), 0, 0, Math.PI * 2);
         c.stroke();
@@ -287,11 +289,11 @@ export function createFireworksView(ctx: GameContext, stage: Stage, o: { reduced
         const u = (viewT - r.t0) / r.dur;
         if (u >= 1) { burst(r); continue; }
         const e = ease(Math.max(0, u));
-        const x = lerp(r.x0, r.x1, e) + Math.sin(u * 9 + r.hue) * 3 * (1 - u), y = lerp(r.y0, r.y1, e);
+        const x = lerp(r.x0, r.x1, e) + Math.sin(u * 9 + r.hue) * 3 * stage.unit * (1 - u), y = lerp(r.y0, r.y1, e);
         const color = FIREWORK_COLORS[r.hue % FIREWORK_COLORS.length] as string;
         c.strokeStyle = color;
         c.lineCap = 'round';
-        c.lineWidth = r.size >= 3 ? 3 : 2;
+        c.lineWidth = (r.size >= 3 ? 3 : 2) * stage.unit;
         c.globalAlpha = 0.5;
         c.beginPath();
         c.moveTo(r.tx, r.ty);
@@ -300,7 +302,7 @@ export function createFireworksView(ctx: GameContext, stage: Stage, o: { reduced
         c.globalAlpha = 1;
         c.fillStyle = '#F4F2F8';
         c.beginPath();
-        c.arc(x, y, r.size >= 3 ? 3 : 2.2, 0, Math.PI * 2);
+        c.arc(x, y, (r.size >= 3 ? 3 : 2.2) * stage.unit, 0, Math.PI * 2);
         c.fill();
         r.tx = lerp(r.tx, x, 0.4);
         r.ty = lerp(r.ty, y, 0.4);
