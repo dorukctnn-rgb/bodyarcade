@@ -17,6 +17,9 @@ import { OneEuro } from '../pose/one-euro.ts';
 import { bodySeen, clamp, isVisible, meanView, nearSide, seenParts, seenPartsSide, viewOf } from './geometry.ts';
 import { TORSO_PER_SHOULDER } from './profile.ts';
 
+/** Below this share of the rest shoulder width the shoulders count as turned: the rest is not re-centred on them. */
+const DRIFT_MIN_SPAN = 0.93;
+
 /** Points that get their own filter: [L, R] landmark groups (one group for the head). */
 const POINTS = {
   head: [[LM.nose]],
@@ -145,8 +148,11 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
       };
       if (sideMode) features.near = nearSide(lm);
 
-      // Slow re-centring while standing neutral (today's 8 s drift): camera nudged, player shifted a little.
-      if (driftSeconds > 0 && dtSec > 0 && Math.abs(rise) < 0.06 && crouchLevel(-rise, headDrop) < 0.1 && Math.abs(lean) < 0.12) {
+      // Slow re-centring while standing neutral (today's 8 s drift): camera nudged, player shifted a little. Not while the shoulders
+      // are turned (span under 0.93 of the rest width): a twisted body is narrower than its rest width, and re-centring on it makes
+      // the twist detector lose every twist after about 15 s of twisting or one overload hold (Twist Turbine; found by G3's browser
+      // run on 24 Oct, patch checked by G3 in the real Session).
+      if (driftSeconds > 0 && dtSec > 0 && (sideMode || shoulderSpan > DRIFT_MIN_SPAN) && Math.abs(rise) < 0.06 && crouchLevel(-rise, headDrop) < 0.1 && Math.abs(lean) < 0.12) {
         const k = dtSec / driftSeconds;
         rest.shoulderY += (shV.y - rest.shoulderY) * k;
         rest.shoulderX += (shV.x - rest.shoulderX) * k;
