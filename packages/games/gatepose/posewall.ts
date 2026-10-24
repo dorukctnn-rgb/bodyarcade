@@ -71,8 +71,8 @@ const LAG_MS = msOf(LAG_K);
 const PERFECT = 0.85;
 const BASE_POINTS = 60;
 const FIT_POINTS = 60;
-const TEAM_BONUS = 25;
-const SERIES_BONUS = 30;
+export const TEAM_BONUS = 25;
+export const SERIES_BONUS = 30;
 const ACTIVE_STEPS = 150;
 /** A limb that has moved this many degrees since the last look counts as movement. */
 const MOVE_DEG = 14;
@@ -212,6 +212,8 @@ interface PwState {
   judges: unknown[];
   log: LogEntry[];
   teamPasses: number;
+  /** The step of the last team pass (for the strip: "Both through"). */
+  teamAt: number;
   seriesPassed: number;
 }
 
@@ -291,7 +293,7 @@ export class PoseWallSim implements HostSim {
     this.s = {
       v: 1, k: 0, phase: 'running', plan, seg: 0,
       players: Array.from({ length: this.count }, newPlayer), ws: plan.walls.map(() => ({ done: 0, locked: false, fit: 0 })),
-      judges: [], log: [], teamPasses: 0, seriesPassed: 0,
+      judges: [], log: [], teamPasses: 0, teamAt: -100000, seriesPassed: 0,
     };
     this.judges = Array.from({ length: this.count }, () => new PoseWallJudge());
     this.index();
@@ -321,6 +323,7 @@ export class PoseWallSim implements HostSim {
   get variant(): 'standing' | 'seated' { return this.seated ? 'seated' : 'standing'; }
   get leftS(): number { return Math.max(0, (this.segment.endK - this.s.k) / 60); }
   get teamPasses(): number { return this.s.teamPasses; }
+  get teamAt(): number { return this.s.teamAt; }
   /** The last seconds of a rest: "Ready". */
   get gettingReady(): boolean { const seg = this.segment; return seg.kind === 'rest' && seg.endK - this.s.k <= 180; }
   /** The names the keys and swipes step through, 'rest' first. */
@@ -539,6 +542,7 @@ export class PoseWallSim implements HostSim {
     if (this.count === 2 && passedLanes.length === 2) {
       for (const p of s.players) p.score += TEAM_BONUS;
       s.teamPasses++;
+      s.teamAt = k;
       s.log.push(logOf(k, 'team', true, { v: TEAM_BONUS }));
       out.push({ type: 'team', t, bonus: TEAM_BONUS });
     }

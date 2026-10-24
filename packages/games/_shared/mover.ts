@@ -144,7 +144,7 @@ export function drawFigure(ctx: Ctx2D, d: FigureDraw, style: MoverStyle): void {
     band(g.elbowL, g.wristL, style.bandL);
     band(g.elbowR, g.wristR, style.bandR);
     ctx.beginPath();
-    ctx.arc(g.head.x, g.head.y, BUILD_T.head * T, 0, Math.PI * 2);
+    ctx.arc(g.head.x, g.head.y, BUILD_T.head * T * (1 + (fat - 1) * 0.5), 0, Math.PI * 2);
     ctx.fillStyle = style.head;
     ctx.fill();
   }
