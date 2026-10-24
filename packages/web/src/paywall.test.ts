@@ -3,7 +3,6 @@
 // says so and keeps the licence key box and the way back; the Android app never says a word about another shop; Family has
 // no free trial, whatever a config says; and the reminder is promised only where a trial is on offer.
 import { describe, expect, it } from 'vitest';
-import { GUMROAD_CHECKOUT } from '../../core/entitlements/catalog.ts';
 import { paywallModel, type PaywallMode, type PaywallModel } from '../../core/entitlements/paywall.ts';
 import { PLANS, SOLD_PLAN_IDS, playProductOf, type PlayItemDetails } from '../../core/entitlements/plans.ts';
 import { textOf } from '../../core/ui/html.ts';
@@ -50,7 +49,7 @@ const actions = (html: string): string[] => [...html.matchAll(/data-action="([^"
 
 describe('where nothing can be bought, no button pretends it can', () => {
   it('the Gumroad products that do not exist yet are not offered: no plan, no buy button, the note, the key box and the way back', () => {
-    const m = web(GUMROAD_CHECKOUT);
+    const m = web({});                                           // no address at all: the catalog of the repository changes the day the products exist
     expect(m.plans.offers).toEqual([]);
     for (const lang of LANGS) {
       const html = page(lang, m);
@@ -104,7 +103,7 @@ describe('where nothing can be bought, no button pretends it can', () => {
 
 describe('every button that is on the page is one the page can answer', () => {
   const states: [string, PaywallModel][] = [
-    ['web, nothing to sell', web(GUMROAD_CHECKOUT)],
+    ['web, nothing to sell', web({})],
     ['web, all four plans', web()],
     ['web, a trial already used', web(REAL, { trialEligible: false })],
     ['play with products', play()],

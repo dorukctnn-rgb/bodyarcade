@@ -16,6 +16,8 @@ export interface GumroadProviderOptions {
   now?: () => number;
   /** Gumroad product id -> plan: the two old products are always there; new products are added here. */
   products?: Readonly<Record<string, PlanId>>;
+  /** The products of this release (catalog.ts). Default: the catalog of the repository; a test passes its own and so does not move with it. */
+  catalog?: Readonly<Record<string, PlanId>>;
   timeoutMs?: number;
 }
 
@@ -35,9 +37,9 @@ type Checked =
   | { kind: 'not_found' }
   | { kind: 'unreachable' };
 
-/** Which products to try: only plans that exist, the old ones included. */
-export function productTable(extra: Readonly<Record<string, PlanId>> = {}): [string, PlanId][] {
-  const table: Record<string, PlanId> = { ...GUMROAD_LEGACY_PRODUCTS, ...GUMROAD_PRODUCTS };
+/** Which products to try: only plans that exist; the two old ones first, then the catalog's, then `extra`. */
+export function productTable(extra: Readonly<Record<string, PlanId>> = {}, catalog: Readonly<Record<string, PlanId>> = GUMROAD_PRODUCTS): [string, PlanId][] {
+  const table: Record<string, PlanId> = { ...GUMROAD_LEGACY_PRODUCTS, ...catalog };
   for (const [id, plan] of Object.entries(extra)) if (isPlanId(plan) && /^[A-Za-z0-9_=-]{8,64}$/.test(id)) table[id] = plan;
   return Object.entries(table);
 }
@@ -45,7 +47,7 @@ export function productTable(extra: Readonly<Record<string, PlanId>> = {}): [str
 export function createGumroadProvider(o: GumroadProviderOptions = {}): ManagedProvider {
   const f = o.fetch ?? defaultFetch;
   const now = o.now ?? Date.now;
-  const products = productTable(o.products);
+  const products = productTable(o.products, o.catalog);
 
   async function check(key: string): Promise<Checked> {
     for (const [productId, plan] of products) {

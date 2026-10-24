@@ -2,6 +2,7 @@
 // verify endpoint (the live site's licence cases) and Google Play through the Digital Goods API.
 import { beforeAll, describe, expect, it } from 'vitest';
 import { API } from './api.ts';
+import { GUMROAD_PRODUCTS } from './catalog.ts';
 import { entitlementFor } from './plans.ts';
 import { createGumroadProvider, productTable } from './providers/gumroad.ts';
 import { createPlayProvider, type DigitalGoodsService, type PaymentRequestLike } from './providers/play.ts';
@@ -178,7 +179,8 @@ describe('the direct Gumroad provider (the live site\'s licence cases)', () => {
   const setup = () => {
     const clock = new Clock();
     const gr = new FakeGumroad();
-    const provider = createGumroadProvider({ fetch: gr.fetch, now: clock.now });
+    // The live site's two products only: what the catalog of the repository holds is not part of these cases (it changes the day the products exist).
+    const provider = createGumroadProvider({ fetch: gr.fetch, now: clock.now, catalog: {} });
     return { clock, gr, provider };
   };
   const iso = (ms: number): string => new Date(ms).toISOString();
@@ -282,7 +284,25 @@ describe('the direct Gumroad provider (the live site\'s licence cases)', () => {
     const p = createGumroadProvider({ fetch: gr.fetch, now: clock.now, products: { 'newYearlyProduct==': 'pro-yearly', 'x': 'pro-monthly', 'okOkOkOk==': 'enterprise' as never } });
     gr.add('newYearlyProduct==', KEY_A);
     expect(await p.activate(KEY_A)).toEqual({ ok: true, e: entitlementFor('pro-yearly', 'gumroad') });
-    expect(productTable({ 'x': 'pro-monthly', 'okOkOkOk==': 'enterprise' as never }).map(([id]) => id)).toEqual([MONTHLY, LIFETIME]);
+    expect(productTable({ 'x': 'pro-monthly', 'okOkOkOk==': 'enterprise' as never }, {}).map(([id]) => id)).toEqual([MONTHLY, LIFETIME]);
+  });
+
+  it('asks the products of this release after the two old ones, and finds a key by the id of a product of the catalog', async () => {
+    const clock = new Clock();
+    const gr = new FakeGumroad();
+    const p = createGumroadProvider({ fetch: gr.fetch, now: clock.now, catalog: { 'catalogYearly01==': 'pro-yearly', 'catalogFamily01==': 'family-yearly' } });
+    gr.add('catalogFamily01==', KEY_A);
+    expect(await p.activate(KEY_A)).toEqual({ ok: true, e: entitlementFor('family-yearly', 'gumroad') });
+    expect(gr.calls.map((c) => c.get('product_id'))).toEqual([MONTHLY, LIFETIME, 'catalogYearly01==', 'catalogFamily01==']);
+  });
+
+  it('with no catalog given, it is the catalog of the repository that is asked, after the two old products', async () => {
+    const clock = new Clock();
+    const gr = new FakeGumroad();
+    const p = createGumroadProvider({ fetch: gr.fetch, now: clock.now });
+    expect(await p.activate(KEY_A)).toMatchObject({ ok: false, code: 'not_found' });
+    expect(gr.calls.map((c) => c.get('product_id'))).toEqual([MONTHLY, LIFETIME, ...Object.keys(GUMROAD_PRODUCTS)]);
+    expect(productTable().map(([id]) => id)).toEqual([MONTHLY, LIFETIME, ...Object.keys(GUMROAD_PRODUCTS)]);
   });
 });
 

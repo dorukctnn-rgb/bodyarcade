@@ -2,6 +2,7 @@
 // one that development and test builds use, and the two stand-ins for the moment before the real one has answered.
 import { describe, expect, it } from 'vitest';
 import { bootEntitlements, type BootWindow } from '../../../core/entitlements/boot.ts';
+import type { SoldPlanId } from '../../../core/entitlements/plans.ts';
 import { Clock, FakeServer, makeKeys } from '../../../core/entitlements/testkit.ts';
 import { createStore, memoryStorage } from '../../../core/store/store.ts';
 import { loadPlayDetails, pendingBilling, practiceBilling, PREVIEW_CHECKOUT, realBilling, withPreviewOffers } from './billing.ts';
@@ -9,17 +10,21 @@ import { loadPlayDetails, pendingBilling, practiceBilling, PREVIEW_CHECKOUT, rea
 const HOUR = 3_600_000;
 const win = (search = ''): BootWindow => ({ location: { search, hostname: 'bodyarcade.test' }, document: { referrer: '' }, sessionStorage: null });
 
-async function bootOnTestServer(search = '') {
+/** `checkout`: the addresses the paywall may offer. Without it the catalog of the repository (what the player sees); `{}` is the day before the products exist. */
+async function bootOnTestServer(search = '', checkout?: Readonly<Partial<Record<SoldPlanId, string>>>) {
   const clock = new Clock();
   const keys = await makeKeys();
   const server = new FakeServer(keys, clock);
-  const boot = await bootEntitlements({ store: createStore({ storage: memoryStorage() }), keys: [keys.pub], window: win(search), fetch: server.fetch, now: clock.now, autoRefresh: false, legacyStorage: null });
+  const boot = await bootEntitlements({
+    store: createStore({ storage: memoryStorage() }), keys: [keys.pub], window: win(search), fetch: server.fetch, now: clock.now, autoRefresh: false, legacyStorage: null,
+    ...(checkout ? { checkout } : {}),
+  });
   return { boot, clock, server };
 }
 
 describe('the real billing', () => {
   it('offers nothing while the Gumroad products are placeholders, and says so: no plan, no address, the key box stays', async () => {
-    const { boot } = await bootOnTestServer();
+    const { boot } = await bootOnTestServer('', {});
     const b = realBilling(boot, { family: true, details: () => [] });
     const { plans, info } = b.paywall();
     expect(plans.offers).toEqual([]);
@@ -56,7 +61,7 @@ describe('the real billing', () => {
 
 describe('made-up offers', () => {
   it('a build made to look at the design gets four preview plans where the real ones are missing, and the buy button knows it', async () => {
-    const { boot } = await bootOnTestServer();
+    const { boot } = await bootOnTestServer('', {});
     const real = realBilling(boot, { family: false, details: () => [] });
     const { plans, info } = withPreviewOffers(real).paywall();
     expect(plans.offers.map((o) => o.id)).toEqual(['pro-monthly', 'pro-yearly', 'family-yearly', 'lifetime']);

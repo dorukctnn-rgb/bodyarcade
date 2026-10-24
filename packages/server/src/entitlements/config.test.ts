@@ -1,6 +1,7 @@
 // What the Worker's secrets and variables mean: each is optional, a broken one turns off its own capability and is named
 // (never shown) in `problems`.
 import { describe, expect, it } from 'vitest';
+import { GUMROAD_PRODUCTS } from '../../../core/entitlements/catalog.ts';
 import { GUMROAD_LEGACY_PRODUCTS } from '../../../core/entitlements/plans.ts';
 import { loadConfig, parseProducts, parsePublicKeys } from './config.ts';
 import { GOOGLE_TOKEN_URI } from './upstream/google.ts';
@@ -44,11 +45,27 @@ describe('the signing key', () => {
 
 describe('the Gumroad products', () => {
   it('always include the two sold before v2, after the products of this release', async () => {
-    const c = await loadConfig({ GUMROAD_PRODUCTS: JSON.stringify({ NEWPRODUCT001: 'pro-yearly', NEWPRODUCT002: 'lifetime' }) });
+    // `catalog: {}`: the catalog of the repository is not part of this case (it changes the day the products exist).
+    const c = await loadConfig({ GUMROAD_PRODUCTS: JSON.stringify({ NEWPRODUCT001: 'pro-yearly', NEWPRODUCT002: 'lifetime' }) }, { catalog: {} });
     const ids = [...c.products.keys()];
     expect(ids).toEqual(['NEWPRODUCT001', 'NEWPRODUCT002', ...Object.keys(GUMROAD_LEGACY_PRODUCTS)]);
     expect(c.products.get('NEWPRODUCT001')).toBe('pro-yearly');
     for (const [id, plan] of Object.entries(GUMROAD_LEGACY_PRODUCTS)) expect(c.products.get(id)).toBe(plan);
+  });
+
+  it('put the products of the catalog first, then the ones the variable names, then the two sold before v2', async () => {
+    const c = await loadConfig(
+      { GUMROAD_PRODUCTS: JSON.stringify({ VARIABLEPRODUCT1: 'pro-yearly' }) },
+      { catalog: { CATALOGPRODUCT01: 'pro-monthly', CATALOGPRODUCT02: 'family-yearly' } },
+    );
+    expect([...c.products.keys()]).toEqual(['CATALOGPRODUCT01', 'CATALOGPRODUCT02', 'VARIABLEPRODUCT1', ...Object.keys(GUMROAD_LEGACY_PRODUCTS)]);
+    expect(c.products.get('CATALOGPRODUCT02')).toBe('family-yearly');
+  });
+
+  it('with no catalog given are the catalog of the repository: once the products exist the Worker needs no GUMROAD_PRODUCTS variable', async () => {
+    const c = await loadConfig({});
+    expect([...c.products.keys()]).toEqual([...Object.keys(GUMROAD_PRODUCTS), ...Object.keys(GUMROAD_LEGACY_PRODUCTS)]);
+    for (const [id, plan] of Object.entries(GUMROAD_PRODUCTS)) expect(c.products.get(id)).toBe(plan);
   });
 
   it('never lets the variable change what a legacy id means... except by naming it again, which is the owner\'s own setting', async () => {

@@ -12,7 +12,7 @@ import { keysForHost } from './keys.ts';
 import { createEntitlements, type EntitlementsService } from './manager.ts';
 import { paywallModel, type PaywallInputs, type PaywallModel } from './paywall.ts';
 import type { FeatureRules } from './features.ts';
-import type { PlanId } from './plans.ts';
+import type { PlanId, SoldPlanId } from './plans.ts';
 import { toShellPort, type ShellEntitlementsPort } from './port.ts';
 import { createGumroadProvider } from './providers/gumroad.ts';
 import { createPlayProvider, type PaymentRequestLike } from './providers/play.ts';
@@ -36,6 +36,8 @@ export interface BootOptions {
   baseUrl?: string;
   /** Gumroad product ids added to the two old ones (id -> plan). */
   gumroadProducts?: Readonly<Record<string, PlanId>>;
+  /** The checkout addresses the web paywall may offer, per sold plan. Default: the catalog of the repository (catalog.ts); a test passes its own, so it does not move with it. */
+  checkout?: Readonly<Partial<Record<SoldPlanId, string>>>;
   now?: () => number;
   rules?: FeatureRules;
   /** Where the live site's licence is read from. Default: the browser's own storage. null: no migration. */
@@ -100,7 +102,7 @@ export async function bootEntitlements(o: BootOptions): Promise<BootResult> {
     service, env, hint, trial,
     port: toShellPort(service, { play: env.mode === 'play' }),
     paywall(inputs = {}) {
-      return paywallModel(env.mode, { trialEligible: !service.status().everPaid, checkout: GUMROAD_CHECKOUT, ...inputs });
+      return paywallModel(env.mode, { trialEligible: !service.status().everPaid, checkout: o.checkout ?? GUMROAD_CHECKOUT, ...inputs });
     },
   };
 }

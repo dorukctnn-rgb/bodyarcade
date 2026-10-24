@@ -5,6 +5,7 @@ import { createStore, memoryStorage } from '../store/index.ts';
 import { API } from './api.ts';
 import { bootEntitlements, type BootWindow } from './boot.ts';
 import { PLAY_BILLING_URL } from './billing-env.ts';
+import { GUMROAD_CHECKOUT } from './catalog.ts';
 import type { DigitalGoodsService, PaymentRequestLike } from './providers/play.ts';
 import { DAY, DID_1, FakeGumroad, FakeServer, KEY_A, START, Clock, makeKeys, type Keys } from './testkit.ts';
 
@@ -61,6 +62,28 @@ describe('in a browser', () => {
     p.clock.advance(5 * DAY + 3_600_000);
     expect(boot.trial.notice()).toMatchObject({ where: 'web', cancelled: false, dayOffset: 2 });
     expect(await boot.trial.view()).toMatchObject({ email: 'set', masked: 'a***@example.com' });
+  });
+
+  it('offers the plans of the catalog of the repository at their Gumroad addresses, and keeps Family off the page until the shell asks for it', async () => {
+    const p = pieces();
+    const boot = await bootEntitlements({ store: p.store, keys: [keys.pub], window: browserWindow(), fetch: p.fetch, now: p.clock.now, legacyStorage: null, autoRefresh: false });
+    const sold = Object.keys(GUMROAD_CHECKOUT);                              // the plans that have a real address today, in the order of the paywall
+    const shown = boot.paywall();
+    expect(shown.plans.offers.map((o) => o.id)).toEqual(sold.filter((id) => id !== 'family-yearly'));
+    for (const o of shown.plans.offers) expect(o.checkout.web, o.id).toBe(GUMROAD_CHECKOUT[o.id]);
+    expect(boot.paywall({ family: false }).plans.offers.some((o) => o.id === 'family-yearly')).toBe(false);
+    expect(boot.paywall({ family: true }).plans.offers.map((o) => o.id)).toEqual(sold);
+    // and the trial is promised only where there is one: Pro yearly, never Family
+    expect(boot.paywall({ family: true }).plans.offers.filter((o) => o.trialDays !== undefined).map((o) => o.id)).toEqual(sold.filter((id) => id === 'pro-yearly'));
+  });
+
+  it('offers nothing and says so when no plan has an address (the day before the products exist): the key box stays', async () => {
+    const p = pieces();
+    const boot = await bootEntitlements({ store: p.store, keys: [keys.pub], window: browserWindow(), fetch: p.fetch, now: p.clock.now, legacyStorage: null, autoRefresh: false, checkout: {} });
+    const m = boot.paywall({ family: true });
+    expect(m).toMatchObject({ mode: 'web', purchase: 'none', note: 'unavailable', keyEntry: { visible: true, wording: 'web' } });
+    expect(m.plans.offers).toEqual([]);
+    expect(boot.paywall({ checkout: { lifetime: 'https://dorukctn.gumroad.com/l/x' } }).plans.offers.map((o) => o.id)).toEqual(['lifetime']);   // what the caller passes wins
   });
 
   it('works without a window at all (the page generator, a test)', async () => {

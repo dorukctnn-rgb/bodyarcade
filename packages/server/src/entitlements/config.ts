@@ -50,7 +50,8 @@ export function parsePublicKeys(text: unknown): TokenKey[] {
   return out;
 }
 
-export async function loadConfig(env: Record<string, unknown>): Promise<LoadedConfig> {
+/** `catalog`: the products of this release; default the catalog of the repository (a test passes its own, so it does not move with it). */
+export async function loadConfig(env: Record<string, unknown>, o: { catalog?: Readonly<Record<string, PlanId>> } = {}): Promise<LoadedConfig> {
   const problems: string[] = [];
   const publicKeys: TokenKey[] = [];
 
@@ -73,7 +74,7 @@ export async function loadConfig(env: Record<string, unknown>): Promise<LoadedCo
   for (const k of parsePublicKeys(env['ENT_PUB_JWKS'])) if (!publicKeys.some((p) => p.kid === k.kid)) publicKeys.push(k);
 
   const products = new Map<string, PlanId>();
-  for (const [id, plan] of Object.entries({ ...GUMROAD_PRODUCTS, ...parseProducts(env['GUMROAD_PRODUCTS']) })) products.set(id, plan);
+  for (const [id, plan] of Object.entries({ ...(o.catalog ?? GUMROAD_PRODUCTS), ...parseProducts(env['GUMROAD_PRODUCTS']) })) products.set(id, plan);
   for (const [id, plan] of Object.entries(GUMROAD_LEGACY_PRODUCTS)) if (!products.has(id)) products.set(id, plan);
 
   let playAccount: ServiceAccount | null = null;
