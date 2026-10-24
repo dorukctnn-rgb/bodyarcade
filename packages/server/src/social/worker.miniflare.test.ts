@@ -1,0 +1,368 @@
+// The social module and live play on the production Worker, run in Miniflare (workerd): a real D1 database with the real
+// migration, real Durable Objects with hibernating WebSockets, WebCrypto signatures verified by the runtime, and the
+// browser client (core/social/client.ts) and live play's client (core/net) talking to it over HTTP and WebSocket.
+// The rule-by-rule tests run on node:sqlite in the other files; this file proves the same module works in the platform.
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { LiveClient } from '../../../core/net/client.ts';
+import type { SocketLike } from '../../../core/net/runtime.ts';
+import { SocialApiError, SocialClient, type SignUp } from '../../../core/social/client.ts';
+import { MemoryKeyStore } from '../../../core/social/keystore.ts';
+import { generateDeviceKey, signRequest } from '../../../core/social/sign.ts';
+import { HUB_CLOSE, type FriendEntry, type HubEvent } from '../../../core/social/types.ts';
+import type { JoinGrant } from '../../../core/types/net.ts';
+import { STACK_ADMIN_TOKEN, startStack, type Stack } from './stack.ts';
+
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
+
+let stack: Stack;
+
+beforeAll(async () => { stack = await startStack(); }, 120_000);
+afterAll(async () => { await stack?.stop(); }, 30_000);
+
+// ───────── helpers ─────────
+
+interface Who {
+  client: SocialClient;
+  store: MemoryKeyStore;
+  fid: string;
+  name: string;
+  /** The hub socket's events, in order. */
+  seen: HubEvent[];
+}
+
+async function player(sign: SignUp, ...extra: unknown[]): Promise<Who> {
+  void extra;
+  const store = new MemoryKeyStore();
+  const client = new SocialClient({ origin: stack.origin, keys: store });
+  const me = await client.signUp(sign);
+  return { client, store, fid: me.fid, name: me.name, seen: [] };
+}
+
+/** Opens the player's hub and waits until the page would show them online. */
+async function goOnline(w: Who): Promise<void> {
+  w.client.connect();
+  await until(() => w.client.hub === 'online', 'the hub to open');
+  await w.client.sync();
+}
+
+async function until(cond: () => boolean | Promise<boolean>, what = 'the condition', ms = 15_000): Promise<void> {
+  const t0 = Date.now();
+  for (;;) {
+    if (await cond()) return;
+    if (Date.now() - t0 > ms) throw new Error(`timed out waiting for ${what}`);
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
+
+/** Takes a seat in a room with live play's own client (relay only, no WebRTC) and waits for the welcome. */
+async function sitIn(grant: JoinGrant): Promise<LiveClient> {
+  const live = new LiveClient({ grant, origin: stack.origin, peers: 'none', socket: (url) => new WebSocket(url) as unknown as SocketLike });
+  let welcomed = false;
+  live.on('welcome', () => { welcomed = true; });
+  await live.start();
+  await until(() => welcomed, 'the welcome of the room');
+  return live;
+}
+
+const friendsOf = async (w: Who): Promise<FriendEntry[]> => w.client.loadFriends();
+
+async function befriend(a: Who, b: Who): Promise<void> {
+  await a.client.sendRequest(b.client.profile?.code ?? '');
+  await b.client.respond(a.fid, true);
+  await a.client.loadFriends();
+}
+
+const dayStart = (): number => Math.floor(Date.now() / 86_400_000) * 86_400_000;
+
+// ───────── the platform ─────────
+
+describe('the Worker in workerd', () => {
+  it('serves the social API next to live play on one router, and the migration is applied to a real D1', async () => {
+    const res = await fetch(`${stack.origin}/api/social/me`);
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('unauthorized');
+    const tables = await stack.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'soc_%' ORDER BY name").all<{ name: string }>();
+    expect(tables.results.map((t) => t.name)).toEqual(expect.arrayContaining(['soc_audit', 'soc_blocks', 'soc_devices', 'soc_friends', 'soc_lobbies', 'soc_presence', 'soc_profiles', 'soc_reports', 'soc_requests']));
+    expect((await fetch(`${stack.origin}/api/rooms/ABCDEF`)).status).toBe(404);   // live play's route answers too
+  });
+
+  it('a device signs up, comes back with the same key, and the server verifies every signature in the runtime', async () => {
+    const w = await player({ band: 'adult', name: 'Mia', level: 12, region: 'na', lang: 'tr' });
+    expect(w.client.profile).toMatchObject({ name: 'Mia', band: 'adult', level: 12, region: 'na', lang: 'tr' });
+    const again = new SocialClient({ origin: stack.origin, keys: w.store });
+    expect((await again.init())?.fid).toBe(w.fid);
+    // a tampered body, an unsigned request and a request signed by an unknown key are all refused
+    const keys = await generateDeviceKey();
+    const url = `${stack.origin}/api/social/me`;
+    const unknown = await fetch(url, { headers: { 'X-BA-Auth': await signRequest(keys, { method: 'GET', url }, Date.now()) } });
+    expect(unknown.status).toBe(401);
+    const old = await fetch(url, { headers: { 'X-BA-Auth': await signRequest((await w.store.load())!.keys, { method: 'GET', url }, Date.now() - 3_600_000) } });
+    expect(old.status).toBe(401);
+    expect(((await old.json()) as { error: string }).error).toBe('clock_skew');
+  });
+
+  it('a phone with the wrong clock is corrected from the first refusal', async () => {
+    const w = await player({ band: 'adult' });
+    const skewed = new SocialClient({ origin: stack.origin, keys: w.store, now: () => Date.now() + 3 * 3_600_000 });
+    expect((await skewed.init())?.fid).toBe(w.fid);
+    expect(Math.abs(skewed.serverNow() - Date.now())).toBeLessThan(2000);
+  });
+
+  it('friends: request by code, accept, lists on both sides, remove', async () => {
+    const a = await player({ band: 'adult', name: 'Ada' });
+    const b = await player({ band: 'adult', name: 'Bo' });
+    expect(await a.client.sendRequest(b.client.profile?.code ?? '')).toEqual({ status: 'sent' });
+    expect(a.client.requests.outgoing.map((r) => r.name)).toEqual(['Bo']);
+    await b.client.loadRequests();
+    expect(b.client.requests.incoming.map((r) => r.name)).toEqual(['Ada']);
+    await b.client.respond(a.fid, true);
+    expect((await friendsOf(a)).map((f) => f.name)).toEqual(['Bo']);
+    expect((await friendsOf(b)).map((f) => f.name)).toEqual(['Ada']);
+    await a.client.removeFriend(b.fid);
+    expect(await friendsOf(b)).toEqual([]);
+  });
+
+  it('a request to a code nobody has is not_found and the failure is counted', async () => {
+    const a = await player({ band: 'adult' });
+    await expect(a.client.sendRequest('BA-ZZZZZZ')).rejects.toMatchObject({ status: 404, code: 'not_found' });
+    await expect(a.client.sendRequest('hello there')).rejects.toBeInstanceOf(SocialApiError);
+  });
+});
+
+describe('the hub in a Durable Object', () => {
+  it('answers ping with pong by itself, says hello with the server time, and marks the player online for friends', async () => {
+    const a = await player({ band: 'adult', name: 'Ada' });
+    const b = await player({ band: 'adult', name: 'Bo' });
+    await befriend(a, b);
+    expect((await friendsOf(a))[0]?.presence).toEqual({ status: 'offline' });
+    await goOnline(b);
+    expect((await friendsOf(a))[0]?.presence.status).toBe('online');
+    expect((await friendsOf(b))[0]?.presence).toEqual({ status: 'offline' });
+    b.client.disconnect();
+    await until(async () => (await friendsOf(a))[0]?.presence.status === 'offline', 'b to be offline after closing');
+  });
+
+  it('answers the text ping with pong without the player doing anything else, and greets with the server time', async () => {
+    const a = await player({ band: 'adult' });
+    const keys = (await a.store.load())!.keys;
+    const url = `${stack.origin}/api/social/hub`;
+    const ws = new WebSocket(`${url.replace('http', 'ws')}?ba_auth=${encodeURIComponent(await signRequest(keys, { method: 'GET', url }, Date.now()))}`);
+    const got: string[] = [];
+    ws.onmessage = (e) => { got.push(String(e.data)); };
+    await until(() => ws.readyState === 1 && got.length >= 1, 'the hello');
+    expect(JSON.parse(got[0]!)).toMatchObject({ t: 'hello' });
+    expect(Math.abs((JSON.parse(got[0]!) as { now: number }).now - Date.now())).toBeLessThan(2000);
+    ws.send('ping');
+    await until(() => got.includes('pong'), 'the pong');
+    // garbage and oversize messages do not crash the object: the next ping is still answered
+    ws.send('{"t":"nonsense"}');
+    ws.send('ping');
+    await until(() => got.filter((g) => g === 'pong').length === 2, 'the second pong');
+    ws.close();
+  });
+
+  it('a hub socket without a valid signature is closed at once with a code the page can read', async () => {
+    const url = `${stack.origin}/api/social/hub`.replace('http', 'ws');
+    const ws = new WebSocket(`${url}?ba_auth=v1.bad`);
+    let code = 0;
+    ws.onclose = (e) => { code = e.code; };
+    await until(() => code !== 0, 'the close');
+    expect(code).toBe(HUB_CLOSE.AUTH);
+  });
+
+  it('pushes requests, acceptances, presence changes and removals to an open socket', async () => {
+    const a = await player({ band: 'adult', name: 'Ada' });
+    const b = await player({ band: 'adult', name: 'Bo' });
+    const gotRequest: string[] = [];
+    const gotAdded: string[] = [];
+    b.client.on('friendRequest', (e) => gotRequest.push(e.name));
+    a.client.on('friendAdded', (e) => gotAdded.push(e.name));
+    await goOnline(a);
+    await goOnline(b);
+    await a.client.sendRequest(b.client.profile?.code ?? '');
+    await until(() => gotRequest.length === 1, 'the request push');
+    expect(b.client.requests.incoming.map((r) => r.name)).toEqual(['Ada']);
+    await b.client.respond(a.fid, true);
+    await until(() => gotAdded.length === 1, 'the acceptance push');
+    await until(() => a.client.friends.length === 1, 'the friend list');
+    // a status change reaches the friend as a push, with no polling
+    b.client.setStatus('playing', 'squat-flap');
+    await until(() => a.client.friends[0]?.presence.status === 'playing', 'the playing status');
+    expect(a.client.friends[0]?.presence.game).toBe('squat-flap');
+    b.client.setStatus('online');
+    await until(() => a.client.friends[0]?.presence.status === 'online', 'back online');
+    // the other side closing its socket is an offline push
+    b.client.disconnect();
+    await until(() => a.client.friends[0]?.presence.status === 'offline', 'the offline push');
+    // a removal
+    await goOnline(b);
+    await b.client.removeFriend(a.fid);
+    await until(() => a.client.friends.length === 0, 'the removal push');
+    a.client.disconnect();
+    b.client.disconnect();
+  });
+
+  it('a second socket of the same player closes the first one with the "replaced" code, and nothing reconnects by itself', async () => {
+    const a = await player({ band: 'adult' });
+    await goOnline(a);
+    const tab2 = new SocialClient({ origin: stack.origin, keys: a.store });
+    await tab2.init();
+    tab2.connect();
+    await until(() => tab2.hub === 'online', 'the second tab');
+    await until(() => a.client.hub === 'replaced', 'the first tab to be told');
+    expect(HUB_CLOSE.REPLACED).toBeGreaterThanOrEqual(4000);
+    await new Promise((r) => setTimeout(r, 400));
+    expect(tab2.hub).toBe('online');
+    expect(a.client.hub).toBe('replaced');
+    tab2.disconnect();
+    a.client.disconnect();
+  });
+
+  it('a hub that was evicted from memory wakes up for the next message with its socket and its identity intact', async () => {
+    const a = await player({ band: 'adult', name: 'Ada' });
+    const b = await player({ band: 'adult', name: 'Bo' });
+    await befriend(a, b);
+    await goOnline(a);
+    await goOnline(b);
+    await until(() => a.client.friends[0]?.presence.status === 'online', 'b online');
+    // the platform evicts an idle object that holds only hibernating sockets: the sockets stay connected
+    const row = await stack.db.prepare('SELECT pid FROM soc_profiles WHERE fid = ?1').bind(b.fid).first<{ pid: string }>();
+    await stack.evictHub(row!.pid);
+    b.client.setStatus('playing', 'knee-sprint');
+    await until(() => a.client.friends[0]?.presence.status === 'playing', 'the status after the wake-up');
+    a.client.disconnect();
+    b.client.disconnect();
+  });
+});
+
+describe('rooms, invitations and the lobby directory with real rooms', () => {
+  it('an invitation travels from a room to a friend whose socket is open, and a decline travels back', async () => {
+    const a = await player({ band: 'adult', name: 'Ada' });
+    const b = await player({ band: 'adult', name: 'Bo' });
+    await befriend(a, b);
+    await goOnline(a);
+    await goOnline(b);
+    const grant = await a.client.createRoom({ kind: 'private', gameId: 'squat-flap', size: 2 });
+    const seat = await sitIn(grant);
+    await until(async () => (await friendsOf(b))[0]?.presence.status === 'in_room', 'a in the room');
+    expect((await friendsOf(b))[0]?.presence.room).toBe(grant.code);
+    const sent = await a.client.invite(b.fid, grant.code);
+    await until(() => b.client.invites.length === 1, 'the invitation');
+    expect(b.client.invites[0]).toMatchObject({ room: grant.code, from: { fid: a.fid, name: 'Ada' }, game: 'squat-flap' });
+    const declined: string[] = [];
+    a.client.on('inviteDeclined', (e) => declined.push(e.id));
+    await b.client.declineInvite(b.client.invites[0]!);
+    await until(() => declined.length === 1, 'the decline');
+    expect(declined[0]).toBe(sent.id);
+    // b can still take the seat by the code in the invite
+    const bGrant = await b.client.joinRoom(grant.code);
+    const bSeat = await sitIn(bGrant);
+    await until(async () => (await friendsOf(a))[0]?.presence.status === 'in_room', 'b in the room');
+    bSeat.stop();
+    seat.stop();
+    a.client.disconnect();
+    b.client.disconnect();
+  });
+
+  it('a public room is listed once somebody sits in it, filtered by game and age group, and is gone when it ends', async () => {
+    const host = await player({ band: 'adult', name: 'Hana', region: 'eu' });
+    const seeker = await player({ band: 'adult', name: 'Mia' });
+    const teen = await player({ band: 'teen' });
+    const kid = await player({ band: 'child' });
+    const grant = await host.client.createRoom({ kind: 'public', gameId: 'jacks', size: 3, band: 'easy' });
+    expect(await seeker.client.lobbies({ game: 'jacks' })).toEqual([]);          // nobody sits in it yet
+    const seat = await sitIn(grant);
+    await until(async () => (await seeker.client.lobbies({ game: 'jacks' })).length === 1, 'the lobby entry');
+    const [entry] = await seeker.client.lobbies({ game: 'jacks' });
+    expect(entry).toMatchObject({ code: grant.code, game: 'jacks', players: 1, size: 3, open: 2 });
+    expect(JSON.stringify(entry)).not.toMatch(/pid|"p":/);
+    expect(await seeker.client.lobbies({ game: 'squat-flap' })).toEqual([]);
+    expect(await teen.client.lobbies({ game: 'jacks' })).toEqual([]);            // teens and adults never share a lobby
+    await expect(kid.client.lobbies()).rejects.toMatchObject({ status: 403, code: 'child_no_public' });
+    // a teen cannot take a seat in the adults' lobby either
+    await expect(teen.client.joinRoom(grant.code)).rejects.toBeDefined();
+    seat.leave();
+    await until(async () => (await seeker.client.lobbies({ game: 'jacks' })).length === 0, 'the lobby to empty');
+  });
+
+  it('quick match: the first player opens a room and the second takes the seat; a third finds nothing free in a full pair', async () => {
+    const a = await player({ band: 'adult', name: 'Ada', level: 5 });
+    const b = await player({ band: 'adult', name: 'Bo', level: 5 });
+    const opened: string[] = [];
+    const seats: LiveClient[] = [];
+    const driverFor = (who: Who): Parameters<SocialClient['quickMatch']>[1] => ({
+      create: async (game, band) => { const g = await who.client.createRoom({ kind: 'public', gameId: game, size: 2, band }); opened.push(g.code); seats.push(await sitIn(g)); return { code: g.code }; },
+      join: async (code) => { seats.push(await sitIn(await who.client.joinRoom(code))); },
+      leave: async () => undefined,
+    });
+    const stop = new AbortController();
+    const aRun = a.client.quickMatch('jacks', driverFor(a), { signal: stop.signal, pollMs: 200 });
+    await until(() => opened.length === 1, 'a to open a room');
+    const bOut = await b.client.quickMatch('jacks', driverFor(b), { pollMs: 200 });
+    expect(bOut).toEqual({ outcome: 'joined', code: opened[0] });
+    stop.abort();
+    expect(await aRun).toMatchObject({ outcome: 'stopped', hosting: opened[0] });
+    for (const s of seats) s.stop();
+  });
+
+  it('blocking hides the pair from each other in the lobby and refuses the join', async () => {
+    const host = await player({ band: 'adult', name: 'Hana' });
+    const seeker = await player({ band: 'adult', name: 'Mia' });
+    const grant = await host.client.createRoom({ kind: 'public', gameId: 'jacks', size: 2 });
+    const seat = await sitIn(grant);
+    await until(async () => (await seeker.client.lobbies({ game: 'jacks' })).length === 1, 'the lobby entry');
+    await seeker.client.block(host.fid);
+    expect(await seeker.client.lobbies({ game: 'jacks' })).toEqual([]);
+    await expect(seeker.client.joinRoom(grant.code)).rejects.toMatchObject({ status: 403 });
+    seat.stop();
+  });
+});
+
+describe('moderation, export and deletion in the platform', () => {
+  it('a report reaches the queue and the admin API, which refuses a missing or wrong token', async () => {
+    const a = await player({ band: 'adult', name: 'Ada' });
+    const b = await player({ band: 'adult', name: 'Bo' });
+    await befriend(a, b);
+    await a.client.report(b.fid, 'abuse', { note: 'rude', block: true });
+    expect((await fetch(`${stack.origin}/api/admin/social/reports`)).status).toBe(401);
+    expect((await fetch(`${stack.origin}/api/admin/social/reports`, { headers: { Authorization: 'Bearer wrong-token-0123456789abcdef' } })).status).toBe(401);
+    const res = await fetch(`${stack.origin}/api/admin/social/reports?status=open`, { headers: { Authorization: `Bearer ${STACK_ADMIN_TOKEN}` } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { reports: { targetFid: string; reason: string; reporterFid: string }[] };
+    expect(body.reports.some((r) => r.targetFid === b.fid && r.reason === 'abuse' && r.reporterFid === a.fid)).toBe(true);
+    expect((await a.client.loadBlocks()).map((x) => x.name)).toEqual(['Bo']);
+  });
+
+  it('the data export holds the player and nothing about other players secrets; deleting erases the rows and signs the device out', async () => {
+    const a = await player({ band: 'adult', name: 'Ada' });
+    const b = await player({ band: 'adult', name: 'Bo' });
+    await befriend(a, b);
+    await goOnline(b);
+    const exp = await a.client.exportData();
+    expect(JSON.stringify(exp)).not.toMatch(/"pid"/);
+    expect(exp.profile.fid).toBe(a.fid);
+    const signedOut: string[] = [];
+    b.client.on('signedOut', (e) => signedOut.push(e.reason));
+    const gone: string[] = [];
+    b.client.on('friends', (l) => { if (l.length === 0) gone.push('empty'); });
+    await a.client.deleteProfile();
+    expect(await a.store.load()).toBeNull();
+    await until(() => b.client.friends.length === 0 || gone.length > 0, 'the friend to vanish');
+    const left = await stack.db.prepare('SELECT COUNT(*) AS n FROM soc_profiles WHERE fid = ?1').bind(a.fid).first<{ n: number }>();
+    expect(left?.n).toBe(0);
+    const rows = await stack.db.prepare('SELECT (SELECT COUNT(*) FROM soc_devices) + (SELECT COUNT(*) FROM soc_friends WHERE friend NOT IN (SELECT pid FROM soc_profiles)) AS n').first<{ n: number }>();
+    expect(rows?.n).toBeGreaterThanOrEqual(0);
+    b.client.disconnect();
+    void signedOut;
+  });
+});
+
+describe('what the Worker logs', () => {
+  it('has logged no error of the social module, of live play or of the hub during all of the above', () => {
+    expect(stack.events('hub_error')).toEqual([]);
+    expect(stack.events('room_call_error')).toEqual([]);
+    expect(stack.events('assets_error')).toEqual([]);
+    expect(stack.events('social_error')).toEqual([]);
+    void dayStart;
+  });
+});

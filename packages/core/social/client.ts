@@ -688,8 +688,18 @@ export class SocialClient {
       case 'invite_declined':
         this.emit('inviteDeclined', { id: ev.id, fid: ev.fid });
         break;
-      case 'closing':
+      case 'closing': {
+        // The server says why it is about to close the socket. Act on it now: the close frame itself can arrive late
+        // (workerd holds a server-initiated close of a sleeping socket for about ten seconds when run locally).
+        const ws = this.socket;
+        const code = ev.reason === 'replaced' ? HUB_CLOSE.REPLACED : ev.reason === 'banned' ? HUB_CLOSE.BANNED : ev.reason === 'deleted' ? HUB_CLOSE.DELETED : null;
+        if (ws && code !== null) {
+          this.onHubClose(ws, code);
+          ws.onmessage = null; ws.onerror = null; ws.onclose = null;
+          try { ws.close(1000, 'bye'); } catch { /* closed already */ }
+        }
         break;
+      }
     }
   }
 

@@ -484,6 +484,34 @@ describe('the hub socket', () => {
     expect(FakeWs.all).toHaveLength(2);
   });
 
+  it('the closing notice of the server is acted on at once, without waiting for the close frame that may come late', async () => {
+    const d = await device('adult');
+    const ws = await online(d);
+    ws.receive({ t: 'closing', reason: 'replaced' });
+    expect(d.client.hub).toBe('replaced');
+    expect(ws.closed).toBe(1000);
+    ws.drop(1006);                                            // the close frame arriving ten seconds later changes nothing
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(FakeWs.all).toHaveLength(1);
+    expect(d.client.hub).toBe('replaced');
+
+    const e = await device('adult');
+    const ws2 = await online(e);
+    const signedOut: string[] = [];
+    e.client.on('signedOut', (x) => signedOut.push(x.reason));
+    ws2.receive({ t: 'closing', reason: 'deleted' });
+    await until(() => signedOut.length > 0, 'the sign out');
+    expect(signedOut).toEqual(['deleted']);
+    expect(await e.store.load()).toBeNull();
+
+    const f = await device('adult');
+    const ws3 = await online(f);
+    ws3.receive({ t: 'closing', reason: 'banned' });
+    expect(f.client.hub).toBe('banned');
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(FakeWs.all.filter((w) => w.url === ws3.url || w === ws3)).toHaveLength(1);
+  });
+
   it('a refused signature is retried at once; a deleted profile signs the device out', async () => {
     const d = await device('adult');
     const ws = await online(d);
