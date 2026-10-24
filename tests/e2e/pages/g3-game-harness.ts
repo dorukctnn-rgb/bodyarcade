@@ -15,6 +15,7 @@ import { createScene2D } from '../../../packages/core/render2d/scene2d.ts';
 import type { Rect } from '../../../packages/core/render2d/view.ts';
 import { createI18n, isLang } from '../../../packages/core/ui/i18n/index.ts';
 import { PlayHud } from '../../../packages/core/ui/hud/hud.ts';
+import { followHud } from '../../../packages/web/src/app/layout-bridge.ts';
 import type { PipPlacement } from '../../../packages/core/ui/layout.ts';
 import { SHAPE_FULL, SHAPE_UPPER, type RigShape } from '../../../packages/core/moves/testing/rig.ts';
 import type { GameModule } from '../../../packages/core/types/index.ts';
@@ -105,7 +106,7 @@ const announced: string[] = [];
 const hud: PlayHud = new PlayHud({
   document, root: hudEl, cameraHost, i18n, mode: 'scene', pipCorner: corner, duo: mode === 'local2',
   announce: (t) => { announced.push(t); }, toast: () => undefined, onPause: () => undefined, onMovePip: () => undefined,
-  onLayout: () => sync(),
+  onLayout: (info) => followHud(kit, info, 'scene'),
 });
 if (q.get('tile') === '1') {
   document.body.classList.add('tile-real');
@@ -115,19 +116,9 @@ if (q.get('tile') === '1') {
   hud.pipHost.append(standIn);
 }
 
-/** The shell keeps the scene kit's layout in step with the plates the HUD really drew. */
-function size(name: string): { w: number; h: number } {
-  const el = hudEl.querySelector<HTMLElement>(`[data-hud="${name}"]`);
-  if (!el || el.hidden) return { w: 1, h: 1 };
-  const r = el.getBoundingClientRect();
-  return { w: Math.max(1, Math.ceil(r.width)), h: Math.max(1, Math.ceil(r.height)) };
-}
-function sync(): void {
-  if (mode === 'local2') kit.setHudDuo({ statusP1: size('statusP1'), statusP2: size('statusP2'), timer: size('timer'), command: size('command'), reasonP1: size('reasonP1'), reasonP2: size('reasonP2') });
-  else kit.setHud({ mode: 'scene', pipCorner: corner, measured: { statusLeft: size('statusLeft'), statusRight: size('statusRight'), command: size('command'), reason: size('reason') } });
-}
-
-const resize = (): void => { kit.resize(); sync(); };
+// The kit follows the HUD through the shell's own bridge (web/app/layout-bridge.ts): the plates as the HUD measured them and the camera aspect the
+// self view window was sized with (upright on a phone held upright), so the games read the rectangles the plates and the self view really sit in.
+const resize = (): void => { kit.resize(); hud.relayout(); };
 window.addEventListener('resize', resize);
 
 const audio = createAudio();

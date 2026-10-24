@@ -110,6 +110,9 @@ export function testKit(w = 390, h = 844, o: { mode?: 'scene' | 'mirror'; corner
   const surf = fakeSurfaces();
   const size = { width: w, height: h };
   const kit = createScene2D({ canvas, size: () => size, devicePixelRatio: () => 1, surfaces: surf.factory, rng: mulberry32(o.seed ?? 5) });
+  // The shell's bridge (web/app/layout-bridge.ts) gives the kit the camera aspect the HUD sized the self view with: upright on a phone held upright,
+  // so the window the game keeps clear is the tile on the screen (a kit left at its 4:3 would have a tile half as tall on a phone).
+  if ((o.mode ?? 'scene') !== 'mirror') kit.setCamera(hudMetrics({ w, h }).pip.aspect);
   kit.setHud({ mode: o.mode ?? 'scene', pipCorner: o.corner ?? 'bottom-left' });
   return { kit, canvas, size, live: () => surf.live() };
 }
