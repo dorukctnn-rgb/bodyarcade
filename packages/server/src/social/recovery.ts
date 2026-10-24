@@ -3,10 +3,10 @@
 // The device key is a non-extractable WebCrypto key, so it cannot be copied to another device or restored after the browser
 // cleared its data (Safari on an iPhone deletes a site's storage after a week without a visit). At sign-up the server makes a
 // code, shows it once, and keeps only a hash. Typing the friend code and the recovery code on a new device adds that device's
-// key to the profile (soc_devices has one row per key), and the code is replaced, so a code that was seen by somebody else is
-// good for one use at most.
+// key to the profile (soc_devices has one row per key). The code stays valid, so an answer that was lost on the way can be asked
+// for again; a player who thinks somebody saw it asks for a new one, and the old one stops working.
 //
-//   POST /api/social/recover       {pub, code: BA-XXXXXX, recovery}  signed with the NEW key   -> {me, recovery}
+//   POST /api/social/recover       {pub, code: BA-XXXXXX, recovery}  signed with the NEW key   -> {me}
 //   POST /api/social/me/recovery   {}                                signed by a device         -> {recovery}   (a new code)
 //
 // A wrong guess is counted against the profile (five an hour) and against the address (ten an hour); the answer is the same
