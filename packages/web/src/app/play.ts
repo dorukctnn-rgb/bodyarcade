@@ -4,7 +4,7 @@
 import type {
   CalibrationStatus, Framing, PauseReason, PlayerSlot, RunSummary, Session, SessionEvents, TwoPlayerCalibrationStatus, Unsubscribe,
 } from '../../../core/types/index.ts';
-import { PlayHud } from '../../../core/ui/hud/hud.ts';
+import { PlayHud, type HudLayoutInfo } from '../../../core/ui/hud/hud.ts';
 import type { HudMode, PipPlacement } from '../../../core/ui/layout.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import type { ViewContext } from '../context.ts';
@@ -91,6 +91,9 @@ export class PlayController {
   private launching = false;
   private guideObserver: ResizeObserver | null = null;
   private guide: { ready: boolean; showFeet: boolean } = { ready: false, showFeet: true };
+  private readonly layoutListeners = new Set<(info: HudLayoutInfo) => void>();
+  private lastLayout: HudLayoutInfo | null = null;
+  private videoHolder: HTMLElement | null = null;
   private readonly keys: (e: KeyboardEvent) => void;
   private readonly visibility: () => void;
 
@@ -124,12 +127,16 @@ export class PlayController {
       announce: (t, a) => this.host.announce(t, a), toast: (t) => this.host.toast(t),
       onPause: () => this.session?.pause('user'),
       onMovePip: () => hud.setPipCorner(this.host.cyclePip()),
+      onLayout: (info) => this.layoutChanged(info),
     });
     this.hud = hud;
     hud.setPhase('calibrate');
     this.doc.addEventListener('keydown', this.keys);
     this.doc.addEventListener('visibilitychange', this.visibility);
-    this.session = this.o.makeSession({ scene, pip: hud.pipHost, mirror: cameraHost, hud }, this.setup);
+    this.videoHolder = this.doc.createElement('div');
+    this.videoHolder.className = 'ba-video-holder';
+    cameraHost.append(this.videoHolder);
+    this.session = this.o.makeSession({ scene, pip: hud.pipHost, mirror: cameraHost, hud, onLayout: (cb) => this.listenToLayout(cb) }, this.setup);
     if (!this.session) {
       this.show({ kind: 'error', message: ctx.i18n.t('play.unavailable') });
       return;
@@ -233,10 +240,31 @@ export class PlayController {
     else if (this.overlay?.kind === 'countdown') this.show(null);
   }
 
-  /** The camera picture for the self view, from the session. It is shown mirrored, here and nowhere else. */
+  /** Whoever draws the game (the session's 2D kit) follows the HUD: it is told now and after every change. */
+  private listenToLayout(cb: (info: HudLayoutInfo) => void): Unsubscribe {
+    this.layoutListeners.add(cb);
+    if (this.lastLayout) cb(this.lastLayout);
+    return () => { this.layoutListeners.delete(cb); };
+  }
+
+  private layoutChanged(info: HudLayoutInfo): void {
+    this.lastLayout = info;
+    for (const cb of [...this.layoutListeners]) cb(info);
+  }
+
+  /**
+   * The camera picture, from the session. A scene game shows it in the self view window, mirrored, here and nowhere else.
+   * A mirror game draws the picture itself, so the element only has to keep playing: it sits in a holder that is
+   * rendered (a hidden video is not always decoded) but a pixel big and see-through.
+   */
   private onVideo(el: HTMLVideoElement | null): void {
     const host = this.hud?.pipHost;
     if (!host || this.disposed) return;
+    if (hudModeFor(this.game) === 'mirror') {
+      if (el) el.setAttribute('aria-hidden', 'true');
+      this.videoHolder?.replaceChildren(...(el ? [el] : []));
+      return;
+    }
     if (el) {
       el.classList.add('ba-selfview');
       el.setAttribute('aria-hidden', 'true');
@@ -419,6 +447,9 @@ export class PlayController {
     for (const off of this.offs.splice(0)) off();
     this.guideObserver?.disconnect();
     this.session?.quit();
+    this.layoutListeners.clear();
+    this.videoHolder?.remove();
+    this.videoHolder = null;
     this.hud?.dispose();
     this.o.release?.();
     this.overlayEl.replaceChildren();

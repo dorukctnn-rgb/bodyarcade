@@ -37,6 +37,35 @@ export const isLang = (v: unknown): v is Lang => typeof v === 'string' && (LANGS
 
 const TABLES: Readonly<Record<Lang, Table>> = { en, tr, de, es, fr };
 
+type Namespaced = Record<string, Partial<Record<Lang, Table>>>;
+
+/** The words of the games, added when a game's code is loaded (its `strings` export). Every I18n reads them, so a language switch keeps them. */
+const registered: Namespaced = {};
+
+function addTables(into: Namespaced, namespace: string, tables: Partial<Record<Lang, Table>>): void {
+  const cur = into[namespace] ?? {};
+  for (const l of LANGS) {
+    const add = tables[l];
+    if (add) cur[l] = { ...(cur[l] ?? {}), ...add };
+  }
+  into[namespace] = cur;
+}
+
+function fromNamespaces(from: Namespaced, key: string, l: Lang): string | undefined {
+  for (const ns of Object.keys(from)) {
+    if (key.startsWith(`${ns}.`)) {
+      const t = from[ns]?.[l]?.[key.slice(ns.length + 1)];
+      if (t !== undefined) return t;
+    }
+  }
+  return undefined;
+}
+
+/** Adds a game's strings for every I18n, now and later: registerGameStrings('game.star-catch', module.strings). */
+export function registerGameStrings(namespace: string, tables: Partial<Record<Lang, Table>>): void {
+  addTables(registered, namespace, tables);
+}
+
 /** The first supported language among the browser's preferences ("de-AT" counts as "de"), else English. */
 export function detectLang(preferred: readonly string[] | undefined): Lang {
   for (const p of preferred ?? []) {
@@ -72,7 +101,7 @@ export interface I18nOptions {
 export function createI18n(lang: Lang, opts: I18nOptions = {}): I18n {
   const info = LANG_INFO.find((l) => l.code === lang) ?? (LANG_INFO[0] as LangInfo);
   const tag = info.tag;
-  const extended: Record<string, Partial<Record<Lang, Table>>> = {};
+  const extended: Namespaced = {};
   const reported = new Set<string>();
   const nf = new Intl.NumberFormat(tag);
   const env = { lang: tag, number: (n: number): string => nf.format(n) };
@@ -80,13 +109,7 @@ export function createI18n(lang: Lang, opts: I18nOptions = {}): I18n {
   const lookup = (key: string, l: Lang): string | undefined => {
     const own = TABLES[l][key];
     if (own !== undefined) return own;
-    for (const ns of Object.keys(extended)) {
-      if (key.startsWith(`${ns}.`)) {
-        const t = extended[ns]?.[l]?.[key.slice(ns.length + 1)];
-        if (t !== undefined) return t;
-      }
-    }
-    return undefined;
+    return fromNamespaces(extended, key, l) ?? fromNamespaces(registered, key, l);
   };
 
   const resolve = (key: string, vars?: Vars): string => {
@@ -109,12 +132,7 @@ export function createI18n(lang: Lang, opts: I18nOptions = {}): I18n {
     tx: (key, vars) => resolve(key, vars),
     has: (key) => lookup(key, lang) !== undefined || lookup(key, 'en') !== undefined,
     extend(namespace, tables) {
-      const cur = extended[namespace] ?? {};
-      for (const l of LANGS) {
-        const add = tables[l];
-        if (add) cur[l] = { ...(cur[l] ?? {}), ...add };
-      }
-      extended[namespace] = cur;
+      addTables(extended, namespace, tables);
     },
     scoped(namespace) {
       return (key, vars) => {

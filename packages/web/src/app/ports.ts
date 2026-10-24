@@ -1,6 +1,7 @@
 // What the shell needs from the other parts of the platform, as small interfaces. Each one has a stand-in here or in
 // the demo code until the real module is wired; swapping it in is a change in boot.ts only.
 import type { ActivateFailureCode, Hud, Plan, Session, Unsubscribe } from '../../../core/types/index.ts';
+import type { HudLayoutInfo } from '../../../core/ui/hud/hud.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import type { SetupState } from '../views/setup.ts';
 
@@ -25,6 +26,8 @@ export interface StageHandles {
   /** The mirror of a mirror game; the HUD places and sizes it. */
   mirror: HTMLElement;
   hud: Hud;
+  /** The HUD's layout: called at once when it already has one, then after every change (a resize, the self view moved). */
+  onLayout(cb: (info: HudLayoutInfo) => void): Unsubscribe;
 }
 
 export interface SessionRequest {

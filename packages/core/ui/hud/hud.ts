@@ -37,6 +37,8 @@ export interface PlayHudOptions {
 export interface HudLayoutInfo {
   metrics: HudMetrics;
   mode: HudMode;
+  /** Where the player's own view sits now (or 'hidden'). */
+  pipCorner: PipPlacement;
   duo: boolean;
   solo?: HudLayout;
   twoPlayers?: DuoLayout;
@@ -399,7 +401,7 @@ export class PlayHud implements Hud {
         const lane = this.away.player === 1 ? r.playP1 : r.playP2;
         Object.assign(dim.style, { left: `${lane.x}px`, top: '0px', width: `${lane.w}px`, height: `${vp.h}px` });
       }
-      this.info = { metrics, mode: this.mode, duo: true, twoPlayers: layout, play: { x: r.playP1.x, y: r.playP1.y, w: r.playP2.x + r.playP2.w - r.playP1.x, h: r.playP1.h } };
+      this.info = { metrics, mode: this.mode, pipCorner: this.corner, duo: true, twoPlayers: layout, play: { x: r.playP1.x, y: r.playP1.y, w: r.playP2.x + r.playP2.w - r.playP1.x, h: r.playP1.h } };
     } else {
       const status = { statusLeft: this.size(this.el['statusLeft'] as HTMLElement), statusRight: this.size(this.el['statusRight'] as HTMLElement) };
       const cmdSize = command.hidden ? { w: 1, h: 1 } : this.size(command);
@@ -433,7 +435,7 @@ export class PlayHud implements Hud {
       } else if (this.o.cameraHost && this.mode !== 'mirror') {
         this.o.cameraHost.style.display = 'none';
       }
-      this.info = { metrics, mode: this.mode, duo: false, solo: layout, play: r.play };
+      this.info = { metrics, mode: this.mode, pipCorner: this.corner, duo: false, solo: layout, play: r.play };
     }
     this.o.onLayout?.(this.info as HudLayoutInfo);
   }

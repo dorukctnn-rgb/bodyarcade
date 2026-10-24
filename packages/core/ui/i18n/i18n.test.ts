@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createI18n, detectLang, LANGS, stringTables, variablesOf } from './index.ts';
+import { createI18n, detectLang, LANGS, registerGameStrings, stringTables, variablesOf } from './index.ts';
 import { formatMessage, parseMessage } from './icu.ts';
 
 const env = (lang: string) => ({ lang, number: (n: number) => new Intl.NumberFormat(lang).format(n) });
@@ -55,6 +55,21 @@ describe('createI18n', () => {
     const g = t.scoped('game.squat-flap');
     expect(g('prompt')).toBe('Çömel');
     expect(g('common.close')).toBe('Kapat');
+  });
+
+  it('registered game strings reach every I18n, also one made later for another language', () => {
+    registerGameStrings('game.test-game', { en: { 'tg.prompt': 'Reach' }, tr: { 'tg.prompt': 'Uzan' } });
+    const en = createI18n('en').scoped('game.test-game');
+    const tr = createI18n('tr').scoped('game.test-game');
+    expect(en('tg.prompt')).toBe('Reach');
+    expect(tr('tg.prompt')).toBe('Uzan');
+    // a language the game has no words for falls back to English, a key it does not have to the shell's own words
+    expect(createI18n('de').scoped('game.test-game')('tg.prompt')).toBe('Reach');
+    expect(tr('common.close')).toBe('Kapat');
+    // an instance's own extend wins over the registry
+    const own = createI18n('en');
+    own.extend('game.test-game', { en: { 'tg.prompt': 'Own' } });
+    expect(own.scoped('game.test-game')('tg.prompt')).toBe('Own');
   });
 
   it('formats numbers, money and lists for the language', () => {
