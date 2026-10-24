@@ -1,0 +1,55 @@
+name: QA
+
+# Layout checks that need every screen size (BUILD-PLAN "Screen layout rule"): the pages of the web shell and the live
+# site are opened headless at the ten screen sizes, saved as pictures, and checked for things cut off, things on top of
+# each other, sideways scrolling and console errors (tools/page-check). The pictures are kept as an artifact.
+
+on:
+  push:
+    branches: [main, v2]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/v2' && github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  page-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install headless Chromium
+        run: npx playwright install --with-deps --only-shell chromium
+
+      # The web shell is what ships: any layout problem or console error here fails the job.
+      - name: Page check, web shell (ten screen sizes)
+        run: npm run qa:pages -- --groups web --jobs 3 --out qa-out/page-check
+
+      # The live site (site/) belongs to the fixes on main; its problems are reported but do not fail this job.
+      - name: Page check, live site (report only)
+        continue-on-error: true
+        run: npm run qa:pages -- --groups site --jobs 3 --out qa-out/page-check-site
+
+      - name: Keep the pictures and the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: page-check
+          path: |
+            qa-out/page-check/
+            qa-out/page-check-site/
+          retention-days: 7

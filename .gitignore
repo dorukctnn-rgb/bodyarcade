@@ -14,3 +14,9 @@ blob-report/
 # Cloudflare Workers: local state and the generated asset folders
 .wrangler
 .cf-dist
+
+# QA: generated test videos, downloaded model assets and capture output (regenerate with npm run traces:videos)
+tests/traces/videos/
+tools/synth-video/assets/
+tools/fake-camera/out/
+qa-out/
