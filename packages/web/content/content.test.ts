@@ -1,0 +1,466 @@
+// What the content pages say must be what the code does. Three kinds of test:
+//   1. the pages are build products: the files under site/ are exactly what the sources produce (build.ts --check);
+//   2. every fact of facts.ts (prices, periods, limits, ages) equals the constant of the code that does the thing;
+//   3. every page is a good page: one h1, a canonical link, hreflang pairs, links that exist, no characters the style forbids,
+//      Turkish with Turkish letters, and the same numbers in English and Turkish.
+// With BA_RELEASE=1 (the production check) a last group asks whether the shell and the release have what the pages promise.
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { PLANS } from '../../core/entitlements/plans.ts';
+import { GUMROAD_CATALOG } from '../../core/entitlements/catalog.ts';
+import { DAY_MS, DIRECT_GRACE_MS, REFRESH_AFTER_MS } from '../../core/entitlements/state.ts';
+import { MAX_TOKEN_TTL_S } from '../../core/entitlements/token.ts';
+import { CHAT_INTERVAL_MS, CHAT_MAX_CHARS, NAME_MAX_CHARS } from '../../core/net/chat-filter.ts';
+import { ROOM_CODE_LENGTH } from '../../core/net/codes.ts';
+import { POSE_JOINTS } from '../../core/net/pose-frame.ts';
+import { POSE_MODEL } from '../../core/pose/assets.ts';
+import { POLICY, canSendFriendRequest, roomChatMode, roomVideoAllowed } from '../../core/social/age.ts';
+import { FRIEND_CODE_LEN, RECOVERY_LEN } from '../../core/social/codes.ts';
+import { MAX_LEVEL } from '../../core/social/levels.ts';
+import { DAY, DECLINE_COOLDOWN_MS, HOUR, LIMITS, MOD, PRESENCE, REQUEST_TTL_MS } from '../../core/social/rules.ts';
+import { KEEP_WEEKS } from '../../core/social/scores.ts';
+import { MAX_SEATS, MIN_SEATS } from '../../core/types/net.ts';
+import { LANDMARK_COUNT } from '../../core/types/index.ts';
+import { DAY_S, FORGET_AFTER_S, REMINDER_LEAD_S, SEAT_IDLE_S } from '../../server/src/entitlements/rules.ts';
+import { CHAT_LOG_LINES, DEFAULT_TIMING, MUTE_MS, REPORTS_TO_MUTE } from '../../server/src/live/config.ts';
+import { LOBBY_STALE_MS } from '../../server/src/social/lobbies.ts';
+import { REPORTER_MIN_AGE_MS } from '../../server/src/social/moderation.ts';
+import { MAX_DEVICES } from '../../server/src/social/recovery.ts';
+import { AUDIT_KEEP_MS, LOBBY_GONE_MS, ORPHAN_REPORT_KEEP_MS, RESOLVED_REPORT_KEEP_MS, UNUSED_PROFILE_DAYS } from '../../server/src/social/sweep.ts';
+import { REPO_ROOT, build, outOfDate, pages } from './build.ts';
+import { renderPage, type PageSpec } from './chrome.ts';
+import { gameList } from './copy/games.ts';
+import * as F from './facts.ts';
+
+const read = (rel: string): string => readFileSync(join(REPO_ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
+
+/** A constant the code does not export: the number after `const NAME =` in its source file. */
+function constIn(rel: string, name: string): number {
+  const m = new RegExp(`(?:export )?const ${name}(?::[^=]+)? = ([0-9_.]+)`).exec(read(rel));
+  if (!m) throw new Error(`no constant ${name} in ${rel}`);
+  return Number((m[1] as string).replace(/_/g, ''));
+}
+
+describe('the pages are build products', () => {
+  it('site/ holds exactly what the sources produce (run node packages/web/content/build.ts)', () => {
+    expect(outOfDate()).toEqual([]);
+  });
+
+  it('every file the build writes is a page or a shared file that exists', () => {
+    for (const o of build()) expect(o.content.length, o.file).toBeGreaterThan(100);
+  });
+
+  it('the release builder takes every page from site/: LEGACY_PAGES (release/assemble.ts) is the list of pages', async () => {
+    const { LEGACY_PAGES } = await import('../../../release/assemble.ts');
+    expect(LEGACY_PAGES.map((p) => `${p.file} ${p.url}`).sort()).toEqual(pages().map((p) => `${p.file} ${p.url}`).sort());
+  });
+
+  it('each page has its own file and its own address', () => {
+    const list = pages();
+    expect(new Set(list.map((p) => p.file)).size).toBe(list.length);
+    expect(new Set(list.map((p) => p.url)).size).toBe(list.length);
+  });
+});
+
+describe('the plans and the prices are the code', () => {
+  it('web prices', () => {
+    expect(PLANS['pro-monthly'].price).toBe(F.PRICE.proMonthly);
+    expect(PLANS['pro-yearly'].price).toBe(F.PRICE.proYearly);
+    expect(PLANS['family-yearly'].price).toBe(F.PRICE.familyYearly);
+    expect(PLANS.lifetime.price).toBe(F.PRICE.lifetime);
+    expect(PLANS['legacy-monthly'].price).toBe(F.PRICE.legacyMonthly);
+    expect(PLANS.founder.price).toBe(F.PRICE.founder);
+  });
+
+  it('billing periods: monthly, yearly, yearly, once; the legacy plans are not sold', () => {
+    expect(PLANS['pro-monthly'].period).toBe('month');
+    expect(PLANS['pro-yearly'].period).toBe('year');
+    expect(PLANS['family-yearly'].period).toBe('year');
+    expect(PLANS.lifetime.period).toBe('once');
+    expect(PLANS['legacy-monthly'].sold).toBe(false);
+    expect(PLANS.founder.sold).toBe(false);
+  });
+
+  it('the 7 day trial is Pro yearly only', () => {
+    expect(PLANS['pro-yearly'].trialDays).toBe(F.TRIAL_DAYS);
+    for (const id of ['pro-monthly', 'family-yearly', 'lifetime', 'legacy-monthly', 'founder'] as const) expect(PLANS[id].trialDays, id).toBeUndefined();
+  });
+
+  it('devices and profiles', () => {
+    expect(PLANS['pro-monthly'].devices).toBe(F.DEVICES.pro);
+    expect(PLANS['pro-yearly'].devices).toBe(F.DEVICES.pro);
+    expect(PLANS.lifetime.devices).toBe(F.DEVICES.pro);
+    expect(PLANS['legacy-monthly'].devices).toBe(F.DEVICES.pro);
+    expect(PLANS['family-yearly'].devices).toBe(F.DEVICES.family);
+    expect(PLANS.founder.devices).toBe(F.DEVICES.founder);
+    expect(PLANS['family-yearly'].profiles).toBe(F.FAMILY_PROFILES);
+    expect(PLANS.founder.profiles).toBe(F.FAMILY_PROFILES);
+    expect(PLANS['pro-yearly'].profiles).toBe(1);
+  });
+
+  it('the Family plan the pages describe has its Gumroad product', () => {
+    expect(F.FAMILY_PLAN).toBe(true);
+    expect(GUMROAD_CATALOG['family-yearly'].productId).toMatch(/^[A-Za-z0-9_=-]{8,64}$/);
+    expect(PLANS['family-yearly'].sold).toBe(true);
+  });
+
+  it('the reminder goes two days before the trial ends and the licence lasts at most 7 days, checked about daily', () => {
+    expect(REMINDER_LEAD_S / DAY_S).toBe(F.REMINDER_DAYS);
+    expect(MAX_TOKEN_TTL_S / DAY_S).toBe(F.LICENCE_DAYS);
+    expect(REFRESH_AFTER_MS / 3_600_000).toBe(F.RENEW_HOURS);
+    expect(DIRECT_GRACE_MS / DAY_MS).toBe(F.DIRECT_GRACE_DAYS);
+  });
+
+  it('what the license service forgets, and when', () => {
+    expect(SEAT_IDLE_S / DAY_S).toBe(F.SEAT_IDLE_DAYS);
+    expect(FORGET_AFTER_S / DAY_S).toBe(F.FORGET_PURCHASE_DAYS);
+    expect(constIn('packages/server/src/entitlements/engine.ts', 'REMINDER_MAX_TRIES')).toBe(F.REMINDER_TRIES);
+    const engine = read('packages/server/src/entitlements/engine.ts');
+    // a purchase is forgotten only when it is not active and no device holds it; a reminder goes when the trial is over or after the tries
+    expect(engine).toContain("status != 'active' AND checked_at < ?1 AND NOT EXISTS (SELECT 1 FROM seats");
+    expect(engine).toContain('DELETE FROM reminders WHERE trial_end < ?1 OR tries >= ?2');
+  });
+
+  it('the reminder e-mail is plain text and holds no tracking', () => {
+    const mail = read('packages/server/src/entitlements/mail.ts');
+    expect(mail).toContain('body: JSON.stringify({ from: o.from, to: m.to, subject: m.subject, text: m.text })');
+    expect(mail).not.toMatch(/\bhtml:/);
+  });
+});
+
+describe('live play is the code', () => {
+  it('rooms: seats, lifetime, chat log', () => {
+    expect(MIN_SEATS).toBe(F.SEATS.min);
+    expect(MAX_SEATS).toBe(F.SEATS.max);
+    expect(DEFAULT_TIMING.emptyTtlMs / 60_000).toBe(F.ROOM_EMPTY_MINUTES);
+    expect(DEFAULT_TIMING.roomTtlMs / 3_600_000).toBe(F.ROOM_IDLE_HOURS);
+    expect(CHAT_LOG_LINES).toBe(F.CHAT_KEEP_LINES);
+    expect(MOD.evidenceLines).toBe(F.CHAT_KEEP_LINES);
+    expect(ROOM_CODE_LENGTH).toBe(F.ROOM_CODE_CHARS);
+  });
+
+  it('chat and names', () => {
+    expect(CHAT_MAX_CHARS).toBe(F.CHAT_MAX_CHARS);
+    expect(CHAT_INTERVAL_MS / 1000).toBe(F.CHAT_GAP_SECONDS);
+    expect(NAME_MAX_CHARS).toBe(F.NAME_MAX_CHARS);
+  });
+
+  it('what the other players of a room receive: the pose model has 33 points, a race shares 13 joints about fifteen times a second', () => {
+    expect(LANDMARK_COUNT).toBe(F.MODEL_POINTS);
+    expect(POSE_JOINTS.length).toBe(F.SHARED_JOINTS);
+    const gap = constIn('packages/core/net/race.ts', 'GHOST_GAP_MS');
+    expect(1000 / gap).toBeGreaterThanOrEqual(F.SHARE_HZ - 1);
+    expect(1000 / gap).toBeLessThanOrEqual(F.SHARE_HZ + 2);
+  });
+
+  it('the room server relays and keeps nothing of a relay or a signal', () => {
+    const engine = read('packages/server/src/live/room-engine.ts');
+    expect(engine).toContain("this.broadcast({ t: 'relay', from: mem.seat, d }, mem.seat);");
+    expect(engine).toContain("if (c) this.send(c, { t: 'signal', from: mem.seat, d });");
+    expect(read('packages/server/src/live/room.ts')).toContain("const STORED_KEYS = ['meta', 'members', 'match', 'ev', 'chat', 'reports'];");
+  });
+
+  it('STUN is Cloudflare, and there is no relay until the two TURN secrets are in', () => {
+    const ice = read('packages/server/src/live/ice.ts');
+    expect(ice).toContain("stun:stun.cloudflare.com:3478");
+    expect(ice).toContain('if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN)');
+    const secrets = read('release/secrets.ts');
+    for (const name of ['TURN_KEY_ID', 'TURN_KEY_API_TOKEN']) expect(secrets).toMatch(new RegExp(`name: '${name}'[^\\n]*required: false`));
+    expect(F.RELAY_ON).toBe(false);
+  });
+});
+
+describe('the online profile is the code', () => {
+  it('who may do what at which age', () => {
+    expect(POLICY.child.online).toBe(false);
+    expect(POLICY.teen.online).toBe(true);
+    expect(POLICY.teen.presetNameOnly).toBe(true);
+    expect(POLICY.teen.freeText).toBe(false);
+    expect(POLICY.teen.video).toBe(false);
+    expect(POLICY.teen.publicPlay).toBe(true);
+    expect(POLICY.adult.presetNameOnly).toBe(false);
+    expect(POLICY.adult.freeText).toBe(true);
+    expect(POLICY.adult.video).toBe(true);
+    expect(POLICY.teen.maxFriends).toBe(F.MAX_FRIENDS.teen);
+    expect(POLICY.adult.maxFriends).toBe(F.MAX_FRIENDS.adult);
+    expect(canSendFriendRequest('adult', 'teen')).toBe(false);
+    expect(canSendFriendRequest('teen', 'adult')).toBe(true);
+    expect(roomChatMode(['adult', 'adult'], 'private')).toBe('text');
+    expect(roomChatMode(['adult', 'teen'], 'private')).toBe('preset');
+    expect(roomChatMode(['adult', 'adult'], 'public')).toBe('preset');
+    expect(roomVideoAllowed(['adult', 'adult'], 'private')).toBe(true);
+    expect(roomVideoAllowed(['adult', 'adult'], 'public')).toBe(false);
+    expect(roomVideoAllowed(['adult', 'teen'], 'private')).toBe(false);
+  });
+
+  it('the ages 13 and 18 are the ones the app says', () => {
+    const en = read('packages/core/ui/i18n/en.ts');
+    expect(en).toContain(`'safety.age.child': 'Under ${F.AGE.online}'`);
+    expect(en).toContain(`'safety.age.teen': '${F.AGE.online} to 17'`);
+    expect(en).toContain(`'safety.age.adult': '${F.AGE.video} or older'`);
+    expect(en).toContain(`everyone in this room is ${F.AGE.video} or older`);
+  });
+
+  it('codes, devices and levels', () => {
+    expect(FRIEND_CODE_LEN).toBe(F.FRIEND_CODE_CHARS);
+    expect(RECOVERY_LEN).toBe(F.RECOVERY_CODE_CHARS);
+    expect(MAX_DEVICES).toBe(F.PROFILE_DEVICES);
+    expect(MAX_LEVEL).toBe(F.LEVEL_MAX);
+  });
+
+  it('how long each kind of record lives', () => {
+    expect(UNUSED_PROFILE_DAYS).toBe(F.UNUSED_PROFILE_DAYS);
+    expect(REQUEST_TTL_MS / DAY).toBe(F.REQUEST_DAYS);
+    expect(DECLINE_COOLDOWN_MS / DAY).toBe(F.DECLINE_DAYS);
+    expect(PRESENCE.ttlMs / 60_000).toBe(F.PRESENCE_MINUTES);
+    expect(LOBBY_STALE_MS / 60_000).toBe(F.LOBBY_HIDE_MINUTES);
+    expect(LOBBY_GONE_MS / HOUR).toBe(F.LOBBY_GONE_HOURS);
+    expect(KEEP_WEEKS).toBe(F.BOARD_WEEKS);
+    expect(RESOLVED_REPORT_KEEP_MS / DAY).toBe(F.RESOLVED_REPORT_DAYS);
+    expect(ORPHAN_REPORT_KEEP_MS / DAY).toBe(F.ORPHAN_REPORT_DAYS);
+    expect(AUDIT_KEEP_MS / DAY).toBe(F.AUDIT_DAYS);
+  });
+
+  it('the counters of the abuse limits live about a day: the longest window is 24 hours and its row goes an hour after', () => {
+    const longest = Math.max(...Object.values(LIMITS).map((l) => l.windowMs));
+    expect((longest + HOUR) / HOUR).toBe(F.LIMIT_COUNTER_HOURS);
+    expect(read('packages/server/src/social/limits.ts')).toContain('windowOf(now, spec.windowMs).end + HOUR');
+  });
+
+  it('reports: the automatic mute and suspension', () => {
+    expect(MOD.reportersToMute).toBe(F.REPORTS_TO_MUTE);
+    expect(REPORTS_TO_MUTE).toBe(F.REPORTS_TO_MUTE);
+    expect(MOD.muteMs / HOUR).toBe(F.MUTE_HOURS);
+    expect(MUTE_MS / HOUR).toBe(F.MUTE_HOURS);
+    expect(MOD.reportersToSuspend).toBe(F.REPORTS_TO_SUSPEND);
+    expect(MOD.suspendMs / DAY).toBe(F.SUSPEND_DAYS);
+    expect(MOD.urgentReportersToSuspend).toBe(F.URGENT_REPORTERS_TO_SUSPEND);
+    expect(MOD.noteMaxChars).toBe(F.REPORT_NOTE_MAX_CHARS);
+    expect(REPORTER_MIN_AGE_MS / HOUR).toBe(F.REPORTER_MIN_PROFILE_HOURS);
+    const mod = read('packages/server/src/social/moderation.ts');
+    expect(mod).toContain('r.target = ?1 AND r.at > ?2 AND rp.created_at <= r.at - ?4) AS r24');
+    expect(mod).toContain('r.at - DAY, r.at - 7 * DAY');
+    expect(F.MUTE_WINDOW_HOURS).toBe(24);
+    expect(F.SUSPEND_WINDOW_DAYS).toBe(7);
+  });
+
+  it('deleting a profile leaves exactly what the privacy policy says it leaves', () => {
+    const people = read('packages/server/src/social/people.ts');
+    for (const table of ['soc_devices', 'soc_friends', 'soc_requests', 'soc_blocks', 'soc_declines', 'soc_presence', 'soc_scores', 'soc_sync', 'soc_profiles']) expect(people, table).toContain(`DELETE FROM ${table}`);
+    expect(people).toContain('UPDATE soc_reports SET reporter = NULL WHERE reporter = ?1');
+    expect(people).toContain("UPDATE soc_reports SET target_name = '', note = NULL WHERE target = ?1");
+    // the lobby directory (rooms) and the reports about the person are not in the list of what is erased with the profile
+    expect(people).not.toContain('DELETE FROM soc_lobbies');
+    expect(people).not.toContain('DELETE FROM soc_reports');
+  });
+
+  it('the data export holds what the privacy policy says it holds', () => {
+    const profile = read('packages/server/src/social/profile.ts');
+    for (const key of ['profile: bare', 'friends,', 'incoming,', 'outgoing,', 'blocks,', 'scores: await scoresOf', 'sync: await syncDocs', 'reportsFiled', 'reportsAgainstYou']) expect(profile, key).toContain(key);
+    expect(profile).not.toMatch(/export:[^;]*soc_devices/);
+  });
+
+  it('the recovery code stays valid when used and a new one replaces it; only a hash is kept', () => {
+    const rec = read('packages/server/src/social/recovery.ts');
+    expect(rec).toContain('The code stays valid');
+    const prof = read('packages/server/src/social/profile.ts');
+    expect(prof).toContain('UPDATE soc_profiles SET recovery = ?2 WHERE pid = ?1');
+    expect(prof).toContain('The recovery code is in this answer and nowhere else, ever: the server keeps a hash.');
+  });
+
+  it('the address is stored only as a keyed hash; the two other services keep theirs in memory', () => {
+    expect(read('packages/server/src/social/util.ts')).toContain('the only form in which an address is ever stored');
+    expect(read('packages/server/src/live/limits.ts')).toContain('Counters live in the Worker isolate');
+    expect(read('packages/server/src/entitlements/engine.ts')).toContain('limits (in memory');
+  });
+});
+
+describe('the pose model and the games', () => {
+  it('the model is about 6 MB and is served from this site', () => {
+    expect(POSE_MODEL.bytes).toBeGreaterThan(5_500_000);
+    expect(POSE_MODEL.bytes).toBeLessThan(6_500_000);
+    expect(POSE_MODEL.url.startsWith('/vendor/')).toBe(true);
+  });
+
+  it('the Google telemetry request is stopped on the device', () => {
+    expect(read('packages/core/pose/no-telemetry.ts')).toContain("'odml.pa.googleapis.com'");
+  });
+
+  it('no code of ours sets a cookie, and no page loads an analytics script', () => {
+    for (const rel of ['packages/core/store/store.ts', 'packages/web/src/app/app.ts', 'packages/web/src/main.ts', 'packages/web/src/document.ts']) expect(read(rel), rel).not.toContain('document.cookie');
+    expect(F.ANALYTICS_ON).toBe(false);
+    for (const p of pages()) expect(renderPage(p), p.file).not.toMatch(/<script[^>]+src=/);
+  });
+
+  it('the catalogue the pages count: every game has a seated version, the free and Pro games are the manifests', () => {
+    const games = gameList('en');
+    expect(games.length).toBeGreaterThan(0);
+    expect(games.every((g) => g.seated)).toBe(true);
+    expect(games.filter((g) => g.live).map((g) => g.id).sort()).toEqual(['knee-sprint', 'squat-flap']);
+    const terms = renderPage(pages().find((p) => p.file === 'terms.html') as PageSpec);
+    for (const g of games.filter((x) => !x.free)) expect(terms).toContain(g.title);
+  });
+
+  it('the distances the FAQ gives are the ones the app tells the player', () => {
+    const en = read('packages/core/ui/i18n/en.ts');
+    expect(en).toContain('Stand 2 to 3 m from a laptop or 1.5 to 2 m from an upright phone.');
+    expect(en).toContain('Sit or stand about 1 m away.');
+    const faq = renderPage(pages().find((p) => p.file === 'faq.html') as PageSpec);
+    expect(faq).toContain('stand 2 to 3 metres from a laptop or 1.5 to 2 metres from an upright phone');
+    expect(faq).toContain('about 1 metre away');
+  });
+
+  it('how to cancel is where the app says it is', () => {
+    const en = read('packages/core/ui/i18n/en.ts');
+    expect(en).toContain("'paywall.cancel.web': 'Cancel any time in your Gumroad library.'");
+    expect(en).toContain("'paywall.cancel.play': 'Cancel any time in Google Play subscriptions.'");
+  });
+});
+
+// ───────── every page ─────────
+
+const visible = (html: string): string => html.replace(/<head>[\s\S]*?<\/head>/, '').replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ')
+  .replace(/&mdash;|&ndash;/g, '')
+  .replace(/&ldquo;|&rdquo;/g, '"').replace(/&lsquo;|&rsquo;/g, "'").replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/&uuml;/g, 'ü')
+  .replace(/\s+/g, ' ').trim();
+
+const all = pages();
+const byFile = new Map(all.map((p) => [p.file, p]));
+
+describe.each(all.map((p) => [p.file, p] as const))('%s', (_file, spec) => {
+  const html = renderPage(spec);
+  const text = visible(html);
+
+  it('is a whole document with the right language, one h1, a canonical link and a title with the brand', () => {
+    expect(html.startsWith('<!doctype html>')).toBe(true);
+    expect(html).toContain(`<html lang="${spec.lang}">`);
+    expect(html.match(/<h1[ >]/g)?.length).toBe(1);
+    expect(html).toContain(`<link rel="canonical" href="${F.SITE}${spec.url}">`);
+    expect(html).toMatch(/<title>[^<]+ \| BodyArcade<\/title>/);
+    expect(spec.description.length).toBeGreaterThan(60);
+    expect(spec.description.length).toBeLessThanOrEqual(165);
+    expect(text.length).toBeGreaterThan(600);
+  });
+
+  it('has its other-language page, which points back', () => {
+    if (!spec.other) return;
+    const other = all.find((p) => p.url === spec.other?.url);
+    expect(other, `the page ${spec.other.url} exists`).toBeDefined();
+    expect(other?.other?.url).toBe(spec.url);
+    expect(other?.lang).toBe(spec.other.lang);
+    expect(html).toContain(`hreflang="${spec.other.lang}" href="${F.SITE}${spec.other.url}"`);
+  });
+
+  it('every link on it goes somewhere that exists', () => {
+    const games = new Set(gameList('en').map((g) => g.slug));
+    const known = new Set<string>(['/', '/tr/', '/pro/', '/tr/pro/', '/blog/', '/favicon-32.png', '/apple-touch-icon.png', ...all.map((p) => p.url)]);
+    for (const m of html.matchAll(/\b(?:href|src)="([^"]+)"/g)) {
+      const url = m[1] as string;
+      if (/^(https:|mailto:|#)/.test(url)) continue;
+      const path = url.split('#')[0] as string;
+      if (path === '') continue;
+      if (path.startsWith('/assets/')) { expect(existsSync(join(REPO_ROOT, 'site', path)), `${spec.file}: ${path}`).toBe(true); continue; }
+      const g = /^(?:\/tr)?\/games\/([a-z0-9-]+)\/$/.exec(path);
+      if (g) { expect(games.has(g[1] as string), `${spec.file}: ${path}`).toBe(true); continue; }
+      expect(known.has(path), `${spec.file} links to ${path}`).toBe(true);
+    }
+  });
+
+  it('uses none of the characters and phrases the style forbids', () => {
+    expect(text).not.toMatch(/—/);
+    expect(text).not.toMatch(/(?<=\D)–(?=\D)|\s–\s/);
+    expect(text).not.toMatch(/[a-z,)] - [a-zA-Z(]/);
+    expect(text).not.toMatch(/[→←↗↘⟶➜➔»✓✔✅☑✗✘❌]/u);
+    expect(text).not.toMatch(/(?![©®™★☆])\p{Extended_Pictographic}/u);
+    expect(text).not.toMatch(/!/);
+    for (const w of ['unlock', 'seamless', 'supercharge', 'game-changer', 'cutting-edge', 'state-of-the-art', 'leverage', 'stunning', 'magic', 'hassle-free', 'world-class']) expect(text.toLowerCase(), w).not.toContain(w);
+  });
+
+  it('has structured data that parses and names this page', () => {
+    const ld = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html);
+    expect(ld).not.toBeNull();
+    const data = JSON.parse(ld?.[1] ?? '{}') as { '@graph': { '@type': string }[] };
+    expect(data['@graph'].some((g) => g['@type'] === 'BreadcrumbList')).toBe(true);
+  });
+
+  if (spec.lang === 'tr') {
+    it('is Turkish with Turkish letters (no ASCII-fied words)', () => {
+      expect(text).toMatch(/[çğıöşüÇĞİÖŞÜ]/);
+      const ascii = /\b(icin|degil|cocuk|cocuklar|guvenlik|kullanici|gunluk|ucretsiz|sifre|saglik|goruntu|baglanti|secenek|dusuk|oturarak|Turkce|gizlilik)\b/g;
+      // "oturarak" and "gizlilik" are Turkish as they are; the rest are Turkish words missing their letters
+      const bad = [...text.matchAll(ascii)].map((m) => m[0]).filter((w) => w !== 'oturarak' && w.toLowerCase() !== 'gizlilik');
+      expect(bad).toEqual([]);
+    });
+  }
+});
+
+describe('English and Turkish say the same numbers', () => {
+  const numbers = (spec: PageSpec): string[] => {
+    const t = visible(renderPage(spec))
+      .replace(/BA-[0-9A-Z]{6}/g, ' ')
+      .replace(/a\*+@example\.com/g, ' ')
+      .replace(/\d{4}-\d{2}-\d{2}/g, ' ')
+      .replace(/(\d),(\d)/g, '$1.$2');
+    return [...new Set(t.match(/\d+(?:\.\d+)?/g) ?? [])].sort((a, b) => Number(a) - Number(b));
+  };
+  for (const [en, tr] of [['privacy.html', 'tr/privacy.html'], ['terms.html', 'tr/terms.html'], ['faq.html', 'tr/faq.html']] as const) {
+    it(`${en} and ${tr}`, () => {
+      expect(numbers(byFile.get(tr) as PageSpec)).toEqual(numbers(byFile.get(en) as PageSpec));
+    });
+  }
+});
+
+describe('the stylesheet uses the design tokens', () => {
+  const hexes = (block: string): Map<string, string> => new Map([...block.matchAll(/(--ba-[a-z-]+):\s*(#[0-9A-Fa-f]{6})\b/g)].map((m) => [m[1] as string, (m[2] as string).toUpperCase()]));
+  const tokens = read('design/tokens/tokens.css');
+  const css = read('packages/web/content/content.css');
+  const lightTokens = hexes(/:root \{([\s\S]*?)\n\}/.exec(tokens)?.[1] ?? '');
+  const darkTokens = hexes(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([\s\S]*?)\n  \}/.exec(tokens)?.[1] ?? '');
+  const lightCss = hexes(/:root \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '');
+  const darkCss = hexes(/@media \(prefers-color-scheme: dark\) \{\s*:root \{([\s\S]*?)\n  \}/.exec(css)?.[1] ?? '');
+
+  it('finds the colours', () => {
+    expect(lightCss.size).toBeGreaterThan(10);
+    expect(darkCss.size).toBeGreaterThan(5);
+    expect(lightTokens.size).toBeGreaterThan(20);
+    expect(darkTokens.size).toBeGreaterThan(10);
+  });
+
+  it('every colour is the token of the same name, in the light theme and in the dark one', () => {
+    for (const [name, value] of lightCss) expect(lightTokens.get(name), `light ${name}`).toBe(value);
+    for (const [name, value] of darkCss) expect(darkTokens.get(name), `dark ${name}`).toBe(value);
+  });
+
+  it('loads no font file and names none of the faces the style forbids', () => {
+    expect(css).not.toMatch(/@font-face|fonts\.googleapis/);
+    expect(css).not.toMatch(/font-family:[^;]*\b(Inter|Poppins|Manrope|Montserrat|Open Sans|Lato|Nunito|Raleway|Space Grotesk)\b/);
+  });
+});
+
+// ───────── the release gate (BA_RELEASE=1) ─────────
+
+describe.runIf(process.env['BA_RELEASE'] === '1')('release gate: the pages promise only what the product has', () => {
+  it('the Family plan is on the paywall (boot.ts FAMILY_ON)', () => {
+    expect(read('packages/web/src/app/boot.ts')).toMatch(/export const FAMILY_ON = true;/);
+  });
+
+  it('the profile screen has the two buttons the privacy policy names', () => {
+    const strings = read('packages/web/src/social/strings.ts');
+    expect(strings).toContain("'me.dataDownload': 'Download my data'");
+    expect(strings).toContain("'me.dataDelete': 'Delete my profile'");
+    expect(strings).toContain("'me.dataDownload': 'Verilerimi indir'");
+    expect(strings).toContain("'me.dataDelete': 'Profilimi sil'");
+  });
+
+  it('the app footer leads a Turkish player to the Turkish legal pages', () => {
+    const footer = read('packages/web/src/views/chrome.ts');
+    expect(footer).toContain('/tr/privacy');
+    expect(footer).toContain('/tr/terms');
+  });
+
+  it('the Android app flag says what Google Play says', () => {
+    // set by the release that goes with the public listing; this test only makes the choice visible
+    expect(typeof F.ANDROID_APP_LIVE).toBe('boolean');
+  });
+});

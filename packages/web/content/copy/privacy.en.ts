@@ -19,7 +19,7 @@ export function privacyEn(): PageSpec {
     lang: 'en',
     other: { lang: 'tr', url: '/tr/privacy' },
     title: 'Privacy policy',
-    description: 'What BodyArcade keeps about you, where and for how long: camera video stays on your device, what live play and the friends service hold, payments, the trial reminder e-mail, children and your rights.',
+    description: 'What BodyArcade keeps about you, where and for how long: camera video stays on your device, what online play holds, payments, children and your rights.',
     h1: 'Privacy policy',
     when: `Last updated ${date}`,
     lead: `BodyArcade is made by ${F.COMPANY}. This page says in plain words what BodyArcade keeps about you, where it keeps it and for how long. It covers bodyarcade.com and the BodyArcade Android app. Questions and requests: ${mail()}.`,
@@ -173,7 +173,7 @@ ${analytics}
   'Forward Email passes on mail sent to our address and sends the trial reminder. <a href="https://forwardemail.net/en/privacy" rel="noopener">Privacy policy</a>.',
 ])}
 <p>We do not sell your data and we do not share it with advertisers. If you e-mail us, we receive your address and your message, and we use them only to answer you.</p>
-<p>These companies may handle data outside your country, including outside the European Economic Area, the United Kingdom and Turkey. Where they do, they rely on their own data protection terms, which include safeguards such as standard contractual clauses. Their policies explain how.</p>`,
+<p>These companies may handle data outside your country, including outside the European Economic Area, the United Kingdom and Turkey. Where they do, they rely on their own data protection terms, which include safeguards such as standard contractual clauses. Their policies explain how. Under the KVKK this counts as a transfer of personal data abroad (Article 9).</p>`,
       },
       {
         id: 'rights',

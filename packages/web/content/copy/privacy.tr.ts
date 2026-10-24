@@ -18,7 +18,7 @@ export function privacyTr(): PageSpec {
     lang: 'tr',
     other: { lang: 'en', url: '/privacy' },
     title: 'Gizlilik politikası',
-    description: 'BodyArcade senin hakkında neyi, nerede ve ne kadar süre saklar: kamera görüntüsü cihazında kalır; canlı oyun ve arkadaş hizmetinin tuttukları, ödemeler, deneme hatırlatma e-postası, çocuklar ve haklarının.',
+    description: 'BodyArcade senin hakkında neyi, nerede ve ne kadar süre saklar: kamera görüntüsü cihazında kalır; çevrimiçi oyunun tuttukları, ödemeler, çocuklar ve haklarının.',
     h1: 'Gizlilik politikası',
     when: `Son güncelleme: ${date}`,
     lead: `BodyArcade, ${F.COMPANY} tarafından yapılır. Bu sayfa, BodyArcade’ın senin hakkında neyi, nerede ve ne kadar süre sakladığını açık bir dille anlatır. bodyarcade.com’u ve BodyArcade Android uygulamasını kapsar. Sorular ve talepler için: ${mail()}.`,

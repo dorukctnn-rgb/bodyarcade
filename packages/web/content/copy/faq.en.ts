@@ -212,7 +212,7 @@ export function faqEn(): PageSpec {
     other: { lang: 'tr', url: '/tr/faq' },
     nav: 'faq',
     title: 'FAQ',
-    description: 'Answers about BodyArcade: how camera games work, where to stand, playing seated, friends and rooms, privacy, the free plan, Pro prices, the free trial, cancelling and refunds.',
+    description: 'Answers about BodyArcade: where to stand, playing seated, friends and rooms, privacy, the free plan, Pro prices, the free trial, cancelling and refunds.',
     h1: 'Questions and answers',
     lead: `Short answers about playing, privacy, friends and plans. If yours is not here, write to ${mail()}.`,
     sections,

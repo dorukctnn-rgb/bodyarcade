@@ -4,70 +4,41 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Blog | BodyArcade</title>
-<meta name="description" content="Design notes, training ideas and updates from BodyArcade, the browser running game you play with your body.">
+<meta name="description" content="Guides and notes from the people who make BodyArcade: how camera workout games work, how to set up your room, and what happens to your video.">
 <link rel="canonical" href="https://bodyarcade.com/blog/">
-
-<meta name="theme-color" content="#15130f">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F4F2F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1A1430" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="BodyArcade">
+<meta property="og:locale" content="en_US">
 <meta property="og:url" content="https://bodyarcade.com/blog/">
 <meta property="og:title" content="Blog | BodyArcade">
-<meta property="og:description" content="Design notes, training ideas and updates from BodyArcade, the browser running game you play with your body.">
-<meta property="og:image" content="https://bodyarcade.com/assets/og.jpg">
+<meta property="og:description" content="Guides and notes from the people who make BodyArcade: how camera workout games work, how to set up your room, and what happens to your video.">
+<meta property="og:image" content="https://bodyarcade.com/assets/brand/og.png">
+<meta property="og:image:width" content="1024">
+<meta property="og:image:height" content="500">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://bodyarcade.com/assets/og.jpg">
+<meta name="twitter:image" content="https://bodyarcade.com/assets/brand/og.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="preload" href="/assets/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/ba.css?v=20261023b">
-<script>document.documentElement.classList.add('js')</script>
-<script defer data-domain="bodyarcade.com" src="https://plausible.io/js/script.js"></script>
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "BodyArcade", "item": "https://bodyarcade.com/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://bodyarcade.com/blog/"}]}]}</script>
+<link rel="stylesheet" href="/assets/content.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"BodyArcade","item":"https://bodyarcade.com/"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://bodyarcade.com/blog/"}]}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<header class="nav" data-nav>
-  <div class="wrap nav-in">
-    <a class="logo" href="/" aria-label="BodyArcade home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#15130f"/><circle cx="16" cy="8.5" r="3.2" fill="#ffc93c"/><path d="M8 11.5 L16 15 L24 11.5 M16 15 V20 M16 20 L11 26.5 M16 20 L21 26.5" stroke="#f3eee5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg><span class="logo-word">BodyArcade</span></a>
-    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav-links" data-menu>Menu</button>
-    <ul class="nav-links" id="nav-links">
-      <li><a href="/">Games</a></li>
-      <li><a href="/pro/">Pricing</a></li>
-      <li><a href="/blog/">Blog</a></li>
-    </ul>
-    <a class="btn btn-play btn-sm" href="/" data-event="Play Click" data-where="article-nav">Play free</a>
-  </div>
-</header>
-<main id="main">
-<section class="article">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/">BodyArcade</a> / Blog</nav>
-  <h1 class="display">Notes from the road</h1>
-  <p class="meta">Design notes, training ideas and updates from the people who make BodyArcade.</p>
-  <h2><a href="/blog/why-browser-fitness-games-are-the-future">Why browser fitness games are the future of home workouts</a></h2>
-  <p>No app stores, no consoles, no equipment: just a webcam and a tab. Why the browser became a real platform for movement games.</p>
-  <p class="meta">May 11, 2026 · 5 min read</p>
-  <h2><a href="/webcam-fitness-games">How webcam fitness games work, and how to set up your room</a></h2>
-  <p>How browser pose tracking reads jumps, squats and leans, what a laptop camera can and can't see, and a room setup that works first time.</p>
-  <p class="meta">October 7, 2026 · 7 min read</p>
-  <h2><a href="/ring-fit-adventure-alternative">A Ring Fit Adventure alternative you can play in a browser</a></h2>
-  <p>An honest comparison of Ring Fit Adventure and BodyArcade: hardware, tracking, workout style and cost.</p>
-  <p class="meta">September 24, 2026 · 6 min read</p>
-</section>
+<header class="top"><div class="top-in"><a class="brand" href="/" aria-label="BodyArcade home"><img class="logo-light" src="/assets/brand/logo.svg" alt="BodyArcade" width="157" height="28"><img class="logo-dark" src="/assets/brand/logo-dark.svg" alt="" aria-hidden="true" width="157" height="28"></a><nav class="nav" aria-label="Main navigation"><a href="/">Games</a><a href="/pro/">Pro</a><a href="/faq">FAQ</a><a href="/blog/" aria-current="page">Blog</a></nav><a class="btn btn--sm play" href="/">Play a game</a></div></header>
+<main id="main" class="page page--solo">
+
+<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/">BodyArcade</a></li><li aria-current="page">Blog</li></ol></nav>
+<div class="head"><h1>Notes from the road</h1><p class="lead">Guides, design notes and updates from the people who make BodyArcade.</p></div>
+
+
+<div class="body">
+
+<ul class="posts"><li><h2><a href="/blog/what-happens-to-your-camera-video">What happens to your camera video in BodyArcade</a></h2><p>We follow one camera frame from the lens to the game: what is read, what is kept on your device, and what other players ever receive.</p><p class="when">24 October 2026</p></li><li><h2><a href="/webcam-fitness-games">How webcam fitness games work, and how to set up your room</a></h2><p>How a browser reads your body with an ordinary camera, what it reads well, and how to set up your room so a webcam fitness game works the first time.</p><p class="when">7 October 2026</p></li><li><h2><a href="/ring-fit-adventure-alternative">A Ring Fit Adventure alternative you can play in a browser</a></h2><p>An honest comparison of Ring Fit Adventure and BodyArcade: what you need, how each tracks you, the kind of workout, and what each costs.</p><p class="when">24 September 2026</p></li><li><h2><a href="/blog/why-browser-fitness-games-are-the-future">Why browser fitness games are the future of home workouts</a></h2><p>No app stores, no consoles, no equipment: just a camera and a tab. Why the browser became a real platform for movement games.</p><p class="when">11 May 2026</p></li></ul>
+</div>
 </main>
-<footer class="footer">
-  <div class="wrap">
-    <div class="footer-in">
-      <div>
-        <a class="logo" href="/" aria-label="BodyArcade home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#f3eee5"/><circle cx="16" cy="8.5" r="3.2" fill="#ff4f24"/><path d="M8 11.5 L16 15 L24 11.5 M16 15 V20 M16 20 L11 26.5 M16 20 L21 26.5" stroke="#15130f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg><span class="logo-word">BodyArcade</span></a>
-        <p class="footer-note">Camera workout games that play in your browser.</p>
-      </div>
-      <div><h4>Play</h4><ul><li><a href="/">All games</a></li><li><a href="/games/road-run/">Road Run</a></li><li><a href="/pro/">Pricing</a></li></ul></div>
-      <div><h4>Learn</h4><ul><li><a href="/webcam-fitness-games">Webcam fitness games</a></li><li><a href="/ring-fit-adventure-alternative">Ring Fit alternative</a></li><li><a href="/blog/">Blog</a></li></ul></div>
-      <div><h4>Company</h4><ul><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="mailto:info@peakappsstudio.com">Contact</a></li><li><a href="https://dorukctnn-rgb.github.io/peakappsstudios/">Peak Apps Studio</a></li></ul></div>
-    </div>
-    <div class="footer-base"><span>Copyright 2026 Peak Apps Studio</span><span>Estimates are not medical advice. Warm up and play within your limits.</span></div>
-  </div>
-</footer>
-<script src="/assets/ba.js?v=20261023b" defer></script>
+<footer class="foot"><div class="foot-in"><p>BodyArcade is made by Peak Apps Studio. Camera video is read on your device and never recorded.</p><ul><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/faq">FAQ</a></li><li><a href="mailto:info@peakappsstudio.com">Contact</a></li></ul></div></footer>
 </body>
 </html>

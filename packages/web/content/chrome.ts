@@ -272,3 +272,9 @@ export function articleLd(o: { headline: string; description: string; url: strin
     image: `${SITE}/assets/brand/${OG_IMAGE.file}`,
   };
 }
+
+/** Minutes to read an HTML text at 200 words a minute (never less than one). */
+export function readMinutes(html: string): number {
+  const words = stripTags(html.replace(/<\/(p|li|h[1-6]|div|td|th|summary)>/g, ' ')).split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}

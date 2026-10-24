@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What happens to your camera video in BodyArcade | BodyArcade</title>
+<meta name="description" content="We follow one camera frame from the lens to the game: what is read, what is kept on your device, and what other players ever receive.">
+<link rel="canonical" href="https://bodyarcade.com/blog/what-happens-to-your-camera-video">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F4F2F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1A1430" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="BodyArcade">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://bodyarcade.com/blog/what-happens-to-your-camera-video">
+<meta property="og:title" content="What happens to your camera video in BodyArcade | BodyArcade">
+<meta property="og:description" content="We follow one camera frame from the lens to the game: what is read, what is kept on your device, and what other players ever receive.">
+<meta property="og:image" content="https://bodyarcade.com/assets/brand/og.png">
+<meta property="og:image:width" content="1024">
+<meta property="og:image:height" content="500">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://bodyarcade.com/assets/brand/og.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/content.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Article","headline":"What happens to your camera video in BodyArcade","description":"We follow one camera frame from the lens to the game: what is read, what is kept on your device, and what other players ever receive.","inLanguage":"en","mainEntityOfPage":"https://bodyarcade.com/blog/what-happens-to-your-camera-video","datePublished":"2026-10-24","dateModified":"2026-10-24","author":{"@type":"Organization","name":"Peak Apps Studio"},"publisher":{"@type":"Organization","name":"Peak Apps Studio"},"image":"https://bodyarcade.com/assets/brand/og.png"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"BodyArcade","item":"https://bodyarcade.com/"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://bodyarcade.com/blog/"},{"@type":"ListItem","position":3,"name":"Your camera video","item":"https://bodyarcade.com/blog/what-happens-to-your-camera-video"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top"><div class="top-in"><a class="brand" href="/" aria-label="BodyArcade home"><img class="logo-light" src="/assets/brand/logo.svg" alt="BodyArcade" width="157" height="28"><img class="logo-dark" src="/assets/brand/logo-dark.svg" alt="" aria-hidden="true" width="157" height="28"></a><nav class="nav" aria-label="Main navigation"><a href="/">Games</a><a href="/pro/">Pro</a><a href="/faq">FAQ</a><a href="/blog/" aria-current="page">Blog</a></nav><a class="btn btn--sm play" href="/">Play a game</a></div></header>
+<main id="main" class="page page--solo">
+
+<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/">BodyArcade</a></li><li><a href="/blog/">Blog</a></li><li aria-current="page">Your camera video</li></ol></nav>
+<div class="head"><h1>What happens to your camera video in BodyArcade</h1><p class="when">24 October 2026 &middot; 3 min read</p><p class="lead">A camera game raises a fair question: where does the video go? In BodyArcade it goes nowhere. This post follows a frame from the lens to the game and says what is kept at each step, so you do not have to take the headline on trust.</p></div>
+
+
+<div class="body">
+<section id="lens" aria-labelledby="lens-h"><h2 id="lens-h">From the lens to body points</h2>
+<p>When you open a game, your browser asks whether BodyArcade may use the camera. If you allow it, the browser hands each frame of the video to a pose model that runs in the page, on your device. The model returns 33 points: head, shoulders, elbows, wrists, hips, knees, ankles and a few more. The game reads those points to count squats, jumps, punches and other moves. The frame is not kept after that.</p>
+<p>The small picture of yourself that you see while you play is drawn on your screen from the same camera stream. It is not written to a file, and it is not sent to a server.</p>
+</section>
+<section id="kept" aria-labelledby="kept-h"><h2 id="kept-h">What the game keeps on your device</h2>
+<ul><li>Your results: recent rounds, best scores and your streak.</li><li>Your best run of each game as a ghost, which is what you did at each obstacle and, for your own runs, your skeleton as points.</li><li>Your settings, and your body weight if you entered it to see calories.</li></ul>
+<p>All of this stays in your browser&rsquo;s storage. The Settings screen can clear it.</p>
+</section>
+<section id="alone" aria-labelledby="alone-h"><h2 id="alone-h">What leaves your device when you play alone</h2>
+<p>Nothing about your camera. The page, the game files and the pose model are served from bodyarcade.com itself, so your browser does not contact Google or a code network to load them. The pose library tries to send Google a short usage report that contains no images; BodyArcade stops that request on your device before it leaves.</p>
+<p>If you have Pro, the app asks our license service about once a day whether the plan is still active. If you made an online profile, the app talks to the friends service. Neither call carries a picture.</p>
+</section>
+<section id="rooms" aria-labelledby="rooms-h"><h2 id="rooms-h">What other players receive in a room</h2>
+<p>In an online room your device tells the other players your score and a skeleton of 13 joints, about 15 times a second. That is a handful of coordinates, with no picture. A room is deleted 10 minutes after the last player leaves, and in any case 24 hours after its last activity.</p>
+</section>
+<section id="video" aria-labelledby="video-h"><h2 id="video-h">The one exception: video between friends</h2>
+<p>Two friends who are both 18 or older can show each other their camera in a private room. It is off by default, it works only when both of them switch it on, and either can switch it off at any time. The picture goes from device to device, encrypted, and is not recorded or stored by anyone. If the two devices cannot reach each other directly, no picture is shown and the game goes on with the skeleton.</p>
+</section>
+<section id="check" aria-labelledby="check-h"><h2 id="check-h">How you can check</h2>
+<p>You do not have to take our word for it. Open your browser&rsquo;s developer tools while you play and look at the network panel: you will not find a video upload. The <a href="/privacy">privacy policy</a> lists every table our servers keep and how long each is kept. If you have a question it does not answer, write to <a href="mailto:info@peakappsstudio.com">info@peakappsstudio.com</a>.</p>
+<p>To stop the camera at any time, use the camera icon in your browser&rsquo;s address bar, or close the game.</p>
+</section>
+<div class="cta"><p>Your first game is a couple of minutes away.</p><a class="btn" href="/">Play a game</a></div>
+</div>
+</main>
+<footer class="foot"><div class="foot-in"><p>BodyArcade is made by Peak Apps Studio. Camera video is read on your device and never recorded.</p><ul><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/faq">FAQ</a></li><li><a href="mailto:info@peakappsstudio.com">Contact</a></li></ul></div></footer>
+</body>
+</html>

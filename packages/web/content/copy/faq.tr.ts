@@ -212,7 +212,7 @@ export function faqTr(): PageSpec {
     other: { lang: 'en', url: '/faq' },
     nav: 'faq',
     title: 'Sık sorulan sorular',
-    description: 'BodyArcade hakkında yanıtlar: kameralı oyunlar nasıl çalışır, nereye durulur, oturarak oynama, arkadaşlar ve odalar, gizlilik, ücretsiz plan, Pro fiyatları, ücretsiz deneme, iptal ve iade.',
+    description: 'BodyArcade hakkında yanıtlar: nereye durulur, oturarak oynama, arkadaşlar ve odalar, gizlilik, ücretsiz plan, Pro fiyatları, ücretsiz deneme, iptal ve iade.',
     h1: 'Sorular ve yanıtlar',
     lead: `Oynamak, gizlilik, arkadaşlar ve planlar hakkında kısa yanıtlar. Seninki burada yoksa ${mail()} adresine yaz.`,
     sections,

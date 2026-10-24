@@ -16,7 +16,7 @@ export function termsEn(): PageSpec {
     lang: 'en',
     other: { lang: 'tr', url: '/tr/terms' },
     title: 'Terms of use',
-    description: 'The terms for playing BodyArcade: exercise safety, playing with others and fair play, the free plan, Pro plans and prices, the free trial, cancelling, refunds and license keys.',
+    description: 'The terms for playing BodyArcade: exercise safety, playing with others, the free plan, Pro prices, the free trial, cancelling, refunds and license keys.',
     h1: 'Terms of use',
     when: `Last updated ${date}`,
     lead: `These terms cover your use of BodyArcade, its online features and its paid plans. By playing, you agree to them. If you do not agree, please do not use BodyArcade. How your data is handled is explained in the <a href="/privacy">privacy policy</a>.`,

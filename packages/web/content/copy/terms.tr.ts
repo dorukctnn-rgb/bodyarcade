@@ -16,7 +16,7 @@ export function termsTr(): PageSpec {
     lang: 'tr',
     other: { lang: 'en', url: '/terms' },
     title: 'Kullanım koşulları',
-    description: 'BodyArcade’ı oynamanın koşulları: egzersiz güvenliği, başkalarıyla oynama ve adil oyun, ücretsiz plan, Pro planlar ve fiyatlar, ücretsiz deneme, iptal, iade ve lisans anahtarları.',
+    description: 'BodyArcade’ı oynamanın koşulları: egzersiz güvenliği, başkalarıyla oynama, ücretsiz plan, Pro fiyatları, ücretsiz deneme, iptal, iade ve lisans anahtarları.',
     h1: 'Kullanım koşulları',
     when: `Son güncelleme: ${date}`,
     lead: `Bu koşullar BodyArcade’ı, çevrimiçi özelliklerini ve ücretli planlarını kullanmanı kapsar. Oynayarak bu koşulları kabul etmiş olursun. Kabul etmiyorsan lütfen BodyArcade’ı kullanma. Verilerinin nasıl işlendiği <a href="/tr/privacy">gizlilik politikasında</a> anlatılır.`,

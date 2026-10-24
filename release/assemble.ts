@@ -12,14 +12,25 @@ import {
 } from './site.ts';
 import { MEDIAPIPE_VERSION } from '../packages/core/pose/assets.ts';
 
-/** The live site's content pages that keep their addresses (the old landing and game page give way to the app). */
+/**
+ * The content pages: the policies, the FAQ, the guides and the blog, in English and Turkish. packages/web/content/build.ts writes
+ * them into site/ from their sources (content.test.ts keeps this list equal to what that build makes). The old addresses of the live
+ * site stay (the old landing and game page give way to the app); the Turkish pages and the new ones sit beside them.
+ */
 export const LEGACY_PAGES: readonly { file: string; url: string }[] = [
   { file: 'webcam-fitness-games.html', url: '/webcam-fitness-games' },
+  { file: 'tr/kamera-ile-spor-oyunlari.html', url: '/tr/kamera-ile-spor-oyunlari' },
   { file: 'ring-fit-adventure-alternative.html', url: '/ring-fit-adventure-alternative' },
+  { file: 'tr/ring-fit-adventure-alternatifi.html', url: '/tr/ring-fit-adventure-alternatifi' },
   { file: 'blog/index.html', url: '/blog/' },
   { file: 'blog/why-browser-fitness-games-are-the-future.html', url: '/blog/why-browser-fitness-games-are-the-future' },
+  { file: 'blog/what-happens-to-your-camera-video.html', url: '/blog/what-happens-to-your-camera-video' },
   { file: 'privacy.html', url: '/privacy' },
+  { file: 'tr/privacy.html', url: '/tr/privacy' },
   { file: 'terms.html', url: '/terms' },
+  { file: 'tr/terms.html', url: '/tr/terms' },
+  { file: 'faq.html', url: '/faq' },
+  { file: 'tr/faq.html', url: '/tr/faq' },
 ];
 
 /** Other files of the live site that keep their addresses: the content pages' styles, fonts and pictures, the IndexNow key. */

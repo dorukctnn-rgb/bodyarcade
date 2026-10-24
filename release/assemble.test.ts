@@ -21,6 +21,7 @@ function fakeWebBuild(dir: string, extraBody = ''): void {
     'tr/games/road-run/index.html': page('<a href="/">home</a>'),
     'play/road-run/index.html': page(''),
     'pro/index.html': page('<a href="/">home</a>'),
+    'tr/pro/index.html': page('<a href="/tr/">home</a>'),
     '404.html': page('<a href="/">home</a>'),
     'sitemap.xml': '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>https://bodyarcade.com/</loc>\n  </url>\n</urlset>\n',
     'robots.txt': 'User-agent: *\nAllow: /\n',
