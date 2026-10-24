@@ -245,3 +245,30 @@ export function qa(q: string, answer: string): string {
 
 export const mail = (text: string = EMAIL): string => `<a href="mailto:${EMAIL}">${text}</a>`;
 export const link = (href: string, text: string): string => `<a href="${href}">${text}</a>`;
+
+/** A call to play: one sentence and the one button. */
+export const cta = (text: string, href: string, label: string): string => `<div class="cta"><p>${text}</p><a class="btn" href="${href}">${esc(label)}</a></div>`;
+
+/** schema.org FAQPage from the same questions and answers the page shows (the markup is taken out of the answers). */
+export function faqLd(items: readonly { q: string; a: string }[]): object {
+  return {
+    '@type': 'FAQPage',
+    mainEntity: items.map((i) => ({ '@type': 'Question', name: stripTags(i.q), acceptedAnswer: { '@type': 'Answer', text: stripTags(i.a).replace(/\s+/g, ' ').trim() } })),
+  };
+}
+
+/** schema.org Article for a guide or a post. Dates are ISO days. */
+export function articleLd(o: { headline: string; description: string; url: string; published: string; modified: string; lang: Lang }): object {
+  return {
+    '@type': 'Article',
+    headline: o.headline,
+    description: o.description,
+    inLanguage: o.lang,
+    mainEntityOfPage: `${SITE}${o.url}`,
+    datePublished: o.published,
+    dateModified: o.modified,
+    author: { '@type': 'Organization', name: COMPANY },
+    publisher: { '@type': 'Organization', name: COMPANY },
+    image: `${SITE}/assets/brand/${OG_IMAGE.file}`,
+  };
+}

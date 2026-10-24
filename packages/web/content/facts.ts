@@ -41,8 +41,23 @@ export const FAMILY_PROFILES = 6;
  */
 export const RELAY_ON = false;
 
-/** Does the Family plan exist for sale? It is only described while the profiles on one device are built (see the notes). */
+/**
+ * Does the Family plan exist for sale? True: its Gumroad product exists (core/entitlements/catalog.ts). The shell hides it from the paywall
+ * until the profile picker is wired (packages/web/src/app/boot.ts FAMILY_ON); the release gate of content.test.ts (BA_RELEASE=1) asks for both.
+ */
 export const FAMILY_PLAN = true;
+
+/**
+ * Is the BodyArcade Android app on Google Play? False until the Play listing is public (the web release comes first). The pages that
+ * mention the app say "planned" while this is false and "available" when it is true; set it in the release that goes with the listing.
+ */
+export const ANDROID_APP_LIVE = false;
+
+/**
+ * Does the site load an analytics script? False: no page of the app or of these pages loads one. The day Cloudflare Web Analytics (cookieless)
+ * is switched on for the site, set this to true: the privacy policy then says that visits are counted, in the same release.
+ */
+export const ANALYTICS_ON = false;
 
 // ───────── Pro licences (the licence service) ─────────
 /** The longest a licence handed to a device lasts, in days. */
@@ -75,9 +90,24 @@ export const MUTE_HOURS = 24;
 /** Different reporters within 7 days who close public lobbies to a player for 3 days, pending review. */
 export const REPORTS_TO_SUSPEND = 6;
 export const SUSPEND_DAYS = 3;
+/** The window of the automatic mute (hours) and of the automatic suspension (days). */
+export const MUTE_WINDOW_HOURS = 24;
+export const SUSPEND_WINDOW_DAYS = 7;
+/** Different reporters within 24 hours for a serious reason (sexual content, a player who seems under 13) who do the same. */
+export const URGENT_REPORTERS_TO_SUSPEND = 2;
+/** A report counts towards those automatic steps only when the reporter's profile is at least this old, in hours. */
+export const REPORTER_MIN_PROFILE_HOURS = 1;
+/** The note an adult may add to a report. */
+export const REPORT_NOTE_MAX_CHARS = 300;
 /** Body points the pose model finds, and the joints a friend sees of you in a race. */
 export const MODEL_POINTS = 33;
 export const SHARED_JOINTS = 13;
+/** About how often per second the skeleton and the score go to the other players of a room. */
+export const SHARE_HZ = 15;
+/** Characters of a room code, of a friend code (after "BA-") and of a recovery code. */
+export const ROOM_CODE_CHARS = 6;
+export const FRIEND_CODE_CHARS = 6;
+export const RECOVERY_CODE_CHARS = 16;
 
 // ───────── the online profile (the social server) ─────────
 /** A profile nobody has used for this many days is erased. */
@@ -97,6 +127,10 @@ export const RESOLVED_REPORT_DAYS = 90;
 export const ORPHAN_REPORT_DAYS = 30;
 /** The moderation log. */
 export const AUDIT_DAYS = 365;
+/** The longest an abuse counter lives, in hours: the longest window is a day, and the sweep removes the row an hour after the window ends. */
+export const LIMIT_COUNTER_HOURS = 25;
+/** The level of a profile is a number from 1 to this. */
+export const LEVEL_MAX = 99;
 /** Devices one profile may hold at the same time (the oldest goes when a sixth is added). */
 export const PROFILE_DEVICES = 5;
 export const MAX_FRIENDS = { teen: 50, adult: 100 } as const;
