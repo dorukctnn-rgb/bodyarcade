@@ -2,6 +2,7 @@
 // The main thread sends one ImageBitmap per camera frame (transferred) and gets 132 floats back.
 import type { PoseLandmarker } from '@mediapipe/tasks-vision';
 import { allPoses, createLandmarker, packPoses } from './landmarker.ts';
+import { createLightMeter } from './light-grid.ts';
 import type { FromWorker, ToWorker } from './protocol.ts';
 
 const scope = self as unknown as {
@@ -12,6 +13,7 @@ const scope = self as unknown as {
 
 let landmarker: PoseLandmarker | null = null;
 let lastTs = 0;
+const meter = createLightMeter();
 
 function detect(source: TexImageSource, ts: number): { poses: Float32Array; ms: number } {
   if (!landmarker) throw new Error('The pose model is not loaded.');
@@ -47,7 +49,9 @@ scope.onmessage = (e: MessageEvent<ToWorker>): void => {
   } else if (m.type === 'frame') {
     try {
       const r = detect(m.bitmap, m.ts);
-      scope.postMessage({ type: 'result', id: m.id, poses: r.poses, ms: r.ms }, [r.poses.buffer]);
+      const light = m.light ? meter.measure(m.bitmap) : null;   // never allowed to cost the detection its result
+      if (light) scope.postMessage({ type: 'result', id: m.id, poses: r.poses, ms: r.ms, light }, [r.poses.buffer, light.buffer]);
+      else scope.postMessage({ type: 'result', id: m.id, poses: r.poses, ms: r.ms }, [r.poses.buffer]);
     } catch (err) {
       scope.postMessage({ type: 'error', id: m.id, message: err instanceof Error ? err.message : String(err) });
     } finally {

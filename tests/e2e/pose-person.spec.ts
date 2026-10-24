@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 import { withFakeVideo } from './support/browser.ts';
 import { DEV_URL } from './support/ports.ts';
 import { runCamera } from './support/pose-run.ts';
+import { lightProblem } from '../../packages/core/body/light.ts';
 
 test.use({ launchOptions: withFakeVideo('tests/e2e/fixtures/standing-640x360.mjpeg') });
 
@@ -34,4 +35,37 @@ test('a person in front of the camera: landmarks in nearly every frame, in body 
   test.info().annotations.push({ type: 'pose', description: `renderer=${r.renderer.kind} (${r.renderer.renderer}) worker=${r.loaded.worker} delegate=${r.loaded.delegate} frames=${r.frames.length} hz=${r.stats.hz} p50=${r.stats.p50.toFixed(1)}ms p95=${r.stats.p95.toFixed(1)}ms warm=${r.warmMs.toFixed(0)}ms load=${r.loaded.loadMs.toFixed(0)}ms` });
   console.log(test.info().annotations.at(-1)?.description);
   expect(r.camStats.live).toBe(0);
+
+  // The brightness map for "too dark" and "light behind you" arrives on about one frame in 400 ms, from the real picture.
+  const lit = r.frames.filter((f) => f.light);
+  expect(lit.length).toBeGreaterThanOrEqual(3);
+  expect(lit.length).toBeLessThan(r.frames.length / 2);
+  for (const f of lit) {
+    expect(f.light).toMatchObject({ cols: 16, rows: 12, n: 192 });
+    expect(f.light!.min).toBeGreaterThanOrEqual(0);
+    expect(f.light!.max).toBeLessThanOrEqual(1);
+  }
+  const mean = lit.reduce((a, f) => a + f.light!.mean, 0) / lit.length;
+  expect(mean).toBeGreaterThan(0.15);                     // the drill is filmed against a bright wall: light, not black
+  expect(mean).toBeLessThanOrEqual(1);
+  expect(Math.max(...lit.map((f) => f.light!.max)) - Math.min(...lit.map((f) => f.light!.min))).toBeGreaterThan(0.05);   // a picture, not a flat fill
+  for (let i = 1; i < lit.length; i++) expect(lit[i]!.t - lit[i - 1]!.t).toBeGreaterThanOrEqual(390);
+  // Real picture, real landmarks: a person in a bright, even room is never called backlit or too dark.
+  for (const f of lit) {
+    expect(lightProblem({ cols: f.light!.cols, rows: f.light!.rows, luma: f.light!.luma }, f.light!.lm, f.aspect)).toBeNull();
+  }
+});
+
+test('the same map on the main thread (no worker): the model and the brightness read from the video element', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto(`${DEV_URL}/tests/e2e/pages/pose.html`);
+  await page.waitForFunction(() => (window as unknown as { harnessReady?: boolean }).harnessReady === true);
+  const r = await runCamera(page, 'never', 3);
+  expect(r.loaded.worker).toBe(false);
+  const lit = r.frames.filter((f) => f.light);
+  expect(lit.length).toBeGreaterThanOrEqual(2);
+  expect(lit[0]!.light).toMatchObject({ cols: 16, rows: 12, n: 192 });
+  expect(lit[0]!.light!.mean).toBeGreaterThan(0.15);
+  expect(lit[0]!.light!.mean).toBeLessThanOrEqual(1);
+  expect(lightProblem({ cols: 16, rows: 12, luma: lit[0]!.light!.luma }, lit[0]!.light!.lm, lit[0]!.aspect)).toBeNull();
 });

@@ -4,9 +4,11 @@ import type {
   FrameSource, Landmark, LoadProgress, PoseFrame, PoseLoadOptions, PoseLoadResult, PoseService, PoseStats, Unsubscribe,
 } from '../types/index.ts';
 import { allPoses, createLandmarker, unpackPoses } from './landmarker.ts';
+import { LIGHT_COLS, LIGHT_EVERY_MS, LIGHT_ROWS, createLightMeter, toLightGrid } from './light-grid.ts';
 import type { FromWorker, ToWorker } from './protocol.ts';
 
-export interface DetectResult { poses: Landmark[][]; inferenceMs: number }
+/** `light`: the brightness cells of this picture (light-grid.ts), present only when asked for and measurable. */
+export interface DetectResult { poses: Landmark[][]; inferenceMs: number; light?: Uint8Array }
 
 /** One inference engine. The service owns exactly one at a time. */
 export interface PoseBackend {
@@ -16,7 +18,7 @@ export interface PoseBackend {
   /** One dummy inference; resolves with its duration in ms. */
   warmUp(): Promise<number>;
   /** Every person found in the current video frame, in the detector's order. */
-  detect(video: HTMLVideoElement, ts: number): Promise<DetectResult>;
+  detect(video: HTMLVideoElement, ts: number, o?: { light?: boolean }): Promise<DetectResult>;
   dispose(): void;
 }
 
@@ -59,7 +61,7 @@ export class WorkerBackend implements PoseBackend {
       const p = this.pending.get(m.id);
       if (!p) return;
       this.pending.delete(m.id);
-      p.resolve({ poses: unpackPoses(m.poses), inferenceMs: m.ms });
+      p.resolve({ poses: unpackPoses(m.poses), inferenceMs: m.ms, ...(m.light ? { light: m.light } : {}) });
     } else if (m.type === 'error') {
       if (m.id !== undefined) {
         const p = this.pending.get(m.id);
@@ -103,14 +105,14 @@ export class WorkerBackend implements PoseBackend {
     return new Promise((resolve) => { this.onWarm = (ms) => { this.onWarm = null; resolve(ms); }; this.send({ type: 'warmup' }); });
   }
 
-  async detect(video: HTMLVideoElement, ts: number): Promise<DetectResult> {
+  async detect(video: HTMLVideoElement, ts: number, o?: { light?: boolean }): Promise<DetectResult> {
     if (this.dead) throw this.dead;
     const bitmap = await createImageBitmap(video);
     if (this.dead) { bitmap.close(); throw this.dead; }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
-      this.send({ type: 'frame', id, ts, bitmap }, [bitmap]);
+      this.send({ type: 'frame', id, ts, bitmap, ...(o?.light ? { light: true } : {}) }, [bitmap]);
     });
   }
 
@@ -134,6 +136,7 @@ export class MainBackend implements PoseBackend {
   readonly worker = false;
   private lm: Awaited<ReturnType<typeof createLandmarker>>['landmarker'] | null = null;
   private lastTs = 0;
+  private readonly meter = createLightMeter();
 
   async load(o: Parameters<PoseBackend['load']>[0]): Promise<'GPU' | 'CPU'> {
     const opts: Parameters<typeof createLandmarker>[0] = { wasmBase: o.wasmBase, modelUrl: o.modelUrl, prefer: o.prefer, useModule: false, numPoses: o.numPoses ?? 1 };
@@ -165,8 +168,15 @@ export class MainBackend implements PoseBackend {
     return Promise.resolve(this.run(c, performance.now()).inferenceMs);
   }
 
-  detect(video: HTMLVideoElement, ts: number): Promise<DetectResult> {
-    try { return Promise.resolve(this.run(video, ts)); } catch (e) { return Promise.reject(e); }
+  detect(video: HTMLVideoElement, ts: number, o?: { light?: boolean }): Promise<DetectResult> {
+    try {
+      const r = this.run(video, ts);
+      if (o?.light) {
+        const light = this.meter.measure(video);
+        if (light) r.light = light;
+      }
+      return Promise.resolve(r);
+    } catch (e) { return Promise.reject(e); }
   }
 
   dispose(): void {
@@ -225,6 +235,7 @@ export function createPoseService(deps: PoseServiceDeps = {}): PoseService & { r
     let seq = -1;
     let lastMediaTime = -1;
     let lastStart = -Infinity;
+    let lastLight = -Infinity;
     let handle: number | null = null;
     const hasRvfc = typeof video.requestVideoFrameCallback === 'function';
 
@@ -242,14 +253,18 @@ export function createPoseService(deps: PoseServiceDeps = {}): PoseService & { r
       if (!b) return;
       busy = true;
       lastStart = now;
+      // The brightness map rides on one frame in a few (about every 400 ms), for the calibration's light codes.
+      const wantLight = now - lastLight >= LIGHT_EVERY_MS;
+      if (wantLight) lastLight = now;
       const mySeq = seq;
       const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 4 / 3;
-      b.detect(video, now).then(
+      b.detect(video, now, wantLight ? { light: true } : undefined).then(
         (r) => {
           busy = false;
           if (!active) return;
           const frame: PoseFrame = { seq: mySeq, t: now, landmarks: r.poses[0] ?? null, inferenceMs: r.inferenceMs, source: 'camera', aspect };
           if (numPoses === 2) frame.poses = r.poses;
+          if (r.light) frame.light = toLightGrid(r.light, LIGHT_COLS, LIGHT_ROWS);
           emit(frame);
         },
         () => { busy = false; counts.errors++; counts.dropped++; },

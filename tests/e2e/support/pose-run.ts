@@ -14,7 +14,11 @@ export interface CameraRun {
   loaded: { delegate: 'GPU' | 'CPU'; worker: boolean; loadMs: number };
   phases: string[];
   warmMs: number;
-  frames: { seq: number; t: number; person: boolean; ms: number; src: string; aspect: number; inRange: boolean }[];
+  frames: {
+    seq: number; t: number; person: boolean; ms: number; src: string; aspect: number; inRange: boolean;
+    /** The brightness map when this frame carried one: its size and what is in it. */
+    light: { cols: number; rows: number; n: number; mean: number; min: number; max: number; luma: number[]; lm: { x: number; y: number; z: number; visibility: number }[] | null } | null;
+  }[];
   afterDetach: number;
   stats: { hz: number; p50: number; p95: number; dropped: number; frames: number };
   camStats: { acquired: number; released: number; live: number };
@@ -43,6 +47,9 @@ export function runCamera(page: Page, worker: 'only' | 'never' | 'auto', seconds
       frames.push({
         seq: f.seq, t: f.t, person: f.landmarks !== null, ms: f.inferenceMs, src: f.source, aspect: f.aspect,
         inRange: f.landmarks ? f.landmarks.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && p.visibility >= 0 && p.visibility <= 1) : true,
+        light: f.light
+          ? { cols: f.light.cols, rows: f.light.rows, n: f.light.luma.length, mean: f.light.luma.reduce((a, b) => a + b, 0) / f.light.luma.length, min: Math.min(...f.light.luma), max: Math.max(...f.light.luma), luma: f.light.luma, lm: f.landmarks }
+          : null,
       });
     });
     pose.attach(lease);

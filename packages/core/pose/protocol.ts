@@ -5,7 +5,8 @@ export type ToWorker =
   | { type: 'load'; wasmBase: string; modelUrl: string; prefer: 'GPU' | 'CPU'; numPoses: 1 | 2 }
   | { type: 'numPoses'; n: 1 | 2 }
   | { type: 'warmup' }
-  | { type: 'frame'; id: number; ts: number; bitmap: ImageBitmap }
+  /** `light`: also measure the brightness map of this picture (a few frames a second; see light-grid.ts). */
+  | { type: 'frame'; id: number; ts: number; bitmap: ImageBitmap; light?: boolean }
   | { type: 'dispose' };
 
 export type FromWorker =
@@ -14,5 +15,5 @@ export type FromWorker =
   | { type: 'warm'; ms: number }
   | { type: 'numPosesSet'; n: 1 | 2 }
   /** `poses` holds 132 floats per person found (0, 1 or 2 people); `ms` is the inference time inside the worker. */
-  | { type: 'result'; id: number; poses: Float32Array; ms: number }
+  | { type: 'result'; id: number; poses: Float32Array; ms: number; light?: Uint8Array }
   | { type: 'error'; id?: number; message: string };

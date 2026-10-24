@@ -20,14 +20,20 @@ class FakeBackend implements PoseBackend {
   numPoses: 1 | 2 = 1;
   /** People in front of the fake camera. */
   people: Landmark[][] = [synthPose(DEFAULT_SHAPE)];
+  /** The brightness cells handed back when a frame asks for them; `lightAsked` records which frames asked. */
+  lightCells: Uint8Array | null = new Uint8Array(192).fill(51);
+  lightAsked: boolean[] = [];
   constructor(kind: 'worker' | 'main') { this.worker = kind === 'worker'; }
   async load(o: { numPoses?: 1 | 2 }): Promise<'GPU' | 'CPU'> { this.loads++; this.numPoses = o.numPoses ?? 1; if (this.failLoad) throw this.failLoad; return 'GPU'; }
   async setNumPoses(n: 1 | 2): Promise<void> { this.numPoses = n; }
   async warmUp(): Promise<number> { return 3; }
-  async detect(_v: HTMLVideoElement, ts: number): Promise<DetectResult> {
+  async detect(_v: HTMLVideoElement, ts: number, o?: { light?: boolean }): Promise<DetectResult> {
     this.detects.push(ts);
+    this.lightAsked.push(o?.light === true);
     if (this.hold) await new Promise<void>((r) => this.waiting.push(r));
-    return { poses: this.people.slice(0, this.numPoses), inferenceMs: this.inferenceMs };
+    const r: DetectResult = { poses: this.people.slice(0, this.numPoses), inferenceMs: this.inferenceMs };
+    if (o?.light && this.lightCells) r.light = this.lightCells;
+    return r;
   }
   release(): void { const w = this.waiting; this.waiting = []; for (const r of w) r(); }
   dispose(): void { this.disposed++; }
@@ -165,6 +171,53 @@ describe('camera frames', () => {
     for (let i = 1; i <= 100; i++) { b.inferenceMs = i; v.present(i * 40); await wait(0); }
     expect(pose.stats.p50).toBe(51);
     expect(pose.stats.p95).toBe(96);
+  });
+});
+
+describe('the brightness map (for "too dark" and "light behind you")', () => {
+  it('rides on about one frame in 400 ms, as a 16 x 12 map of 0..1; the frames in between carry none', async () => {
+    const { pose, made } = setup();
+    await pose.load(LOAD);
+    const b = made[0] as FakeBackend;
+    const v = new ManualVideo();
+    const got: PoseFrame[] = [];
+    pose.onFrame((f) => got.push(f));
+    pose.attach(videoSource(v));
+    for (const t of [1000, 1050, 1100, 1300, 1399, 1400, 1450, 1700, 1800, 1850]) { v.present(t); await wait(0); }
+    expect(b.lightAsked).toEqual([true, false, false, false, false, true, false, false, true, false]);
+    expect(got.map((f) => f.light !== undefined)).toEqual(b.lightAsked);
+    const g = got[0]?.light;
+    expect(g).toMatchObject({ cols: 16, rows: 12 });
+    expect(g?.luma.length).toBe(192);
+    expect(g?.luma.every((x) => x === 0.2)).toBe(true);
+  });
+
+  it('a backend that cannot measure leaves the frame without a map and never drops the detection', async () => {
+    const { pose, made } = setup();
+    await pose.load(LOAD);
+    (made[0] as FakeBackend).lightCells = null;
+    const v = new ManualVideo();
+    const got: PoseFrame[] = [];
+    pose.onFrame((f) => got.push(f));
+    pose.attach(videoSource(v));
+    v.present(1000); await wait(0);
+    v.present(1500); await wait(0);
+    expect(got.length).toBe(2);
+    expect(got.every((f) => f.landmarks !== null && f.light === undefined)).toBe(true);
+  });
+
+  it('landmark sources (traces, tests) never carry a map', async () => {
+    const { pose } = setup();
+    const t = synthTrace({ id: 'no-light', durationMs: 200, fps: 30 });
+    const got: PoseFrame[] = [];
+    pose.onFrame((f) => got.push(f));
+    const src = traceSource(t, { speed: 20 });
+    pose.attach(src);
+    await src.start();
+    await wait(60);
+    expect(got.length).toBeGreaterThan(3);
+    expect(got.some((f) => f.light !== undefined)).toBe(false);
+    pose.detach();
   });
 });
 
