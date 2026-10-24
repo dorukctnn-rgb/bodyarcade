@@ -81,7 +81,12 @@ export function zoneIn(area: Rect, pip: Rect | null, o: ZoneOptions): Zone {
 export class Backdrop {
   private sky: CanvasGradient | null = null;
   private key = '';
-  constructor(private readonly stars: readonly Star[], private readonly reducedMotion: boolean) {}
+  private readonly stars: readonly Star[];
+  private readonly reducedMotion: boolean;
+  constructor(stars: readonly Star[], reducedMotion: boolean) {
+    this.stars = stars;
+    this.reducedMotion = reducedMotion;
+  }
 
   private gradient(c: Ctx2D, w: number, h: number): CanvasGradient {
     const key = `${w}x${h}`;

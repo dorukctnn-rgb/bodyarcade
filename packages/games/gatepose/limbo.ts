@@ -17,6 +17,7 @@
 // Two players on one camera (mode local2): every gate arrives in both lanes at the same moment, each with its own angle; a gate
 // both players pass is a team pass (a bonus for both). Pure and fixed-step: plain-data state, seeded plan, snapshot and restore.
 import type { RunSummary } from '../../core/types/index.ts';
+import type { Miss } from '../../core/moves/kit.ts';
 import { BendTester, type BendGate } from '../../core/moves/sideBend.ts';
 import type { FrameIn, PlayerIn } from '../_shared/frame.ts';
 import type { HostSim, Phase, SimEvent, SimSetup } from '../_shared/host.ts';
@@ -103,20 +104,22 @@ export function makeLbPlan(difficulty: Difficulty, timing: GpTiming, rng: () => 
   const pairK = stepsOf(PAIR_GAP_S);
   const windowK = stepsOf(WINDOW_S);
   const gates: LbGate[] = [];
-  const last: (LbGate | null)[] = [null, null];
-  const sign: (1 | -1)[] = [1, -1];
+  /** Per lane: the arrival step of the gate before, and the side the last gate asked for (the two lanes start on opposite sides). */
+  const lastK: number[] = [-1000, -1000];
+  const sign: number[] = [1, -1];
   const add = (arriveK: number, pair: boolean, flip: boolean): void => {
     for (let lane = 0; lane < players; lane++) {
       const l = lane as 0 | 1;
-      sign[l] = flip || rng() < 0.65 ? (sign[l] === 1 ? -1 : 1) : sign[l];
+      const was = sign[l] ?? 1;
+      const side = flip || rng() < 0.65 ? -was : was;
+      sign[l] = side;
       const mag = level.angle[0] + rng() * (level.angle[1] - level.angle[0]);
-      const prev = last[l];
       const g: LbGate = {
-        id: gates.length, lane: l, arriveK, fromK: Math.max(arriveK - windowK, prev ? prev.arriveK + 6 : 0), target: round(sign[l] * mag, 1),
+        id: gates.length, lane: l, arriveK, fromK: Math.max(arriveK - windowK, (lastK[l] ?? -1000) + 6, 0), target: round(side * mag, 1),
         tall: rng() < level.tallChance, pair,
       };
       gates.push(g);
-      last[l] = g;
+      lastK[l] = arriveK;
     }
   };
   for (const seg of segments) {
@@ -188,6 +191,16 @@ const newPlayer = (): LbPlayer => ({
 
 export const bendGateOf = (g: LbGate, tol: number): BendGate => ({ id: g.id, target: g.target, tol, holdMs: HOLD_MS, tall: g.tall });
 
+/**
+ * The reason a gate was missed, as the player should hear it. The tester says "bend further" for a lean that never came near the
+ * tilt; when the whole lean was to the other side (its closest approach to the gate's side is on the wrong side of upright) that is
+ * "wrong side", which is what the player has to change.
+ */
+export function reasonFor(why: Miss, g: Pick<LbGate, 'target'>): Miss {
+  if (why.code === 'bend_more' && why.got !== undefined && why.got * g.target < 0 && Math.abs(why.got) >= 3) return { code: 'wrong_side' };
+  return why;
+}
+
 // ───────── the simulation ─────────
 
 export class LimboSim implements HostSim {
@@ -231,12 +244,12 @@ export class LimboSim implements HostSim {
   get leftS(): number { return Math.max(0, (this.segment.endK - this.s.k) / 60); }
   /** The last seconds of a rest: "Ready". */
   get gettingReady(): boolean { const seg = this.segment; return seg.kind === 'rest' && seg.endK - this.s.k <= 180; }
-  gatesOf(lane: 0 | 1): readonly LbGate[] { return this.lanes[lane]; }
+  gatesOf(lane: 0 | 1): readonly LbGate[] { return this.lanes[lane] ?? []; }
 
   /** The first gate of a lane that has not arrived yet. */
   nextGate(lane: 0 | 1): LbGate | null {
     const k = this.s.k;
-    for (const g of this.lanes[lane]) if (g.arriveK >= k && (this.s.gs[g.id] as LbGateState).done === 0) return g;
+    for (const g of this.gatesOf(lane)) if (g.arriveK >= k && (this.s.gs[g.id] as LbGateState).done === 0) return g;
     return null;
   }
 
@@ -342,7 +355,8 @@ export class LimboSim implements HostSim {
         out.push({ type: 'gate', t, id: g.id, lane: g.lane, ok: true, precision: round(gs.precision, 2), error: round(gs.error, 1), pts, streak: p.streak, target: g.target, tall: g.tall });
         passedLanes.push(g.lane);
       } else {
-        const why = tester.explain(bendGateOf(g, s.plan.tol));
+        const asked = tester.explain(bendGateOf(g, s.plan.tol));
+        const why = asked === null ? null : reasonFor(asked, g);
         if (!p.seen || why === null || why.code === 'person_out') {
           // nobody to judge: nothing is won, nothing is lost
           gs.done = 3;
@@ -399,7 +413,7 @@ export class LimboSim implements HostSim {
   }
 
   snapshot(): unknown {
-    const snap = copyData({ ...this.s, testers: [] });
+    const snap: LbState = copyData({ ...this.s, testers: [] as unknown[] });
     snap.testers = this.testers.map((t) => dumpOwn(t));
     return snap;
   }
