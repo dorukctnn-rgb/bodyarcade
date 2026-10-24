@@ -62,7 +62,7 @@ const hash = (n: number): number => { let h = Math.imul(n ^ 0x9e3779b9, 0x85ebca
 interface Geo { lane: Rect; U: number; cx: number; anchor: number; wallL: number; wallR: number; shoulder: number }
 
 /** The size of a metre in pixels: the play area shows about seven metres of wall, fewer on a short and wide one. */
-export const unitOf = (lane: Rect): number => Math.min(lane.w / 3.9, lane.h / (lane.w / lane.h > 3 ? 5.4 : 7.4));
+export const unitOf = (lane: Rect): number => Math.min(lane.w / 3.9, lane.h / (lane.w / lane.h > 3 ? 4.8 : 7.4));
 
 export function geoOf(lane: Rect): Geo {
   const U = unitOf(lane);
@@ -833,7 +833,7 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
         else rest(th, g, sec, c.on === 'rest' && s.sections[c.sec] === sec, c.breath);
       }
       summitMark(th, g, s.summit);
-      rocks(g, s, f.time);
+      if (s.phase === 'climb') rocks(g, s, f.time);
       drawClimber(g, f);
       cruxRing(g, s);
       if (flash > 0.01 && !o.reducedMotion) {

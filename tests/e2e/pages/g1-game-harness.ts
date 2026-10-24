@@ -4,6 +4,7 @@
 // library's rig) delivered as pose frames in real time. Nothing here asserts; the spec does.
 //   ?game=squat-flap|knee-sprint|summit-climb  &mode=solo|local2  &difficulty=easy  &seated=1  &body=perfect|good|sloppy|idle
 //   &sets=2&setSec=10&restSec=4  (a shorter Squat Flap round)  &heats=2&dist=60&restSec=4  (a shorter Knee Sprint round)
+//   &sets=2&summit=20&setSec=40&restSec=4  (a shorter Summit Climb round)
 //   &quiet=1  (the quiet variant)  &corner=bottom-right
 import '../../../packages/web/src/styles/app.css';
 import { createAudio } from '../../../packages/core/audio/audio.ts';
@@ -20,6 +21,8 @@ import { manifest as flapManifest, squatFlapModule, STRINGS as FLAP_STRINGS } fr
 import { squatPerson } from '../../../packages/games/flight/testing/body.ts';
 import { kneeSprintModule, manifest as sprintManifest, STRINGS as SPRINT_STRINGS } from '../../../packages/games/knee-sprint/index.ts';
 import { runnerPerson } from '../../../packages/games/sprint/testing/body.ts';
+import { manifest as climbManifest, STRINGS as CLIMB_STRINGS, summitClimbModule } from '../../../packages/games/summit-climb/index.ts';
+import { climberPerson } from '../../../packages/games/climb/testing/body.ts';
 
 const q = new URLSearchParams(location.search);
 const id = q.get('game') ?? 'squat-flap';
@@ -57,6 +60,13 @@ games['knee-sprint'] = {
   manifest: sprintManifest,
   strings: SPRINT_STRINGS,
   people: (kind, m, s, shapes) => shapes.map((shape, i) => runnerPerson({ kind, lane: i, seed: i + 1, shape, arms: s })),
+};
+
+games['summit-climb'] = {
+  module: summitClimbModule(climbManifest, { sets: Number(q.get('sets') ?? 2), summit: Number(q.get('summit') ?? 20), setSec: Number(q.get('setSec') ?? 40), restSec: Number(q.get('restSec') ?? 4) }),
+  manifest: climbManifest,
+  strings: CLIMB_STRINGS,
+  people: (kind, m, s, shapes) => shapes.map((shape, i) => climberPerson({ kind, seed: i + 1, shape, seated: s })),
 };
 
 const entry = games[id];
@@ -133,8 +143,8 @@ window.ba = {
   },
   /** The hero of each lane as the view drew it (the bird of Squat Flap, the runner of Knee Sprint). */
   birds: () => {
-    const g = chain.game() as unknown as { view?: { birdAt?(i: number): { x: number; y: number; r: number } | null; runnerAt?(i: number): { x: number; y: number; r: number } | null } } | null;
-    return [0, 1].map((i) => g?.view?.birdAt?.(i) ?? g?.view?.runnerAt?.(i) ?? null);
+    const g = chain.game() as unknown as { view?: { birdAt?(i: number): { x: number; y: number; r: number } | null; runnerAt?(i: number): { x: number; y: number; r: number } | null; climberAt?(): { x: number; y: number; r: number } | null } } | null;
+    return [0, 1].map((i) => g?.view?.birdAt?.(i) ?? g?.view?.runnerAt?.(i) ?? (i === 0 ? g?.view?.climberAt?.() : null) ?? null);
   },
   plates: () => [...hudEl.querySelectorAll('[data-hud]')].filter((e) => !(e as HTMLElement).hidden).map((e) => ({ name: (e as HTMLElement).dataset['hud'] as string, ...rect(e)! })),
   rects: () => kit.rects,

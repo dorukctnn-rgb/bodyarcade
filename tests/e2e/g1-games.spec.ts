@@ -45,6 +45,7 @@ async function waitResults(page: Page, label: string, timeout: number): Promise<
   const shots = process.env['BA_G1_SHOTS'];
   const seen = new Set<string>();
   const end = Date.now() + timeout;
+  let climbSince = Date.now();
   let last = '';
   while (Date.now() < end) {
     const st = await ba(page, (b) => b.state());
@@ -54,8 +55,14 @@ async function waitResults(page: Page, label: string, timeout: number): Promise<
     const phase = st.game?.phase;
     if (shots && phase && !seen.has(phase)) {
       seen.add(phase);
+      climbSince = Date.now();
       await page.waitForTimeout(350);
       await page.screenshot({ path: join(shots, `${label}-${phase}.png`) });
+    }
+    // A second look into a climb or a race, well after it began.
+    if (shots && phase === 'climb' && !seen.has('climb-later') && Date.now() - climbSince > 9000) {
+      seen.add('climb-later');
+      await page.screenshot({ path: join(shots, `${label}-climb-later.png`) });
     }
     await page.waitForTimeout(200);
   }
@@ -87,6 +94,11 @@ const CASES: Case[] = [
   { game: 'knee-sprint', size: 'laptop-1280x800', mode: 'local2' },
   { game: 'knee-sprint', size: 'phone-390x844', seated: true },
   { game: 'knee-sprint', size: 'phone-390x844', quiet: true, difficulty: 'normal' },
+  { game: 'summit-climb', size: 'phone-390x844', difficulty: 'normal' },
+  { game: 'summit-climb', size: 'phone-844x390', difficulty: 'normal' },
+  { game: 'summit-climb', size: 'laptop-1280x800', difficulty: 'normal' },
+  { game: 'summit-climb', size: 'phone-390x844', seated: true },
+  { game: 'summit-climb', size: 'phone-390x844', quiet: true, difficulty: 'normal' },
 ];
 
 for (const c of CASES) {
