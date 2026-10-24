@@ -25,6 +25,7 @@ interface Metrics {
   cam?: { lostAt: number; backAt?: number }[]; finalStats?: unknown; lm?: unknown; pcs?: number; videos?: number; tracks: Record<string, number>;
   /** The camera link states the page was told, with the page's time; the tile as drawn; what the player would have read and pressed. */
   videoLog: { seat: string; state: string; reason: string | null; attempts: number; at: number }[];
+  peersBroken?: boolean;
   runChecks: { mid: string; seat: string; has: boolean; score: number | null; roomScore: number | null; code: boolean }[];
   skeletonFrames: Record<string, number>; lastScore: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
 }
@@ -218,6 +219,7 @@ race.on('finished', (d) => {
   log('local end, final sent');
 });
 race.on('result', (r) => {
+  M.peersBroken = lm.peersBroken;
   // every seat's run as a recording: what the Room scored is what the recording scores (private rooms; a public room sends none)
   for (const seat of Object.keys(r.result.scores)) {
     const run = race.runOf(seat);

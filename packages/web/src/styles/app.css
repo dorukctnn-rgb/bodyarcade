@@ -546,6 +546,7 @@ body > .ba-visually-hidden { position: fixed; top: 0; left: 0; }
 .k-seat .ba-badge { height: 22px; font-size: 11px; }
 .k-camcard { display: grid; gap: 12px; }
 .k-camcard b { display: block; font-weight: 750; }
+.k-videolink { display: grid; gap: 8px; justify-items: start; }
 .k-msgrow { display: grid; gap: 10px; }
 .k-reacts { display: flex; gap: 8px; flex-wrap: wrap; }
 .k-chatbox { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }

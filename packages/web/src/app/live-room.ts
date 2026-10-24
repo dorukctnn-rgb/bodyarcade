@@ -33,6 +33,9 @@ export interface LiveRoomDeps {
 
 const FEED_MAX = 40;
 
+/** A room that is left or joined starts clean: the camera notes, the last refusal and the connection of the room before do not carry over. */
+const FRESH: RoomState = { ...NO_ROOM_STATE, videos: undefined, rejected: undefined, connection: undefined };
+
 const FATAL_PROBLEM: Readonly<Record<FatalReason, RoomProblem>> = {
   replaced: 'replaced', full: 'full', removed: 'removed', no_room: 'no_room', version: 'version', not_allowed: 'not_allowed', ticket: 'ticket', stopped: 'offline',
 };
@@ -100,7 +103,7 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
       ice: () => fetchIce(deps.origin, deps.fetcher),
     });
     client = c;
-    set({ ...NO_ROOM_STATE, phase: 'joining', link: grant.link || inviteLink(deps.origin, grant.code) });
+    set({ ...FRESH, phase: 'joining', link: grant.link || inviteLink(deps.origin, grant.code) });
     offs.push(
       c.on('welcome', (w) => {
         if (!live()) return;
@@ -126,14 +129,14 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
   async function open(grantFor: (who: Identity) => Promise<JoinGrant>): Promise<RoomDone<string>> {
     const who = deps.identity();
     if (!who) return { ok: false, code: 'not_allowed' };
-    set({ ...NO_ROOM_STATE, phase: 'joining' });
+    set({ ...FRESH, phase: 'joining' });
     try {
       const grant = await grantFor(who);
       attach(grant, who);
       return { ok: true, value: grant.code };
     } catch (e) {
       const code = problemOf(e);
-      set({ ...NO_ROOM_STATE, phase: 'closed', problem: code });
+      set({ ...FRESH, phase: 'closed', problem: code });
       return { ok: false, code };
     }
   }
@@ -166,7 +169,7 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
     leave() {
       client?.leave();
       detach();
-      set({ ...NO_ROOM_STATE });
+      set({ ...FRESH });
     },
     say(id) { client?.preset(id); },
     react(id) { client?.react(id); },

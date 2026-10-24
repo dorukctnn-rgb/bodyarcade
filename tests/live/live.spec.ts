@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, firefox, webkit } from '@playwright/test';
+import { existsSync } from 'node:fs';
 import { runScenario } from './support/runner.ts';
 import { SCENARIOS } from './support/scenarios.ts';
 import { startStack, type Stack } from './support/stack.ts';
@@ -15,6 +16,8 @@ const only = process.env.LIVE_ONLY?.split(',').map((s) => s.trim()).filter(Boole
 for (const [name, sc] of Object.entries(SCENARIOS)) {
   if (only && !only.includes(name)) continue;
   test(name, async () => {
+    const engines = { firefox, webkit } as const;
+    test.skip(!!sc.engines?.some((e) => e !== 'chromium' && !existsSync(engines[e].executablePath())), 'an engine of this scenario is not installed (npx playwright install firefox webkit)');
     test.skip(!stack.turn && !!(sc.relay || sc.actions?.some((a) => a.do === 'loss' || a.do === 'blackhole')), 'needs a LAN address for the local TURN relay');
     test.setTimeout(((sc.dur ?? 25) * (sc.matches ?? 1) + 200) * 1000);
     const r = await runScenario(stack, name, sc);

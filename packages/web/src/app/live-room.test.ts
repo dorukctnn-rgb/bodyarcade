@@ -318,6 +318,25 @@ describe('a friend camera that does not connect', () => {
     expect(t.port.state().videos).toEqual([expect.objectContaining({ seat: 's1', state: 'live' })]);
   });
 
+  it('starts the next room without the notes of the last (a failed camera of the room before is not shown in the new one)', async () => {
+    const t = withCamera();
+    await t.port.join('K7P2QX');
+    const s = t.sockets[0] as FakeSocket;
+    s.open();
+    const both = [member('s1', 'Ayse', { video: true }), member('s2', 'Doruk', { video: true })];
+    s.say({ t: 'welcome', v: NET_PROTOCOL, you: 's2', now: t.sched.now(), room: room(), members: both, match: null, mine: [], blocked: [] });
+    t.port.setShareVideo(true);
+    await flush();
+    s.say({ t: 'presence', members: both });
+    t.sched.advance(VIDEO_CONNECT_MS + 300);
+    expect(t.port.state().videos?.[0]?.state).toBe('failed');
+    t.port.leave();
+    expect(t.port.state().videos).toBeUndefined();
+    await t.port.join('ABCDEF');
+    expect(t.port.state().videos).toBeUndefined();
+    expect(t.port.state().phase).toBe('joining');
+  });
+
   it('has no video list at all in a room where nobody shares a camera', async () => {
     const t = setup();
     await t.port.join('K7P2QX');

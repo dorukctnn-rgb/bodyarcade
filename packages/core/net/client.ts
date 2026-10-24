@@ -688,6 +688,10 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     this.remoteVideo.clear();
     void this.renewIce().then(() => {
       if (this.closed) return;
+      // a link made while the servers were on their way (a presence update) still has the old epoch: it goes too
+      for (const p of this.peers.values()) p.close();
+      this.peers.clear();
+      this.remoteVideo.clear();
       this.newEpoch();
       this.setMembers(this.members);
     });

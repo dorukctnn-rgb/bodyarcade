@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SECRETS } from '../../../../release/secrets.ts';
+import worker from '../index.ts';
 import { iceGrant } from './ice.ts';
 import type { LiveEnv } from './env.ts';
 
@@ -37,6 +38,18 @@ for (const file of ['wrangler.jsonc', 'wrangler.prod.jsonc']) {
     });
   });
 }
+
+describe('the test hooks of the live suite', () => {
+  it('are not in the Worker that is deployed: /api/admin/* is nothing there', async () => {
+    const ctx = { waitUntil: () => undefined };
+    for (const [method, path] of [['POST', '/api/admin/ice?turn=off'], ['POST', '/api/admin/kick-all?code=K7P2QX'], ['GET', '/api/admin/state?code=K7P2QX']] as const) {
+      const res = await worker.fetch(new Request(`https://bodyarcade.com${path}`, { method }), {}, ctx);
+      expect(res.status, path).toBe(404);
+    }
+    const bundled = readFileSync(new URL('packages/server/wrangler.jsonc', ROOT), 'utf8') + readFileSync(new URL('wrangler.prod.jsonc', ROOT), 'utf8');
+    expect(bundled).not.toContain('testing.ts');
+  });
+});
 
 describe('the product without a TURN relay (until Doruk enables Cloudflare Realtime TURN)', () => {
   const spec = (name: string) => SECRETS.find((s) => s.name === name);

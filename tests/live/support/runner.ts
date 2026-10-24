@@ -1,5 +1,5 @@
 // Runs one live scenario: a room, N headless Chromium players with fake cameras, an injected failure, and the checks.
-import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { chromium, firefox, webkit, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { withFakeVideo } from '../../e2e/support/browser.ts';
@@ -21,6 +21,7 @@ export interface PlayerM {
   fatal?: { reason: string; code: number }; replaced?: boolean; removed?: unknown; roomErrors: string[]; chat: unknown[]; presets: unknown[]; tracks: Record<string, number>;
   finalStats?: { path?: { local?: string; remote?: string; protocol?: string } | null; videoIn?: { fps?: number; freezes?: number } | null }[]; pcs?: number; videos?: number;
   videoLog: { seat: string; state: string; reason: string | null; attempts: number; at: number }[];
+  peersBroken?: boolean;
   runChecks: { mid: string; seat: string; has: boolean; score: number | null; roomScore: number | null; code: boolean }[];
   skeletonFrames: Record<string, number>; lastScore: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
   lm: {
@@ -118,7 +119,11 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
     return `${baseFor(i)}/duel?${p.toString()}`;
   };
 
-  const browsers: (Browser | null)[] = await Promise.all(who.map(() => chromium.launch(withFakeVideo(FAKE_CAMERA))));
+  const launchFor = (i: number): Promise<Browser> => {
+    const e = sc.engines?.[i] ?? 'chromium';
+    return e === 'webkit' ? webkit.launch({ headless: true }) : e === 'firefox' ? firefox.launch({ headless: true }) : chromium.launch(withFakeVideo(FAKE_CAMERA));
+  };
+  const browsers: (Browser | null)[] = await Promise.all(who.map((_, i) => launchFor(i)));
   const contexts: BrowserContext[] = [];
   const pages: Page[] = [];
   const gone = new Set<number>();
@@ -277,6 +282,12 @@ function finish(name: string, sc: Scenario, who: PlayerSetup[], M: (PlayerM | nu
     }
     if ((sc.players ?? 2) > 2) checks.placesForEveryone = checks.allDone && live.every((m) => m.results.every((r) => Object.keys(r.places).length === (sc.players ?? 2) - goneCount));
     if (sc.expectVideo) Object.assign(checks, videoChecks(sc, live));
+    // a player whose engine has no WebRTC: the page knew it, and the match came through the relay (frames from the friend, skeleton drawn)
+    if (sc.engines?.includes('webkit')) {
+      const i = sc.engines.indexOf('webkit');
+      const w = M[i];
+      checks.noWebrtcSideRaced = !!w && w.peersBroken === true && w.lm.stRecvDc === 0 && w.lm.stRecvRelay > 20 && Object.values(w.skeletonFrames).some((n) => n > 20);
+    }
     // the recordings of the match: a private room hands every seat's run over (and the run scores what the Room scored, and survives
     // being sent as a code), a public room hands over none
     checks.runsAsDesigned = checks.allDone && live.every((m) => m.runChecks.length > 0 && m.runChecks.every((c) => (sc.kind === 'public' ? !c.has : c.has && c.score === c.roomScore && c.code)));

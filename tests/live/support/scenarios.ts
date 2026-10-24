@@ -57,6 +57,11 @@ export interface Scenario {
   /** The language of the tiles' words (the note for a camera that did not connect). */
   lang?: 'en' | 'tr';
   /**
+   * The engine each player runs in (default Chromium). The WebKit of Playwright on Windows has no RTCPeerConnection at all: that page
+   * must still join, race and finish through the Room relay, with the friend drawn as a skeleton. Skipped where the engine is not installed.
+   */
+  engines?: ('chromium' | 'webkit' | 'firefox')[];
+  /**
    * What the friend camera must do: 'failed' (told within the deadline, skeleton on the tile, one line, a retry button, never a
    * picture), 'live' (comes up and stays, nothing said) or 'recovers' (fails, then the retry makes it come up and the note goes).
    */
@@ -72,6 +77,7 @@ export const SCENARIOS: Record<string, Scenario> = {
   turn_loss10: { video: true, relay: true, actions: [{ at: 5000, do: 'loss', p: 0.1 }, { at: 18_000, do: 'loss', p: 0 }] },
   turn_blackhole6s: { video: true, relay: true, actions: [{ at: 7000, do: 'blackhole', on: 1 }, { at: 13_000, do: 'blackhole', on: 0 }] },
   turn_blackhole20s: { video: true, relay: true, dur: 40, actions: [{ at: 6000, do: 'blackhole', on: 1 }, { at: 26_000, do: 'blackhole', on: 0 }] },
+  no_webrtc_b: { video: false, engines: ['chromium', 'webkit'], note: 'peersBroken' },
   no_p2p: { video: true, nop2p: true, lang: 'tr', expectVideo: 'failed' },
   // the product until a TURN key exists: /api/ice offers STUN only, and two browsers on one machine still find each other
   no_turn: { video: true, noTurn: true, expectVideo: 'live' },
