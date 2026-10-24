@@ -58,17 +58,49 @@ interface Gate { armed: boolean; present: boolean; lastSeen: number | null; fram
 
 const slotsOf = (n: 1 | 2): PlayerSlot[] => (n === 2 ? [1, 2] : [1]);
 
+/** Shoulders found with some certainty, so a person can be placed and measured. */
+const shouldersOf = (p: readonly Landmark[]): boolean => isVisible(p, LM.leftShoulder, 0.4) && isVisible(p, LM.rightShoulder, 0.4);
+const shoulderX = (p: readonly Landmark[]): number => ((p[LM.leftShoulder] as Landmark).x + (p[LM.rightShoulder] as Landmark).x) / 2;
+const shoulderWidth = (p: readonly Landmark[]): number => (shouldersOf(p) ? Math.abs((p[LM.leftShoulder] as Landmark).x - (p[LM.rightShoulder] as Landmark).x) : 0);
+
 /**
- * One player, several people in the frame (the model runs for two while one player calibrates): the player is the one
- * nearest the camera, the widest shoulders. A frame with one person or none is returned as it is.
+ * One player with several people in the frame (the model runs for two while one player calibrates). The player is the one
+ * who was the player a moment ago, the nearest to where they stood (people of the same size must not swap places from
+ * frame to frame); with no one to follow (the first frame, or after a second without the player) it is the one nearest
+ * the camera, the widest shoulders. A frame with one person or none is returned as it is.
  */
-function nearestPerson(f: PoseFrame): Landmark[] | null {
-  const poses = f.poses;
-  if (!poses || poses.length < 2) return f.landmarks;
-  const width = (p: Landmark[]): number => (isVisible(p, LM.leftShoulder, 0.4) && isVisible(p, LM.rightShoulder, 0.4) ? Math.abs((p[LM.leftShoulder] as Landmark).x - (p[LM.rightShoulder] as Landmark).x) : 0);
-  let best = poses[0] as Landmark[];
-  for (const p of poses) if (width(p) > width(best)) best = p;
-  return best;
+function createPlayerPicker(): { pick(f: PoseFrame): Landmark[] | null; reset(): void } {
+  /** Where the player stood (shoulder midpoint, raw image x) and when. */
+  let lastX: number | null = null;
+  let lastT = -Infinity;
+  const FOLLOW_MS = 1500;
+  /** The player moves less than this share of the picture width between two frames of the same second. */
+  const FOLLOW_DX = 0.25;
+  return {
+    pick(f: PoseFrame): Landmark[] | null {
+      let chosen: Landmark[] | null = f.landmarks;
+      const found = f.poses?.filter(shouldersOf) ?? [];
+      if (found.length >= 2) {
+        let best: Landmark[] | null = null;
+        if (lastX !== null && f.t - lastT < FOLLOW_MS) {
+          let bestDx = Infinity;
+          for (const p of found) {
+            const dx = Math.abs(shoulderX(p) - lastX);
+            if (dx < bestDx) { bestDx = dx; best = p; }
+          }
+          if (bestDx > FOLLOW_DX) best = null;
+        }
+        if (!best) {
+          best = found[0] as Landmark[];
+          for (const p of found) if (shoulderWidth(p) > shoulderWidth(best)) best = p;
+        }
+        chosen = best;
+      }
+      if (chosen && shouldersOf(chosen)) { lastX = shoulderX(chosen); lastT = f.t; }
+      return chosen;
+    },
+    reset(): void { lastX = null; lastT = -Infinity; },
+  };
 }
 
 export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
@@ -87,6 +119,7 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
   const links = new Map<PlayerSlot, Unsubscribe>();
   const listeners = new Set<(e: PresenceChange) => void>();
   const lostCode = players === 2 ? 'player_missing' : 'no_person';
+  const picker = createPlayerPicker();
 
   const engineOf = (p: PlayerSlot): MovementEngine => {
     const m = engines[p];
@@ -147,7 +180,7 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
     },
 
     push(f: PoseFrame, opts?: { engines?: boolean }): PlayerFrame[] {
-      const frames: PlayerFrame[] = assignment ? [...assignment.push(f)] : [{ ...f, player: 1, landmarks: nearestPerson(f) }];
+      const frames: PlayerFrame[] = assignment ? [...assignment.push(f)] : [{ ...f, player: 1, landmarks: picker.pick(f) }];
       const changes: PresenceChange[] = [];
       for (const pf of frames) {
         if (opts?.engines !== false && gates[pf.player].armed) engineOf(pf.player).push(pf);
@@ -172,6 +205,7 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
     },
 
     reset(): void {
+      picker.reset();
       for (const s of slots) {
         engineOf(s).reset();
         const g = gates[s];

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type {
   AudioApi, CameraAcquireOptions, CameraErrorCode, CameraLease, CameraService, FrameSource, Game, GameContext, GameManifest,
-  GameMode, GameModule, InputEvent, InputFrame, PauseReason, PoseFrame, PoseLoadOptions, PoseService, SessionEvents,
+  CalibrationStatus, GameMode, GameModule, InputEvent, InputFrame, LightGrid, PauseReason, PoseFrame, PoseLoadOptions, PoseService, SessionEvents,
   SessionOptions, SessionState, StartOptions,
 } from '../types/index.ts';
 import { FIXED_DT } from '../types/index.ts';
@@ -92,12 +92,13 @@ interface GameLog {
   events: InputEvent[]; frames: InputFrame[]; ctx: GameContext | null; course: number[];
 }
 
-function fakeGame(o: { modes?: GameMode[]; overAfter?: number; controls?: GameModule['controls'] } = {}) {
+function fakeGame(o: { modes?: GameMode[]; overAfter?: number; controls?: GameModule['controls']; manifest?: Partial<GameManifest> } = {}) {
   const log: GameLog = { inits: 0, starts: [], steps: 0, dts: new Set(), renders: 0, disposed: 0, events: [], frames: [], ctx: null, course: [] };
   const manifest: GameManifest = {
     id: 'fake', template: 'runner', version: 1, title: 'Fake', regions: ['legs'], framing: 'full', seated: false, lowImpact: false,
     silentSafe: true, durationSec: 10, met: 5, detectors: [{ id: 'jump' }, { id: 'squat' }, { id: 'lean' }], free: true,
     modes: o.modes ?? ['solo', 'local2', 'duel'], seo: { slug: 'fake', keywords: [] },
+    ...o.manifest,
   };
   const games: Game[] = [];
   const module: GameModule = {
@@ -141,7 +142,19 @@ const shape = (cx: number): BodyShape => ({ cx, hipY: 0.55, T: 0.18, W: 0.14, as
 
 interface Person { cx: number; present: boolean; motion?: Motion }
 
-function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; people?: Person[]; controls?: GameModule['controls'] } = {}) {
+interface HarnessOptions {
+  modes?: GameMode[]; overAfter?: number; local2?: boolean; people?: Person[]; controls?: GameModule['controls'];
+  /** Changes to the fake game's manifest (a seated variant, headroom). */
+  manifest?: Partial<GameManifest>;
+  /** Changes to where the people stand (a desk: head and shoulders only). */
+  shape?: Partial<BodyShape>;
+  /** The brightness map that rides on the pose frames. */
+  light?: (t: number) => LightGrid | undefined;
+  /** The shell's scene factory throws this. */
+  uiFails?: string;
+}
+
+function harness(o: HarnessOptions = {}) {
   let t = 1000;
   const raf = new Map<number, () => void>();
   let rafSeq = 0;
@@ -158,7 +171,7 @@ function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; 
   let lastPoseT = -Infinity;
   const session = createSession({
     games: (id) => (id === 'fake' ? game.module : null),
-    ui: () => UI,
+    ui: () => { if (o.uiFails) throw new Error(o.uiFails); return UI; },
     camera: cam,
     pose,
     capabilities: () => ({ device: 'desktop', local2: o.local2 ?? true, local2Reason: o.local2 === false ? 'phone' : 'ok' }),
@@ -198,9 +211,11 @@ function harness(o: { modes?: GameMode[]; overAfter?: number; local2?: boolean; 
   session.on('frame', (f) => seen.fps.push(f.fps));
 
   function poseFrame(): PoseFrame {
-    const poses = people.filter((p) => p.present).map((p) => synthPose(shape(p.cx), p.motion?.(t) ?? {}).map((l) => ({ ...l, x: l.x + gaussian(rng) * 0.001, y: l.y + gaussian(rng) * 0.001 })));
+    const poses = people.filter((p) => p.present).map((p) => synthPose({ ...shape(p.cx), ...o.shape }, p.motion?.(t) ?? {}).map((l) => ({ ...l, x: l.x + gaussian(rng) * 0.001, y: l.y + gaussian(rng) * 0.001 })));
     const f: PoseFrame = { seq: seq++, t, landmarks: poses[0] ?? null, inferenceMs: 30, source: 'camera', aspect: ASPECT };
     if (people.length > 1) f.poses = poses;
+    const light = o.light?.(t);
+    if (light) f.light = light;
     return f;
   }
 
@@ -624,5 +639,276 @@ describe("Session, mode 'local2'", () => {
     expect(h.seen.players).toEqual([{ player: 2, present: false }, { player: 2, present: true }]);
     expect(h.session.state).toBe('calibrating');
     h.until('running', 6000);
+  });
+});
+
+// ---- the easy calibration of 24 Oct: profiles, the desk, light, a crowd, the hands overhead, words ----
+
+/** Head and shoulders fill the picture, the hips and below are under its bottom edge (a person at a laptop). */
+const DESK: Partial<BodyShape> = { hipY: 1.5, T: 0.95, W: 0.65 };
+/** Closer than the hands-up check can use: the shoulders sit at y 0.22 and the hands go past the top edge. */
+const CLOSE: Partial<BodyShape> = { hipY: 0.52, T: 0.3, W: 0.24 };
+const grid = (v: number): LightGrid => ({ cols: 16, rows: 12, luma: new Array<number>(192).fill(v) });
+const armsAfter = (ms: number) => (t: number) => (t > ms ? { armsUp: 1 } : {});
+
+describe('Session, calibration profiles', () => {
+  const upperOnly = { full: false, upper: true, seated: true, side: false };
+
+  it('standing in full view: the profile event says measured, and every kind of game is supported', async () => {
+    const h = harness();
+    const events: SessionEvents['profile'][] = [];
+    h.session.on('profile', (e) => events.push(e));
+    await h.session.start('fake', CAMERA);
+    h.until('countdown', 6000);
+    expect(events).toEqual([{ profile: 'full', outcome: 'measured', seated: false, supports: { full: true, upper: true, seated: true, side: false } }]);
+    expect(h.game.log.starts[0]).toMatchObject({ seated: false });
+    expect(h.game.log.starts[0]!.profile).toMatchObject({ kind: 'full' });
+    expect(h.game.log.starts[0]!.profile!.hipsEstimated).toBeUndefined();
+  });
+
+  it('at a desk, a full-body game with a seated variant waits about 3.5 s, then plays the seated variant (desk mode) with the desk profile', async () => {
+    const h = harness({ manifest: { seated: true }, shape: DESK });
+    const events: SessionEvents['profile'][] = [];
+    const cal: CalibrationStatus[] = [];
+    h.session.on('profile', (e) => events.push(e));
+    h.session.on('calibration', (c) => cal.push(c as CalibrationStatus));
+    await h.session.start('fake', CAMERA);
+    const t0 = h.now;
+    h.until('countdown', 8000);
+    expect(h.now - t0).toBeGreaterThanOrEqual(3400);
+    expect(h.now - t0).toBeLessThan(4400);
+    expect(events).toEqual([{ profile: 'upper', outcome: 'fallback', seated: true, supports: upperOnly }]);
+    expect(h.game.log.starts[0]).toMatchObject({ seated: true, mode: 'solo' });
+    expect(h.game.log.starts[0]!.profile).toMatchObject({ kind: 'upper', framing: 'upper', hipsEstimated: true });
+    expect(h.game.log.ctx!.flags.seated).toBe(true);
+    // while it waited the screen had something to say: a code, the measured advice, the profile it can already run, the time left
+    const waiting = cal.filter((c) => !c.ready && c.samples > 20);
+    expect(waiting.length).toBeGreaterThan(30);
+    for (const c of waiting) {
+      expect(c.hint).toMatchObject({ action: 'step_back' });
+      expect(c.supports).toEqual(upperOnly);
+      expect(c.fallbackInMs).toBeGreaterThanOrEqual(0);
+    }
+    // and the game then runs: the desk player is not lost for having no hips in view
+    h.until('running', 4000);
+    h.pass(2000);
+    expect(h.session.state).toBe('running');
+  });
+
+  it('"play at the desk" ends the wait at once with the desk profile', async () => {
+    const h = harness({ manifest: { seated: true }, shape: DESK });
+    const events: SessionEvents['profile'][] = [];
+    h.session.on('profile', (e) => events.push(e));
+    await h.session.start('fake', CAMERA);
+    h.pass(1500);
+    expect(h.session.state).toBe('calibrating');
+    h.session.playAtDesk!();
+    expect(h.session.state).toBe('countdown');
+    expect(events).toEqual([{ profile: 'upper', outcome: 'fallback', seated: true, supports: upperOnly }]);
+    expect(h.game.log.starts[0]).toMatchObject({ seated: true });
+  });
+
+  it('"play at the desk" before there is a steady spell does nothing yet; the player is not failed', async () => {
+    const h = harness({ manifest: { seated: true }, shape: DESK });
+    await h.session.start('fake', CAMERA);
+    h.pass(100);
+    h.session.playAtDesk!();
+    expect(h.session.state).toBe('calibrating');
+    expect(h.seen.errors).toEqual([]);
+    h.pass(600);
+    h.session.playAtDesk!();   // pressed again a moment later: it takes
+    expect(h.session.state).toBe('countdown');
+  });
+
+  it('a game without a seated variant is never taken at the desk: it waits, asks the screen to offer another way after 12 s, and play-at-desk does nothing', async () => {
+    const h = harness({ manifest: { seated: false }, shape: DESK });
+    const cal: CalibrationStatus[] = [];
+    h.session.on('calibration', (c) => cal.push(c as CalibrationStatus));
+    await h.session.start('fake', CAMERA);
+    h.pass(11_000);
+    expect(h.session.state).toBe('calibrating');
+    expect(cal.at(-1)!.escape).toBeUndefined();
+    h.pass(1500);
+    expect(cal.at(-1)!.escape).toBe(true);
+    expect(cal.at(-1)!.fallbackInMs).toBeUndefined();
+    h.session.playAtDesk!();
+    expect(h.session.state).toBe('calibrating');
+    expect(h.seen.errors).toEqual([]);
+  });
+
+  it('a game played seated asks for the upper body only: the desk is the measured profile, not a fallback', async () => {
+    const h = harness({ manifest: { seated: true }, shape: DESK });
+    const events: SessionEvents['profile'][] = [];
+    h.session.on('profile', (e) => events.push(e));
+    await h.session.start('fake', { ...CAMERA, seated: true });
+    const t0 = h.now;
+    h.until('countdown', 6000);
+    expect(h.now - t0).toBeLessThan(1500);
+    expect(events).toEqual([{ profile: 'upper', outcome: 'measured', seated: true, supports: upperOnly }]);
+  });
+});
+
+describe('Session, calibration with a crowd and with bad light', () => {
+  const two = (): Person[] => [{ cx: 0.3, present: true }, { cx: 0.7, present: true }];
+
+  it('one player calibrates with two poses running and plays with one', async () => {
+    const h = harness({ people: two().slice(0, 1) });
+    await h.session.start('fake', CAMERA);
+    expect(h.pose.numPoses).toEqual([1, 2]);
+    h.until('countdown', 6000);
+    expect(h.pose.numPoses).toEqual([1, 2, 1]);
+  });
+
+  it('a second person in view is noticed (many_people), but never blocks for more than a few seconds', async () => {
+    const h = harness({ people: two() });
+    const cal: CalibrationStatus[] = [];
+    h.session.on('calibration', (c) => cal.push(c as CalibrationStatus));
+    await h.session.start('fake', CAMERA);
+    const t0 = h.now;
+    h.until('countdown', 9000);
+    expect(cal.some((c) => c.code === 'many_people' && c.hint?.action === 'one_person')).toBe(true);
+    expect(h.now - t0).toBeGreaterThanOrEqual(3500);
+    expect(h.now - t0).toBeLessThan(5500);
+    expect(h.game.log.starts[0]!.profile).not.toBeNull();
+  });
+
+  it('the other person leaving ends it at once', async () => {
+    const h = harness({ people: two() });
+    await h.session.start('fake', CAMERA);
+    h.pass(1500);
+    expect(h.session.state).toBe('calibrating');
+    const left = h.now;
+    h.people[1]!.present = false;
+    h.until('countdown', 2000);
+    expect(h.now - left).toBeLessThan(1000);
+  });
+
+  it('a dark room is said (too_dark, with the advice) and the player is not calibrated on a black picture; light comes, calibration ends', async () => {
+    const h = harness({ light: (t) => grid(t < 4000 ? 0.03 : 0.5) });
+    const cal: CalibrationStatus[] = [];
+    h.session.on('calibration', (c) => cal.push(c as CalibrationStatus));
+    await h.session.start('fake', CAMERA);
+    h.pass(2000);
+    expect(h.session.state).toBe('calibrating');
+    expect(cal.at(-1)).toMatchObject({ code: 'too_dark', hint: { action: 'more_light' } });
+    h.until('countdown', 5000);
+    expect(cal.some((c) => c.code === 'too_dark')).toBe(true);
+    expect(h.now).toBeGreaterThan(4000);
+  });
+});
+
+describe('Session, a game that raises the hands overhead (manifest headroom)', () => {
+  const HEADROOM_GAME = { headroom: 'arms-up' as const, seated: true };
+
+  it('the player raises both hands once: the picture holds them, the profile and the event say ok, the reach height is recorded', async () => {
+    const h = harness({ manifest: HEADROOM_GAME, people: [{ cx: 0.5, present: true, motion: armsAfter(2500) }] });
+    const events: SessionEvents['profile'][] = [];
+    const cal: CalibrationStatus[] = [];
+    h.session.on('profile', (e) => events.push(e));
+    h.session.on('calibration', (c) => cal.push(c as CalibrationStatus));
+    await h.session.start('fake', CAMERA);
+    h.until('countdown', 8000);
+    expect(cal.some((c) => c.code === 'raise_hands' && c.hint?.action === 'raise_hands')).toBe(true);
+    expect(events).toEqual([{ profile: 'full', outcome: 'measured', seated: false, supports: { full: true, upper: true, seated: true, side: false }, headroom: 'ok' }]);
+    const p = h.game.log.starts[0]!.profile!;
+    expect(p.headroom).toBe('ok');
+    expect(p.reachY).toBeGreaterThan(0);
+    expect(p.reachY).toBeLessThan(p.rest.shoulderY);
+  });
+
+  it('a player who does not raise them is not held: the countdown starts after the wait, headroom unchecked', async () => {
+    const h = harness({ manifest: HEADROOM_GAME });
+    const events: SessionEvents['profile'][] = [];
+    h.session.on('profile', (e) => events.push(e));
+    await h.session.start('fake', CAMERA);
+    const t0 = h.now;
+    h.until('countdown', 12_000);
+    expect(h.now - t0).toBeGreaterThanOrEqual(6500);
+    expect(h.now - t0).toBeLessThan(8000);
+    expect(events[0]).toMatchObject({ headroom: 'unchecked', outcome: 'measured' });
+    expect(h.game.log.starts[0]!.profile!.headroom).toBe('unchecked');
+  });
+
+  it('too close for the hands: the code says headroom with the steps back, then the game goes on with headroom short', async () => {
+    const h = harness({ manifest: HEADROOM_GAME, shape: CLOSE, people: [{ cx: 0.5, present: true, motion: armsAfter(2500) }] });
+    const events: SessionEvents['profile'][] = [];
+    const cal: CalibrationStatus[] = [];
+    h.session.on('profile', (e) => events.push(e));
+    h.session.on('calibration', (c) => cal.push(c as CalibrationStatus));
+    await h.session.start('fake', { ...CAMERA, seated: true });
+    h.until('countdown', 12_000);
+    const cut = cal.filter((c) => c.code === 'headroom');
+    expect(cut.length).toBeGreaterThan(20);
+    expect(cut.at(-1)!.hint).toMatchObject({ action: 'step_back' });
+    expect(events[0]).toMatchObject({ headroom: 'short' });
+    expect(h.game.log.starts[0]!.profile!.reachY).toBeUndefined();
+  });
+
+  it('"play on" during the hands step starts the countdown with headroom unchecked', async () => {
+    const h = harness({ manifest: HEADROOM_GAME });
+    const events: SessionEvents['profile'][] = [];
+    h.session.on('profile', (e) => events.push(e));
+    await h.session.start('fake', CAMERA);
+    h.pass(2000);
+    expect(h.session.state).toBe('calibrating');
+    h.session.playAtDesk!();
+    expect(h.session.state).toBe('countdown');
+    expect(events[0]).toMatchObject({ headroom: 'unchecked' });
+  });
+
+  it('a game without the flag never asks', async () => {
+    const h = harness();
+    const events: SessionEvents['profile'][] = [];
+    const cal: CalibrationStatus[] = [];
+    h.session.on('profile', (e) => events.push(e));
+    h.session.on('calibration', (c) => cal.push(c as CalibrationStatus));
+    await h.session.start('fake', CAMERA);
+    h.until('countdown', 6000);
+    expect(cal.some((c) => c.code === 'raise_hands')).toBe(false);
+    expect(events[0]!.headroom).toBeUndefined();
+  });
+});
+
+describe('Session, the platform says codes, never words', () => {
+  it('every failure carries a code and an empty message; the developer detail is separate', async () => {
+    const missing = harness();
+    await missing.session.start('nope', KEYS);
+    expect(missing.seen.errors).toEqual([{ code: 'game_not_found', message: '', detail: expect.stringContaining('nope') }]);
+
+    const mode = harness({ modes: ['solo'] });
+    await mode.session.start('fake', { ...KEYS, mode: 'ghost' });
+    expect(mode.seen.errors).toEqual([{ code: 'mode_unavailable', message: '', detail: expect.any(String) }]);
+
+    const denied = harness();
+    denied.cam.failWith = 'denied';
+    await denied.session.start('fake', CAMERA);
+    expect(denied.seen.errors).toEqual([{ code: 'denied', message: '', detail: 'camera: denied' }]);
+
+    const phone = harness({ local2: false });
+    await phone.session.start('fake', { ...CAMERA, mode: 'local2' });
+    expect(phone.seen.errors).toEqual([{ code: 'local2_unavailable', message: '', detail: expect.any(String) }]);
+  });
+
+  it('the shell text of a scene that cannot be drawn (already in the player language) is passed through as message', async () => {
+    const h = harness({ uiFails: 'Dein Gerät kann die Szene nicht zeichnen.' });
+    await h.session.start('fake', KEYS);
+    expect(h.seen.errors).toEqual([{ code: 'unknown', message: 'Dein Gerät kann die Szene nicht zeichnen.', detail: 'Dein Gerät kann die Szene nicht zeichnen.' }]);
+    expect(h.session.state).toBe('error');
+  });
+
+  it('a calibration status holds only codes, numbers and flags (no sentences)', async () => {
+    const h = harness({ manifest: { seated: true, headroom: 'arms-up' }, shape: DESK });
+    const cal: CalibrationStatus[] = [];
+    h.session.on('calibration', (c) => cal.push(c as CalibrationStatus));
+    await h.session.start('fake', CAMERA);
+    h.until('countdown', 20_000);
+    const words: string[] = [];
+    const walk = (v: unknown): void => {
+      if (typeof v === 'string') words.push(v);
+      else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+    };
+    cal.forEach(walk);
+    expect(words.length).toBeGreaterThan(10);
+    for (const w of words) expect(w).toMatch(/^[a-z_]+$/);
   });
 });

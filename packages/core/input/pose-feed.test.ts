@@ -1,11 +1,11 @@
 // PoseFeed: frames to the players' engines and the hub, the gate (tech.md 4.1), and mode 'local2'.
 import { describe, expect, it } from 'vitest';
-import type { BodyProfile, PlayerSlot, PoseFrame } from '../types/index.ts';
+import type { BodyProfile, Landmark, PlayerSlot, PoseFrame } from '../types/index.ts';
 import { createCalibrator } from '../body/calibrator.ts';
 import { createPlayerAssignment } from '../body/players.ts';
 import { createTwoPlayerCalibrator } from '../body/calibrator2.ts';
 import { gaussian, mulberry32 } from '../loop/rng.ts';
-import { absentBetween, combine, jumpAt, squatAt, synthPose, synthTrace, type BodyShape, type Motion } from '../pose/synth.ts';
+import { DEFAULT_SHAPE, DESK_SHAPE, absentBetween, combine, jumpAt, squatAt, synthFrames, synthPose, synthTrace, type BodyShape, type Motion } from '../pose/synth.ts';
 import { traceFrames } from '../pose/trace.ts';
 import { createInputHub } from './hub.ts';
 import { createPoseFeed, type PresenceChange } from './pose-feed.ts';
@@ -129,6 +129,94 @@ describe('PoseFeed, one player', () => {
     feed.dispose();
     for (const f of rest.slice(cut)) feed.push(f);
     expect(hub.sample(9999).events).toEqual([]);
+  });
+});
+
+describe('PoseFeed, one player in a crowd and at a desk', () => {
+  const near = { ...DEFAULT_SHAPE, cx: 0.4, T: 0.22, W: 0.176 };
+  const far = { ...DEFAULT_SHAPE, cx: 0.75, T: 0.12, W: 0.096 };
+
+  it('with two people in the frame (the model runs for two while one player calibrates) the player is the nearest, whatever order the detector gives them', () => {
+    const hub = createInputHub();
+    const feed = createPoseFeed({ hub });
+    const nearLm = synthPose(near);
+    const farLm = synthPose(far);
+    for (const order of [[nearLm, farLm], [farLm, nearLm]]) {
+      const f: PoseFrame = { seq: 0, t: 0, landmarks: order[0] ?? null, poses: order, inferenceMs: 20, source: 'test', aspect: 4 / 3 };
+      const [p] = feed.push(f, { engines: false });
+      expect(p!.player).toBe(1);
+      expect(p!.landmarks).toBe(nearLm);
+    }
+    // one person, or nobody: the frame is passed on as it is
+    const alone: PoseFrame = { seq: 1, t: 33, landmarks: farLm, inferenceMs: 20, source: 'test', aspect: 4 / 3 };
+    expect(feed.push(alone, { engines: false })[0]!.landmarks).toBe(farLm);
+    expect(feed.push({ ...alone, landmarks: null }, { engines: false })[0]!.landmarks).toBeNull();
+  });
+
+  it('two people of the same size never swap places: the one followed stays the player, frame after frame', () => {
+    const feed = createPoseFeed({ hub: createInputHub() });
+    const rng = mulberry32(2);
+    const wobble = (lm: Landmark[]): Landmark[] => lm.map((l) => ({ ...l, x: l.x + gaussian(rng) * 0.002, y: l.y + gaussian(rng) * 0.002 }));
+    const sides = new Set<string>();
+    for (let i = 0; i < 120; i++) {
+      const a = wobble(synthPose({ ...DEFAULT_SHAPE, cx: 0.3 }));
+      const b = wobble(synthPose({ ...DEFAULT_SHAPE, cx: 0.7 }));
+      const poses = rng() < 0.5 ? [a, b] : [b, a];
+      const f: PoseFrame = { seq: i, t: i * 33, landmarks: poses[0] ?? null, poses, inferenceMs: 20, source: 'test', aspect: 4 / 3 };
+      const lm = feed.push(f, { engines: false })[0]!.landmarks!;
+      sides.add((lm[0] as Landmark).x < 0.5 ? 'left' : 'right');
+    }
+    expect(sides.size).toBe(1);
+  });
+
+  it('a player gone for more than a second and a half is replaced by the nearest person; a nearer one walking in does not take the place of the player followed', () => {
+    const feed = createPoseFeed({ hub: createInputHub() });
+    const player = (cx: number, scale = 1): Landmark[] => synthPose({ ...DEFAULT_SHAPE, cx, T: 0.2 * scale, W: 0.16 * scale });
+    const frame = (t: number, poses: Landmark[][]): PoseFrame => ({ seq: t, t, landmarks: poses[0] ?? null, poses, inferenceMs: 20, source: 'test', aspect: 4 / 3 });
+    const x = (f: PoseFrame): number => (feed.push(f, { engines: false })[0]!.landmarks![0] as Landmark).x;
+    expect(x(frame(0, [player(0.7), player(0.3, 1.05)]))).toBeLessThan(0.5);   // the first frame: the nearer (wider) one
+    // a much bigger (nearer) person comes in at the other side: the player followed stays
+    expect(x(frame(100, [player(0.7, 1.4), player(0.3)]))).toBeLessThan(0.5);
+    expect(x(frame(200, [player(0.3), player(0.7, 1.4)]))).toBeLessThan(0.5);
+    // the player leaves; two seconds later only the people at the right are in the picture: the nearest of them
+    expect(x(frame(2400, [player(0.8), player(0.7, 1.4)]))).toBeCloseTo(0.7, 1);
+  });
+
+  it('a desk profile (the hips are under the picture): the gate asks for the shoulders only, so the player is not lost for lacking hips', () => {
+    const fs = synthFrames({ durationMs: 8000, shapeAt: () => DESK_SHAPE, seed: 5, motion: absentBetween(5000, 6200) });
+    const c = createCalibrator({ now: () => 0 });
+    c.begin('upper');
+    let from = -1;
+    for (let i = 0; i < fs.length; i++) if (c.push(fs[i] as PoseFrame).ready) { from = i + 1; break; }
+    const profile = c.profile() as BodyProfile;
+    expect(profile.hipsEstimated).toBe(true);
+    const hub = createInputHub();
+    const feed = createPoseFeed({ hub });
+    feed.use([{ id: 'jump' as const }]);
+    feed.setProfiles({ 1: profile });
+    const changes: PresenceChange[] = [];
+    feed.onPresence((e) => changes.push(e));
+    for (const f of fs.slice(from)) feed.push(f);
+    // lost only in the real gap (nobody at all), found again after it; the hips being below the picture is not a gap
+    expect(changes.map((e) => e.present)).toEqual([false, true]);
+    expect(changes[0]!.t).toBeGreaterThanOrEqual(5450);
+    expect(changes[0]!.t).toBeLessThan(5600);
+  });
+
+  it('a full profile still needs the hips: a player whose hips leave the picture is lost', () => {
+    const fs = soloFrames(() => ({}), 5000);
+    const { profile, from } = calibrateSolo(fs);
+    const hub = createInputHub();
+    const feed = createPoseFeed({ hub });
+    feed.setProfiles({ 1: profile });
+    const changes: PresenceChange[] = [];
+    feed.onPresence((e) => changes.push(e));
+    for (const f of fs.slice(from)) {
+      // hips (23, 24) lose visibility from 3 s on
+      const lm = f.t < 3000 || !f.landmarks ? f.landmarks : f.landmarks.map((p, i) => (i === 23 || i === 24 ? { ...p, visibility: 0.05 } : p));
+      feed.push({ ...f, landmarks: lm });
+    }
+    expect(changes.map((e) => e.present)).toEqual([false]);
   });
 });
 
