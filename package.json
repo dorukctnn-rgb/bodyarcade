@@ -17,7 +17,10 @@
     "web:dev": "vite --config packages/web/vite.config.ts",
     "web:build": "node packages/web/tools/build.ts",
     "web:shots": "node packages/web/tools/shots.ts",
-    "web:e2e": "playwright test --config packages/web/playwright.config.ts"
+    "web:e2e": "playwright test --config packages/web/playwright.config.ts",
+    "release:build": "node release/build.ts",
+    "release:deploy": "node release/deploy.ts",
+    "test:release": "playwright test -c tests/release/playwright.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
