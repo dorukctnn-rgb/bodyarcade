@@ -7,6 +7,7 @@ import { armTo, mix, SHAPE_FULL, SHAPE_UPPER, type ArmSpec, type FigureSpec, typ
 import { smooth } from '../../_shared/util.ts';
 import { msOf } from '../../_shared/util.ts';
 import type { ChainPerson } from '../../kit-g1/testing/chain.ts';
+import { handsUpWhileCalibrating } from '../../_shared/testing/hands.ts';
 import type { FireworkSim } from '../fireworks.ts';
 import type { TurbineSim } from '../turbine.ts';
 
@@ -39,9 +40,12 @@ export interface JackPersonOptions {
 export function jackPerson(o: JackPersonOptions): ChainPerson {
   const lane = o.lane ?? 0;
   const open = o.kind === 'sloppy' ? ARMS : o.seated ? ARMS : o.quiet ? STEP : OPEN;
+  const calibration = handsUpWhileCalibrating();
   return {
     shape: o.shape ?? (o.seated ? SHAPE_UPPER : SHAPE_FULL),
-    body(_t, game, state) {
+    body(t, game, state) {
+      const calibrating = calibration(t, state);
+      if (calibrating) return calibrating;
       const sim = simOf<FireworkSim>(game);
       if (state !== 'running' || !sim || sim.phase !== 'running' || o.kind === 'idle') return {};
       const seg = sim.segment;

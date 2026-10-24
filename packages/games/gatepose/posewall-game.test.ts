@@ -80,6 +80,7 @@ describe('the manifest', () => {
     expect(realManifest.template).toBe('gate');
     expect(realManifest.framing).toBe('full');
     expect(realManifest.detectors.map((d) => d.id)).toEqual(['poseMatch']);
+    expect(realManifest.headroom).toBe('arms-up');          // several shapes put the hands over the head
     expect(realManifest.durationSec).toBe(210);
     expect(realManifest.met).toBe(4);
     expect(realManifest.minPoseHz).toBe(10);

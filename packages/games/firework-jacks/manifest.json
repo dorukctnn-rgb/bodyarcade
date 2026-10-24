@@ -5,6 +5,7 @@
   "title": "Firework Jacks",
   "regions": ["cardio"],
   "framing": "full",
+  "headroom": "arms-up",
   "seated": true,
   "lowImpact": false,
   "silentSafe": true,

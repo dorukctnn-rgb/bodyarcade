@@ -71,6 +71,7 @@ describe('the manifest', () => {
     expect(realManifest.free).toBe(true);
     expect(realManifest.template).toBe('strength');
     expect(realManifest.detectors.map((d) => d.id)).toEqual(['twist']);
+    expect(realManifest.headroom).toBeUndefined();          // the hands stay in front of the chest: nothing to check above the head
     expect(realManifest.durationSec).toBe(180);
     expect((realManifest as unknown as { catalogue?: unknown }).catalogue).toBeDefined();
   });

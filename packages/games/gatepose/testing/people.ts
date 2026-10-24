@@ -7,6 +7,7 @@ import { mix, SHAPE_FULL, SHAPE_UPPER, type ArmSpec, type FigureSpec, type RigSh
 import { clamp, smooth } from '../../_shared/util.ts';
 import { msOf } from '../../_shared/util.ts';
 import type { ChainPerson } from '../../kit-g1/testing/chain.ts';
+import { handsUpWhileCalibrating } from '../../_shared/testing/hands.ts';
 import type { LimboSim } from '../limbo.ts';
 import type { PoseWallSim } from '../posewall.ts';
 
@@ -34,9 +35,12 @@ export function bendPerson(o: BendPersonOptions): ChainPerson {
   let bend = 0;
   let arms = 0;
   let last = -1;
+  const calibration = handsUpWhileCalibrating();
   return {
     shape: o.shape ?? (o.seated ? SHAPE_UPPER : SHAPE_FULL),
-    body(_t, game, state) {
+    body(t, game, state) {
+      const calibrating = calibration(t, state);
+      if (calibrating) return calibrating;
       const sim = simOf<LimboSim>(game);
       if (state !== 'running' || !sim || sim.phase !== 'running' || o.kind === 'idle') { last = -1; bend = 0; arms = 0; return {}; }
       const now = msOf(sim.k);
@@ -87,9 +91,12 @@ export function posePerson(o: PosePersonOptions): ChainPerson {
   let toName = '';
   let startedAt = -1;
   let cur: FigureSpec = {};
+  const calibration = handsUpWhileCalibrating();
   return {
     shape: o.shape ?? (o.seated ? SHAPE_UPPER : SHAPE_FULL),
-    body(_t, game, state) {
+    body(t, game, state) {
+      const calibrating = calibration(t, state);
+      if (calibrating) return calibrating;
       const sim = simOf<PoseWallSim>(game);
       if (state !== 'running' || !sim || sim.phase !== 'running' || o.kind === 'idle') { from = to = cur = {}; toName = ''; startedAt = -1; return {}; }
       const now = msOf(sim.k);

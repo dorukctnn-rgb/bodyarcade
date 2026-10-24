@@ -74,6 +74,7 @@ describe('the manifest', () => {
     expect(realManifest.template).toBe('gate');
     expect(realManifest.framing).toBe('upper');
     expect(realManifest.detectors.map((d) => d.id)).toEqual(['sideBend']);
+    expect(realManifest.headroom).toBe('arms-up');          // a tall gate wants both hands over the head
     expect(realManifest.durationSec).toBe(180);
     expect(realManifest.met).toBe(2.3);
     expect((realManifest as unknown as { catalogue?: unknown }).catalogue).toBeDefined();

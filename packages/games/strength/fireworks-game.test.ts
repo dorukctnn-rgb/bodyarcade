@@ -67,6 +67,7 @@ describe('the manifest', () => {
     expect(realManifest.free).toBe(true);
     expect(realManifest.template).toBe('strength');
     expect(realManifest.detectors.map((d) => d.id)).toEqual(['jumpingJack']);
+    expect(realManifest.headroom).toBe('arms-up');          // the hands go over the head: the calibration checks the picture holds them
     expect(realManifest.durationSec).toBe(240);
     expect(realManifest.met).toBe(8);
     expect((realManifest as unknown as { catalogue?: unknown }).catalogue).toBeDefined();

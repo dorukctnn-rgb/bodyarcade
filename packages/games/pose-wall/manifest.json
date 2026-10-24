@@ -9,6 +9,7 @@
     "legs"
   ],
   "framing": "full",
+  "headroom": "arms-up",
   "seated": true,
   "lowImpact": true,
   "silentSafe": true,
