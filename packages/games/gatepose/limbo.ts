@@ -140,7 +140,16 @@ export function makeLbPlan(difficulty: Difficulty, timing: GpTiming, rng: () => 
 /** 0 pending, 1 passed, 2 missed, 3 skipped (the player was not seen: nothing is won or lost). */
 export type GateDone = 0 | 1 | 2 | 3;
 
-export interface LbGateState { done: GateDone; locked: boolean; precision: number; error: number }
+export interface LbGateState {
+  done: GateDone;
+  locked: boolean;
+  precision: number;
+  error: number;
+  /** The lowest and the highest angle the player had while the gate was being judged, degrees; `n` looks were taken. */
+  lo: number;
+  hi: number;
+  n: number;
+}
 
 export interface LbPlayer {
   score: number;
@@ -198,8 +207,14 @@ export const bendGateOf = (g: LbGate, tol: number): BendGate => ({ id: g.id, tar
  * moment on its way somewhere else: when the lean at the arrival is outside it, that lean is what to change, so that is said
  * (`at`: the angle at the arrival and the tolerance).
  */
-export function reasonFor(why: Miss, g: Pick<LbGate, 'target'>, at?: { theta: number; tol: number }): Miss {
+export function reasonFor(why: Miss, g: Pick<LbGate, 'target'>, at?: { theta: number; tol: number; lo?: number; hi?: number }): Miss {
   if (why.code === 'bend_more' && why.got !== undefined && why.got * g.target < 0 && Math.abs(why.got) >= 3) return { code: 'wrong_side' };
+  // "wrong side" is for a lean to the other side; a body that stood straight and only wobbled a degree or two has not leaned at all
+  if (why.code === 'wrong_side' && at && at.lo !== undefined && at.hi !== undefined) {
+    const away = g.target >= 0 ? at.lo : at.hi;
+    const toward = g.target >= 0 ? at.hi : at.lo;
+    if (Math.abs(away) < 3) return { code: 'bend_more', got: round(toward, 1), need: round(g.target >= 0 ? g.target - at.tol : g.target + at.tol, 1) };
+  }
   if (why.code === 'held_too_short' && at && Math.abs(at.theta - g.target) > at.tol) {
     const off = at.theta - g.target;
     const beyond = g.target >= 0 ? off > 0 : off < 0;
@@ -229,7 +244,7 @@ export class LimboSim implements HostSim {
     const plan = makeLbPlan(difficultyOf(start.difficulty), { ...LB_TIMING, ...o.timing }, rng, this.count);
     this.s = {
       v: 1, k: 0, phase: 'running', plan, seg: 0,
-      players: Array.from({ length: this.count }, newPlayer), gs: plan.gates.map(() => ({ done: 0, locked: false, precision: 0, error: 0 })),
+      players: Array.from({ length: this.count }, newPlayer), gs: plan.gates.map(() => ({ done: 0, locked: false, precision: 0, error: 0, lo: 0, hi: 0, n: 0 })),
       testers: [], log: [], teamPasses: 0,
     };
     this.testers = Array.from({ length: this.count }, () => new BendTester());
@@ -289,7 +304,11 @@ export class LimboSim implements HostSim {
         const live: BendGate[] = [];
         for (const g of this.lanes[i] as LbGate[]) {
           if (g.fromK > k || g.arriveK < k) continue;
-          if ((s.gs[g.id] as LbGateState).done !== 0) continue;
+          const gs = s.gs[g.id] as LbGateState;
+          if (gs.done !== 0) continue;
+          gs.lo = gs.n ? Math.min(gs.lo, p.theta) : p.theta;
+          gs.hi = gs.n ? Math.max(gs.hi, p.theta) : p.theta;
+          gs.n++;
           live.push(bendGateOf(g, s.plan.tol));
         }
         if (!live.length) continue;
@@ -366,7 +385,7 @@ export class LimboSim implements HostSim {
         passedLanes.push(g.lane);
       } else {
         const asked = tester.explain(bendGateOf(g, s.plan.tol));
-        const why = asked === null ? null : reasonFor(asked, g, { theta: p.theta, tol: s.plan.tol });
+        const why = asked === null ? null : reasonFor(asked, g, { theta: p.theta, tol: s.plan.tol, lo: gs.lo, hi: gs.hi });
         if (!p.seen || why === null || why.code === 'person_out') {
           // nobody to judge: nothing is won, nothing is lost
           gs.done = 3;

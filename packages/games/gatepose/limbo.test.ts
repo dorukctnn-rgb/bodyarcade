@@ -532,6 +532,17 @@ describe('the reason that is told', () => {
     expect(reasonFor({ code: 'wrong_side' }, { target: 26 })).toEqual({ code: 'wrong_side' });
   });
 
+  it('"wrong side" is for a lean to the other side: a body that stood straight and wobbled a degree or two is told to bend, not that it was on the wrong side', () => {
+    const wrong = { code: 'wrong_side' as const };
+    // a gate to the right; the lean went to -1.5 and +0.8 degrees: nothing to speak of
+    expect(reasonFor(wrong, { target: 26 }, { theta: 0.4, tol: 7, lo: -1.5, hi: 0.8 })).toEqual({ code: 'bend_more', got: 0.8, need: 19 });
+    // a gate to the left; the lean went to +1.2 and -0.4
+    expect(reasonFor(wrong, { target: -26 }, { theta: 0, tol: 7, lo: -0.4, hi: 1.2 })).toEqual({ code: 'bend_more', got: -0.4, need: -19 });
+    // a real lean to the other side stays "wrong side"
+    expect(reasonFor(wrong, { target: 26 }, { theta: -8, tol: 7, lo: -12, hi: 0.5 })).toEqual(wrong);
+    expect(reasonFor(wrong, { target: 26 })).toEqual(wrong);
+  });
+
   it('a lean that was inside the tolerance for a moment and is outside it at the arrival says which way to go, not "hold it longer"', () => {
     const held = { code: 'held_too_short' as const, got: 120, need: 300 };
     // a gate to the right (26, within 7): leaning to 40 at the arrival is too far, 12 is not far enough, -8 is the other side
