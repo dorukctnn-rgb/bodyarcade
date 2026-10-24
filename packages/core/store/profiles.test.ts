@@ -269,6 +269,52 @@ describe('the list at the start', () => {
     expect(r.storage.getItem('ba2.profiles.book')).toBe(newer);
   });
 
+  it('a newer version that writes the list while this page is open is not overwritten: the page freezes at its next look and shows the owner alone', () => {
+    const r = family();
+    expect(r.book.list()).toHaveLength(3);
+    const newer = '{"v":9,"d":{"people":"a shape from the future"}}';
+    r.storage.setItem('ba2.profiles.book', newer);                       // another tab, running a newer version
+    r.events.length = 0;
+    r.book.refresh();                                                     // the browser's storage event
+    expect(r.book.frozen).toBe(true);
+    expect(r.book.migration).toEqual({ kind: 'frozen', adopted: [] });
+    expect(r.book.list().map((v) => v.id)).toEqual(['p1']);
+    expect(r.events).toEqual([{ kind: 'refreshed', id: null, active: 'p1', online: true, guarded: false }]);
+    expect(r.book.create({ name: 'Yeni' })).toEqual({ ok: false, code: 'frozen' });
+    r.book.open();
+    expect(r.storage.getItem('ba2.profiles.book')).toBe(newer);          // not one byte of the newer list was touched
+    expect(r.book.picker()).toMatchObject({ notice: 'frozen', manage: false });
+  });
+
+  it('a damaged list in the middle of a page is not a newer one: it is rebuilt, the profiles still in storage come back as kids', () => {
+    const r = family();
+    r.book.open().store.ns('shell').set('x', 1);
+    r.storage.setItem('ba2p2.shell.rounds', '{"v":1,"d":4}');            // the kid's record
+    r.storage.setItem('ba2.profiles.book', '{this is not json');
+    expect(r.book.list().map((v) => [v.id, v.kid])).toEqual([['p1', false], ['p2', true]]);
+    expect(r.book.frozen).toBe(false);
+    expect(r.book.migration.kind).toBe('recovered');
+  });
+
+  it('when that happens while a kid is the one playing, the page stays behind the gate, and a right answer takes the owner back', () => {
+    const r = family();
+    go(r, r.kid);
+    r.storage.setItem('ba2.profiles.book', '{"v":9,"d":{"people":"a shape from the future"}}');
+    r.events.length = 0;
+    r.book.refresh();
+    expect(r.book.frozen).toBe(true);
+    expect(r.book.active()).toMatchObject({ id: 'p1', owner: true, guarded: true });
+    expect(r.book.online()).toBe(false);
+    expect(r.book.canPurchase()).toBe(false);
+    expect(r.book.picker()).toMatchObject({ ask: true, guarded: true });
+    expect(r.events.at(-1)).toMatchObject({ kind: 'refreshed', active: 'p1', online: false, guarded: true });
+    passGate(r);
+    expect(r.book.guarded).toBe(false);
+    expect(r.book.online()).toBe(true);
+    expect(r.events.at(-1)).toMatchObject({ kind: 'refreshed', active: 'p1', online: true, guarded: false });
+    expect(r.storage.getItem('ba2.profiles.book')).toBe('{"v":9,"d":{"people":"a shape from the future"}}');
+  });
+
   it('says whether it will survive the page: not in a private window', () => {
     expect(createProfileBook({ can: () => false }).persistent).toBe(createStore({}).persistent);
     expect(rig().book.persistent).toBe(true);

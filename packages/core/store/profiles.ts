@@ -523,11 +523,30 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     return doc;
   }
 
+  /** The last list this page could read (to know what a profile was when the list turns unreadable under it). */
+  let lastGood: BookDoc | null = null;
+
+  /**
+   * The list was written by a newer version: leave it exactly as it is, show the owner alone and change nothing. When this happens
+   * while a profile that was (or may have been) a kid's is the one playing, the page stays behind the gate, in memory (the list
+   * cannot be written), until a right answer: a newer version's list is no reason to hand a child the owner's online identity.
+   */
+  function freeze(): void {
+    const was = lastGood?.profiles.find((r) => r.seq === current);
+    const kidWas = current !== 1 && (was === undefined || was.kid);
+    frozen = true;
+    memoryDoc = { seq: 1, active: 1, askOnStart: false, cap: 1, guard: kidWas, profiles: [ownerRecord(now())] };
+    migration = { kind: 'frozen', adopted: [] };
+  }
+
   /** The list as it is stored, or null when there is none. Never writes. */
   function peekDoc(): BookDoc | null {
     if (frozen) return memoryDoc;
     const d = slot.get();
-    return d.profiles.length > 0 ? d : null;
+    if (d.profiles.length > 0) { lastGood = d; return d; }
+    // Unreadable and still stored: a newer version wrote it while this page was open (a damaged one was removed by the read itself).
+    if (registry.has('book')) { freeze(); return memoryDoc; }
+    return null;
   }
 
   function readDoc(): BookDoc {
@@ -543,13 +562,9 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
 
   {
     const first = slot.get();
-    if (first.profiles.length > 0) migration = { kind: 'existing', adopted: [] };
-    else if (registry.has('book')) {
-      // Something is stored under the key that this version cannot read: a newer version wrote it. Leave it exactly as it is.
-      frozen = true;
-      memoryDoc = { seq: 1, active: 1, askOnStart: false, cap: 1, guard: false, profiles: [ownerRecord(now())] };
-      migration = { kind: 'frozen', adopted: [] };
-    } else ensure();
+    if (first.profiles.length > 0) { migration = { kind: 'existing', adopted: [] }; lastGood = first; }
+    else if (registry.has('book')) freeze();            // something is stored under the key that this version cannot read: a newer version wrote it
+    else ensure();
   }
 
   // ── capacity, states, rules ──
@@ -677,7 +692,11 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
 
   /** A right answer at the parent gate: the owner's profile is the owner's again (the guard lives in the list, so it is lifted for every page). */
   function liftGuard(): void {
-    if (frozen || disposed) return;
+    if (disposed) return;
+    if (frozen) {                                                // the guard of a list that cannot be written lives in memory
+      if (memoryDoc?.guard) { memoryDoc.guard = false; emit('refreshed', null); }
+      return;
+    }
     const doc = peekDoc();
     if (!doc) return;
     if (!doc.guard && lockedKid(doc, current)) settle(doc);       // the guard this page shows has not been written down yet: write it, so there is one to lift
