@@ -10,6 +10,7 @@
 //   the knees really went (honest calories, game-design.md 6); `log` lets a room recompute the score (every finish with its
 //   points, every hurdle) and names every miss in the body's words (a MissCode).
 import type { Game, GameContext, GameEvent, GameManifest, InputFrame, RunSummary, StartOptions, StepResult } from '../../core/types/index.ts';
+import { rngStream } from '../../core/loop/rng.ts';
 import { clamp, createSay, hudWriter, lanesOf, round, type HudWriter, type LaneInput, type Say } from '../kit-g1/index.ts';
 import { createSelfView, type SelfView } from '../kit-g1/selfview.ts';
 import { createStage, type Stage } from '../kit-g1/stage.ts';
@@ -119,13 +120,16 @@ export function createSprintGame(manifest: GameManifest, o: SprintGameOptions = 
   function drawHud(s: SprintState): void {
     const h = hud;
     if (!h) return;
-    h.set('timer', Math.max(0, Math.floor(clockOf(s))));
+    h.set('timer', s.duel ? Math.max(0, Math.ceil(s.duel.ms / 1000 - s.hc)) : Math.max(0, Math.floor(clockOf(s))));
     if (players === 1) {
       const l = s.lanes[0];
       if (l) {
-        h.set('score', l.score);
-        const mult = 1 + Math.min(2, Math.floor(l.streak / 3));
-        h.set('combo', mult > 1 ? mult : 0);
+        // In a race the score and the combo are the race's (the Room's formula, written by the shell).
+        if (!s.duel) {
+          h.set('score', l.score);
+          const mult = 1 + Math.min(2, Math.floor(l.streak / 3));
+          h.set('combo', mult > 1 ? mult : 0);
+        }
         h.set('hint', l.hint && s.t - l.hint.at < HINT_SEC && s.phase === 'play' ? reasonText(l.hint.code) : '');
       }
     } else {
@@ -186,12 +190,18 @@ export function createSprintGame(manifest: GameManifest, o: SprintGameOptions = 
     start(s: StartOptions): void {
       if (!ctx) throw new Error('Call init() before start().');
       opts = { ...s };
+      const duel = s.mode === 'duel' ? s.duel : undefined;
+      if (s.mode === 'duel' && !duel) throw new Error("Mode 'duel' needs the Room's course (StartOptions.duel).");
       players = s.mode === 'local2' ? 2 : 1;
       seated = s.seated || ctx.flags.seated;
       quiet = ctx.flags.silent;
+      // A race is run on the match's seed: the Room's seed reaches the page after the session began, so the session's own
+      // 'course' stream is not the one both players share.
       state = createSprint({
-        difficulty: s.difficulty, players, seated, quiet, rng: ctx.rng('course'),
-        ...(o.heats ? { heats: o.heats } : {}), ...(o.dist ? { dist: o.dist } : {}), ...(o.restSec !== undefined ? { restSec: o.restSec } : {}),
+        difficulty: s.difficulty, players, seated, quiet, rng: duel ? rngStream(s.seed, 'course') : ctx.rng('course'),
+        ...(duel ? { duel } : {
+          ...(o.heats ? { heats: o.heats } : {}), ...(o.dist ? { dist: o.dist } : {}), ...(o.restSec !== undefined ? { restSec: o.restSec } : {}),
+        }),
       });
       log = [];
       fx = [];

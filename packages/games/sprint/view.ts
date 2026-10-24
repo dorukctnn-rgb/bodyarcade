@@ -605,12 +605,13 @@ export function createSprintView(o: SprintViewOptions): SprintView {
     if (s.phase !== 'play') return;
     const l = s.lanes[i] as LaneState;
     if (l.finished) return;
-    const t = s.hc;
+    // In a race the clock counts down the match, like the plate above it, and there are no medals to name.
+    const t = s.duel ? Math.max(0, s.duel.ms / 1000 - s.hc) : s.hc;
     const px = clamp(c.lane.h * 0.05, 16, 42);
     const cx = c.lane.x + c.lane.w / 2;
     const y = c.lane.y + c.lane.h * 0.06;
     text(t.toFixed(1), cx, y, px, '#F4F2F8', { alpha: 0.95 });
-    {
+    if (!s.duel) {
       const [g, sv, b] = medalTimes(s);
       const goal = t <= g ? g : t <= sv ? sv : t <= b ? b : 0;
       if (goal > 0) text(`${goal.toFixed(1)}`, cx, y + px * 1.05, px * 0.5, t <= g ? MEDAL_COLORS.gold : t <= sv ? MEDAL_COLORS.silver : MEDAL_COLORS.bronze, { alpha: 0.9 });

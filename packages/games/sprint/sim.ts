@@ -17,6 +17,7 @@
 //   the jump detector (id 'jump') gives the hurdle jump; energy.avg (T/s) is the seated variant's effort.
 import { clamp, median } from '../kit-g1/index.ts';
 import type { Rng } from '../../core/types/index.ts';
+import { passPoints } from '../../core/net/schedule.ts';
 
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'normal', 'hard', 'expert'];
@@ -111,6 +112,21 @@ export const MEDAL_POINTS = { gold: 100, silver: 70, bronze: 45, finish: 25 } as
 export const RIVAL_BONUS = 20;
 export const WIN_BONUS = 30;
 export const HURDLE_POINTS = 5;
+
+/**
+ * A live race (mode 'duel', see DuelSetup in core/types): the Room fixes WHEN each hurdle reaches the runner (`t`, ms of play),
+ * so the track moves at one pace for everybody (DUEL_PACE) and the hurdles stand where that pace brings them to at their time.
+ * There is no warm-up, no heat, no rest and no medal: the run is as long as the match, and each hurdle is its own pass or hit.
+ * A hurdle is cleared by a runner who is up in the air (a jump, or a knee at the hip) AND keeping the pace (DUEL_KEEP of the
+ * full pace in steps per minute, or of the full effort seated, where keeping it is the whole of the hurdle). Everybody races
+ * on one level, whatever they play alone on.
+ */
+export interface DuelCourse { schedule: readonly { id: number; t: number }[]; durationMs: number }
+export const DUEL_LEVEL: Difficulty = 'normal';
+/** The track's pace in a race, m/s. */
+export const DUEL_PACE = 5;
+/** The share of the full pace that still counts as running a hurdle. */
+export const DUEL_KEEP = 0.5;
 
 // ───────── the course ─────────
 
@@ -231,6 +247,8 @@ export interface SprintState {
   course: HeatCourse[];
   rival: RivalState | null;
   lanes: LaneState[];
+  /** A live race (see DuelCourse): the Room's id of every hurdle (parallel to `hurdles`) and the length of the match in ms. */
+  duel?: { ids: number[]; ms: number };
 }
 
 const newLane = (): LaneState => ({
@@ -270,7 +288,9 @@ export type SprintEvent =
   | { type: 'rest'; heat: number }
   | { type: 'out'; lane: number }
   | { type: 'over' }
-  | { type: 'complete' };
+  | { type: 'complete' }
+  /** A live race: the hurdle `ob` (the Room's id) is settled, once, as it is cleared or knocked. */
+  | { type: 'duel'; lane: number; ob: number; k: 'pass' | 'hit' };
 
 export interface SprintOptions {
   difficulty: string;
@@ -285,20 +305,28 @@ export interface SprintOptions {
   dist?: number;
   /** A shorter rest between the heats (tests and the end-to-end runs), seconds. */
   restSec?: number;
+  /** A live race: the Room's hurdles and the match length. `difficulty`, `heats`, `dist` and `restSec` are then ignored. */
+  duel?: DuelCourse;
 }
 
 export function createSprint(o: SprintOptions): SprintState {
-  const difficulty = ((DIFFICULTIES as readonly string[]).includes(o.difficulty) ? o.difficulty : 'normal') as Difficulty;
+  const duel = o.duel;
+  const difficulty = duel ? DUEL_LEVEL : (((DIFFICULTIES as readonly string[]).includes(o.difficulty) ? o.difficulty : 'normal') as Difficulty);
   const lv = LEVELS[difficulty];
   const s: SprintState = {
     v: 1, difficulty, players: o.players, seated: o.seated, quiet: o.quiet,
-    t: 0, phase: o.players === 2 ? 'ready' : 'warmup', heat: 1, heats: Math.min(MAX_HEATS, o.heats ?? lv.heats), hc: 0, restSec: o.restSec ?? lv.restSec, restLeft: 0, ticked: 99,
+    t: 0, phase: duel ? 'play' : o.players === 2 ? 'ready' : 'warmup', heat: 1, heats: duel ? 1 : Math.min(MAX_HEATS, o.heats ?? lv.heats), hc: 0,
+    restSec: duel ? 0 : o.restSec ?? lv.restSec, restLeft: 0, ticked: 99,
     warm: { t: 0, stepT: [], ks: [], eff: [] },
-    cadFull: lv.cadence, kFull: lv.kFull, effFull: SPEED.effort, dist: o.dist ?? lv.dist,
+    cadFull: lv.cadence, kFull: lv.kFull, effFull: SPEED.effort, dist: duel ? DUEL_PACE * (duel.durationMs / 1000) : o.dist ?? lv.dist,
     hurdles: [], course: makeCourse(o.rng), rival: null,
     lanes: Array.from({ length: o.players }, () => newLane()),
   };
-  placeHeat(s);
+  if (duel) {
+    // The track is a function of the Room's schedule alone: hurdle n stands where the pace of the track is at its time.
+    s.duel = { ids: duel.schedule.map((h) => h.id), ms: duel.durationMs };
+    s.hurdles = duel.schedule.map((h) => DUEL_PACE * (h.t / 1000));
+  } else placeHeat(s);
   return s;
 }
 
@@ -326,6 +354,11 @@ export function cadenceOf(l: Pick<LaneState, 'stepT'>, t: number): number {
   const first = ts[0] as number, last = ts[n - 1] as number;
   if (t - last > SPEED.idle || last <= first) return 0;
   return ((n - 1) * 60) / (last - first);
+}
+
+/** In a race: is the runner keeping the pace the hurdle asks for? Steps per minute standing, the movement energy seated. */
+export function keepsPace(s: SprintState, l: Pick<LaneState, 'stepT' | 'eff'>): boolean {
+  return s.seated ? l.eff >= s.effFull * DUEL_KEEP : cadenceOf(l, s.t) >= s.cadFull * DUEL_KEEP;
 }
 
 export const meanLift = (l: Pick<LaneState, 'kHist'>, fallback: number): number => (l.kHist.length ? l.kHist.reduce((a, b) => a + b, 0) / l.kHist.length : fallback);
@@ -454,7 +487,8 @@ function run(s: SprintState, i: number, inp: LaneIn, dt: number, racing: boolean
   if (!racing) { l.dist += l.v * dt; return; }
 
   const before = l.dist;
-  l.dist += l.v * dt;
+  // In a race the track moves at one pace for everybody; whether the runner is up to it is judged at each hurdle.
+  if (s.duel) l.dist = DUEL_PACE * s.hc; else l.dist += l.v * dt;
   if (s.seated && moving) { l.qSum += clamp(l.eff / s.effFull, 0, 1) * dt; l.qN += dt; }
   // Why it is slow, in the body's words.
   const still = s.seated ? l.eff < s.effFull * 0.2 : l.sinceStep >= HURDLE.moveHint;
@@ -469,25 +503,34 @@ function run(s: SprintState, i: number, inp: LaneIn, dt: number, racing: boolean
   // Hurdles: the runner has to be in the air when the hurdle comes.
   while (l.next < s.hurdles.length && l.dist >= (s.hurdles[l.next] as number) && before < (s.hurdles[l.next] as number) + 1e-9) {
     const at = s.hurdles[l.next] as number;
-    if (l.sinceAct <= HURDLE.air) {
+    // In a race a seated runner has no jump: keeping the pace is the whole of the hurdle.
+    const acted = s.duel && s.seated ? true : l.sinceAct <= HURDLE.air;
+    const paced = !s.duel || keepsPace(s, l);
+    const ob = s.duel ? (s.duel.ids[l.next] as number) : 0;
+    if (acted && paced) {
       l.streak++;
       l.bestStreak = Math.max(l.bestStreak, l.streak);
       l.cleared++;
       const mult = 1 + Math.min(2, Math.floor(l.streak / 3));
-      const pts = HURDLE_POINTS * mult;
+      // In a race a clear is worth what the Room says it is worth, so the plates, the pops and the Room agree.
+      const pts = s.duel ? passPoints(l.streak) : HURDLE_POINTS * mult;
       l.score += pts;
       out.push({ type: 'hurdle', lane: i, cleared: true, pts, streak: l.streak, reason: null, at });
+      if (s.duel) out.push({ type: 'duel', lane: i, ob, k: 'pass' });
     } else {
-      const reason: HintCode = l.sinceAct <= 1.1 ? 'hurdle_early' : 'hurdle_none';
+      const reason: HintCode = acted ? 'move_more' : l.sinceAct <= 1.1 ? 'hurdle_early' : 'hurdle_none';
       l.streak = 0;
       l.knocked++;
       l.stumble = SPEED.stumbleSec;
       l.knockAt = s.t;
       l.hint = { code: reason, at: s.t };
       out.push({ type: 'hurdle', lane: i, cleared: false, pts: 0, streak: 0, reason, at });
+      if (s.duel) out.push({ type: 'duel', lane: i, ob, k: 'hit' });
     }
     l.next++;
   }
+  // A race has no finish line to call off a heat at: it ends with the match (stepSprint).
+  if (s.duel) return;
   if (!l.finished && l.dist >= s.dist) finishLane(s, i, out);
   else if (!l.finished && l.idleFor >= HURDLE.quit) dnfLane(s, i, out);
 }
@@ -529,6 +572,13 @@ export function stepSprint(s: SprintState, dt: number, ins: readonly LaneIn[]): 
       for (const l of s.lanes) { l.v = 0; l.stepT = []; l.kHist = []; l.sinceStep = 0; l.idleFor = 0; }
       out.push({ type: 'go', heat: s.heat });
     }
+    return out;
+  }
+
+  if (s.phase === 'play' && s.duel) {
+    s.hc += dt;
+    for (let i = 0; i < s.lanes.length; i++) run(s, i, ins[i] ?? IDLE, dt, true, out);
+    if (s.hc >= s.duel.ms / 1000 - 1e-9) { s.phase = 'complete'; out.push({ type: 'complete' }); }
     return out;
   }
 
@@ -629,6 +679,8 @@ export function hurdleIn(s: SprintState, i: number): number {
   const l = s.lanes[i] as LaneState | undefined;
   const h = nextHurdle(s, i);
   if (!l || h === null) return Infinity;
+  // In a race the hurdle comes at the track's pace, whatever the runner's legs do.
+  if (s.duel) return Math.max(0, (h - l.dist) / DUEL_PACE);
   return l.v > 0.5 ? (h - l.dist) / l.v : Infinity;
 }
 
