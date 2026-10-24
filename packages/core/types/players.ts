@@ -43,7 +43,7 @@ export type TwoPlayerCode = CalibrationCode | 'one_person' | 'too_close_together
 /** What the screen asks of whom. */
 export interface TwoPlayerGuidance {
   player?: PlayerSlot;
-  action: 'step_in' | 'step_back' | 'step_closer' | 'move_apart' | 'move_left' | 'move_right' | 'hold_still' | 'more_light' | 'light_in_front' | 'none';
+  action: 'step_in' | 'step_back' | 'step_closer' | 'move_apart' | 'move_left' | 'move_right' | 'hold_still' | 'more_light' | 'light_in_front' | 'tilt_camera_up' | 'tilt_camera_down' | 'raise_hands' | 'none';
 }
 
 export interface TwoPlayerCalibrationStatus {

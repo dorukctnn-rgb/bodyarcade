@@ -15,6 +15,8 @@ export const DIST_K = SHOULDER_M / (2 * Math.tan((VFOV_DEG * Math.PI) / 360));
 export const STEP_M = 0.65;
 /** The most steps the screen is asked to say. */
 export const MAX_STEPS = 6;
+/** Moving back helps only when the player is nearer than the goal distance by at least a quarter of a step (else the camera is tilted). */
+export const MIN_BACK_M = 0.16;
 
 /** Head top to sole over nose to ankle: the figure the picture must hold to show the whole body. */
 const HEIGHT_PER_SPAN = 1.13;

@@ -8,7 +8,7 @@
 import {
   LM, type CalibrationCode, type CalibrationHint, type CalibrationSeen, type Framing, type Landmark, type PoseFrame,
 } from '../types/index.ts';
-import { GOAL_WV, distanceM, lateralHint, moveHint } from './guidance.ts';
+import { GOAL_WV, MIN_BACK_M, distanceM, lateralHint, moveHint } from './guidance.ts';
 import { isVisible } from './geometry.ts';
 import { PROFILE_OF, RANK_OF, type Rank } from './profile.ts';
 
@@ -125,9 +125,6 @@ function closerGoal(rank: Rank): number {
 }
 
 interface Problem { code: CalibrationCode; hint: CalibrationHint }
-
-/** Moving back helps only when the player is nearer than the goal distance by at least a quarter of a step. */
-const MIN_BACK_M = 0.16;
 
 /**
  * Advice for a part that is out of the picture at the top (head) or the bottom (hips, knees, feet): step back when the

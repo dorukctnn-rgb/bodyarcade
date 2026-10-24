@@ -33,6 +33,19 @@ export type GameKind = FramingProfile;
 /** Which game kinds a profile can run: 'full' runs all but side games; 'upper' and 'seated' run upper-body and seated games. */
 export type ProfileSupport = Record<GameKind, boolean>;
 
+/**
+ * What a game needs above the player's head (its manifest `headroom`): 'arms-up' = the hands go overhead (Summit Climb),
+ * so the picture must hold them there. The calibration then asks the player to raise both hands once and checks it.
+ */
+export type HeadroomNeed = 'arms-up';
+
+/**
+ * How the hands-up check ended. 'ok': both hands were raised and the picture held them. 'short': they were raised and the
+ * top of the picture cut them (or the model lost them): the game plays with the top of the reach cut. 'unchecked': the
+ * player did not raise them in time, or chose to play on.
+ */
+export type HeadroomState = 'ok' | 'short' | 'unchecked';
+
 export interface BodyProfile {
   v: 2;
   framing: Framing;
@@ -47,8 +60,13 @@ export interface BodyProfile {
   U?: number;
   /** Rest positions, view space. */
   rest: Record<'hipX' | 'hipY' | 'shoulderX' | 'shoulderY' | 'noseY', number>;
-  /** Hands-up height in view space (smaller is higher), for target games. */
+  /**
+   * Hands-up height in view space (smaller is higher), for target games: the highest hand centre of the raised hands, set
+   * by the hands-up check (headroom 'ok'); absent otherwise, and the detectors then estimate it from the arm.
+   */
   reachY?: number;
+  /** The hands-up check, for a game with manifest.headroom: how it ended (see HeadroomState). Absent for other games. */
+  headroom?: HeadroomState;
   /** Pose frames per second measured while calibrating (device check: fast full-body games need 15 Hz or more). */
   hz: number;
   /** The profile this is (see FramingProfile); a profile without it is read from `framing`. */
@@ -81,6 +99,10 @@ export type CalibrationCode =
   | 'backlit'
   /** One player calibrates but more than one person is in view (mode 'local2' has its own codes). */
   | 'many_people'
+  /** The body fits and the game raises the hands overhead (headroom 'arms-up'): the player raises both hands, once. */
+  | 'raise_hands'
+  /** The raised hands are cut by the top of the picture (or the model lost them): step back or tilt the camera up (see hint). */
+  | 'headroom'
   | 'move_still'
   | 'hold'
   | 'ok'
@@ -91,7 +113,7 @@ export type HintAction =
   | 'step_in' | 'step_back' | 'step_closer' | 'move_left' | 'move_right'
   /** The player is far enough but a part is cut at the top or the bottom: the camera points the wrong way. */
   | 'tilt_camera_up' | 'tilt_camera_down'
-  | 'more_light' | 'light_in_front' | 'one_person' | 'hold_still';
+  | 'more_light' | 'light_in_front' | 'one_person' | 'hold_still' | 'raise_hands';
 
 /**
  * The measured part of a hint. Distances are estimates from the shoulder width (an average adult, a typical webcam
@@ -131,6 +153,8 @@ export interface CalibrationStatus {
   outcome?: 'measured' | 'fallback';
   /** The wait is long: offer another way to play (keyboard or touch) instead of waiting on. */
   escape?: boolean;
+  /** When ready, for a game with manifest.headroom: how the hands-up check ended (also in BodyProfile.headroom). */
+  headroom?: HeadroomState;
 }
 
 export interface CalibratorOptions {
@@ -152,13 +176,22 @@ export interface CalibratorOptions {
   maxWaitSeconds?: number;
   /** Status.escape is set after this long without a result (default 12 s). */
   escapeSeconds?: number;
+  /**
+   * The game raises the hands overhead (manifest.headroom): once the body fits, the player raises both hands (code
+   * 'raise_hands') and the picture must hold them; if it cuts them the code is 'headroom' with a measured hint. Never
+   * blocks: after headroomWaitSeconds the calibration ends anyway with BodyProfile.headroom 'short' or 'unchecked'.
+   */
+  headroom?: HeadroomNeed;
+  /** The longest the hands-up check waits, counted from the first time the body fits (default 6 s). */
+  headroomWaitSeconds?: number;
 }
 
 export interface Calibrator {
   // Time-based and rate-aware: it completes after the hold time with at least minSamples samples, and reports
   // 'too_slow' after maxSeconds so the UI can offer keyboard or touch (B7). It never waits for ever: below the wanted
   // profile it falls back to the best one it can measure (see FramingProfile), and Status.escape asks the screen to
-  // offer another way to play.
+  // offer another way to play. With CalibratorOptions.headroom the end of the calibration waits for the hands-up check
+  // (never longer than headroomWaitSeconds).
   begin(f: Framing, o?: CalibratorOptions): void;
   push(f: PoseFrame): CalibrationStatus;
   /**

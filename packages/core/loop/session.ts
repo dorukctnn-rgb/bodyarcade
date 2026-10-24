@@ -31,7 +31,7 @@ import {
   FIXED_DT,
   type BodyProfile, type CalibrationStatus, type Calibrator, type CalibratorOptions, type CameraAcquireOptions, type CameraLease, type CameraService,
   type Capabilities, type Game, type GameContext, type GameManifest, type GameModule, type InputHub, type InputSourceId,
-  type FramingProfile, type PauseReason, type PlayerFrame, type PlayerSlot, type PoseFrame, type PoseLoadOptions, type PoseService, type Rng,
+  type FramingProfile, type HeadroomState, type PauseReason, type PlayerFrame, type PlayerSlot, type PoseFrame, type PoseLoadOptions, type PoseService, type Rng,
   type RunSummary, type Session, type SessionEvents, type SessionOptions, type SessionState, type StepResult,
   type TwoPlayerCalibrationStatus, type TwoPlayerCalibrator, type Unsubscribe,
 } from '../types/index.ts';
@@ -370,9 +370,15 @@ export function createSession(deps: SessionDeps): Session {
     deps.pose.setNumPoses(on ? 2 : 1).catch(() => {});
   }
 
-  /** A game with a seated variant can be played at the desk when the full body does not fit; one without cannot. */
+  /**
+   * A game with a seated variant can be played at the desk when the full body does not fit; one without cannot. A game that
+   * raises the hands overhead (manifest.headroom) has the player raise them once, so the picture is checked for room above.
+   */
   function calibrationOptions(r: Run): CalibratorOptions {
-    return { fallback: (r.manifest as GameManifest).seated && !r.options.seated };
+    const m = r.manifest as GameManifest;
+    const o: CalibratorOptions = { fallback: m.seated && !r.options.seated };
+    if (m.headroom) o.headroom = m.headroom;
+    return o;
   }
 
   function beginCalibration(r: Run): void {
@@ -429,6 +435,13 @@ export function createSession(deps: SessionDeps): Session {
     return low ?? 'upper';
   }
 
+  /** The worst hands-up result of the players ('short' before 'unchecked' before 'ok'); undefined when the game has no check. */
+  function worstHeadroom(profiles: Partial<Record<PlayerSlot, BodyProfile>>): HeadroomState | undefined {
+    const order: HeadroomState[] = ['short', 'unchecked', 'ok'];
+    const found = Object.values(profiles).map((p) => p.headroom).filter((h): h is HeadroomState => h !== undefined);
+    return order.find((h) => found.includes(h));
+  }
+
   function onCalibrated(r: Run): void {
     const feed = r.feed as PoseFeed;
     let profiles: Partial<Record<PlayerSlot, BodyProfile>> | null;
@@ -449,7 +462,10 @@ export function createSession(deps: SessionDeps): Session {
     }
     feed.setProfiles(profiles);
     feed.reset();
-    emit('profile', { profile: kind, outcome: fits ? 'measured' : 'fallback', seated: r.options.seated, supports: supportOf(kind) });
+    const ev: SessionEvents['profile'] = { profile: kind, outcome: fits ? 'measured' : 'fallback', seated: r.options.seated, supports: supportOf(kind) };
+    const headroom = worstHeadroom(profiles);
+    if (headroom) ev.headroom = headroom;
+    emit('profile', ev);
     if (!live(r)) return;
     beginCountdown(r, profiles);
   }
@@ -701,7 +717,7 @@ export function createSession(deps: SessionDeps): Session {
 
     playAtDesk(): void {
       const r = run;
-      if (!r || state !== 'calibrating' || !(r.manifest as GameManifest | null)?.seated) return;
+      if (!r || state !== 'calibrating') return;
       const done = r.calibrator2 ? r.calibrator2.accept() : r.calibrator?.accept();
       if (done) onCalibrated(r);
     },

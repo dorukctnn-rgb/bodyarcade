@@ -1,5 +1,5 @@
 // games: the one contract every template implements (runner, flight, target, rhythm, strength, gate, balance, duel).
-import type { BodyProfile, Framing } from './body.ts';
+import type { BodyProfile, Framing, HeadroomNeed } from './body.ts';
 import type { LocalizedString, Ms } from './common.ts';
 import type { InputFrame, InputHub, KeyMap, TouchMap } from './input.ts';
 import type { Rng } from './loop.ts';
@@ -24,6 +24,12 @@ export interface GameManifest {
   title: LocalizedString;
   regions: BodyRegion[];
   framing: Framing;
+  /**
+   * What the game needs above the player's head. 'arms-up': the hands go overhead (Summit Climb), so the calibration asks
+   * the player to raise both hands once and checks the picture holds them (BodyProfile.headroom says how it went).
+   * Absent: no check.
+   */
+  headroom?: HeadroomNeed;
   seated: boolean;
   lowImpact: boolean;
   /** Playable in quiet mode (no jumping or stamping; game-design.md 0.1 item 6). */

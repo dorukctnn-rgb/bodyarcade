@@ -39,8 +39,19 @@ function extent(lm: Landmark[], aspect: number): { minX: number; maxX: number; W
 const ACTION: Partial<Record<CalibrationCode, TwoPlayerGuidance['action']>> = {
   no_person: 'step_in', too_close: 'step_back', too_far: 'step_closer', head_out: 'step_back', hips_out: 'step_back',
   knees_out: 'step_back', feet_out: 'step_back', move_left: 'move_left', move_right: 'move_right',
-  too_dark: 'more_light', backlit: 'light_in_front', move_still: 'hold_still', hold: 'hold_still',
+  too_dark: 'more_light', backlit: 'light_in_front', raise_hands: 'raise_hands', headroom: 'step_back',
+  move_still: 'hold_still', hold: 'hold_still',
 };
+
+const HINT_ACTIONS: ReadonlySet<string> = new Set([
+  'step_in', 'step_back', 'step_closer', 'move_left', 'move_right', 'tilt_camera_up', 'tilt_camera_down', 'more_light', 'light_in_front', 'raise_hands', 'hold_still',
+]);
+
+/** What one player is asked to do: what the measured hint says (a tilt, not a step back, when the camera points wrong), else by the code. */
+function actionOf(st: CalibrationStatus): TwoPlayerGuidance['action'] {
+  const a = st.hint?.action;
+  return a && HINT_ACTIONS.has(a) ? (a as TwoPlayerGuidance['action']) : ACTION[st.code] ?? 'hold_still';
+}
 
 /** The profile that measures least; null when either is not measured. */
 function lowerProfile(a: FramingProfile | null | undefined, b: FramingProfile | null | undefined): FramingProfile | null {
@@ -125,7 +136,7 @@ export function createTwoPlayerCalibrator(deps: CalibratorDeps = {}): TwoPlayerC
         const st = last[s];
         if (st.ready) continue;
         if (st.code === 'too_slow') return out('too_slow', { action: 'none' });
-        if (st.code !== 'hold') return out(st.code, { player: s, action: ACTION[st.code] ?? 'hold_still' });
+        if (st.code !== 'hold') return out(st.code, { player: s, action: actionOf(st) });
       }
       return out('hold', { action: 'hold_still' });
     },

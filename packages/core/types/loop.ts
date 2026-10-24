@@ -1,5 +1,5 @@
 // core/loop: fixed-step clock, seeded random streams and the Session state machine.
-import type { CalibrationStatus, FramingProfile, ProfileSupport } from './body.ts';
+import type { CalibrationStatus, FramingProfile, HeadroomState, ProfileSupport } from './body.ts';
 import type { Unsubscribe } from './common.ts';
 import type { RunSummary } from './game.ts';
 import type { PlayerSlot, TwoPlayerCalibrationStatus } from './players.ts';
@@ -38,6 +38,8 @@ export interface ProfileEvent {
   outcome: 'measured' | 'fallback';
   seated: boolean;
   supports: ProfileSupport;
+  /** A game with manifest.headroom: how the hands-up check ended ('short' if either player's was; absent for other games). */
+  headroom?: HeadroomState;
 }
 
 export interface SessionEvents {
@@ -78,9 +80,11 @@ export interface Session {
   /** Re-acquires a dead camera (B8). */
   recalibrate(): Promise<void>;
   /**
-   * "Play at the desk" while calibrating: ends the calibration with what the camera measures now (head and shoulders is
-   * enough) and plays the game's seated variant. Does nothing when the game has no seated variant. Optional on the
-   * interface so wrappers written before it existed still type-check; the session itself always has it.
+   * "Play at the desk" / "play on" while calibrating: ends the calibration with what the camera measures now (head and
+   * shoulders is enough, and a full-body game then plays its seated variant) and skips the hands-up check of a game with
+   * headroom. Does nothing when there is no steady spell to take yet, or when the game cannot run on what is measured (a
+   * game without a seated variant). Optional on the interface so wrappers written before it existed still type-check;
+   * the session itself always has it.
    */
   playAtDesk?(): void;
   /** Releases the camera lease and every game resource (B10). */

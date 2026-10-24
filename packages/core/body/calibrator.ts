@@ -13,13 +13,19 @@
 //   screen offers keyboard or touch.
 // - Every status carries a code and a measured hint (how many steps, which way), and the parts in view. The platform
 //   never produces words; the UI turns codes into sentences.
+// - Headroom (a game that raises the hands overhead, manifest `headroom: 'arms-up'`, Summit Climb): when the body fits
+//   and has been held, the player raises both hands once (code 'raise_hands'); the picture must hold them (headroom.ts).
+//   A cut gives code 'headroom' with a measured hint (steps back, or tilt the camera). It never blocks either: after
+//   headroomWaitSeconds, or on accept(), the calibration ends with BodyProfile.headroom 'short' or 'unchecked'. A player
+//   who steps back to make room is measured again from the start of the hold.
 // - Time based and rate aware: it finishes after the hold time with at least minSamples samples, so it finishes at
 //   4 Hz as well as at 30 Hz, and says 'too_slow' instead of waiting for ever on a device that cannot keep up.
 import {
   LM, type BodyProfile, type CalibrationCode, type CalibrationHint, type CalibrationStatus, type Calibrator, type CalibratorOptions,
-  type Framing, type FramingProfile, type Landmark, type PoseFrame, type Vec2,
+  type Framing, type FramingProfile, type HeadroomNeed, type HeadroomState, type Landmark, type PoseFrame, type Vec2,
 } from '../types/index.ts';
 import { clamp, dist, isVisible, median, mid, viewOf } from './geometry.ts';
+import { HEADROOM, readHands } from './headroom.ts';
 import { lightProblem, validGrid, type LightCode } from './light.ts';
 import { PROFILE_OF, TORSO_PER_SHOULDER, framingOf, supportOf, type Rank } from './profile.ts';
 import { othersInView, read, type Reading, type Want } from './reading.ts';
@@ -61,6 +67,8 @@ export const STILL = {
   manyGraceMs: 4000,
   /** The longest steady window kept. */
   keepMs: 12_000,
+  /** A measured hint on the screen changes only when the distance moves by this many metres (about a third of a step). */
+  hintHysteresisM: 0.2,
 } as const;
 
 interface Sample {
@@ -69,6 +77,12 @@ interface Sample {
   shoulderX: number; shoulderY: number; noseY: number; W: number;
   hipX?: number; hipY?: number; T?: number;
   A?: number; U?: number;
+}
+
+/** The options with their defaults filled in. */
+interface Settings {
+  holdSeconds: number; minSamples: number; maxSeconds: number; idleFallbackSeconds: number; maxWaitSeconds: number; escapeSeconds: number;
+  fallback: boolean; headroom?: HeadroomNeed; headroomWaitSeconds?: number;
 }
 
 export interface CalibratorDeps {
@@ -139,7 +153,7 @@ function rankOf(w: readonly Sample[]): Rank {
 export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
   const now = deps.now ?? (() => Date.now());
   let want: Want = 'full';
-  let opts = { ...CALIBRATION_DEFAULTS, fallback: true as boolean };
+  let opts: Settings = { ...CALIBRATION_DEFAULTS, fallback: true };
   let tBegin: number | null = null;
   let tPerson: number | null = null;
   let times: number[] = [];
@@ -157,7 +171,29 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
   let lastT = 0;
   let rankSince = 0;
   let prevRank = 0;
+  // The hands-up check: the measured profile waits in `pending` while the player raises their hands.
+  let stage: 'framing' | 'hands' = 'framing';
+  let pending: { profile: BodyProfile; outcome: 'measured' | 'fallback' } | null = null;
+  let handsSince: number | null = null;
+  let handsLastT = 0;
+  let handsOkMs = 0;
+  let handsCut = false;
+  let handsCentres: number[] = [];
+  let handsGoneSince: number | null = null;
 
+  // The measured hint on the screen: the same advice keeps the numbers shown until the distance changes by a real amount,
+  // so "1 step" does not flicker to "1-2 steps" while the estimate wobbles around a whole number.
+  let shownHint: CalibrationHint | null = null;
+  const steadyHint = (h: CalibrationHint): CalibrationHint => {
+    if (h.meters === undefined || !h.steps) { shownHint = null; return h; }
+    if (shownHint && shownHint.action === h.action && shownHint.meters !== undefined && shownHint.steps && Math.abs(h.meters - shownHint.meters) < STILL.hintHysteresisM) {
+      return { ...h, meters: shownHint.meters, steps: shownHint.steps };
+    }
+    shownHint = h;
+    return h;
+  };
+
+  const wantsHands = (): boolean => opts.headroom === 'arms-up' && want !== 'side';
   const wantRank = (): Rank => (want === 'full' ? 3 : want === 'upper' ? 1 : 2);
   const holdMs = (): number => opts.holdSeconds * 1000;
 
@@ -223,23 +259,95 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
       profile, supports: supportOf(profile),
     };
     if (lastReading) s.seen = lastReading.seen;
-    if (o.hint) s.hint = o.hint;
+    if (o.hint) s.hint = steadyHint(o.hint); else shownHint = null;
     if (o.fallbackInMs !== undefined) s.fallbackInMs = Math.round(o.fallbackInMs);
     if (result) s.outcome = outcome;
+    if (result?.headroom) s.headroom = result.headroom;
     if (o.escape) s.escape = true;
     return s;
   }
 
-  /** Takes the window as the result. */
-  function conclude(rank: Rank): void {
-    result = build(recent(), rank);
-    outcome = rank >= wantRank() ? 'measured' : 'fallback';
+  /**
+   * Takes the window as the result, or as the profile that waits for the hands-up check. True when the calibration is
+   * over; false when the player still has to raise their hands (a game with headroom; "play at the desk" skips that).
+   */
+  function settle(rank: Rank, t: number): boolean {
+    const profile = build(recent(), rank);
+    const how = rank >= wantRank() ? 'measured' : 'fallback';
+    if (!wantsHands() || acceptRequested) {
+      result = wantsHands() ? { ...profile, headroom: handsCut ? 'short' : 'unchecked' } : profile;
+      outcome = how;
+      return true;
+    }
+    pending = { profile, outcome: how };
+    stage = 'hands';
+    handsSince ??= t;
+    handsLastT = t;
+    handsOkMs = 0;
+    handsCentres = [];
+    handsGoneSince = null;
+    return false;
+  }
+
+  function finishHands(state: HeadroomState): CalibrationStatus {
+    const p = pending as NonNullable<typeof pending>;
+    const profile: BodyProfile = { ...p.profile, headroom: state };
+    if (state === 'ok' && handsCentres.length) profile.reachY = median(handsCentres);
+    result = profile;
+    outcome = p.outcome;
+    stage = 'framing';
+    pending = null;
+    return status('ok', 1);
+  }
+
+  /** The player moved away from where they were measured (or left): the hold starts again. */
+  function restartFraming(): null {
+    stage = 'framing';
+    pending = null;
+    handsOkMs = 0;
+    handsCentres = [];
+    handsGoneSince = null;
+    win = [];
+    return null;
+  }
+
+  /**
+   * One frame of the hands-up check; null when the framing must be measured again. It ends with 'ok' after the hands have
+   * been up and inside the picture for HEADROOM.holdMs, and after the wait anyway ('ok' if half the time was reached,
+   * 'short' if the hands were cut, else 'unchecked').
+   */
+  function handsStep(f: PoseFrame, rd: Reading, escape: boolean): CalibrationStatus | null {
+    const p = pending as NonNullable<typeof pending>;
+    const lm = f.landmarks;
+    if (!lm || rd.rank === 0) {
+      handsGoneSince ??= f.t;
+      if (f.t - handsGoneSince > 1000) return restartFraming();
+    } else {
+      handsGoneSince = null;
+      const v = (i: number): Vec2 => viewOf(lm, i, f.aspect);
+      const sh = mid(v(LM.leftShoulder), v(LM.rightShoulder));
+      const W = Math.abs(v(LM.leftShoulder).x - v(LM.rightShoulder).x);
+      const r = p.profile.rest;
+      if (Math.abs(W - p.profile.W) > 0.1 * p.profile.W || Math.abs(sh.x - r.shoulderX) > 0.4 * p.profile.T || Math.abs(sh.y - r.shoulderY) > 0.4 * p.profile.T) return restartFraming();
+    }
+    const dt = Math.min(Math.max(f.t - handsLastT, 0), 150);
+    handsLastT = f.t;
+    const hr = lm && rd.rank > 0 ? readHands(lm, p.profile.T, p.profile.W) : null;
+    if (hr?.state === 'ok') { handsOkMs += dt; handsCentres.push(hr.centreY); } else handsOkMs = Math.max(0, handsOkMs - 2 * dt);
+    if (hr?.state === 'cut') handsCut = true;
+    if (handsOkMs >= HEADROOM.holdMs) return finishHands('ok');
+    if (f.t - (handsSince as number) >= (opts.headroomWaitSeconds ?? HEADROOM.waitSeconds) * 1000) {
+      return finishHands(handsOkMs >= HEADROOM.holdMs / 2 ? 'ok' : handsCut ? 'short' : 'unchecked');
+    }
+    const cutNow = hr?.state === 'cut';
+    const hint: CalibrationHint = cutNow && hr.hint ? hr.hint : { action: 'raise_hands' };
+    return status(cutNow ? 'headroom' : 'raise_hands', 0.6 + 0.39 * Math.min(1, handsOkMs / HEADROOM.holdMs), { hint, ...(escape ? { escape: true } : {}) });
   }
 
   const calibrator: Calibrator = {
     begin(f: Framing, o: CalibratorOptions = {}): void {
       want = f;
-      opts = { ...CALIBRATION_DEFAULTS, fallback: true, ...o } as typeof opts;
+      opts = { ...CALIBRATION_DEFAULTS, fallback: true, ...o } as Settings;
       calibrator.reset();
     },
 
@@ -291,22 +399,31 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
       const holding = rd.rank >= wantR && last !== null && last.t === f.t;
       const fits = recRank >= wantR;
 
+      const escape = elapsed >= opts.escapeSeconds * 1000;
+      // The hands-up check holds the result back; it goes on, or the player moved and the framing starts again.
+      if (stage === 'hands') return handsStep(f, rd, escape) ?? status('hold', 0, { ...(escape ? { escape: true } : {}) });
+
       // Does anything end the calibration now?
-      if (holding && covers && fits && !manyBlocks && lightCode !== 'too_dark') { conclude(recRank as Rank); return status('ok', 1); }
+      if (holding && covers && fits && !manyBlocks && lightCode !== 'too_dark') {
+        if (settle(recRank as Rank, f.t)) return status('ok', 1);
+        return handsStep(f, rd, escape) ?? status('hold', 0);
+      }
       const canFallBack = opts.fallback && want !== 'side' && wantR > 1 && recRank >= 1 && win.length >= STILL.fallbackMinSamples && dur >= STILL.fallbackMinMs && lightCode !== 'too_dark';
       const idleMs = opts.idleFallbackSeconds * 1000;
       const still = Math.min(dur, f.t - rankSince);
       const waited = tPerson === null ? 0 : f.t - tPerson;
       if (canFallBack && !fits) {
-        if (acceptRequested || still >= idleMs || waited >= opts.maxWaitSeconds * 1000) { conclude(recRank as Rank); return status('ok', 1); }
+        if (acceptRequested || still >= idleMs || waited >= opts.maxWaitSeconds * 1000) {
+          if (settle(recRank as Rank, f.t)) return status('ok', 1);
+          return handsStep(f, rd, escape) ?? status('hold', 0);
+        }
       }
       if (acceptRequested && win.length >= STILL.fallbackMinSamples && dur >= STILL.fallbackMinMs && lightCode !== 'too_dark' && want !== 'side' && fits) {
-        conclude(recRank as Rank);
-        return status('ok', 1);
+        if (settle(recRank as Rank, f.t)) return status('ok', 1);
+        return handsStep(f, rd, escape) ?? status('hold', 0);
       }
 
       // Not yet: say why.
-      const escape = elapsed >= opts.escapeSeconds * 1000;
       const fallbackIn = canFallBack && !fits ? Math.max(0, Math.min(idleMs - still, opts.maxWaitSeconds * 1000 - waited)) : undefined;
       const extra = (hint?: CalibrationHint): { hint?: CalibrationHint; fallbackInMs?: number; escape?: boolean } => ({
         ...(hint ? { hint } : {}), ...(fallbackIn !== undefined ? { fallbackInMs: fallbackIn } : {}), ...(escape ? { escape: true } : {}),
@@ -323,18 +440,26 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
       if (manyBlocks) return status('many_people', 0, extra({ action: 'one_person' }));
       const progress = fits ? Math.min(dur / holdMs(), win.length / opts.minSamples) : 0;
       const code: CalibrationCode = f.t - movedAt < 300 ? 'move_still' : 'hold';
-      return status(code, Math.min(progress, 0.99), extra({ action: 'hold_still' }));
+      // With the hands-up check to come, the hold is the first 60% of the way.
+      return status(code, Math.min(progress * (wantsHands() ? 0.6 : 1), 0.99), extra({ action: 'hold_still' }));
     },
 
     accept(): boolean {
       if (result) return true;
       acceptRequested = true;
+      if (stage === 'hands' && pending) {
+        // "Play on" during the hands-up check: what was measured stands; the hands count as cut if they were seen cut.
+        result = { ...pending.profile, headroom: handsCut ? 'short' : 'unchecked' };
+        outcome = pending.outcome;
+        stage = 'framing';
+        pending = null;
+        return true;
+      }
       const dur = win.length ? lastT - (win[0] as Sample).t : 0;
       if (want === 'side' || win.length < STILL.fallbackMinSamples || dur < STILL.fallbackMinMs) return false;
       const rank = rankOf(recent());
       if (rank < wantRank() && !opts.fallback) return false;   // a game without a seated variant cannot run on less
-      conclude(rank);
-      return true;
+      return settle(rank, lastT);                                // acceptRequested: the hands-up check is skipped
     },
 
     profile(): BodyProfile | null { return result; },
@@ -343,6 +468,8 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
       tBegin = null; tPerson = null; times = []; win = []; history = []; movedAt = -Infinity; lastSampleT = -Infinity;
       light = null; manyFrom = null; acceptRequested = false; result = null; outcome = 'measured'; lastReading = null; lastT = 0;
       rankSince = 0; prevRank = 0;
+      stage = 'framing'; pending = null; handsSince = null; handsLastT = 0; handsOkMs = 0; handsCut = false; handsCentres = []; handsGoneSince = null;
+      shownHint = null;
     },
   };
   return calibrator;
