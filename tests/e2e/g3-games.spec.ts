@@ -168,7 +168,7 @@ for (const c of CASES) {
       const lanes = mid.rects.lanes as [Box, Box] | null | undefined;
       expect(lanes, 'two lanes').toBeTruthy();
       // each key object stays inside one of the two lanes
-      for (const k of mid.keep) expect(inside(k, (lanes as [Box, Box])[0]) || inside(k, (lanes as [Box, Box])[1]), `a key object ${JSON.stringify(k)} in one lane`).toBe(true);
+      for (const k of mid.keep) expect(inside(k, (lanes as [Box, Box])[0]) || inside(k, (lanes as [Box, Box])[1]), `a key object ${JSON.stringify(k)} in one lane (lanes ${JSON.stringify(lanes)})`).toBe(true);
     }
     expect(mid.command.length, 'the command is on the screen').toBeGreaterThan(0);
     if (process.env['BA_G3_SHOTS']) await page.screenshot({ path: join(process.env['BA_G3_SHOTS'], `${label}-play.png`) });
@@ -178,11 +178,13 @@ for (const c of CASES) {
     const over = end.state.seen.over[0]!;
     expect(over.seconds).toBeGreaterThan(MIN[c.game].seconds);
     if (body === 'perfect') {
-      expect(over.score).toBeGreaterThan(100);
+      const ft = [...end.frames].sort((a, b) => a - b);
+      const gist = JSON.stringify({ score: over.score, reps: over.reps, hits: over.hits, quality: over.quality, seconds: over.seconds, kinds: [...new Set(over.log.map((e) => e.kind))], frames: ft.length, medianFrameMs: Math.round(ft[Math.floor(ft.length / 2)] ?? 0), p95FrameMs: Math.round(ft[Math.floor(ft.length * 0.95)] ?? 0) });
+      expect(over.score, gist).toBeGreaterThan(100);
       if (c.mode === 'local2') {
         expect(over.players?.['1']?.score).toBeGreaterThan(50);
         expect(over.players?.['2']?.score).toBeGreaterThan(50);
-      } else expect(over.reps ?? 0).toBeGreaterThanOrEqual(MIN[c.game].reps);
+      } else expect(over.reps ?? 0, gist).toBeGreaterThanOrEqual(MIN[c.game].reps);
     }
     if (c.reason) {
       expect([...seen.reasons].some((r) => c.reason!.test(r)), `the reason strip said ${[...seen.reasons].join(' | ') || 'nothing'}`).toBe(true);

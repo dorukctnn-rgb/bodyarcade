@@ -59,7 +59,7 @@ export function fjLayout(g: Geometry, players: 1 | 2): FjLayout {
     for (let tries = 0; tries < 6 && !zone; tries++) {
       for (const shift of [0, -0.16, 0.16, -0.28, 0.28]) {
         const cx = area.x + area.w / 2 + shift * area.w;
-        const footY = area.y + area.h - 0.25 * T;
+        const footY = area.y + area.h - 0.55 * T;
         const hipY = footY - 1.8 * T;
         const box: Rect = { x: cx - 1.75 * T, y: hipY - 2.1 * T, w: 3.5 * T, h: 3.9 * T + 0.5 * T };
         const pad: Rect = { x: cx - 1.5 * T, y: footY - 0.35 * T, w: 3 * T, h: 0.7 * T };
@@ -77,7 +77,7 @@ export function fjLayout(g: Geometry, players: 1 | 2): FjLayout {
     }
     // no room beside the self view even when small: stand in the middle, the self view may cover scenery
     if (!zone) {
-      const cx = area.x + area.w / 2, footY = area.y + area.h - 0.25 * T, hipY = footY - 1.8 * T;
+      const cx = area.x + area.w / 2, footY = area.y + area.h - 0.55 * T, hipY = footY - 1.8 * T;
       zone = {
         area, hipX: cx, hipY, T, padX: cx, padY: footY, padRx: 1.35 * T, padRy: 0.3 * T, dotsX: cx, dotsY: area.y + 0.04 * area.h + 0.25 * T,
         dotR: Math.max(3, T * 0.11), keep: [{ x: cx - 1.75 * T, y: hipY - 2.1 * T, w: 3.5 * T, h: 4.4 * T }],

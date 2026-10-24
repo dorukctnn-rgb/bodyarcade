@@ -18,7 +18,8 @@ export type PersonKind = 'perfect' | 'late' | 'sloppy' | 'idle';
 
 const UP: ArmSpec = { a: 165, f: 165 };
 const OPEN: FigureSpec = { armL: UP, armR: UP, legL: { out: 0.45 }, legR: { out: 0.45 } };
-const STEP: FigureSpec = { armL: UP, armR: UP, legL: { out: 0.31 }, legR: { out: 0.31 } };
+/** One foot out to the side, no hop: the gap between the feet is 1.5 W (the step jack asks 1.3 W; the margin is for a camera that is not exact). */
+const STEP: FigureSpec = { armL: UP, armR: UP, legL: { out: 0.35 }, legR: { out: 0.35 } };
 const ARMS: FigureSpec = { armL: UP, armR: UP };
 /** The detector counts a rig jack this long after it starts (measured: 100 to 133 ms at 30 pictures a second). */
 const COUNT_AFTER_MS = 117;

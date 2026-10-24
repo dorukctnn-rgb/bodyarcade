@@ -38,7 +38,7 @@ export interface PwLayout { zones: Zone[] }
 /** Where each player's avatar and wall stand. Pure, so the layout can be checked on all ten screens without a canvas. */
 export function pwLayout(g: Geometry, players: 1 | 2): PwLayout {
   const areas = players === 2 && g.lanes ? [g.lanes[0], g.lanes[1]] : [g.play];
-  return { zones: areas.map((a) => zoneIn(a, g.pip, { halfW: WALL.halfW, above: WALL.top, below: WALL.bottom })) };
+  return { zones: areas.map((a) => zoneIn(a, g.pip, { halfW: WALL.halfW, above: WALL.top, below: WALL.bottom, vyShare: 0.24 })) };
 }
 
 /** What a shape looks like as a hole: the ten limbs (standing legs for the ones it does not ask for) and how far the hip is let down. */
@@ -58,12 +58,12 @@ export function mixHex(a: string, b: string, u: number): string {
 }
 
 /**
- * How big a wall is at progress u, as a share of its size at the arrival. It starts at a third of it and grows nearly in step with
+ * How big a wall is at progress u, as a share of its size at the arrival. It starts at two fifths of it and grows nearly in step with
  * the time: a shape has to be read from afar, so the wall is not a speck at first (as a gate is in Limbo Bend, where only the
  * tilt matters). Past the player it rushes up and fades, as every obstacle does (plan.ts).
  */
 export function wallScale(u: number): number {
-  if (u <= 1) return 0.34 + 0.66 * Math.pow(Math.max(0, u), 1.7);
+  if (u <= 1) return 0.42 + 0.58 * Math.pow(Math.max(0, u), 1.7);
   return depthScale(u);
 }
 

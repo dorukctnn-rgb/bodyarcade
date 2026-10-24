@@ -120,12 +120,23 @@ const resize = (): void => { kit.resize(); sync(); };
 window.addEventListener('resize', resize);
 
 const audio = createAudio();
+/** What the first body did, step by step (for finding out why a run went as it did). */
+const bodyLog: { k: number; twist: number; bend: number }[] = [];
+const watched = (p: ChainPerson, i: number): ChainPerson => i > 0 ? p : {
+  ...p,
+  body: (t, game, state) => {
+    const f = p.body(t, game, state);
+    const sim = (game as unknown as { sim?: { k: number } } | null)?.sim;
+    if (sim && bodyLog.length < 4000) bodyLog.push({ k: sim.k, twist: f.twist ?? 0, bend: f.bend ?? 0 });
+    return f;
+  },
+};
 const people = entry.people(mode === 'local2'
   ? [{ ...SHAPE_FULL, aspect: 16 / 9, cx: 0.68, T: 0.17 }, { ...SHAPE_FULL, aspect: 16 / 9, cx: 0.32, T: 0.17 }]
   : [seated ? { ...SHAPE_UPPER, aspect: 16 / 9, T: 0.24 } : { ...SHAPE_FULL, aspect: 16 / 9, T: 0.2 }]);
 
 const chain = createChain({
-  module: entry.module, mode, difficulty, seated, quiet, people, realtime: true, scene2d: kit, hud, audio, countdownMs: 1500, seed: 5, t: (k, v) => say(k, v),
+  module: entry.module, mode, difficulty, seated, quiet, people: people.map(watched), realtime: true, scene2d: kit, hud, audio, countdownMs: 1500, seed: 5, t: (k, v) => say(k, v),
 });
 const session = chain.session;
 session.on('state', (s) => {
@@ -168,6 +179,7 @@ window.ba = {
   reasons: () => ['reason', 'reasonP1', 'reasonP2'].map((n) => hudEl.querySelector<HTMLElement>(`[data-hud="${n}"]`)).filter((e): e is HTMLElement => !!e && !e.hidden).map((e) => (e.textContent ?? '').trim()).filter((t) => t.length > 0),
   command: () => (hudEl.querySelector<HTMLElement>('[data-hud="command"]')?.textContent ?? '').trim(),
   rects: () => kit.rects,
+  bodyLog: () => bodyLog.slice(),
   problems: () => hud.problems(),
   frames: () => [...frames],
   audioStats: () => ({ ...audio.stats(), names: SFX_NAMES.length }),

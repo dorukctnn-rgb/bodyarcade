@@ -281,7 +281,9 @@ describe('the view', () => {
             // the layout moves aside or shrinks; at the narrowest it may still touch the pad's rim, never the avatar
             if (hit) expect(keep, `${corner} ${w}x${h}`).toBe(z.keep[1]);
           }
-          expect(keep.y + keep.h).toBeLessThanOrEqual(h + 1);
+          // everything stays inside the play area (below it is the bottom row: the reason strip and the self view)
+          expect(keep.y + keep.h, `${corner} ${w}x${h}`).toBeLessThanOrEqual(t.kit.rects.play.y + t.kit.rects.play.h + 1);
+          expect(keep.y, `${corner} ${w}x${h}`).toBeGreaterThanOrEqual(t.kit.rects.play.y - 1);
           expect(keep.x).toBeGreaterThanOrEqual(-1);
           expect(keep.x + keep.w).toBeLessThanOrEqual(w + 1);
         }
