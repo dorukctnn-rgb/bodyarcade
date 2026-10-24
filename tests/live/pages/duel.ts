@@ -7,7 +7,7 @@
 // friend tiles: the shell's own words for a camera that did not connect).
 // A friend tile per rival (the model of core/net/friend-tile.ts, drawn here the way the stage draws it): the camera picture
 // only while it flows, otherwise a skeleton from the ghost frames, one line when the camera did not connect and a retry button.
-import { friendTiles, LiveRace, scoreOf, type Identity } from '../../../packages/core/net/index.ts';
+import { decodeRun, encodeRun, friendTiles, LiveRace, runScore, scoreOf, type Identity } from '../../../packages/core/net/index.ts';
 import { createI18n, isLang } from '../../../packages/core/ui/i18n/index.ts';
 import type { MatchResult } from '../../../packages/core/types/net.ts';
 import type { Landmark } from '../../../packages/core/types/index.ts';
@@ -25,12 +25,13 @@ interface Metrics {
   cam?: { lostAt: number; backAt?: number }[]; finalStats?: unknown; lm?: unknown; pcs?: number; videos?: number; tracks: Record<string, number>;
   /** The camera link states the page was told, with the page's time; the tile as drawn; what the player would have read and pressed. */
   videoLog: { seat: string; state: string; reason: string | null; attempts: number; at: number }[];
+  runChecks: { mid: string; seat: string; has: boolean; score: number | null; roomScore: number | null; code: boolean }[];
   skeletonFrames: Record<string, number>; lastScore: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
 }
 
 const M: Metrics = {
   log: [], done: false, startWall: null, events: 0, remoteFrames: 0, firstRemoteFrameMs: null, phases: [], latency: [], results: [], localScores: [], ends: [], seeds: [], heap: [], chat: [], presets: [], roomErrors: [], tracks: {},
-  videoLog: [], skeletonFrames: {}, lastScore: {}, shows: {}, notes: {}, noteNow: {}, retryShown: {}, retryClicks: 0,
+  videoLog: [], runChecks: [], skeletonFrames: {}, lastScore: {}, shows: {}, notes: {}, noteNow: {}, retryShown: {}, retryClicks: 0,
 };
 (window as unknown as { __M__: Metrics }).__M__ = M;
 
@@ -217,6 +218,12 @@ race.on('finished', (d) => {
   log('local end, final sent');
 });
 race.on('result', (r) => {
+  // every seat's run as a recording: what the Room scored is what the recording scores (private rooms; a public room sends none)
+  for (const seat of Object.keys(r.result.scores)) {
+    const run = race.runOf(seat);
+    const back = run ? decodeRun(encodeRun(run)) : null;
+    M.runChecks.push({ mid: r.result.mid, seat, has: !!run, score: run ? runScore(run).score : null, roomScore: r.result.scores[seat]?.score ?? null, code: !!back && back.outcomes === run?.outcomes });
+  }
   const local = game && game.id === r.result.mid ? race.score() : null;
   M.results.push(r.result); M.localScores.push(local);
   const pm = performance as unknown as { memory?: { usedJSHeapSize: number } };

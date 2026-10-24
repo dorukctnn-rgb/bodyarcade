@@ -21,6 +21,7 @@ export interface PlayerM {
   fatal?: { reason: string; code: number }; replaced?: boolean; removed?: unknown; roomErrors: string[]; chat: unknown[]; presets: unknown[]; tracks: Record<string, number>;
   finalStats?: { path?: { local?: string; remote?: string; protocol?: string } | null; videoIn?: { fps?: number; freezes?: number } | null }[]; pcs?: number; videos?: number;
   videoLog: { seat: string; state: string; reason: string | null; attempts: number; at: number }[];
+  runChecks: { mid: string; seat: string; has: boolean; score: number | null; roomScore: number | null; code: boolean }[];
   skeletonFrames: Record<string, number>; lastScore: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
   lm: {
     tWelcome?: number; warmupMs?: number; clock?: unknown; connectMs: number[]; pathTypes: ({ local?: string; remote?: string } | null)[]; stSent: number; stRecvDc: number; stRecvRelay: number;
@@ -276,6 +277,9 @@ function finish(name: string, sc: Scenario, who: PlayerSetup[], M: (PlayerM | nu
     }
     if ((sc.players ?? 2) > 2) checks.placesForEveryone = checks.allDone && live.every((m) => m.results.every((r) => Object.keys(r.places).length === (sc.players ?? 2) - goneCount));
     if (sc.expectVideo) Object.assign(checks, videoChecks(sc, live));
+    // the recordings of the match: a private room hands every seat's run over (and the run scores what the Room scored, and survives
+    // being sent as a code), a public room hands over none
+    checks.runsAsDesigned = checks.allDone && live.every((m) => m.runChecks.length > 0 && m.runChecks.every((c) => (sc.kind === 'public' ? !c.has : c.has && c.score === c.roomScore && c.code)));
     if (sc.kind === 'public') checks.noVideoInPublic = live.every((m) => Object.keys(m.tracks).length === 0 && m.remoteFrames === 0);
     else if (sc.video && (sc.players ?? 2) > 2) checks.meshVideo = live.every((m) => Object.keys(m.tracks).length >= (sc.players ?? 2) - 1 - goneCount && m.remoteFrames > 30);
   }

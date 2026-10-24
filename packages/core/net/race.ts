@@ -30,7 +30,8 @@ import { loadBlocks, saveBlocks } from './identity.ts';
 import { encodeQr, qrToSvg, type QrSvgOptions } from './qr.ts';
 import { Emitter, realScheduler, type Scheduler } from './runtime.ts';
 import { makeSchedule, scoreOf, specFor, type Obstacle } from './schedule.ts';
-import { RivalBoard, ghostFrame } from './pose-frame.ts';
+import { RivalBoard, ghostFrame, packPose } from './pose-frame.ts';
+import { TrackRecorder, checkRun, type GhostRun } from './ghost.ts';
 import type { VideoStatus } from './video.ts';
 import type { Landmark } from '../types/index.ts';
 
@@ -174,6 +175,9 @@ export class LiveRace extends Emitter<RaceEvents> {
   private loop: unknown = null;
   private done = false;
   private lobbyKey = '';
+  /** The player's own skeleton of the match that is on (kept for the run they may keep: it never leaves this device). */
+  private recorder: TrackRecorder | null = null;
+  private lastTrack: string | undefined;
   private visibilityOff: (() => void) | null = null;
   private closedWhy: RaceCloseReason | null = null;
 
@@ -315,7 +319,33 @@ export class LiveRace extends Emitter<RaceEvents> {
    * 15 times a second. A friend whose camera did not connect sees this skeleton; a stranger in a public lobby sees nothing else.
    */
   sendPose(landmarks: readonly Landmark[] | null): boolean {
+    if (this.st === 'racing') this.recorder?.push(this.time(), packPose(landmarks));
     return this.sendGhost(ghostFrame(this.time(), this.score().score, landmarks));
+  }
+
+  /**
+   * One seat's run of the match that just ended, as a recording to keep or send (core/net/ghost.ts): your own (with your skeleton
+   * when your camera was on) or a friend's. Null before a result, for a seat that played nothing worth keeping, and in a public
+   * room, which sends no runs: nothing of a stranger is ever kept.
+   */
+  runOf(seat: SeatId): GhostRun | null {
+    const r = this.lastResult?.result;
+    const m = this.client.match;
+    const outcomes = r?.runs?.[seat];
+    if (!r || !m || m.id !== r.mid || typeof outcomes !== 'string') return null;
+    const mine = seat === this.client.you;
+    const name = mine ? this.who.name : (this.client.members.find((x) => x.seat === seat)?.name ?? '');
+    const c = checkRun({
+      v: 1, gameId: m.gameId, seed: m.seed, durationMs: m.duration, outcomes, name, at: Math.floor(Date.now() / 60_000) * 60_000, source: mine ? 'own' : 'friend',
+      ...(mine && this.lastTrack ? { track: this.lastTrack } : {}),
+    });
+    return c.ok ? c.run : null;
+  }
+
+  /** Your own run of the match that just ended (see runOf). */
+  get lastRun(): GhostRun | null {
+    const y = this.client.you;
+    return y ? this.runOf(y) : null;
   }
 
   /** The ghost: any small JSON-able frame (pose points, the score) for the rivals' screens; sent at most about 15 times a second. */
@@ -427,6 +457,8 @@ export class LiveRace extends Emitter<RaceEvents> {
       this.courseMatch = match.id;
       this.courseList = makeSchedule(match.seed, match.duration, specFor(match.gameId));
       this.rivals.clear();
+      this.recorder = new TrackRecorder(match.duration);
+      this.lastTrack = undefined;
       this.outcomes.clear();
       this.high = 0;
       this.finalFor = null;
@@ -464,6 +496,7 @@ export class LiveRace extends Emitter<RaceEvents> {
       draw: !forfeited && place === 1 && best > 1, score: result.scores[you] ?? null,
     };
     this.lastResult = r;
+    this.lastTrack = this.recorder?.finish();
     this.update();
     this.emit('result', r);
   }

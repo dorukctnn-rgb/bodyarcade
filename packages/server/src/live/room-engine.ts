@@ -22,6 +22,7 @@ import {
   type RoomPreview, type RoomSummary, type SeatId, type TicketClaims,
 } from '../../../core/types/net.ts';
 import { makeSchedule, scoreOf, specFor, places as placesOf, winnerOf, type Obstacle } from '../../../core/net/schedule.ts';
+import { outcomeString } from '../../../core/net/ghost.ts';
 import { checkChat, checkName, CHAT_INTERVAL_MS } from '../../../core/net/chat-filter.ts';
 import { MAX_BLOCKS, parseClientMessage } from '../../../core/net/validate.ts';
 import type { RoomReport } from './hooks.ts';
@@ -728,6 +729,12 @@ export class RoomEngine {
     else if (eff === 'forfeit') { pl = active.length === 1 ? { [active[0] as SeatId]: 1 } : placesOf(scores, active); winner = winnerOf(pl); }
     m.phase = 'over'; m.pausedAt = null; m.resumeAt = null; m.settleUntil = null; m.reasons = {}; m.reasonAt = {};
     m.result = { mid: m.id, reason: eff, winner, places: pl, scores, forfeited: [...m.forfeited] };
+    // A private room hands every seat's run to the players (their friends' recordings to keep); a public room never does.
+    if (this.meta?.kind === 'private') {
+      const runs: Record<SeatId, string> = {};
+      for (const s of m.seats) runs[s] = outcomeString(sched, this.events[s] ?? []);
+      m.result.runs = runs;
+    }
     for (const x of Object.values(this.members)) { x.ready = false; this.hookPlaying(x, true, false); }
     this.dirty.add('match'); this.dirty.add('members');
     this.flushEvents();

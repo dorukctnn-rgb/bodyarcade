@@ -5,6 +5,12 @@ export { PeerLink, DEFAULT_VIDEO_LIMITS, type LinkStats, type PeerHost, type Vid
 export { VideoTracker, VIDEO_CONNECT_MS, VIDEO_RETRY_GAP_MS, VIDEO_STALL_MS, type VideoProbe, type VideoReason, type VideoState, type VideoStatus } from './video.ts';
 export { friendTiles, type FriendTile, type TileNote } from './friend-tile.ts';
 export { RivalBoard, ghostFrame, packPose, unpackPose, readGhostFrame, POSE_JOINTS, POSE_STALE_MS, type GhostFrame, type RivalFrame } from './pose-frame.ts';
+export {
+  BOT_LEVELS, BOT_PASS, GHOST_HZ, GHOST_VERSION, TrackRecorder, botRun, checkRun, courseOf, decodeRun, encodeRun, ghostLabel, outcomeString, resultsOf, runFromResults, runScore, standingAt, trackPoseAt,
+  type BotLevel, type GhostLabel, type GhostLabelKey, type GhostRun, type GhostSource, type RunCheck, type RunProblem, type Standing,
+} from './ghost.ts';
+export { FRIENDS_MAX, GhostBook, OWN_MAX, type OfferResult } from './ghost-book.ts';
+export { GHOST, GhostRace, YOU, type GhostOutcome, type GhostPhase, type GhostRaceOptions, type GhostRival } from './ghost-race.ts';
 export { bridgeSession, sideOfClient, sideOfRace, NET_REASON, type BridgeOptions, type RaceSide } from './session-bridge.ts';
 export { createRoom, joinRoom, previewRoom, fetchIce, LiveApiError, type Identity, type NewRoomRequest } from './api.ts';
 export { codeFromInvite, formatRoomCode, inviteLink, isRoomCode, normalizeRoomCode, randomRoomCode, ROOM_CODE_ALPHABET } from './codes.ts';

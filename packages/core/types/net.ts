@@ -83,6 +83,12 @@ export interface MatchResult {
   /** Scores of every seat that started, forfeited ones included. */
   scores: Record<SeatId, SeatScore>;
   forfeited: SeatId[];
+  /**
+   * What each seat did at each obstacle of the course, one character each in the course's order (p passed, h hit, . not played),
+   * so a player can keep a friend's run as a recording (core/net/ghost.ts). Private rooms only: a public room sends none, so
+   * nothing of a stranger is ever kept. Older Rooms send none either.
+   */
+  runs?: Record<SeatId, string>;
 }
 
 export interface MatchInfo {
