@@ -55,6 +55,9 @@ export const STAGGER_MS = 190;
 /** A wide or a floor light needs a step: it stays this much longer (ms). */
 export const STEP_EXTRA_MS = 380;
 
+/** How far the camera's clock may run ahead of the game's own clock before the game's own reading is used (ms). */
+export const REACT_SLACK_MS = 60;
+
 export const LIGHT_POINTS = { tap: 60, speed: 40, trap: -40, avoid: 5 } as const;
 export const LIGHT_STREAK_STEP = 5;
 
@@ -150,7 +153,11 @@ export const reactionTagRules: Rules<LightSpec> = {
       out.cue('warn');
       return;
     }
-    const react = Math.max(0, Math.round(j.reactMs ?? (lane.t - live.born - lane.latencyMs)));
+    // The detector measures on the camera's clock; this game's own clock stands still while the session is paused or somebody
+    // is out of view. After such a wait the camera's clock is far ahead, and the light has only been there for the time the game
+    // ran: the tap is judged on the shorter of the two (they agree to within a pose frame in an ordinary round).
+    const own = Math.max(0, lane.t - live.born - lane.latencyMs);
+    const react = Math.round(Math.min(Math.max(0, j.reactMs ?? own), own + REACT_SLACK_MS));
     const mult = 1 + Math.min(4, Math.floor(s.streak / LIGHT_STREAK_STEP));
     const quick = clamp(1 - react / (spec.life * 0.8), 0, 1);
     const pts = Math.round((LIGHT_POINTS.tap + LIGHT_POINTS.speed * quick) * mult);

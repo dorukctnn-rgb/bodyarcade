@@ -138,6 +138,10 @@ describe('what each game draws', () => {
     expect(t).toContain('1');
     expect(t.some((x) => /^Perfect \+\d+$/.test(x) || /^Good \+\d+$/.test(x))).toBe(true);
     expect(st.ctx.count('arc')).toBeGreaterThan(60);
+    // the bonus of a clean combination is said in points, once for each
+    const combos = run.events.filter((e) => e.type === 'combo');
+    expect(combos.length, 'a clean combination happened').toBeGreaterThan(0);
+    expect(combos.some((e) => t.includes(`+${e['pts'] as number}`)), 'its bonus was written on the picture').toBe(true);
   });
 
   it('Pad Work: a swinging bag is drawn as a dark shape while it is near the head, and not before or after', () => {

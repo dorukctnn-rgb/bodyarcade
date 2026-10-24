@@ -345,7 +345,7 @@ export class TargetEngine<S extends BaseSpec> {
       score: best.stats.score,
       seconds: Math.round(this.t) / 1000,
       hits: best.stats.hits,
-      cleared: best.stats.cleared,
+      ...(this.rules.clears ? { cleared: best.stats.cleared } : {}),
       bestStreak: best.stats.bestStreak,
       quality: Math.round(accuracy(best) * 1000) / 1000,
       metSeconds: met(best),
@@ -353,7 +353,7 @@ export class TargetEngine<S extends BaseSpec> {
     };
     if (lanes.length === 2) {
       sum.players = {};
-      for (const l of lanes) sum.players[l.slot] = { score: l.stats.score, hits: l.stats.hits, cleared: l.stats.cleared, metSeconds: met(l) };
+      for (const l of lanes) sum.players[l.slot] = { score: l.stats.score, hits: l.stats.hits, ...(this.rules.clears ? { cleared: l.stats.cleared } : {}), metSeconds: met(l) };
     }
     return sum;
   }

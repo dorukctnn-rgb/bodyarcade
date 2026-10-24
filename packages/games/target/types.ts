@@ -165,6 +165,8 @@ export interface Rules<S extends BaseSpec> {
   readonly restSec: number;
   /** Metabolic equivalent for the honest calorie estimate (the manifest's `met` wins when given). */
   readonly met: number;
+  /** The game has something to clear (a constellation, a combination): its summary says how many, otherwise `cleared` stays out of it. */
+  readonly clears?: boolean;
   /** Builds the whole plan once, from the course stream; ids are the indexes. Entries are in order of `at`. */
   plan(rng: Rng, p: PlanInput): S[];
   /** A plan entry appears for a lane: where it is and what the judge asks. null: this lane does not get it. */

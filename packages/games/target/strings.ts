@@ -1,7 +1,8 @@
 // The words of the three target-hit games, in the five languages of the shell. English is the source; Turkish is complete;
 // German, Spanish and French are drafts (the shell marks them as such). Rules of the house (premium-web-style, design/LAYOUT.md
 // section 8): sentence case, no em or en dashes, no arrows, no emoji, no exclamation marks; a command is one or two words
-// and a reason during play at most 40 characters in English and 48 in translations.
+// and a reason during play at most 40 characters in English and 48 in translations. A word of a command over eight letters
+// carries a soft hyphen (U+00AD) where a long language may wrap, so the HUD never has to shrink it below the size rule.
 //
 // The games ask the shell's `t` for `target.<key>` first, so a shell that has called `i18n.extend('target', TARGET_STRINGS)`
 // translates them; one that has not gets the English here (see `say` in game.ts). Variables are written {name}.
@@ -121,7 +122,7 @@ const es: Table = {
   announce_rest: 'Un breve descanso',
   tap_green: 'Toca verde',
   combo: '{seq}',
-  slip_left: 'Esquiva izquierda',
+  slip_left: 'Esquiva iz\u00ADquierda',
   slip_right: 'Esquiva derecha',
   duck: 'Agáchate',
   'reason.wrong_hand.L': 'Esa es para tu mano izquierda',

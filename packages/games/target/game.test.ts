@@ -13,7 +13,7 @@ import { starCatchRules, type StarSpec } from './star-catch.ts';
 import { english, TARGET_STRINGS, TARGET_NAMESPACE, type Lang } from './strings.ts';
 import { frame2, frameOf, VirtualBody } from './testing/body.ts';
 import { Chaser } from './testing/bots.ts';
-import { seenOf } from './testing/play.ts';
+import { play, seenOf, setup } from './testing/play.ts';
 import { levelOf, type BaseSpec, type Rules, type ViewState } from './types.ts';
 import { TargetEngine } from './engine.ts';
 
@@ -253,6 +253,18 @@ describe('the words', () => {
     for (const l of langs) for (const k of ['tap_green', 'slip_left', 'slip_right', 'duck', 'rest', 'round']) expect(TARGET_STRINGS[l][k]!.split(' ').length, `${l} ${k}`).toBeLessThanOrEqual(2);
   });
 
+  it('breaks a command word of more than eight letters with a soft hyphen (design/LAYOUT.md section 8)', () => {
+    const shy = String.fromCharCode(0xad);
+    for (const l of langs) for (const k of ['tap_green', 'slip_left', 'slip_right', 'duck', 'rest', 'round']) {
+      for (const word of TARGET_STRINGS[l][k]!.replace(/[{][a-z]+[}]/g, '').split(/[ -]+/)) {
+        const letters = word.split(shy).join('');
+        if (letters.length > 8) expect(word, `${l} ${k}: ${letters}`).toContain(shy);
+      }
+    }
+    expect(TARGET_STRINGS.es['slip_left']).toContain(shy);
+    expect(TARGET_STRINGS.es['slip_left']!.split(shy).join('')).toBe('Esquiva izquierda');
+  });
+
   it('follows the house rules for copy: no dashes, arrows, emoji or exclamation marks', () => {
     for (const l of langs) for (const [k, v] of Object.entries(TARGET_STRINGS[l])) {
       expect(v, `${l} ${k}`).not.toMatch(/[–—―←-⇿!]|->|=>/u);
@@ -366,5 +378,32 @@ describe('the variants', () => {
     expect(levelOf('insane')).toBe('expert');
     expect(levelOf('easy')).toBe('easy');
     expect(levelOf('whatever')).toBe('normal');
+  });
+});
+
+describe('the summary the results screen reads', () => {
+  it('counts what there is to clear (constellations, combinations) and leaves it out for a game with nothing to clear', () => {
+    const run = (rules: Rules<never>): ReturnType<TargetEngine<never>['summary']> => {
+      const r = setup(rules as never, { duration: 30, rounds: 1, level: 'normal', seed: 3 });
+      play(r);
+      return r.engine.summary();
+    };
+    expect(run(starCatchRules as never).cleared, 'star catch').toBeGreaterThan(0);
+    expect(run(padWorkRules as never).cleared, 'pad work').toBeGreaterThanOrEqual(0);
+    const tag = run(reactionTagRules as never);
+    expect('cleared' in tag, 'reaction tag has nothing to clear').toBe(false);
+    expect(tag.hits).toBeGreaterThan(0);
+    expect(tag.quality, 'hits over every light that was not left alone').toBeGreaterThan(0.5);
+  });
+
+  it('gives each player of a two-player round their own numbers, with cleared only where it means something', () => {
+    const r = setup(reactionTagRules as never, { duration: 20, rounds: 1, level: 'easy', seed: 4, bots: ['perfect', 'perfect'] });
+    play(r);
+    const sum = r.engine.summary();
+    expect(Object.keys(sum.players ?? {})).toEqual(['1', '2']);
+    for (const slot of [1, 2] as const) {
+      expect(sum.players![slot]!.hits).toBeGreaterThan(0);
+      expect('cleared' in sum.players![slot]!).toBe(false);
+    }
   });
 });

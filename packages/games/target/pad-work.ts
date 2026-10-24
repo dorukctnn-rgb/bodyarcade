@@ -160,6 +160,7 @@ export const padWorkRules: Rules<PadSpec> = {
   rounds: 3,
   restSec: 30,
   met: 5.5,
+  clears: true,
 
   plan: planPads,
 

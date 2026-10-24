@@ -415,6 +415,9 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
         }
         case 'combo': {
           kit.particles.confetti(rect.x + rect.w * 0.2, rect.y + rect.h * 0.3, rect.w * 0.6, reduced ? 6 : 22, { colors: [COLORS.sun, COLORS.sky, COLORS.go, COLORS.flush] });
+          // the bonus of a clean combination is points like any other: say so, above the head where the eyes are
+          const top = px(pr, { x: 0, y: 1.9 });
+          addFloater({ x: top.x, y: Math.max(rect.y + torso * 0.3, top.y), lane: li, text: `+${e['pts'] as number}`, color: COLORS.sun, age: 0, life: 1100, big: true });
           break;
         }
         default: break;

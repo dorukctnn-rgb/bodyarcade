@@ -130,6 +130,7 @@ export const starCatchRules: Rules<StarSpec> = {
   rounds: 3,
   restSec: 8,
   met: 3.5,
+  clears: true,
 
   plan: planStars,
 

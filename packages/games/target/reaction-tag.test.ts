@@ -231,6 +231,37 @@ describe('a round with bots (through the real detector)', () => {
     expect(new Set(r.events.filter((e) => e.type === 'miss').map((e) => e.code))).toEqual(new Set(['hands_out_of_view']));
   });
 
+  it("a pause with a light on the screen is not counted as slow thinking: the time the game waited is nobody's reaction", () => {
+    // The session stops stepping the game while it is paused, but the camera's clock goes on: the first frames after the pause
+    // are minutes ahead of the last one the game saw. A tap just after the pause is a quick tap.
+    let go = false;
+    const r = setup(reactionTagRules, {
+      duration: 30, rounds: 1, level: 'easy', seed: 21,
+      steer: () => (lane, body) => {
+        body.rest();
+        const t = lane.targets[0];
+        if (go && t) body.aim(t.x < 0 ? 'L' : 'R', t.x, t.y, 9);
+      },
+    });
+    let guard = 0;
+    while (r.engine.view().lanes[0]!.targets.length === 0 && guard++ < 2000) tick(r);
+    for (let i = 0; i < 20; i++) tick(r);
+    const shown = r.engine.view().lanes[0]!.targets[0];
+    expect(shown, 'a light is on the screen').toBeDefined();
+    r.k += 600; // ten seconds of the camera's clock with no step of the game
+    go = true;
+    let tapped: { react: number } | null = null;
+    for (let i = 0; i < 90 && !tapped; i++) {
+      const out = tick(r);
+      const hit = out.events.find((e) => e.type === 'hit');
+      if (hit) tapped = { react: hit.react as number };
+    }
+    expect(tapped, 'the light was tapped after the pause').not.toBeNull();
+    expect(tapped!.react, 'a reaction of a second at most, not ten').toBeLessThan(1500);
+    const sum = r.engine.summary();
+    expect(sum.log.filter((e) => e.kind === 'tag').every((e) => (e.v as number) < 1500)).toBe(true);
+  });
+
   it('the log holds a reaction time for every tap', () => {
     const r = run('perfect', { level: 'normal', duration: 30 });
     play(r);
