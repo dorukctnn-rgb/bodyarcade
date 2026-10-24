@@ -443,6 +443,25 @@ describe('weekly boards on the platform', () => {
   });
 });
 
+describe('synced documents on the platform', () => {
+  it('two devices of one player write the same document at once on the real database: one is told, merges, and nothing is lost', async () => {
+    const ada = await player({ band: 'adult', name: 'Ada' });
+    const phone = new SocialClient({ origin: stack.origin, keys: new MemoryKeyStore() });
+    await phone.recoverProfile({ code: ada.client.profile?.code ?? '', recovery: ada.client.recoveryCode ?? '' });
+    expect(await ada.client.saveSync('habit', { days: ['mon'] }, 0)).toMatchObject({ rev: 1 });
+    const add = (day: string) => (cur: { days: string[] } | null) => ({ days: [...new Set([...(cur?.days ?? []), day])] });
+    await Promise.all([ada.client.updateSync('habit', add('tue')), phone.updateSync('habit', add('wed'))]);
+    const docs = await phone.loadSync();
+    expect(docs.habit?.rev).toBe(3);
+    expect((docs.habit?.data as { days: string[] }).days.slice().sort()).toEqual(['mon', 'tue', 'wed']);
+    expect((await ada.client.exportData()).sync.habit).toEqual(docs.habit);
+    const pid = (await stack.db.prepare('SELECT pid FROM soc_profiles WHERE fid = ?1').bind(ada.fid).first<{ pid: string }>())?.pid ?? '';
+    expect(pid).not.toBe('');
+    await ada.client.deleteProfile();
+    expect((await stack.db.prepare('SELECT COUNT(*) AS n FROM soc_sync WHERE pid = ?1').bind(pid).first<{ n: number }>())?.n).toBe(0);
+  });
+});
+
 describe('what the Worker logs', () => {
   it('has logged no error of the social module, of live play or of the hub during all of the above', () => {
     expect(stack.events('hub_error')).toEqual([]);

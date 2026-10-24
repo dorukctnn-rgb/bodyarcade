@@ -6,7 +6,7 @@ import { SocialApiError, SocialClient, type MatchDriver, type SignUp, type WebSo
 import { MemoryKeyStore, openKeyStore } from '../../../core/social/keystore.ts';
 import { isPresetName } from '../../../core/social/presets.ts';
 import { PRESENCE } from '../../../core/social/rules.ts';
-import { HUB_CLOSE, type AgeBand, type HubEvent } from '../../../core/social/types.ts';
+import { HUB_CLOSE, SYNC_MAX_CHARS, type AgeBand, type HubEvent } from '../../../core/social/types.ts';
 import type { RoomSummary } from '../../../core/types/net.ts';
 import type { ExecutionContextLike } from '../cf.ts';
 import { publishRoom } from './lobbies.ts';
@@ -21,6 +21,8 @@ let app: TestApp;
 let ipSeq = 0;
 let offline = false;
 let calls: string[] = [];
+/** Runs before a request reaches the server (a test makes another device write at exactly that moment); reset by every test. */
+let beforeRequest: ((method: string, path: string) => Promise<void> | void) | null = null;
 
 class FakeWs implements WebSocketLike {
   static all: FakeWs[] = [];
@@ -81,6 +83,7 @@ function makeClient(store: MemoryKeyStore, ip: string, skew: { ms: number }): So
     req.headers.set('CF-Connecting-IP', ip);
     req.headers.set('CF-IPCountry', 'TR');
     calls.push(`${req.method} ${new URL(url).pathname}`);
+    await beforeRequest?.(req.method, new URL(url).pathname);
     const res = await app.router.handle(req, app.env, ctx);
     while (pending.length > 0) await Promise.allSettled(pending.splice(0));
     if (!res) throw new Error(`no route for ${req.method} ${url}`);
@@ -131,6 +134,7 @@ beforeEach(() => {
   FakeWs.all = [];
   offline = false;
   calls = [];
+  beforeRequest = null;
   ipSeq = 0;
 });
 afterEach(async () => {
@@ -790,5 +794,67 @@ describe('the recovery code', () => {
     expect((await phone.recoverProfile({ code: a.client.profile?.code ?? '', recovery: fresh })).fid).toBe(a.fid());
     await a.client.deleteProfile();
     expect(a.client.recoveryCode).toBeNull();
+  });
+});
+
+describe('synced documents', () => {
+  /** A second device of the same player: a fresh key that got the profile back with the friend code and the recovery code. */
+  async function secondDevice(d: Dev, ip: string): Promise<SocialClient> {
+    const phone = makeClient(new MemoryKeyStore(), ip, { ms: 0 });
+    await phone.recoverProfile({ code: d.client.profile?.code ?? '', recovery: d.client.recoveryCode ?? '' });
+    return phone;
+  }
+
+  it('a document is saved from revision 0, a second device reads it and goes on from it, a new one starts from nothing', async () => {
+    const a = await device('adult', { name: 'Ada' });
+    expect(await a.client.loadSync()).toEqual({});
+    expect(await a.client.saveSync('daily', { streak: 2 }, 0)).toEqual({ rev: 1, at: T0 });
+    const phone = await secondDevice(a, '10.62.0.1');
+    expect((await phone.loadSync()).daily).toEqual({ rev: 1, at: T0, data: { streak: 2 } });
+    expect(await phone.updateSync<{ streak: number }>('daily', (cur) => ({ streak: (cur?.streak ?? 0) + 1 }))).toEqual({ rev: 2, at: T0, data: { streak: 3 } });
+    expect((await a.client.loadSync()).daily?.data).toEqual({ streak: 3 });
+    expect(await a.client.updateSync<{ first: boolean }>('prefs', (cur) => ({ first: cur === null }))).toEqual({ rev: 1, at: T0, data: { first: true } });
+  });
+
+  it('when the other device wrote in between, the change is made again on what it wrote and nothing is overwritten', async () => {
+    const a = await device('adult', { name: 'Ada' });
+    await a.client.saveSync('habit', { days: ['mon'] }, 0);
+    const phone = await secondDevice(a, '10.62.0.2');
+    // the phone writes at the very moment the first device is about to
+    let armed = true;
+    beforeRequest = async (method, path) => {
+      if (!armed || method !== 'PUT' || path !== '/api/social/sync/habit') return;
+      armed = false;
+      await phone.saveSync('habit', { days: ['mon', 'tue'] }, 1);
+    };
+    const seen: unknown[] = [];
+    const out = await a.client.updateSync<{ days: string[] }>('habit', (cur) => { seen.push(cur); return { days: [...(cur?.days ?? []), 'wed'] }; });
+    expect(seen).toEqual([{ days: ['mon'] }, { days: ['mon', 'tue'] }]);
+    expect(out).toEqual({ rev: 3, at: T0, data: { days: ['mon', 'tue', 'wed'] } });
+    expect((await phone.loadSync()).habit?.data).toEqual({ days: ['mon', 'tue', 'wed'] });
+    // a plain write from an old revision is told what the document is now
+    await expect(a.client.saveSync('habit', { days: [] }, 1)).rejects.toMatchObject({ status: 409, code: 'conflict', body: { current: { rev: 3 } } });
+  });
+
+  it('gives up after the tries it was given when the other device keeps winning, and a refusal that is not a conflict is not tried again', async () => {
+    const a = await device('adult', { name: 'Ada' });
+    const phone = await secondDevice(a, '10.62.0.3');
+    let busy = false;
+    beforeRequest = async (method, path) => {
+      if (busy || method !== 'PUT' || path !== '/api/social/sync/habit') return;
+      busy = true;
+      try {
+        const cur = (await phone.loadSync()).habit;
+        await phone.saveSync('habit', { n: ((cur?.data as { n: number } | undefined)?.n ?? 0) + 1 }, cur?.rev ?? 0);
+      } finally { busy = false; }
+    };
+    let ran = 0;
+    await expect(a.client.updateSync('habit', () => { ran++; return { mine: true }; }, 3)).rejects.toMatchObject({ status: 409, code: 'conflict' });
+    expect(ran).toBe(3);
+    beforeRequest = null;
+    ran = 0;
+    await expect(a.client.updateSync('daily', () => { ran++; return 'x'.repeat(SYNC_MAX_CHARS); })).rejects.toMatchObject({ status: 413, code: 'payload_too_large' });
+    expect(ran).toBe(1);
+    expect((await a.client.loadSync()).daily).toBeUndefined();
   });
 });

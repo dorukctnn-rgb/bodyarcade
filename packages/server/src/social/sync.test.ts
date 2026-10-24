@@ -98,7 +98,8 @@ describe('what is refused', () => {
   it('a key that is not on the list, a bad revision and no data', async () => {
     const ada = await app.signup('adult', { name: 'Ada' });
     for (const key of ['nope', 'Daily', '__proto__', 'daily2', 'me']) expect((await put(ada, key, 0, { a: 1 })).status, key).toBe(400);
-    for (const bad of [-1, 1.5, '0', null, undefined, NaN, Number.MAX_VALUE]) expect((await put(ada, 'daily', bad, { a: 1 })).status, String(bad)).toBe(400);
+    // (NaN cannot be written as JSON: it would arrive as null)
+    for (const bad of [-1, 1.5, '0', null, undefined, Number.MAX_VALUE]) expect((await put(ada, 'daily', bad, { a: 1 })).status, String(bad)).toBe(400);
     const noData = await app.call('PUT', '/api/social/sync/daily', { dev: ada.dev, body: { baseRev: 0 } });
     expect(noData.status).toBe(400);
     expect(Object.keys(await docs(ada))).toEqual([]);
