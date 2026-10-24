@@ -66,8 +66,10 @@ describe('the window "Race a ghost"', () => {
   });
 
   it('lists the family and the friends by their names, with words that cannot become markup', () => {
+    // The book refuses such a name (checkName), so the menu is given the run directly: the screen escapes whatever it is handed.
     const evil = '<img src=x onerror=alert(1)>';
-    const m = menu({ friends: [recording(4, { name: evil })], family: [{ id: 'p2', name: 'Defne "D" <b>', run: recording(5) }] });
+    const base = menu({ family: [{ id: 'p2', name: 'Defne "D" <b>', run: recording(5) }] });
+    const m: GhostMenu = { ...base, friends: [{ ...recording(4), name: evil }] };
     const h = ghostDialog(ctx(), m, choice(m)).value;
     expect(h).toContain(escapeHtml('Best run of Defne "D" <b>'));
     expect(h).toContain(escapeHtml(`Recording of ${evil}`));
