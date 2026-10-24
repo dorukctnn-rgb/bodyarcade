@@ -51,6 +51,11 @@ export interface ArcadeOptions {
   content?: Readonly<Record<string, GameContent>>;
   /** The social client once there is a profile (its loadSync and updateSync); null before. */
   syncPort?: () => SyncPort | null;
+  /**
+   * False when nothing can be written (the profile is locked, or gone): a round is then answered as not saved, truthfully, instead of
+   * being counted by modules whose writes the store refuses. Default: always.
+   */
+  writable?: () => boolean;
   now?: () => number;
 }
 
@@ -134,7 +139,15 @@ export function createArcade(o: ArcadeOptions): Arcade {
     saved: false, run: sanitizeRun((run ?? {}) as RunInput, store.now(), store.day()), totals: {}, previousBest: 0, newBest: false, firstHere: false, news: [], daily: null,
   });
 
+  const writable = (): boolean => {
+    try { return o.writable ? o.writable() !== false : true; } catch { return false; }
+  };
+
   function recordRun(game: string, run: RunInput | null): RunReport {
+    if (!writable()) {
+      store.report({ kind: 'rejected', key: `arcade.${String(game).slice(0, 40)}`, detail: 'nothing can be written here (a locked profile): the round was not saved' });
+      return { outcome: unsaved(run), play: null, challenge: null, habit: habit.view() };
+    }
     let outcome: RecordOutcome;
     try {
       outcome = progress(game).record(run as RunInput);

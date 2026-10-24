@@ -83,6 +83,8 @@ export interface BodyArcadeStore extends Store {
   readonly prefix: string;
   /** True when no write goes through now (a look at a record, a profile whose plan ended). */
   readonly readOnly: boolean;
+  /** False when the data lives in memory only (no usable localStorage, a private window): it is gone when the page closes. */
+  readonly persistent: boolean;
   ns(gameId: string): StoreNamespace;
   /**
    * The same storage, clock, time zone and problem log under another key prefix ('ba2p2': one profile's own store). The
@@ -172,7 +174,9 @@ function narrow(parent: Access, more: StoreAccess | undefined): Access {
 }
 
 export function createStore(o: StoreOptions = {}): BodyArcadeStore {
-  const storage: StorageLike = o.storage ?? browserStorage() ?? memoryStorage();
+  const real = o.storage ?? browserStorage();
+  const storage: StorageLike = real ?? memoryStorage();
+  const persistent = real !== null && real !== undefined;
   const now = o.now ?? ((): number => Date.now());
   /** One log for a store and every store made from it; the key of a problem says whose it is. */
   const problemLog: StoreProblem[] = [];
@@ -368,6 +372,7 @@ export function createStore(o: StoreOptions = {}): BodyArcadeStore {
 
     return {
       prefix,
+      persistent,
       get readOnly() { return access.readOnly(); },
       ns: namespace,
       now,

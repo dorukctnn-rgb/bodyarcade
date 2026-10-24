@@ -4,7 +4,7 @@
 // restrictions can be undone by asking the store for another store.
 import { describe, expect, it } from 'vitest';
 import { p, schemaOf } from './schema.ts';
-import { createStore, memoryStorage, type StorageLike, type StoreProblem } from './store.ts';
+import { browserStorage, createStore, memoryStorage, type StorageLike, type StoreProblem } from './store.ts';
 
 const Count = schemaOf(1, p.number({ int: true, min: 0 }));
 const CountV2 = schemaOf(2, p.number({ int: true, min: 0 }), (raw) => (raw as number) * 10);
@@ -180,6 +180,15 @@ describe('readOnly: a look that leaves no mark', () => {
     expect(again.readOnly).toBe(true);
     again.ns('runner').set('count', 1, Count);
     expect(JSON.parse(storage.getItem('ba2p2.runner.count') as string)).toEqual({ v: 1, d: 7 });
+  });
+});
+
+describe('persistent', () => {
+  it('says whether what is written survives the page: a storage that was handed in does, memory made up on the spot does not', () => {
+    expect(createStore({ storage: memoryStorage() }).persistent).toBe(true);
+    expect(createStore({}).persistent).toBe(browserStorage() !== null);
+    const base = createStore({ storage: memoryStorage() });
+    expect(base.withPrefix('ba2p2').persistent).toBe(true);
   });
 });
 
