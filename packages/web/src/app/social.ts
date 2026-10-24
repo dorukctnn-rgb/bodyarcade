@@ -197,6 +197,7 @@ export class SocialController {
       case 'room.say': if (isPresetMessage(d['id'])) this.svc.rooms.say(d['id']); return true;
       case 'room.react': if (isReaction(d['id'])) this.svc.rooms.react(d['id']); return true;
       case 'room.game': void this.chooseGame(); return true;
+      case 'room.video.retry': this.svc.rooms.retryVideo?.(); this.host.announce(this.host.context().i18n.t('room.video.connecting')); return true;
       case 'sheet.age.next': this.sheetAgeNext(); return true;
       case 'sheet.name.shuffle': this.sheetShuffle(); return true;
       case 'sheet.name.back': this.sheetBack(); return true;

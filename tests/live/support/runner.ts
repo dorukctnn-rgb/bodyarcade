@@ -3,6 +3,8 @@ import { chromium, type Browser, type BrowserContext, type Page } from '@playwri
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { withFakeVideo } from '../../e2e/support/browser.ts';
+import { createI18n } from '../../../packages/core/ui/i18n/index.ts';
+import { VIDEO_CONNECT_MS } from '../../../packages/core/net/video.ts';
 import type { Action, Scenario } from './scenarios.ts';
 import { ROOT, type Stack } from './stack.ts';
 
@@ -18,6 +20,8 @@ export interface PlayerM {
   firstRemoteFrameMs: number | null; startWall: number | null; zeroDateNow?: number; endDateNow?: number; heap: number[]; cam?: { lostAt: number; backAt?: number }[];
   fatal?: { reason: string; code: number }; replaced?: boolean; removed?: unknown; roomErrors: string[]; chat: unknown[]; presets: unknown[]; tracks: Record<string, number>;
   finalStats?: { path?: { local?: string; remote?: string; protocol?: string } | null; videoIn?: { fps?: number; freezes?: number } | null }[]; pcs?: number; videos?: number;
+  videoLog: { seat: string; state: string; reason: string | null; attempts: number; at: number }[];
+  skeletonFrames: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
   lm: {
     tWelcome?: number; warmupMs?: number; clock?: unknown; connectMs: number[]; pathTypes: ({ local?: string; remote?: string } | null)[]; stSent: number; stRecvDc: number; stRecvRelay: number;
     maxGap: number; gaps: number[]; iceRestarts: number; hardResets: number; wsOpens: number; wsCloses: number; deadSockets: number;
@@ -87,6 +91,7 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
   await stack.turnControl('/loss?p=0'); await stack.turnControl('/blackhole?on=0');
   stack.shaperA.freeze(false); stack.shaperB.freeze(false);
   stack.shaperA.outage(false); stack.shaperB.outage(false);
+  await stack.admin(`/api/admin/ice?turn=${sc.noTurn ? 'off' : 'on'}`, 'POST');
   stack.shaperA.setDelay(sc.shape?.[0]?.ms ?? 0, sc.shape?.[0]?.jitter ?? 0);
   stack.shaperB.setDelay(sc.shape?.[1]?.ms ?? 0, sc.shape?.[1]?.jitter ?? 0);
 
@@ -107,6 +112,7 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
     const p = new URLSearchParams({ room: code, pid: w.pid, name: w.name, age: w.age, video: videoOf(i) ? '1' : '0', relay: sc.relay ? '1' : '0', nop2p: sc.nop2p ? '1' : '0', matches: String(matches) });
     if (sc.busy?.[i]) p.set('busy', String(sc.busy[i]));
     if (sc.readyDelayMs) p.set('readydelay', String(sc.readyDelayMs));
+    if (sc.lang) p.set('lang', sc.lang);
     if (n > 2) p.set('noready', '1');          // a group presses ready together once everybody is in the room
     return `${baseFor(i)}/duel?${p.toString()}`;
   };
@@ -181,6 +187,8 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
           await (pages[idx] as Page).evaluate(() => { const s = (window as unknown as { __stream: MediaStream }).__stream; const t = s.getVideoTracks()[0] as MediaStreamTrack; t.stop(); t.dispatchEvent(new Event('ended')); });   // stop() alone fires no 'ended'
           break;
         }
+        case 'p2p': await Promise.all(pages.map((p) => p.evaluate(() => { (window as unknown as { __lm: { noP2P: boolean } }).__lm.noP2P = false; }))); break;
+        case 'retry': await (pages[idx] as Page).click('[id^="retry-"]:not([hidden])', { timeout: 5000 }); break;
         case 'dupTab': {
           extraPage = await (contexts[idx] as BrowserContext).newPage();
           watch(extraPage, `${(who[idx] as PlayerSetup).name}2`);
@@ -267,6 +275,7 @@ function finish(name: string, sc: Scenario, who: PlayerSetup[], M: (PlayerM | nu
       checks.othersCompleted = checks.complete;
     }
     if ((sc.players ?? 2) > 2) checks.placesForEveryone = checks.allDone && live.every((m) => m.results.every((r) => Object.keys(r.places).length === (sc.players ?? 2) - goneCount));
+    if (sc.expectVideo) Object.assign(checks, videoChecks(sc, live));
     if (sc.kind === 'public') checks.noVideoInPublic = live.every((m) => Object.keys(m.tracks).length === 0 && m.remoteFrames === 0);
     else if (sc.video && (sc.players ?? 2) > 2) checks.meshVideo = live.every((m) => Object.keys(m.tracks).length >= (sc.players ?? 2) - 1 - goneCount && m.remoteFrames > 30);
   }
@@ -290,4 +299,36 @@ function finish(name: string, sc: Scenario, who: PlayerSetup[], M: (PlayerM | nu
   writeFileSync(path.join(OUT, `${name}.json`), JSON.stringify({ result, M, oldTab }, null, 1));
   console.log(JSON.stringify({ scenario: name, pass: result.pass, failed, wallSec: result.wallSec, startSkewMs: result.startSkewMs, results: result.results, diagCount: extra.diagCount }));
   return result;
+}
+
+/**
+ * The friend camera, judged from what each page was told and drew (see duel.ts): the states in order with their times, the tile
+ * (skeleton or picture), the line a player would read and the button a player would press.
+ */
+function videoChecks(sc: Scenario, live: PlayerM[]): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  const t = createI18n(sc.lang ?? 'en');
+  const friendOf = (m: PlayerM): string => (m.seat === 's1' ? 's2' : 's1');
+  const states = (m: PlayerM): string[] => m.videoLog.filter((x) => x.seat === friendOf(m)).map((x) => x.state);
+  const at = (m: PlayerM, state: string, from = 0): number | null => m.videoLog.filter((x) => x.seat === friendOf(m) && x.state === state && x.at >= from).map((x) => x.at)[0] ?? null;
+  const want = sc.expectVideo;
+  if (want === 'failed') {
+    out.videoToldInTime = live.every((m) => { const c = at(m, 'connecting'); const f = at(m, 'failed'); return c !== null && f !== null && f - c <= VIDEO_CONNECT_MS + 3500; });
+    out.videoNeverLive = live.every((m) => !states(m).includes('live') && m.remoteFrames < 10);          // a negotiated track that never carries media may paint a frame or two
+    out.videoToldOnce = live.every((m) => states(m).join() === 'connecting,failed');
+    out.videoNoteReads = live.every((m) => (m.notes[friendOf(m)] ?? []).includes(t.t('room.video.failed')) && m.noteNow[friendOf(m)] === t.t('room.video.failed'));
+    out.videoRetryOffered = live.every((m) => !!m.retryShown[friendOf(m)]);
+    out.videoSkeletonOnTile = live.every((m) => (m.skeletonFrames[friendOf(m)] ?? 0) > 20 && !(m.shows[friendOf(m)] ?? []).includes('video'));
+  } else if (want === 'live') {
+    out.videoLive = live.every((m) => states(m).includes('live') && !states(m).includes('failed') && m.remoteFrames > 30);
+    out.videoQuiet = live.every((m) => !(m.notes[friendOf(m)] ?? []).includes(t.t('room.video.failed')) && !m.retryShown[friendOf(m)] && m.noteNow[friendOf(m)] === '');
+    out.videoOnTile = live.every((m) => (m.shows[friendOf(m)] ?? []).includes('video'));
+  } else if (want === 'recovers') {
+    out.videoToldFirst = live.every((m) => { const c = at(m, 'connecting'); const f = at(m, 'failed'); return c !== null && f !== null && f - c <= VIDEO_CONNECT_MS + 3500; });
+    out.videoCameBack = live.every((m) => { const f = at(m, 'failed'); return f !== null && at(m, 'live', f) !== null && m.remoteFrames > 30; });
+    out.videoRetryPressed = (live[0]?.retryClicks ?? 0) >= 1 && (live[0]?.videoLog.some((x) => x.attempts >= 1) ?? false);
+    out.videoNoteGone = live.every((m) => m.noteNow[friendOf(m)] === '' && (m.notes[friendOf(m)] ?? []).includes(t.t('room.video.failed')));
+    out.videoTileSwitched = live.every((m) => { const s = m.shows[friendOf(m)] ?? []; return s[0] === 'skeleton' && s[s.length - 1] === 'video'; });
+  }
+  return out;
 }

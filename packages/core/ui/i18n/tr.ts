@@ -642,6 +642,8 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'room.share.hint': 'Kapalı başlar. Bir arkadaşın görüntünü yalnızca ikiniz de açarsanız görür.',
   'room.share.minors': '18 yaş altındaki oyuncular görüntü paylaşmaz. Kameran hareketlerini her iki durumda da bu cihazda okur.',
   'room.share.unavailable': 'Bu odada görüntü paylaşımı yok. Kameran hareketlerini yine bu cihazda okur.',
+  'room.video.connecting': 'Arkadaşının kamerasına bağlanılıyor',
+  'room.video.failed': 'Kamera bağlanamadı, iskelet görüntüsüyle devam ediyoruz',
   'room.say.title': 'Bir şey söyle',
   'room.say.hi': 'Merhaba',
   'room.say.gg': 'İyi oyundu',

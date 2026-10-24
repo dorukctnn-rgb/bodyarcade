@@ -5,6 +5,7 @@
 //
 // Nothing here names a server. Types that already exist in core/social and core/types/net.ts are used as they are.
 import type { Unsubscribe } from '../../../core/types/index.ts';
+import type { VideoStatus } from '../../../core/net/video.ts';
 import type { ChatRejectReason, MemberInfo, PresetId, ReactionId, RoomInfo, SeatId } from '../../../core/types/net.ts';
 import type {
   AgeBand, BlockEntry, FriendEntry, LevelBand, LobbyEntry, MyProfile, QuickAction, Region, ReportReason, RequestResult, RequestsView, SocialErrorCode,
@@ -87,6 +88,11 @@ export interface RoomState {
   connection?: 'online' | 'reconnecting' | 'stopped';
   /** The last message the Room turned away (too fast, not allowed, muted), for a note under the box. */
   rejected?: { reason: ChatRejectReason; at: number };
+  /**
+   * The camera link to each friend who shares (core/net/video.ts): connecting, live, or failed. The match never depends on it;
+   * the friend is a skeleton meanwhile. A failed link gets one line ('room.video.failed') and a retry button. Missing in the practice port.
+   */
+  videos?: readonly VideoStatus[];
 }
 
 export const NO_ROOM_STATE: RoomState = { phase: 'idle', info: null, members: [], me: null, feed: [], problem: null, shareVideo: false, link: '' };
@@ -110,6 +116,8 @@ export interface RoomPort {
   setShareVideo(on: boolean): void;
   /** Asks the members who are not ready to get ready (a preset nudge, not free text). */
   remind(seat?: SeatId): void;
+  /** "Try again" for a friend camera that did not connect (one friend, or every failed one). Missing in the practice port. */
+  retryVideo?(seat?: SeatId): void;
 }
 
 /** Both ports, or null while this build has no social server (the Friends tab then stays hidden). */

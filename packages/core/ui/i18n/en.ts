@@ -642,6 +642,8 @@ export const en = {
   'room.share.hint': 'Starts off. A friend sees your video only when you both turn this on.',
   'room.share.minors': 'Players under 18 never share video. Your camera still reads your moves on this device either way.',
   'room.share.unavailable': 'Video is not available in this room. Your camera still reads your moves on this device.',
+  'room.video.connecting': 'Connecting to their camera',
+  'room.video.failed': 'Camera could not connect, continuing with the skeleton view',
   'room.say.title': 'Say something',
   'room.say.hi': 'Hello',
   'room.say.gg': 'Good game',

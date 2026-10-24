@@ -2,6 +2,8 @@
 export { LiveClient, type FatalReason, type LiveClientOptions, type LiveEvents, type LiveMetrics } from './client.ts';
 export { ClockFilter, type ClockInfo } from './clock.ts';
 export { PeerLink, DEFAULT_VIDEO_LIMITS, type LinkStats, type PeerHost, type VideoLimits } from './peer.ts';
+export { VideoTracker, VIDEO_CONNECT_MS, VIDEO_RETRY_GAP_MS, VIDEO_STALL_MS, type VideoProbe, type VideoReason, type VideoState, type VideoStatus } from './video.ts';
+export { friendTiles, type FriendTile, type TileNote } from './friend-tile.ts';
 export { createRoom, joinRoom, previewRoom, fetchIce, LiveApiError, type Identity, type NewRoomRequest } from './api.ts';
 export { codeFromInvite, formatRoomCode, inviteLink, isRoomCode, normalizeRoomCode, randomRoomCode, ROOM_CODE_ALPHABET } from './codes.ts';
 export { checkChat, checkName, CHAT_MAX_CHARS, CHAT_INTERVAL_MS, NAME_MAX_CHARS } from './chat-filter.ts';

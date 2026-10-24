@@ -3,8 +3,12 @@
 // camera, so a run is repeatable.
 // Query: room, pid, name, age (adult|teen|child), video=0|1, relay=1 (TURN only), nop2p=1, peers=none, dur (s, for the
 // first ready), skill (0..1), matches=N (rematch until N results), busy=ms (block the main thread this long every
-// 33 ms, like pose inference on a phone), noready=1 (do not press ready on welcome).
-import { LiveRace, scoreOf, type Identity } from '../../../packages/core/net/index.ts';
+// 33 ms, like pose inference on a phone), noready=1 (do not press ready on welcome), lang=en|tr (the language of the
+// friend tiles: the shell's own words for a camera that did not connect).
+// A friend tile per rival (the model of core/net/friend-tile.ts, drawn here the way the stage draws it): the camera picture
+// only while it flows, otherwise a skeleton from the ghost frames, one line when the camera did not connect and a retry button.
+import { friendTiles, LiveRace, scoreOf, type Identity } from '../../../packages/core/net/index.ts';
+import { createI18n, isLang } from '../../../packages/core/ui/i18n/index.ts';
 import type { MatchResult } from '../../../packages/core/types/net.ts';
 
 const q = new URLSearchParams(location.search);
@@ -18,9 +22,15 @@ interface Metrics {
   localScores: (ReturnType<typeof scoreOf> | null)[]; ends: number[]; seeds: number[]; heap: number[]; seat?: string | null;
   members?: unknown; chat: unknown[]; presets: unknown[]; roomErrors: string[]; removed?: unknown; fatal?: unknown; replaced?: boolean;
   cam?: { lostAt: number; backAt?: number }[]; finalStats?: unknown; lm?: unknown; pcs?: number; videos?: number; tracks: Record<string, number>;
+  /** The camera link states the page was told, with the page's time; the tile as drawn; what the player would have read and pressed. */
+  videoLog: { seat: string; state: string; reason: string | null; attempts: number; at: number }[];
+  skeletonFrames: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
 }
 
-const M: Metrics = { log: [], done: false, startWall: null, events: 0, remoteFrames: 0, firstRemoteFrameMs: null, phases: [], latency: [], results: [], localScores: [], ends: [], seeds: [], heap: [], chat: [], presets: [], roomErrors: [], tracks: {} };
+const M: Metrics = {
+  log: [], done: false, startWall: null, events: 0, remoteFrames: 0, firstRemoteFrameMs: null, phases: [], latency: [], results: [], localScores: [], ends: [], seeds: [], heap: [], chat: [], presets: [], roomErrors: [], tracks: {},
+  videoLog: [], skeletonFrames: {}, shows: {}, notes: {}, noteNow: {}, retryShown: {}, retryClicks: 0,
+};
 (window as unknown as { __M__: Metrics }).__M__ = M;
 
 const log = (s: string): void => {
@@ -99,7 +109,10 @@ race.on('chatRejected', (d) => { ((M.chatRejected ??= []) as unknown[]).push(d);
 race.on('reported', (d) => { ((M.reported ??= []) as unknown[]).push(d); });
 race.on('forfeit', (d) => { ((M.forfeits ??= []) as unknown[]).push(d.seat); });
 race.on('lobby', (v) => { M.members = v.members; M.room = v.room; });
-race.on('ghost', (d) => { if (M.latency.length < 4000) M.latency.push(Math.round(d.latencyMs)); });
+race.on('ghost', (d) => {
+  if (M.latency.length < 4000) M.latency.push(Math.round(d.latencyMs));
+  drawSkeleton(d.from, d.d);
+});
 race.on('state', (d) => log(`state ${d.prev} -> ${d.state}`));
 lm.on('synced', (d) => log('clock ' + JSON.stringify(d)));
 lm.on('phase', (d) => { M.phases.push({ why: d.why, phase: d.match.phase, at: Math.round(clock() - lm.m.t0) }); log(`phase ${d.why} ${d.match.phase}`); });
@@ -113,6 +126,60 @@ lm.on('welcome', (d) => {
     if (delay > 0) setTimeout(() => race.ready(), delay); else race.ready();
   }
 });
+// ───────── the friend tiles ─────────
+const i18n = createI18n(isLang(q.get('lang')) ? (q.get('lang') as 'en' | 'tr') : 'en');
+const tilesEl = document.getElementById('tiles') as HTMLElement;
+const tileEl = (seat: string): HTMLElement => {
+  let el = document.getElementById('tile-' + seat);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'tile-' + seat;
+    el.innerHTML = `<span class="who"></span><div class="pic"><canvas id="sk-${seat}" width="160" height="120"></canvas></div><p id="note-${seat}" role="status"></p><button id="retry-${seat}" type="button" hidden></button>`;
+    (el.querySelector('button') as HTMLButtonElement).addEventListener('click', () => { M.retryClicks++; race.retryVideo(seat); });
+    tilesEl.appendChild(el);
+  }
+  return el;
+};
+function renderTiles(): void {
+  for (const tile of friendTiles(race.members, race.you, race.videos)) {
+    const el = tileEl(tile.seat);
+    (el.querySelector('.who') as HTMLElement).textContent = tile.name;
+    const canvas = document.getElementById('sk-' + tile.seat) as HTMLCanvasElement;
+    const vid = document.getElementById('rival-' + tile.seat) as HTMLVideoElement | null;
+    if (vid) vid.style.display = tile.show === 'video' ? '' : 'none';
+    canvas.style.display = tile.show === 'video' ? 'none' : '';
+    const seen = (M.shows[tile.seat] ??= []);
+    if (seen[seen.length - 1] !== tile.show) seen.push(tile.show);
+    const note = document.getElementById('note-' + tile.seat) as HTMLElement;
+    note.textContent = tile.note ? i18n.t(tile.note) : '';
+    M.noteNow[tile.seat] = note.textContent;
+    if (tile.note) { const seen = (M.notes[tile.seat] ??= []); if (!seen.includes(note.textContent)) seen.push(note.textContent); }
+    const btn = document.getElementById('retry-' + tile.seat) as HTMLButtonElement;
+    btn.hidden = !tile.retry;
+    btn.textContent = i18n.t('common.retry');
+    if (tile.retry) M.retryShown[tile.seat] = true;
+  }
+}
+function drawSkeleton(from: string, d: unknown): void {
+  const pose = (d as { pose?: number[][] } | null)?.pose;
+  if (!Array.isArray(pose)) return;
+  tileEl(from);
+  const canvas = document.getElementById('sk-' + from) as HTMLCanvasElement | null;
+  const g = canvas?.getContext('2d');
+  if (!canvas || !g) return;
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  g.fillStyle = '#9fd';
+  for (const p of pose) g.fillRect(((p[0] ?? 0) / 640) * canvas.width - 1, ((p[1] ?? 0) / 480) * canvas.height - 1, 3, 3);
+  M.skeletonFrames[from] = (M.skeletonFrames[from] ?? 0) + 1;
+}
+race.on('video', (s) => {
+  M.videoLog.push({ seat: s.seat, state: s.state, reason: s.reason, attempts: s.attempts, at: Math.round(clock() - lm.m.t0) });
+  log(`video ${s.seat} ${s.state}${s.reason ? ' ' + s.reason : ''} attempts ${s.attempts}`);
+  renderTiles();
+});
+race.on('lobby', renderTiles);
+setInterval(renderTiles, 250);
+
 race.on('track', (d) => {
   M.tracks[d.from] = (M.tracks[d.from] ?? 0) + 1;
   let v = document.getElementById('rival-' + d.from) as HTMLVideoElement | null;

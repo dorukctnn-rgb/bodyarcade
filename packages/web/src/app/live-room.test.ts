@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LiveClient, type LiveClientOptions } from '../../../core/net/client.ts';
-import { ManualScheduler } from '../../../core/net/testkit.ts';
+import { FakeMediaStream, FakePeerConnection, ManualScheduler } from '../../../core/net/testkit.ts';
+import { VIDEO_CONNECT_MS } from '../../../core/net/video.ts';
 import type { SocketLike } from '../../../core/net/runtime.ts';
 import { NET_PROTOCOL, type JoinGrant, type MatchInfo, type MemberInfo, type RoomInfo, type RoomMessage } from '../../../core/types/net.ts';
 import { clampDuration, createLiveRoomPort, problemOf, type Identity } from './live-room.ts';
@@ -267,5 +268,60 @@ describe('what the player does in the room', () => {
     expect(port.state().shareVideo).toBe(false);
     expect(stopped).toBe(1);
     expect(s.messages('video').at(-1)).toMatchObject({ on: false });
+  });
+});
+
+describe('a friend camera that does not connect', () => {
+  // Until a TURN relay is paid for, two players behind strict networks get no camera link: the room page says so and offers a retry.
+  function withCamera() {
+    const sched = new ManualScheduler();
+    const sockets: FakeSocket[] = [];
+    const pcs: FakePeerConnection[] = [];
+    const port = createLiveRoomPort({
+      origin: ORIGIN, identity: () => ME,
+      fetcher: (async () => new Response(JSON.stringify(grantFor('K7P2QX')), { status: 200 })) as unknown as typeof fetch,
+      makeClient: (o) => new LiveClient({
+        ...o, peers: 'webrtc', warmup: false, sched, socket: () => { const s = new FakeSocket(); sockets.push(s); return s; },
+        createPeerConnection: () => { const pc = new FakePeerConnection(); pcs.push(pc); return pc as unknown as RTCPeerConnection; },
+      }),
+      openCamera: async () => new FakeMediaStream() as unknown as MediaStream,
+    });
+    return { sched, sockets, pcs, port };
+  }
+
+  it('shows connecting, then failed with a retry that can work, and goes quiet when the picture comes', async () => {
+    const t = withCamera();
+    await t.port.join('K7P2QX');
+    const s = t.sockets[0] as FakeSocket;
+    s.open();
+    const both = [member('s1', 'Ayse', { video: true }), member('s2', 'Doruk', { video: true })];
+    s.say({ t: 'welcome', v: NET_PROTOCOL, you: 's2', now: t.sched.now(), room: room(), members: both, match: null, mine: [], blocked: [] });
+    t.port.setShareVideo(true);
+    await flush();
+    // the Room says both want video: the link is being made
+    s.say({ t: 'presence', members: both });
+    expect(t.port.state().videos).toEqual([expect.objectContaining({ seat: 's1', state: 'connecting' })]);
+    t.sched.advance(VIDEO_CONNECT_MS + 300);
+    expect(t.port.state().videos).toEqual([expect.objectContaining({ seat: 's1', state: 'failed', reason: 'timeout', retryable: true })]);
+    // the retry button: a new attempt at once, a new link, the state says connecting again
+    const links = t.pcs.length;
+    t.port.retryVideo?.();
+    expect(t.port.state().videos).toEqual([expect.objectContaining({ seat: 's1', state: 'connecting', attempts: 1 })]);
+    await flush();
+    t.sched.advance(200);
+    await flush();
+    expect(t.pcs.length).toBeGreaterThan(links);
+    // the picture starts
+    const pc = t.pcs.filter((x) => !x.closed).at(-1) as FakePeerConnection;
+    pc.connect();
+    pc.receive().unmute();
+    expect(t.port.state().videos).toEqual([expect.objectContaining({ seat: 's1', state: 'live' })]);
+  });
+
+  it('has no video list at all in a room where nobody shares a camera', async () => {
+    const t = setup();
+    await t.port.join('K7P2QX');
+    t.welcome(t.sockets[0] as FakeSocket, [member('s1', 'Ayse'), member('s2', 'Doruk')]);
+    expect(t.port.state().videos).toBeUndefined();
   });
 });

@@ -18,7 +18,11 @@ export type Action =
   | { at: number; do: 'camLoss'; p: number }
   | { at: number; do: 'dupTab'; p: number }
   | { at: number; do: 'deploy' }
-  | { at: number; do: 'thirdJoin' };
+  | { at: number; do: 'thirdJoin' }
+  /** The network now allows a direct link (every page): the next attempt can connect. */
+  | { at: number; do: 'p2p' }
+  /** The player presses the "try again" button of the camera note (it must be on the screen). */
+  | { at: number; do: 'retry'; p: number };
 
 export interface Shape { ms: number; jitter: number }
 
@@ -48,6 +52,15 @@ export interface Scenario {
   readyDelayMs?: number;
   /** Room kind for the scenario; public rooms never carry video. */
   kind?: 'private' | 'public';
+  /** The Worker answers /api/ice as one with no TURN key does (STUN only), as the product does until a key is put on it. */
+  noTurn?: boolean;
+  /** The language of the tiles' words (the note for a camera that did not connect). */
+  lang?: 'en' | 'tr';
+  /**
+   * What the friend camera must do: 'failed' (told within the deadline, skeleton on the tile, one line, a retry button, never a
+   * picture), 'live' (comes up and stays, nothing said) or 'recovers' (fails, then the retry makes it come up and the note goes).
+   */
+  expectVideo?: 'failed' | 'live' | 'recovers';
   note?: string;
 }
 
@@ -59,7 +72,11 @@ export const SCENARIOS: Record<string, Scenario> = {
   turn_loss10: { video: true, relay: true, actions: [{ at: 5000, do: 'loss', p: 0.1 }, { at: 18_000, do: 'loss', p: 0 }] },
   turn_blackhole6s: { video: true, relay: true, actions: [{ at: 7000, do: 'blackhole', on: 1 }, { at: 13_000, do: 'blackhole', on: 0 }] },
   turn_blackhole20s: { video: true, relay: true, dur: 40, actions: [{ at: 6000, do: 'blackhole', on: 1 }, { at: 26_000, do: 'blackhole', on: 0 }] },
-  no_p2p: { video: true, nop2p: true },
+  no_p2p: { video: true, nop2p: true, lang: 'tr', expectVideo: 'failed' },
+  // the product until a TURN key exists: /api/ice offers STUN only, and two browsers on one machine still find each other
+  no_turn: { video: true, noTurn: true, expectVideo: 'live' },
+  // no path at all (strict networks): told in the deadline, then the network allows it, the player presses "try again", the camera comes up
+  video_retry: { video: true, nop2p: true, dur: 45, expectVideo: 'recovers', actions: [{ at: 14_000, do: 'p2p' }, { at: 15_000, do: 'retry', p: 0 }] },
   ws_kick: { video: true, actions: [{ at: 8000, do: 'kick' }] },
   kick_countdown: { video: true, pre: [{ at: 1200, do: 'kick' }] },
   ws_slow_b: { video: true, shape: [null, { ms: 150, jitter: 60 }] },

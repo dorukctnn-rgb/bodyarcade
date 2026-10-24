@@ -174,6 +174,32 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(textOf(minor)).toContain(ctx.i18n.t('room.chat.preset'));
   });
 
+  it('a friend camera that did not connect gets one line and a retry button, in the room page; a camera that is only connecting gets the line alone', async () => {
+    const { ctx } = ctxOf(lang, '/r/K7Q2MX/');
+    const { state, svc } = await ready();
+    await svc.rooms.create({ game: 'squat-flap', kind: 'private', size: 4, band: null });
+    const room = svc.rooms.state();
+    const game = games.find((g) => g.id === 'squat-flap') ?? null;
+    const view = (videos: RoomState['videos']): string => roomPage(ctx, { room: { ...room, shareVideo: true, ...(videos ? { videos } : {}) }, game, profile: state().profile, games: [], draft: '', chatNote: '' }).value;
+    const st = (state: 'connecting' | 'live' | 'failed', over: Partial<NonNullable<RoomState['videos']>[number]> = {}): NonNullable<RoomState['videos']>[number] => ({ seat: 's2', state, reason: state === 'failed' ? 'timeout' : null, retryable: true, attempts: 0, since: 0, ...over });
+    const none = view(undefined);
+    expect(none).not.toContain('room.video.retry');
+    expect(none).not.toContain('k-videolink');
+    const failed = view([st('failed')]);
+    expect(failed).toContain('data-action="room.video.retry"');
+    expect(textOf(failed)).toContain(ctx.i18n.t('room.video.failed'));
+    expect(textOf(failed)).toContain(ctx.i18n.t('common.retry'));
+    const connecting = view([st('connecting')]);
+    expect(textOf(connecting)).toContain(ctx.i18n.t('room.video.connecting'));
+    expect(connecting).not.toContain('room.video.retry');
+    // a device that cannot make the link at all is told, and is not offered a button that cannot work
+    const unsupported = view([st('failed', { reason: 'unsupported', retryable: false })]);
+    expect(textOf(unsupported)).toContain(ctx.i18n.t('room.video.failed'));
+    expect(unsupported).not.toContain('room.video.retry');
+    // a picture that flows needs no line
+    expect(view([st('live')])).not.toContain('k-videolink');
+  });
+
   it('the friend link page names the code and asks for a profile first when there is none', () => {
     const { ctx } = ctxOf(lang, '/f/BA-9PXMR3/');
     const withProfile = friendLinkPage(ctx, { code: 'BA-9PXMR3', profile: true, busy: false, note: null }).value;

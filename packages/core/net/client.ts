@@ -12,6 +12,7 @@ import { ClockFilter, type ClockInfo } from './clock.ts';
 import { PeerLink, DEFAULT_VIDEO_LIMITS, type LinkStats, type PeerHost, type PeerMetrics, type VideoLimits } from './peer.ts';
 import { Emitter, WS_CONNECTING, WS_OPEN, browserSocket, randomId, realScheduler, type Scheduler, type SocketFactory, type SocketLike } from './runtime.ts';
 import { parseRoomMessage } from './validate.ts';
+import { VideoTracker, type VideoProbe, type VideoStatus } from './video.ts';
 
 export type FatalReason = 'replaced' | 'full' | 'removed' | 'no_room' | 'version' | 'not_allowed' | 'ticket' | 'stopped';
 
@@ -38,6 +39,8 @@ export interface LiveEvents {
   state: { from: SeatId; d: unknown; path: 'dc' | 'relay'; latency: number };
   ctrl: { from: SeatId; d: unknown };
   track: { from: SeatId; stream: MediaStream; track: MediaStreamTrack };
+  /** The optional camera link to one friend changed (see video.ts): connecting, live, or failed with a reason; the skeleton is on the screen meanwhile. */
+  video: VideoStatus;
   synced: ClockInfo;
   roomError: { code: RoomErrorCode };
   /** The client stopped for good (taken over by another tab, removed, room gone...). */
@@ -60,7 +63,7 @@ export interface LiveClientOptions {
   peers?: 'webrtc' | 'none';
   /** TURN/STUN servers; fetched from /api/ice when omitted and peers are on. */
   ice?: IceGrant | (() => Promise<IceGrant>);
-  /** Test switches: only relayed candidates; no usable peer path at all. */
+  /** Test switches: only relayed candidates; no usable peer path at all (`noP2P` can be flipped later on the client). */
   forceRelay?: boolean;
   noP2P?: boolean;
   /** Create and drop one throwaway RTCPeerConnection in the lobby (the first one blocks the main thread for seconds). */
@@ -126,7 +129,8 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
   readonly clock = new ClockFilter();
   readonly iceConfig: RTCConfiguration = { iceServers: [] };
   readonly forceRelay: boolean;
-  readonly noP2P: boolean;
+  /** Test switch: no usable peer path at all (a strict network with no relay server). Flipping it takes effect with the next link. */
+  noP2P: boolean;
   readonly videoLimits: VideoLimits;
   readonly opts: LiveClientOptions;
   closed = false;
@@ -164,6 +168,9 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
   private readonly peers = new Map<SeatId, PeerLink>();
   private readonly lastSq = new Map<SeatId, { s: string; q: number }>();
   private readonly lastStateAt = new Map<SeatId, number>();
+  /** The friends' video tracks (negotiated; they carry a picture once unmuted) and the state of each camera link. */
+  private readonly remoteVideo = new Map<SeatId, MediaStreamTrack>();
+  private readonly videos = new VideoTracker(() => this.sched.now(), (s) => { this.emit('video', s); });
 
   constructor(opts: LiveClientOptions) {
     super();
@@ -198,6 +205,12 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
   }
 
   onTrack(from: SeatId, stream: MediaStream, track: MediaStreamTrack): void {
+    if (track.kind === 'video') {
+      this.remoteVideo.set(from, track);
+      const again = (): void => { if (this.remoteVideo.get(from) === track) this.probeVideo(from); };
+      for (const ev of ['unmute', 'mute', 'ended']) track.addEventListener?.(ev, again);
+      this.probeVideo(from);
+    }
     this.emit('track', { from, stream, track });
   }
 
@@ -205,6 +218,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     this.newEpoch();
     link.close();
     this.peers.delete(link.seat);
+    this.remoteVideo.delete(link.seat);
     this.setMembers(this.members);
   }
 
@@ -228,14 +242,33 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     if (rtc) {
       try {
         const ice = typeof this.opts.ice === 'function' ? await this.opts.ice() : this.opts.ice;
-        if (ice) (this.iceConfig as { iceServers: RTCIceServer[] }).iceServers = ice.iceServers as RTCIceServer[];
+        if (ice) this.applyIce(ice);
       } catch { /* STUN-less: host candidates still work on one network, the Room relay covers the rest */ }
-      if (this.noP2P) (this.iceConfig as { iceServers: RTCIceServer[] }).iceServers = [{ urls: ['turn:127.0.0.1:9?transport=udp'], username: 'x', credential: 'x' }];
+      if (this.noP2P) this.applyIce(null);
     }
     if (this.closed) return;
     this.connect();
     this.armTick();
     (globalThis as { addEventListener?: (type: string, fn: () => void) => void }).addEventListener?.('online', this.onNetworkBack);
+  }
+
+  /** The servers new links use. The TURN part is whatever the Worker's /api/ice gave: STUN only when no TURN key is set up, and nothing here changes when one is. */
+  private applyIce(ice: { iceServers: unknown[] } | null): void {
+    const cfg = this.iceConfig as { iceServers: RTCIceServer[] };
+    if (ice) cfg.iceServers = ice.iceServers as RTCIceServer[];
+    if (this.noP2P) cfg.iceServers = [{ urls: ['turn:127.0.0.1:9?transport=udp'], username: 'x', credential: 'x' }];
+  }
+
+  /** Asks for fresh servers (credentials expire, and a TURN key may have been added since the page opened). A failure keeps the servers we have. */
+  private async renewIce(): Promise<void> {
+    const src = this.opts.ice;
+    if (typeof src !== 'function') { this.applyIce(null); return; }
+    let timer: unknown = null;
+    try {
+      const wait = new Promise<undefined>((resolve) => { timer = this.sched.setTimeout(() => resolve(undefined), 4000); });
+      const ice = await Promise.race([src(), wait]);
+      this.applyIce(ice ?? null);
+    } catch { this.applyIce(null); } finally { if (timer !== null) this.sched.clearTimeout(timer); }
   }
 
   /** The browser says the network is back: a hanging attempt is retried at once, a live-looking socket is tested at the next tick. */
@@ -593,6 +626,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
         if (p && p.remoteSess === mem.sess && p.sendVideo === want) continue;
         if (p) {
           p.close();
+          this.remoteVideo.delete(mem.seat);
           if (p.remoteSess === mem.sess) this.newEpoch();         // we change the link (video on or off): the rival must rebuild too
         }
         try {
@@ -604,9 +638,60 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
           break;
         }
       }
-      for (const [seat, p] of this.peers) if (!list.some((x) => x.seat === seat)) { p.close(); this.peers.delete(seat); }
+      for (const [seat, p] of this.peers) if (!list.some((x) => x.seat === seat)) { p.close(); this.peers.delete(seat); this.remoteVideo.delete(seat); }
     }
     this.emit('presence', list);
+    this.probeVideos();
+  }
+
+  // ───────── the friends' cameras ─────────
+
+  private probeVideo(seat: SeatId): void {
+    const mem = this.members.find((m) => m.seat === seat);
+    if (!mem || seat === this.you) return;
+    const link = this.peers.get(seat);
+    const track = this.remoteVideo.get(seat);
+    const probe: VideoProbe = {
+      wanted: mem.online && this.desiredVideo(mem),
+      supported: this.opts.peers === 'webrtc' && !this.peersBroken,
+      flowing: !!track && track.readyState === 'live' && !track.muted,
+      ice: link ? link.pc.iceConnectionState : null,
+      track: !!track,
+    };
+    this.videos.update(seat, probe);
+  }
+
+  private probeVideos(): void {
+    for (const m of this.members) if (m.seat !== this.you) this.probeVideo(m.seat);
+    for (const s of this.videos.all()) if (!this.members.some((m) => m.seat === s.seat)) this.videos.forget(s.seat);
+  }
+
+  /** Where the camera link to a friend stands: off, connecting, live, or failed (and why). The match never waits for it. */
+  videoStatus(seat: SeatId): VideoStatus { return this.videos.status(seat); }
+
+  /** Every friend whose camera is wanted or was: the ones to draw a note and a retry button for. */
+  videoStatuses(): VideoStatus[] { return this.videos.all(); }
+
+  /**
+   * "Try again": a brand new attempt at the camera links (fresh servers, new epoch on both sides) for the friend given, or for
+   * every friend whose link failed. False when there was nothing to try or the last try was a moment ago. The match is not touched.
+   */
+  retryVideo(seat?: SeatId): boolean {
+    if (this.closed) return false;
+    const seats = seat !== undefined ? [seat] : this.videos.all().filter((s) => s.state === 'failed').map((s) => s.seat);
+    let any = false;
+    for (const s of seats) if (this.videos.retry(s)) any = true;
+    if (!any) return false;
+    // The epoch belongs to this client, not to one link: a new one makes every friend rebuild theirs, so ours are rebuilt too.
+    for (const p of this.peers.values()) p.close();
+    this.peers.clear();
+    this.remoteVideo.clear();
+    void this.renewIce().then(() => {
+      if (this.closed) return;
+      this.newEpoch();
+      this.setMembers(this.members);
+    });
+    return true;
   }
 
   /** A new peer-connection epoch: every rival rebuilds its link to us. */
@@ -702,6 +787,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     }
     this.updateSlew();
     for (const p of this.peers.values()) p.watch();
+    this.probeVideos();
     if (this.pendingFinal && this.online && now - this.finalAt > FINAL_RESEND_MS) { this.finalAt = now; this.sendNow(this.pendingFinal); }
     if (this.online && now - this.lastClockTry > CLOCK_REFRESH_MS) {
       this.lastClockTry = now;

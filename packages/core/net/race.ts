@@ -30,6 +30,7 @@ import { loadBlocks, saveBlocks } from './identity.ts';
 import { encodeQr, qrToSvg, type QrSvgOptions } from './qr.ts';
 import { Emitter, realScheduler, type Scheduler } from './runtime.ts';
 import { makeSchedule, scoreOf, specFor, type Obstacle } from './schedule.ts';
+import type { VideoStatus } from './video.ts';
 
 export type RaceState = 'connecting' | 'lobby' | 'countdown' | 'racing' | 'paused' | 'settling' | 'result' | 'closed';
 export type RaceCloseReason = FatalReason | 'left' | 'disposed';
@@ -97,6 +98,11 @@ export interface RaceEvents {
   reported: { seat: SeatId };
   removed: { reason: 'kicked' | 'banned' | 'dropped' };
   track: { from: SeatId; stream: MediaStream };
+  /**
+   * The camera link to one friend changed (off, connecting, live, failed with a reason; see video.ts). Whatever it says, the
+   * match goes on and the friend is drawn as a skeleton from the ghost frames; `failed` is the moment to show the note and the retry button.
+   */
+  video: VideoStatus;
   roomError: { code: RoomErrorCode };
 }
 
@@ -326,6 +332,11 @@ export class LiveRace extends Emitter<RaceEvents> {
     if (stream !== undefined) this.client.stream = stream;
     this.client.setVideo(on);
   }
+  /** Where the camera link to each friend stands (only friends with whom a camera is wanted or was). */
+  get videos(): VideoStatus[] { return this.client.videoStatuses(); }
+  videoStatus(seat: SeatId): VideoStatus { return this.client.videoStatus(seat); }
+  /** "Try again" for a camera that did not connect: one friend, or every friend whose link failed. False when there is nothing to try. */
+  retryVideo(seat?: SeatId): boolean { return this.client.retryVideo(seat); }
   block(seat: SeatId): void { this.client.block(seat); }
   reportPlayer(seat: SeatId, reason: ReportReason, alsoBlock: boolean): void { this.client.reportPlayer(seat, reason, alsoBlock); }
 
@@ -370,6 +381,7 @@ export class LiveRace extends Emitter<RaceEvents> {
     c.on('reported', (d) => this.emit('reported', d));
     c.on('removed', (d) => this.emit('removed', d));
     c.on('track', (d) => this.emit('track', { from: d.from, stream: d.stream }));
+    c.on('video', (d) => this.emit('video', d));
     c.on('roomError', (d) => this.emit('roomError', d));
     if (this.opts.pauseWhenHidden !== false && typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
       const onVis = (): void => {

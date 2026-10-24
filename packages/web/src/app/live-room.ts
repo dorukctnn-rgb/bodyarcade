@@ -116,6 +116,7 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
       c.on('chatRejected', (m) => { if (live()) set({ rejected: { reason: m.reason, at: Date.now() } }); }),
       c.on('blocked', () => { if (live()) deps.blocks?.save(c.blocks); }),
       c.on('status', (s) => { if (live()) set({ connection: s.state === 'online' ? 'online' : s.state === 'stopped' ? 'stopped' : 'reconnecting' }); }),
+      c.on('video', () => { if (live()) set({ videos: c.videoStatuses() }); }),
       c.on('removed', () => { if (live()) set({ phase: 'closed', problem: 'removed' }); }),
       c.on('fatal', (f) => { if (live()) set({ phase: 'closed', problem: FATAL_PROBLEM[f.reason] ?? 'offline' }); }),
     );
@@ -195,5 +196,6 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
     },
     /** A nudge is the preset "ready?" to the room: the Room has no message to one seat. */
     remind() { client?.preset('ready'); },
+    retryVideo(seat) { client?.retryVideo(seat); },
   };
 }

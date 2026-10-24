@@ -257,7 +257,17 @@ function feedRow(ctx: ViewContext, f: FeedItem, members: readonly MemberInfo[]):
   return html`<li>${avatar(f.seat)}<span><b>${name}</b> </span>${what}</li>`;
 }
 
-const PROBLEMS: readonly RoomProblem[] = ['full', 'no_room', 'removed', 'replaced', 'version', 'not_allowed', 'ticket', 'offline'];
+/** The camera links that are not up: one line, and a retry button when it can work. The friend is a skeleton meanwhile and the race never waits. */
+function videoLinks(ctx: ViewContext, r: RoomState): SafeHtml {
+  const t = ctx.i18n;
+  const down = (r.videos ?? []).filter((v) => v.state === 'failed' || v.state === 'connecting');
+  if (!down.length) return html``;
+  const failed = down.some((v) => v.state === 'failed');
+  const retry = down.some((v) => v.state === 'failed' && v.retryable);
+  return html`<div class="k-videolink" data-state="${failed ? 'failed' : 'connecting'}"><p class="k-fine" role="status">${t.t(failed ? 'room.video.failed' : 'room.video.connecting')}</p>${retry ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="room.video.retry">${t.t('common.retry')}</button>` : ''}</div>`;
+}
+
+const PROBLEMS: readonly RoomProblem[] =['full', 'no_room', 'removed', 'replaced', 'version', 'not_allowed', 'ticket', 'offline'];
 
 /**
  * Everybody gets ready (the game's camera is calibrated first); the Room starts the match by itself the moment all
@@ -324,6 +334,7 @@ export function roomPage(ctx: ViewContext, v: RoomView): SafeHtml {
           ${canVideo
             ? html`<div data-form="room-share">${switchRow({ id: 'room-share', name: 'share', label: t.t('room.share.title'), hint: t.t('room.share.hint'), checked: r.shareVideo })}</div><p class="k-fine">${t.t('room.share.minors')}</p>`
             : html`<b id="cam">${t.t('room.share.title')}</b><p class="k-fine">${videoNote}</p>`}
+          ${videoLinks(ctx, r)}
         </section>
         <section class="k-card k-msgrow" aria-labelledby="say">
           <span class="k-label k-flat" id="say">${t.t('room.say.title')}</span>
