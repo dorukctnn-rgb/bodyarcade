@@ -3,6 +3,7 @@
 import { attr, html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon, type IconName } from '../../../core/ui/icons.ts';
 import { LANG_INFO } from '../../../core/ui/i18n/index.ts';
+import { rulesOf } from '../app/profiles-model.ts';
 import { hasPro, type ViewContext } from '../context.ts';
 import { chrome } from './chrome.ts';
 import { segmented } from './forms.ts';
@@ -65,8 +66,10 @@ export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml
     </ul></section>
     <section class="k-setgroup" aria-labelledby="s-you"><h2 id="s-you">${t.t('settings.section.body')}</h2><ul class="k-set">
       ${row({ icon: 'trophy', title: t.t('settings.goals'), hint: goals, control: html`<a class="ba-link" href="${ctx.href('welcome')}">${t.t('settings.change')}</a>` })}
-      ${row({ icon: 'info', title: t.t('settings.weight'), hint: t.t('settings.weight.hint'), wrap: true, labelFor: 'set-weight',
-        control: html`<span class="k-weight"><input class="ba-input" id="set-weight" name="weightKg" data-key="weightKg" type="text" inputmode="decimal" autocomplete="off"${attr('value', s.weightKg ?? false)}><span class="ba-small">${t.t('settings.weight.unit')}</span></span>` })}
+      ${rulesOf(ctx.player).calories ? row({ icon: 'info', title: t.t('settings.weight'), hint: t.t('settings.weight.hint'), wrap: true, labelFor: 'set-weight',
+        control: html`<span class="k-weight"><input class="ba-input" id="set-weight" name="weightKg" data-key="weightKg" type="text" inputmode="decimal" autocomplete="off"${attr('value', s.weightKg ?? false)}><span class="ba-small">${t.t('settings.weight.unit')}</span></span>` }) : ''}
+      ${ctx.player && (ctx.player.capacity.max > 1 || ctx.player.players > 1)
+        ? row({ icon: 'users', title: t.t('settings.profiles'), hint: t.t('settings.profiles.hint', ctx.player.capacity), control: html`<a class="ba-link" href="${ctx.href('profiles', { query: { manage: '1' } })}">${t.t('settings.profiles.manage')}</a>` }) : ''}
     </ul></section>
   </div>`;
 

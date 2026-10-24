@@ -12,6 +12,8 @@ import { gamePage, NO_GAME_DATA, type GameData } from './views/game.ts';
 import type { SocialPageState } from './app/social.ts';
 import { notFoundPage } from './views/misc.ts';
 import { friendLinkPage, friendsPage, lobbiesPage, NO_FRIENDS_VIEW, roomPage, safetyPage } from './views/social.ts';
+import { childSocialPage, profilesPage } from './views/profiles.ts';
+import { NO_PROFILES_STATE, type ProfilesPageState } from './app/profiles-model.ts';
 import { NO_ROOM_STATE } from './social/port.ts';
 import { defaultPaywallState, paywallPage, type PaywallState } from './views/paywall.ts';
 import { NO_PLANS_DATA, plansPage, type PlansData } from './views/plans.ts';
@@ -36,9 +38,11 @@ export interface PageState {
   social: SocialPageState | null;
   /** Where the welcome tour stands; null draws its first step (the generator, a visitor without scripts). */
   welcome: TourState | null;
+  /** What the players screen draws; null in the page generator, which never draws it. */
+  profiles: ProfilesPageState | null;
 }
 
-export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null, welcome: null };
+export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null, welcome: null, profiles: null };
 
 export interface Rendered {
   body: SafeHtml;
@@ -130,6 +134,8 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
     case 'room':
     case 'friendlink':
     case 'safety': {
+      // A child has no online identity: the friends pages say so and lead to the main player instead of looking missing.
+      if (!ctx.flags.social && ctx.flags.socialChild) return { body: childSocialPage(ctx), title: named(t.t('social.title')), description: t.t('profile.child.social'), noindex: true, status: 200, jsonLd: [] };
       if (!ctx.flags.social) return notFound();
       const s = state.social;
       const room = { room: NO_ROOM_STATE, game: null, profile: null, games: [], draft: '', chatNote: '' };
@@ -141,6 +147,10 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       const title = route.id === 'lobbies' ? t.t('lobby.title') : route.id === 'room' ? t.t('room.title') : route.id === 'safety' ? t.t('safety.title') : t.t('social.title');
       return { body, title: named(title), description: t.t('social.intro.body'), noindex: true, status: 200, jsonLd: [] };
     }
+    case 'profiles':
+      // Who is playing: drawn by the browser app only, from the players of this device.
+      if (!ctx.player) return notFound();
+      return { body: profilesPage(ctx, state.profiles ?? NO_PROFILES_STATE), title: named(t.t('profile.title')), description: t.t('profile.lead'), noindex: true, status: 200, jsonLd: [] };
     case 'welcome':
       // The tour is drawn in full by the browser app (it owns the 3D stage); a crawler or a visit without scripts gets its first step, and no index.
       return { body: welcomePage(ctx, state.welcome ?? FIRST_TOUR), title: named(t.t('onboarding.h1')), description: t.t('home.description'), noindex: true, status: 200, jsonLd: [] };

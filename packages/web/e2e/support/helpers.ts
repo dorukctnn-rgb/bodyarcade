@@ -9,7 +9,7 @@ export interface Hooks {
   /** Use the practice session even for a game that has real code (Road Run). */
   forceDemo?: boolean;
   social?: boolean | 'fresh' | 'offline';
-  plan?: 'free' | 'pro';
+  plan?: 'free' | 'pro' | 'family';
   /** A keyboard is there even on a phone-sized touch screen (the shell offers it only on laptops and TVs). */
   keyboard?: boolean;
   /** The practice session sees a person at a desk: head and shoulders, no hips, until the round is a seated one. */

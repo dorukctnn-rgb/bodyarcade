@@ -1,6 +1,7 @@
 // The frame around every page: skip link, top bar (wide screens), tab bar (phones, side rail on landscape phones),
 // the main landmark and the footer. Navigation is real links, so the site works for crawlers and without scripts.
 import { attr, html, type SafeHtml } from '../../../core/ui/html.ts';
+import { avatar } from '../../../core/ui/avatars.ts';
 import { icon, type IconName } from '../../../core/ui/icons.ts';
 import { LANG_INFO, type Lang } from '../../../core/ui/i18n/index.ts';
 import { router, INDEXED_LANGS, type NavTab } from '../routes.ts';
@@ -21,6 +22,13 @@ export function tabsOf(ctx: ViewContext): Tab[] {
 export function logo(ctx: ViewContext, height: number): SafeHtml {
   const name = ctx.i18n.t('brand.name');
   return html`<span class="ba-logo"><img class="ba-logo-light" src="${ctx.assets.logo('light')}" alt="${name}" height="${height}" width="${Math.round(height * 5.59)}"><img class="ba-logo-dark" src="${ctx.assets.logo('dark')}" alt="" aria-hidden="true" height="${height}" width="${Math.round(height * 5.59)}"></span>`;
+}
+
+/** The switcher in the bar of the site: the picture and the name of whoever plays, a link to the screen of players. Only where there is someone to switch to. */
+export function switcherLink(ctx: ViewContext): SafeHtml {
+  const p = ctx.player;
+  if (!p || p.players < 2) return html``;
+  return html`<a class="pf-switch" href="${ctx.href('profiles')}" aria-label="${ctx.i18n.t('profile.switch.now', { name: p.name })}">${avatar(p.avatar, { size: 28 })}<span>${p.name}</span></a>`;
 }
 
 function languageLinks(ctx: ViewContext): SafeHtml {
@@ -86,11 +94,11 @@ export function chrome(ctx: ViewContext, o: ChromeOptions): SafeHtml {
     <header class="ba-topbar">
       <a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 32)}</a>
       <nav aria-label="${t.t('nav.label')}">${topLinks}</nav>
-      <span class="ba-me">${proBadge}</span>
+      <span class="ba-me">${switcherLink(ctx)}${proBadge}</span>
     </header>
     ${trialNotice(ctx)}
     <main id="main" class="ba-page ${o.mainClass ?? ''}" tabindex="-1">
-      ${o.pushed ? '' : html`<div class="ba-mobilehead"><a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 28)}</a>${proBadge}</div>`}
+      ${o.pushed ? '' : html`<div class="ba-mobilehead"><a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 28)}</a><span class="ba-me">${switcherLink(ctx)}${proBadge}</span></div>`}
       ${o.main}
     </main>
     ${footer(ctx)}

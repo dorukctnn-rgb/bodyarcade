@@ -10,8 +10,10 @@ import type { Framing } from '../../../core/types/index.ts';
 import { proGames, relatedGames, supportsLocal2 } from '../../catalogue/filter.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import { accessOf, aboutOf, durationLabel, regionLabel, taglineOf, titleOf, type Access, type ViewContext } from '../context.ts';
+import type { FamilyEntry } from '../../../core/store/index.ts';
 import { chrome } from './chrome.ts';
 import { pageHead } from './parts.ts';
+import { familyTable } from './profiles.ts';
 import { defaultSetup, setupFields, startLabel, type SetupState } from './setup.ts';
 import { gameGrid } from './tiles.ts';
 
@@ -25,6 +27,8 @@ export interface GameData {
   setup?: SetupState;
   /** This game is the challenge of the day, and how it stands. */
   challenge?: { done: boolean; bonus: boolean } | null;
+  /** The players of this device and their best in this game (the table is drawn from two players on). */
+  family?: readonly FamilyEntry[];
 }
 
 export const NO_GAME_DATA: GameData = { best: null, challenge: null };
@@ -104,6 +108,7 @@ export function gamePage(ctx: ViewContext, g: ShellGame, data: GameData = NO_GAM
         </div>
         <div class="k-block"><span class="k-label">${t.t('game.section.how')}</span>${how(ctx, g)}</div>
         ${play(ctx, g, data, access)}
+        ${familyTable(ctx, data.family ?? [])}
       </div>
     </article>
 

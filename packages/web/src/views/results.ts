@@ -5,6 +5,7 @@ import { icon } from '../../../core/ui/icons.ts';
 import { localized } from '../../../core/ui/i18n/localized.ts';
 import { proGames } from '../../catalogue/filter.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
+import { rulesOf } from '../app/profiles-model.ts';
 import { durationLabel, hasPro, titleOf, type ViewContext } from '../context.ts';
 import { chrome } from './chrome.ts';
 import { pageHead } from './parts.ts';
@@ -102,6 +103,8 @@ function counted(ctx: ViewContext, r: RoundResult): SafeHtml {
 
 function calories(ctx: ViewContext, r: RoundResult): SafeHtml {
   const t = ctx.i18n;
+  // A child's profile has no weight and no calories: not even the line that asks for one.
+  if (!rulesOf(ctx.player).calories) return html``;
   if (r.calories === null) return html`<div class="k-kcal"><span class="ba-small">${t.t('results.noWeight')} <a class="ba-link" href="${ctx.href('settings')}">${t.t('nav.settings')}</a></span></div>`;
   return html`<div class="k-kcal"><b>${t.t('results.calories', { n: t.number(Math.round(r.calories)) })}</b><span class="ba-small">${t.t('results.calories.note')}</span></div>`;
 }

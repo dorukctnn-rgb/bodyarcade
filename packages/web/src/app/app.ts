@@ -10,6 +10,7 @@ import { shouldShowPaywallAfterRound } from '../../../core/ui/plans.ts';
 import { applySettingsToDocument, createSettingsStore, type Settings, type SettingsStore } from '../../../core/ui/settings.ts';
 import { createToaster, type Toaster } from '../../../core/ui/toast.ts';
 import { createStore, type BodyArcadeStore, type StorageLike, type StoreNamespace } from '../../../core/store/store.ts';
+import type { ProfileBook, ProfileDefaults, ProfileRules, ProfileSpace } from '../../../core/store/index.ts';
 import type { Arcade, PlanStepReport, RunReport } from '../../../core/store/arcade.ts';
 import type { AchievementDef } from '../../../core/store/achievements.ts';
 import type { ChallengeResult } from '../../../core/store/daily-challenge.ts';
@@ -39,6 +40,8 @@ import { localEntitlements } from './entitlements.ts';
 import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
 import { PlayController, type PlayHost } from './play.ts';
 import { WelcomeController, type WelcomeHost } from './welcome.ts';
+import { askParentGate, ProfilesController, type ProfilesHost } from './profiles.ts';
+import { factsOf, OPEN_RULES, type PlayerFacts } from './profiles-model.ts';
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
@@ -61,8 +64,12 @@ export interface AppOptions {
   /** Development and test builds: the practice session, test hooks and the demo license key. */
   demo: boolean;
   storage?: StorageLike | null;
-  /** The page's own store, when something else (the entitlements) has to share it. */
+  /** The page's own store, when there are no players (tests that build the app by hand); with `profiles` every record is the active player's. */
   store?: BodyArcadeStore;
+  /** The players of this device and what each may do (core/store/profiles.ts). */
+  profiles?: ProfileBook;
+  /** The Family plan is sold: the players screen may offer to add players to a device that has none to add yet. */
+  family?: boolean;
   entitlements?: EntitlementsPort;
   /** The offers, what the paywall may say where the page runs, and the free trial: from core/entitlements (billing.ts). */
   billing: BillingPort;
@@ -96,9 +103,14 @@ export class App {
   private readonly win: Window & typeof globalThis;
   private readonly doc: Document;
   private readonly host: HTMLElement;
-  private readonly store: BodyArcadeStore;
-  private readonly shell: StoreNamespace;
-  private readonly settings: SettingsStore;
+  private store: BodyArcadeStore;
+  private shell: StoreNamespace;
+  private settings: SettingsStore;
+  private offSettings: (() => void) | null = null;
+  /** The players of this device, and the one that is playing. */
+  private readonly book: ProfileBook | null;
+  private space: ProfileSpace | null;
+  private readonly profiles: ProfilesController | null;
   private entitlements: EntitlementsPort;
   private billing: BillingPort;
   private offEntitlements: (() => void) | null = null;
@@ -116,7 +128,7 @@ export class App {
   private route: Matched<RouteId> | null = null;
   private state: PageState = { ...EMPTY_STATE };
   /** Everything the player does, kept as facts: runs and bests, the habit, the challenge of the day, the workout plans. */
-  private readonly arcade: Arcade;
+  private arcade: Arcade;
   /** The round that is on the stage is a game of the workout plan that is going. */
   private planRound = false;
   private restTimer: ReturnType<typeof setInterval> | null = null;
@@ -142,12 +154,17 @@ export class App {
     this.doc = o.win.document;
     this.host = this.doc.getElementById('app') as HTMLElement;
     this.games = o.catalogue.games;
-    this.store = o.store ?? createStore({ ...(o.storage !== undefined ? { storage: o.storage } : {}) });
+    this.book = o.profiles ?? null;
+    this.space = this.book ? this.book.open() : null;
+    this.store = this.space?.store ?? o.store ?? createStore({ ...(o.storage !== undefined ? { storage: o.storage } : {}) });
     this.shell = this.store.ns('shell');
     const first = !this.shell.has('settings');
     this.settings = createSettingsStore(this.shell);
     this.caps = this.detectCaps();
     if (first && this.caps.tv) this.settings.set({ bigText: true });
+    if (first && this.space) this.applyDefaults(this.space.profile.defaults);
+    this.syncSeated(true);
+    this.profiles = this.book ? new ProfilesController(this.profilesHost()) : null;
     this.entitlements = o.entitlements ?? localEntitlements({
       demo: o.demo,
       isFreeGame: (id) => this.games.find((g) => g.id === id)?.free === true,
@@ -158,19 +175,121 @@ export class App {
     this.billing = o.billing;
     const map = readAssetMap(this.doc);
     this.assets = Object.keys(map).length > 0 ? mappedAssets(map) : devAssets;
-    this.arcade = makeArcade({
-      store: this.store, games: () => this.games, can: (f) => this.entitlements.can?.(f) ?? false, paid: () => this.plan !== 'free',
-      seated: () => this.currentSettings().seated, syncPort: () => this.o.syncPort?.() ?? null,
-    });
-    // A player who comes back from the live site brings the runner's record, once.
-    const legacy = browserStorage();
-    if (legacy) { try { this.arcade.importLegacy(legacy); } catch { /* the record starts empty */ } }
+    this.arcade = this.buildArcade();
     this.live = createLiveRegion(this.doc as never);
     this.toaster = createToaster(this.doc as never, this.live);
     this.social = o.social ? new SocialController(this.socialHost(), o.social) : null;
+    // The games keep their own records in the store of whoever plays: a getter, so a round after a change of player writes to the new one.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
     this.factory = o.sessionFactory ?? o.makeSessionFactory?.({
-      store: this.store, i18n: () => this.ctx().i18n, reducedMotion: () => this.reducedMotion(), soundOn: () => this.currentSettings().sound, quiet: () => this.currentSettings().quiet,
+      get store(): BodyArcadeStore { return self.store; },
+      i18n: () => this.ctx().i18n, reducedMotion: () => this.reducedMotion(), soundOn: () => this.currentSettings().sound, quiet: () => this.currentSettings().quiet,
     });
+  }
+
+  // ---- the players ----------------------------------------------------------------------------------------------------
+
+  /** The arcade of the player that is playing: their record, their rules, their sync (only the main player syncs). */
+  private buildArcade(): Arcade {
+    const arcade = this.space
+      ? this.space.arcade({ games: () => this.games, paid: () => this.plan !== 'free', syncPort: () => this.o.syncPort?.() ?? null })
+      : makeArcade({
+        store: this.store, games: () => this.games, can: (f) => this.entitlements.can?.(f) ?? false, paid: () => this.plan !== 'free',
+        seated: () => this.currentSettings().seated, syncPort: () => this.o.syncPort?.() ?? null,
+      });
+    // A player who comes back from the live site brings the runner's record, once (only the main player's record takes it).
+    const legacy = browserStorage();
+    if (legacy) { try { arcade.importLegacy(legacy); } catch { /* the record starts empty */ } }
+    return arcade;
+  }
+
+  /** What the rules of whoever plays allow. A device without players (a test) allows everything. */
+  private rules(): ProfileRules { return this.space?.rules ?? OPEN_RULES; }
+
+  private playerFacts(): PlayerFacts | null {
+    const book = this.book;
+    if (!book) return null;
+    const cap = book.capacity();
+    return factsOf(book.active(), { players: book.list().filter((p) => p.state === 'ready').length, capacity: { max: cap.max, used: cap.used } });
+  }
+
+  /** A new player starts from the defaults of their kind (a child: quiet, gentle, no weight), once, when they have no settings yet. */
+  private applyDefaults(d: ProfileDefaults): void {
+    this.settings.set({ seated: d.seated, quiet: d.quiet ?? false, ...(d.level ? { level: d.level } : {}), ...(d.weightKg === null ? { weightKg: null } : {}) });
+  }
+
+  /**
+   * Sitting is the profile's own setting (the book keeps the one copy; the arcade's plans read it): the settings follow it, except
+   * the first time the one-player version's choice is carried over to the main player.
+   */
+  private syncSeated(initial: boolean): void {
+    const book = this.book;
+    if (!book) return;
+    const p = book.active();
+    const carry = initial && (book.migration.kind === 'single' || book.migration.kind === 'fresh') && this.currentSettings().seated && !p.seated;
+    if (carry) book.update(p.id, { seated: true });
+    else if (this.currentSettings().seated !== p.seated) this.settings.set({ seated: p.seated });
+  }
+
+  /** The tour keeps its answers: the seat goes to the profile (its one copy), the rest to the settings. */
+  private saveSettings(patch: Partial<Settings>): void {
+    const { seated, ...rest } = patch;
+    this.settings.set(rest);
+    if (seated !== undefined) this.saveSeated(seated);
+  }
+
+  /** The settings changed the player's seat: the profile says so too. */
+  private saveSeated(on: boolean): void {
+    this.settings.set({ seated: on });
+    const book = this.book;
+    if (book) book.update(book.active().id, { seated: on });
+  }
+
+  /** A different player plays now, or the one that plays was cleared: everything the app holds of the old record is let go and built again from the new. */
+  private played(space: ProfileSpace): void {
+    if (!this.book) return;
+    const first = !space.store.ns('shell').has('settings');
+    this.space = space;
+    this.store = space.store;
+    this.shell = this.store.ns('shell');
+    this.offSettings?.();
+    this.settings = createSettingsStore(this.shell);
+    if (first) this.applyDefaults(space.profile.defaults);
+    this.syncSeated(false);
+    this.offSettings = this.settings.subscribe(() => this.apply());
+    this.arcade = this.buildArcade();
+    this.setups.clear();
+    this.state = { ...EMPTY_STATE };
+    this.trialDismissed = false;
+    this.endTour();
+    this.apply();
+    this.profiles?.refresh();
+  }
+
+  private profilesHost(): ProfilesHost {
+    const book = this.book as ProfileBook;
+    return {
+      document: this.doc,
+      context: () => this.ctx(),
+      book,
+      played: (space) => { this.played(space); },
+      updated: () => { this.syncSeated(false); this.rerender(); },
+      go: (href, o) => this.nav.go(href, o ?? {}),
+      toast: (text, kind) => { this.toaster.show(text, kind ? { kind } : {}); },
+      announce: (text) => this.live.announce(text),
+      confirm: (o) => this.confirm(o),
+      redraw: () => { this.rerender(); },
+      now: () => Date.now(),
+    };
+  }
+
+  /** The book moved by itself (another tab, the plan ended): follow it. */
+  private onBookChange(e: { active: string }): void {
+    if (!this.book || !this.space) return;
+    if (e.active !== this.space.id) this.played(this.book.open());
+    this.profiles?.refresh();
+    if (this.route && this.route.id !== 'play') this.render();
   }
 
   // ---- context -----------------------------------------------------------------------------------------------------
@@ -187,8 +306,10 @@ export class App {
     const pay = this.billing.paywall();
     return makeContext({
       lang, games: this.games, url, settings: this.currentSettings(), caps: this.caps, plan: this.plan, plans: pay.plans, paywall: pay.info,
-      trial: this.trialDismissed ? null : this.billing.trial.notice(), assets: this.assets,
-      flags: { social: !!this.social }, version: this.o.version, server: false,
+      // The notice of a trial and its reminder are about buying: a child's screens say nothing of it unless a grown-up has opened them.
+      trial: this.trialDismissed || this.rules().purchase !== 'open' ? null : this.billing.trial.notice(), assets: this.assets,
+      player: this.playerFacts(),
+      flags: { social: !!this.social && this.rules().online, family: this.o.family === true, socialChild: !!this.social && !this.rules().online }, version: this.o.version, server: false,
     });
   }
 
@@ -221,7 +342,8 @@ export class App {
     this.on(this.win, 'resize', () => this.onResize());
     this.on(this.win, 'orientationchange', () => this.onResize());
     this.watchEntitlements();
-    this.cleanups.push(this.settings.subscribe(() => this.apply()));
+    this.offSettings = this.settings.subscribe(() => this.apply());
+    if (this.book) this.cleanups.push(this.book.onChange((e) => this.onBookChange(e)));
     this.social?.start();
     this.apply();
     this.nav.start();
@@ -256,6 +378,7 @@ export class App {
     this.social?.stop();
     this.nav.stop();
     for (const c of this.cleanups.splice(0)) c();
+    this.offSettings?.();
     this.offEntitlements?.();
     this.stopRestTimer();
     this.live.dispose();
@@ -280,6 +403,16 @@ export class App {
         return;
       }
     }
+    // A device with two or more players asks who is playing when the app opens (and a child whose plan ended meets the gate first).
+    if (change.initial && this.book && route && route.id !== 'profiles' && route.id !== 'play' && route.id !== 'welcome' && this.book.picker().ask) {
+      this.nav.go(router.href('profiles', { lang: route.lang, query: { next: this.urlNow() } }), { replace: true });
+      return;
+    }
+    // Whatever buys something is behind a grown-up for a child.
+    if (route?.id === 'pro' && this.book && !this.book.canPurchase() && !(await askParentGate({ document: this.doc, context: () => this.ctx() }, this.book.gate))) {
+      this.nav.go(router.href('home', { lang: route.lang }), { replace: true });
+      return;
+    }
     // A first visit to the home page is taken to the tour, once (a script or a crawler never is, so the page a search engine lists is the one it gets).
     if (route?.id === 'home' && this.firstVisit(change)) {
       this.nav.go(router.href('welcome', { lang: route.lang }), { replace: true });
@@ -300,6 +433,7 @@ export class App {
     if (!change.initial && !change.replaced) this.moves += 1;
     this.endPlay();
     this.route = route;
+    if (route?.id === 'profiles') this.profiles?.enter(route);
     this.lang = route && route.lang !== 'en' ? route.lang : (route ? 'en' : this.lang);
     this.social?.enter(route);
     this.apply();
@@ -328,7 +462,7 @@ export class App {
 
   private gameData(g: ShellGame, ctx: ViewContext): GameData {
     const today = this.arcade.challenge.today();
-    return { best: this.bestAnyLevel(g.id), setup: this.setupFor(g, ctx), challenge: today.challenge?.game === g.id ? { done: today.done, bonus: today.bonus } : null };
+    return { best: this.bestAnyLevel(g.id), setup: this.setupFor(g, ctx), challenge: today.challenge?.game === g.id ? { done: today.done, bonus: today.bonus } : null, family: this.book ? this.book.family(g.id) : [] };
   }
 
   private setupFor(g: ShellGame, ctx: ViewContext): SetupState {
@@ -356,6 +490,7 @@ export class App {
       plans: route?.id === 'plans' ? { cards: this.arcade.plans.list(), active: this.arcade.plans.active() } : NO_PLANS_DATA,
       social: this.social && route && SOCIAL_ROUTES.has(route.id) ? this.social.pageState(route) : null,
       welcome: this.tour?.tour() ?? null,
+      profiles: route?.id === 'profiles' && this.profiles ? this.profiles.state() : null,
     };
     const page = renderPage(ctx, route, state);
     swap(this.host, page.body.value);
@@ -389,7 +524,7 @@ export class App {
       document: this.doc,
       context: () => this.ctx(),
       settings: () => this.currentSettings(),
-      saveSettings: (patch) => this.settings.set(patch),
+      saveSettings: (patch) => this.saveSettings(patch),
       stepHref: (step: TourStep) => this.ctx().href('welcome', step === 1 ? {} : { query: { step: String(step) } }),
       firstGameHref: (s: TourState) => this.firstGameHref(s),
       go: (href, o) => this.nav.go(href, o ?? {}),
@@ -551,7 +686,8 @@ export class App {
    */
   private finishRound(game: ShellGame, setup: SetupState, summary: Parameters<PlayHost['finish']>[2]): void {
     const ctx = this.ctx();
-    const weightKg = this.currentSettings().weightKg;
+    // A child's profile has no weight and no calories.
+    const weightKg = this.rules().calories ? this.currentSettings().weightKg : null;
     const first = this.firstRound;
     this.firstRound = false;
     const input = runInputOf({ game: first ? { durationSec: FIRST_SECONDS } : game, setup, summary, kcal: caloriesFor(summary.metSeconds, weightKg) });
@@ -662,7 +798,7 @@ export class App {
     if (!r) return;
     const s = this.currentSettings();
     const show = shouldShowPaywallAfterRound({
-      now: Date.now(), entitlementPlan: this.plan, child: false, lastShownAt: s.paywallShownAt, priorRounds: Math.max(0, this.rounds() - 1),
+      now: Date.now(), entitlementPlan: this.plan, child: !this.rules().autoPaywall, lastShownAt: s.paywallShownAt, priorRounds: Math.max(0, this.rounds() - 1),
       round: { activeSeconds: r.seconds, completed: true, live: false },
       good: r.personalBest || (r.quality ?? 0) >= 0.8,
     });
@@ -684,6 +820,7 @@ export class App {
     const action = el.dataset['action'] ?? '';
     if (this.play?.action(action)) { e.preventDefault(); return; }
     if (this.tour?.action(action, el)) { e.preventDefault(); return; }
+    if (this.profiles?.action(action, el)) { e.preventDefault(); return; }
     if (this.social?.click(action, el)) { e.preventDefault(); return; }
     switch (action) {
       case 'mode':
@@ -747,7 +884,7 @@ export class App {
 
   /** The chips on the home page: seated and quiet are the player's modes (kept), two players only filters the grid. */
   private toggleMode(mode: string): void {
-    if (mode === 'seated') this.settings.set({ seated: !this.currentSettings().seated });
+    if (mode === 'seated') this.saveSeated(!this.currentSettings().seated);
     else if (mode === 'quiet') this.settings.set({ quiet: !this.currentSettings().quiet });
     else if (mode === 'duo') {
       const u = new URL(this.win.location.href);
@@ -765,6 +902,7 @@ export class App {
     if (!t) return;
     if (this.social?.change(t)) return;
     if (t instanceof this.win.HTMLInputElement && t.name.startsWith('tour-') && this.tour?.change(t)) return;
+    if (t instanceof this.win.HTMLInputElement && t.name === 'askOnStart' && this.profiles?.change(t)) return;
     if (t.closest('[data-form="settings"]')) this.onSettingChanged(t);
     else if (t.closest('[data-form="setup"]')) this.onSetupChanged(t.closest('form') as HTMLFormElement);
     else if (t.closest('[data-form="paywall"]') && (t as HTMLInputElement).name === 'plan') this.setPaywall({ selected: t.value as PaywallState['selected'] });
@@ -780,6 +918,8 @@ export class App {
     const form = e.target as HTMLFormElement | null;
     if (!form) return;
     if (form.matches('[data-form="friend-add"], [data-form="room-say"], [data-form="lobby"]')) { e.preventDefault(); this.social?.submit(form); }
+    else if (form.matches('[data-form="profile"]')) { e.preventDefault(); this.profiles?.submit(form); }
+    else if (form.matches('[data-form="gate"]')) { /* the gate's own window answers it */ }
     else if (form.matches('[data-form="setup"]')) { e.preventDefault(); this.startRound(form); }
     else if (form.matches('[data-form="settings"], [data-form="paywall"]')) e.preventDefault();
   }
@@ -822,7 +962,7 @@ export class App {
     const ctx = this.ctx();
     const checked = (t as HTMLInputElement).checked;
     switch (t.name) {
-      case 'seated': s.set({ seated: checked }); break;
+      case 'seated': this.saveSeated(checked); break;
       case 'quiet': s.set({ quiet: checked }); break;
       case 'skeleton': s.set({ skeleton: checked }); break;
       case 'sound': s.set({ sound: checked }); break;
@@ -852,6 +992,8 @@ export class App {
   }
 
   private async clearData(): Promise<void> {
+    // With players the record that is cleared is the active player's (the main player's is cleared, any other's goes with the player), asked and gated by the book's own removal.
+    if (this.profiles && this.book) { await this.profiles.remove(this.book.active().id); return; }
     const t = this.ctx().i18n;
     const yes = await this.confirm({ title: t.t('settings.data.confirm.title'), body: t.t('settings.data.confirm.body'), confirm: t.t('settings.data.confirm.yes'), cancel: t.t('common.cancel'), danger: true });
     if (!yes) return;

@@ -72,7 +72,7 @@ export interface OpenOptions {
   w: number;
   h: number;
   lang?: string;
-  plan?: 'free' | 'pro';
+  plan?: 'free' | 'pro' | 'family';
   dark?: boolean;
   /** Pages with a camera view ask for the camera; the practice session does not need one. */
   hooks?: Hooks;

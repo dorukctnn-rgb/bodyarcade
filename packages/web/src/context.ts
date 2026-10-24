@@ -10,11 +10,16 @@ import type { HrefOptions } from '../../core/ui/router.ts';
 import type { Settings } from '../../core/ui/settings.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import type { AssetResolver } from './assets.ts';
+import type { PlayerFacts } from './app/profiles-model.ts';
 import type { RouteId } from './routes.ts';
 
 export interface Flags {
-  /** Friends, lobbies and rooms. Off until the social server exists; the tab and the page stay hidden. */
+  /** Friends, lobbies and rooms. Off until the social server exists, and for a player who has no online identity (a child); the tab and the page stay hidden. */
   social: boolean;
+  /** The Family plan is sold: the players screen may offer to add players to someone who has none to add yet. */
+  family: boolean;
+  /** The friends side exists in this build but the player has no online identity (a child): its pages say so and lead to the main player. */
+  socialChild: boolean;
 }
 
 export interface ViewContext {
@@ -28,8 +33,10 @@ export interface ViewContext {
   plans: PlansConfig;
   /** What the paywall may do where this page runs (the web shop, Google Play, neither). */
   paywall: PaywallInfo;
-  /** The last two days of a free trial: the notice shown on every open. Null otherwise. */
+  /** The last two days of a free trial: the notice shown on every open. Null otherwise (and for a player whose purchases need a grown-up). */
   trial: TrialNotice | null;
+  /** Who is playing on this device and what their rules allow; null where there is no player (the page generator). */
+  player: PlayerFacts | null;
   assets: AssetResolver;
   flags: Flags;
   /** The page being drawn: its path and query in the page language, for the language links and the current tab. */

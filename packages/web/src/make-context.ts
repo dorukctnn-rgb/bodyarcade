@@ -8,6 +8,7 @@ import { CHECKING_PAYWALL, STUB_PLANS, WEB_PAYWALL, type PaywallInfo, type Plans
 import { DEFAULT_SETTINGS, type Settings } from '../../core/ui/settings.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import { devAssets, type AssetResolver } from './assets.ts';
+import type { PlayerFacts } from './app/profiles-model.ts';
 import type { Flags, ViewContext } from './context.ts';
 import { router } from './routes.ts';
 
@@ -22,6 +23,7 @@ export interface ContextInit {
   plans?: PlansConfig;
   paywall?: PaywallInfo;
   trial?: TrialNotice | null;
+  player?: PlayerFacts | null;
   assets?: AssetResolver;
   flags?: Partial<Flags>;
   version?: string;
@@ -45,8 +47,9 @@ export function makeContext(init: ContextInit): ViewContext {
     plans: init.plans ?? (init.server ? NO_OFFERS : STUB_PLANS),
     paywall: init.paywall ?? (init.server ? CHECKING_PAYWALL : WEB_PAYWALL),
     trial: init.trial ?? null,
+    player: init.player ?? null,
     assets: init.assets ?? devAssets,
-    flags: { social: false, ...init.flags },
+    flags: { social: false, family: false, socialChild: false, ...init.flags },
     url: init.url,
     href: (id, o) => router.href(id, { ...o, lang }),
     version: init.version ?? '0.0.0',

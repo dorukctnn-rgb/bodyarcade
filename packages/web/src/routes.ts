@@ -4,7 +4,7 @@ import type { Lang } from '../../core/ui/i18n/index.ts';
 import type { BodyRegion } from '../../core/types/index.ts';
 import { REGION_IDS } from '../../core/ui/settings.ts';
 
-export type RouteId = 'home' | 'region' | 'game' | 'play' | 'results' | 'plans' | 'pro' | 'settings' | 'friends' | 'lobbies' | 'room' | 'friendlink' | 'safety' | 'welcome';
+export type RouteId = 'home' | 'region' | 'game' | 'play' | 'results' | 'plans' | 'pro' | 'settings' | 'friends' | 'lobbies' | 'room' | 'friendlink' | 'safety' | 'welcome' | 'profiles';
 
 export const ROUTES: readonly RouteSpec<RouteId>[] = [
   { id: 'home', pattern: '/' },
@@ -21,6 +21,7 @@ export const ROUTES: readonly RouteSpec<RouteId>[] = [
   { id: 'friendlink', pattern: '/f/:code' },
   { id: 'safety', pattern: '/safety' },
   { id: 'welcome', pattern: '/welcome' },
+  { id: 'profiles', pattern: '/profiles' },
 ];
 
 /** Languages that appear as a path prefix. English is the unprefixed default. */
@@ -40,5 +41,5 @@ export const isRegion = (v: unknown): v is BodyRegion => typeof v === 'string' &
 /** The tab that is lit for a route. */
 export type NavTab = 'games' | 'friends' | 'pro' | 'settings';
 export const TAB_OF: Readonly<Record<RouteId, NavTab | null>> = {
-  home: 'games', region: 'games', game: 'games', play: null, results: 'games', plans: 'games', pro: 'pro', settings: 'settings', friends: 'friends', lobbies: 'friends', room: 'friends', friendlink: 'friends', safety: 'friends', welcome: null,
+  home: 'games', region: 'games', game: 'games', play: null, results: 'games', plans: 'games', pro: 'pro', settings: 'settings', friends: 'friends', lobbies: 'friends', room: 'friends', friendlink: 'friends', safety: 'friends', welcome: null, profiles: 'settings',
 };
