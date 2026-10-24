@@ -27,6 +27,19 @@ export async function checkPage(page: Page): Promise<string[]> {
       if (!fixed && r.left < -1) problems.push(`${label(el)} starts left of the screen`);
       if (r.right > innerWidth + 1 && !el.closest('.ba-filters, .k-msgs')) problems.push(`${label(el)} reaches past the right edge (${Math.round(r.right)} > ${innerWidth})`);
     }
+    // The calibration screen is one screen with no scrolling: everything in its panel has to fit under the picture, and the
+    // picture has to stay big enough to stand in front of.
+    for (const { el, r } of rects) if (el.closest('.cal') && r.bottom > innerHeight + 1) problems.push(`${label(el)} reaches past the bottom edge (${Math.round(r.bottom)} > ${innerHeight})`);
+    const cal = document.querySelector('.cal');
+    if (cal) {
+      const panel = cal.querySelector('.panel');
+      const view = cal.querySelector('.view');
+      if (panel && panel.scrollHeight > panel.clientHeight + 1) problems.push('calibration panel: its content is taller than the panel');
+      if (view) {
+        const vr = view.getBoundingClientRect();
+        if (vr.width < 160 || vr.height < 160) problems.push(`calibration view is only ${Math.round(vr.width)}x${Math.round(vr.height)}`);
+      }
+    }
     const inView = rects.filter(({ r }) => r.bottom > 0 && r.top < innerHeight);
     for (let i = 0; i < inView.length; i++) {
       for (let j = i + 1; j < inView.length; j++) {

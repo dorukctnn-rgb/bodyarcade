@@ -42,7 +42,7 @@ for (const name of list) {
     const problems = [...(await checkPage(page)), ...hud.map((h) => `HUD: ${h}`), ...errors.map((e) => `console: ${e}`)];
     // A sticky bar sits at the bottom of the first screen in a full-page capture and hides what is under it; for the overview it goes static.
     if (!args.includes('--view')) await page.addStyleTag({ content: '.k-actionbar { position: static !important; }' });
-    await page.screenshot({ path: join(out, `${name}-${size.id}${lang === 'en' ? '' : `-${lang}`}${dark ? '-dark' : ''}.png`), fullPage: !args.includes('--view') && name !== 'play' && name !== 'calibrate' });
+    await page.screenshot({ path: join(out, `${name}-${size.id}${lang === 'en' ? '' : `-${lang}`}${dark ? '-dark' : ''}.png`), fullPage: !args.includes('--view') && name !== 'play' && name !== 'calibrate' && name !== 'calibrate-desk' });
     if (problems.length) { failed += 1; console.log(`${name} ${size.id}: ${problems.length} problem(s)\n  ${problems.slice(0, 8).join('\n  ')}`); }
     await context.close();
   }

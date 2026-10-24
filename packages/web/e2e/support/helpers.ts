@@ -12,6 +12,8 @@ export interface Hooks {
   plan?: 'free' | 'pro';
   /** A keyboard is there even on a phone-sized touch screen (the shell offers it only on laptops and TVs). */
   keyboard?: boolean;
+  /** The practice session sees a person at a desk: head and shoulders, no hips, until the round is a seated one. */
+  desk?: boolean;
 }
 
 /** Sets the test hooks before the page's own scripts run. Development builds only read them. */

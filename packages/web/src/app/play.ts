@@ -2,14 +2,16 @@
 // the calibration, the countdown and the loop; this listens to its events and shows what the player needs to see, and
 // turns the player's presses (pause, resume, recalibrate, leave) into calls on it.
 import type {
-  CalibrationStatus, Framing, PauseReason, PlayerSlot, RunSummary, Session, SessionEvents, TwoPlayerCalibrationStatus, Unsubscribe,
+  CalibrationStatus, PauseReason, PlayerSlot, RunSummary, Session, SessionEvents, TwoPlayerCalibrationStatus, Unsubscribe,
 } from '../../../core/types/index.ts';
 import { PlayHud, type HudLayoutInfo } from '../../../core/ui/hud/hud.ts';
 import type { HudMode, PipPlacement } from '../../../core/ui/layout.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import type { ViewContext } from '../context.ts';
-import { framingGuide, gaugeFor, overlayHtml, type CalibCheck, type GaugePos, type PlayOverlay } from '../views/play.ts';
+import { overlayHtml, type CalibCheck, type CalibPart, type DeskCard, type GaugePos, type PlayOverlay, type ScreenFraming } from '../views/play.ts';
+import { framingGuide } from '../views/silhouette.ts';
 import type { SetupState } from '../views/setup.ts';
+import { bandsFor, calibMessage, checksFor, deskCard, DeskOffer, GUIDE_MESSAGE, gaugeFor, screenFraming, STUCK_MS } from './calib.ts';
 import type { StageHandles } from './ports.ts';
 
 export interface PlayHost {
@@ -33,6 +35,12 @@ export interface PlayHost {
   usedFreeRound(game: ShellGame): void;
   /** The setup changed during the round (keyboard instead of camera, seated instead): keep the address in step. */
   setupChanged(setup: SetupState): void;
+  /** The player chose to play at the desk: the mode stays on for the next rounds too (Settings turns it off). */
+  deskChosen(): void;
+  /** To the page with all the games. */
+  home(): void;
+  /** Milliseconds, from a clock that tests can move. */
+  now?(): number;
 }
 
 export interface PlayControllerOptions {
@@ -51,19 +59,6 @@ const CAMERA_CODES = new Set(['denied', 'not_found', 'in_use', 'overconstrained'
 /** The HUD layout that fits a template: mirror games draw the camera as the scene, duels show the opponent. */
 export function hudModeFor(game: ShellGame): HudMode {
   return game.template === 'target' || game.template === 'rhythm' ? 'mirror' : game.template === 'duel' ? 'live' : 'scene';
-}
-
-/** Which body parts a framing needs, in the order the panel lists them. */
-export function partsFor(framing: Framing): CalibCheck['part'][] {
-  return framing === 'full' ? ['head', 'hips', 'knees', 'feet'] : framing === 'upper' ? ['head', 'hips'] : ['head', 'hips', 'feet'];
-}
-
-/** Which of those parts are in view, from the calibration code. */
-export function checksFor(framing: Framing, code: string): CalibCheck[] {
-  const out: Record<string, CalibCheck['part'] | null> = { head_out: 'head', hips_out: 'hips', knees_out: 'knees', feet_out: 'feet' };
-  const missing = out[code] ?? null;
-  const nobody = code === 'no_person' || code === 'one_person' || code === 'too_close' || code === 'too_far';
-  return partsFor(framing).map((part) => ({ part, ok: !nobody && part !== missing }));
 }
 
 function isTwo(s: CalibrationStatus | TwoPlayerCalibrationStatus): s is TwoPlayerCalibrationStatus {
@@ -86,11 +81,16 @@ export class PlayController {
   private overlay: PlayOverlay | null = null;
   private pauseReason: PauseReason | null = null;
   private lastCalib = '';
+  private lastChecks: CalibCheck[] = [];
+  private readonly deskOffer = new DeskOffer();
+  private calibSince = 0;
+  private stuck = false;
+  private deskShown: DeskCard = 'none';
   private disposed = false;
   private usedFree = false;
   private launching = false;
   private guideObserver: ResizeObserver | null = null;
-  private guide: { ready: boolean; showFeet: boolean } = { ready: false, showFeet: true };
+  private guide: { ready: boolean; bands: CalibPart[] } = { ready: false, bands: [] };
   private readonly layoutListeners = new Set<(info: HudLayoutInfo) => void>();
   private lastLayout: HudLayoutInfo | null = null;
   private videoHolder: HTMLElement | null = null;
@@ -200,11 +200,21 @@ export class PlayController {
         hud.setPhase('calibrate');
         if (!this.overlay || this.overlay.kind === 'loading' || this.overlay.kind === 'countdown') this.show({ kind: 'loading' });
         break;
-      case 'calibrating':
+      case 'calibrating': {
         hud.setPhase('calibrate');
         this.lastCalib = '';
-        this.show({ kind: 'calibrating', framing: this.game.framing, two: this.setup.players === 2, message: this.ctx().i18n.tx('calib.msg.no_person'), checks: checksFor(this.game.framing, 'no_person'), progress: 0, slow: false, gauge: 'none' });
+        this.deskOffer.reset();
+        this.deskShown = 'none';
+        this.stuck = false;
+        this.calibSince = this.clock();
+        const framing = this.framing();
+        this.lastChecks = checksFor(framing, 'no_person');
+        this.show({
+          kind: 'calibrating', framing, two: this.setup.players === 2, message: calibMessage(this.ctx().i18n, 'no_person', framing), checks: this.lastChecks,
+          progress: 0, slow: false, gauge: 'none', desk: 'none', stuck: false,
+        });
         break;
+      }
       case 'countdown':
         hud.setPhase('play');
         this.host.announce(this.ctx().i18n.t('countdown.announce', { n: 3 }));
@@ -272,35 +282,54 @@ export class PlayController {
     } else host.replaceChildren();
   }
 
+  private clock(): number { return this.host.now ? this.host.now() : Date.now(); }
+
+  /** The framing the screen shows: the game's own, or the desk once the round is a seated one. */
+  private framing(): ScreenFraming { return screenFraming(this.game, this.setup.seated); }
+
   private onCalibration(c: CalibrationStatus | TwoPlayerCalibrationStatus): void {
     if (this.disposed || this.overlay?.kind !== 'calibrating') return;
     const i18n = this.ctx().i18n;
     const code = c.code;
+    const framing = this.framing();
     let message = '';
     if (isTwo(c) && c.guidance.action !== 'none') {
-      const who = c.guidance.player ? i18n.t(c.guidance.player === 1 ? 'hud.player1' : 'hud.player2') : '';
-      const key = `calib.guide.${c.guidance.action}`;
-      if (i18n.has(key)) message = i18n.tx(key, { player: who });
+      const key = GUIDE_MESSAGE[c.guidance.action];
+      if (key) message = i18n.tx(key, { player: c.guidance.player ? i18n.t(c.guidance.player === 1 ? 'hud.player1' : 'hud.player2') : '' });
     }
-    if (!message && i18n.has(`calib.msg.${code}`)) message = i18n.tx(`calib.msg.${code}`);
-    const checks = isTwo(c)
-      ? checksFor(this.game.framing, c.players[1].code === 'ok' || c.players[1].code === 'hold' ? c.players[2].code : c.players[1].code)
-      : checksFor(this.game.framing, code);
+    if (!message) message = calibMessage(i18n, code, framing);
     const slow = code === 'too_slow';
+    // A device too slow to calibrate says nothing about the body: the checks stay as they were.
+    const checks = slow ? this.lastChecks : isTwo(c)
+      ? checksFor(framing, c.players[1].code === 'ok' || c.players[1].code === 'hold' ? c.players[2].code : c.players[1].code)
+      : checksFor(framing, code);
+    this.lastChecks = checks;
     const gauge = gaugeFor(code);
-    const stamp = `${message}|${checks.map((x) => (x.ok ? 1 : 0)).join('')}|${Math.round(c.progress * 20)}|${slow}|${gauge}`;
+    const now = this.clock();
+    // The desk is for one player at a time: two people in front of one camera are not at a desk.
+    const offered = !isTwo(c) && this.setup.players === 1 ? this.deskOffer.push(code, now) : false;
+    const desk = deskCard(offered, this.game, this.setup.seated);
+    const stuck = c.progress < 0.25 && now - this.calibSince >= STUCK_MS;
+    const bands = bandsFor(framing, code);
+    const stamp = `${message}|${checks.map((x) => (x.ok ? 1 : 0)).join('')}|${Math.round(c.progress * 20)}|${slow}|${gauge}|${desk}|${stuck}|${bands.join(',')}`;
     if (stamp === this.lastCalib) return;
     this.lastCalib = stamp;
-    this.overlay = { kind: 'calibrating', framing: this.game.framing, two: this.setup.players === 2, message, checks, progress: c.progress, slow, gauge };
-    this.updateCalibration(message, checks, slow, gauge);
+    this.overlay = { kind: 'calibrating', framing, two: this.setup.players === 2, message, checks, progress: c.progress, slow, gauge, desk, stuck };
+    this.updateCalibration({ message, checks, slow, gauge, desk, stuck, bands });
+    if (desk !== 'none' && this.deskShown === 'none') {
+      const t = this.ctx().i18n;
+      this.host.announce(desk === 'offer' ? `${t.t('calib.desk.title')} ${t.t('calib.desk.body')}` : t.t('calib.desk.standOnly'));
+    }
+    this.deskShown = desk;
   }
 
   /** Updated in place: the message is a live region, and a live region that is replaced is not spoken. */
-  private updateCalibration(message: string, checks: CalibCheck[], slow: boolean, gauge: GaugePos): void {
+  private updateCalibration(u: { message: string; checks: CalibCheck[]; slow: boolean; gauge: GaugePos; desk: DeskCard; stuck: boolean; bands: CalibPart[] }): void {
     const root = this.overlayEl;
     const i18n = this.ctx().i18n;
+    const { checks, gauge } = u;
     const msg = root.querySelector('[data-calib-msg]');
-    if (msg && msg.textContent !== message) msg.textContent = message;
+    if (msg && msg.textContent !== u.message) msg.textContent = u.message;
     for (const ch of checks) root.querySelector(`[data-calib-check="${ch.part}"]`)?.classList.toggle('is-ok', ch.ok);
     const done = checks.filter((x) => x.ok).length;
     const ring = root.querySelector('[data-calib-ring]');
@@ -321,11 +350,13 @@ export class PlayController {
       gaugeEl.setAttribute('aria-label', i18n.t('calib.gauge.label', { state: gauge === 'none' ? '' : names[gauge] }));
     }
     const slowBox = root.querySelector<HTMLElement>('[data-calib-slow]');
-    if (slowBox) slowBox.hidden = !slow;
-    const feetMissing = checks.some((x) => x.part === 'feet' && !x.ok);
+    if (slowBox) slowBox.hidden = !u.slow;
+    for (const card of root.querySelectorAll<HTMLElement>('[data-calib-desk]')) card.hidden = card.dataset['calibDesk'] !== u.desk;
+    const keyboard = root.querySelector<HTMLElement>('[data-calib-keyboard]');
+    if (keyboard) keyboard.hidden = !u.stuck;
     const ready = checks.length > 0 && done === checks.length;
-    if (ready !== this.guide.ready || feetMissing !== this.guide.showFeet) {
-      this.guide = { ready, showFeet: feetMissing };
+    if (ready !== this.guide.ready || u.bands.join() !== this.guide.bands.join()) {
+      this.guide = { ready, bands: u.bands };
       this.drawGuide();
     }
   }
@@ -337,7 +368,10 @@ export class PlayController {
     const w = Math.round(view.clientWidth);
     const h = Math.round(view.clientHeight);
     if (w < 2 || h < 2) return;
-    target.innerHTML = framingGuide(w, h, { ready: this.guide.ready, showFeet: this.guide.showFeet, feetLabel: this.ctx().i18n.t('calib.check.feet') });
+    const t = this.ctx().i18n;
+    const labels: Partial<Record<CalibPart, string>> = {};
+    for (const part of this.guide.bands) labels[part] = t.tx(`calib.check.${part}`);
+    target.innerHTML = framingGuide(w, h, { framing: this.framing(), ready: this.guide.ready, missing: this.guide.bands, labels });
   }
 
   private onError(code: string, message: string): void {
@@ -371,9 +405,22 @@ export class PlayController {
         void this.restart();
         return true;
       case 'seated-instead':
+        // Skip the framing and play this round seated: the player's settings are left as they are.
         this.setup = { ...this.setup, seated: true };
         this.host.setupChanged(this.setup);
         void this.restart();
+        return true;
+      case 'desk-play':
+        // The way to play at the desk: this round and the next ones, until Settings turns it off.
+        this.setup = { ...this.setup, seated: true };
+        this.host.setupChanged(this.setup);
+        this.host.deskChosen();
+        this.host.announce(this.ctx().i18n.t('calib.desk.on'));
+        void this.restart();
+        return true;
+      case 'desk-games':
+        this.host.deskChosen();
+        this.host.home();
         return true;
       case 'resume':
         void s?.resume();
@@ -427,7 +474,7 @@ export class PlayController {
     if (!view) return;
     this.hud?.attachPipTo(view);
     const done = o.checks.filter((c) => c.ok).length;
-    this.guide = { ready: o.checks.length > 0 && done === o.checks.length, showFeet: o.checks.some((c) => c.part === 'feet' && !c.ok) };
+    this.guide = { ready: o.checks.length > 0 && done === o.checks.length, bands: bandsFor(o.framing, 'no_person') };
     this.drawGuide();
     if (typeof ResizeObserver !== 'undefined') {
       this.guideObserver?.disconnect();

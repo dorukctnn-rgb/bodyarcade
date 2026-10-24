@@ -28,7 +28,7 @@ export function boot(o: BootOptions): App {
     });
     return (r) => {
       if (o.demo && (hooks.forceDemo === true || !playable.has(r.game.id))) {
-        return createDemoSession(r, { timeScale: hooks.timeScale ?? 1, ...(hooks.roundSeconds !== undefined ? { roundSeconds: hooks.roundSeconds } : {}), document: o.win.document });
+        return createDemoSession(r, { timeScale: hooks.timeScale ?? 1, ...(hooks.roundSeconds !== undefined ? { roundSeconds: hooks.roundSeconds } : {}), ...(hooks.desk ? { desk: true } : {}), document: o.win.document });
       }
       return playable.has(r.game.id) ? real(r) : null;
     };

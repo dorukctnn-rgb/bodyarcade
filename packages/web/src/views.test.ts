@@ -312,3 +312,75 @@ describe('a phone has no keyboard way around the camera', () => {
     expect(textOf(tr)).toContain('Kameraya izin vermek için');
   });
 });
+
+describe('the calibration screen', () => {
+  const phone: UiCapabilities = { device: 'phone', platform: 'web', deviceClass: 'phone', landscape: false, touch: true, camera: true, secure: true, tv: false, keyboard: false, local2: false, local2Reason: 'phone' };
+  const squat = games.find((x) => x.id === 'squat-flap') as ShellGame;
+  const standing: ShellGame = { ...squat, seated: false };
+  const base = { kind: 'calibrating', framing: 'full', two: false, message: 'Msg', checks: [{ part: 'head', ok: true }, { part: 'hips', ok: false }], progress: 0, slow: false, gauge: 'close', desk: 'none', stuck: false } as const;
+  const draw2 = (lang: Lang, g: ShellGame, o: Partial<Extract<Parameters<typeof overlayHtml>[2], { kind: 'calibrating' }>>, caps = bigScreen): string =>
+    overlayHtml(makeContext({ lang, games, url: lang === 'en' ? '/' : `/${lang}/`, caps }), g, { ...base, ...o } as Parameters<typeof overlayHtml>[2]).value;
+
+  it('the title says what to show: the whole body, head and hips, head and shoulders at the desk, sideways, both of you', () => {
+    expect(textOf(draw2('en', squat, { framing: 'full' }))).toContain('Get your whole body in view');
+    expect(textOf(draw2('en', squat, { framing: 'upper' }))).toContain('head and hips');
+    expect(textOf(draw2('en', squat, { framing: 'desk' }))).toContain('head and shoulders');
+    expect(textOf(draw2('en', squat, { framing: 'side' }))).toContain('sideways');
+    expect(textOf(draw2('en', squat, { two: true }))).toContain('Both of you');
+    expect(textOf(draw2('tr', squat, { framing: 'desk' }))).toContain('Başın ve omuzların görünsün');
+  });
+
+  it('"Skip, play seated" is always on screen for a game that can be played seated, and the keyboard way when the player is stuck', () => {
+    const html = draw2('en', squat, {});
+    expect(html).toContain('data-calib-skip');
+    expect(textOf(html)).toContain('Skip, play seated');
+    expect(draw2('tr', squat, {})).toContain('Atla, oturarak oyna');
+    // every state keeps the button, with or without the desk card
+    for (const desk of ['none', 'offer', 'standing-only'] as const) expect(draw2('en', squat, { desk })).toContain('data-calib-skip');
+    // on a laptop the keyboard is there but waits until the player has been at it a while
+    expect(draw2('en', squat, { stuck: false })).toMatch(/data-calib-keyboard hidden/);
+    expect(draw2('en', squat, { stuck: true })).not.toMatch(/data-calib-keyboard hidden/);
+    expect(textOf(draw2('tr', squat, { stuck: true }))).toContain('Atla, klavyeyle oyna');
+    // a phone has no keyboard to offer, and two players on one camera cannot use one
+    expect(draw2('en', squat, { stuck: true }, phone)).not.toContain('data-calib-keyboard');
+    expect(draw2('en', squat, { stuck: true, two: true })).not.toContain('data-calib-keyboard');
+  });
+
+  it('a game that is played standing offers a way to another game instead of seated play', () => {
+    const html = draw2('en', standing, {});
+    expect(html).not.toContain('data-calib-skip');
+    expect(textOf(html)).toContain('Pick another game');
+    expect(html).toContain('href="/"');
+    expect(textOf(draw2('tr', standing, {}))).toContain('Başka oyun seç');
+    // at the desk, too, the way out is one press away
+    expect(textOf(draw2('en', squat, { framing: 'desk' }))).toContain('Pick another game');
+    expect(draw2('en', squat, { framing: 'desk' })).not.toContain('data-calib-skip');
+  });
+
+  it('the desk card is in the page but shown only when it is offered, and says what to do', () => {
+    const none = draw2('en', squat, { desk: 'none' });
+    expect(none).toMatch(/data-calib-desk="offer" hidden/);
+    expect(none).toMatch(/data-calib-desk="standing-only" hidden/);
+    const offer = draw2('en', squat, { desk: 'offer' });
+    expect(offer).not.toMatch(/data-calib-desk="offer" hidden/);
+    expect(textOf(offer)).toContain('Are you at a desk?');
+    expect(textOf(offer)).toContain('Play at the desk');
+    expect(offer).toContain('data-action="desk-play"');
+    const tr = draw2('tr', squat, { desk: 'offer' });
+    expect(textOf(tr)).toContain('Masada mısın?');
+    expect(textOf(tr)).toContain('Masada oyna');
+    const only = draw2('en', standing, { desk: 'standing-only' });
+    expect(only).not.toMatch(/data-calib-desk="standing-only" hidden/);
+    expect(textOf(only)).toContain('This game is played standing');
+    expect(only).toContain('data-action="desk-games"');
+  });
+
+  it('shows no raw code or key in any state, in English or Turkish', () => {
+    for (const lang of LANGS) {
+      for (const framing of ['full', 'upper', 'side', 'desk'] as const) {
+        const text = textOf(draw2(lang, squat, { framing, desk: 'offer', stuck: true }));
+        expect(text, `${lang} ${framing}`).not.toMatch(/calib\.|_out\b|undefined|\[object/);
+      }
+    }
+  });
+});

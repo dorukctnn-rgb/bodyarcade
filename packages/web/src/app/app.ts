@@ -365,6 +365,13 @@ export class App {
         this.setups.set(g.id, s);
         this.win.history.replaceState(this.win.history.state, '', playHref(c, g, s));
       },
+      deskChosen: () => {
+        if (!this.currentSettings().seated) this.settings.set({ seated: true });
+        this.toaster.show(this.ctx().i18n.t('calib.desk.on'));
+      },
+      home: () => this.nav.go(this.ctx().href('home'), { replace: true }),
+      // The practice session runs faster in tests; the waits of the calibration screen follow it.
+      now: () => this.win.performance.now() * (this.o.demo ? Math.max(1, this.win.__BA_TEST__?.timeScale ?? 1) : 1),
     };
   }
 

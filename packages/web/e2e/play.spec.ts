@@ -149,9 +149,83 @@ test.describe('calibration', () => {
     await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera`);
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.locator('.cal')).toBeVisible();
-    await expect(page.locator('.cal button.seated')).toBeVisible();
+    await expect(page.locator('.cal [data-calib-skip]')).toBeVisible();
     await page.locator('.cal').getByRole('button', { name: 'Close' }).click();
     await expect(page).toHaveURL(/\/games\/squat-flap\/$/);
+  });
+});
+
+test.describe('calibration at a desk', () => {
+  test('the hips never come into view: plain words, the desk is offered, and choosing it plays seated and keeps desk mode on', async ({ page }) => {
+    const errors = collectErrors(page);
+    await page.context().grantPermissions(['camera']);
+    await withHooks(page, { timeScale: 4, roundSeconds: 120, forceDemo: true, desk: true });
+    await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera`);
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    const cal = page.locator('.cal');
+    await expect(cal.locator('h2')).toContainText('whole body');
+    // an instruction in the words of the player, and the way out is on the screen from the start
+    await expect(cal.locator('[data-calib-msg]')).toHaveText('We cannot see your hips. Take one or two steps back.');
+    await expect(cal.getByRole('button', { name: 'Skip, play seated' })).toBeVisible();
+    // the picture guide names the part that is out of view
+    await expect(cal.locator('[data-cal-guide] svg text')).toHaveText('Hips');
+
+    // a moment later, the desk
+    const card = cal.locator('[data-calib-desk="offer"]');
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card).toContainText('Are you at a desk?');
+    await expect(cal.getByRole('button', { name: 'Skip, play seated' })).toBeVisible();
+    await card.getByRole('button', { name: 'Play at the desk' }).click();
+
+    // seated: head and shoulders are what is asked for, the round starts by itself
+    await expect(page).toHaveURL(/seated=1/);
+    await expect(cal.locator('h2')).toContainText('head and shoulders');
+    await expect(cal.locator('[data-calib-check]')).toHaveCount(2);
+    await expect(card).toBeHidden();
+    await expect(page.locator('.ba-countdown')).toBeVisible({ timeout: 15_000 });
+    await inRound(page);
+    // and the mode stays on: Settings turns it off
+    expect(await page.evaluate(() => document.documentElement.dataset['seated'])).toBe('1');
+    expect(await page.evaluate(() => localStorage.getItem('ba2.shell.settings') ?? '')).toContain('"seated":true');
+    expect(errors).toEqual([]);
+  });
+
+  test('"Skip, play seated" plays this round seated and leaves the settings alone', async ({ page }) => {
+    await page.context().grantPermissions(['camera']);
+    await withHooks(page, { timeScale: 4, roundSeconds: 120, forceDemo: true, desk: true });
+    await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera`);
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.locator('.cal').getByRole('button', { name: 'Skip, play seated' }).click();
+    await expect(page).toHaveURL(/seated=1/);
+    await expect(page.locator('.ba-countdown')).toBeVisible({ timeout: 15_000 });
+    await inRound(page);
+    expect(await page.evaluate(() => document.documentElement.dataset['seated'])).toBe('0');
+  });
+
+  test('stuck for a while on a laptop: the keyboard way shows up, and it starts the round', async ({ page }) => {
+    await page.context().grantPermissions(['camera']);
+    // the practice session runs 12 times faster here, and so does the clock of the screen
+    await withHooks(page, { timeScale: 12, roundSeconds: 120, forceDemo: true, desk: true });
+    await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera`);
+    await page.getByRole('button', { name: 'Continue' }).click();
+    const cal = page.locator('.cal');
+    const keyboard = cal.getByRole('button', { name: 'Skip, use the keyboard' });
+    await expect(keyboard).toBeVisible({ timeout: 10_000 });
+    await keyboard.click();
+    await inRound(page);
+  });
+
+  test('the same screen in Turkish says it plainly', async ({ page }) => {
+    await page.context().grantPermissions(['camera']);
+    await withHooks(page, { timeScale: 4, roundSeconds: 120, forceDemo: true, desk: true });
+    await page.goto(`${WEB_DEV_URL}/tr/play/squat-flap/?input=camera`);
+    await page.getByRole('button', { name: 'Devam' }).click();
+    const cal = page.locator('.cal');
+    await expect(cal.locator('[data-calib-msg]')).toHaveText('Kalçan görünmüyor: 1-2 adım geri git.');
+    await expect(cal.getByRole('button', { name: 'Atla, oturarak oyna' })).toBeVisible();
+    await expect(cal.locator('[data-calib-desk="offer"]')).toContainText('Masada mısın?', { timeout: 10_000 });
+    await expect(cal.getByRole('button', { name: 'Masada oyna' })).toBeVisible();
   });
 });
 

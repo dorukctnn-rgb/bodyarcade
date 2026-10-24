@@ -13,6 +13,8 @@ export interface DemoOptions {
   timeScale?: number;
   /** Length of the round in seconds (before the time scale). */
   roundSeconds?: number;
+  /** The person is at a desk: calibration sees head and shoulders without the hips until the round is a seated one. */
+  desk?: boolean;
   document?: Document;
 }
 
@@ -74,9 +76,13 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
 
   const single = (code: CalibrationCode, progress: number, hz = 24): CalibrationStatus => ({ code, progress, ready: code === 'ok', samples: Math.round(progress * 10), hz });
   const steps: [CalibrationCode, number][] = [['no_person', 0], ['too_far', 0], ['feet_out', 0], ['hold', 0.4], ['hold', 0.8], ['ok', 1]];
+  // A person at a desk: the picture ends at the chest, so the hips are never found and the round does not start.
+  const deskSteps: [CalibrationCode, number][] = [['no_person', 0], ['hips_out', 0]];
+  let seated = false;
   const runCalibration = (i = 0): void => {
     if (state !== 'calibrating') return;
-    const step = steps[i];
+    const atDesk = o.desk === true && !seated;
+    const step = atDesk ? (deskSteps[Math.min(i, deskSteps.length - 1)] as [CalibrationCode, number]) : steps[i];
     if (!step) { startCountdown(); return; }
     const one = single(step[0], step[1]);
     if (two) {
@@ -136,7 +142,8 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
   const api = {
     get state() { return state; },
     get pauseReason() { return reason; },
-    async start(_gameId: string, options: { input: string }) {
+    async start(_gameId: string, options: { input: string; seated?: boolean }) {
+      seated = options.seated === true;
       remaining = roundSeconds; score = [0, 0];
       hud.set('score', 0); hud.set('timer', roundSeconds);
       raf = doc.defaultView?.requestAnimationFrame(paint) ?? 0;

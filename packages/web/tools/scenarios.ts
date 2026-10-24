@@ -5,14 +5,14 @@
 // the practice session and the test hooks exist.
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 
-export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'] as const;
+export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 
 /** The address of each scenario, without the language prefix. */
 const PATHS: Record<Scenario, string> = {
   home: '/', 'home-week': '/', region: '/workouts/legs/', game: '/games/squat-flap/', 'game-more': '/games/squat-flap/', 'game-pro': '/games/pad-work/',
   'game-locked': '/games/pad-work/', settings: '/settings/', pro: '/pro/', results: '/play/squat-flap/?input=keyboard', play: '/play/squat-flap/?input=keyboard',
-  calibrate: '/play/squat-flap/?input=camera', notfound: '/nope/', friends: '/friends/?social=1', 'friends-new': '/friends/?social=fresh', 'friends-offline': '/friends/?social=offline', lobbies: '/lobbies/?social=1',
+  calibrate: '/play/squat-flap/?input=camera', 'calibrate-desk': '/play/squat-flap/?input=camera', notfound: '/nope/', friends: '/friends/?social=1', 'friends-new': '/friends/?social=fresh', 'friends-offline': '/friends/?social=offline', lobbies: '/lobbies/?social=1',
   room: '/r/K7Q2MX/?social=1', 'room-host': '/friends/?social=1', safety: '/safety/?social=1', friendlink: '/f/BA-9PXMR3/?social=1',
 };
 
@@ -44,7 +44,7 @@ export interface OpenOptions {
   plan?: 'free' | 'pro';
   dark?: boolean;
   /** Pages with a camera view ask for the camera; the practice session does not need one. */
-  hooks?: { timeScale?: number; roundSeconds?: number; forceDemo?: boolean; keyboard?: boolean };
+  hooks?: { timeScale?: number; roundSeconds?: number; forceDemo?: boolean; keyboard?: boolean; desk?: boolean };
 }
 
 export interface Opened {
@@ -68,7 +68,7 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   // A keyboard is there in every scenario: the screens of a round are reached with it even at phone sizes (a real phone
   // has none, and a camera game there says it needs the camera; e2e-real/games.spec.ts looks at that).
-  const hooks = o.hooks ?? (name === 'play' ? { timeScale: 5, roundSeconds: 120, forceDemo: true, keyboard: true } : name === 'calibrate' ? { timeScale: 1, roundSeconds: 120, forceDemo: true, keyboard: true } : { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true });
+  const hooks = o.hooks ?? (name === 'play' ? { timeScale: 5, roundSeconds: 120, forceDemo: true, keyboard: true } : name === 'calibrate' ? { timeScale: 1, roundSeconds: 120, forceDemo: true, keyboard: true } : name === 'calibrate-desk' ? { timeScale: 12, roundSeconds: 120, forceDemo: true, keyboard: true, desk: true } : { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true });
   await page.addInitScript((h) => { window.__BA_TEST__ = h; }, hooks);
   await page.addInitScript(`window.__SEED__ = ${JSON.stringify(name)};`);
   await page.addInitScript(SEED);
@@ -91,6 +91,14 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
     await page.locator('[data-action="camera-continue"]').click();
     await page.waitForSelector('.cal', { timeout: 15_000 });
     await page.waitForTimeout(1500);
+  }
+  // The most crowded state of the screen: hips out of view, the desk offered, and the player stuck long enough for the keyboard way.
+  if (name === 'calibrate-desk') {
+    await page.locator('[data-action="camera-continue"]').click();
+    await page.waitForSelector('.cal', { timeout: 15_000 });
+    await page.waitForSelector('[data-calib-desk="offer"]:not([hidden])', { timeout: 15_000 });
+    await page.waitForSelector('[data-calib-keyboard]:not([hidden])', { timeout: 15_000 }).catch(() => undefined);
+    await page.waitForTimeout(500);
   }
   await page.waitForTimeout(350);
   await page.evaluate(() => window.scrollTo(0, 0));
