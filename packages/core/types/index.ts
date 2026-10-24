@@ -31,6 +31,17 @@
 // - input: InputFrame.players (one stream per player), InputEvent.player, TrackingCode 'player_missing'.
 // - loop and game: mode 'local2', PauseReason 'player_lost', SessionEvents.player, StartOptions.profiles,
 //   RunSummary.players and log entries per player.
+//
+// Easy calibration (24 Oct, additive; "kamera hips'i algılamadı, daha kolay ve hızlı olmalı"):
+// - body: framing profiles (FramingProfile: full, upper = a desk, seated, side) and the game kinds each one runs
+//   (ProfileSupport); the Calibrator takes the best profile it can measure and never blocks (CalibratorOptions.fallback);
+//   CalibrationStatus adds profile, supports, hint (measured steps and direction), seen, fallbackInMs, outcome, escape;
+//   Calibrator.accept(); new codes move_left, move_right, too_dark, backlit, many_people; BodyProfile.kind and
+//   hipsEstimated; HeadroomCode (raise_hands, headroom, kept apart from CalibrationCode) and GameManifest.headroom
+//   ('arms-up') with BodyProfile.headroom and reachY.
+// - pose: PoseFrame.light (a 16 x 12 brightness map, a few per second, for too_dark and backlit).
+// - loop: SessionEvents.profile (how the calibration ended, 'fallback' = the seated variant is played), Session.playAtDesk();
+//   SessionEvents.error carries a code, an empty message and the developer's detail: no player-facing text from the platform.
 
 export * from './common.ts';
 export * from './camera.ts';

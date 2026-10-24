@@ -26,6 +26,9 @@
 //   and gets only head and shoulders (a desk) plays its seated variant: after a short wait on its own, or at once on
 //   playAtDesk(). The 'profile' event says how it ended, so the screen can say "desk mode". One player calibrates with
 //   two poses running, so a second person in view is noticed; the model goes back to one pose for the game.
+// - A game with manifest.headroom ('arms-up', Summit Climb) has the player raise both hands once before the countdown, so
+//   the picture is checked for room above (codes raise_hands and headroom); it never blocks, and playAtDesk() skips it.
+//   The 'profile' event and BodyProfile.headroom say how it went ('ok', 'short', 'unchecked').
 // - Errors carry a code, an empty message and a developer's detail: the platform produces no words for players.
 import {
   FIXED_DT,
