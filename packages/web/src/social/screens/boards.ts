@@ -51,9 +51,9 @@ function list(ctx: ViewContext, v: BoardsView, g: ShellGame): SafeHtml {
   const inList = b.entries.some((e) => e.you);
   const yours = b.you
     ? html`<p class="k-yours" role="status">${b.you.atLeast ? u('boards.yoursLow', { score: ctx.i18n.number(b.you.score), rank: b.you.rank }) : u('boards.yours', { score: ctx.i18n.number(b.you.score), rank: b.you.rank })}</p>`
-    : html`<p class="k-yours" role="status">${u('boards.yoursNone', { game: titleOf(ctx, g) })}</p>`;
+    : html`<p class="k-yours" role="status">${u(b.week.current ? 'boards.yoursNone' : 'boards.yoursNonePrevious', { game: titleOf(ctx, g) })}</p>`;
   if (b.entries.length === 0 && !b.you) {
-    return html`${head}<p class="ba-lead k-mt">${b.scope === 'friends' && v.state.friends.length === 0 ? u('boards.noFriends') : u('boards.empty', { game: titleOf(ctx, g) })}</p>`;
+    return html`${head}<p class="ba-lead k-mt">${b.scope === 'friends' && v.state.friends.length === 0 ? u('boards.noFriends') : u(b.week.current ? 'boards.empty' : 'boards.emptyPrevious', { game: titleOf(ctx, g) })}</p>`;
   }
   const own = !inList && b.you ? html`<li class="you gap" aria-label="${u('boards.row', { rank: b.you.atLeast ? `${b.you.rank}+` : b.you.rank, name: u('boards.you'), score: ctx.i18n.number(b.you.score) })}"><span class="rank" aria-hidden="true">${b.you.atLeast ? `${b.you.rank}+` : b.you.rank}</span><b aria-hidden="true">${v.state.profile?.name ?? ''} <span class="ba-small">(${u('boards.you')})</span></b><span class="score" aria-hidden="true">${ctx.i18n.number(b.you.score)}</span></li>` : '';
   return html`${head}<ol class="k-board k-mt" data-board="${b.scope}">${b.entries.map((e) => row(ctx, e, b.scope))}${own}</ol>${yours}`;

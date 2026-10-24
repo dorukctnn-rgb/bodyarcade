@@ -7,7 +7,7 @@ import type { Matched } from '../../../core/ui/router.ts';
 import { codeFromInvite, isRoomCode } from '../../../core/net/codes.ts';
 import { checkChat, checkName } from '../../../core/net/chat-filter.ts';
 import { formatFriendCode, formatRecoveryCode, parseFriendCode, parseFriendLink } from '../../../core/social/codes.ts';
-import { levelBand } from '../../../core/social/levels.ts';
+import { GHOST_OFFER_AFTER_MS, levelBand } from '../../../core/social/levels.ts';
 import { isPresetMessage, isReaction, randomPresetName } from '../../../core/social/presets.ts';
 import { isBoardGame } from '../../../core/social/scores.ts';
 import type { AgeBand, BoardScope, BoardView, LevelBand, LobbyEntry, Region, ReportReason, RunTicket } from '../../../core/social/types.ts';
@@ -72,14 +72,16 @@ export class SocialController {
   /** The room this controller keeps open: the room page and the stage of a race in it both belong to it. */
   private openCode: string | null = null;
   private redrawTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The first read of the profile and the lists (what a round waits for before it asks for its ticket). */
+  private opened: Promise<void> = Promise.resolve();
   private tray: HTMLElement | null = null;
   private trayTimer: ReturnType<typeof setInterval> | null = null;
 
   private add = { value: '', busy: false, note: null as Note | null };
   private lobby: {
     gameId: string | null; band: LevelBand | null; region: Region | null; list: readonly LobbyEntry[] | null; failed: string | null; quick: QuickView;
-    abort: AbortController | null; token: number; ghostDismissed: boolean;
-  } = { gameId: null, band: null, region: null, list: null, failed: null, quick: IDLE_QUICK, abort: null, token: 0, ghostDismissed: false };
+    abort: AbortController | null; token: number; ghostDismissed: boolean; loading: boolean;
+  } = { gameId: null, band: null, region: null, list: null, failed: null, quick: IDLE_QUICK, abort: null, token: 0, ghostDismissed: false, loading: false };
   private boards: { gameId: string | null; scope: BoardScope; week: 'current' | 'previous'; board: BoardView | null; loading: boolean; failed: boolean; token: number } =
     { gameId: null, scope: 'friends', week: 'current', board: null, loading: false, failed: false, token: 0 };
   private me: { draft: string | null; notes: Partial<Record<'name' | 'code' | 'recovery' | 'prefs' | 'data' | 'age', Note>>; busy: string | null } = { draft: null, notes: {}, busy: null };
@@ -108,7 +110,8 @@ export class SocialController {
     const visible = (): void => this.svc.social.setActive(!doc.hidden);
     doc.addEventListener('visibilitychange', visible);
     this.cleanups.push(() => doc.removeEventListener('visibilitychange', visible));
-    void this.svc.social.open().then(() => { this.changed(); });
+    this.opened = this.svc.social.open().then(() => { this.changed(); });
+    this.mark();
     this.renderTray();
   }
 
@@ -230,11 +233,32 @@ export class SocialController {
     };
   }
 
+  /** The state of the friends side on the page's root element, for styles and for tests: loading, ready or offline, and the connection. */
+  private mark(): void {
+    const s = this.svc.social.state();
+    const d = this.host.document.documentElement.dataset;
+    d['socialStatus'] = s.status;
+    d['socialHub'] = s.hub;
+  }
+
   /** Something in a port changed: draw again once, soon, without losing what is typed. */
   private changed(): void {
+    this.mark();
     this.renderTray();
+    this.catchUp();
     if (!this.route || this.redrawTimer) return;
     this.redrawTimer = setTimeout(() => { this.redrawTimer = null; if (this.route) this.host.rerender(); }, 40);
+  }
+
+  /**
+   * A page that asked for its data before the profile was there (the first answer had not come) asks again once the profile is: the
+   * lobbies and the board of a page opened at the start would otherwise wait for ever.
+   */
+  private catchUp(): void {
+    const st = this.svc.social.state();
+    if (!st.profile || st.bannedUntil !== null || !this.route) return;
+    if (this.route.id === 'lobbies' && this.lobby.list === null && this.lobby.failed === null && !this.lobby.loading) void this.loadLobbies();
+    if (this.route.id === 'friends' && friendsPartOf(this.route) === 'boards' && this.boards.board === null && !this.boards.loading && !this.boards.failed) void this.loadBoard();
   }
 
   // ---- notices and invitations -------------------------------------------------------------------------------------
@@ -300,12 +324,12 @@ export class SocialController {
       case 'invite.decline': void this.answerInvite(d['id'] ?? '', false); return true;
       case 'room.new': void this.newRoom(); return true;
       case 'race.new': void this.newRace(d['game'] ?? ''); return true;
-      case 'lobby.game': this.lobby = { ...this.lobby, gameId: d['game'] ?? null, list: null, failed: null, token: this.lobby.token + 1 }; this.stopSearch(); this.host.rerender(); void this.loadLobbies(); return true;
+      case 'lobby.game': this.lobby = { ...this.lobby, gameId: d['game'] ?? null, list: null, failed: null, loading: false, token: this.lobby.token + 1 }; this.stopSearch(); this.host.rerender(); void this.loadLobbies(); return true;
       case 'lobby.quick': void this.quickMatch(); return true;
       case 'lobby.stop': this.stopSearch(); this.host.rerender(); return true;
       case 'lobby.keep': this.lobby = { ...this.lobby, ghostDismissed: true, quick: { ...this.lobby.quick, offerGhost: false } }; this.host.rerender(); return true;
       case 'lobby.ghost': this.raceGhost(); return true;
-      case 'lobby.refresh': this.lobby = { ...this.lobby, list: null, failed: null, token: this.lobby.token + 1 }; this.host.rerender(); void this.loadLobbies(); return true;
+      case 'lobby.refresh': this.lobby = { ...this.lobby, list: null, failed: null, loading: false, token: this.lobby.token + 1 }; this.host.rerender(); void this.loadLobbies(); return true;
       case 'lobby.join': this.host.go(this.host.context().href('room', { params: { code: d['code'] ?? '' } })); return true;
       case 'lobby.start': void this.newRoom('public'); return true;
       case 'boards.game': this.boards = { ...this.boards, gameId: d['game'] ?? null }; void this.loadBoard(); return true;
@@ -362,7 +386,7 @@ export class SocialController {
       return true;
     }
     if (kind === 'lobby-region' && t.name === 'region') {
-      this.lobby = { ...this.lobby, region: t.value as Region, list: null, failed: null, token: this.lobby.token + 1 };
+      this.lobby = { ...this.lobby, region: t.value as Region, list: null, failed: null, loading: false, token: this.lobby.token + 1 };
       this.host.rerender();
       void this.loadLobbies();
       return true;
@@ -588,8 +612,10 @@ export class SocialController {
     const text = ctx.i18n.t('safety.name.created', { code: r.value.code });
     this.host.toast(text);
     this.host.announce(text);
-    const recovery = this.svc.social.state().recovery;
-    if (recovery) { p.step = 'recovery'; p.recovery = { friend: r.value.code, code: recovery }; this.draw(); } else a.finish(true);
+    const after = this.svc.social.state();
+    // Whether the browser keeps the profile is known for certain only now that the key was saved: the code screen says so if it does not.
+    p.persistent = after.persistent;
+    if (after.recovery) { p.step = 'recovery'; p.recovery = { friend: r.value.code, code: after.recovery }; this.draw(); } else a.finish(true);
   }
 
   private async sheetRecover(): Promise<void> {
@@ -623,7 +649,7 @@ export class SocialController {
     const st = this.svc.social.state();
     if (!st.recovery || !st.profile || this.active) return;
     const ctx = this.host.context();
-    const handle = openDialog({ document: this.host.document, html: recoverySheet(ctx, { friend: st.profile.code, code: st.recovery }), labelledBy: 'sheet-h', describedBy: 'sheet-d', className: 'ba-modal--sheet' });
+    const handle = openDialog({ document: this.host.document, html: recoverySheet(ctx, { friend: st.profile.code, code: st.recovery, persistent: st.persistent }), labelledBy: 'sheet-h', describedBy: 'sheet-d', className: 'ba-modal--sheet' });
     const flow = { kind: 'recovery' as const, handle };
     this.active = flow;
     void handle.closed.then(() => { if (this.active === flow) this.active = null; });
@@ -804,9 +830,10 @@ export class SocialController {
     const profile = this.svc.social.state().profile;
     if (!game || !profile?.can.publicPlay) return;
     const token = this.lobby.token;
+    this.lobby.loading = true;
     const r = await this.svc.social.lobbies({ game: game.id, region: this.lobby.region ?? profile.region });
     if (token !== this.lobby.token) return;
-    this.lobby = { ...this.lobby, list: r.ok ? r.value : [], failed: r.ok ? null : this.text(r) };
+    this.lobby = { ...this.lobby, list: r.ok ? r.value : [], failed: r.ok ? null : this.text(r), loading: false };
     this.host.rerender();
   }
 
@@ -823,6 +850,12 @@ export class SocialController {
     const game = this.selectedGame();
     const profile = this.svc.social.state().profile;
     if (!game || !profile || this.lobby.abort) return;
+    // The service matches by the level of the profile: the level chosen here becomes the player's usual level.
+    const band = this.lobby.band ?? levelBand(profile.level);
+    if (band !== levelBand(profile.level)) {
+      const saved = await this.svc.social.updateProfile({ level: LEVEL_OF_BAND[band] });
+      if (!saved.ok) { this.lobby = { ...this.lobby, quick: { ...IDLE_QUICK, note: this.text(saved) } }; this.host.rerender(); return; }
+    }
     const ctl = new AbortController();
     const rooms = this.svc.rooms;
     const hosted: { code: string | null } = { code: null };
@@ -848,7 +881,8 @@ export class SocialController {
     };
     const onProgress = (p: MatchProgress): void => {
       if (this.lobby.abort !== ctl) return;
-      this.lobby = { ...this.lobby, quick: { phase: 'looking', hosting: p.phase === 'hosting', waitedMs: p.waitedMs, offerGhost: p.offerGhost && !this.lobby.ghostDismissed, note: null } };
+      // The service says when a ghost is due; the clock of the page says it too (a lobby that cannot be joined keeps the answers from saying it).
+      this.lobby = { ...this.lobby, quick: { phase: 'looking', hosting: p.phase === 'hosting', waitedMs: p.waitedMs, offerGhost: (p.offerGhost || p.waitedMs >= GHOST_OFFER_AFTER_MS) && !this.lobby.ghostDismissed, note: null } };
       this.host.rerender();
     };
     const r = await this.svc.social.quickMatch({ game: game.id, driver, signal: ctl.signal, onProgress });
@@ -917,6 +951,8 @@ export class SocialController {
   /** A solo round begins: the server notes the time and signs a ticket (the weekly board counts only rounds it saw start). */
   async runBegan(game: ShellGame, solo: boolean): Promise<void> {
     this.round = null;
+    // A round that starts with the page (a play address opened directly) begins before the profile is read: it waits for it.
+    await this.opened;
     if (!solo || !isBoardGame(game.id) || !this.svc.social.state().profile) return;
     const r = await this.svc.social.startRun(game.id);
     if (r.ok) this.round = { ticket: r.value, game: game.id };

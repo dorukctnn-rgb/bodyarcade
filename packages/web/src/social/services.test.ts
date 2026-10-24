@@ -8,7 +8,7 @@ import { AUTH_HEADER } from '../../../core/social/sign.ts';
 import { createStore, memoryStorage } from '../../../core/store/store.ts';
 import type { ExecutionContextLike } from '../../../server/src/cf.ts';
 import { createTestApp, TEST_ORIGIN, type TestApp } from '../../../server/src/social/testkit.ts';
-import { isLinkEntry, probeSocial, startSocial } from './services.ts';
+import { isLinkEntry, lazyKeyStore, probeSocial, startSocial } from './services.ts';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -48,6 +48,50 @@ describe('links that open the app on a friend or a room', () => {
   it('a friend link and a room link are entries, in every language; nothing else is', () => {
     for (const url of ['/f/BA-7K2Q4X', '/f/BA-7K2Q4X/', '/r/K7Q2MX', '/tr/f/BA-7K2Q4X/', '/tr/r/K7Q2MX/?x=1']) expect(isLinkEntry(url), url).toBe(true);
     for (const url of ['/', '/friends/', '/lobbies/', '/games/squat-flap/', '/safety/']) expect(isLinkEntry(url), url).toBe(false);
+  });
+});
+
+describe('the key store of the device', () => {
+  const fake = (persistent = true) => {
+    const calls: string[] = [];
+    let saved: unknown = null;
+    const store: KeyStore = {
+      persistent,
+      async load() { calls.push('load'); return saved as never; },
+      async save(i) { calls.push('save'); saved = i; },
+      async clear() { calls.push('clear'); saved = null; },
+    };
+    return { store, calls };
+  };
+
+  it('is not opened for a visitor who has no database: nothing is made until a profile is saved', async () => {
+    const f = fake();
+    let opened = 0;
+    const lazy = lazyKeyStore({ open: async () => { opened++; return f.store; }, exists: async () => false });
+    expect(await lazy.load()).toBeNull();
+    await lazy.clear();
+    expect(opened).toBe(0);
+    expect(f.calls).toEqual([]);
+    await lazy.save({ keys: {} as never, registered: false });
+    expect(opened).toBe(1);
+    await lazy.load();
+    expect(opened).toBe(1);
+    expect(f.calls).toEqual(['save', 'load']);
+  });
+
+  it('is opened at once when the database exists (a returning player)', async () => {
+    const f = fake();
+    const lazy = lazyKeyStore({ open: async () => f.store, exists: async () => true });
+    await lazy.load();
+    expect(f.calls).toEqual(['load']);
+  });
+
+  it('opens when the browser cannot say whether a database exists, and says whether the profile will stay once it is open', async () => {
+    const f = fake(false);
+    const lazy = lazyKeyStore({ open: async () => f.store, exists: async () => { throw new Error('no databases()'); } });
+    await lazy.load();
+    expect(f.calls).toEqual(['load']);
+    expect(lazy.persistent).toBe(false);
   });
 });
 

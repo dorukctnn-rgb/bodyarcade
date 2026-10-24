@@ -198,9 +198,10 @@ export async function boot(o: BootOptions): Promise<App> {
   });
   app.start();
   if (later) void later.then((r) => app.attach(r ? { entitlements: r.port, billing: r.billing } : { billing: pendingBilling('unavailable') }));
-  if (lateSocial) void lateSocial.then((svc) => { if (svc) { lateServices = svc; app.attachSocial(svc); } });
+  if (lateSocial) void lateSocial.then((svc) => { if (svc) { lateServices = svc; app.attachSocial(svc); if (o.demo) o.win.__BA_SOCIAL_PORTS__ = svc; } });
   if (o.demo) {
     o.win.__BA__ = app;
+    if (social) o.win.__BA_SOCIAL_PORTS__ = social;
   }
   return app;
 }

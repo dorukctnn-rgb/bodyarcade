@@ -44,6 +44,8 @@ declare module '*/onboarding/scene.mjs' {
 interface Window {
   /** Development and test builds only: the running app and the hooks tests use. */
   __BA__?: import('./app/app.ts').App;
+  /** Development and test builds only: the friends ports the app runs on (the real ones carry the social client as `client`). */
+  __BA_SOCIAL_PORTS__?: import('./social/port.ts').SocialServices & { client?: unknown };
   __BA_TEST__?: { timeScale?: number; roundSeconds?: number; social?: boolean | string;
     /** What a quick match finds in the practice friends port: a lobby at once, or nobody. */
     socialQuick?: 'lobby' | 'never'; plan?: 'free' | 'pro' | 'family'; forceDemo?: boolean; keyboard?: boolean; desk?: boolean;

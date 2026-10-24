@@ -45,10 +45,11 @@ function ageCard(ctx: ViewContext, band: AgeBand, checked: boolean): SafeHtml {
 }
 
 /** The recovery code in the groups it is written in, with what to do with it. Closes with 'saved' (the player keeps the code). */
-export function recoveryBody(ctx: ViewContext, o: { friend: string; code: string }, closeResult = 'saved'): SafeHtml {
+export function recoveryBody(ctx: ViewContext, o: { friend: string; code: string; persistent?: boolean }, closeResult = 'saved'): SafeHtml {
   const u = ux(ctx);
   return html`<h2 id="sheet-h">${u('recovery.title')}</h2>
     <p class="ba-small k-flat" id="sheet-d">${u('recovery.body')}</p>
+    ${o.persistent === false ? html`<p class="ba-callout">${icon('info')}<span>${u('name.persistent')}</span></p>` : ''}
     <dl class="k-recoverybox">
       <div><dt>${u('recovery.friend')}</dt><dd class="k-recoverycode k-recoverycode--friend" data-friend-code>${o.friend}</dd></div>
       <div><dt>${u('recovery.label')}</dt><dd class="k-recoverycode" data-recovery-code>${o.code}</dd></div>
@@ -58,7 +59,7 @@ export function recoveryBody(ctx: ViewContext, o: { friend: string; code: string
     <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-dialog-close="${closeResult}" data-action="sheet.recovery.saved" autofocus>${u('recovery.saved')}</button></div>`;
 }
 
-export function recoverySheet(ctx: ViewContext, o: { friend: string; code: string }): SafeHtml {
+export function recoverySheet(ctx: ViewContext, o: { friend: string; code: string; persistent?: boolean }): SafeHtml {
   return html`<div class="k-sheet k-sheet--bare">${recoveryBody(ctx, o)}</div>`;
 }
 
@@ -76,7 +77,7 @@ export function profileSheet(ctx: ViewContext, s: ProfileSheet): SafeHtml {
       <p class="k-flat" id="sheet-d">${u('under13.body')}</p><p class="ba-small k-flat">${u('under13.kept')}</p>
       <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-dialog-close="games" autofocus>${u('under13.games')}</button></div></div>`;
   }
-  if (s.step === 'recovery' && s.recovery) return html`<div class="k-sheet k-sheet--bare">${recoveryBody(ctx, { friend: s.recovery.friend, code: s.recovery.code }, 'created')}</div>`;
+  if (s.step === 'recovery' && s.recovery) return html`<div class="k-sheet k-sheet--bare">${recoveryBody(ctx, { friend: s.recovery.friend, code: s.recovery.code, persistent: s.persistent }, 'created')}</div>`;
   if (s.step === 'recover') {
     return html`<div class="k-sheet k-sheet--bare"><h2 id="sheet-h">${u('recover.title')}</h2>
       <p class="ba-small k-flat" id="sheet-d">${u('recover.body')}</p>

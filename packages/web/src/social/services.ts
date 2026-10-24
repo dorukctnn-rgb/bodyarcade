@@ -47,6 +47,36 @@ export function isLinkEntry(url: string): boolean {
   return id === 'friendlink' || id === 'room';
 }
 
+/** The name of the database of the device key (core/social/keystore.ts DB_NAME). */
+const KEY_DATABASE = 'bodyarcade-social';
+
+/**
+ * The device's key store, opened only when something is saved or when its database exists already: a visitor who never makes a
+ * profile, or who says they are under 13, never has a database made for them. `exists()` says whether one is there (when the
+ * browser cannot tell, it is opened).
+ */
+export function lazyKeyStore(o: { open(): Promise<KeyStore>; exists(): Promise<boolean> }): KeyStore {
+  let real: Promise<KeyStore> | null = null;
+  let there: boolean | null = null;
+  let persistent = typeof indexedDB !== 'undefined';
+  const get = (): Promise<KeyStore> => (real ??= o.open().then((s) => { persistent = s.persistent; return s; }));
+  const exists = async (): Promise<boolean> => (there ??= await o.exists().catch(() => true));
+  return {
+    get persistent() { return persistent; },
+    async load() { return (real !== null || await exists()) ? (await get()).load() : null; },
+    async save(identity) { there = true; await (await get()).save(identity); },
+    async clear() { if (real !== null || await exists()) await (await get()).clear(); },
+  };
+}
+
+/** Is there a database of the device key in this browser? */
+async function keyDatabaseExists(): Promise<boolean> {
+  const idb = (globalThis as { indexedDB?: IDBFactory }).indexedDB;
+  if (!idb) return false;
+  if (typeof idb.databases !== 'function') return true;
+  return (await idb.databases()).some((d) => d.name === KEY_DATABASE);
+}
+
 const FLAG = { version: 1, parse: (raw: unknown): boolean | null => (typeof raw === 'boolean' ? raw : null) } as const;
 const KEYS = { version: 1, parse: (raw: unknown): string[] | null => (Array.isArray(raw) && raw.every((x) => typeof x === 'string') ? (raw as string[]).slice(0, 200) : null) } as const;
 
@@ -71,7 +101,7 @@ export async function startSocial(o: StartSocialOptions): Promise<RealSocial | n
   try {
     const ns = o.store.ns('social');
     const under13 = (): boolean => ns.get('under13', FLAG, false);
-    const keys = o.keys ?? (await openKeyStore());
+    const keys = o.keys ?? lazyKeyStore({ open: openKeyStore, exists: keyDatabaseExists });
     let known = under13();
     if (!known) {
       const saved = await keys.load().catch(() => null);

@@ -128,7 +128,8 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
     client.on('friends', () => { heard(); emit(); }),
     client.on('requests', () => { heard(); emit(); }),
     client.on('blocks', () => emit()),
-    client.on('hub', (h) => { if (h === 'online') { heard(); bannedUntil = null; } else if (h === 'banned' && bannedUntil === null) { bannedUntil = 0; void checkBan(); } emit(); }),
+    // The connection coming up proves nothing about the lists (the calls that read them may still be failing): only an answer does.
+    client.on('hub', (h) => { if (h === 'online') bannedUntil = null; else if (h === 'banned' && bannedUntil === null) { bannedUntil = 0; void checkBan(); } emit(); }),
     client.on('invites', (list) => {
       const fresh = list.filter((i) => !seenInvites.has(i.id));
       for (const i of list) seenInvites.add(i.id);
@@ -182,7 +183,13 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
     }
   }
 
+  /**
+   * Every call that reaches the server goes through here, and none goes when this device has no online identity to use (under 13, or
+   * a kid profile of the Family plan): the answer is the same one the server gives and no request, no key and no socket is made. The
+   * screens are hidden for those players already; this is the last guard against a mistake in a screen.
+   */
   async function wrap<T>(fn: () => Promise<T>): Promise<Done<T>> {
+    if (noOnlineNow()) return { ok: false, code: 'child_no_online' };
     try { return { ok: true, value: await fn() }; } catch (e) { return failed(e); }
   }
 
@@ -206,9 +213,9 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
       return opening;
     },
     close() { closed = true; client.disconnect(); emit(); },
-    setActive(active) { client.setActive(active); },
-    setStatus(s, game) { client.setStatus(s, game); },
-    takeOver() { client.connect(); },
+    setActive(active) { if (!noOnlineNow()) client.setActive(active); },
+    setStatus(s, game) { if (!noOnlineNow()) client.setStatus(s, game); },
+    takeOver() { if (!noOnlineNow()) client.connect(); },
     declareUnder13() {
       deps.age.remember();
       emit();
@@ -283,7 +290,7 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
     },
     invite: (fid, room) => wrap(() => client.invite(fid, room)),
     async answerInvite(invite, accept) {
-      if (accept) { client.acceptInvite(invite); return OK; }
+      if (accept) { if (noOnlineNow()) return { ok: false, code: 'child_no_online' }; client.acceptInvite(invite); return OK; }
       return wrap(() => client.declineInvite(invite));
     },
     lobbies: (q) => wrap(() => client.lobbies({ game: q.game, region: q.region })),
