@@ -196,6 +196,30 @@ describe('the picture and the body', () => {
     expect(st.ctx.count('stroke')).toBeGreaterThan(20);
   });
 
+  it('shows the body as a silhouette only when there is no camera picture to show it in', () => {
+    const lastShow = (st: Stage): { silhouette: boolean; skeleton: boolean }[] => {
+      const seen: { silhouette: boolean; skeleton: boolean }[] = [];
+      const orig = st.kit.mirror.show.bind(st.kit.mirror);
+      st.kit.mirror.show = (o) => { seen.push({ ...o }); orig(o); };
+      return seen;
+    };
+    const lm = synthPose({ ...DEFAULT_SHAPE, aspect: 4 / 3 }, {});
+    const pose: PoseFrame = { seq: 1, t: 1, landmarks: lm, inferenceMs: 5, source: 'test', aspect: 4 / 3 };
+    const without = stage();
+    const a = lastShow(without);
+    drive(starCatchRules, without, createMirrorView(without.kit), { bots: 'idle', seconds: 1, pose });
+    expect(a.length).toBeGreaterThan(0);
+    expect(a.every((x) => x.silhouette && !x.skeleton)).toBe(true);
+    const withPicture = stage();
+    const b = lastShow(withPicture);
+    drive(starCatchRules, withPicture, createMirrorView(withPicture.kit, { video: () => ({}) as CanvasImageSource, videoSize: () => ({ w: 640, h: 480 }) }), { bots: 'idle', seconds: 1, pose });
+    expect(b.every((x) => !x.silhouette && !x.skeleton)).toBe(true);
+    const keys = stage();
+    const c = lastShow(keys);
+    drive(starCatchRules, keys, createMirrorView(keys.kit), { keyboard: true, bots: 'idle', seconds: 1 });
+    expect(c.every((x) => !x.silhouette)).toBe(true);
+  });
+
   it('a keyboard round draws a plain figure and never asks for the camera picture', () => {
     const st = stage(1280, 800);
     let asked = 0;

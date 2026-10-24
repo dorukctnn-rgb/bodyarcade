@@ -469,6 +469,8 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
       const prs = projectorsFor(rect);
       const src = keyboard ? null : readyVideo(o.video?.() ?? null);
       if (src) kit.drawVideo(src, { size: o.videoSize?.() ?? videoSizeOf(src), ...(o.dim !== undefined ? { dim: o.dim } : {}) });
+      // with the camera picture the player is in it; without one (no picture yet, or privacy) the body is a silhouette on the stage
+      kit.mirror.show({ silhouette: !src && !keyboard, skeleton: false });
 
       const players = v.lanes.length;
       v.lanes.forEach((lane, i) => {
