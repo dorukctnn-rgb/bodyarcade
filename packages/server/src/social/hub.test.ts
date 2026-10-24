@@ -1,9 +1,9 @@
-// PlayerHub with fake sockets and a fake state: what it writes, who it tells, what it refuses. The upgrade itself and the
-// hibernation of real sockets are covered by the Miniflare tests (hub.miniflare.test.ts).
+// The registry of the players' sockets, with fake sockets and a fake state: what it writes, who it tells, what it refuses. The
+// upgrade, the directory object around it and the hibernation of real sockets are in directory.test.ts and the Miniflare tests.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PRESENCE } from '../../../core/social/rules.ts';
 import { HUB_CLOSE } from '../../../core/social/types.ts';
-import { BEAT_MIN_GAP_MS, PlayerHub, STATUS_BURST, type HubIdentity } from './hub.ts';
+import { BEAT_MIN_GAP_MS, HubRegistry, STATUS_BURST, hubTag, type HubIdentity } from './hub.ts';
 import { createTestApp, FakeSocket, FakeState, type TestApp, type TestPlayer } from './testkit.ts';
 
 // Players are made with real WebCrypto keys and every request is signed and verified; a full-suite run on a busy machine is
@@ -23,9 +23,9 @@ afterEach(() => vi.useRealTimers());
 const who = (p: TestPlayer): HubIdentity => ({ pid: p.pid(), fid: p.me.fid, name: p.me.name, band: p.me.band });
 const presenceRow = (p: TestPlayer) => app.db.raw.prepare('SELECT online, seen_at, c_status, c_game FROM soc_presence WHERE pid = ?').get(p.pid());
 
-async function connect(p: TestPlayer): Promise<{ hub: PlayerHub; state: FakeState; ws: FakeSocket }> {
+async function connect(p: TestPlayer): Promise<{ hub: HubRegistry; state: FakeState; ws: FakeSocket }> {
   const state = new FakeState();
-  const hub = new PlayerHub(state, app.env);
+  const hub = new HubRegistry(state, app.env);
   const ws = new FakeSocket();
   hub.accept(ws, who(p));
   await state.settle();
@@ -56,7 +56,7 @@ describe('connecting', () => {
   it('a second tab replaces the first: the old socket is told and closed, the player stays online', async () => {
     const [a, b] = await pair();
     const state = new FakeState();
-    const hub = new PlayerHub(state, app.env);
+    const hub = new HubRegistry(state, app.env);
     const first = new FakeSocket();
     hub.accept(first, who(a));
     await state.settle();
@@ -88,12 +88,26 @@ describe('connecting', () => {
     expect(app.hubs.events(b.pid())).toEqual([]);
   });
 
-  it('refuses an upgrade without the identity headers, and a plain request to the upgrade route', async () => {
+  it('holds the sockets of many players in one state: a second tab of one player never touches the others', async () => {
+    const [a, b] = await pair();
     const state = new FakeState();
-    const hub = new PlayerHub(state, app.env);
-    expect((await hub.fetch(new Request('https://hub.internal/ws'))).status).toBe(426);
-    expect((await hub.fetch(new Request('https://hub.internal/ws', { headers: { Upgrade: 'websocket' } }))).status).toBe(400);
-    expect((await hub.fetch(new Request('https://hub.internal/nope'))).status).toBe(404);
+    const hub = new HubRegistry(state, app.env);
+    const wsA = new FakeSocket();
+    const wsB = new FakeSocket();
+    hub.accept(wsA, who(a));
+    hub.accept(wsB, who(b));
+    await state.settle();
+    expect(state.getWebSockets(hubTag(a.pid()))).toEqual([wsA]);
+    expect(state.getWebSockets(hubTag(b.pid()))).toEqual([wsB]);
+    expect(hub.has(a.pid())).toBe(true);
+    const wsA2 = new FakeSocket();
+    hub.accept(wsA2, who(a));
+    await state.settle();
+    expect(wsA.closed?.code).toBe(HUB_CLOSE.REPLACED);
+    expect(wsB.closed).toBeNull();
+    expect(wsB.events()).toEqual([{ t: 'hello', now: T0 }]);
+    expect(hub.open(a.pid())).toEqual([wsA2]);
+    expect(hub.open(b.pid())).toEqual([wsB]);
   });
 });
 
@@ -222,30 +236,41 @@ describe('leaving', () => {
   });
 });
 
-describe('pushes and closes from the Worker', () => {
-  it('delivers an event to every open socket, answers 204 when none is open, refuses what is not an event', async () => {
-    const [a] = await pair();
-    const { hub, ws } = await connect(a);
+/** The registry's namespace: what the handlers call to reach a player's sockets (`env.HUB.get(env.HUB.idFromName(pid)).fetch(...)`). */
+const stubOf = (hub: HubRegistry, p: TestPlayer) => hub.namespace().get(hub.namespace().idFromName(p.pid()));
+const post = (path: string, body: unknown) => new Request(`https://hub.internal${path}`, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) });
+
+describe('pushes and closes from the handlers', () => {
+  it('delivers an event to every open socket of that player only, answers 204 when none is open, refuses what is not an event', async () => {
+    const [a, b] = await pair();
+    const { hub, state, ws } = await connect(a);
+    const other = new FakeSocket();
+    hub.accept(other, who(b));
+    await state.settle();
     const ev = { t: 'friend_removed', fid: 'ABCDEFGHJK' };
-    const res = await hub.fetch(new Request('https://hub.internal/push', { method: 'POST', body: JSON.stringify(ev) }));
+    const res = await stubOf(hub, a).fetch(post('/push', ev));
     expect(res.status).toBe(200);
     expect(ws.events().at(-1)).toEqual(ev);
-    expect((await hub.fetch(new Request('https://hub.internal/push', { method: 'POST', body: JSON.stringify({ t: 'hack' }) }))).status).toBe(400);
-    expect((await hub.fetch(new Request('https://hub.internal/push', { method: 'POST', body: 'x' }))).status).toBe(400);
+    expect(other.events().filter((e) => e.t === 'friend_removed')).toEqual([]);
+    expect((await stubOf(hub, a).fetch(post('/push', { t: 'hack' }))).status).toBe(400);
+    expect((await stubOf(hub, a).fetch(post('/push', 'x'))).status).toBe(400);
+    expect((await stubOf(hub, a).fetch(new Request('https://hub.internal/nope'))).status).toBe(404);
     ws.close(1000);
-    expect((await hub.fetch(new Request('https://hub.internal/push', { method: 'POST', body: JSON.stringify(ev) }))).status).toBe(204);
+    expect((await stubOf(hub, a).fetch(post('/push', ev))).status).toBe(204);
+    // a player nobody holds a socket for is simply offline
+    expect((await hub.namespace().get(hub.namespace().idFromName('nobody')).fetch(post('/push', ev))).status).toBe(204);
   });
 
   it('closes with the code of the reason: deleted or banned', async () => {
     const [a] = await pair();
     const one = await connect(a);
-    const r = await one.hub.fetch(new Request('https://hub.internal/close', { method: 'POST', body: JSON.stringify({ reason: 'deleted' }) }));
+    const r = await stubOf(one.hub, a).fetch(post('/close', { reason: 'deleted' }));
     expect(r.status).toBe(204);
     expect(one.ws.events().at(-1)).toEqual({ t: 'closing', reason: 'deleted' });
     expect(one.ws.closed?.code).toBe(HUB_CLOSE.DELETED);
     const two = await connect(a);
-    await two.hub.fetch(new Request('https://hub.internal/close', { method: 'POST', body: JSON.stringify({ reason: 'banned' }) }));
+    await stubOf(two.hub, a).fetch(post('/close', { reason: 'banned' }));
     expect(two.ws.closed?.code).toBe(HUB_CLOSE.BANNED);
-    expect((await two.hub.fetch(new Request('https://hub.internal/close', { method: 'POST', body: JSON.stringify({ reason: 'x' }) }))).status).toBe(400);
+    expect((await stubOf(two.hub, a).fetch(post('/close', { reason: 'x' }))).status).toBe(400);
   });
 });

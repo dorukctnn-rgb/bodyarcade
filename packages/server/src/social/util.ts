@@ -2,10 +2,11 @@
 // `authed` wrapper that turns a handler working on a verified player into a router handler.
 import { cryptoRandomBytes, toB64u } from '../../../core/social/codes.ts';
 import type { ExecutionContextLike } from '../cf.ts';
-import { HttpError, clientIp, isRecord, json, publicOrigin, readJson } from '../http.ts';
+import { HttpError, isRecord, json, publicOrigin, readJson } from '../http.ts';
 import type { Handler, Params } from '../router.ts';
-import type { D1Like } from './db.ts';
+import type { SqlLike } from './db.ts';
 import { authenticate, type Me } from './auth.ts';
+import { callerIp } from './geo.ts';
 import { socialEnv, type SocialEnv } from './env.ts';
 import { maybeSweep } from './sweep.ts';
 
@@ -52,7 +53,7 @@ export function resetMemLimits(): void {
 /** Per-address and per-player request guards of every authenticated route. */
 export function guardRequest(env: SocialEnv, req: Request, scope: string | null, now: number): void {
   if (env.SOCIAL_NO_LIMITS === '1') return;
-  const ip = clientIp(req);
+  const ip = callerIp(req);
   if (ip && !memAllow(`ip:${ip}`, 600, 60_000, now)) throw new HttpError(429, 'rate_limited', { retryAfterMs: 60_000 });
   if (scope && !memAllow(`pid:${scope}`, 240, 60_000, now)) throw new HttpError(429, 'rate_limited', { retryAfterMs: 60_000 });
 }
@@ -68,7 +69,7 @@ const hmacKeys = new Map<string, Promise<CryptoKey>>();
 
 /** A keyed hash of the caller's address: the only form in which an address is ever stored (counter keys). */
 export async function addressHash(env: SocialEnv, req: Request): Promise<string> {
-  const ip = clientIp(req) || 'local';
+  const ip = callerIp(req) || 'local';
   const secret = typeof env.TICKET_SECRET === 'string' && env.TICKET_SECRET.length >= 16 ? env.TICKET_SECRET : 'ba-social-address-salt';
   let key = hmacKeys.get(secret);
   if (!key) {
@@ -87,7 +88,7 @@ export interface Ctx {
   env: SocialEnv;
   /** The full env object, for the other modules' bindings. */
   raw: Record<string, unknown>;
-  db: D1Like;
+  db: SqlLike;
   now: number;
   url: URL;
   params: Params;

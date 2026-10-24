@@ -9,7 +9,7 @@
 // is read from D1 the next time the page asks.
 import { PRESENCE, viewPresence, type PresenceRow } from '../../../core/social/rules.ts';
 import type { FriendPresence, HubEvent, PresenceStatus } from '../../../core/social/types.ts';
-import { one, rows, run, type D1Like } from './db.ts';
+import { one, rows, run, type SqlLike } from './db.ts';
 import type { SocialEnv } from './env.ts';
 
 /** The presence columns as D1 returns them (joined next to a profile in several queries). */
@@ -57,7 +57,7 @@ export function viewOf(cols: PresenceCols, dnd: boolean, now: number): FriendPre
 export interface PersonPresence { pid: string; fid: string; name: string; presence: FriendPresence }
 
 /** The visible presence of one player (what a friend would see right now). */
-export async function presenceOf(db: D1Like, pid: string, now: number): Promise<PersonPresence | null> {
+export async function presenceOf(db: SqlLike, pid: string, now: number): Promise<PersonPresence | null> {
   const r = await one<PresenceCols & { pid: string; fid: string; name: string; dnd: number }>(
     db,
     `SELECT p.pid, p.fid, p.name, p.dnd, ${PRESENCE_SELECT} FROM soc_profiles p ${PRESENCE_JOIN} WHERE p.pid = ?1`,
@@ -68,7 +68,7 @@ export async function presenceOf(db: D1Like, pid: string, now: number): Promise<
 }
 
 /** Friends of `pid` that have a live hub socket right now (fresh heartbeat), newest first, at most PRESENCE.pushMax. */
-export async function onlineFriends(db: D1Like, pid: string, now: number): Promise<string[]> {
+export async function onlineFriends(db: SqlLike, pid: string, now: number): Promise<string[]> {
   const r = await rows<{ pid: string }>(
     db,
     `SELECT f.friend AS pid FROM soc_friends f JOIN soc_presence pr ON pr.pid = f.friend
@@ -123,7 +123,7 @@ export async function pushPresence(env: Pick<SocialEnv, 'DB' | 'HUB'>, pid: stri
  * A hub socket opened. Writes only when the row is not already fresh and online (a tab that reconnects in a loop costs one
  * write a minute, not one per attempt). True when friends should hear about it: the player was not visibly online before.
  */
-export async function markOnline(db: D1Like, pid: string, now: number): Promise<boolean> {
+export async function markOnline(db: SqlLike, pid: string, now: number): Promise<boolean> {
   const prev = await one<{ online: number; seen_at: number; c_status: string }>(db, 'SELECT online, seen_at, c_status FROM soc_presence WHERE pid = ?1', pid);
   const fresh = !!prev && prev.online === 1 && now - prev.seen_at < 60_000 && prev.c_status === 'online';
   if (fresh) return false;
@@ -137,13 +137,13 @@ export async function markOnline(db: D1Like, pid: string, now: number): Promise<
 }
 
 /** The last hub socket closed. True when the row said online (friends should hear the player left). */
-export async function markOffline(db: D1Like, pid: string, now: number): Promise<boolean> {
+export async function markOffline(db: SqlLike, pid: string, now: number): Promise<boolean> {
   const n = await run(db, "UPDATE soc_presence SET online = 0, c_status = 'online', c_game = NULL, changed_at = ?2 WHERE pid = ?1 AND online = 1", pid, now);
   return n > 0;
 }
 
 /** One heartbeat (every four minutes while the page is visible). True when the player had dropped out and is back. */
-export async function beat(db: D1Like, pid: string, now: number): Promise<boolean> {
+export async function beat(db: SqlLike, pid: string, now: number): Promise<boolean> {
   const prev = await one<{ online: number; seen_at: number }>(db, 'SELECT online, seen_at FROM soc_presence WHERE pid = ?1', pid);
   await run(
     db,
@@ -155,7 +155,7 @@ export async function beat(db: D1Like, pid: string, now: number): Promise<boolea
 }
 
 /** The client's own word about solo play. Writes nothing when it changes nothing. True when it changed. */
-export async function setClientStatus(db: D1Like, pid: string, status: 'online' | 'playing', game: string | null, now: number): Promise<boolean> {
+export async function setClientStatus(db: SqlLike, pid: string, status: 'online' | 'playing', game: string | null, now: number): Promise<boolean> {
   const n = await run(
     db,
     `UPDATE soc_presence SET c_status = ?2, c_game = ?3, seen_at = ?4, changed_at = ?4
@@ -168,7 +168,7 @@ export async function setClientStatus(db: D1Like, pid: string, status: 'online' 
 export interface RoomState { room: string; state: 'lobby' | 'playing'; game: string }
 
 /** What the Room said (setPlaying hook): the player is in `room`, in its lobby or in a match; or, with null, left `room`. */
-export async function setRoomState(db: D1Like, pid: string, leaving: string | null, st: RoomState | null, now: number): Promise<boolean> {
+export async function setRoomState(db: SqlLike, pid: string, leaving: string | null, st: RoomState | null, now: number): Promise<boolean> {
   if (st) {
     // Only for a stored profile: a player who erased their data while still in a room must not leave a row behind.
     const n = await run(
@@ -190,6 +190,6 @@ export async function setRoomState(db: D1Like, pid: string, leaving: string | nu
 }
 
 /** Players whose hub went quiet for longer than the TTL are offline (the sweep; readers already treat them as offline). */
-export async function sweepPresence(db: D1Like, now: number): Promise<number> {
+export async function sweepPresence(db: SqlLike, now: number): Promise<number> {
   return run(db, 'UPDATE soc_presence SET online = 0, c_status = \'online\', c_game = NULL WHERE online = 1 AND seen_at < ?1', now - PRESENCE.ttlMs);
 }

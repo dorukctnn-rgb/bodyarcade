@@ -1,21 +1,20 @@
 // Test support (never imported by the Worker): the production Worker (src/index.ts, every module on one router) bundled
-// with esbuild and run in Miniflare, i.e. in workerd with a real D1 database, real Durable Objects with hibernating
-// WebSockets, real WebCrypto and the same assets arrangement as wrangler.jsonc. The Miniflare tests and the multi-browser
-// suite (tests/social) both start it. The bundle's entry is stack-entry.ts: the production Worker plus a clock the test
-// holds and moves (`stack.clock`), so nothing here sleeps to let the server's time pass.
+// with esbuild and run in Miniflare, i.e. in workerd with the real Durable Objects (the directory with its SQLite storage and
+// its hibernating WebSockets), real WebCrypto and the same assets arrangement as wrangler.jsonc. The Miniflare tests and the
+// multi-browser suite (tests/social) both start it. The bundle's entry is stack-entry.ts: the production Worker plus a clock
+// the test holds and moves (`stack.clock`), so nothing here sleeps to let the server's time pass, and a way to run SQL on the
+// directory's tables (`stack.db`).
 //
-//   const stack = await startStack();                       // migrations applied, listening on a free local port
+//   const stack = await startStack();                       // listening on a free local port; the tables are made by the first request
 //   const social = new SocialClient({ origin: stack.origin, keys: new MemoryKeyStore(), fetch, WebSocket });
 //   await stack.clock.pin();  ...  await stack.clock.advance(3_000);  ...  await stack.clock.release();
 //   ...
 //   await stack.stop();
-import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare';
-import type { D1Like } from './db.ts';
-
-const SERVER_DIR = fileURLToPath(new URL('../../', import.meta.url));
+import type { SqlLike, SqlResult, SqlStmt } from './db.ts';
+import { DIRECTORY_NAME } from './env.ts';
 
 export const STACK_ADMIN_TOKEN = 'stack-admin-token-0123456789abcdef';
 
@@ -24,7 +23,7 @@ export interface StackOptions {
   assetsDir?: string;
   /** Extra or replaced Worker vars and secrets. */
   vars?: Record<string, string>;
-  /** Keeps the D1 and Durable Object storage in this folder (a restart test); memory when absent. */
+  /** Keeps the Durable Object storage in this folder (a restart test); memory when absent. */
   persistTo?: string;
 }
 
@@ -51,13 +50,13 @@ export interface Stack {
   clock: StackClock;
   /** Everything the Worker wrote with console.log, one entry per line. Production code logs JSON events (`evt`). */
   logs: string[];
-  /** The social database: tests read and write it directly. */
-  db: D1Like;
+  /** The directory's tables: tests read and write them directly (each call is one request to the object that holds them). */
+  db: SqlLike;
   mf: Miniflare;
   /** The logged events with this `evt` name. */
   events(evt: string): Record<string, unknown>[];
-  /** Evicts the player's hub object from memory while its WebSockets stay connected (they hibernate), as the platform does when idle. */
-  evictHub(pid: string): Promise<void>;
+  /** Evicts the directory object from memory while the players' WebSockets stay connected (they hibernate), as the platform does when idle. */
+  evictDirectory(): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -82,29 +81,27 @@ export function workerBundle(): Promise<string> {
   return bundled;
 }
 
-/** The statements of a migration file (the files hold one statement per `;` and `--` comment lines). */
-export function splitSql(sql: string): string[] {
-  const out: string[] = [];
-  let cur = '';
-  for (const line of sql.split(/\r?\n/)) {
-    if (/^\s*--/.test(line)) continue;
-    cur += line + '\n';
-    if (/;\s*$/.test(line)) { out.push(cur.trim()); cur = ''; }
+/** A SqlLike whose statements run in the directory object, through the test route of the Worker (stack-entry.ts). */
+function remoteSql(origin: string): SqlLike {
+  const send = async (statements: { sql: string; params: unknown[] }[], mode: 'first' | 'all' | 'run' | 'batch'): Promise<Record<string, unknown>> => {
+    const res = await fetch(`${origin}/api/__test/sql`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ statements, mode }) });
+    const body = (await res.json()) as Record<string, unknown>;
+    if (!res.ok) throw new Error(String(body.error ?? `the test SQL route answered ${res.status}`));
+    return body;
+  };
+  class RemoteStmt implements SqlStmt {
+    readonly sql: string;
+    readonly params: unknown[];
+    constructor(sql: string, params: unknown[] = []) { this.sql = sql; this.params = params; }
+    bind(...values: unknown[]): SqlStmt { return new RemoteStmt(this.sql, values.map((v) => (v === undefined ? null : v))); }
+    async first<T = Record<string, unknown>>(): Promise<T | null> { return ((await send([this], 'first')).row as T | null) ?? null; }
+    async all<T = Record<string, unknown>>(): Promise<SqlResult<T>> { return (await send([this], 'all')).result as SqlResult<T>; }
+    async run(): Promise<SqlResult> { return (await send([this], 'run')).result as SqlResult; }
   }
-  if (cur.trim()) out.push(cur.trim());
-  return out;
-}
-
-/** Applies the files of packages/server/migrations in name order. */
-export async function applyMigrations(db: D1Like, dir = `${SERVER_DIR}migrations`): Promise<number> {
-  const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
-  let n = 0;
-  for (const f of files) {
-    const stmts = splitSql(readFileSync(`${dir}/${f}`, 'utf8'));
-    await db.batch(stmts.map((s) => db.prepare(s)));
-    n += stmts.length;
-  }
-  return n;
+  return {
+    prepare: (sql) => new RemoteStmt(sql),
+    async batch(stmts) { return (await send(stmts.map((x) => x as RemoteStmt), 'batch')).results as SqlResult[]; },
+  };
 }
 
 export async function startStack(opts: StackOptions = {}): Promise<Stack> {
@@ -115,8 +112,7 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
     compatibilityDate: '2026-09-01',
     host: '127.0.0.1',
     port: 0,
-    durableObjects: { ROOMS: { className: 'Room', useSQLite: true }, HUB: { className: 'PlayerHub', useSQLite: true } },
-    d1Databases: { DB: 'bodyarcade-social-test' },
+    durableObjects: { ROOMS: { className: 'Room', useSQLite: true }, SOCIAL: { className: 'SocialDirectory', useSQLite: true } },
     bindings: {
       TICKET_SECRET: 'stack-ticket-secret-0123456789abcdef0123456789',
       PUBLIC_ORIGIN: 'https://bodyarcade.test',
@@ -131,8 +127,7 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
     handleStructuredLogs: (l: { message: string }) => { for (const line of String(l.message).split('\n')) logs.push(line); },
   } as Parameters<typeof convertV4MiniflareOptions>[0]));
   const url = await mf.ready;
-  const db = (await mf.getD1Database('DB')) as unknown as D1Like;
-  await applyMigrations(db);
+  const db = remoteSql(url.origin);
   const clockCall = async (op: 'now' | 'pin' | 'advance' | 'release', ms = 0): Promise<number> => {
     const res = await fetch(`${url.origin}/api/__test/clock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op, ms }) });
     if (!res.ok) throw new Error(`the test clock answered ${res.status}`);
@@ -147,7 +142,7 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
     events: (evt) => logs.flatMap((l) => {
       try { const v = JSON.parse(l) as Record<string, unknown>; return v.evt === evt ? [v] : []; } catch { return []; }
     }),
-    evictHub: (pid) => mf.unsafeEvictDurableObject('', 'PlayerHub', { name: pid, webSockets: 'hibernate' }),
+    evictDirectory: () => mf.unsafeEvictDurableObject('', 'SocialDirectory', { name: DIRECTORY_NAME, webSockets: 'hibernate' }),
     stop: () => mf.dispose(),
   };
 }

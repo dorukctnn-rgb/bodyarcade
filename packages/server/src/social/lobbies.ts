@@ -16,7 +16,7 @@ import { normalizeRoomCode } from '../../../core/net/codes.ts';
 import type { RoomSummary } from '../../../core/types/net.ts';
 import { HttpError } from '../http.ts';
 import { one, rows } from './db.ts';
-import type { D1Like } from './db.ts';
+import type { SqlLike } from './db.ts';
 import { enforce } from './limits.ts';
 import { areFriends, byFid } from './people.ts';
 import { hubSend, presenceOf } from './presence.ts';
@@ -61,12 +61,12 @@ const joinable = (r: { phase: string; open: number }): boolean => r.phase === 'l
  * A room was created or changed. Rooms nobody sits in yet are not stored; a report that changes nothing is not written
  * again for five minutes (that keeps the write count of a busy lobby low). The region of a room is the first member's.
  */
-export async function publishRoom(db: D1Like, s: RoomSummary, pids: readonly string[], now: number): Promise<boolean> {
+export async function publishRoom(db: SqlLike, s: RoomSummary, pids: readonly string[], now: number): Promise<boolean> {
   return (await publishRoomChange(db, s, pids, now)).stored;
 }
 
 /** publishRoom, and whether the room's joinability changed (the Room's presence and lobby reports reach us in either order). */
-export async function publishRoomChange(db: D1Like, s: RoomSummary, pids: readonly string[], now: number): Promise<PublishResult> {
+export async function publishRoomChange(db: SqlLike, s: RoomSummary, pids: readonly string[], now: number): Promise<PublishResult> {
   const prev = await one<LobbyDbRow>(db, 'SELECT * FROM soc_lobbies WHERE code = ?1', s.code);
   if (!prev && pids.length === 0) return { stored: false, joinabilityChanged: false };
   const joinabilityChanged = joinable(s) !== (prev ? joinable(prev) : false);
@@ -105,7 +105,7 @@ export async function publishRoomChange(db: D1Like, s: RoomSummary, pids: readon
   return { stored: true, joinabilityChanged };
 }
 
-export async function removeRoom(db: D1Like, code: string): Promise<void> {
+export async function removeRoom(db: SqlLike, code: string): Promise<void> {
   await db.prepare('DELETE FROM soc_lobbies WHERE code = ?1').bind(code).run();
 }
 
@@ -121,7 +121,7 @@ export function requirePublicPlay(me: Pick<Me, 'band' | 'publicBlockedUntil'>, n
  * The join gate of a public room (the gateJoin hook): the right age group, not suspended, and nobody in the room blocked
  * this player or was blocked by them. Rooms the Room has not reported yet cannot be checked here; the Room checks block keys itself.
  */
-export async function mayJoinPublic(db: D1Like, s: Pick<RoomSummary, 'code' | 'audience'>, pid: string, now: number): Promise<boolean> {
+export async function mayJoinPublic(db: SqlLike, s: Pick<RoomSummary, 'code' | 'audience'>, pid: string, now: number): Promise<boolean> {
   const p = await one<{ band: string; banned_until: number; public_blocked_until: number }>(db, 'SELECT band, banned_until, public_blocked_until FROM soc_profiles WHERE pid = ?1', pid);
   if (!p || p.banned_until > now || p.public_blocked_until > now) return false;
   const band = p.band as Me['band'];

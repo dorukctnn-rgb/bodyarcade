@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DAY, HOUR, LIMITS, MINUTE, PRESENCE } from '../../../core/social/rules.ts';
 import type { RoomSummary } from '../../../core/types/net.ts';
 import type { LiveEnv } from '../live/env.ts';
-import { BEAT_MIN_GAP_MS, PlayerHub, STATUS_BURST } from './hub.ts';
+import { BEAT_MIN_GAP_MS, HubRegistry, STATUS_BURST } from './hub.ts';
 import { sweep } from './sweep.ts';
 import { socialHooks } from './hooks.ts';
 import { createTestApp, FakeSocket, FakeState, type TestApp, type TestPlayer } from './testkit.ts';
@@ -141,9 +141,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-async function connect(p: TestPlayer): Promise<{ hub: PlayerHub; state: FakeState; ws: FakeSocket; send: (cmd: object) => Promise<void> }> {
+async function connect(p: TestPlayer): Promise<{ hub: HubRegistry; state: FakeState; ws: FakeSocket; send: (cmd: object) => Promise<void> }> {
   const state = new FakeState();
-  const hub = new PlayerHub(state, app.env);
+  const hub = new HubRegistry(state, app.env);
   const ws = new FakeSocket();
   hub.accept(ws, { pid: p.pid(), fid: p.me.fid, name: p.me.name, band: p.me.band });
   await state.settle();

@@ -8,9 +8,10 @@ import { randomPresetName } from '../../../core/social/presets.ts';
 import { DAY, LIMITS, REQUEST_TTL_MS, isLang, isRegion, regionFromContinent } from '../../../core/social/rules.ts';
 import type { AgeBand, BlockEntry, DataExport, IncomingRequest, MyProfile, OutgoingRequest, Region } from '../../../core/social/types.ts';
 import { HttpError } from '../http.ts';
+import { continentOf } from './geo.ts';
 import { meFromRow, PROFILE_COLUMNS, proveKey, type Me } from './auth.ts';
 import { isUniqueError, one, rows, run, stmt } from './db.ts';
-import type { D1Like } from './db.ts';
+import type { SqlLike } from './db.ts';
 import type { SocialEnv } from './env.ts';
 import { bump, bumpStmt, enforce, guard, used } from './limits.ts';
 import { MAX_DEVICES, newRecovery, recoveryHash, sameHash } from './recovery.ts';
@@ -25,7 +26,7 @@ export const DEFAULT_MAX_SIGNUPS_PER_DAY = 4000;
 // ───────── the view ─────────
 
 /** What the player sees of their own profile. */
-export async function myProfile(db: D1Like, me: Me, origin: string, now: number): Promise<MyProfile> {
+export async function myProfile(db: SqlLike, me: Me, origin: string, now: number): Promise<MyProfile> {
   const c = await one<{ friends: number; incoming: number; outgoing: number; blocks: number }>(
     db,
     `SELECT (SELECT COUNT(*) FROM soc_friends WHERE pid = ?1) AS friends,
@@ -54,18 +55,13 @@ export async function myProfile(db: D1Like, me: Me, origin: string, now: number)
 }
 
 /** The player's row as `Me`, re-read after a change. */
-export async function loadMe(db: D1Like, pid: string, kid: string): Promise<Me> {
+export async function loadMe(db: SqlLike, pid: string, kid: string): Promise<Me> {
   const r = await one<Parameters<typeof meFromRow>[0]>(db, `SELECT ${PROFILE_COLUMNS} FROM soc_profiles p WHERE p.pid = ?1`, pid);
   if (!r) throw new HttpError(404, 'not_found');
   return meFromRow(r, kid);
 }
 
 // ───────── register ─────────
-
-/** `request.cf.continent` on Cloudflare, nothing elsewhere. */
-function continentOf(req: Request): unknown {
-  return (req as unknown as { cf?: { continent?: unknown } }).cf?.continent;
-}
 
 interface NewProfile { pid: string; fid: string; code: string }
 

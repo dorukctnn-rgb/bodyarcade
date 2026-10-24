@@ -1,6 +1,6 @@
-// The social module and live play on the production Worker, run in Miniflare (workerd): a real D1 database with the real
-// migration, real Durable Objects with hibernating WebSockets, WebCrypto signatures verified by the runtime, and the
-// browser client (core/social/client.ts) and live play's client (core/net) talking to it over HTTP and WebSocket.
+// The social module and live play on the production Worker, run in Miniflare (workerd): the real directory Durable Object with
+// its SQLite storage and its hibernating WebSockets, WebCrypto signatures verified by the runtime, and the browser client
+// (core/social/client.ts) and live play's client (core/net) talking to it over HTTP and WebSocket.
 // The rule-by-rule tests run on node:sqlite in the other files; this file proves the same module works in the platform.
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { LiveClient } from '../../../core/net/client.ts';
@@ -77,12 +77,12 @@ const dayStart = (): number => Math.floor(Date.now() / 86_400_000) * 86_400_000;
 // ───────── the platform ─────────
 
 describe('the Worker in workerd', () => {
-  it('serves the social API next to live play on one router, and the migration is applied to a real D1', async () => {
+  it('serves the social API next to live play on one router, and the directory object has made its tables', async () => {
     const res = await fetch(`${stack.origin}/api/social/me`);
     expect(res.status).toBe(401);
     expect(((await res.json()) as { error: string }).error).toBe('unauthorized');
     const tables = await stack.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'soc_%' ORDER BY name").all<{ name: string }>();
-    expect(tables.results.map((t) => t.name)).toEqual(expect.arrayContaining(['soc_audit', 'soc_blocks', 'soc_devices', 'soc_friends', 'soc_lobbies', 'soc_presence', 'soc_profiles', 'soc_reports', 'soc_requests']));
+    expect(tables.results.map((t) => t.name)).toEqual(expect.arrayContaining(['soc_audit', 'soc_blocks', 'soc_devices', 'soc_friends', 'soc_lobbies', 'soc_meta', 'soc_presence', 'soc_profiles', 'soc_reports', 'soc_requests', 'soc_scores', 'soc_sync']));
     expect((await fetch(`${stack.origin}/api/rooms/ABCDEF`)).status).toBe(404);   // live play's route answers too
   });
 
@@ -218,7 +218,7 @@ describe('the hub in a Durable Object', () => {
     a.client.disconnect();
   });
 
-  it('a hub that was evicted from memory wakes up for the next message with its socket and its identity intact', async () => {
+  it('a directory that was evicted from memory wakes up for the next message with the sockets and the identities intact', async () => {
     const a = await player({ band: 'adult', name: 'Ada' });
     const b = await player({ band: 'adult', name: 'Bo' });
     await befriend(a, b);
@@ -226,8 +226,7 @@ describe('the hub in a Durable Object', () => {
     await goOnline(b);
     await until(() => a.client.friends[0]?.presence.status === 'online', 'b online');
     // the platform evicts an idle object that holds only hibernating sockets: the sockets stay connected
-    const row = await stack.db.prepare('SELECT pid FROM soc_profiles WHERE fid = ?1').bind(b.fid).first<{ pid: string }>();
-    await stack.evictHub(row!.pid);
+    await stack.evictDirectory();
     b.client.setStatus('playing', 'knee-sprint');
     await until(() => a.client.friends[0]?.presence.status === 'playing', 'the status after the wake-up');
     a.client.disconnect();

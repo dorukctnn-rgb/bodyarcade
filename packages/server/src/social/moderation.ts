@@ -12,7 +12,7 @@ import { isFid } from '../../../core/social/codes.ts';
 import { REPORT_REASONS, type ReportReason } from '../../../core/social/types.ts';
 import { HttpError } from '../http.ts';
 import { one, rows, stmt } from './db.ts';
-import type { D1Like } from './db.ts';
+import type { SqlLike } from './db.ts';
 import { used, bump, enforce } from './limits.ts';
 import { blockPlayer, byFid, byPid } from './people.ts';
 import { hubClose, hubSend } from './presence.ts';
@@ -53,7 +53,7 @@ export function cleanNote(raw: unknown, max: number): string | null {
 }
 
 /** Puts a report in the queue and applies the automatic steps. */
-export async function fileReport(db: D1Like, r: ReportInput): Promise<ReportOutcome> {
+export async function fileReport(db: SqlLike, r: ReportInput): Promise<ReportOutcome> {
   const target = await byPid(db, r.target);
   if (!target) return { status: 'unknown_target' };
   const dup = await one(db, 'SELECT 1 AS x FROM soc_reports WHERE reporter = ?1 AND target = ?2 AND reason = ?3 AND at > ?4', r.reporter, r.target, r.reason, r.at - DAY);

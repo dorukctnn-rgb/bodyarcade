@@ -1,4 +1,10 @@
-// HTTP routes of the social module. Registered on the Worker's router with registerSocialRoutes(router).
+// HTTP routes of the social module, and the two places they are registered:
+//
+//   registerSocialRoutes(router)      the Worker: every route below is forwarded to the SocialDirectory object (directory.ts), which
+//                                     holds the tables and the sockets; `/f/:code` is served by the Worker itself.
+//   registerDirectoryRoutes(router)   the directory (and the handler tests): the handlers themselves.
+//
+// The routes (all /api/social/..., signed JSON unless said otherwise):
 //
 //   POST /api/social/register            a new passwordless profile (signed with the key it registers)      -> {me, created}
 //   POST /api/social/recover             the profile back on a new device {pub, code, recovery}             -> {me}
@@ -33,58 +39,18 @@
 //
 // Every route except register and the admin routes needs a signed request (core/social/sign.ts: X-BA-Auth). Every answer
 // carries `serverTime`; every error is `{error, serverTime}` (src/http.ts fail()).
-import { HUB_CLOSE } from '../../../core/social/types.ts';
 import type { Fetcher } from '../cf.ts';
-import { HttpError, fail } from '../http.ts';
+import { HttpError, clientIp, fail } from '../http.ts';
 import type { Handler, Router } from '../router.ts';
-import { authenticate } from './auth.ts';
-import { socialEnv } from './env.ts';
+import { directoryOf } from './env.ts';
 import { cancel, addBlock, listBlocks, listFriends, listRequests, removeBlock, removeFriend, respond, sendRequest } from './friends.ts';
-import { HUB_HEADERS, closedSocket } from './hub.ts';
 import { declineInvite, invite, listLobbies, quickMatch } from './lobbies.ts';
 import { adminAct, adminReports, adminStats, report } from './moderation.ts';
 import { deleteMe, exportMe, getMe, recover, register, renewCode, renewRecovery, updateMe } from './profile.ts';
 import { finishRun, leaderboard, startRun } from './scores.ts';
 import { getSync, putSync } from './sync.ts';
-import { authed, guardRequest, open } from './util.ts';
-
-/** GET /api/social/hub: verify the signed request, then hand the socket to the player's PlayerHub. */
-const hubConnect: Handler = async (req, raw, ctx) => {
-  const env = socialEnv(raw);
-  if (req.headers.get('Upgrade') !== 'websocket') return fail('expected_websocket', 426);
-  const origin = req.headers.get('Origin');
-  if (origin) {
-    let same = false;
-    try { same = new URL(origin).host === new URL(req.url).host; } catch { same = false; }
-    if (!same) return fail('origin', 403);
-  }
-  const now = Date.now();
-  const pending: Promise<unknown>[] = [];
-  try {
-    guardRequest(env, req, null, now);
-    const me = await authenticate({ req, db: env.DB, now, wait: (p) => { pending.push(p); } }, undefined);
-    guardRequest(env, req, me.pid, now);
-    ctx.waitUntil(Promise.allSettled(pending));
-    const stub = env.HUB.get(env.HUB.idFromName(me.pid));
-    return await stub.fetch(new Request('https://hub.internal/ws', {
-      headers: {
-        Upgrade: 'websocket',
-        [HUB_HEADERS.pid]: me.pid,
-        [HUB_HEADERS.fid]: me.fid,
-        [HUB_HEADERS.name]: encodeURIComponent(me.name),
-        [HUB_HEADERS.band]: me.band,
-      },
-    }));
-  } catch (e) {
-    if (e instanceof HttpError) {
-      // The page gets a close code it can act on instead of a bare network error.
-      if (e.code === 'banned') return closedSocket(HUB_CLOSE.BANNED, 'banned');
-      if (e.status === 401) return closedSocket(HUB_CLOSE.AUTH, e.code);
-      if (e.status === 429) return closedSocket(HUB_CLOSE.RATE, 'rate_limited');
-    }
-    throw e;
-  }
-};
+import { authed, memAllow, open } from './util.ts';
+import { GEO_CONTINENT, GEO_COUNTRY, CALLER_IP } from './geo.ts';
 
 /**
  * A friend link `<origin>/f/BA-7K2Q4X` opens the app. The page reads the code from its own address (parseFriendLink(location.href)),
@@ -106,37 +72,92 @@ export const openFriendLink: Handler = async (req, raw) => {
   return new Response(redirected ? 'unavailable' : shell.body, { status: redirected ? 503 : shell.status, headers });
 };
 
+// ───────── the Worker: forward to the directory ─────────
+
+/** Calls per address per minute the Worker lets through to the directory (per isolate: the first line before the object's own limits). */
+export const EDGE_PER_MINUTE = 600;
+
+/**
+ * The request as the directory should see it. The directory is reached only through the Worker, so what Cloudflare knows about the
+ * caller (the address, the country, the continent) is put in headers it can read, replacing anything the caller sent under the same
+ * names; the directory's own handlers take the address and the country from there.
+ */
+export function forwardedHeaders(req: Request): Headers {
+  const h = new Headers(req.headers);
+  h.delete(CALLER_IP);
+  h.delete(GEO_CONTINENT);
+  const ip = clientIp(req);
+  if (ip) h.set(CALLER_IP, ip);
+  const cf = (req as unknown as { cf?: { country?: unknown; continent?: unknown } }).cf;
+  if (typeof cf?.country === 'string' && /^[A-Za-z]{2}$/.test(cf.country)) h.set(GEO_COUNTRY, cf.country.toUpperCase());
+  if (typeof cf?.continent === 'string' && /^[A-Za-z]{2}$/.test(cf.continent)) h.set(GEO_CONTINENT, cf.continent.toUpperCase());
+  return h;
+}
+
+/** Hands the request to the directory object and returns its answer (a WebSocket upgrade included). */
+export const forwardToDirectory: Handler = async (req, raw) => {
+  const dir = directoryOf(raw);
+  if (raw.SOCIAL_NO_LIMITS !== '1') {
+    const ip = clientIp(req);
+    if (ip && !memAllow(`edge:${ip}`, EDGE_PER_MINUTE, 60_000)) throw new HttpError(429, 'rate_limited', { retryAfterMs: 60_000 });
+  }
+  // An upgrade goes through as it came: the platform pairs the sockets of the request it was given.
+  if (req.headers.get('Upgrade')?.toLowerCase() === 'websocket') return dir.fetch(req);
+  return dir.fetch(new Request(req, { headers: forwardedHeaders(req) }));
+};
+
+// ───────── the table ─────────
+
+interface Deps {
+  /** GET /api/social/hub: the directory accepts the player's socket (it needs its own state to do it). */
+  connectHub: Handler;
+}
+
+type Method = 'GET' | 'POST' | 'PUT';
+
+/** Every route the directory serves: method, pattern, and the handler (given what only the directory has). */
+const TABLE: readonly (readonly [Method, string, (d: Deps) => Handler])[] = [
+  ['POST', '/api/social/register', () => open(register)],
+  ['POST', '/api/social/recover', () => open(recover)],
+  ['GET', '/api/social/me', () => authed(getMe)],
+  ['POST', '/api/social/me', () => authed(updateMe)],
+  ['POST', '/api/social/me/code', () => authed(renewCode)],
+  ['POST', '/api/social/me/recovery', () => authed(renewRecovery)],
+  ['GET', '/api/social/me/export', () => authed(exportMe, { allowBanned: true })],
+  ['POST', '/api/social/me/delete', () => authed(deleteMe, { allowBanned: true })],
+  ['GET', '/api/social/friends', () => authed(listFriends)],
+  ['GET', '/api/social/requests', () => authed(listRequests)],
+  ['POST', '/api/social/friends/request', () => authed(sendRequest)],
+  ['POST', '/api/social/friends/respond', () => authed(respond)],
+  ['POST', '/api/social/friends/cancel', () => authed(cancel)],
+  ['POST', '/api/social/friends/remove', () => authed(removeFriend)],
+  ['GET', '/api/social/blocks', () => authed(listBlocks)],
+  ['POST', '/api/social/blocks', () => authed(addBlock)],
+  ['POST', '/api/social/blocks/remove', () => authed(removeBlock)],
+  ['POST', '/api/social/report', () => authed(report)],
+  ['POST', '/api/social/invite', () => authed(invite)],
+  ['POST', '/api/social/invite/decline', () => authed(declineInvite)],
+  ['GET', '/api/social/lobbies', () => authed(listLobbies)],
+  ['POST', '/api/social/match', () => authed(quickMatch)],
+  ['GET', '/api/social/sync', () => authed(getSync)],
+  ['PUT', '/api/social/sync/:key', () => authed(putSync)],
+  ['POST', '/api/social/scores/start', () => authed(startRun)],
+  ['POST', '/api/social/scores', () => authed(finishRun)],
+  ['GET', '/api/social/leaderboard', () => authed(leaderboard)],
+  ['GET', '/api/social/hub', (d) => d.connectHub],
+  ['GET', '/api/admin/social/reports', () => adminReports],
+  ['POST', '/api/admin/social/reports/:id', () => adminAct],
+  ['GET', '/api/admin/social/stats', () => adminStats],
+];
+
+/** The Worker's routes: all of the table forwarded to the directory, and the friend-link page served here. */
 export function registerSocialRoutes(router: Router): void {
-  router.add('POST', '/api/social/register', open(register));
-  router.add('POST', '/api/social/recover', open(recover));
-  router.add('GET', '/api/social/me', authed(getMe));
-  router.add('POST', '/api/social/me', authed(updateMe));
-  router.add('POST', '/api/social/me/code', authed(renewCode));
-  router.add('POST', '/api/social/me/recovery', authed(renewRecovery));
-  router.add('GET', '/api/social/me/export', authed(exportMe, { allowBanned: true }));
-  router.add('POST', '/api/social/me/delete', authed(deleteMe, { allowBanned: true }));
-  router.add('GET', '/api/social/friends', authed(listFriends));
-  router.add('GET', '/api/social/requests', authed(listRequests));
-  router.add('POST', '/api/social/friends/request', authed(sendRequest));
-  router.add('POST', '/api/social/friends/respond', authed(respond));
-  router.add('POST', '/api/social/friends/cancel', authed(cancel));
-  router.add('POST', '/api/social/friends/remove', authed(removeFriend));
-  router.add('GET', '/api/social/blocks', authed(listBlocks));
-  router.add('POST', '/api/social/blocks', authed(addBlock));
-  router.add('POST', '/api/social/blocks/remove', authed(removeBlock));
-  router.add('POST', '/api/social/report', authed(report));
-  router.add('POST', '/api/social/invite', authed(invite));
-  router.add('POST', '/api/social/invite/decline', authed(declineInvite));
-  router.add('GET', '/api/social/lobbies', authed(listLobbies));
-  router.add('POST', '/api/social/match', authed(quickMatch));
-  router.add('GET', '/api/social/sync', authed(getSync));
-  router.add('PUT', '/api/social/sync/:key', authed(putSync));
-  router.add('POST', '/api/social/scores/start', authed(startRun));
-  router.add('POST', '/api/social/scores', authed(finishRun));
-  router.add('GET', '/api/social/leaderboard', authed(leaderboard));
-  router.add('GET', '/api/social/hub', hubConnect);
-  router.add('GET', '/api/admin/social/reports', adminReports);
-  router.add('POST', '/api/admin/social/reports/:id', adminAct);
-  router.add('GET', '/api/admin/social/stats', adminStats);
+  for (const [method, pattern] of TABLE) router.add(method, pattern, forwardToDirectory);
   router.add('GET', '/f/:code', openFriendLink);
+}
+
+/** The directory's routes: the handlers (and, in the handler tests, the whole module on one router). */
+export function registerDirectoryRoutes(router: Router, deps: Partial<Deps> = {}): void {
+  const full: Deps = { connectHub: deps.connectHub ?? (() => fail('unavailable', 503)) };
+  for (const [method, pattern, make] of TABLE) router.add(method, pattern, make(full));
 }

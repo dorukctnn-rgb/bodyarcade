@@ -1,17 +1,45 @@
 // The Worker of the Miniflare stack (test support: the production bundle never includes this file; stack.ts bundles it
-// instead of src/index.ts): the production Worker, whole, plus a clock that a test can hold still and move.
+// instead of src/index.ts): the production Worker, whole, plus a clock that a test can hold still and move, and a way for a
+// test to run SQL on the directory's tables.
 //
 // Every module reads the time with Date.now() (the run tickets and what a run may score, the limits' windows, presence
 // time-outs, the week a board belongs to), in the Worker and in its Durable Objects, which share the isolate. One replaced
 // function therefore moves all of them. A test that needs "three seconds later" says so with `stack.clock.advance(3000)`
 // instead of sleeping and hoping the machine is neither too fast nor too slow, and a test that must not straddle midnight
 // of a Sunday pins the clock for its whole length.
+//
+// The tables are inside the directory object, so a test cannot open them from outside the way it could open a database. The
+// directory of this bundle is a subclass that also answers `POST https://test.internal/sql`, and the Worker has one test route
+// that carries a test's statements to it; both exist only here and only where TEST_CLOCK is "1".
 import { HttpError, isRecord, json, readJson } from '../http.ts';
 import { router } from '../router.ts';
 import worker from '../index.ts';
+import { SocialDirectory as ProductionDirectory } from './directory.ts';
+import { directoryOf } from './env.ts';
 
 export * from '../index.ts';
 export default worker;
+
+/** The statements a test sends: `{statements: [{sql, params}], mode: 'first' | 'all' | 'run' | 'batch'}`. */
+interface SqlCall { statements: { sql: string; params: unknown[] }[]; mode: 'first' | 'all' | 'run' | 'batch' }
+
+export class SocialDirectory extends ProductionDirectory {
+  override async fetch(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+    if (url.hostname !== 'test.internal' || url.pathname !== '/sql') return super.fetch(req);
+    const call = (await req.json()) as SqlCall;
+    try {
+      const prepared = call.statements.map((s) => this.db.prepare(s.sql).bind(...s.params));
+      const first = prepared[0];
+      if (!first) return json({ results: [] });
+      if (call.mode === 'batch') return json({ results: await this.db.batch(prepared) });
+      if (call.mode === 'first') return json({ row: await first.first() });
+      return json({ result: call.mode === 'all' ? await first.all() : await first.run() });
+    } catch (e) {
+      return json({ error: String((e as { message?: unknown })?.message ?? e) }, 500);
+    }
+  }
+}
 
 const realNow = Date.now.bind(Date);
 /** How far the running clock is ahead of the real one. */
@@ -41,4 +69,11 @@ router.add('POST', '/api/__test/clock', async (req, env) => {
     throw new HttpError(400, 'bad_request');
   }
   return json({ now: now(), pinned: pinned !== null });
+});
+
+/** POST /api/__test/sql {statements, mode} -> what the directory's SQL answered; only where TEST_CLOCK is "1". */
+router.add('POST', '/api/__test/sql', async (req, env) => {
+  if (env.TEST_CLOCK !== '1') throw new HttpError(404, 'not_found');
+  const body = await readJson(req, 1_000_000);
+  return directoryOf(env).fetch(new Request('https://test.internal/sql', { method: 'POST', body: JSON.stringify(body) }));
 });

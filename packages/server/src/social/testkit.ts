@@ -1,40 +1,40 @@
-// Test kit of the social module (not imported by production code): the real D1 queries on node:sqlite, a fake PlayerHub
-// namespace that records pushes, a fake Durable Object state with fake sockets, and a signed-request client that talks to
-// the module's router in process. Workers-runtime behaviour (real D1, real hibernating sockets) is covered by the Miniflare tests.
+// Test kit of the social module (not imported by production code): the module's real queries on node:sqlite, a fake namespace
+// of per-player sockets that records pushes, a fake Durable Object state with fake sockets and SQL storage, the directory
+// object built on them, and a signed-request client that talks to the module's router in process. What only the Workers
+// runtime can show (real Durable Object SQL, real hibernating sockets) is covered by the Miniflare tests.
 import { DatabaseSync } from 'node:sqlite';
-import { readdirSync, readFileSync } from 'node:fs';
 import { generateDeviceKey, signRequest, type DeviceKeys } from '../../../core/social/sign.ts';
 import type { MyProfile, HubEvent, AgeBand } from '../../../core/social/types.ts';
 import type { CfWebSocket, DurableObjectIdLike, DurableObjectNamespaceLike, DurableObjectStateLike, ExecutionContextLike, Fetcher } from '../cf.ts';
 import { Router } from '../router.ts';
-import type { D1Like, D1Result, D1Stmt } from './db.ts';
-import type { SocialEnv } from './env.ts';
+import type { DoSqlCursor, DoSqlStorage, SqlLike, SqlResult, SqlStmt } from './db.ts';
+import { DIRECTORY_NAME, INTERNAL_HOST, type SocialEnv } from './env.ts';
 import { resetAuthCaches } from './auth.ts';
 import { resetMemLimits } from './util.ts';
 import { resetSweepThrottle } from './sweep.ts';
 import { resetBoardCache } from './scores.ts';
-import { registerSocialRoutes } from './routes.ts';
+import { registerDirectoryRoutes, registerSocialRoutes } from './routes.ts';
+import { SocialDirectory } from './directory.ts';
+import { runOp } from './ops.ts';
+import { ALL_STATEMENTS } from './schema.ts';
 
-// ───────── D1 on node:sqlite ─────────
-
-const MIGRATIONS = readdirSync(new URL('../../migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort()
-  .map((f) => readFileSync(new URL(`../../migrations/${f}`, import.meta.url), 'utf8'));
+// ───────── SQL on node:sqlite ─────────
 
 /** Statements that return rows (a SELECT, or anything with RETURNING). */
 const RETURNS_ROWS = /^\s*(SELECT|WITH|PRAGMA)\b|\bRETURNING\b/i;
 
 interface Counters { reads: number; writes: number; statements: number; changes: number }
 
-class SqliteStmt implements D1Stmt {
-  private readonly owner: SqliteD1;
+class SqliteStmt implements SqlStmt {
+  private readonly owner: SqliteDb;
   readonly sql: string;
   private readonly params: unknown[];
-  constructor(owner: SqliteD1, sql: string, params: unknown[] = []) {
+  constructor(owner: SqliteDb, sql: string, params: unknown[] = []) {
     this.owner = owner;
     this.sql = sql;
     this.params = params;
   }
-  bind(...values: unknown[]): D1Stmt {
+  bind(...values: unknown[]): SqlStmt {
     return new SqliteStmt(this.owner, this.sql, values);
   }
   private exec(): { results: Record<string, unknown>[]; changes: number } {
@@ -44,17 +44,17 @@ class SqliteStmt implements D1Stmt {
     const { results } = this.exec();
     return (results[0] as T | undefined) ?? null;
   }
-  async all<T = Record<string, unknown>>(): Promise<D1Result<T>> {
+  async all<T = Record<string, unknown>>(): Promise<SqlResult<T>> {
     const { results, changes } = this.exec();
     return { results: results as T[], success: true, meta: { changes } };
   }
-  async run(): Promise<D1Result> {
+  async run(): Promise<SqlResult> {
     const { results, changes } = this.exec();
     return { results, success: true, meta: { changes } };
   }
 }
 
-export class SqliteD1 implements D1Like {
+export class SqliteDb implements SqlLike {
   readonly raw: DatabaseSync;
   /** Counts the statements run: tests read these to prove how many rows a flow writes. */
   readonly counters: Counters = { reads: 0, writes: 0, statements: 0, changes: 0 };
@@ -63,7 +63,7 @@ export class SqliteD1 implements D1Like {
   constructor(raw: DatabaseSync) {
     this.raw = raw;
   }
-  prepare(sql: string): D1Stmt {
+  prepare(sql: string): SqlStmt {
     return new SqliteStmt(this, sql);
   }
   execute(sql: string, params: unknown[]): { results: Record<string, unknown>[]; changes: number } {
@@ -81,10 +81,10 @@ export class SqliteD1 implements D1Like {
     if (changes > 0) this.log.push(sql.slice(0, 60));
     return { results: [], changes };
   }
-  async batch(stmts: D1Stmt[]): Promise<D1Result[]> {
+  async batch(stmts: SqlStmt[]): Promise<SqlResult[]> {
     this.raw.exec('BEGIN');
     try {
-      const out: D1Result[] = [];
+      const out: SqlResult[] = [];
       for (const s of stmts) out.push(await (s as SqliteStmt).all());
       this.raw.exec('COMMIT');
       return out;
@@ -100,15 +100,59 @@ export class SqliteD1 implements D1Like {
 }
 
 /** A fresh in-memory database with the social schema. */
-export function createTestDb(): SqliteD1 {
+export function createTestDb(): SqliteDb {
   const raw = new DatabaseSync(':memory:');
-  for (const m of MIGRATIONS) raw.exec(m);
-  return new SqliteD1(raw);
+  for (const s of ALL_STATEMENTS) raw.exec(s);
+  return new SqliteDb(raw);
 }
 
-// ───────── PlayerHub namespace ─────────
+/**
+ * A Durable Object's SQL storage (`ctx.storage`) on node:sqlite: `sql.exec` answers a cursor, `transactionSync` is a transaction.
+ * `raw` is the database itself, for tests that look at or change a row.
+ */
+export interface FakeDoStorage extends DoSqlStorage {
+  raw: DatabaseSync;
+  /** Statements run through `sql.exec` since the storage was made (the schema included). */
+  executed: string[];
+}
 
-/** Stands in for the HUB binding: records what would be pushed to each player. A player is "online" after connect(). */
+export function fakeDoStorage(raw = new DatabaseSync(':memory:')): FakeDoStorage {
+  const executed: string[] = [];
+  const storage: FakeDoStorage = {
+    raw,
+    executed,
+    sql: {
+      exec(query: string, ...bindings: unknown[]): DoSqlCursor {
+        executed.push(query);
+        const st = raw.prepare(query);
+        const args = bindings.map((v) => (v === undefined ? null : v)) as never[];
+        const writes = /^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(query);
+        if (RETURNS_ROWS.test(query)) {
+          const rows = st.all(...args).map((r) => ({ ...r })) as Record<string, unknown>[];
+          return { toArray: () => rows, rowsRead: writes ? 0 : rows.length, rowsWritten: writes ? rows.length : 0 };
+        }
+        const info = st.run(...args);
+        return { toArray: () => [], rowsRead: 0, rowsWritten: Number(info.changes) };
+      },
+    },
+    transactionSync<T>(fn: () => T): T {
+      raw.exec('BEGIN');
+      try {
+        const out = fn();
+        raw.exec('COMMIT');
+        return out;
+      } catch (e) {
+        raw.exec('ROLLBACK');
+        throw e;
+      }
+    },
+  };
+  return storage;
+}
+
+// ───────── the namespace of per-player sockets ─────────
+
+/** Stands in for the HUB namespace (what the handlers push through): records what would be pushed to each player. A player is "online" after connect(). */
 export class FakeHubs implements DurableObjectNamespaceLike {
   readonly sockets = new Set<string>();
   private readonly inbox = new Map<string, HubEvent[]>();
@@ -178,14 +222,20 @@ export class FakeSocket implements CfWebSocket {
 
 export class FakeState implements DurableObjectStateLike {
   readonly id: DurableObjectIdLike = { toString: () => 'fake' };
-  readonly storage = {} as DurableObjectStateLike['storage'];
+  readonly storage: DurableObjectStateLike['storage'];
   readonly sockets: FakeSocket[] = [];
   readonly pending: Promise<unknown>[] = [];
-  acceptWebSocket(ws: CfWebSocket): void { this.sockets.push(ws as FakeSocket); }
-  getWebSockets(): CfWebSocket[] { return [...this.sockets]; }
+  private readonly tags = new Map<CfWebSocket, string[]>();
+  /** Everything handed to blockConcurrencyWhile (the directory runs its migrations there). */
+  readonly blocked: Promise<unknown>[] = [];
+  constructor(storage: unknown = {}) {
+    this.storage = storage as DurableObjectStateLike['storage'];
+  }
+  acceptWebSocket(ws: CfWebSocket, tags: string[] = []): void { this.sockets.push(ws as FakeSocket); this.tags.set(ws, tags); }
+  getWebSockets(tag?: string): CfWebSocket[] { return this.sockets.filter((s) => tag === undefined || (this.tags.get(s) ?? []).includes(tag)); }
   setWebSocketAutoResponse(): void { /* the platform answers ping with pong */ }
   waitUntil(p: Promise<unknown>): void { this.pending.push(p); }
-  blockConcurrencyWhile<T>(fn: () => Promise<T>): Promise<T> { return fn(); }
+  blockConcurrencyWhile<T>(fn: () => Promise<T>): Promise<T> { const p = fn(); this.blocked.push(p); return p; }
   /** Waits for everything the object scheduled with waitUntil. */
   async settle(): Promise<void> {
     while (this.pending.length > 0) await Promise.allSettled(this.pending.splice(0));
@@ -197,6 +247,98 @@ export function installRuntimeStubs(): void {
   const g = globalThis as unknown as Record<string, unknown>;
   g.WebSocketRequestResponsePair ??= class { request = ''; response = ''; };
   g.WebSocketPair ??= class { 0 = new FakeSocket(); 1 = new FakeSocket(); };
+}
+
+// ───────── the directory, in process ─────────
+
+/**
+ * Stands in for the SOCIAL binding in the handler tests: the operations live play asks for (ops.ts) run on `env` itself (its
+ * node:sqlite database and its fake sockets) instead of in a Durable Object. Anything else a test sends it is a 404.
+ */
+export function inProcessDirectory(env: SocialEnv & Record<string, unknown>, ctx: ExecutionContextLike): DurableObjectNamespaceLike {
+  return {
+    idFromName: (name: string): DurableObjectIdLike => ({ name, toString: () => name }),
+    get: (): Fetcher => ({
+      fetch: async (input: Request | string, init?: RequestInit): Promise<Response> => {
+        const req = input instanceof Request ? input : new Request(input, init);
+        const url = new URL(req.url);
+        const m = /^\/op\/([a-z]+)$/.exec(url.pathname);
+        if (url.hostname !== INTERNAL_HOST || !m || req.method !== 'POST') return new Response('not found', { status: 404 });
+        return runOp({ env, now: Date.now(), wait: (p) => ctx.waitUntil(p.catch(() => undefined)) }, m[1] ?? '', await req.json());
+      },
+    }),
+  };
+}
+
+// ───────── the directory object, on fake storage ─────────
+
+export interface DirectoryHarness {
+  /** The Worker's side: a router with the routes that forward to the directory, and the env they see. */
+  worker: Router;
+  env: Record<string, unknown>;
+  /** The Durable Object itself, on fake state and node:sqlite storage. */
+  directory: SocialDirectory;
+  state: FakeState;
+  storage: FakeDoStorage;
+  /** Waits for what the Worker and the object scheduled after their answers. */
+  settle(): Promise<void>;
+  /** A request to the Worker, answered through the directory: the way a browser reaches it. */
+  call(method: string, path: string, opts?: { headers?: Record<string, string>; body?: unknown; cf?: Record<string, unknown> }): Promise<Response>;
+}
+
+/**
+ * The whole path of a social request except the platform: the Worker's router (the forwarding routes), the SOCIAL binding,
+ * and a real SocialDirectory on a fake state whose SQL is node:sqlite. `calls` records what the Worker sent the directory.
+ */
+export function createDirectoryHarness(opts: { env?: Record<string, unknown> } = {}): DirectoryHarness & { calls: Request[] } {
+  installRuntimeStubs();
+  resetAuthCaches();
+  resetMemLimits();
+  resetSweepThrottle();
+  resetBoardCache();
+  const storage = fakeDoStorage();
+  const state = new FakeState(storage);
+  const settings = { TICKET_SECRET: 'test-secret-0123456789abcdef0123456789', PUBLIC_ORIGIN: TEST_ORIGIN, ADMIN_TOKEN: TEST_ADMIN_TOKEN, ...opts.env };
+  const directory = new SocialDirectory(state, settings);
+  const calls: Request[] = [];
+  const binding: DurableObjectNamespaceLike = {
+    idFromName: (name: string): DurableObjectIdLike => ({ name, toString: () => name }),
+    get: (id: DurableObjectIdLike): Fetcher => ({
+      fetch: async (input: Request | string, init?: RequestInit): Promise<Response> => {
+        if (id.name !== DIRECTORY_NAME) return new Response('no such object', { status: 404 });
+        const req = input instanceof Request ? input : new Request(input, init);
+        calls.push(req.clone());
+        return directory.fetch(req);
+      },
+    }),
+  };
+  const env = { ...settings, SOCIAL: binding };
+  const worker = new Router();
+  registerSocialRoutes(worker);
+  const pending: Promise<unknown>[] = [];
+  const ctx: ExecutionContextLike = { waitUntil: (p) => { pending.push(p); } };
+  const settle = async (): Promise<void> => {
+    for (;;) {
+      await state.settle();
+      if (pending.length === 0) break;
+      await Promise.allSettled(pending.splice(0));
+    }
+  };
+  return {
+    worker, env, directory, state, storage, calls, settle,
+    async call(method, path, o = {}) {
+      const headers: Record<string, string> = { 'CF-Connecting-IP': '10.1.2.3', ...o.headers };
+      const hasBody = o.body !== undefined && method !== 'GET';
+      if (hasBody) headers['Content-Type'] = 'application/json';
+      const req = new Request(`${TEST_ORIGIN}${path}`, { method, headers, ...(hasBody ? { body: JSON.stringify(o.body) } : {}) });
+      if (o.cf) Object.defineProperty(req, 'cf', { value: o.cf });
+      await Promise.all(state.blocked);
+      const res = await worker.handle(req, env, ctx);
+      await settle();
+      if (!res) throw new Error(`no route for ${method} ${path}`);
+      return res;
+    },
+  };
 }
 
 // ───────── the app and signed clients ─────────
@@ -227,7 +369,7 @@ export interface TestPlayer {
 export interface TestApp {
   router: Router;
   env: SocialEnv & Record<string, unknown>;
-  db: SqliteD1;
+  db: SqliteDb;
   hubs: FakeHubs;
   /** Waits for the work scheduled after a response (pushes, sweeps). */
   settle(): Promise<void>;
@@ -253,7 +395,7 @@ export function createTestApp(opts: AppOptions = {}): TestApp {
   const db = createTestDb();
   const hubs = new FakeHubs();
   const router = new Router();
-  registerSocialRoutes(router);
+  registerDirectoryRoutes(router);
   const env = {
     DB: db,
     HUB: hubs,
@@ -267,6 +409,8 @@ export function createTestApp(opts: AppOptions = {}): TestApp {
   const settle = async (): Promise<void> => {
     while (pending.length > 0) await Promise.allSettled(pending.splice(0));
   };
+  // The hooks of live play reach the module through the SOCIAL binding; here it is this very environment, in process.
+  if (env.SOCIAL === undefined) env.SOCIAL = inProcessDirectory(env, ctx);
 
   const app: TestApp = {
     router, env, db, hubs, settle,

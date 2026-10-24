@@ -8,7 +8,7 @@
 // profiles that is about 150,000 rows read a day, 3 percent of the allowance.
 import { DAY, DECLINE_COOLDOWN_MS, HOUR, REQUEST_TTL_MS } from '../../../core/social/rules.ts';
 import { KEEP_WEEKS, weekOf } from '../../../core/social/scores.ts';
-import { run, rows, type D1Like } from './db.ts';
+import { run, rows, type SqlLike } from './db.ts';
 import { bump, sweepLimits } from './limits.ts';
 import { eraseProfile } from './people.ts';
 import { sweepPresence } from './presence.ts';
@@ -26,7 +26,7 @@ export interface SweepReport {
 }
 
 /** The cheap part (index-backed or tiny tables): runs every hour. */
-export async function sweepHourly(db: D1Like, now: number): Promise<Pick<SweepReport, 'limits' | 'lobbies' | 'audit'>> {
+export async function sweepHourly(db: SqlLike, now: number): Promise<Pick<SweepReport, 'limits' | 'lobbies' | 'audit'>> {
   const limits = await sweepLimits(db, now);
   const lobbies = await run(db, 'DELETE FROM soc_lobbies WHERE updated_at < ?1', now - LOBBY_GONE_MS);
   const audit = await run(db, 'DELETE FROM soc_audit WHERE at < ?1', now - AUDIT_KEEP_MS);
@@ -34,7 +34,7 @@ export async function sweepHourly(db: D1Like, now: number): Promise<Pick<SweepRe
 }
 
 /** The part that reads whole tables: runs once a day. */
-export async function sweepDaily(db: D1Like, now: number): Promise<Pick<SweepReport, 'requests' | 'declines' | 'presence' | 'reports' | 'profiles' | 'scores'>> {
+export async function sweepDaily(db: SqlLike, now: number): Promise<Pick<SweepReport, 'requests' | 'declines' | 'presence' | 'reports' | 'profiles' | 'scores'>> {
   const requests = await run(db, 'DELETE FROM soc_requests WHERE at < ?1', now - REQUEST_TTL_MS);
   const declines = await run(db, 'DELETE FROM soc_declines WHERE at < ?1', now - DECLINE_COOLDOWN_MS);
   const presence = await sweepPresence(db, now);
@@ -49,14 +49,14 @@ export async function sweepDaily(db: D1Like, now: number): Promise<Pick<SweepRep
 }
 
 /** Both parts (tests and tools; the Worker runs them on their own cadences). */
-export async function sweep(db: D1Like, now: number): Promise<SweepReport> {
+export async function sweep(db: SqlLike, now: number): Promise<SweepReport> {
   return { ...(await sweepHourly(db, now)), ...(await sweepDaily(db, now)) };
 }
 
 let lastCheck = 0;
 
 /** Runs the hourly sweep when this isolate is the first to ask in the current hour, and the daily one on the first hour of a day. Never throws. */
-export function maybeSweep(db: D1Like, now: number, wait: (p: Promise<unknown>) => void): void {
+export function maybeSweep(db: SqlLike, now: number, wait: (p: Promise<unknown>) => void): void {
   if (now - lastCheck < 10 * 60_000) return;
   lastCheck = now;
   wait((async () => {

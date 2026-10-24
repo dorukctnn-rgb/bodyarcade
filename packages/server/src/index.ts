@@ -14,6 +14,7 @@ import { registerEntitlements } from './entitlements/index.ts';
 
 export { Room } from './live/room.ts';
 export { PlayerHub } from './social/index.ts';
+export { SocialDirectory } from './social/index.ts';
 export { EntitlementsDO } from './entitlements/index.ts';
 
 // ───────── modules (one line each) ─────────

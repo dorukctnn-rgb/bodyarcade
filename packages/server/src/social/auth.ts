@@ -9,7 +9,7 @@ import type { AgeBand, Region } from '../../../core/social/types.ts';
 import { DAY } from '../../../core/social/rules.ts';
 import { AUTH_HEADER, AUTH_QUERY, importPublicKey, keyId, parseAuth, verifyRequest } from '../../../core/social/sign.ts';
 import { HttpError } from '../http.ts';
-import { one, run, type D1Like } from './db.ts';
+import { one, run, type SqlLike } from './db.ts';
 
 export interface Me {
   pid: string;
@@ -84,7 +84,7 @@ export function resetAuthCaches(): void {
 
 export interface AuthInput {
   req: Request;
-  db: D1Like;
+  db: SqlLike;
   now: number;
   wait(p: Promise<unknown>): void;
 }

@@ -19,7 +19,7 @@ import {
 } from '../../../core/social/scores.ts';
 import type { BoardEntry, BoardScope, BoardView } from '../../../core/social/types.ts';
 import { HttpError } from '../http.ts';
-import { rows, one, stmt, type D1Like } from './db.ts';
+import { rows, one, stmt, type SqlLike } from './db.ts';
 import type { SocialEnv } from './env.ts';
 import { memAllow, randomId, type SocialHandler } from './util.ts';
 
@@ -125,7 +125,7 @@ const dropBoards = (wk: number, game: string): void => {
 export function resetBoardCache(): void { boardCache.clear(); }
 
 /** The rows of a country board: the best first, leaving out the profiles suspended from public play. */
-async function countryRows(db: D1Like, wk: number, game: BoardGame, grp: string, country: string, now: number): Promise<CountryRow[]> {
+async function countryRows(db: SqlLike, wk: number, game: BoardGame, grp: string, country: string, now: number): Promise<CountryRow[]> {
   const key = `${wk}|${game}|${grp}|${country}`;
   const hit = boardCache.get(key);
   if (hit && now - hit.at < BOARD_CACHE_MS) return hit.rows;
@@ -216,7 +216,7 @@ export const leaderboard: SocialHandler = async (c) => {
 };
 
 /** The best scores of a player in the weeks the boards keep (the data export). */
-export async function scoresOf(db: D1Like, pid: string, now: number): Promise<{ week: number; game: string; score: number }[]> {
+export async function scoresOf(db: SqlLike, pid: string, now: number): Promise<{ week: number; game: string; score: number }[]> {
   return rows<{ week: number; game: string; score: number }>(
     db, 'SELECT wk AS week, game, score FROM soc_scores WHERE pid = ?1 AND wk > ?2 ORDER BY wk DESC, game', pid, weekOf(now) - KEEP_WEEKS,
   );
