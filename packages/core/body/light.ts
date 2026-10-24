@@ -11,9 +11,9 @@ export const LIGHT_LIMITS = {
   darkMean: 0.12,
   /** Nothing bright anywhere: the brightest tenth of the picture is below this. */
   darkBright: 0.2,
-  /** The face region below this is too dark whatever the room looks like. */
+  /** The face region below this, in a room that is not bright around it, is too dark. */
   darkFace: 0.1,
-  /** Backlight: the bright surroundings over the face, and the floors the two must pass. */
+  /** Backlight: the bright surroundings over the face, and the floors the two must pass. A near black face against a bright room is this too. */
   backRatio: 2.2,
   backBright: 0.5,
   backFaceMax: 0.3,
@@ -55,8 +55,9 @@ export function lightProblem(grid: LightGrid, lm: Landmark[] | null, aspect = 4 
   const rs = lm && isVisible(lm, LM.rightShoulder, 0.3) ? (lm[LM.rightShoulder] as Landmark) : null;
 
   if (nose && ls && rs) {
-    // A person: the face region (a square about a shoulder width wide around the nose), and the columns outside the body.
-    const fw = Math.max(0.5 * Math.abs(ls.x - rs.x), 0.5 / cols);
+    // A person: the face region (a square half a shoulder width wide around the nose: a head is about 0.4 shoulder widths,
+    // and at a desk the shoulders fill the picture while the bright wall shows beside the head), and the columns outside the body.
+    const fw = Math.max(0.25 * Math.abs(ls.x - rs.x), 0.5 / cols);
     const fh = fw * aspect;
     const face: number[] = [];
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
@@ -64,14 +65,16 @@ export function lightProblem(grid: LightGrid, lm: Landmark[] | null, aspect = 4 
     }
     if (!face.length) face.push(cell(Math.min(cols - 1, Math.max(0, Math.floor(nose.x * cols))), Math.min(rows - 1, Math.max(0, Math.floor(nose.y * rows)))));
     const faceMean = mean(face);
-    if (faceMean < L.darkFace) return 'too_dark';
     const lo = Math.min(ls.x, rs.x) - 0.08, hi = Math.max(ls.x, rs.x) + 0.08;
     const around: number[] = [];
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (cx(c) < lo || cx(c) > hi) around.push(cell(c, r));
+    // A dark face in front of a bright room is a light behind the person (the advice is to turn the light, not to add one);
+    // only when the room around is not bright is a dark face "too dark".
     if (around.length >= 8) {
       const bright = quantile(around, 0.75);
       if (bright >= L.backBright && faceMean <= L.backFaceMax && bright / Math.max(faceMean, 0.03) >= L.backRatio) return 'backlit';
     }
+    if (faceMean < L.darkFace) return 'too_dark';
     return null;
   }
 

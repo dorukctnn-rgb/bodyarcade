@@ -28,6 +28,9 @@ test('a whole-body game with a seated variant takes the desk profile by itself, 
   // what the screen could say while it waited: the hips were the first thing missing, or the picture was too close
   expect(v.seen.codes.some((c) => c === 'hips_out' || c === 'too_close')).toBe(true);
   expect(v.seen.codes.at(-1)).toBe('ok');
+  // the light check never cries wolf on a real face against a bright wall (the brightness map of the real picture)
+  expect(v.seen.codes).not.toContain('backlit');
+  expect(v.seen.codes).not.toContain('too_dark');
   expect(v.steps).toBeGreaterThan(30);
   await page.evaluate(() => (window as unknown as { run: any }).run.session.quit());
   expect((await view(page)).live).toBe(0);

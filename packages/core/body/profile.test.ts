@@ -169,11 +169,17 @@ describe('light: too dark and the light behind the player', () => {
     expect(lightProblem(grid(() => 0.06), person)).toBe('too_dark');
   });
 
-  it('a dim room where nothing is bright is too dark; a dark face in a lit room is too dark too', () => {
+  it('a dim room where nothing is bright is too dark; a dark face in a room that is not bright around it is too dark too', () => {
     expect(lightProblem(grid(() => 0.17), null)).toBe('too_dark');
     const nose = person[LM.nose] as Landmark;
-    const darkFace = grid((c, r) => (Math.abs((c + 0.5) / 16 - nose.x) < 0.08 && Math.abs((r + 0.5) / 12 - nose.y) < 0.12 ? 0.05 : 0.6));
+    const darkFace = grid((c, r) => (Math.abs((c + 0.5) / 16 - nose.x) < 0.08 && Math.abs((r + 0.5) / 12 - nose.y) < 0.12 ? 0.05 : 0.4));
     expect(lightProblem(darkFace, person)).toBe('too_dark');
+  });
+
+  it('a near black face in a bright room is the light behind the person, not too little light: the advice is to turn the light', () => {
+    const nose = person[LM.nose] as Landmark;
+    const silhouette = grid((c, r) => (Math.abs((c + 0.5) / 16 - nose.x) < 0.08 && Math.abs((r + 0.5) / 12 - nose.y) < 0.12 ? 0.05 : 0.6));
+    expect(lightProblem(silhouette, person)).toBe('backlit');
   });
 
   it('a person against a bright window: the face is dark and the sides are bright', () => {
