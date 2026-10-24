@@ -1,11 +1,11 @@
 // Test-only: a clock, signing keys, and fakes of the two outside services (our server, Gumroad) that speak the real wire
 // formats, so the providers and the manager are tested against answers shaped like the real ones. Not exported by
 // index.ts and never bundled into the app.
-import { API, DID_RE, ERROR_STATUS, LICENSE_KEY_RE, type ErrorCode } from './api.ts';
+import { API, DID_RE, EMAIL_RE, ERROR_STATUS, LICENSE_KEY_RE, REMINDER_LANGS, REMINDER_LEAD_MS, type ErrorCode } from './api.ts';
 import { PLANS, PLAY_PRODUCTS, bestPlan, type PlanId } from './plans.ts';
 import { generateSigningKeys, importSigningKey, signToken, type PrivateKeyJwk } from './sign.ts';
 import type { FetchLike } from './providers/shared.ts';
-import { MAX_TOKEN_TTL_S, TOKEN_AUD, TOKEN_ISS, type TokenKey } from './token.ts';
+import { MAX_TOKEN_TTL_S, TOKEN_AUD, TOKEN_ISS, verifyToken, type TokenKey } from './token.ts';
 
 export const KEY_A = 'AAAAAAAA-BBBBBBBB-CCCCCCCC-DDDDDDDD';
 export const KEY_B = 'EEEEEEEE-FFFFFFFF-11111111-22222222';
@@ -32,7 +32,10 @@ export const sha256Hex = async (text: string): Promise<string> =>
 
 const reply = (status: number, body: unknown): Response => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status, headers: { 'Content-Type': typeof body === 'string' ? 'text/html' : 'application/json' } });
 
-export interface SeatRecord { plan: PlanId; status: 'active' | 'refunded' | 'ended'; paidUntil?: number; test?: boolean }
+export interface SeatRecord { plan: PlanId; status: 'active' | 'refunded' | 'ended'; paidUntil?: number; test?: boolean; /** Epoch ms: a free trial that is running. */ trialEnd?: number }
+
+/** What the pretend server holds for one reminder address. */
+export interface ReminderRow { email: string; lang: string; sendAt: number }
 
 /** How the pretend service misbehaves. */
 export type Fault = null | 'offline' | 'status500' | 'status503' | 'status429' | 'html200' | 'html404' | 'garbage' | 'forged' | 'empty200';
@@ -42,6 +45,10 @@ export class FakeServer {
   readonly licenses = new Map<string, SeatRecord>();
   readonly playPurchases = new Map<string, SeatRecord & { productId: string }>();
   readonly seats = new Map<string, Set<string>>();
+  /** By the purchase (sub): the one address left for the reminder e-mail. */
+  readonly reminders = new Map<string, ReminderRow>();
+  /** False: the server has no mail service, so it says so in GET /key and refuses addresses. */
+  mailEnabled = true;
   readonly calls: { path: string; body: Record<string, unknown> }[] = [];
   fault: Fault = null;
   keys: Keys;
@@ -68,15 +75,32 @@ export class FakeServer {
     if (path === API.activate || path === API.refresh) return this.grantKey(body);
     if (path === API.play) return this.grantPlay(body);
     if (path === API.deactivate) return this.release(body);
+    if (path === API.reminder) return this.remind(body);
+    if (path === API.key) return reply(200, { keys: [{ kid: this.keys.pub.kid, jwk: this.keys.pub.jwk }], reminders: this.mailEnabled });
     return reply(404, { error: 'not_found' });
   };
 
-  async mint(sub: string, did: string, plan: PlanId, src: 'gumroad' | 'play', keys: Keys = this.keys, paidUntil?: number): Promise<string> {
+  private async remind(body: Record<string, unknown>): Promise<Response> {
+    if (!this.mailEnabled) return reply(ERROR_STATUS.unavailable, { error: 'unavailable' satisfies ErrorCode });
+    const { token, did, email, lang } = body;
+    if (typeof token !== 'string' || typeof did !== 'string' || !DID_RE.test(did) || typeof lang !== 'string' || !(REMINDER_LANGS as readonly string[]).includes(lang)) return reply(400, { error: 'bad_request' });
+    if (email !== null && (typeof email !== 'string' || !EMAIL_RE.test(email))) return reply(400, { error: 'bad_request' });
+    const r = await verifyToken(token, { keys: [this.keys.pub], now: this.clock.now(), did });
+    if (!r.ok) return reply(400, { error: 'bad_request' });
+    if (email === null) { this.reminders.delete(r.claims.sub); return reply(200, { ok: true, sendAt: null }); }
+    if (!r.claims.tr || r.claims.tr * 1000 <= this.clock.now() || r.claims.pe) return reply(ERROR_STATUS.no_trial, { error: 'no_trial' satisfies ErrorCode });
+    const sendAt = Math.max(this.clock.now(), r.claims.tr * 1000 - REMINDER_LEAD_MS);
+    this.reminders.set(r.claims.sub, { email, lang, sendAt });
+    return reply(200, { ok: true, sendAt });
+  }
+
+  async mint(sub: string, did: string, plan: PlanId, src: 'gumroad' | 'play', keys: Keys = this.keys, paidUntil?: number, trialEnd?: number): Promise<string> {
     const nowS = Math.floor(this.clock.now() / 1000);
     const exp = Math.min(nowS + MAX_TOKEN_TTL_S - 60, paidUntil ? Math.floor(paidUntil / 1000) : Infinity);
     return signToken({
       iss: TOKEN_ISS, aud: TOKEN_AUD, sub, did: did as string, plan, src, feat: [...PLANS[plan].feat], chk: nowS, iat: nowS, exp,
       ...(paidUntil ? { pe: Math.floor(paidUntil / 1000) } : {}),
+      ...(trialEnd ? { tr: Math.floor(trialEnd / 1000) } : {}),
     }, keys.signing, keys.pub.kid);
   }
 
@@ -97,7 +121,7 @@ export class FakeServer {
     const sub = await sha256Hex(key);
     const refused = this.seat(sub, did, lic.plan);
     if (refused) return refused;
-    return reply(200, { token: await this.mint(sub, did, lic.plan, 'gumroad', this.keys, lic.paidUntil), plan: lic.plan, devices: { used: this.seats.get(sub)?.size ?? 1, limit: PLANS[lic.plan].devices } });
+    return reply(200, { token: await this.mint(sub, did, lic.plan, 'gumroad', this.keys, lic.paidUntil, lic.trialEnd), plan: lic.plan, devices: { used: this.seats.get(sub)?.size ?? 1, limit: PLANS[lic.plan].devices } });
   }
 
   private async grantPlay(body: Record<string, unknown>): Promise<Response> {
@@ -116,7 +140,7 @@ export class FakeServer {
     const best = good.find((g) => g.rec.plan === bestId) as (typeof good)[number];
     const refused = this.seat(best.sub, did, bestId);
     if (refused) return refused;
-    return reply(200, { token: await this.mint(best.sub, did, bestId, 'play', this.keys, best.rec.paidUntil), plan: bestId, devices: { used: this.seats.get(best.sub)?.size ?? 1, limit: PLANS[bestId].devices } });
+    return reply(200, { token: await this.mint(best.sub, did, bestId, 'play', this.keys, best.rec.paidUntil, best.rec.trialEnd), plan: bestId, devices: { used: this.seats.get(best.sub)?.size ?? 1, limit: PLANS[bestId].devices } });
   }
 
   private release(body: Record<string, unknown>): Response {
