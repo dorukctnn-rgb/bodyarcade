@@ -499,6 +499,9 @@ export function createSession(deps: SessionDeps): Session {
       if (r.players === 2 && profiles) start.profiles = profiles;
       if (o.world !== undefined) start.world = o.world;
       game.start(start);
+      // The way of playing may have changed since the engines were given their detectors (a desk falls back to the seated variant
+      // after the game's init), and a game chooses its detectors for the way it is played (arm jacks): the engines take the manifest's again.
+      if (r.feed && r.manifest) r.feed.use(r.manifest.detectors);
       r.started = true;
       r.clock.reset();
     }

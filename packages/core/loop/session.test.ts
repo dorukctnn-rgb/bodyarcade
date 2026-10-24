@@ -2,13 +2,14 @@
 import { describe, expect, it } from 'vitest';
 import type {
   AudioApi, CameraAcquireOptions, CameraErrorCode, CameraLease, CameraService, FrameSource, Game, GameContext, GameManifest,
-  CalibrationStatus, GameMode, GameModule, InputEvent, InputFrame, LightGrid, PauseReason, PoseFrame, PoseLoadOptions, PoseService, SessionEvents,
+  CalibrationStatus, DetectorSpec, GameMode, GameModule, InputEvent, InputFrame, LightGrid, PauseReason, PoseFrame, PoseLoadOptions, PoseService, SessionEvents,
   SessionOptions, SessionState, StartOptions,
 } from '../types/index.ts';
 import { FIXED_DT } from '../types/index.ts';
 import { abortError, CameraError } from '../camera/camera.ts';
 import { createCalibrator } from '../body/calibrator.ts';
 import { createTwoPlayerCalibrator } from '../body/calibrator2.ts';
+import { createPoseFeed } from '../input/pose-feed.ts';
 import { jumpAt, synthPose, type BodyShape, type Motion } from '../pose/synth.ts';
 import { gaussian, mulberry32 } from './rng.ts';
 import { createSession } from './session.ts';
@@ -92,7 +93,7 @@ interface GameLog {
   events: InputEvent[]; frames: InputFrame[]; ctx: GameContext | null; course: number[];
 }
 
-function fakeGame(o: { modes?: GameMode[]; overAfter?: number; controls?: GameModule['controls']; manifest?: Partial<GameManifest> } = {}) {
+function fakeGame(o: { modes?: GameMode[]; overAfter?: number; controls?: GameModule['controls']; manifest?: Partial<GameManifest>; detectorsFor?: (seated: boolean) => DetectorSpec[] } = {}) {
   const log: GameLog = { inits: 0, starts: [], steps: 0, dts: new Set(), renders: 0, disposed: 0, events: [], frames: [], ctx: null, course: [] };
   const manifest: GameManifest = {
     id: 'fake', template: 'runner', version: 1, title: 'Fake', regions: ['legs'], framing: 'full', seated: false, lowImpact: false,
@@ -108,7 +109,11 @@ function fakeGame(o: { modes?: GameMode[]; overAfter?: number; controls?: GameMo
       const g: Game = {
         manifest,
         async init(ctx) { log.inits++; log.ctx = ctx; },
-        start(s) { log.starts.push(s); },
+        start(s) {
+          log.starts.push(s);
+          // a game that chooses its detectors for the way it is played writes them into the manifest the session reads
+          if (o.detectorsFor) manifest.detectors = o.detectorsFor(s.seated);
+        },
         step(dt, input) {
           log.steps++;
           log.dts.add(dt);
@@ -152,6 +157,8 @@ interface HarnessOptions {
   light?: (t: number) => LightGrid | undefined;
   /** The shell's scene factory throws this. */
   uiFails?: string;
+  /** The game chooses its movement detectors by how it is played: it writes them into its manifest in start(). */
+  detectorsFor?: (seated: boolean) => DetectorSpec[];
 }
 
 function harness(o: HarnessOptions = {}) {
@@ -166,6 +173,8 @@ function harness(o: HarnessOptions = {}) {
   /** The screen wake lock: how many were asked for and how many are held now. */
   const wake = { asked: 0, held: 0, fail: false, sentinels: [] as { release(): Promise<void>; drop(): void }[] };
   const people: Person[] = o.people ?? [{ cx: 0.5, present: true }];
+  /** The detector ids every call of PoseFeed.use gave the movement engines. */
+  const uses: string[][] = [];
   const rng = mulberry32(5);
   let seq = 0;
   let lastPoseT = -Infinity;
@@ -177,6 +186,12 @@ function harness(o: HarnessOptions = {}) {
     capabilities: () => ({ device: 'desktop', local2: o.local2 ?? true, local2Reason: o.local2 === false ? 'phone' : 'ok' }),
     calibrator: () => createCalibrator({ now: () => 0 }),
     calibrator2: () => createTwoPlayerCalibrator({ now: () => 0 }),
+    feed: (fo) => {
+      const f = createPoseFeed(fo);
+      const real = f.use.bind(f);
+      f.use = (specs) => { uses.push(specs.map((s) => s.id)); real(specs); };
+      return f;
+    },
     raf: (cb) => { const id = ++rafSeq; raf.set(id, () => cb(t)); return id; },
     cancelRaf: (id) => { raf.delete(id); },
     now: () => t,
@@ -246,7 +261,7 @@ function harness(o: HarnessOptions = {}) {
     return e.defaultPrevented;
   }
 
-  return { session, cam, pose, game, doc, people, seen, pass, until, press, wake, get rafPending() { return raf.size; }, get now() { return t; } };
+  return { session, cam, pose, game, doc, people, seen, pass, until, press, wake, uses, get rafPending() { return raf.size; }, get now() { return t; } };
 }
 
 const KEYS: SessionOptions = { mode: 'solo', difficulty: 'normal', input: 'keyboard', seated: false };
@@ -745,6 +760,47 @@ describe('Session, calibration profiles', () => {
     h.until('countdown', 6000);
     expect(h.now - t0).toBeLessThan(1500);
     expect(events).toEqual([{ profile: 'upper', outcome: 'measured', seated: true, supports: upperOnly }]);
+  });
+});
+
+describe('Session, a game that chooses its detectors by how it is played', () => {
+  const STAND: DetectorSpec[] = [{ id: 'jump' }, { id: 'squat' }, { id: 'lean' }];
+  const SIT: DetectorSpec[] = [{ id: 'lean' }];
+  const pick = (seated: boolean): DetectorSpec[] => (seated ? SIT : STAND);
+
+  it('at a desk the calibration turns the run seated: the seated detectors the game wrote in start() reach the engines before the countdown is over', async () => {
+    const h = harness({ manifest: { seated: true }, shape: DESK, detectorsFor: pick });
+    await h.session.start('fake', CAMERA);
+    expect(h.uses).toEqual([['jump', 'squat', 'lean']]);          // from the manifest, before it is known how the run is played
+    h.until('countdown', 8000);
+    expect(h.uses).toEqual([['jump', 'squat', 'lean'], ['lean']]);
+    expect(h.game.log.starts[0]).toMatchObject({ seated: true });
+  });
+
+  it('standing in full view: given again, the same standing set', async () => {
+    const h = harness({ manifest: { seated: true }, detectorsFor: pick });
+    await h.session.start('fake', CAMERA);
+    h.until('countdown', 6000);
+    expect(h.uses).toEqual([['jump', 'squat', 'lean'], ['jump', 'squat', 'lean']]);
+  });
+
+  it('once per run: a pause and a recalibration do not give them again (the way of playing stays)', async () => {
+    const h = harness({ manifest: { seated: true }, shape: DESK, detectorsFor: pick });
+    await h.session.start('fake', CAMERA);
+    h.until('running', 10_000);
+    const before = h.uses.length;
+    h.session.pause('user');
+    await h.session.resume();
+    h.until('running', 10_000);
+    expect(h.uses.length).toBe(before);
+    expect(h.uses.at(-1)).toEqual(['lean']);
+  });
+
+  it('a game that does not rewrite its manifest gets the same detectors again, harmlessly', async () => {
+    const h = harness({ manifest: { seated: true }, shape: DESK });
+    await h.session.start('fake', CAMERA);
+    h.until('countdown', 8000);
+    expect(h.uses).toEqual([['jump', 'squat', 'lean'], ['jump', 'squat', 'lean']]);
   });
 });
 

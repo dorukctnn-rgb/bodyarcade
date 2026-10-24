@@ -113,6 +113,10 @@ export interface GameContext {
   scene3d?: Scene3D;
   /** Separate streams: cosmetics never shift the course. */
   rng(stream: 'course' | 'fx'): Rng;
+  /**
+   * `seated` can turn true after init(): a full-body game whose player is at a desk plays its seated variant (the calibration
+   * took the best profile it could measure). Read it, or StartOptions.seated, in start(), never only in init().
+   */
   flags: { reducedMotion: boolean; silent: boolean; seated: boolean };
   t(key: string, vars?: Record<string, string | number>): string;
 }
@@ -120,6 +124,11 @@ export interface GameContext {
 export interface Game {
   readonly manifest: GameManifest;
   init(ctx: GameContext): Promise<void>;
+  /**
+   * A game whose detectors depend on how it is played (seated, quiet) may rewrite `manifest.detectors` here, from `o.seated`:
+   * the session reads the manifest before the calibration (when it is not yet known whether a desk turns a whole-body run into
+   * a seated one) and gives the movement engines `manifest.detectors` again right after start().
+   */
   start(o: StartOptions): void;
   // PURE: no DOM, no Date.now(), no Math.random(); randomness only from ctx.rng('course') and ctx.rng('fx').
   // dt is always FIXED_DT, so the same seed and the same input log give the same result on any machine.
