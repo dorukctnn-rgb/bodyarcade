@@ -1,10 +1,12 @@
 // Test support (never imported by the Worker): the production Worker (src/index.ts, every module on one router) bundled
 // with esbuild and run in Miniflare, i.e. in workerd with a real D1 database, real Durable Objects with hibernating
 // WebSockets, real WebCrypto and the same assets arrangement as wrangler.jsonc. The Miniflare tests and the multi-browser
-// suite (tests/social) both start it.
+// suite (tests/social) both start it. The bundle's entry is stack-entry.ts: the production Worker plus a clock the test
+// holds and moves (`stack.clock`), so nothing here sleeps to let the server's time pass.
 //
 //   const stack = await startStack();                       // migrations applied, listening on a free local port
 //   const social = new SocialClient({ origin: stack.origin, keys: new MemoryKeyStore(), fetch, WebSocket });
+//   await stack.clock.pin();  ...  await stack.clock.advance(3_000);  ...  await stack.clock.release();
 //   ...
 //   await stack.stop();
 import { readdirSync, readFileSync } from 'node:fs';
@@ -26,9 +28,27 @@ export interface StackOptions {
   persistTo?: string;
 }
 
+/**
+ * The Worker's own time (`Date.now()` in the Worker and in its Durable Objects). A test that depends on how much time passed
+ * between two requests moves it instead of waiting: `pin()`, then `advance(ms)` for exactly that much, then `release()`.
+ * Time only goes forward, and releasing never sets it back.
+ */
+export interface StackClock {
+  /** The Worker's time now. */
+  now(): Promise<number>;
+  /** The clock stands still where it is, whatever the real time does, until `release()`. Returns the time it stands at. */
+  pin(): Promise<number>;
+  /** Moves the clock forward by `ms` (a pinned clock jumps by exactly that much; a running one is ahead from now on). */
+  advance(ms: number): Promise<number>;
+  /** The clock runs again, from where it stands. */
+  release(): Promise<number>;
+}
+
 export interface Stack {
   /** `http://127.0.0.1:<port>` */
   origin: string;
+  /** The Worker's clock, for the tests whose verdict depends on the time between two requests. */
+  clock: StackClock;
   /** Everything the Worker wrote with console.log, one entry per line. Production code logs JSON events (`evt`). */
   logs: string[];
   /** The social database: tests read and write it directly. */
@@ -43,10 +63,10 @@ export interface Stack {
 
 let bundled: Promise<string> | null = null;
 
-/** The Worker as one ES module (cached for the process). */
+/** The Worker as one ES module (cached for the process): the production Worker with the test clock (stack-entry.ts). */
 export function workerBundle(): Promise<string> {
   bundled ??= build({
-    entryPoints: [fileURLToPath(new URL('../index.ts', import.meta.url))],
+    entryPoints: [fileURLToPath(new URL('./stack-entry.ts', import.meta.url))],
     bundle: true,
     write: false,
     format: 'esm',
@@ -103,6 +123,7 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
       ADMIN_TOKEN: STACK_ADMIN_TOKEN,
       SOCIAL_NO_LIMITS: '1',
       LIVE_NO_LIMITS: '1',
+      TEST_CLOCK: '1',
       ...opts.vars,
     },
     ...(opts.assetsDir ? { assets: { directory: opts.assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, static_routing: { user_worker: ['/api/*'] } }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'single-page-application' } } } : {}),
@@ -112,8 +133,14 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
   const url = await mf.ready;
   const db = (await mf.getD1Database('DB')) as unknown as D1Like;
   await applyMigrations(db);
+  const clockCall = async (op: 'now' | 'pin' | 'advance' | 'release', ms = 0): Promise<number> => {
+    const res = await fetch(`${url.origin}/api/__test/clock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op, ms }) });
+    if (!res.ok) throw new Error(`the test clock answered ${res.status}`);
+    return ((await res.json()) as { now: number }).now;
+  };
   return {
     origin: url.origin,
+    clock: { now: () => clockCall('now'), pin: () => clockCall('pin'), advance: (ms) => clockCall('advance', ms), release: () => clockCall('release') },
     logs,
     db,
     mf,
