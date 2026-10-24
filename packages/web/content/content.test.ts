@@ -349,6 +349,15 @@ describe.each(all.map((p) => [p.file, p] as const))('%s', (_file, spec) => {
     expect(text.length).toBeGreaterThan(600);
   });
 
+  it('reads as written: no sentence is glued to the next, no word is doubled, no space is missing after a comma', () => {
+    expect(text.match(/[a-zçğıöşü]{2}[.!?][A-ZÇĞİÖŞÜ0-9]/g) ?? []).toEqual([]);
+    // doubled words are looked for inside one run of text: the same word may end a heading and start the next element
+    const prose = html.replace(/<head>[\s\S]*?<\/head>/, '').replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/g, '\u0001');
+    expect(prose.match(/\b([A-Za-zÇĞİÖŞÜçğıöşü]{3,}) \1\b/g) ?? []).toEqual([]);
+    expect(text.match(/[a-zçğıöşü],[A-Za-zÇĞİÖŞÜçğıöşü]/g) ?? []).toEqual([]);
+    expect(text).not.toMatch(/\bundefined\b|\bnull\b|\[object Object\]|\$\{/);
+  });
+
   it('has its other-language page, which points back', () => {
     if (!spec.other) return;
     const other = all.find((p) => p.url === spec.other?.url);

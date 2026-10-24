@@ -87,7 +87,7 @@ ${ul([
   `the last ${F.CHAT_KEEP_LINES} chat messages, each with the display name of whoever wrote it, and the reports made in the room (which seat reported which seat, why and when).`,
 ])}
 <p>During a round your device tells the other players your score and a skeleton of ${F.SHARED_JOINTS} joints, about ${F.SHARE_HZ} times a second: nose, shoulders, elbows, wrists, hips, knees and ankles, with no picture. It travels straight between the devices or through our room server, which passes it on and keeps no copy. The same goes for the connection details that two devices swap to find each other, which contain network addresses.</p>
-<p>At the end of a round in a private room, each player&rsquo;s device receives what the others did at each obstacle, with their display names. Your friends can keep that as a recording to race against later. It holds no picture and no skeleton. A run that you send to a friend as a short code or link carries your display name and what you did, and nothing else.</p>
+<p>At the end of a round in a private room, each player&rsquo;s device receives what the others did at each obstacle, with their display names. Your friends can keep that as a recording to race against later. It holds no picture and no skeleton. A run that you send to a friend as a short code or link carries your display name, the course and what you did, and nothing else.</p>
 <p>A room is deleted when nobody has been in it for ${F.ROOM_EMPTY_MINUTES} minutes, and in any case ${F.ROOM_IDLE_HOURS} hours after its last activity. Deleting a room deletes its chat, results and reports. A report that was sent on keeps its own copy of the chat lines it is about; the table below says for how long.</p>
 <p>To keep the game in step, the devices in a room try to connect to each other directly. That lets the other devices see your network (IP) address. Your browser also asks a Cloudflare server (STUN) which address the internet sees for you, so that the devices can find each other. If you do not want this, play without joining a room.</p>
 <h3>Chat</h3>
@@ -108,7 +108,7 @@ ${ul([
         title: 'Your online profile',
         html: `<p>Friends, rooms with other people, public lobbies and weekly boards need an online profile. The app asks your age group once, before you make it: under ${F.AGE.online}, ${F.AGE.online} to 17, or ${F.AGE.video} and older.</p>
 ${ul([
-  `<strong>Under ${F.AGE.online}:</strong> no online profile. If you say you are under ${F.AGE.online}, the app registers nothing with our servers and you play on your own device only.`,
+  `<strong>Under ${F.AGE.online}:</strong> no online profile. If you say you are under ${F.AGE.online}, the app makes no key and sends nothing to the friends service, and you play on your own device only.`,
   `<strong>${F.AGE.online} to 17:</strong> a generated display name, preset messages only, friends only by code or link, public lobbies only with players of the same age group, no video and no typed text.`,
   `<strong>${F.AGE.video} and older:</strong> a display name you choose (up to ${F.NAME_MAX_CHARS} characters, filtered), typed chat and optional video with friends in private rooms.`,
 ])}
@@ -196,12 +196,12 @@ ${ul([
         title: 'Children and teens',
         html: `<p>Families can play BodyArcade. The online features are for players ${F.AGE.online} and older, with limits until ${F.AGE.video}:</p>
 ${ul([
-  `Under ${F.AGE.online}: no online profile, and nothing is registered on our servers. Friends, rooms, lobbies and boards are not available. The games work on the device.`,
+  `Under ${F.AGE.online}: no online profile, and nothing is sent to the friends service. Friends, rooms, lobbies and boards are not available. The games work on the device.`,
   `${F.AGE.online} to 17: a generated name, preset messages, friends only by code or link, public lobbies with players of the same age group only, no video, no typed text. A person of ${F.AGE.video} or older cannot send a friend request to a player under ${F.AGE.video}; the younger player has to send it.`,
   `${F.AGE.video} and older: typed chat and optional video with friends in private rooms.`,
 ])}
 <p>The age is the one you say; the app cannot check it. Gumroad and Google Play have their own age rules for buying, so a purchase is for an adult or made by a parent. You can lower your age group later but not raise it: a new profile starts again.</p>
-${F.FAMILY_PLAN ? `<p>The Family plan lets up to ${F.FAMILY_PROFILES} people on one device keep their own results. Those profiles are stored on that device only. Only the first profile, the owner&rsquo;s, can have an online profile; a child&rsquo;s profile never registers anything with our servers.</p>` : ''}
+${F.FAMILY_PLAN ? `<p>The Family plan lets up to ${F.FAMILY_PROFILES} people on one device keep their own results. Those profiles are stored on that device only. Only the first profile, the owner&rsquo;s, can have an online profile; a child&rsquo;s profile never gets one.</p>` : ''}
 <p>If you think a child under ${F.AGE.online} has made an online profile, write to ${mail()} and we will remove it.</p>`,
       },
       {

@@ -69,7 +69,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Çocuklar için güvenli mi?',
-          a: `<p>Aileler oynayabilir. ${F.AGE.online} yaşından küçüklerde oyunlar yalnızca cihazda çalışır: çevrimiçi profil yoktur ve sunucularımıza hiçbir şey gönderilmez. ${F.AGE.online} ile 17 yaş arasında adlar üretilir, mesajlar hazırdır, arkadaşlar yalnızca kod ya da bağlantıyla eklenir, herkese açık lobiler aynı yaş grubundaki oyuncularla olur ve hiçbir zaman görüntü ya da yazılı metin yoktur. Bir yetişkin, ${F.AGE.video} yaşından küçük bir oyuncuya arkadaşlık isteği gönderemez. Her şey <a href="/tr/privacy">gizlilik politikasında</a> ve <a href="/tr/terms">koşullarda</a> var.</p>`,
+          a: `<p>Aileler oynayabilir. ${F.AGE.online} yaşından küçüklerde oyunlar yalnızca cihazda çalışır: çevrimiçi profil yoktur ve uygulama çocuk hakkında arkadaş hizmetine hiçbir şey göndermez. ${F.AGE.online} ile 17 yaş arasında adlar üretilir, mesajlar hazırdır, arkadaşlar yalnızca kod ya da bağlantıyla eklenir, herkese açık lobiler aynı yaş grubundaki oyuncularla olur ve hiçbir zaman görüntü ya da yazılı metin yoktur. Bir yetişkin, ${F.AGE.video} yaşından küçük bir oyuncuya arkadaşlık isteği gönderemez. Her şey <a href="/tr/privacy">gizlilik politikasında</a> ve <a href="/tr/terms">koşullarda</a> var.</p>`,
         },
       ],
     },
@@ -157,7 +157,7 @@ export function faqTr(): PageSpec {
         },
         ...(F.FAMILY_PLAN ? [{
           q: 'Aile planı nedir?',
-          a: `<p>Aile yıllık, bütün ev için Pro’dur: en çok ${F.DEVICES.family} cihazın her birinde en çok ${F.FAMILY_PROFILES} profil; böylece herkes kendi sonuçlarını tutar. Yalnızca ilk profil çevrimiçi bir profile sahip olabilir; bir çocuğun profili sunucularımıza hiçbir şey kaydetmez.</p>`,
+          a: `<p>Aile yıllık, bütün ev için Pro’dur: en çok ${F.DEVICES.family} cihazın her birinde en çok ${F.FAMILY_PROFILES} profil; böylece herkes kendi sonuçlarını tutar. Yalnızca ilk profil çevrimiçi bir profile sahip olabilir; bir çocuğun profili hiçbir zaman çevrimiçi profil almaz.</p>`,
         }] : []),
       ],
     },

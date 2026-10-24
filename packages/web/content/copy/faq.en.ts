@@ -69,7 +69,7 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'Is it safe for children?',
-          a: `<p>Families can play. Under ${F.AGE.online}, the games work on the device only: there is no online profile, and nothing is sent to our servers. From ${F.AGE.online} to 17, names are generated, messages are preset, friends are added only by code or link, public lobbies are with players of the same age group, and there is never video or typed text. An adult cannot send a friend request to a player under ${F.AGE.video}. Everything is in the <a href="/privacy">privacy policy</a> and the <a href="/terms">terms</a>.</p>`,
+          a: `<p>Families can play. Under ${F.AGE.online}, the games work on the device only: there is no online profile, and the app sends nothing about the child to the friends service. From ${F.AGE.online} to 17, names are generated, messages are preset, friends are added only by code or link, public lobbies are with players of the same age group, and there is never video or typed text. An adult cannot send a friend request to a player under ${F.AGE.video}. Everything is in the <a href="/privacy">privacy policy</a> and the <a href="/terms">terms</a>.</p>`,
         },
       ],
     },
@@ -157,7 +157,7 @@ export function faqEn(): PageSpec {
         },
         ...(F.FAMILY_PLAN ? [{
           q: 'What is the Family plan?',
-          a: `<p>Family yearly is Pro for the whole home: up to ${F.FAMILY_PROFILES} profiles on each of up to ${F.DEVICES.family} devices, so everyone keeps their own results. Only the first profile can have an online profile; a child&rsquo;s profile never registers anything with our servers.</p>`,
+          a: `<p>Family yearly is Pro for the whole home: up to ${F.FAMILY_PROFILES} profiles on each of up to ${F.DEVICES.family} devices, so everyone keeps their own results. Only the first profile can have an online profile; a child&rsquo;s profile never gets one.</p>`,
         }] : []),
       ],
     },

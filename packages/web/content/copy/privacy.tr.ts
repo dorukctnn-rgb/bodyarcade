@@ -86,7 +86,7 @@ ${ul([
   `son ${F.CHAT_KEEP_LINES} sohbet mesajı (her birinde yazanın görünen adıyla) ve odada yapılan bildirimler (hangi koltuktan hangi koltuğa, hangi nedenle ve ne zaman).`,
 ])}
 <p>Bir tur sırasında cihazın diğer oyunculara skorunu ve ${F.SHARED_JOINTS} eklemli bir iskeleti saniyede yaklaşık ${F.SHARE_HZ} kez bildirir: burun, omuzlar, dirsekler, bilekler, kalçalar, dizler ve ayak bilekleri; görüntü yok. Bu veri doğrudan cihazlar arasında ya da onu ileten ama kopyasını tutmayan oda sunucumuz üzerinden gider. İki cihazın birbirini bulmak için değiştirdiği, ağ adresleri içeren bağlantı bilgileri için de aynısı geçerlidir.</p>
-<p>Özel bir odada bir turun sonunda her oyuncunun cihazı, diğerlerinin her engelde ne yaptığını görünen adlarıyla birlikte alır. Arkadaşların bunu, daha sonra ona karşı yarışmak üzere bir kayıt olarak saklayabilir. Görüntü ve iskelet içermez. Bir arkadaşına kısa bir kod ya da bağlantı olarak gönderdiğin koşu, görünen adını ve ne yaptığını taşır; başka bir şey taşımaz.</p>
+<p>Özel bir odada bir turun sonunda her oyuncunun cihazı, diğerlerinin her engelde ne yaptığını görünen adlarıyla birlikte alır. Arkadaşların bunu, daha sonra ona karşı yarışmak üzere bir kayıt olarak saklayabilir. Görüntü ve iskelet içermez. Bir arkadaşına kısa bir kod ya da bağlantı olarak gönderdiğin koşu, görünen adını, parkuru ve ne yaptığını taşır; başka bir şey taşımaz.</p>
 <p>Bir oda, içinde ${F.ROOM_EMPTY_MINUTES} dakika kimse kalmazsa ve her durumda son hareketinden ${F.ROOM_IDLE_HOURS} saat sonra silinir. Bir odanın silinmesi, onun sohbetini, sonuçlarını ve bildirimlerini de siler. İletilmiş bir bildirim, kendisini ilgilendiren sohbet satırlarının kendi kopyasını tutar; ne kadar süre tuttuğunu aşağıdaki tablo söyler.</p>
 <p>Oyunu eş zamanlı tutmak için bir odadaki cihazlar birbirine doğrudan bağlanmaya çalışır. Bu, diğer cihazların ağ (IP) adresini görmesine izin verir. Tarayıcın ayrıca bir Cloudflare sunucusuna (STUN) internetin seni hangi adresten gördüğünü sorar; böylece cihazlar birbirini bulabilir. Bunu istemiyorsan bir odaya katılmadan oyna.</p>
 <h3>Sohbet</h3>
@@ -107,7 +107,7 @@ ${ul([
         title: 'Çevrimiçi profilin',
         html: `<p>Arkadaşlar, başka insanlarla odalar, herkese açık lobiler ve haftalık sıralamalar için çevrimiçi bir profil gerekir. Uygulama, profili yapmadan önce yaş grubunu bir kez sorar: ${F.AGE.online} yaşından küçük, ${F.AGE.online} ile 17 yaş arası ya da ${F.AGE.video} yaş ve üzeri.</p>
 ${ul([
-  `<strong>${F.AGE.online} yaşından küçük:</strong> çevrimiçi profil yok. ${F.AGE.online} yaşından küçük olduğunu söylersen uygulama sunucularımıza hiçbir şey kaydetmez ve yalnızca kendi cihazında oynarsın.`,
+  `<strong>${F.AGE.online} yaşından küçük:</strong> çevrimiçi profil yok. ${F.AGE.online} yaşından küçük olduğunu söylersen uygulama anahtar üretmez, arkadaş hizmetine hiçbir şey göndermez ve yalnızca kendi cihazında oynarsın.`,
   `<strong>${F.AGE.online} ile 17 yaş arası:</strong> üretilmiş bir görünen ad, yalnızca hazır mesajlar, arkadaşlar yalnızca kod ya da bağlantıyla, herkese açık lobiler yalnızca aynı yaş grubundaki oyuncularla, görüntü yok, yazılı metin yok.`,
   `<strong>${F.AGE.video} yaş ve üzeri:</strong> kendi seçtiğin bir görünen ad (en çok ${F.NAME_MAX_CHARS} karakter, süzgeçten geçer), özel odalarda arkadaşlarla yazılı sohbet ve isteğe bağlı görüntü.`,
 ])}
@@ -205,12 +205,12 @@ ${ul([
         title: 'Çocuklar ve gençler',
         html: `<p>Aileler BodyArcade oynayabilir. Çevrimiçi özellikler ${F.AGE.online} yaş ve üzeri oyuncular içindir; ${F.AGE.video} yaşına kadar sınırlarla:</p>
 ${ul([
-  `${F.AGE.online} yaşından küçük: çevrimiçi profil yok ve sunucularımıza hiçbir şey kaydedilmez. Arkadaşlar, odalar, lobiler ve sıralamalar yoktur. Oyunlar cihazda çalışır.`,
+  `${F.AGE.online} yaşından küçük: çevrimiçi profil yok ve arkadaş hizmetine hiçbir şey gönderilmez. Arkadaşlar, odalar, lobiler ve sıralamalar yoktur. Oyunlar cihazda çalışır.`,
   `${F.AGE.online} ile 17 yaş arası: üretilmiş bir ad, hazır mesajlar, arkadaşlar yalnızca kod ya da bağlantıyla, herkese açık lobiler yalnızca aynı yaş grubundaki oyuncularla, görüntü yok, yazılı metin yok. ${F.AGE.video} yaş ve üzeri biri, ${F.AGE.video} yaşından küçük bir oyuncuya arkadaşlık isteği gönderemez; isteği genç oyuncu gönderir.`,
   `${F.AGE.video} yaş ve üzeri: özel odalarda arkadaşlarla yazılı sohbet ve isteğe bağlı görüntü.`,
 ])}
 <p>Yaş, senin söylediğin yaştır; uygulama bunu doğrulayamaz. Gumroad ve Google Play’in satın alma için kendi yaş kuralları vardır; bu yüzden satın alma bir yetişkine aittir ya da bir ebeveyn tarafından yapılır. Yaş grubunu sonradan düşürebilirsin ama yükseltemezsin: yeni bir profil baştan başlar.</p>
-${F.FAMILY_PLAN ? `<p>Aile planı, bir cihazı paylaşan ${F.FAMILY_PROFILES} kişiye kendi sonuçlarını tutma imkânı verir. Bu profiller yalnızca o cihazda saklanır. Yalnızca ilk profil, yani sahibinin profili, çevrimiçi bir profile sahip olabilir; bir çocuğun profili sunucularımıza hiçbir şey kaydetmez.</p>` : ''}
+${F.FAMILY_PLAN ? `<p>Aile planı, bir cihazı paylaşan ${F.FAMILY_PROFILES} kişiye kendi sonuçlarını tutma imkânı verir. Bu profiller yalnızca o cihazda saklanır. Yalnızca ilk profil, yani sahibinin profili, çevrimiçi bir profile sahip olabilir; bir çocuğun profili hiçbir zaman çevrimiçi profil almaz.</p>` : ''}
 <p>${F.AGE.online} yaşından küçük bir çocuğun çevrimiçi profil yaptığını düşünüyorsan ${mail()} adresine yaz, onu kaldıralım.</p>`,
       },
       {
