@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { mulberry32, streamSeed } from '../../core/loop/rng.ts';
-import type { RunSummary } from '../../core/types/index.ts';
+import type { InputEvent, RunSummary } from '../../core/types/index.ts';
 import { frameFrom } from '../_shared/frame.ts';
 import type { SimEvent } from '../_shared/host.ts';
 import { FJ_LEVELS, FJ_TIMING, FireworkSim, makePlan, type FjTiming } from './fireworks.ts';
@@ -389,6 +389,66 @@ describe('seeded content, snapshot and restore', () => {
   it('refuses a snapshot of something else', () => {
     expect(() => make().restore({ v: 2 })).toThrow();
     expect(() => make().restore(null)).toThrow();
+  });
+});
+
+describe('why a try did not count, from the channels of the real detector (its `open` is the smaller of the arms\' and the feet\'s progress)', () => {
+  const STAND = { open: 0, armsUp: -1.4, gap: 0.6 };
+  const ARMS_ONLY = { open: 0, armsUp: 0.3, gap: 0.6 };          // the hands over the head, the feet together
+  const FEET_ONLY = { open: 0.05, armsUp: -1.3, gap: 1.7 };      // the feet wide, the hands down
+  const FEET_MID_ARMS = { open: 0.1, armsUp: -0.3, gap: 1.7 };   // the feet wide, the hands only to the shoulders
+  const SWING = { open: 0, armsUp: -0.9, gap: 0.6 };             // the hands swinging a little at the sides
+
+  /** Steps a one player sim through `[channels, steps]` pieces, from step 1, with no detector events; returns the misses it said. */
+  function say(sim: FireworkSim, pieces: [Record<string, number>, number][], events: (k: number) => readonly InputEvent[] = () => []): string[] {
+    const said: string[] = [];
+    let k = 0;
+    for (const [ch, n] of pieces) {
+      for (let i = 0; i < n; i++) {
+        k++;
+        for (const e of sim.step(frameFrom([{ ok: true, ch, events: events(k) }], 'pose'))) if (e.type === 'miss') said.push(String(e['code']));
+      }
+    }
+    return said;
+  }
+
+  it('the hands over the head with the feet together: "Feet not wide enough" once the hands come down', () => {
+    const sim = make();
+    expect(say(sim, [[STAND, 120], [ARMS_ONLY, 40], [STAND, 60]])).toEqual(['feet_not_wide']);
+    expect(sim.summary().log.filter((e) => !e.ok).map((e) => e.kind)).toEqual(['feet_not_wide']);
+  });
+
+  it('the feet wide with the hands only to the shoulders: "Arms not high enough"; with the hands down as well, the same', () => {
+    expect(say(make(), [[STAND, 120], [FEET_MID_ARMS, 40], [STAND, 60]])).toEqual(['arms_not_up']);
+    expect(say(make(), [[STAND, 120], [FEET_ONLY, 40], [STAND, 60]])).toEqual(['arms_not_up']);
+  });
+
+  it('standing still, and the hands swinging a little at the sides: nothing is said', () => {
+    expect(say(make(), [[STAND, 200], [SWING, 100], [STAND, 100]])).toEqual([]);
+  });
+
+  it('a jack the detector counts says nothing, whatever the channels did on the way (arms first, then the feet, then both open)', () => {
+    const rep = (k: number) => (k === 160 ? [{ id: 'jumpingJack' as const, kind: 'rep' as const, t: 0, source: 'pose' as const }] : []);
+    expect(say(make(), [[STAND, 120], [ARMS_ONLY, 30], [{ open: 1, armsUp: 0.3, gap: 1.7 }, 30], [STAND, 60]], rep)).toEqual([]);
+  });
+
+  it('the same try again and again is told once every second and a half at most', () => {
+    const sim = make();
+    const said = say(sim, [[STAND, 120], [ARMS_ONLY, 20], [STAND, 10], [ARMS_ONLY, 20], [STAND, 10], [ARMS_ONLY, 20], [STAND, 10], [ARMS_ONLY, 20], [STAND, 60]]);
+    expect(said).toEqual(['feet_not_wide', 'feet_not_wide']);
+  });
+
+  it('seated (arm jacks): the hands only to the shoulders say "Arms not high enough", the hands over the head say nothing, and the feet are never asked about', () => {
+    const seated = (): FireworkSim => make({ seated: true });
+    const upper = { open: 0, armsUp: -0.2, gap: 0 };
+    expect(say(seated(), [[{ open: 0, armsUp: -1.4, gap: 0 }, 120], [upper, 40], [{ open: 0, armsUp: -1.4, gap: 0 }, 60]])).toEqual(['arms_not_up']);
+    expect(say(seated(), [[{ open: 0, armsUp: -1.4, gap: 0 }, 120], [{ open: 1, armsUp: 0.3, gap: 0 }, 40], [{ open: 0, armsUp: -1.4, gap: 0 }, 60]], (k) => (k === 140 ? [{ id: 'jumpingJack' as const, kind: 'rep' as const, t: 0, source: 'pose' as const }] : []))).toEqual([]);
+  });
+
+  it('quiet (step jacks): one foot out is wide enough at 1.3 W, and a step that is smaller is told', () => {
+    const quiet = (): FireworkSim => make({ silent: true });
+    expect(say(quiet(), [[STAND, 120], [{ open: 0.2, armsUp: 0.3, gap: 1.0 }, 40], [STAND, 60]])).toEqual(['feet_not_wide']);
+    expect(say(quiet(), [[STAND, 120], [{ open: 0.9, armsUp: 0.3, gap: 1.4 }, 40], [STAND, 60]])).toEqual([]);
   });
 });
 

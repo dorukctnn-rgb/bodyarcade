@@ -73,8 +73,11 @@ export interface HostSpec<S extends HostSim> {
   /** Sounds and announcements for the events since the last frame. */
   react?(events: readonly SimEvent[], io: Reaction<S>): void;
   /**
-   * The movement detectors the engine runs for this way of playing (seated, quiet). The session reads `manifest.detectors`
-   * after init(), so the host writes the answer there; a platform hook for per-run detector options would replace this.
+   * The movement detectors the engine runs for this way of playing (seated, quiet). The session reads `manifest.detectors` after init(),
+   * so the host writes the answer there, and writes it again at start(), when the way of playing is known for sure (a full-body game that
+   * got head and shoulders at a desk is played seated, which the session decides after init). For the engine to take the second answer the
+   * session has to ask the manifest again at the start of a run: one line, asked of the platform builder (NOTLAR-platform.md,
+   * PATCH-session-redetect-seated.diff); a platform hook for per-run detector options would replace all of this.
    */
   detectors?(o: { seated: boolean; silent: boolean }): DetectorSpec[];
 }

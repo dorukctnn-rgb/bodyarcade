@@ -62,6 +62,11 @@ const SIZE: Record<Grade, 1 | 2 | 3> = { perfect: 3, good: 2, off: 1 };
 const BASE_POINTS = 10;
 /** Both players on the same beat: a double firework. */
 const DOUBLE_BONUS = 30;
+/**
+ * The hands count as on their way up from here (the detector's `armsUp`: the lower hand minus the nose in torso lengths, 0 and over is
+ * above the nose): about the shoulders, where the hands are when the arms are out to the side.
+ */
+const ARMS_RISING = -0.5;
 /** After this many seconds of standing still in a set the strip says "Move more" (and repeats every so often). */
 const IDLE_HINT_S = 8;
 const HINT_STEPS = 90;
@@ -404,18 +409,26 @@ export class FireworkSim implements HostSim {
   private watch(p: FjPlayer, ch: Readonly<Record<string, number>>, k: number, t: number, slot: 1 | 2, out: SimEvent[]): void {
     const open = ch['open'];
     if (open === undefined) return;       // keyboard and touch: no channels, nothing to explain
-    const armsUp = ch['armsUp'] ?? -1, gap = ch['gap'] ?? 0;
+    const armsUp = ch['armsUp'] ?? -9, gap = ch['gap'] ?? 0;
+    const D = JUMPING_JACK_DEFAULTS;
+    const need = this.stepJack ? D.stepGap : D.openGap;
     const a = p.att;
+    // A try is on while the body is on its way open: the hands rise past the shoulders, or the feet come well apart (a natural stance is
+    // up to about 1.25 W and sways), or the detector says it is open. (Its `open` is the smaller of the arms' and the feet's progress, so
+    // it stays 0 for an arm raise with the feet together, the commonest try that does not count, and the strip would never have said so.)
+    const feetTrigger = Math.max(need - 0.2, D.closedGap + 0.25);
+    const rising = armsUp >= ARMS_RISING || (!this.armsOnly && gap >= feetTrigger) || open >= 0.35;
     if (!a.on) {
-      if (open >= 0.35) { a.on = true; a.k0 = k; a.armsMax = armsUp; a.gapMax = gap; a.rep = false; }
+      if (rising) { a.on = true; a.k0 = k; a.armsMax = armsUp; a.gapMax = gap; a.rep = false; }
       return;
     }
     a.armsMax = Math.max(a.armsMax, armsUp);
     a.gapMax = Math.max(a.gapMax, gap);
-    if (open < 0.12 || k - a.k0 > 84) {
+    // ... and over when the hands are down and the feet are back (a little below where they began to count), or after a second and a half
+    const closed = armsUp < ARMS_RISING - 0.2 && (this.armsOnly || gap < feetTrigger - 0.1) && open < 0.12;
+    if (closed || k - a.k0 > 84) {
       a.on = false;
       if (!a.rep && k - a.k0 >= 6) {
-        const need = this.stepJack ? JUMPING_JACK_DEFAULTS.stepGap : JUMPING_JACK_DEFAULTS.openGap;
         const armsOk = a.armsMax >= 0, feetOk = this.armsOnly || a.gapMax >= need;
         let note: MissNote | null = null;
         if (!armsOk && (feetOk || a.armsMax > -0.5)) note = { code: 'arms_not_up', got: round(a.armsMax, 2), need: 0 };

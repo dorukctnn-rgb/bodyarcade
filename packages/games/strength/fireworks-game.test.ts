@@ -13,6 +13,7 @@ import { copyProblems } from '../../web/catalogue/copy.ts';
 import { stringTables } from '../../core/ui/i18n/index.ts';
 import type { Scene2D } from '../../core/types/index.ts';
 import { clockedSession, fakeCamera, fakePose } from '../_shared/testing/fakes.ts';
+import { stageOf } from '../_shared/stage.ts';
 import { duoFrame, inputFrame, nonFiniteCalls, testContext, testKit, testKitDuo } from '../_shared/testing/context.ts';
 import { MISS_EN } from '../_shared/reasons.ts';
 import fireworkJacks, { manifest as realManifest, fireworkJacksModule } from '../firework-jacks/index.ts';
@@ -319,6 +320,19 @@ describe('the view', () => {
       }
       r.game.dispose();
     }
+  });
+
+  it('a new run takes the play area from the HUD afresh: what a long command left in the last run is forgotten', async () => {
+    const t = testKit(360, 780);
+    const stage = stageOf(t.kit) as NonNullable<ReturnType<typeof stageOf>>;
+    const hud = (commandH: number): void => t.kit.setHud({ mode: 'scene', pipCorner: 'bottom-left', measured: { statusLeft: { w: 120, h: 60 }, statusRight: { w: 150, h: 60 }, command: { w: 300, h: commandH }, reason: { w: 1, h: 1 } } });
+    hud(142);
+    stage.play;                       // a view reads it every frame
+    hud(80);
+    expect(stage.play.y).toBeGreaterThan(t.kit.rects.play.y);
+    const r = await rig({ scene2d: t.kit });
+    expect(stageOf(t.kit)?.play).toEqual(t.kit.rects.play);
+    r.game.dispose();
   });
 
   it('two players: one avatar and one pad in each lane, a shared sky, on the four big screens', async () => {
