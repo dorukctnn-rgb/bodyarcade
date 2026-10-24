@@ -7,6 +7,7 @@
 import type { ActivateFailureCode, ActivateResult, Entitlement } from '../../types/index.ts';
 import { LICENSE_KEY_RE } from '../api.ts';
 import { GUMROAD_VERIFY_URL, judgePurchase, readVerifyAnswer, type GumroadPurchase } from '../gumroad-rules.ts';
+import { GUMROAD_PRODUCTS } from '../catalog.ts';
 import { GUMROAD_LEGACY_PRODUCTS, entitlementFor, isPlanId, type PlanId } from '../plans.ts';
 import { defaultFetch, postForm, type FetchLike, type ManagedProvider, type RefreshContext } from './shared.ts';
 
@@ -36,7 +37,7 @@ type Checked =
 
 /** Which products to try: only plans that exist, the old ones included. */
 export function productTable(extra: Readonly<Record<string, PlanId>> = {}): [string, PlanId][] {
-  const table: Record<string, PlanId> = { ...GUMROAD_LEGACY_PRODUCTS };
+  const table: Record<string, PlanId> = { ...GUMROAD_LEGACY_PRODUCTS, ...GUMROAD_PRODUCTS };
   for (const [id, plan] of Object.entries(extra)) if (isPlanId(plan) && /^[A-Za-z0-9_=-]{8,64}$/.test(id)) table[id] = plan;
   return Object.entries(table);
 }

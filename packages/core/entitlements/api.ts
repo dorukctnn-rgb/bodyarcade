@@ -6,7 +6,8 @@
 //   POST /api/entitlements/play        { did, purchases }            Google Play purchases of this device      -> Grant
 //   POST /api/entitlements/deactivate  { token, did }                give this device's seat back              -> { ok: true }
 //   POST /api/entitlements/reset       { did, key | purchases }      give every other seat back                -> { ok: true, removed }
-//   GET  /api/entitlements/key                                       the public key(s) that verify tokens      -> { keys }
+//   POST /api/entitlements/reminder    { token, did, email, lang }   one e-mail two days before the trial ends -> { ok: true, sendAt }
+//   GET  /api/entitlements/key                                       the public key(s) that verify tokens      -> { keys, reminders }
 //
 // The server stores no licence key and no purchase token, only their SHA-256, so the app sends the key (or the Play
 // purchases it lists) again whenever it renews. Errors are `{ "error": code }` with the status in ERROR_STATUS.
@@ -19,6 +20,7 @@ export const API = {
   play: `${API_PREFIX}/play`,
   deactivate: `${API_PREFIX}/deactivate`,
   reset: `${API_PREFIX}/reset`,
+  reminder: `${API_PREFIX}/reminder`,
   key: `${API_PREFIX}/key`,
 } as const;
 
@@ -30,8 +32,21 @@ export const LICENSE_KEY_RE = /^[A-Za-z0-9-]{8,80}$/;
 export const PURCHASE_TOKEN_RE = /^[A-Za-z0-9._~+/=-]{16,1024}$/;
 export const PRODUCT_ID_RE = /^[a-z0-9_]{1,40}$/;
 export const MAX_PURCHASES = 10;
+/** The languages a reminder e-mail is written in (the app's languages). */
+export const REMINDER_LANGS = ['en', 'tr', 'de', 'es', 'fr'] as const;
+export type ReminderLang = (typeof REMINDER_LANGS)[number];
+export const MAX_EMAIL_LENGTH = 254;
+/** A plain address: what a person types into a box, not every form the standard allows. */
+export const EMAIL_RE = /^[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,24}$/;
+/** The reminder goes out this long before the trial ends. */
+export const REMINDER_LEAD_MS = 2 * 86_400_000;
 
 export interface PlayPurchaseRef { productId: string; purchaseToken: string }
+
+/** `email: null` takes the address back (nothing is sent). */
+export interface ReminderRequest { token: string; did: string; email: string | null; lang: string }
+/** `sendAt` is epoch ms, or null once the address has been taken back. */
+export interface ReminderAnswer { ok: true; sendAt: number | null }
 
 export interface KeyRequest { key: string; did: string }
 export interface PlayRequest { did: string; purchases: PlayPurchaseRef[] }
@@ -45,13 +60,14 @@ export interface Grant {
   /** Seats in use after this call, and the most this purchase may have. */
   devices: { used: number; limit: number };
 }
-export interface PublicKeys { keys: { kid: string; jwk: JsonWebKey }[] }
+/** `reminders`: this server can send the reminder e-mail, so the app may offer the box for an address. */
+export interface PublicKeys { keys: { kid: string; jwk: JsonWebKey }[]; reminders: boolean }
 
 /** A refusal: the server looked and said no. Only these can take Pro away (B2). */
 export type RefusalCode = 'not_found' | 'refunded' | 'ended' | 'limit';
 export type ErrorCode =
   | RefusalCode
-  | 'bad_request' | 'json_expected' | 'bad_json' | 'too_large' | 'method_not_allowed'
+  | 'bad_request' | 'json_expected' | 'bad_json' | 'too_large' | 'method_not_allowed' | 'no_trial'
   | 'rate_limited' | 'upstream' | 'unavailable' | 'internal';
 
 export const REFUSALS: readonly RefusalCode[] = ['not_found', 'refunded', 'ended', 'limit'];
@@ -66,6 +82,7 @@ export const ERROR_STATUS: Readonly<Record<ErrorCode, number>> = {
   refunded: 403,
   ended: 403,
   limit: 409,
+  no_trial: 409,
   rate_limited: 429,
   upstream: 502,
   unavailable: 503,

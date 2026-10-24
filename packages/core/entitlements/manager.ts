@@ -46,6 +46,8 @@ export interface EntitlementStatus {
   /** When the record stops proving anything without a new check, or null. */
   validUntil: number | null;
   verifiedAt: number | null;
+  /** Epoch ms when a free trial ends, while the last check showed one running; null otherwise (trial.ts says what to do with it). */
+  trialEnds: number | null;
   /** Pro was held on this device at some time (a trial is no longer offered). */
   everPaid: boolean;
   deviceId: string;
@@ -174,6 +176,7 @@ export function createEntitlements(o: EntitlementsOptions): EntitlementsService 
     return {
       e: entitlementFor(c.plan, provider, { token, ...(paidUntil !== null ? { exp: paidUntil } : {}) }),
       provider, planId: c.plan, verifiedAt: c.chk * 1000, validUntil: c.exp * 1000, paidUntil, seenAt, proof,
+      ...(c.tr ? { trialEnds: c.tr * 1000 } : {}),
     };
   }
 
@@ -323,6 +326,7 @@ export function createEntitlements(o: EntitlementsOptions): EntitlementsService 
       return {
         plan: e.plan, founder: e.founder === true, source: e.source, standing, planId: rec?.planId ?? null,
         paidUntil: rec?.paidUntil ?? null, validUntil: rec?.validUntil ?? null, verifiedAt: rec?.verifiedAt ?? null,
+        trialEnds: standing === 'active' ? rec?.trialEnds ?? null : null,
         everPaid: everSlot.get(), deviceId: did,
       };
     },

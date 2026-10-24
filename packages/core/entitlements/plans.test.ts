@@ -88,10 +88,12 @@ describe('the web offers', () => {
     expect(bad.offers).toEqual([]);
   });
 
-  it('carries the trial state and never promises a reminder', () => {
+  it('carries the trial state, and promises the reminder only where a trial applies', () => {
     expect(webPlans({ checkout: urls }).trialEligible).toBe(true);
     expect(webPlans({ checkout: urls, trialEligible: false }).trialEligible).toBe(false);
-    expect(webPlans({ checkout: urls }).trialReminder).toBe(false);
+    expect(webPlans({ checkout: urls }).trialReminder).toBe(true);
+    expect(webPlans({ checkout: urls, trialEligible: false }).trialReminder).toBe(false);
+    expect(webPlans({ checkout: { 'pro-monthly': urls['pro-monthly'], lifetime: urls.lifetime } }).trialReminder).toBe(false);
     for (const o of webPlans({ checkout: urls }).offers) expect(o.checkout.play).toBeUndefined();
   });
 
@@ -117,11 +119,13 @@ describe('the Play offers', () => {
       ['lifetime', { amount: 109.99, currency: 'EUR' }, undefined, { play: 'bodyarcade_lifetime' }],
     ]);
     expect(cfg.trialEligible).toBe(true);
+    expect(cfg.trialReminder).toBe(true);
   });
 
   it('says nothing about a trial when Play reports none for this buyer', () => {
     const cfg = playPlans(details({ bodyarcade_pro_yearly: { freeTrialPeriod: '' } }));
     expect(cfg.trialEligible).toBe(false);
+    expect(cfg.trialReminder).toBe(false);
     expect(cfg.offers.every((o) => o.trialDays === undefined)).toBe(true);
     expect(playPlans(details({ bodyarcade_pro_yearly: { freeTrialPeriod: 'P1M' } })).offers[1]?.trialDays).toBe(30);
   });

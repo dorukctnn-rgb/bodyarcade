@@ -10,14 +10,17 @@ import { router } from './router.ts';
 import { registerLiveRoutes } from './live/routes.ts';
 import { registerSiteRoutes } from './site/routes.ts';
 import { registerSocial } from './social/index.ts';
+import { registerEntitlements } from './entitlements/index.ts';
 
 export { Room } from './live/room.ts';
 export { PlayerHub } from './social/index.ts';
+export { EntitlementsDO } from './entitlements/index.ts';
 
 // ───────── modules (one line each) ─────────
 registerLiveRoutes(router);
 registerSiteRoutes(router);
 registerSocial(router);
+registerEntitlements(router);
 
 export default {
   async fetch(req: Request, env: Record<string, unknown>, ctx: ExecutionContextLike): Promise<Response> {

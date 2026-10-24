@@ -20,8 +20,8 @@
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
   },
-  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "HUB", "class_name": "PlayerHub" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["PlayerHub"] }],
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "HUB", "class_name": "PlayerHub" }, { "name": "ENTITLEMENTS", "class_name": "EntitlementsDO" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["PlayerHub"] }, { "tag": "v3", "new_sqlite_classes": ["EntitlementsDO"] }],
   // The social D1 database ("DB") is added once it exists: the wrangler login of this machine lacks the D1 scope
   // (24 Oct). Until then the social hooks do nothing and live play uses its anonymous identity.
   "vars": { "PUBLIC_ORIGIN": "https://bodyarcade-v2-preview.railer-iot.workers.dev", "SITE_TARGET": "preview" },

@@ -29,6 +29,8 @@ export interface StoredEntitlement {
   validUntil: number;
   /** Epoch ms when a paid period ends (a cancelled membership), or null. */
   paidUntil: number | null;
+  /** Epoch ms when a free trial ends (the signed token's `tr`); absent when no trial was running at the last check. */
+  trialEnds?: number;
   /** The highest clock reading seen while this record was held. */
   seenAt: number;
   /** What a renewal needs: the licence key (null for Google Play, which lists its purchases again). */
@@ -113,5 +115,9 @@ export function readStored(raw: unknown): StoredEntitlement | null {
   const proof = raw['proof'];
   if (proof !== null && (typeof proof !== 'string' || proof.length > 120)) return null;
   const planId = raw['planId'];
-  return { e: ent, provider, planId: isPlanId(planId) ? planId : null, verifiedAt, validUntil, paidUntil, seenAt, proof };
+  const trialEnds = raw['trialEnds'];
+  return {
+    e: ent, provider, planId: isPlanId(planId) ? planId : null, verifiedAt, validUntil, paidUntil, seenAt, proof,
+    ...(num(trialEnds) && trialEnds > 0 ? { trialEnds } : {}),
+  };
 }

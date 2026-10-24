@@ -5,6 +5,11 @@
   //   npx wrangler secret put TICKET_SECRET          (32+ random characters)
   //   npx wrangler secret put TURN_KEY_ID            (Cloudflare Realtime TURN key)
   //   npx wrangler secret put TURN_KEY_API_TOKEN
+  // Entitlements (who may use Pro; packages/server/src/entitlements):
+  //   npx wrangler secret put ENT_PRIV_JWK           (ES256 private key as a JWK with a kid; node tools/entitlements/gen-keys.mjs makes one)
+  //   npx wrangler secret put PLAY_SA_JSON           (Google Play service account JSON; without it Play purchases answer "unavailable")
+  //   npx wrangler secret put ENT_MAIL_TOKEN         (ForwardEmail API token) and the variable ENT_MAIL_FROM: the trial reminder e-mail; optional
+  // Optional variables: GUMROAD_PRODUCTS (JSON of Gumroad product id -> plan id), ENT_PUB_JWKS (older public keys during a key rotation).
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "bodyarcade-v2",
   "main": "src/index.ts",
@@ -16,8 +21,8 @@
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "single-page-application"
   },
-  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "HUB", "class_name": "PlayerHub" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["PlayerHub"] }],
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "HUB", "class_name": "PlayerHub" }, { "name": "ENTITLEMENTS", "class_name": "EntitlementsDO" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["PlayerHub"] }, { "tag": "v3", "new_sqlite_classes": ["EntitlementsDO"] }],
   // Social (profiles, friends, presence, lobby directory, moderation). Create the database once, then put its id here:
   //   npx wrangler d1 create bodyarcade-social        and        npx wrangler d1 migrations apply bodyarcade-social --remote
   // Optional secrets: ADMIN_TOKEN (the moderation API answers 404 without it), SOCIAL_MAX_SIGNUPS_PER_DAY (var).

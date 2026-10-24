@@ -7,6 +7,8 @@
 //   app without Play our server only: the paywall says purchases need the Play version
 import { readLegacyV1, browserStorage, type BodyArcadeStore, type LegacyLicense, type StorageLike } from '../store/index.ts';
 import { detectBilling, twaHint, PLAY_BILLING_URL, type BillingEnv, type Hint, type WindowLike } from './billing-env.ts';
+import { GUMROAD_CHECKOUT } from './catalog.ts';
+import { keysForHost } from './keys.ts';
 import { createEntitlements, type EntitlementsService } from './manager.ts';
 import { paywallModel, type PaywallInputs, type PaywallModel } from './paywall.ts';
 import type { FeatureRules } from './features.ts';
@@ -19,13 +21,14 @@ import type { FetchLike, ManagedProvider } from './providers/shared.ts';
 import type { TokenKey } from './token.ts';
 
 export interface BootWindow extends WindowLike {
+  location: { search: string; hostname?: string };
   PaymentRequest?: new (methods: unknown, details: unknown) => PaymentRequestLike;
 }
 
 export interface BootOptions {
   store: BodyArcadeStore;
-  /** The public key(s) that verify entitlement tokens. */
-  keys: readonly TokenKey[];
+  /** The public key(s) that verify entitlement tokens. Default: the keys of the site the page runs on (keys.ts). */
+  keys?: readonly TokenKey[];
   window?: BootWindow;
   fetch?: FetchLike;
   /** Origin of the API; empty for the page's own origin. */
@@ -51,13 +54,14 @@ export interface BootResult {
 
 export async function bootEntitlements(o: BootOptions): Promise<BootResult> {
   const w = o.window ?? (typeof window === 'undefined' ? undefined : (window as unknown as BootWindow));
+  const keys = o.keys ?? keysForHost(w?.location.hostname ?? '');
   const hint: Hint = w ? twaHint(w) : 'none';
   const env: BillingEnv = w ? await detectBilling(w, hint) : { mode: 'web', hint: 'none', service: null };
 
   let didOf = (): string => '';
   const common = { ...(o.fetch ? { fetch: o.fetch } : {}), ...(o.baseUrl !== undefined ? { baseUrl: o.baseUrl } : {}), ...(o.now ? { now: o.now } : {}) };
   const providers: ManagedProvider[] = [];
-  const server = createServerProvider({ ...common, did: () => didOf(), keys: o.keys });
+  const server = createServerProvider({ ...common, did: () => didOf(), keys });
   providers.push(server);
 
   if (env.mode === 'web') {
@@ -65,7 +69,7 @@ export async function bootEntitlements(o: BootOptions): Promise<BootResult> {
   } else if (env.mode === 'play' && env.service && w?.PaymentRequest) {
     const Payment = w.PaymentRequest;
     providers.push(createPlayProvider({
-      ...common, did: () => didOf(), keys: o.keys, service: env.service,
+      ...common, did: () => didOf(), keys, service: env.service,
       createPayment: (sku) => new Payment([{ supportedMethods: PLAY_BILLING_URL, data: { sku } }], { total: { label: 'Total', amount: { currency: 'USD', value: '0' } } }),
     }));
   }
@@ -76,7 +80,7 @@ export async function bootEntitlements(o: BootOptions): Promise<BootResult> {
     : undefined;
 
   const service = createEntitlements({
-    store: o.store, keys: o.keys, providers,
+    store: o.store, keys, providers,
     keyOrder: ['server', 'gumroad'],
     ...(o.now ? { now: o.now } : {}),
     ...(o.rules ? { rules: o.rules } : {}),
@@ -90,7 +94,7 @@ export async function bootEntitlements(o: BootOptions): Promise<BootResult> {
     service, env, hint,
     port: toShellPort(service, { play: env.mode === 'play' }),
     paywall(inputs = {}) {
-      return paywallModel(env.mode, { trialEligible: !service.status().everPaid, ...inputs });
+      return paywallModel(env.mode, { trialEligible: !service.status().everPaid, checkout: GUMROAD_CHECKOUT, ...inputs });
     },
   };
 }

@@ -10,6 +10,8 @@ export {
   webPlans, playPlans, isoDays, playProductOf,
   type OfferShape, type PlanId, type PlanInfo, type PlansShape, type PlayItemDetails, type SoldPlanId, type WebPlansOptions,
 } from './plans.ts';
+export { GUMROAD_CATALOG, GUMROAD_CHECKOUT, GUMROAD_PRODUCTS, placeholdersIn, type GumroadListing } from './catalog.ts';
+export { PUBLIC_KEYS, keysForHost, targetOfHost, type ReleaseTarget } from './keys.ts';
 export { canUse, hasFamilyFeatures, DEFAULT_FREE_FEATURES, type FeatureRules } from './features.ts';
 export { verifyToken, type TokenClaims, type TokenKey, type TokenFailure, type VerifyResult } from './token.ts';
 export { API, API_PREFIX, DID_RE, LICENSE_KEY_RE, isExplicitRefusal, type ErrorCode, type Grant, type RefusalCode } from './api.ts';

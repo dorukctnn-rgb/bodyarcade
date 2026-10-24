@@ -137,7 +137,9 @@ export function webPlans(o: WebPlansOptions): PlansShape {
     if (typeof url !== 'string' || !/^https:\/\//.test(url)) continue;
     offers.push(shapeOf(id, { amount: PLANS[id].price, currency: 'USD' }, { web: url }, PLANS[id].trialDays));
   }
-  return { offers, trialEligible: o.trialEligible ?? true, trialReminder: false };
+  const trialEligible = o.trialEligible ?? true;
+  // The reminder (trial.ts) is promised exactly where there is a trial to remind about.
+  return { offers, trialEligible, trialReminder: trialEligible && offers.some((x) => x.trialDays !== undefined) };
 }
 
 /** What Google Play's Digital Goods service says about one product (a subset of ItemDetails). */
@@ -181,5 +183,5 @@ export function playPlans(details: readonly PlayItemDetails[], o: PlayPlansOptio
     if (trial) anyTrial = true;
     offers.push(shapeOf(id, { amount, currency: d.price.currency }, { play: product }, trial ?? undefined));
   }
-  return { offers, trialEligible: anyTrial, trialReminder: false };
+  return { offers, trialEligible: anyTrial, trialReminder: anyTrial };
 }

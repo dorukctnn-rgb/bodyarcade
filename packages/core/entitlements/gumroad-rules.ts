@@ -51,6 +51,21 @@ export type VerifyAnswer =
   /** Anything else: Gumroad is down, rate-limiting, or did not answer in a way that can be read. Never a verdict on the key. */
   | { kind: 'unreadable' };
 
+/**
+ * Gumroad answers "no" in three different ways (its licences controller): "That license does not exist for the provided
+ * product" (a wrong key, or the key belongs to another product: try the next one), "This license key has been disabled"
+ * (the seller turned it off, as a refund does) and "Access to the purchase associated with this license has expired".
+ * The last two are the seller's own verdict on a key that existed; the first is only a verdict on this product.
+ */
+export type NotFoundReason = 'missing' | 'disabled' | 'expired';
+
+export function notFoundReason(body: unknown): NotFoundReason {
+  const message = isRecord(body) && typeof body['message'] === 'string' ? body['message'] : '';
+  if (/disabled/i.test(message)) return 'disabled';
+  if (/expired|revoked/i.test(message)) return 'expired';
+  return 'missing';
+}
+
 /** Reads one answer of the verify endpoint. `status` is the HTTP status, `body` the parsed JSON (undefined when it was not JSON). */
 export function readVerifyAnswer(status: number, body: unknown): VerifyAnswer {
   if (status >= 500 || status === 429 || status === 408 || !isRecord(body)) return { kind: 'unreadable' };

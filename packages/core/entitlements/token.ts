@@ -35,6 +35,8 @@ export interface TokenClaims {
   exp: number;
   /** Epoch seconds when the paid period ends (a cancelled subscription); absent for lifetime and renewing plans. */
   pe?: number;
+  /** Epoch seconds when a free trial ends; present only while the seller's records show one running. It grants nothing: it only lets the app say so. */
+  tr?: number;
   /** A Play licence-test purchase. */
   test?: boolean;
 }
@@ -87,7 +89,7 @@ const isInt = (x: unknown): x is number => typeof x === 'number' && Number.isSaf
 /** The claims of a token whose signature has been checked: every field is verified for type and range; null otherwise. */
 export function readClaims(x: unknown): TokenClaims | null {
   if (!isRecord(x)) return null;
-  const { iss, aud, sub, did, plan, src, feat, chk, iat, exp, pe, test } = x;
+  const { iss, aud, sub, did, plan, src, feat, chk, iat, exp, pe, tr, test } = x;
   if (iss !== TOKEN_ISS || aud !== TOKEN_AUD) return null;
   if (typeof sub !== 'string' || !/^[0-9a-f]{64}$/.test(sub)) return null;
   if (typeof did !== 'string' || !DID_RE.test(did)) return null;
@@ -96,9 +98,11 @@ export function readClaims(x: unknown): TokenClaims | null {
   if (!Array.isArray(feat) || feat.length > 8 || !feat.every((f) => typeof f === 'string' && /^[a-z0-9]{1,16}$/.test(f))) return null;
   if (!isInt(chk) || !isInt(iat) || !isInt(exp)) return null;
   if (pe !== undefined && !isInt(pe)) return null;
+  if (tr !== undefined && !isInt(tr)) return null;
   if (test !== undefined && typeof test !== 'boolean') return null;
   const claims: TokenClaims = { iss, aud, sub, did, plan, src, feat: feat as string[], chk, iat, exp };
   if (pe !== undefined) claims.pe = pe;
+  if (tr !== undefined) claims.tr = tr;
   if (test !== undefined) claims.test = test;
   return claims;
 }
