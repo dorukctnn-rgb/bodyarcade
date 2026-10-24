@@ -398,27 +398,33 @@ describe('weekly boards on the platform', () => {
     const kid = await player({ band: 'child' });
     await befriend(ada, bo);
     const tickets = await Promise.all([ada, bo, cy, kid].map((w) => w.client.startRun('knee-sprint')));
-    await new Promise((r) => setTimeout(r, 3300));                    // the server's own clock must see three seconds (a shorter run is refused: the unit tests move the clock for that)
+    // The runs are timed by the server's own clock, which this test cannot move: it waits a little over the three seconds a run
+    // needs (a shorter run is refused: the unit tests move the clock for that) and posts scores far under what the game could
+    // award in that time (ceilingFor: 1,290 points for a run of 3.3 seconds), so the verdict does not depend on how fast the
+    // machine is.
+    await new Promise((r) => setTimeout(r, 3300));
     const results = [];
-    for (const [i, [w, score]] of ([[ada, 800], [bo, 1300], [cy, 1300], [kid, 100]] as [Who, number][]).entries()) results.push(await w.client.finishRun(tickets[i]!, score));
+    for (const [i, [w, score]] of ([[ada, 500], [bo, 800], [cy, 800], [kid, 100]] as [Who, number][]).entries()) results.push(await w.client.finishRun(tickets[i]!, score));
     expect(results.map((r) => r.improved)).toEqual([true, true, true, true]);
-    expect((await ada.client.finishRun(tickets[0]!, 500)).improved).toBe(false);
+    expect((await ada.client.finishRun(tickets[0]!, 400)).improved).toBe(false);
     await expect(ada.client.finishRun(tickets[0]!, 5_000_000)).rejects.toMatchObject({ status: 422, code: 'score_implausible' });
     await expect(ada.client.finishRun({ ...tickets[0]!, run: 'r1.1.2.3' }, 5)).rejects.toMatchObject({ status: 400, code: 'bad_run' });
     await expect(bo.client.finishRun(tickets[0]!, 5)).rejects.toMatchObject({ status: 400, code: 'bad_run' });   // somebody else's ticket
 
     const friends = await ada.client.leaderboard({ game: 'knee-sprint', scope: 'friends' });
-    expect(friends.entries.map((e) => `${e.rank}:${e.name}:${e.score}`)).toEqual(['1:Bo:1300', '2:Ada:800']);
+    expect(friends.entries.map((e) => `${e.rank}:${e.name}:${e.score}`)).toEqual(['1:Bo:800', '2:Ada:500']);
     const country = await ada.client.leaderboard({ game: 'knee-sprint', scope: 'country' });
     expect(country.country).toMatch(/^[A-Z]{2}$/);
-    expect(country.entries.map((e) => e.name)).toEqual(['Bo', 'Cy', 'Ada']);        // Bo before Cy: the same score, earlier
+    // Bo and Cy have the same score and so the same place; which of them is listed first depends on the millisecond they were written in
+    expect(country.entries.slice(0, 2).map((e) => e.name).sort()).toEqual(['Bo', 'Cy']);
+    expect(country.entries[2]?.name).toBe('Ada');
     expect(country.entries.map((e) => e.rank)).toEqual([1, 1, 3]);
-    expect(country.you).toEqual({ score: 800, rank: 3, atLeast: false });
+    expect(country.you).toEqual({ score: 500, rank: 3, atLeast: false });
     expect(JSON.stringify(country)).not.toMatch(/fid|pid/);
     await expect(kid.client.leaderboard({ game: 'knee-sprint', scope: 'country' })).rejects.toMatchObject({ status: 403, code: 'child_no_public' });
     expect((await kid.client.leaderboard({ game: 'knee-sprint', scope: 'friends' })).entries.map((e) => e.score)).toEqual([100]);
     const exported = await ada.client.exportData();
-    expect(exported.scores).toEqual([{ week: country.week.id, game: 'knee-sprint', score: 800 }]);
+    expect(exported.scores).toEqual([{ week: country.week.id, game: 'knee-sprint', score: 500 }]);
     // the query goes through the board index on the platform's SQLite too
     const plan = await stack.db.prepare("EXPLAIN QUERY PLAN SELECT s.pid FROM soc_scores s WHERE s.wk = ?1 AND s.game = ?2 AND s.grp = ?3 AND s.country = ?4 ORDER BY s.score DESC, s.at ASC LIMIT 80")
       .bind(country.week.id, 'knee-sprint', 'adult', country.country).all<{ detail: string }>();

@@ -367,7 +367,7 @@ test('weekly boards: scores from three browsers, the best of the week kept, frie
   const players = [a, b, cy, kid];
   // the runs start together; the server must see at least three seconds before it takes a score
   const tickets = await Promise.all(players.map((p) => p.run((ba) => ba.social.startRun('star-catch'), undefined))) as { run: string; game: string }[];
-  await sleep(3400);
+  await sleep(3600);                                                // over three seconds by the server's own clock; the scores below are far under the ceiling of that time
   const posted: unknown[] = [];
   for (const [i, score] of [600, 1000, 1000, 200].entries()) posted.push(await (players[i] as Player).run((ba, x) => ba.social.finishRun(x.ticket, x.score), { ticket: tickets[i], score }));
   expect(posted).toEqual([0, 1, 2, 3].map((i) => expect.objectContaining({ improved: true, best: [600, 1000, 1000, 200][i] })));
@@ -387,7 +387,8 @@ test('weekly boards: scores from three browsers, the best of the week kept, frie
   // country: the adults who connect from the same country, with no friend id and the same score sharing a place
   const countryBoard = await a.run((ba) => ba.social.leaderboard({ game: 'star-catch', scope: 'country' }), undefined) as { country: string; entries: { rank: number; name: string; you: boolean }[] };
   expect(countryBoard.country).toMatch(/^[A-Z]{2}$/);
-  expect(countryBoard.entries.map((e) => e.name)).toEqual(['Bo', 'Cy', 'Ada']);
+  expect(countryBoard.entries.slice(0, 2).map((e) => e.name).sort()).toEqual(['Bo', 'Cy']);     // the same score, the same place
+  expect(countryBoard.entries[2]?.name).toBe('Ada');
   expect(countryBoard.entries.map((e) => e.rank)).toEqual([1, 1, 3]);
   expect(JSON.stringify(countryBoard)).not.toMatch(/"fid"/);
   // a child: a friends board of its own and no country board
