@@ -296,6 +296,25 @@ describe('the ghost, blocks and the helpers around them', () => {
     expect(a.race.sendGhost({ n: 2 })).toBe(false);                // not after the match
   });
 
+  it('offers the camera toggle to adults in private rooms only, and the friend sees it switch on and off', async () => {
+    const net = await Net.make();
+    const a = await racer(net, 'alice-device-01'); const b = await racer(net, 'bob-device-0002');
+    net.run(800);
+    expect(a.all('lobby').at(-1)?.canVideo).toBe(true);
+    const cam = { id: 'fake-stream' } as unknown as MediaStream;
+    a.race.setVideo(true, cam);
+    net.run(300);
+    expect(a.race.client.stream).toBe(cam);
+    expect(b.race.members.find((m) => m.seat === 's1')?.video).toBe(true);
+    a.race.setVideo(false);
+    net.run(300);
+    expect(b.race.members.find((m) => m.seat === 's1')?.video).toBe(false);
+    const net2 = await Net.make();
+    const teen = await racer(net2, 'teen-device-0003', { who: { pid: 'teen-device-0003', name: 'Teen', age: 'teen' } });
+    net2.run(500);
+    expect(teen.all('lobby').at(-1)?.canVideo).toBe(false);
+  });
+
   it('keeps block keys the device is given', async () => {
     const net = await Net.make();
     const store = memoryBlocks();

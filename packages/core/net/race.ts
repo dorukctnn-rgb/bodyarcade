@@ -55,6 +55,8 @@ export interface LobbyView {
   openSeats: number;
   /** A match is running without this player (they joined late): they wait for the next one. */
   watching: boolean;
+  /** The camera toggle may be offered: a private room and an adult player (the friend must be an adult who also switches it on). */
+  canVideo: boolean;
 }
 
 export interface RaceResult {
@@ -316,8 +318,14 @@ export class LiveRace extends Emitter<RaceEvents> {
   chat(text: string): void { this.client.chat(text); }
   sendPreset(id: PresetId): void { this.client.preset(id); }
   react(id: ReactionId): void { this.client.react(id); }
-  /** Camera on or off for friends who also opted in. */
-  setVideo(on: boolean): void { this.client.setVideo(on); }
+  /**
+   * Camera on or off for friends who also opted in (off by default). A page that had no camera when the race began passes
+   * the stream the first time it switches on; the links to the friends are rebuilt with the picture.
+   */
+  setVideo(on: boolean, stream?: MediaStream | null): void {
+    if (stream !== undefined) this.client.stream = stream;
+    this.client.setVideo(on);
+  }
   block(seat: SeatId): void { this.client.block(seat); }
   reportPlayer(seat: SeatId, reason: ReportReason, alsoBlock: boolean): void { this.client.reportPlayer(seat, reason, alsoBlock); }
 
@@ -495,6 +503,7 @@ export class LiveRace extends Emitter<RaceEvents> {
       you: c.you, members: [...members], room, isHost: room.host === c.you,
       allReady: members.length > 0 && members.every((m) => m.ready), openSeats: Math.max(0, room.size - members.length),
       watching: room.phase === 'playing' && !c.playing,
+      canVideo: room.video && this.who.age === 'adult',
     };
   }
 
