@@ -17,9 +17,7 @@ interface Cfg {
 }
 
 /** Bindings the release cannot have yet, with the reason; the list must only shrink. */
-const PENDING: Readonly<Record<string, string>> = {
-  DB: 'the social D1 database: this machine\'s wrangler login has no D1 scope (RELEASE NEEDS 2)',
-};
+const PENDING: Readonly<Record<string, string>> = {};   // none: the social module's tables are inside its Durable Object (SOCIAL), so there is no database to wait for
 
 const server = jsonc('packages/server/wrangler.jsonc') as unknown as Cfg;
 const entry = readFileSync(new URL('packages/server/src/index.ts', ROOT), 'utf8');

@@ -3,7 +3,7 @@
 // (packages/server/src/social) both import this file, so it uses no DOM and no Workers types.
 //
 // Three different ids exist on purpose:
-//   pid   secret device-profile id. Only the server knows it; it goes into room tickets and D1 keys, never to a client.
+//   pid   secret device-profile id. Only the server knows it; it goes into room tickets and table keys, never to a client.
 //   fid   friend-visible id: random, stable, shown to friends and used in friend calls. Never the pid.
 //   code  the shareable friend code (BA-7K2Q4X). Renewable; anyone holding it can send a request.
 import type { AgeBand, ReportReason } from '../types/net.ts';
@@ -224,7 +224,7 @@ export interface SocialErrorBody {
   [extra: string]: unknown;
 }
 
-/** What a hibernating PlayerHub pushes to the player's open socket. */
+/** What the directory's hibernating socket pushes to the player's open page. */
 export type HubEvent =
   | { t: 'hello'; now: number }
   | { t: 'presence'; fid: string; name: string; presence: FriendPresence }

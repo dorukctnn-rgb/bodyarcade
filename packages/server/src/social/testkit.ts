@@ -251,11 +251,19 @@ export function installRuntimeStubs(): void {
 
 // ───────── the directory, in process ─────────
 
+/** What reached the directory object: every one of these is a Durable Object request on the free plan's meter. */
+export interface RequestCounts {
+  /** Routes of the module, called through the Worker (`app.call`, the signed players' calls). */
+  api: number;
+  /** The operations live play asks for (its seven hooks). */
+  ops: number;
+}
+
 /**
  * Stands in for the SOCIAL binding in the handler tests: the operations live play asks for (ops.ts) run on `env` itself (its
  * node:sqlite database and its fake sockets) instead of in a Durable Object. Anything else a test sends it is a 404.
  */
-export function inProcessDirectory(env: SocialEnv & Record<string, unknown>, ctx: ExecutionContextLike): DurableObjectNamespaceLike {
+export function inProcessDirectory(env: SocialEnv & Record<string, unknown>, ctx: ExecutionContextLike, counts?: RequestCounts): DurableObjectNamespaceLike {
   return {
     idFromName: (name: string): DurableObjectIdLike => ({ name, toString: () => name }),
     get: (): Fetcher => ({
@@ -264,6 +272,7 @@ export function inProcessDirectory(env: SocialEnv & Record<string, unknown>, ctx
         const url = new URL(req.url);
         const m = /^\/op\/([a-z]+)$/.exec(url.pathname);
         if (url.hostname !== INTERNAL_HOST || !m || req.method !== 'POST') return new Response('not found', { status: 404 });
+        if (counts) counts.ops++;
         return runOp({ env, now: Date.now(), wait: (p) => ctx.waitUntil(p.catch(() => undefined)) }, m[1] ?? '', await req.json());
       },
     }),
@@ -373,6 +382,8 @@ export interface TestApp {
   hubs: FakeHubs;
   /** Waits for the work scheduled after a response (pushes, sweeps). */
   settle(): Promise<void>;
+  /** The requests the directory would have been sent, by kind (the budget test reads them). */
+  counts: RequestCounts;
   newDevice(ip?: string): Promise<TestDevice>;
   /** A request with no signature, or with `signed` as the player of that device. */
   call<T = Record<string, any>>(method: string, path: string, opts?: { dev?: TestDevice; body?: unknown; headers?: Record<string, string>; ip?: string; rawAuth?: string; at?: number }): Promise<ApiResult<T>>;
@@ -410,10 +421,11 @@ export function createTestApp(opts: AppOptions = {}): TestApp {
     while (pending.length > 0) await Promise.allSettled(pending.splice(0));
   };
   // The hooks of live play reach the module through the SOCIAL binding; here it is this very environment, in process.
-  if (env.SOCIAL === undefined) env.SOCIAL = inProcessDirectory(env, ctx);
+  const counts: RequestCounts = { api: 0, ops: 0 };
+  if (env.SOCIAL === undefined) env.SOCIAL = inProcessDirectory(env, ctx, counts);
 
   const app: TestApp = {
-    router, env, db, hubs, settle,
+    router, env, db, hubs, settle, counts,
     async newDevice(ip = nextIp()) {
       return { keys: await generateDeviceKey(), ip };
     },
@@ -425,6 +437,7 @@ export function createTestApp(opts: AppOptions = {}): TestApp {
       if (o.rawAuth !== undefined) headers['X-BA-Auth'] = o.rawAuth;
       else if (o.dev) headers['X-BA-Auth'] = await signRequest(o.dev.keys, { method, url, ...(hasBody ? { body: o.body } : {}) }, o.at ?? Date.now());
       const req = new Request(url, { method, headers, ...(hasBody ? { body: JSON.stringify(o.body) } : {}) });
+      counts.api++;
       const res = await router.handle(req, env, ctx);
       if (!res) throw new Error(`no route for ${method} ${path}`);
       await settle();

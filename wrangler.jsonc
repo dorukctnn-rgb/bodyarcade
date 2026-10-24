@@ -15,15 +15,18 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    // The API and the old game addresses (their query decides where they go: packages/server/src/site/routes.ts).
-    "run_worker_first": ["/api/*", "/bodyarcade", "/bodyarcade/", "/BodyArcade", "/BodyArcade/", "/BodyArcade.html", "/bodyarcade.html", "/play", "/play/", "/app", "/app/", "/index.html"],
+    // The API, the invitation and friend-link pages (/r/CODE, /f/BA-XXXXXX: the Worker serves the start page under them) and the
+    // old game addresses (their query decides where they go: packages/server/src/site/routes.ts).
+    "run_worker_first": ["/api/*", "/r/*", "/f/*", "/bodyarcade", "/bodyarcade/", "/BodyArcade", "/BodyArcade/", "/BodyArcade.html", "/bodyarcade.html", "/play", "/play/", "/app", "/app/", "/index.html"],
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
   },
-  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "HUB", "class_name": "PlayerHub" }, { "name": "ENTITLEMENTS", "class_name": "EntitlementsDO" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["PlayerHub"] }, { "tag": "v3", "new_sqlite_classes": ["EntitlementsDO"] }],
-  // The social D1 database ("DB") is added once it exists: the wrangler login of this machine lacks the D1 scope
-  // (24 Oct). Until then the social hooks do nothing and live play uses its anonymous identity.
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "HUB", "class_name": "PlayerHub" }, { "name": "SOCIAL", "class_name": "SocialDirectory" }, { "name": "ENTITLEMENTS", "class_name": "EntitlementsDO" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["PlayerHub"] }, { "tag": "v3", "new_sqlite_classes": ["EntitlementsDO"] }, { "tag": "v4", "new_sqlite_classes": ["SocialDirectory"] }],
+  // Social (profiles, friends, presence, lobbies, boards, moderation) is one Durable Object, SocialDirectory (binding SOCIAL,
+  // migration v4): its SQLite storage holds every table and the players' sockets, so there is no database to create. HUB and
+  // PlayerHub stay only because migration v2 made that class on the preview; nothing uses them. Optional secret: ADMIN_TOKEN
+  // (the moderation API answers 404 without it); optional variable: SOCIAL_MAX_SIGNUPS_PER_DAY (default 4000).
   "vars": { "PUBLIC_ORIGIN": "https://bodyarcade-v2-preview.railer-iot.workers.dev", "SITE_TARGET": "preview" },
   "observability": { "enabled": true },
   "upload_source_maps": false

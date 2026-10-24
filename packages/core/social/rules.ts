@@ -1,6 +1,7 @@
 // The social rules as numbers and pure decisions, so the Worker, the client and the tests share one source.
-// Anything that costs a database write is counted here too: the free Cloudflare plans allow 100,000 D1 row writes and
-// 100,000 Worker requests a day, and the design has to stay well inside them at 1,000 daily players (see the budget test).
+// Anything that costs a database write is counted here too: the free Cloudflare plans allow 100,000 rows written (Durable Object
+// SQLite, the social tables' home) and 100,000 Worker requests a day, and the design has to stay well inside them at 1,000 daily
+// players (see the budget test).
 import { policyFor } from './age.ts';
 import { isFriendChars } from './codes.ts';
 import type { AgeBand, FriendPresence, PresenceStatus, ReportReason, Region } from './types.ts';
@@ -14,7 +15,7 @@ export const DAY = 86_400_000;
 export const PRESENCE = {
   /** The client sends the text 'ping' this often: the platform answers 'pong' without waking the hub (no cost). */
   pingEveryMs: 45_000,
-  /** One 'beat' (one D1 write) this often while the page is visible. */
+  /** One 'beat' (one row written) this often while the page is visible. */
   beatEveryMs: 4 * MINUTE,
   /** No beat for this long and the player counts as offline (closed lid, dead network). */
   ttlMs: 9 * MINUTE,
@@ -70,7 +71,7 @@ export function windowOf(now: number, windowMs: number): Window {
   return { id, start: id * windowMs, end: (id + 1) * windowMs };
 }
 
-/** The D1 key of a counter: `<scope>:<limit>:<window id>`. Scope is a player id or a hashed address. */
+/** The key of a counter in soc_limits: `<scope>:<limit>:<window id>`. Scope is a player id or a hashed address. */
 export const limitKey = (scope: string, spec: Pick<LimitSpec, 'name' | 'windowMs'>, now: number): string => `${scope}:${spec.name}:${windowOf(now, spec.windowMs).id}`;
 
 /** Milliseconds until the window of a spec ends (what the client is told to wait). */

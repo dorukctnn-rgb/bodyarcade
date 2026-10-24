@@ -1,5 +1,5 @@
 // The social suite: players in separate headless Chromium contexts (each with its own IndexedDB, as separate devices have)
-// against the production Worker run in Miniflare, with the real D1 schema and Durable Objects. The suite starts and stops
+// against the production Worker run in Miniflare, with the real directory Durable Object (SQLite tables, hibernating sockets). The suite starts and stops
 // its own Worker; nothing is left running.
 //   npm run test:social
 import { defineConfig } from '@playwright/test';

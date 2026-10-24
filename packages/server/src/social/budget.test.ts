@@ -1,7 +1,9 @@
-// The free-plan budget of the social module. Cloudflare's free D1 allows 100,000 rows written and 5,000,000 rows read a day,
-// and a row written counts once for the table and once for every index entry it needs. This file measures what the real
-// code writes (the table row plus the index entries, the way D1 bills it), for a day of a typical social player and for the
-// worst a single client can do, and checks that no query the module runs scans a whole table.
+// The free-plan budget of the social module. The social tables are the SQLite storage of one Durable Object, and the free plan
+// allows the whole account 100,000 rows written and 5,000,000 rows read a day there, 100,000 Durable Object requests a day (a
+// WebSocket message counts one twentieth) and 13,000 GB-seconds of object time. A row written counts once for the table and
+// once for every index entry it needs. This file measures what the real code writes (the table row plus the index entries, the
+// way the platform bills it) and how many requests reach the directory, for a day of a typical social player and for the worst a
+// single client can do, and checks that no query the module runs scans a whole table.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DAY, HOUR, LIMITS, MINUTE, PRESENCE } from '../../../core/social/rules.ts';
 import type { RoomSummary } from '../../../core/types/net.ts';
@@ -14,6 +16,9 @@ import { createTestApp, FakeSocket, FakeState, type TestApp, type TestPlayer } f
 const T0 = Date.UTC(2026, 9, 24, 8, 0, 0);
 /** What the free plan allows per day. */
 const FREE_WRITES_PER_DAY = 100_000;
+const FREE_REQUESTS_PER_DAY = 100_000;
+/** A page pings the socket every PRESENCE.pingEveryMs; the platform answers without waking the object, but a ping may still be counted. */
+const SESSION_MS = 20 * MINUTE;
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -39,7 +44,7 @@ function topLevelParts(list: string): string[] {
 }
 const setColumns = (list: string): string[] => topLevelParts(list).map((p) => /^\s*(\w+)\s*=/.exec(p)?.[1] ?? '').filter(Boolean);
 
-/** Counts the rows every statement writes the way D1 bills them, and remembers each distinct statement for the plan check. */
+/** Counts the rows every statement writes the way Durable Object SQLite bills them, and remembers each distinct statement for the plan check. */
 class Meter {
   weighted = 0;
   statements = 0;
@@ -141,13 +146,17 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
+/** The sockets opened and the messages sent to the directory since the counters were last reset. */
+const hubTraffic = { connects: 0, messages: 0 };
+
 async function connect(p: TestPlayer): Promise<{ hub: HubRegistry; state: FakeState; ws: FakeSocket; send: (cmd: object) => Promise<void> }> {
   const state = new FakeState();
   const hub = new HubRegistry(state, app.env);
   const ws = new FakeSocket();
+  hubTraffic.connects++;
   hub.accept(ws, { pid: p.pid(), fid: p.me.fid, name: p.me.name, band: p.me.band });
   await state.settle();
-  return { hub, state, ws, send: async (cmd) => { await hub.webSocketMessage(ws, JSON.stringify(cmd)); await state.settle(); } };
+  return { hub, state, ws, send: async (cmd) => { hubTraffic.messages++; await hub.webSocketMessage(ws, JSON.stringify(cmd)); await state.settle(); } };
 }
 
 const roomSummary = (code: string, host: TestPlayer, over: Partial<RoomSummary> = {}): RoomSummary => ({
@@ -177,11 +186,15 @@ async function ring(n: number): Promise<TestPlayer[]> {
  * 24 hours. The window ends with the next day's sweep, which deletes what the day created. Sign-up and the friendships are
  * set up (and swept) before the window opens: they happen once per player, not once a day.
  */
-async function simulateDay(n: number): Promise<{ rows: number; byTable: Map<string, number> }> {
+async function simulateDay(n: number): Promise<{ rows: number; byTable: Map<string, number>; requests: number }> {
   const players = await ring(n);
   vi.setSystemTime(T0 + 26 * HOUR);
   await sweep(app.db, Date.now());                            // what the sign-ups left behind is gone before the day starts
   meter.reset();
+  app.counts.api = 0;
+  app.counts.ops = 0;
+  hubTraffic.connects = 0;
+  hubTraffic.messages = 0;
   const dayStart = Date.now();
   const slot = (24 * HOUR) / n;
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -228,7 +241,11 @@ async function simulateDay(n: number): Promise<{ rows: number; byTable: Map<stri
   }
   vi.setSystemTime(Math.max(Date.now(), dayStart + 24 * HOUR) + 2 * HOUR);
   await sweep(app.db, Date.now());                            // the next day's sweep removes the counters of this one
-  return { rows: meter.weighted, byTable: new Map(meter.byTable) };
+  // Requests to the directory: every call of the module's routes and every one of live play's hooks is one; a socket's opening is
+  // one; a message on a socket is a twentieth, and so is every ping (counted although the platform may not bill it).
+  const pings = n * Math.round(SESSION_MS / PRESENCE.pingEveryMs);
+  const requests = app.counts.api + app.counts.ops + hubTraffic.connects + (hubTraffic.messages + pings) / 20;
+  return { rows: meter.weighted, byTable: new Map(meter.byTable), requests };
 }
 
 describe('a day of a typical social player', () => {
@@ -241,12 +258,19 @@ describe('a day of a typical social player', () => {
     const perPlayer = (large.rows - small.rows) / 24;
     const fixed = small.rows - perPlayer * 12;
     const capacity = Math.floor((FREE_WRITES_PER_DAY - fixed) / perPlayer);
+    const perPlayerRequests = (large.requests - small.requests) / 24;
+    const fixedRequests = small.requests - perPlayerRequests * 12;
+    const requestCapacity = Math.floor((FREE_REQUESTS_PER_DAY - fixedRequests) / perPlayerRequests);
     const tables = Object.fromEntries([...large.byTable].map(([t, rows]) => [t, Math.round((rows / 36) * 10) / 10]));
     // eslint-disable-next-line no-console
-    console.info(`social budget: ${perPlayer.toFixed(1)} rows written per player-day, ${fixed.toFixed(0)} a day for everyone (${JSON.stringify(tables)} per player at 36); the free plan carries about ${capacity} such players a day`);
+    console.info(`social budget: ${perPlayer.toFixed(1)} rows written per player-day, ${fixed.toFixed(0)} a day for everyone (${JSON.stringify(tables)} per player at 36); the free plan carries about ${capacity} such players a day. Durable Object requests: ${perPlayerRequests.toFixed(1)} per player-day (${fixedRequests.toFixed(0)} a day for everyone), about ${requestCapacity} players a day, before live matches take their share`);
     expect(perPlayer).toBeLessThan(45);
     expect(fixed).toBeLessThan(250);
     expect(capacity).toBeGreaterThan(2200);
+    // the request meter is shared with the Room objects (a 45 s match is about 70 requests): the social share stays small
+    expect(perPlayerRequests).toBeLessThan(45);
+    expect(fixedRequests).toBeLessThan(100);
+    expect(requestCapacity).toBeGreaterThan(2200);
     // presence and the lobby directory are the two heavy writers (scores and counters come after); nothing else may become one
     const heavy = [...large.byTable].filter(([t]) => !['soc_presence', 'soc_lobbies', 'soc_limits', 'soc_profiles', 'soc_scores'].includes(t)).reduce((sum, [, rows]) => sum + rows, 0);
     expect(heavy / 36).toBeLessThan(2);

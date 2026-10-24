@@ -26,7 +26,7 @@ export async function readBody(req: Request): Promise<Record<string, unknown>> {
 
 export const randomId = (bytes = 9): string => toB64u(cryptoRandomBytes(bytes));
 
-// ───────── in-memory guards (per isolate; the second line behind the D1 counters and Cloudflare's own rules) ─────────
+// ───────── in-memory guards (per isolate; the second line behind the counters in the tables and Cloudflare's own rules) ─────────
 
 interface Bucket { start: number; n: number }
 const buckets = new Map<string, Bucket>();

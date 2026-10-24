@@ -1,4 +1,4 @@
-// Players in separate browsers against the production Worker (Miniflare: real D1, Durable Objects, WebSockets): the passwordless
+// Players in separate browsers against the production Worker (Miniflare: the real directory Durable Object, WebSockets): the passwordless
 // profile and its device key, friends, requests, presence as it happens, invitations into a room, public lobbies and quick
 // match by age group, blocks, reports and a ban, erasing a profile, two tabs of one player. Every page must finish with no
 // console error and no uncaught exception.
@@ -156,6 +156,37 @@ test('a request by link reaches the other page the moment it is sent, and accept
   expect(added.events).toContain('friendAdded');
   expect(added.requests.outgoing).toEqual([]);
   expect((await bo.snap()).friends[0]).toMatchObject({ fid: a.fid, name: 'Ada', presence: { status: 'online' } });
+});
+
+test('a friend link is a page of the site: the page reads the code from its address, a new player signs up and asks through it, and the answer reaches them', async () => {
+  const ada = await who('Ada');
+  const a = await ada.signUp({ band: 'adult', name: 'Ada' });
+  await goOnline(ada);
+  const path = `/f/${a.code}`;
+  // the Worker serves the start page under the link, keeps it out of search results and sends no referrer (the code is a key to the inbox)
+  const res = await fetch(`${site.origin}${path}`);
+  expect(res.status).toBe(200);
+  expect(res.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+  expect(res.headers.get('referrer-policy')).toBe('no-referrer');
+  expect(await res.text()).toContain('<script');
+  // a new device opens the link: no profile yet, and the page finds the code in its own address
+  const eve = await who('Eve');
+  await eve.openAt(path);
+  expect((await eve.snap()).profile).toBeNull();
+  expect(await eve.run((ba) => ba.addressCode())).toBe(a.code.replace(/^BA-/, ''));
+  // she answers the age question, then asks with the address the page is on
+  const e = await eve.signUp({ band: 'teen' });
+  await goOnline(eve);
+  expect(await eve.run((ba) => ba.social.sendRequest(location.href))).toEqual({ status: 'sent' });
+  const seen = await ada.until((s) => s.requests.incoming.length === 1, 'the request to arrive');
+  expect(seen.requests.incoming[0]).toMatchObject({ fid: e.fid, name: e.name, via: 'link' });
+  await ada.run((ba, fid) => ba.social.respond(fid, true), e.fid);
+  const there = await eve.until((s) => s.friends.length === 1, 'the friendship');
+  expect(there.friends[0]).toMatchObject({ fid: a.fid, name: 'Ada', presence: { status: 'online' } });
+  // an address that is no code is still a page of the app, and the page says there is no code in it
+  await eve.openAt('/f/nonsense');
+  expect(await eve.run((ba) => ba.addressCode())).toBeNull();
+  expect((await eve.snap()).profile?.fid).toBe(e.fid);
 });
 
 test('a code nobody has is not found, junk is refused before it leaves the page, and guessing is stopped after a few misses', async () => {

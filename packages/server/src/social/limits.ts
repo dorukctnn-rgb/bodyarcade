@@ -1,6 +1,6 @@
-// Abuse limits backed by D1 (soc_limits): fixed-window counters per player or per hashed address. A call that is already
+// Abuse limits kept in the tables (soc_limits): fixed-window counters per player or per hashed address. A call that is already
 // over its limit is refused after one read and writes nothing, so a script hammering a limited route cannot burn the
-// database's daily write budget (100,000 row writes on the free plan).
+// database's daily write budget (100,000 rows written on the free plan).
 import { HOUR, retryAfterMs, windowOf, limitKey, type LimitSpec } from '../../../core/social/rules.ts';
 import { HttpError } from '../http.ts';
 import { one, run, stmt, type SqlLike, type SqlStmt } from './db.ts';

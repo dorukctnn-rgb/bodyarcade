@@ -2,6 +2,9 @@
 // its SQLite storage and its hibernating WebSockets, WebCrypto signatures verified by the runtime, and the browser client
 // (core/social/client.ts) and live play's client (core/net) talking to it over HTTP and WebSocket.
 // The rule-by-rule tests run on node:sqlite in the other files; this file proves the same module works in the platform.
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { LiveClient } from '../../../core/net/client.ts';
 import type { SocketLike } from '../../../core/net/runtime.ts';
@@ -84,6 +87,34 @@ describe('the Worker in workerd', () => {
     const tables = await stack.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'soc_%' ORDER BY name").all<{ name: string }>();
     expect(tables.results.map((t) => t.name)).toEqual(expect.arrayContaining(['soc_audit', 'soc_blocks', 'soc_devices', 'soc_friends', 'soc_lobbies', 'soc_meta', 'soc_presence', 'soc_profiles', 'soc_reports', 'soc_requests', 'soc_scores', 'soc_sync']));
     expect((await fetch(`${stack.origin}/api/rooms/ABCDEF`)).status).toBe(404);   // live play's route answers too
+  });
+
+  it('the tables and the profiles outlive the platform: a second Worker on the same storage knows the player and finds the tables as they were', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ba-social-keep-'));
+    const store = new MemoryKeyStore();
+    let fid = '';
+    try {
+      const first = await startStack({ persistTo: dir });
+      try {
+        const client = new SocialClient({ origin: first.origin, keys: store });
+        fid = (await client.signUp({ band: 'adult', name: 'Mia' })).fid;
+        expect((await first.db.prepare("SELECT v FROM soc_meta WHERE k = 'schema'").first<{ v: string }>())?.v).toBe('1');
+        expect(first.events('social_schema')).toEqual([{ evt: 'social_schema', from: 0, to: 1 }]);
+      } finally {
+        await first.stop();
+      }
+      const second = await startStack({ persistTo: dir });
+      try {
+        const again = new SocialClient({ origin: second.origin, keys: store });
+        expect((await again.init())?.fid).toBe(fid);
+        expect(second.events('social_schema')).toEqual([]);   // nothing to migrate: the tables were found as they were left
+        expect((await second.db.prepare('SELECT COUNT(*) AS n FROM soc_profiles').first<{ n: number }>())?.n).toBe(1);
+      } finally {
+        await second.stop();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('a device signs up, comes back with the same key, and the server verifies every signature in the runtime', async () => {

@@ -1,7 +1,7 @@
 // The lobby directory, quick match and invitations.
 //
 // Rooms live in N's Room Durable Objects. Each Room reports its state through the publishRoom hook; this module keeps the
-// reports in D1 (soc_lobbies) so a list, a quick match and a friend's "join" can be answered without waking any room. The
+// reports in the tables (soc_lobbies) so a list, a quick match and a friend's "join" can be answered without waking any room. The
 // directory is the only place where strangers meet: only teens meet teens and adults meet adults, nobody who blocked
 // another (either way) shows up in the other's list, children have no public lobbies, and a stranger in a public room is
 // a skeleton ghost with preset messages (the Room enforces that; core/social/age.ts says what each band may do).

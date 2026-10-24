@@ -1,18 +1,18 @@
 // Presence: who is online, in a room or playing, as friends may see it, and how a change reaches the friends who are online.
 //
-//   soc_presence.online      set by the hub when a socket opens, cleared when the last one closes (or by the sweep after the TTL)
+//   soc_presence.online      set by the registry (hub.ts) when a socket opens, cleared when the last one closes (or by the sweep after the TTL)
 //   soc_presence.c_*         what the CLIENT said about solo play ('online' or 'playing' plus a game id)
 //   soc_presence.room, r_*   what the ROOM said (the Room's setPlaying hook): authoritative, a client cannot claim a room
 //
-// A change costs one D1 write and, for each online friend (at most 30), one push to that friend's PlayerHub. A heartbeat
-// is one write every four minutes. Everything here is best effort: a failed push is logged and forgotten, the friend's list
-// is read from D1 the next time the page asks.
+// A change costs one write and, for each online friend (at most 30), one push to that friend's socket (the directory holds the
+// sockets, so a push is a local send). A heartbeat is one write every four minutes. Everything here is best effort: a failed
+// push is logged and forgotten, the friend's list is read from the tables the next time the page asks.
 import { PRESENCE, viewPresence, type PresenceRow } from '../../../core/social/rules.ts';
 import type { FriendPresence, HubEvent, PresenceStatus } from '../../../core/social/types.ts';
 import { one, rows, run, type SqlLike } from './db.ts';
 import type { SocialEnv } from './env.ts';
 
-/** The presence columns as D1 returns them (joined next to a profile in several queries). */
+/** The presence columns as the tables return them (joined next to a profile in several queries). */
 export interface PresenceCols {
   online: number | null;
   seen_at: number | null;
