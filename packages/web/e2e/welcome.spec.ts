@@ -77,7 +77,7 @@ test('the five pages move on and back with the address, the heading and the focu
   await expect(page).toHaveURL(/step=3/);
   expect(await page.evaluate(() => (window as unknown as { __canvas: Element | null }).__canvas === document.querySelector('canvas[data-canvas]'))).toBe(true);
   // The button too.
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page).toHaveURL(/step=2/);
   expect(errors).toEqual([]);
   await context.close();

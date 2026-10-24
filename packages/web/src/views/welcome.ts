@@ -61,9 +61,8 @@ export function deviceText(ctx: ViewContext, st: Pick<TourState, 'device' | 'pla
 function step1(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
   return html`<div class="ob-scroll">${title(t.t('onboarding.h1'))}<p class="ob-text">${t.t('onboarding.text1', { n: ctx.games.length })}</p></div>
-    <div class="ob-actions">${nextButton(t.t('onboarding.start'))}</div>
-    <p class="ob-note">${t.t('onboarding.minutes')}</p>
-    <button class="ob-link" type="button" data-action="tour-skip">${t.t('onboarding.skip')}</button>`;
+    <div class="ob-actions"><button class="ba-btn ba-btn--quiet" data-action="tour-skip" type="button">${t.t('onboarding.skip')}</button>${nextButton(t.t('onboarding.start'))}</div>
+    <p class="ob-note">${t.t('onboarding.minutes')}</p>`;
 }
 
 function step2(ctx: ViewContext): SafeHtml {
