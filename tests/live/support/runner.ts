@@ -21,7 +21,7 @@ export interface PlayerM {
   fatal?: { reason: string; code: number }; replaced?: boolean; removed?: unknown; roomErrors: string[]; chat: unknown[]; presets: unknown[]; tracks: Record<string, number>;
   finalStats?: { path?: { local?: string; remote?: string; protocol?: string } | null; videoIn?: { fps?: number; freezes?: number } | null }[]; pcs?: number; videos?: number;
   videoLog: { seat: string; state: string; reason: string | null; attempts: number; at: number }[];
-  skeletonFrames: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
+  skeletonFrames: Record<string, number>; lastScore: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
   lm: {
     tWelcome?: number; warmupMs?: number; clock?: unknown; connectMs: number[]; pathTypes: ({ local?: string; remote?: string } | null)[]; stSent: number; stRecvDc: number; stRecvRelay: number;
     maxGap: number; gaps: number[]; iceRestarts: number; hardResets: number; wsOpens: number; wsCloses: number; deadSockets: number;

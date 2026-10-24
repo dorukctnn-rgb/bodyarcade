@@ -10,6 +10,7 @@
 import { friendTiles, LiveRace, scoreOf, type Identity } from '../../../packages/core/net/index.ts';
 import { createI18n, isLang } from '../../../packages/core/ui/i18n/index.ts';
 import type { MatchResult } from '../../../packages/core/types/net.ts';
+import type { Landmark } from '../../../packages/core/types/index.ts';
 
 const q = new URLSearchParams(location.search);
 const clock = (): number => performance.timeOrigin + performance.now();
@@ -24,12 +25,12 @@ interface Metrics {
   cam?: { lostAt: number; backAt?: number }[]; finalStats?: unknown; lm?: unknown; pcs?: number; videos?: number; tracks: Record<string, number>;
   /** The camera link states the page was told, with the page's time; the tile as drawn; what the player would have read and pressed. */
   videoLog: { seat: string; state: string; reason: string | null; attempts: number; at: number }[];
-  skeletonFrames: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
+  skeletonFrames: Record<string, number>; lastScore: Record<string, number>; shows: Record<string, string[]>; notes: Record<string, string[]>; noteNow: Record<string, string>; retryShown: Record<string, boolean>; retryClicks: number;
 }
 
 const M: Metrics = {
   log: [], done: false, startWall: null, events: 0, remoteFrames: 0, firstRemoteFrameMs: null, phases: [], latency: [], results: [], localScores: [], ends: [], seeds: [], heap: [], chat: [], presets: [], roomErrors: [], tracks: {},
-  videoLog: [], skeletonFrames: {}, shows: {}, notes: {}, noteNow: {}, retryShown: {}, retryClicks: 0,
+  videoLog: [], skeletonFrames: {}, lastScore: {}, shows: {}, notes: {}, noteNow: {}, retryShown: {}, retryClicks: 0,
 };
 (window as unknown as { __M__: Metrics }).__M__ = M;
 
@@ -111,7 +112,7 @@ race.on('forfeit', (d) => { ((M.forfeits ??= []) as unknown[]).push(d.seat); });
 race.on('lobby', (v) => { M.members = v.members; M.room = v.room; });
 race.on('ghost', (d) => {
   if (M.latency.length < 4000) M.latency.push(Math.round(d.latencyMs));
-  drawSkeleton(d.from, d.d);
+  drawSkeleton(d.from);
 });
 race.on('state', (d) => log(`state ${d.prev} -> ${d.state}`));
 lm.on('synced', (d) => log('clock ' + JSON.stringify(d)));
@@ -160,17 +161,19 @@ function renderTiles(): void {
     if (tile.retry) M.retryShown[tile.seat] = true;
   }
 }
-function drawSkeleton(from: string, d: unknown): void {
-  const pose = (d as { pose?: number[][] } | null)?.pose;
-  if (!Array.isArray(pose)) return;
+/** The friend's skeleton as the board keeps it (frames are checked on arrival, a skeleton goes when its frames stop). */
+function drawSkeleton(from: string): void {
+  const pose = race.rivals.pose(from);
+  if (!pose) return;
   tileEl(from);
   const canvas = document.getElementById('sk-' + from) as HTMLCanvasElement | null;
   const g = canvas?.getContext('2d');
   if (!canvas || !g) return;
   g.clearRect(0, 0, canvas.width, canvas.height);
   g.fillStyle = '#9fd';
-  for (const p of pose) g.fillRect(((p[0] ?? 0) / 640) * canvas.width - 1, ((p[1] ?? 0) / 480) * canvas.height - 1, 3, 3);
+  for (const p of pose) if (p.visibility > 0) g.fillRect((1 - p.x) * canvas.width - 1, p.y * canvas.height - 1, 3, 3);
   M.skeletonFrames[from] = (M.skeletonFrames[from] ?? 0) + 1;
+  M.lastScore[from] = race.rivals.score(from) ?? -1;
 }
 race.on('video', (s) => {
   M.videoLog.push({ seat: s.seat, state: s.state, reason: s.reason, attempts: s.attempts, at: Math.round(clock() - lm.m.t0) });
@@ -224,6 +227,9 @@ race.on('result', (r) => {
   void lm.stats().then((s) => { M.finalStats = s; M.done = true; });
 });
 
+/** A body that moves, the way pose inference would give it: 33 landmarks of the camera picture. */
+const fakeBody = (mt: number): Landmark[] => Array.from({ length: 33 }, (_, i) => ({ x: 0.5 + 0.2 * Math.sin(mt / 300 + i * 0.4), y: 0.08 + 0.84 * (i / 33) + 0.03 * Math.cos(mt / 280 + i), z: 0, visibility: 1 }));
+
 let lastState = 0;
 setInterval(() => {
   if (race.state === 'closed' || !game || !lm.match || lm.match.id !== game.id || lm.match.phase === 'over' || !lm.playing) return;
@@ -246,8 +252,7 @@ setInterval(() => {
   }
   if (clock() - lastState > 66) {                    // about 15 Hz: ghost and live score
     lastState = clock();
-    const pose = Array.from({ length: 17 }, (_, i) => [Math.round(320 + 80 * Math.sin(mt / 300 + i)), Math.round(240 + 60 * Math.cos(mt / 280 + i))]);
-    race.sendGhost({ mt: Math.round(mt), sc: race.score().score, pose });
+    race.sendPose(fakeBody(mt));
   }
   (document.getElementById('hud') as HTMLElement).textContent = `${race.state} t=${(mt / 1000).toFixed(1)} score=${race.score().score}`;
 }, 50);

@@ -30,7 +30,9 @@ import { loadBlocks, saveBlocks } from './identity.ts';
 import { encodeQr, qrToSvg, type QrSvgOptions } from './qr.ts';
 import { Emitter, realScheduler, type Scheduler } from './runtime.ts';
 import { makeSchedule, scoreOf, specFor, type Obstacle } from './schedule.ts';
+import { RivalBoard, ghostFrame } from './pose-frame.ts';
 import type { VideoStatus } from './video.ts';
+import type { Landmark } from '../types/index.ts';
 
 export type RaceState = 'connecting' | 'lobby' | 'countdown' | 'racing' | 'paused' | 'settling' | 'result' | 'closed';
 export type RaceCloseReason = FatalReason | 'left' | 'disposed';
@@ -153,6 +155,8 @@ export class LiveRace extends Emitter<RaceEvents> {
   readonly invite: Invite;
   readonly who: Identity;
   readonly origin: string;
+  /** The latest frame of every friend (their score, their skeleton): the tile draws `rivals.pose(seat)`, which goes when the frames stop. */
+  readonly rivals: RivalBoard;
 
   private readonly sched: Scheduler;
   private readonly opts: RaceOptions;
@@ -180,6 +184,7 @@ export class LiveRace extends Emitter<RaceEvents> {
     this.origin = (opts.origin ?? (typeof location !== 'undefined' ? location.origin : '')).replace(/\/+$/, '');
     this.code = grant.code;
     this.sched = opts.client?.sched ?? realScheduler;
+    this.rivals = new RivalBoard(() => this.sched.now());
     const origin = this.origin;
     const fetcher = opts.fetcher;
     const store = opts.blocks ?? { load: () => loadBlocks(), save: (k: string[]) => saveBlocks(k) };
@@ -305,6 +310,14 @@ export class LiveRace extends Emitter<RaceEvents> {
     return true;
   }
 
+  /**
+   * The player's body for the friends' tiles (pose-frame.ts): the match time, the score and the pose in one small frame, at most about
+   * 15 times a second. A friend whose camera did not connect sees this skeleton; a stranger in a public lobby sees nothing else.
+   */
+  sendPose(landmarks: readonly Landmark[] | null): boolean {
+    return this.sendGhost(ghostFrame(this.time(), this.score().score, landmarks));
+  }
+
   /** The ghost: any small JSON-able frame (pose points, the score) for the rivals' screens; sent at most about 15 times a second. */
   sendGhost(frame: unknown): boolean {
     const m = this.client.match;
@@ -363,7 +376,11 @@ export class LiveRace extends Emitter<RaceEvents> {
   private wire(store: { save(keys: string[]): void }): void {
     const c = this.client;
     c.on('welcome', () => { this.emitLobby(); this.update(); });
-    c.on('presence', () => { this.emitLobby(); this.update(); });
+    c.on('presence', () => {
+      for (const s of this.rivals.seats()) if (!c.members.some((m) => m.seat === s && m.online)) this.rivals.forget(s);
+      this.emitLobby();
+      this.update();
+    });
     c.on('room', () => { this.emitLobby(); this.update(); });
     c.on('match', (d) => this.onMatch(d.match, d.mine, d.why === 'welcome'));
     c.on('phase', (d) => this.onPhase(d.why, d.match));
@@ -372,7 +389,7 @@ export class LiveRace extends Emitter<RaceEvents> {
     c.on('result', (r) => this.onResult(r));
     c.on('status', (s) => this.onStatus(s.state));
     c.on('fatal', (d) => this.shutdown(d.reason, d.code));
-    c.on('state', (d) => this.emit('ghost', { from: d.from, d: d.d, path: d.path, latencyMs: d.latency }));
+    c.on('state', (d) => { this.rivals.accept(d.from, d.d); this.emit('ghost', { from: d.from, d: d.d, path: d.path, latencyMs: d.latency }); });
     c.on('chat', (d) => this.emit('chat', d));
     c.on('preset', (d) => this.emit('preset', d));
     c.on('react', (d) => this.emit('react', d));
@@ -409,6 +426,7 @@ export class LiveRace extends Emitter<RaceEvents> {
     if (this.courseMatch !== match.id) {
       this.courseMatch = match.id;
       this.courseList = makeSchedule(match.seed, match.duration, specFor(match.gameId));
+      this.rivals.clear();
       this.outcomes.clear();
       this.high = 0;
       this.finalFor = null;
