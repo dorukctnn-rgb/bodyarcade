@@ -33,11 +33,13 @@ describe('old game addresses', () => {
     for (const p of ['/', '/play/road-run/', '/games/road-run/', '/privacy', '/blog/', '/tr/']) expect(await get(p), p).toBeNull();
   });
 
-  it('are exactly the paths both wrangler configs run the Worker first for (besides /api/*)', () => {
+  it('are exactly the paths both wrangler configs run the Worker first for (besides /api/*, and the invitation and friend-link pages)', () => {
     for (const file of ['wrangler.jsonc', 'wrangler.prod.jsonc']) {
       const text = readFileSync(new URL(file, ROOT), 'utf8').replace(/^\s*\/\/.*$/gm, '');
       const cfg = JSON.parse(text) as { assets: { run_worker_first: string[] } };
-      const expected = ['/api/*', ...GAME_ALIASES.flatMap((p) => (p.includes('.') ? [p] : [p, `${p}/`]))];
+      // /r/CODE (live play) and /f/BA-XXXXXX (friends): the Worker serves the start page under the address a player shares, so
+      // without these two entries every shared link is a 404 from the static assets
+      const expected = ['/api/*', '/r/*', '/f/*', ...GAME_ALIASES.flatMap((p) => (p.includes('.') ? [p] : [p, `${p}/`]))];
       expect(cfg.assets.run_worker_first.slice().sort(), file).toEqual(expected.sort());
     }
   });
