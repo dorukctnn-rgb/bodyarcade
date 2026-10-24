@@ -9,3 +9,25 @@ jacks-burpees-21s.trace.json
   Wikimedia Commons, "Jumping jacks and burpees.webm", CC BY-SA 4.0. Seconds 0 to 21: jumping jacks and six
   burpees, fixed camera, 640x480 letterboxed. This derived landmark file is shared under CC BY-SA 4.0.
   Not hand-labelled yet (labels are a QA task).
+
+The next four are the same public-domain Army clip as army-standing-12s (https://commons.wikimedia.org/wiki/File:Conditioning_Drill_3-_Alternate_Staggered_Squat_Jump.webm,
+1920x1080, VP9, 30000/1001 fps; the person stands at about x 970, nose y 324, shoulders y 405 and 141 px wide, hips y 606,
+ankles y 913), cropped and zoomed with ffmpeg to the framings a webcam gives, and then run through the real model frame by
+frame (the model sees real pixels of a real person at that framing). Made 24 Oct 2026 for the calibration tests
+(packages/core/body/calibrator.real.test.ts); the cropped videos are not kept.
+
+army-desk-near-6s.trace.json
+  A person at a desk: head and shoulders like a laptop camera at about 0.6 m (shoulders 47% of the width), the hips are
+  under the picture. The real model gives the hips a visibility of 0.02 there.
+  ffmpeg -ss 0 -t 6 -i army.webm -vf "crop=300:225:822:254,scale=640:480:flags=lanczos,fps=30" -c:v libvpx -b:v 2M -an desk-near.webm
+army-seated-6s.trace.json
+  A person sitting back from the camera: head to hips in the picture, the knees under it (about 1.5 m).
+  ffmpeg ... -vf "crop=600:450:672:254,scale=640:480:flags=lanczos,fps=30" ... seated.webm
+army-full-near-6s.trace.json
+  The whole body filling 70% of the picture height, about 2.5 m from a webcam.
+  ffmpeg ... -vf "crop=1120:840:412:224,scale=640:480:flags=lanczos,fps=30" ... full-near.webm
+army-stepback-12s.trace.json
+  A digital zoom out from the desk framing (until 2 s) to the whole body (from 8 s), as if the person walked back from the
+  desk at a steady pace; 12 s, 360 frames.
+  ffmpeg -ss 0 -t 12 -i army.webm -vf "crop=1440:1080:252:0,zoompan=z='1440/(300+1140*clip((on-60)/180,0,1))':x='720-iw/zoom/2':y='(366+174*clip((on-60)/180,0,1))-ih/zoom/2':d=1:s=640x480:fps=30" -c:v libvpx -b:v 2M -an stepback.webm
+  Then: node tools/trace-recorder/extract.ts --video <file>.webm --out tests/traces/video/<name>.trace.json --id <name> --fps 30 --from 0 --to 6 (12 for the walk) --consent licensed
