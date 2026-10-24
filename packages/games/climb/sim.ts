@@ -376,7 +376,8 @@ function takePull(s: ClimbState, p: PullIn, out: ClimbEvent[]): void {
   const same = !keyed && side === cl.lastSide;
   let q = p.amp > 0 ? clamp(p.amp / s.ref, 0, 1.25) : 1;
   if (keyed && s.t - cl.lastPullAt < KEY_GAP) q *= 0.5;
-  if (p.shrug) { q *= 0.5; hint(s, 'shoulders_down', out); }
+  // A form hint is said, never punished (game-design.md 0.5): the climb is the same.
+  if (p.shrug) hint(s, 'shoulders_down', out);
   const gain = lv.pull * q;
   cl.lastSide = side;
   cl.lastPullAt = s.t;

@@ -222,11 +222,11 @@ describe('pulling', () => {
     expect(of(ev, 'pull')[0]!.gain).toBeCloseTo(LEVELS.normal.pull * 0.5, 5);
   });
 
-  it('a shrug halves the climb and asks for the shoulders down', () => {
+  it('a shrug is only said, never punished: the climb is the same and the shoulders are asked down', () => {
     const s = mk();
     toClimb(s, 0.8);
     const ev = run(s, DT, pull('L', s.ref, true));
-    expect(of(ev, 'pull')[0]!.gain).toBeCloseTo(LEVELS.normal.pull * 0.5, 5);
+    expect(of(ev, 'pull')[0]!.gain).toBeCloseTo(LEVELS.normal.pull, 5);
     expect(of(ev, 'hint').map((e) => e.code)).toEqual(['shoulders_down']);
   });
 
