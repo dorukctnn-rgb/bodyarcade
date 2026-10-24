@@ -178,6 +178,8 @@ export interface ClimberState {
   /** Index of the next section not yet passed; the ledge being climbed or the breather being taken, and its progress. */
   sec: number;
   on: 'ledge' | 'rest' | null;
+  /** Climb clock when the climber got onto it. */
+  onAt: number;
   cruxT: number;
   cruxOn: boolean;
   breath: number;
@@ -191,8 +193,9 @@ export interface ClimberState {
   slips: number;
   /** Whether the next rock was closing the climber's column when its warning came (a dodge is only a dodge then). */
   threat: boolean;
-  /** Run clock of the last rock that hit, for the picture's flinch. */
+  /** Climb clock and column of the last rock that hit, for the picture's flinch. */
   hitAt: number;
+  hitLane: -1 | 0 | 1;
   results: SetResult[];
   dnfStreak: number;
   /** For the quality of the run: the share of the reference pull of every counted pull, and how many; seconds spent climbing. */
@@ -246,8 +249,8 @@ const NOHAND: HandIn = { have: false, reach: -1, prog: 0, grab: false };
 export const IDLE: ClimbIn = { pulls: [], steps: [], lane: 0, hands: [NOHAND, NOHAND] };
 
 export type ClimbEvent =
-  | { type: 'pull'; side: 'L' | 'R'; gain: number; mult: number; h: number }
-  | { type: 'step'; k: number; gain: number; h: number }
+  | { type: 'pull'; side: 'L' | 'R'; gain: number; mult: number; h: number; pts: number }
+  | { type: 'step'; k: number; gain: number; h: number; pts: number }
   | { type: 'warmup'; pulls: number }
   | { type: 'ready'; set: number }
   | { type: 'tick'; n: number }
@@ -282,8 +285,8 @@ export interface ClimbOptions {
 const newClimber = (): ClimberState => ({
   h: 0, base: 0, pulls: 0, steps: 0, lastSide: '', lastPullAt: -99, pullAt: [-99, -99], arm: [0, 0],
   hands: [{ phase: 'low', peak: 0, grabbed: false, pending: null }, { phase: 'low', peak: 0, grabbed: false, pending: null }],
-  streak: 0, bestStreak: 0, score: 0, lane: 0, idleFor: 0, hint: null, sec: 0, on: null, cruxT: 0, cruxOn: false, breath: 0, rock: 0,
-  clean: true, hits: 0, dodged: 0, ledges: 0, crux: 0, slips: 0, threat: false, hitAt: -99, results: [], dnfStreak: 0, qSum: 0, qN: 0, ran: 0,
+  streak: 0, bestStreak: 0, score: 0, lane: 0, idleFor: 0, hint: null, sec: 0, on: null, onAt: 0, cruxT: 0, cruxOn: false, breath: 0, rock: 0,
+  clean: true, hits: 0, dodged: 0, ledges: 0, crux: 0, slips: 0, threat: false, hitAt: -99, hitLane: 0, results: [], dnfStreak: 0, qSum: 0, qN: 0, ran: 0,
 });
 
 export const levelFor = (s: ClimbState): Level => LEVELS[s.difficulty];
@@ -356,6 +359,7 @@ function arrive(s: ClimbState, out: ClimbEvent[]): void {
     if (cl.h < sec.y0 - 1e-9) return;
     cl.h = sec.y0;
     cl.on = sec.kind;
+    cl.onAt = s.setT;
     if (sec.kind === 'rest') { cl.breath = BREATH_SEC; out.push({ type: 'breath', phase: 'start' }); } else out.push({ type: 'ledge', phase: 'reach', pts: 0 });
     return;
   }
@@ -364,7 +368,8 @@ function arrive(s: ClimbState, out: ClimbEvent[]): void {
 function takePull(s: ClimbState, p: PullIn, out: ClimbEvent[]): void {
   const cl = s.c;
   const lv = levelFor(s);
-  if (cl.on === 'ledge') { hint(s, 'ledge_use_legs', out); return; }
+  // A stroke that was under way when the ledge came is let go without a word.
+  if (cl.on === 'ledge') { if (s.setT - cl.onAt > 0.7) hint(s, 'ledge_use_legs', out); return; }
   if (cl.on === 'rest') return;
   const keyed = p.side === '';
   const side: 'L' | 'R' = keyed ? (cl.lastSide === 'L' ? 'R' : 'L') : p.side as 'L' | 'R';
@@ -386,8 +391,9 @@ function takePull(s: ClimbState, p: PullIn, out: ClimbEvent[]): void {
   const before = cl.h;
   cl.h = Math.min(top, cl.h + gain);
   const got = cl.h - before;
-  cl.score += Math.round(got * POINTS.metre * mult);
-  out.push({ type: 'pull', side, gain: got, mult, h: cl.h });
+  const pts = Math.round(got * POINTS.metre * mult);
+  cl.score += pts;
+  out.push({ type: 'pull', side, gain: got, mult, h: cl.h, pts });
   arrive(s, out);
 }
 
@@ -401,8 +407,9 @@ function takeStep(s: ClimbState, st: StepIn, out: ClimbEvent[]): void {
   cl.idleFor = 0;
   cl.qSum += clamp(st.k / 0.8, 0, 1);
   cl.qN += 1;
-  cl.score += Math.round(per * POINTS.metre * multOf(cl.streak));
-  out.push({ type: 'step', k: st.k, gain: per, h: cl.h });
+  const pts = Math.round(per * POINTS.metre * multOf(cl.streak));
+  cl.score += pts;
+  out.push({ type: 'step', k: st.k, gain: per, h: cl.h, pts });
   if (cl.h >= sec.y0 + sec.len - 1e-9) {
     cl.on = null; cl.base = cl.h; cl.sec++;
     cl.ledges++;
@@ -449,7 +456,8 @@ function resolveRock(s: ClimbState, out: ClimbEvent[]): void {
     cl.hits++;
     cl.clean = false;
     cl.streak = 0;
-    cl.hitAt = s.t;
+    cl.hitAt = s.setT;
+    cl.hitLane = cl.lane;
     const floor = cl.on === 'ledge' ? (nextSection(s) as Section).y0 : cl.base;
     cl.h = Math.max(floor, cl.h - SLIP);
     hint(s, 'rock_hit', out);

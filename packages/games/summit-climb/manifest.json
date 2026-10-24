@@ -1,0 +1,45 @@
+{
+  "id": "summit-climb",
+  "template": "strength",
+  "version": 1,
+  "title": "Summit Climb",
+  "regions": ["chest-back", "arms", "legs"],
+  "framing": "full",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 300,
+  "met": 4,
+  "detectors": [
+    { "id": "pull" },
+    { "id": "kneeLift", "opts": { "enter": 0.5, "alternate": 0 } },
+    { "id": "lean" }
+  ],
+  "free": true,
+  "modes": ["solo"],
+  "minPoseHz": 15,
+  "seo": { "slug": "summit-climb", "keywords": ["climbing game", "pull down exercise game", "upper body workout game", "webcam exercise game"] },
+  "catalogue": {
+    "tagline": { "en": "Climb hand over hand. Reach up, pull down.", "tr": "El ele tırman. Yukarı uzan, aşağı çek." },
+    "about": {
+      "en": "Reach one hand above your head, take hold and pull it down to your shoulder, then do the same with the other. Every pull climbs the wall. Step up the ledges with your knees, lean out of the way of falling rocks, pass the hard parts against the clock and rest on the breather ledge. Three climbs of 60 to 90 seconds.",
+      "tr": "Bir elini başının üstüne uzat, tutun ve omzuna kadar aşağı çek, sonra aynısını diğer elinle yap. Her çekiş duvarda seni yukarı taşır. Çıkıntılarda dizlerinle basamak çık, düşen taşlardan yaslanarak kaç, zor bölümleri süreye karşı geç ve mola çıkıntısında dinlen. 60 ile 90 saniyelik üç tırmanış."
+    },
+    "how": [
+      { "en": "Stand or sit where the camera sees you from head to knees.", "tr": "Kameranın seni baştan dizlere kadar gördüğü bir yere dur ya da otur." },
+      { "en": "Reach a hand above your head, then pull it down to your shoulder. Switch hands each time.", "tr": "Bir elini başının üstüne uzat, sonra omzuna kadar aşağı çek. Her seferinde elini değiştir." },
+      { "en": "On a ledge, lift your knees to climb the steps. When a rock is coming, lean away from it.", "tr": "Çıkıntıda dizlerini kaldırarak basamak çık. Taş geliyorsa ondan uzağa yaslan." },
+      { "en": "Reach the top before the time runs out. Take a breath at the breather ledge.", "tr": "Süre bitmeden zirveye ulaş. Mola çıkıntısında nefes al." }
+    ],
+    "measures": [
+      { "en": "How high each hand reaches and how far you pull it.", "tr": "Her elin ne kadar yükseğe uzandığı ve ne kadar çektiğin." },
+      { "en": "Whether your hands take turns, and which way you lean.", "tr": "Ellerinin sırayla gidip gitmediği ve ne tarafa yaslandığın." }
+    ],
+    "move": "pull",
+    "tile": "summit-climb",
+    "order": 8,
+    "related": ["twist-turbine", "knee-sprint"],
+    "seatedNote": { "en": "Sit tall and climb with your arms only. The wall is a little lower, with no ledges.", "tr": "Dik otur ve yalnız kollarınla tırman. Duvar biraz daha alçak, çıkıntı yok." },
+    "quietNote": { "en": "The arms climb everything, so there is nothing to stamp or jump. The wall is a little lower, with no ledges.", "tr": "Her yere kollarınla tırmanırsın, vurulacak ya da zıplanacak bir şey yok. Duvar biraz daha alçak, çıkıntı yok." }
+  }
+}

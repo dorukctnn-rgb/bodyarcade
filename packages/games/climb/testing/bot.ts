@@ -112,25 +112,29 @@ export function climbBot(kind: BotKind, seed = 1): ClimbBot {
       const now = s.t;
       const none: ClimbIn = { pulls: [], steps: [], lane: 0, hands: [hand(0, false), hand(1, false)] };
       if (!st) { arms[0] = arms[1] = 0; return none; }
-      const climbing = s.phase === 'climb' || s.phase === 'warmup';
-      if (!climbing || (s.phase === 'climb' && c.breath > 0)) {
-        plans[0] = plans[1] = null;
-        arms[0] += (0 - arms[0]) * Math.min(1, dt * 8);
-        arms[1] += (0 - arms[1]) * Math.min(1, dt * 8);
-        knees[0] = knees[1] = 0;
-        striding = false;
-        lean += (0 - lean) * Math.min(1, dt * 6);
-        lane = 0;
-        return { ...none, hands: [hand(0, false), hand(1, false)] };
-      }
       const pulls: PullIn[] = [];
       const steps: StepIn[] = [];
+      const climbing = s.phase === 'climb' || s.phase === 'warmup';
       const onLedge = s.phase === 'climb' && c.on === 'ledge';
+      const resting = s.phase === 'climb' && (c.breath > 0 || c.on === 'rest');
+      // New strokes are planned only while the hands have something to do; a stroke that is under way is always finished (a hand
+      // let down from above the nose is a pull to the detector, so it is a pull here too, and the game ignores it when it must).
+      const can = climbing && !onLedge && !resting;
+      if (can && !plans[0] && !plans[1]) planNext(now, false);
+      for (const i of [0, 1] as const) {
+        const p = plans[i];
+        if (!p) { arms[i] += (0 - arms[i]) * Math.min(1, dt * 8); continue; }
+        arms[i] = raise(p, now);
+        if (now >= p.at) {
+          // The same hand twice in a row counts half (the movement library's value 0.5).
+          if (p.amp > 0) { pulls.push({ side: i === 0 ? 'L' : 'R', amp: pulled === i ? p.amp * 0.5 : p.amp, shrug: false }); pulled = i; }
+          arms[i] = 0;
+          plans[i] = null;
+          if (can) planNext(now, true);
+        }
+      }
 
       if (onLedge) {
-        plans[0] = plans[1] = null;
-        arms[0] += (0 - arms[0]) * Math.min(1, dt * 8);
-        arms[1] += (0 - arms[1]) * Math.min(1, dt * 8);
         if (!striding) { striding = true; u = 0; period = 1 / jitter(st.stride, 0.05); leg = leg ^ 1; emitted = false; }
         u += dt;
         if (u >= period) { u = 0; period = 1 / jitter(st.stride, 0.05); leg ^= 1; emitted = false; }
@@ -141,18 +145,14 @@ export function climbBot(kind: BotKind, seed = 1): ClimbBot {
       } else {
         striding = false;
         knees[0] = knees[1] = 0;
-        if (!plans[0] && !plans[1]) planNext(now, false);
-        for (const i of [0, 1] as const) {
-          const p = plans[i];
-          if (!p) { arms[i] += (0 - arms[i]) * Math.min(1, dt * 8); continue; }
-          arms[i] = raise(p, now);
-          if (now >= p.at) {
-            // The same hand twice in a row counts half (the movement library's value 0.5).
-            if (p.amp > 0) { pulls.push({ side: i === 0 ? 'L' : 'R', amp: pulled === i ? p.amp * 0.5 : p.amp, shrug: false }); pulled = i; }
-            arms[i] = 0;
-            planNext(now, true);
-          }
-        }
+      }
+
+      if (!climbing || resting) {
+        lean += (0 - lean) * Math.min(1, dt * 6);
+        lane = 0;
+        decided = -1;
+        active = false;
+        return { pulls, steps, lane: 0, hands: [hand(0, plans[0] !== null), hand(1, plans[1] !== null)] };
       }
 
       // Rocks: act on the warning after a reaction time, and be back in the middle a moment after it landed.
