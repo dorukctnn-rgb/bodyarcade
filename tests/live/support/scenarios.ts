@@ -8,6 +8,7 @@ export type Action =
   | { at: number; do: 'blackhole'; on: 0 | 1 }
   | { at: number; do: 'kick' }
   | { at: number; do: 'freeze'; p: number }
+  | { at: number; do: 'outage'; p: number; on: boolean }
   | { at: number; do: 'reload'; p: number }
   | { at: number; do: 'reloadAll' }
   | { at: number; do: 'quit'; p: number }
@@ -63,6 +64,11 @@ export const SCENARIOS: Record<string, Scenario> = {
   kick_countdown: { video: true, pre: [{ at: 1200, do: 'kick' }] },
   ws_slow_b: { video: true, shape: [null, { ms: 150, jitter: 60 }] },
   ws_halfopen_b: { video: true, shape: [null, { ms: 20, jitter: 10 }], actions: [{ at: 8000, do: 'freeze', p: 1 }] },
+  // B's phone loses the network for 22 s: its connection freezes and every new attempt hangs. The Room drops the silent
+  // socket and pauses for B, B's page keeps trying, and when the network is back both finish with the same result.
+  ws_outage_b: { video: true, dur: 40, shape: [null, { ms: 20, jitter: 10 }], actions: [{ at: 8000, do: 'freeze', p: 1 }, { at: 8000, do: 'outage', p: 1, on: true }, { at: 30_000, do: 'outage', p: 1, on: false }], note: 'paused' },
+  // B's phone locks and its page dies without a single close frame reaching the Room: the seat must not stay a ghost, it forfeits.
+  ghost_b: { video: false, dur: 40, shape: [null, { ms: 20, jitter: 10 }], actions: [{ at: 8000, do: 'freeze', p: 1 }, { at: 8000, do: 'outage', p: 1, on: true }, { at: 12_000, do: 'quit', p: 1 }], expect: 'forfeit' },
   ws_freeze_end_b: { video: true, shape: [null, { ms: 20, jitter: 10 }], actions: [{ at: 22_500, do: 'freeze', p: 1 }] },
   phone_b: { video: true, shape: [null, { ms: 45, jitter: 35 }], cpu: [1, 4], busy: [0, 20] },
   phones: { video: true, shape: [{ ms: 45, jitter: 35 }, { ms: 60, jitter: 50 }], cpu: [4, 4], busy: [20, 20] },
@@ -85,6 +91,9 @@ export const SCENARIOS: Record<string, Scenario> = {
   public3: { players: 3, kind: 'public', video: true },
   // the Room object is evicted from memory and rebuilt from storage
   idle_lobby: { video: false, readyDelayMs: 35_000 },
+  // two friends wait in a lobby for over a minute: the Room sleeps and wakes, nobody sends anything but keep-alive pings,
+  // and the silence limit (40 s) must not mistake that for a vanished phone
+  idle_lobby_long: { video: false, readyDelayMs: 75_000, note: 'sockets that only ping stay seated' },
   hide_long_b: { video: true, dur: 30, actions: [{ at: 8000, do: 'hide', p: 1 }, { at: 36_000, do: 'show', p: 1 }] },
   deploy_mid_match: { video: true, actions: [{ at: 8000, do: 'deploy' }] },
   deploy_countdown: { video: true, pre: [{ at: 1200, do: 'deploy' }] },

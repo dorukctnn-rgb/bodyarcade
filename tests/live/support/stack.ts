@@ -39,12 +39,13 @@ function killTree(child: ChildProcess | null): void {
 /**
  * A TCP proxy that makes one player's link to the Worker behave like a mobile network: delay and jitter per direction
  * (order preserved: one FIFO queue per direction, because per-chunk timers reordered bytes and corrupted responses),
- * and a freeze that leaves existing connections open but silent (a half-open socket).
+ * a freeze that leaves existing connections open but silent (a half-open socket: not even a FIN or a reset gets through,
+ * like a phone that locked), and an outage during which new connections hang (accepted and never answered).
  */
 export class Shaper {
   readonly port: number;
-  private readonly cfg = { delay: 0, jitter: 0, freezeBefore: 0 };
-  readonly st = { conns: 0, frozenDrops: 0, bytes: 0 };
+  private readonly cfg = { delay: 0, jitter: 0, freezeBefore: 0, outage: false };
+  readonly st = { conns: 0, frozenDrops: 0, bytes: 0, held: 0 };
   private readonly server: net.Server;
   private readonly sockets = new Set<net.Socket>();
 
@@ -52,14 +53,24 @@ export class Shaper {
     this.port = listen;
     this.server = net.createServer((client) => {
       this.st.conns++;
+      client.setNoDelay(true);
+      if (this.cfg.outage) {                                    // the network swallows new connections: they hang until the page gives up
+        this.st.held++;
+        this.sockets.add(client);
+        client.on('data', () => { /* never answered */ });
+        client.on('error', () => client.destroy());
+        client.on('close', () => this.sockets.delete(client));
+        return;
+      }
       const opened = Date.now();
       const upstream = net.connect(target, '127.0.0.1');
-      client.setNoDelay(true); upstream.setNoDelay(true);       // Nagle plus delayed ACK would add fake 200 ms stalls
+      upstream.setNoDelay(true);                                // Nagle plus delayed ACK would add fake 200 ms stalls
       this.sockets.add(client); this.sockets.add(upstream);
       this.pipe(client, upstream, opened);
       this.pipe(upstream, client, opened);
-      upstream.on('error', () => client.destroy());
-      client.on('error', () => upstream.destroy());
+      const frozen = (): boolean => opened < this.cfg.freezeBefore;
+      upstream.on('error', () => { if (!frozen()) client.destroy(); });
+      client.on('error', () => { if (!frozen()) upstream.destroy(); });
       const gone = (): void => { this.sockets.delete(client); this.sockets.delete(upstream); };
       client.on('close', gone); upstream.on('close', gone);
     });
@@ -95,13 +106,15 @@ export class Shaper {
       this.st.bytes += buf.length;
       push({ buf });
     });
-    from.on('end', () => push({ end: true }));
+    from.on('end', () => { if (opened < this.cfg.freezeBefore) return; push({ end: true }); });   // a frozen link carries no FIN either
   }
 
   /** One-way delay per direction, ms. */
   setDelay(ms: number, jitter = 0): void { this.cfg.delay = ms; this.cfg.jitter = jitter; }
   /** Connections that exist now go silent; connections opened later work normally. */
   freeze(on: boolean): void { this.cfg.freezeBefore = on ? Date.now() + 1 : 0; }
+  /** While on, connections opened from now on hang (the network answers nothing). Connections that exist are not touched. */
+  outage(on: boolean): void { this.cfg.outage = on; }
 
   close(): void {
     this.server.close();

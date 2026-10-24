@@ -66,12 +66,17 @@ export const EARLY_MS = 3000;
 /** The final list is accepted this long before the nominal end (clock error and the last frame). */
 export const FINAL_EARLY_MS = 1500;
 
-/** Socket rate caps (messages per second): the Room drops what exceeds a cap and closes the socket with 4008 when abused. */
+/**
+ * Socket rate caps (messages per second, sustained): the Room drops what exceeds a cap and closes the socket with 4008
+ * when abused. Each cap is a token bucket that holds `burstSeconds` of messages, because a stalled network (a phone
+ * changing cells, a busy main thread) delivers a second or two of messages at once and that is not abuse.
+ */
 export const RATE = {
   /** Everything but relay and signal. */
   generalPerSec: 40,
   relayPerSec: 25,
   signalPerSec: 80,
+  burstSeconds: 2,
   /** Hard ceiling over one second; above it the socket is dropped. */
   hardPerSec: 300,
   /** Malformed messages tolerated per socket before it is dropped. */

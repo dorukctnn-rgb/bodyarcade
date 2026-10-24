@@ -10,7 +10,7 @@ import {
 } from '../types/net.ts';
 import { ClockFilter, type ClockInfo } from './clock.ts';
 import { PeerLink, DEFAULT_VIDEO_LIMITS, type LinkStats, type PeerHost, type PeerMetrics, type VideoLimits } from './peer.ts';
-import { Emitter, WS_OPEN, browserSocket, randomId, realScheduler, type Scheduler, type SocketFactory, type SocketLike } from './runtime.ts';
+import { Emitter, WS_CONNECTING, WS_OPEN, browserSocket, randomId, realScheduler, type Scheduler, type SocketFactory, type SocketLike } from './runtime.ts';
 import { parseRoomMessage } from './validate.ts';
 
 export type FatalReason = 'replaced' | 'full' | 'removed' | 'no_room' | 'version' | 'not_allowed' | 'ticket' | 'stopped';
@@ -100,6 +100,9 @@ export interface LiveMetrics extends PeerMetrics {
 const TICK_MS = 250;
 const PING_MATCH_MS = 2000;
 const PING_LOBBY_MS = 5000;
+/** A connection attempt that has not opened after this long is abandoned and retried (plus 1 s for each earlier failed retry, up to 3 s more). */
+const CONNECT_MATCH_MS = 6000;
+const CONNECT_LOBBY_MS = 10_000;
 const FINAL_RESEND_MS = 2000;
 const CLOCK_REFRESH_MS = 5000;
 const OUTBOX_MAX = 200;
@@ -151,6 +154,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
   /** What the player last asked for with the ready button; null once a match has used it up. Re-sent when the Room's view differs after a reconnect. */
   private wantReady: boolean | null = null;
   private lastPing = 0;
+  private connectAt = 0;
   private lastPong = 0;
   private lastMsgIn = 0;
   private lastClockTry = 0;
@@ -231,7 +235,16 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     if (this.closed) return;
     this.connect();
     this.armTick();
+    (globalThis as { addEventListener?: (type: string, fn: () => void) => void }).addEventListener?.('online', this.onNetworkBack);
   }
+
+  /** The browser says the network is back: a hanging attempt is retried at once, a live-looking socket is tested at the next tick. */
+  private readonly onNetworkBack = (): void => {
+    const ws = this.ws;
+    if (this.closed || !ws) return;
+    if (ws.readyState === WS_CONNECTING) { this.log('network is back: connecting again'); this.dropSocket(); return; }
+    this.lastPing = 0;
+  };
 
   /** Stops without telling the Room (another tab took the seat, the page is closing). */
   stop(): void {
@@ -240,6 +253,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     if (this.tickTimer) this.sched.clearTimeout(this.tickTimer);
     if (this.reconnectTimer) this.sched.clearTimeout(this.reconnectTimer);
     this.tickTimer = this.reconnectTimer = null;
+    (globalThis as { removeEventListener?: (type: string, fn: () => void) => void }).removeEventListener?.('online', this.onNetworkBack);
     for (const p of this.peers.values()) p.close();
     this.peers.clear();
     const ws = this.ws;
@@ -274,6 +288,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     const ws = this.socketFactory(this.wsUrl());
     this.ws = ws;
     this.online = false;
+    this.connectAt = this.sched.now();
     this.emit('status', { state: this.attempt ? 'reconnecting' : 'connecting', attempt: this.attempt });
     ws.onopen = () => {
       if (this.ws !== ws) return;
@@ -401,6 +416,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     const now = this.sched.now();
     this.online = true;
     this.attempt = 0;
+    this.emit('status', { state: 'online', attempt: 0 });
     this.you = msg.you;
     this.room = msg.room;
     if (this.m.tWelcome === undefined) this.m.tWelcome = now - this.m.t0;
@@ -666,6 +682,16 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     const live = !!this.match && this.match.phase !== 'over';
     const period = live ? PING_MATCH_MS : PING_LOBBY_MS;
     const ws = this.ws;
+    // A network that swallows the connection request (a black hole) leaves a WebSocket "connecting" for a minute or
+    // more in a browser. Give up after a few seconds and ask again: the next attempt may take another path.
+    if (ws && ws.readyState === WS_CONNECTING && this.connectAt) {
+      const limit = (live ? CONNECT_MATCH_MS : CONNECT_LOBBY_MS) + Math.min(Math.max(0, this.attempt - 1), 3) * 1000;
+      if (now - this.connectAt > limit) {
+        this.log(`connection attempt got no answer for ${Math.round(now - this.connectAt)} ms: trying again`);
+        this.m.deadSockets++;
+        this.dropSocket();
+      }
+    }
     if (ws && ws.readyState === WS_OPEN) {
       if (!this.lastPing || now - this.lastPing > period) { this.lastPing = now; this.m.pings++; try { ws.send('ping'); } catch { /* closing */ } }
       if (this.lastPong && now - this.lastPong > period * 3 + 500) {

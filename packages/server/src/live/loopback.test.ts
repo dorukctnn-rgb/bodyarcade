@@ -4,135 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import { CLOSE, type JoinGrant, type MatchInfo, type ObstacleResult } from '../../../core/types/net.ts';
 import { LiveClient, type LiveClientOptions, type LiveEvents } from '../../../core/net/client.ts';
-import { ManualScheduler } from '../../../core/net/testkit.ts';
-import type { SocketFactory, SocketLike } from '../../../core/net/runtime.ts';
 import { makeSchedule, specFor } from '../../../core/net/schedule.ts';
-import { FakeConn, Room, claimsFor, type FakeHost } from './testkit.ts';
-
-const SKEW = 5000;
-
-class LoopConn extends FakeConn {
-  deliver: ((text: string) => void) | null = null;
-  onServerClose: ((code: number, reason: string) => void) | null = null;
-  override send(text: string): void {
-    if (!this.open) throw new Error('socket closed');
-    this.deliver?.(text);
-  }
-  override close(code: number, reason = ''): void {
-    const was = this.open;
-    super.close(code, reason);
-    if (was) this.onServerClose?.(code, reason);
-  }
-}
-
-class LoopSocket implements SocketLike {
-  readyState = 0;
-  onopen: ((ev: unknown) => void) | null = null;
-  onmessage: ((ev: { data: unknown }) => void) | null = null;
-  onclose: ((ev: { code: number; reason: string }) => void) | null = null;
-  onerror: ((ev: unknown) => void) | null = null;
-  conn: LoopConn | null = null;
-  frozen = false;
-  readonly net: Net;
-  readonly pid: string;
-
-  constructor(net: Net, url: string) {
-    this.net = net;
-    const ticket = new URL(url).searchParams.get('ticket') ?? '';
-    const claims = JSON.parse(ticket) as ReturnType<typeof claimsFor>;
-    this.pid = claims.p;
-    net.sockets.push(this);
-    net.after(() => {
-      if (this.readyState === 3) return;
-      if (net.expired.has(ticket)) {                       // the Worker accepts the upgrade and closes at once with 4002
-        this.readyState = 1; this.onopen?.({});
-        net.after(() => { this.readyState = 3; this.onclose?.({ code: CLOSE.TICKET, reason: 'expired' }); });
-        return;
-      }
-      const conn = new LoopConn(net.room.host, `lc${net.n++}`);
-      net.room.host.all.push(conn);
-      this.conn = conn;
-      conn.deliver = (text) => net.after(() => { if (this.readyState === 1 && !this.frozen) this.onmessage?.({ data: text }); });
-      conn.onServerClose = (code, reason) => net.after(() => {
-        if (this.readyState === 3 || this.frozen) return;
-        this.readyState = 3; this.onclose?.({ code, reason });
-      });
-      net.room.engine.accept(conn, claims);
-      net.room.flush();
-      this.readyState = 1;
-      this.onopen?.({});
-    });
-  }
-
-  send(data: string): void {
-    if (this.readyState !== 1) throw new Error('not open');
-    if (this.frozen) return;
-    this.net.after(() => {
-      const c = this.conn;
-      if (!c || !c.open || this.frozen) return;
-      if (data === 'ping') { this.net.after(() => { if (this.readyState === 1 && !this.frozen) this.onmessage?.({ data: 'pong' }); }); return; }
-      this.net.room.engine.message(c, data);
-      this.net.room.flush();
-    });
-  }
-
-  /** The network under the phone vanished: the page sees the close, the Room learns of it at once. */
-  kill(code = 1006): void {
-    if (this.readyState === 3) return;
-    this.readyState = 3;
-    const c = this.conn;
-    if (c && c.open) { c.open = false; c.closeInfo = { code, reason: 'lost' }; this.net.room.engine.closed(c); this.net.room.flush(); }
-    this.net.after(() => this.onclose?.({ code, reason: 'lost' }));
-  }
-
-  close(code = 1000, reason = ''): void {
-    if (this.readyState === 3) return;
-    this.readyState = 3;
-    const c = this.conn;
-    this.net.after(() => {
-      if (c && c.open) { c.open = false; c.closeInfo = { code, reason }; this.net.room.engine.closed(c); this.net.room.flush(); }
-    });
-  }
-}
-
-class Net {
-  readonly sched = new ManualScheduler();
-  readonly sockets: LoopSocket[] = [];
-  readonly expired = new Set<string>();
-  n = 1;
-  latency = 20;
-  readonly room: Room;
-
-  constructor(room: Room) {
-    this.room = room;
-    (room.host as FakeHost).now = () => this.sched.now() + SKEW;
-    room.host.t = this.sched.now() + SKEW;
-    const pump = (): void => {
-      const h = room.host;
-      if (h.alarmAt !== null && h.now() >= h.alarmAt) { h.alarmAt = null; room.engine.alarm(); room.flush(); }
-      this.sched.setTimeout(pump, 10);
-    };
-    pump();
-  }
-
-  static async make(init: Parameters<typeof Room.make>[0] = {}, timing: Parameters<typeof Room.make>[1] = {}): Promise<Net> {
-    return new Net(await Room.make(init, timing));
-  }
-
-  after(fn: () => void): void { this.sched.setTimeout(fn, this.latency); }
-
-  readonly factory: SocketFactory = (url) => new LoopSocket(this, url);
-
-  /** What a deploy does: the Room closes every socket. */
-  kickAll(): void { this.room.engine.closeAll(1012, 'service restart'); this.room.flush(); }
-
-  run(ms: number): void { this.sched.advance(ms); }
-
-  grant(pid: string, over: Partial<ReturnType<typeof claimsFor>> = {}): JoinGrant {
-    const claims = claimsFor(this.room.code, pid, over);
-    return { code: this.room.code, link: '', ticket: JSON.stringify(claims), exp: 4_000_000_000, room: { code: this.room.code, kind: 'private', gameId: 'squat-flap', size: 2, players: 0, phase: 'lobby' } };
-  }
-}
+import { LoopSocket, Net, seeded } from './loopkit.ts';
+import { Room, claimsFor } from './testkit.ts';
 
 interface Probe {
   c: LiveClient;
@@ -150,12 +24,6 @@ function client(net: Net, pid: string, o: Partial<LiveClientOptions> = {}, over:
   }
   void c.start();
   return { c, log, all: (type) => log.filter((x) => x.type === type).map((x) => x.detail) as never };
-}
-
-function seeded(s: string): () => number {
-  let a = 0;
-  for (const ch of s) a = (a * 31 + ch.charCodeAt(0)) >>> 0;
-  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
@@ -192,7 +60,7 @@ describe('connecting and the clock', () => {
     const net = await Net.make();
     const a = client(net, 'alice-device-01');
     net.run(500);
-    expect(a.all('status').map((s) => s.state)).toEqual(['connecting']);
+    expect(a.all('status').map((s) => s.state)).toEqual(['connecting', 'online']);
     expect(a.all('welcome')).toHaveLength(1);
   });
 });
@@ -261,6 +129,68 @@ describe('results survive bad networks', () => {
       expect(r[0]).toMatchObject({ reason: 'complete', winner: 's1' });
     }
     expect(b.c.m.deadSockets).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('connection attempts that get no answer', () => {
+  it('abandons an attempt that hangs and connects as soon as the network answers', async () => {
+    const net = await Net.make();
+    net.blackhole = true;
+    const a = client(net, 'alice-device-01');
+    net.run(9000);
+    expect(a.c.m.deadSockets).toBe(0);                          // the lobby gives an attempt 10 s
+    net.run(2500);
+    expect(a.c.m.deadSockets).toBe(1);
+    expect(a.all('welcome')).toHaveLength(0);
+    net.blackhole = false;
+    net.run(11_000);                                            // the attempt in flight is abandoned too, then the next one connects
+    expect(a.all('welcome')).toHaveLength(1);
+    expect(a.c.members).toHaveLength(1);
+  });
+
+  it('in a match a hanging reconnect is abandoned after 6 s, the match pauses meanwhile and resumes on return', async () => {
+    const { net, a, b, match } = await startedPair();
+    net.run(match.startAt - net.room.host.now() + 1000);
+    const dead = net.sockets.filter((s) => s.pid === 'bob-device-0002').at(-1) as LoopSocket;
+    net.blackhole = true;
+    dead.kill();
+    net.run(7500);
+    expect(b.c.m.deadSockets).toBe(1);
+    expect(phases(a).some((p) => p.includes('paused'))).toBe(true);
+    net.blackhole = false;
+    net.run(9000);
+    expect(b.all('welcome').length).toBeGreaterThanOrEqual(2);
+    expect(a.c.match?.phase).toBe('running');
+  });
+});
+
+describe('the Room drops a socket that went silent', () => {
+  it('a phone that vanished mid-match (no close, no pings) is a ghost no longer: the match pauses for it and then forfeits it', async () => {
+    const { net, a, b, match } = await startedPair({ silentLobbyMs: 40_000, silentMatchMs: 9000, sweepLobbyMs: 15_000, sweepMatchMs: 3000 });
+    net.run(match.startAt - net.room.host.now() + 2000);
+    // bob's phone locks: his page stops running (no pings, no messages) and his socket never closes
+    const ghost = net.sockets.filter((s) => s.pid === 'bob-device-0002').at(-1) as LoopSocket;
+    ghost.frozen = true;
+    b.c.stop();                                                 // no close frame ever reaches the Room
+    const ghostConn = ghost.conn as LoopConn;
+    net.run(8000);
+    expect(ghostConn.open).toBe(true);
+    net.run(6000);
+    expect(ghostConn.closeInfo?.code).toBe(CLOSE.SILENT);
+    expect(net.room.engine.inspect().members.find((m) => m.seat === 's2')?.online).toBe(false);
+    net.run(6000);
+    expect(phases(a).some((p) => p.includes('paused'))).toBe(true);
+    net.run(46_000);
+    expect(a.all('forfeit')[0]?.seat).toBe('s2');
+    expect(a.all('result')[0]).toMatchObject({ winner: 's1' });
+  });
+
+  it('live clients that only ping are never dropped, in a lobby or a match', async () => {
+    const { net, a, b, match } = await startedPair({ silentLobbyMs: 40_000, silentMatchMs: 9000, sweepLobbyMs: 15_000, sweepMatchMs: 3000 });
+    net.run(match.startAt - net.room.host.now() + 20_000);
+    expect(a.c.members.every((m) => m.online)).toBe(true);
+    expect(net.room.host.all.filter((c) => c.closeInfo?.code === CLOSE.SILENT)).toHaveLength(0);
+    expect(b.c.m.deadSockets).toBe(0);
   });
 });
 

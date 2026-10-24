@@ -27,15 +27,26 @@ export interface NewRoomRequest {
   band?: string | null;
 }
 
+/** A request that gets no answer at all (a network that swallows it) fails after this long instead of hanging for the browser's minutes. */
+export const API_TIMEOUT_MS = 15_000;
+
 async function call<T>(origin: string, method: 'GET' | 'POST', path: string, body?: unknown, fetcher: typeof fetch = fetch): Promise<T> {
   const init: RequestInit = { method, cache: 'no-store' };
   if (body !== undefined) { init.headers = { 'Content-Type': 'application/json' }; init.body = JSON.stringify(body); }
-  let res: Response;
-  try { res = await fetcher(origin + path, init); } catch { throw new LiveApiError(0, 'network'); }
-  let data: unknown = null;
-  try { data = await res.json(); } catch { data = null; }
-  if (!res.ok) throw new LiveApiError(res.status, typeof (data as { error?: unknown } | null)?.error === 'string' ? ((data as { error: string }).error) : 'http_' + res.status);
-  return data as T;
+  const ctl = typeof AbortController === 'undefined' ? null : new AbortController();
+  const timer = ctl ? setTimeout(() => ctl.abort(), API_TIMEOUT_MS) : null;
+  if (ctl) init.signal = ctl.signal;
+  const timedOut = (): boolean => !!ctl && ctl.signal.aborted;
+  try {
+    let res: Response;
+    try { res = await fetcher(origin + path, init); } catch { throw new LiveApiError(0, timedOut() ? 'timeout' : 'network'); }
+    let data: unknown = null;
+    try { data = await res.json(); } catch { if (timedOut()) throw new LiveApiError(0, 'timeout'); data = null; }
+    if (!res.ok) throw new LiveApiError(res.status, typeof (data as { error?: unknown } | null)?.error === 'string' ? ((data as { error: string }).error) : 'http_' + res.status);
+    return data as T;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export const createRoom = (origin: string, who: Identity, room: NewRoomRequest, fetcher?: typeof fetch): Promise<JoinGrant> =>

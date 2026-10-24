@@ -86,6 +86,7 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
   const t0 = Date.now();
   await stack.turnControl('/loss?p=0'); await stack.turnControl('/blackhole?on=0');
   stack.shaperA.freeze(false); stack.shaperB.freeze(false);
+  stack.shaperA.outage(false); stack.shaperB.outage(false);
   stack.shaperA.setDelay(sc.shape?.[0]?.ms ?? 0, sc.shape?.[0]?.jitter ?? 0);
   stack.shaperB.setDelay(sc.shape?.[1]?.ms ?? 0, sc.shape?.[1]?.jitter ?? 0);
 
@@ -162,6 +163,7 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
         case 'deploy': await stack.redeploy(); break;
         case 'kick': await stack.admin(`/api/admin/kick-all?code=${code}`, 'POST'); break;
         case 'freeze': (idx === 0 ? stack.shaperA : stack.shaperB).freeze(true); break;
+        case 'outage': (idx === 0 ? stack.shaperA : stack.shaperB).outage(a.on); break;
         case 'reload': await (pages[idx] as Page).reload(); break;
         case 'reloadAll': await Promise.all(pages.map((p) => p.reload())); break;
         case 'quit': await (browsers[idx] as Browser).close(); browsers[idx] = null; gone.add(idx); break;
@@ -250,6 +252,12 @@ function finish(name: string, sc: Scenario, who: PlayerSetup[], M: (PlayerM | nu
       checks.videoFlowsAgain = !!A && extra.framesAtCamLoss !== null && A.remoteFrames - (extra.framesAtCamLoss as number) > 60;
     }
     if (sc.actions?.some((a) => a.do === 'hide')) checks.resumed = !!A && A.phases.some((p) => p.why === 'resumed');
+    // a network outage longer than the debounce: the Room dropped B's silent socket, paused the match for B and resumed it when B was back
+    if (sc.actions?.some((a) => a.do === 'outage')) {
+      const B = M[1];
+      checks.pausedForOutage = !!A && A.phases.some((p) => p.phase === 'paused') && A.phases.some((p) => p.why === 'resumed');
+      checks.bNoticedDeadSocket = !!B && B.lm.deadSockets >= 1 && B.lm.wsOpens >= 2;
+    }
     // a reload under the 5 s debounce need not pause anything; the reloaded page must be back in the same match
     const reloaded = (sc.actions ?? []).flatMap((a) => (a.do === 'reload' ? [a.p] : a.do === 'reloadAll' ? M.map((_, i) => i) : []));
     if (reloaded.length) checks.rejoined = reloaded.every((i) => !!M[i] && (M[i] as PlayerM).phases.some((p) => p.why === 'welcome') && (M[i] as PlayerM).seeds.length >= 1);

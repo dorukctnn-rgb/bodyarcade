@@ -939,15 +939,31 @@ describe('restart and names', () => {
 });
 
 describe('abuse limits', () => {
-  it('drops relay messages above 25 per second and closes a socket that floods', async () => {
+  it('lets two seconds of relay messages through at once (a stalled network flushes), drops the rest, refills 25 a second and closes a socket that floods', async () => {
     const r = await Room.make();
     const a = r.join('alice'); const b = r.join('bob');
-    for (let i = 0; i < 40; i++) a.send({ t: 'relay', d: { n: i } });
-    expect(b.all('relay')).toHaveLength(25);
+    for (let i = 0; i < 80; i++) a.send({ t: 'relay', d: { n: i } });
+    expect(b.all('relay')).toHaveLength(50);                    // the burst allowance: 2 s at 25 a second
     expect(a.last('error')?.code).toBe('rate');
     r.advance(1000);
+    for (let i = 0; i < 60; i++) a.send({ t: 'relay', d: { n: i } });
+    expect(b.all('relay')).toHaveLength(75);                    // one more second of allowance
+    r.advance(1000);
     for (let i = 0; i < 400; i++) a.send({ t: 'sync', c: i });
-    expect(a.closeCode).toBe(CLOSE.RATE);
+    expect(a.closeCode).toBe(CLOSE.RATE);                       // over 300 messages in one second: abuse
+  });
+
+  it('a stalled second delivered on top of the live 15 Hz stream never trips the limit', async () => {
+    const r = await Room.make();
+    const a = r.join('alice'); const b = r.join('bob');
+    let sent = 0;
+    const second = (n: number): void => { for (let i = 0; i < n; i++) { r.advance(1000 / n); a.send({ t: 'relay', d: { n: ++sent } }); } };
+    second(15); second(15);
+    r.advance(1000);                                            // the network stalls: nothing arrives for a second
+    for (let i = 0; i < 15; i++) a.send({ t: 'relay', d: { n: ++sent } });      // the backlog arrives at once ...
+    second(15); second(15);                                     // ... and the live stream carries on
+    expect(b.all('relay')).toHaveLength(sent);
+    expect(a.all('error').filter((e) => e.code === 'rate')).toHaveLength(0);
   });
 
   it('relays only to the others and forwards signals to one seat', async () => {

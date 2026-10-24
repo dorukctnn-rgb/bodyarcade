@@ -169,7 +169,8 @@ export interface InitInput {
 export type InitResult = { ok: true } | { ok: false; error: 'exists' | 'bad_config' | 'bad_size' | 'bad_audience' };
 export type CheckResult = { ok: true; preview: RoomPreview } | { ok: false; error: 'no_room' | 'full' | 'banned' | 'not_allowed' };
 
-interface RateRec { sec: number; n: number; relay: number; signal: number; bad: number; warned: number }
+/** Token buckets per socket (general, relay, signal), the messages counted in this wall-clock second, bad messages, the second a warning was last sent. */
+interface RateRec { sec: number; n: number; at: number; general: number; relay: number; signal: number; bad: number; warned: number }
 
 const GAME_RE = /^[a-z0-9-]{1,40}$/;
 const BAND_RE = /^[a-z0-9-]{1,16}$/;
@@ -406,21 +407,26 @@ export class RoomEngine {
   }
 
   private rateOk(conn: EngineConn, att: ConnAtt, raw: unknown): boolean {
-    const sec = Math.floor(this.now() / 1000);
+    const now = this.now();
+    const sec = Math.floor(now / 1000);
+    const cap = (perSec: number): number => perSec * RATE.burstSeconds;
     let r = this.rates.get(conn.id);
-    if (!r) { r = { sec, n: 0, relay: 0, signal: 0, bad: 0, warned: 0 }; this.rates.set(conn.id, r); }
-    if (r.sec !== sec) { r.sec = sec; r.n = 0; r.relay = 0; r.signal = 0; }
+    if (!r) { r = { sec, n: 0, at: now, general: cap(RATE.generalPerSec), relay: cap(RATE.relayPerSec), signal: cap(RATE.signalPerSec), bad: 0, warned: 0 }; this.rates.set(conn.id, r); }
+    const dt = Math.max(0, now - r.at) / 1000;
+    r.at = now;
+    r.general = Math.min(cap(RATE.generalPerSec), r.general + dt * RATE.generalPerSec);
+    r.relay = Math.min(cap(RATE.relayPerSec), r.relay + dt * RATE.relayPerSec);
+    r.signal = Math.min(cap(RATE.signalPerSec), r.signal + dt * RATE.signalPerSec);
+    if (r.sec !== sec) { r.sec = sec; r.n = 0; }
     r.n++;
     if (r.n > RATE.hardPerSec) { conn.close(CLOSE.RATE, 'rate'); return false; }
     const head = typeof raw === 'string' ? raw.slice(0, 24) : '';
-    let over = false;
-    if (head.startsWith('{"t":"relay"')) over = ++r.relay > RATE.relayPerSec;
-    else if (head.startsWith('{"t":"signal"')) over = ++r.signal > RATE.signalPerSec;
-    else over = r.n - r.relay - r.signal > RATE.generalPerSec;
-    if (over) {
+    const kind = head.startsWith('{"t":"relay"') ? 'relay' : head.startsWith('{"t":"signal"') ? 'signal' : 'general';
+    if (r[kind] < 1) {
       if (r.warned !== sec && att.h) { r.warned = sec; this.err(conn, 'rate'); }
       return false;
     }
+    r[kind] -= 1;
     return true;
   }
 
