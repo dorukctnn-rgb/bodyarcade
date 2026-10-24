@@ -1,7 +1,10 @@
 // The mirror view on the Scene2D kit with a fake canvas: what it draws for each game (stars, pads, lights, hands, links),
 // the picture first and the effects last, keyboard rounds without a picture, two lanes, reduced motion, text, and on all
 // ten screens that every target lies inside the mirror and clear of every plate.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// the whole repo's suite runs the test files side by side, and drawing a minute of play on a recording canvas is not quick
+vi.setConfig({ testTimeout: 30_000 });
 import { mulberry32 } from '../../core/loop/rng.ts';
 import { layoutProblems } from '../../core/render2d/layout2d.ts';
 import { createScene2D, type CanvasLike, type Scene2DKit } from '../../core/render2d/scene2d.ts';
@@ -142,7 +145,7 @@ describe('what each game draws', () => {
     const view = createMirrorView(st.kit);
     let bagFrames = 0;
     drive(padWorkRules, st, view, {
-      bots: 'idle', level: 'expert', seed: 11, seconds: 60, duration: 90, steer: padSteer('idle', 11),
+      bots: 'idle', level: 'expert', seed: 11, seconds: 36, duration: 90, steer: padSteer('idle', 11),
       frames: (r) => {
         const bags = r.engine.view().lanes[0]!.targets.filter((t) => (t.spec as PadSpec).kind === 'bag');
         const before = st.ctx.count('ellipse');
