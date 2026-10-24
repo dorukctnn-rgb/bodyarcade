@@ -11,10 +11,10 @@ import { HttpError } from '../http.ts';
 import { setLiveHooks, type LiveHooks, type LivePlayer, type RoomReport } from '../live/hooks.ts';
 import type { LiveEnv } from '../live/env.ts';
 import { authenticate } from './auth.ts';
-import { one } from './db.ts';
+import { one, rows } from './db.ts';
 import { hasSocial, type SocialEnv } from './env.ts';
 import { bump, used } from './limits.ts';
-import { mayJoinPublic, publishRoom, removeRoom } from './lobbies.ts';
+import { mayJoinPublic, publishRoomChange, removeRoom } from './lobbies.ts';
 import { fileReport } from './moderation.ts';
 import { blockPlayer, byPid } from './people.ts';
 import { hubSend, pushPresence, setRoomState } from './presence.ts';
@@ -66,7 +66,17 @@ export const socialHooks: LiveHooks = {
 
   async publishRoom(env: LiveEnv, summary: RoomSummary, pids: string[]): Promise<void> {
     const s = social(env);
-    if (s) await publishRoom(s.DB, summary, pids, Date.now());
+    if (!s) return;
+    const now = Date.now();
+    const r = await publishRoomChange(s.DB, summary, pids, now);
+    // The Room reports "a player is in this room" (setPlaying) and "this is the room" (here) separately, in either order. A
+    // friend's list shows the room code only while the lobby row says the room can be joined, so when that changes the
+    // friends of the members who are already marked as being in the room hear the new picture, whichever report came last
+    // (a member the presence report has not reached yet is told by that report).
+    if (r.joinabilityChanged) {
+      const members = await rows<{ pid: string }>(s.DB, 'SELECT pid FROM soc_presence WHERE room = ?1 AND pid IN (SELECT value FROM json_each(?2))', summary.code, JSON.stringify(pids.slice(0, 4)));
+      await Promise.all(members.map((m) => pushPresence(s, m.pid, now)));
+    }
   },
 
   async removeRoom(env: LiveEnv, code: string): Promise<void> {

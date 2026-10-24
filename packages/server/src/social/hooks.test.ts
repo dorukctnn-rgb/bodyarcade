@@ -5,6 +5,7 @@ import type { RoomSummary } from '../../../core/types/net.ts';
 import { HttpError } from '../http.ts';
 import type { LiveEnv } from '../live/env.ts';
 import { anonymousPlayer, socialHooks } from './hooks.ts';
+import { markOnline } from './presence.ts';
 import { createTestApp, TEST_ORIGIN, type TestApp, type TestPlayer } from './testkit.ts';
 
 // Players are made with real WebCrypto keys and every request is signed and verified; a full-suite run on a busy machine is
@@ -105,6 +106,39 @@ describe('without the social bindings every other hook does nothing and lets liv
     await socialHooks.setPlaying?.(bare, { code: 'ABCDEF', pid: 'a', inRoom: true, playing: false, gameId: 'jacks' });
     await socialHooks.blockByPid?.(bare, 'a', 'b');
     await socialHooks.submitReport?.(bare, { code: 'ABCDEF', matchId: null, reporterPid: 'a', targetPid: 'b', reporterSeat: 's1', targetSeat: 's2', reason: 'abuse', at: T0, chat: [] });
+  });
+});
+
+describe('what a friend is told about a room', () => {
+  it('the room code reaches the friends when the lobby row is written after the presence row, and goes when the room is full or starts', async () => {
+    const a = await app.signup('adult');
+    const b = await app.signup('adult');
+    await a.post('/api/social/friends/request', { code: b.me.code });
+    await b.post('/api/social/friends/respond', { fid: a.me.fid, accept: true });
+    const now = Date.now();
+    await markOnline(app.db, a.pid(), now);
+    await markOnline(app.db, b.pid(), now);
+    app.hubs.connect(b.pid());
+    app.hubs.take(b.pid());
+    const code = 'ABCDEF';
+    // the Room's presence report comes first: the friend hears "in a room", with no code yet (there is no lobby row)
+    await socialHooks.setPlaying?.(env(), { code, pid: a.pid(), inRoom: true, playing: false, gameId: 'jacks' });
+    expect(app.hubs.take(b.pid())).toEqual([{ t: 'presence', fid: a.me.fid, name: a.me.name, presence: { status: 'in_room', game: 'jacks' } }]);
+    // then the lobby row: the room can be joined, so the friend hears the code
+    await socialHooks.publishRoom?.(env(), summary({ code, kind: 'private', audience: null, size: 2, players: 1, open: 1, names: [a.me.name] }), [a.pid()]);
+    expect(app.hubs.take(b.pid())).toEqual([{ t: 'presence', fid: a.me.fid, name: a.me.name, presence: { status: 'in_room', game: 'jacks', room: code } }]);
+    // a report that changes nothing about it tells nobody
+    vi.setSystemTime(T0 + 1000);
+    await socialHooks.publishRoom?.(env(), summary({ code, kind: 'private', audience: null, size: 2, players: 1, open: 1, names: [a.me.name], updatedAt: T0 + 1000 }), [a.pid()]);
+    expect(app.hubs.take(b.pid())).toEqual([]);
+    // the room fills: the code goes
+    await socialHooks.publishRoom?.(env(), summary({ code, kind: 'private', audience: null, size: 2, players: 2, open: 0, names: [a.me.name, 'Other'] }), [a.pid(), 'someone-else']);
+    expect(app.hubs.take(b.pid())).toEqual([{ t: 'presence', fid: a.me.fid, name: a.me.name, presence: { status: 'in_room', game: 'jacks' } }]);
+    // a seat frees up: the code is back; the match starts: gone again
+    await socialHooks.publishRoom?.(env(), summary({ code, kind: 'private', audience: null, size: 2, players: 1, open: 1, names: [a.me.name] }), [a.pid()]);
+    expect(app.hubs.take(b.pid())).toEqual([{ t: 'presence', fid: a.me.fid, name: a.me.name, presence: { status: 'in_room', game: 'jacks', room: code } }]);
+    await socialHooks.publishRoom?.(env(), summary({ code, kind: 'private', audience: null, size: 2, players: 1, open: 1, phase: 'playing', names: [a.me.name] }), [a.pid()]);
+    expect(app.hubs.take(b.pid())).toEqual([{ t: 'presence', fid: a.me.fid, name: a.me.name, presence: { status: 'in_room', game: 'jacks' } }]);
   });
 });
 

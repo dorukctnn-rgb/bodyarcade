@@ -47,13 +47,29 @@ const parseList = (s: string): string[] => {
 
 // ───────── what the Room reports ─────────
 
+export interface PublishResult {
+  /** The report was written (it was new, or something in it changed). */
+  stored: boolean;
+  /** Friends can join the room now and could not before, or the other way round: the members' friends must be told. */
+  joinabilityChanged: boolean;
+}
+
+/** A friend can take a seat while the room is in its lobby phase with a free seat (what soc_presence joins as "joinable"). */
+const joinable = (r: { phase: string; open: number }): boolean => r.phase === 'lobby' && r.open >= 1;
+
 /**
  * A room was created or changed. Rooms nobody sits in yet are not stored; a report that changes nothing is not written
  * again for five minutes (that keeps the write count of a busy lobby low). The region of a room is the first member's.
  */
 export async function publishRoom(db: D1Like, s: RoomSummary, pids: readonly string[], now: number): Promise<boolean> {
+  return (await publishRoomChange(db, s, pids, now)).stored;
+}
+
+/** publishRoom, and whether the room's joinability changed (the Room's presence and lobby reports reach us in either order). */
+export async function publishRoomChange(db: D1Like, s: RoomSummary, pids: readonly string[], now: number): Promise<PublishResult> {
   const prev = await one<LobbyDbRow>(db, 'SELECT * FROM soc_lobbies WHERE code = ?1', s.code);
-  if (!prev && pids.length === 0) return false;
+  if (!prev && pids.length === 0) return { stored: false, joinabilityChanged: false };
+  const joinabilityChanged = joinable(s) !== (prev ? joinable(prev) : false);
   const names = JSON.stringify(s.names.slice(0, 4));
   const members = JSON.stringify(pids.slice(0, 4));
   const grp = s.kind === 'public' ? s.audience : null;
@@ -61,7 +77,7 @@ export async function publishRoom(db: D1Like, s: RoomSummary, pids: readonly str
     prev && prev.kind === s.kind && prev.grp === grp && prev.game === s.gameId && prev.band === s.band && prev.size === s.size &&
     prev.players === s.players && prev.open === s.open && prev.names === names && prev.pids === members && prev.phase === s.phase &&
     now - prev.updated_at < LOBBY_REFRESH_MS
-  ) return false;
+  ) return { stored: false, joinabilityChanged: false };
   let region: string = prev?.region ?? 'eu';
   if ((!prev || prev.players === 0) && pids[0]) {
     const p = await one<{ region: string }>(db, 'SELECT region FROM soc_profiles WHERE pid = ?1', pids[0]);
@@ -78,7 +94,7 @@ export async function publishRoom(db: D1Like, s: RoomSummary, pids: readonly str
     if (prev.size !== s.size) set.push(['size', s.size]);
     if (prev.region !== region) set.push(['region', region]);
     await db.prepare(`UPDATE soc_lobbies SET ${set.map(([col], i) => `${col} = ?${i + 2}`).join(', ')} WHERE code = ?1`).bind(s.code, ...set.map(([, v]) => v)).run();
-    return true;
+    return { stored: true, joinabilityChanged };
   }
   await db.prepare(
     `INSERT INTO soc_lobbies (code, kind, grp, region, game, band, size, players, open, names, pids, phase, created_at, updated_at)
@@ -86,7 +102,7 @@ export async function publishRoom(db: D1Like, s: RoomSummary, pids: readonly str
      ON CONFLICT(code) DO UPDATE SET kind = ?2, grp = ?3, region = ?4, game = ?5, band = ?6, size = ?7, players = ?8, open = ?9,
        names = ?10, pids = ?11, phase = ?12, updated_at = ?13`,
   ).bind(s.code, s.kind, grp, region, s.gameId, s.band, s.size, s.players, s.open, names, members, s.phase, now).run();
-  return true;
+  return { stored: true, joinabilityChanged };
 }
 
 export async function removeRoom(db: D1Like, code: string): Promise<void> {
