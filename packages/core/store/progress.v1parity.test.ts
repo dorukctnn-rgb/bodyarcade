@@ -112,7 +112,7 @@ function simulate(seed: number, days: number, skipChance: number): void {
       expect(progress.variants(), `${where}: worlds played`).toEqual(v1.worldsPlayed());
       expect(Object.keys(progress.unlocked()).sort(), `${where}: all unlocked`).toEqual([...v1.unlocked()].sort());
 
-      const view = progress.daily();
+      const view = progress.daily() as NonNullable<ReturnType<typeof progress.daily>>;
       const g = v1.dailyGoal();
       expect([view.goal.variant, view.goal.kind, view.goal.target, view.goal.seed], `${where}: goal`).toEqual([g.world, g.kind, g.target, g.seed]);
       expect(view.done, `${where}: done`).toBe(v1.dailyDone());

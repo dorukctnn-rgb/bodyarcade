@@ -115,11 +115,11 @@ describe('B13 and the daily goal', () => {
     const { progress, advance } = setup();
     expect(progress.record(run({ score: 999 })).daily).toBeNull();                 // below target
     expect(progress.record(run({ score: 5000, variant: 'desert' })).daily).toBeNull(); // wrong variant
-    expect(progress.daily().done).toBe(false);
+    expect(progress.daily()?.done).toBe(false);
     const hit = progress.record(run({ score: 1000 }));
     expect(hit.daily?.streak).toBe(1);
     expect(hit.daily?.goal.target).toBe(1000);
-    expect(progress.daily().done).toBe(true);
+    expect(progress.daily()?.done).toBe(true);
     advance(1000);
     expect(progress.record(run({ score: 9000 })).daily).toBeNull();                // already done today
     expect(progress.streak()).toBe(1);
@@ -153,7 +153,7 @@ describe('B13 and the daily goal', () => {
     const a = setup({ timeZone: 'Pacific/Honolulu', start: honolulu });
     expect(a.progress.record(run({ score: 2000 })).daily?.streak).toBe(1);
     a.advance(60 * 60_000);                                                        // 00:30 local the next day
-    expect(a.progress.daily().done).toBe(false);
+    expect(a.progress.daily()?.done).toBe(false);
     expect(a.progress.record(run({ score: 2000 })).daily?.streak).toBe(2);
 
     // Same instants in Auckland (UTC+13): both runs are on the same local day.
@@ -166,9 +166,9 @@ describe('B13 and the daily goal', () => {
   it('daily() describes any day without changing state', () => {
     const { progress } = setup();
     const tomorrow = addDays('2026-10-23', 1);
-    expect(progress.daily(tomorrow).goal.day).toBe(tomorrow);
-    expect(progress.daily().text('en')).toBe('Score 1,000');
-    expect(progress.daily().done).toBe(false);
+    expect(progress.daily(tomorrow)?.goal.day).toBe(tomorrow);
+    expect(progress.daily()?.text('en')).toBe('Score 1,000');
+    expect(progress.daily()?.done).toBe(false);
   });
 
   it('a clock that goes back never extends a streak', () => {
@@ -378,5 +378,46 @@ describe('B4: the results screen always gets an answer', () => {
     expect(out.run.score).toBe(640);
     expect(progress.runs().map((r) => r.score)).toEqual([640]);   // held in memory for the session
     expect(store.problems().some((p) => p.kind === 'write_failed')).toBe(true);
+  });
+});
+
+describe('a game without a daily goal of its own', () => {
+  // The platform's daily challenge is the daily of every game but the runner, so a game brings no goal spec, and recording must not need one.
+  function bare(o: { daily?: DailyGoalSpec } = {}) {
+    const store = createStore({ storage: memoryStorage(), now: () => NOON, timeZone: 'UTC' });
+    return createProgress(store, store.ns('squat-flap'), { achievements: DEFS, ...o });
+  }
+
+  it('records runs, bests and totals exactly as any other game', () => {
+    const progress = bare();
+    const first = progress.record(run({ score: 700, seconds: 90, difficulty: 'normal' }));
+    expect(first).toMatchObject({ saved: true, previousBest: 0, newBest: false, firstHere: true, daily: null });
+    expect(first.news.map((a) => a.id)).toContain('first-run');
+    const second = progress.record(run({ score: 900, seconds: 90, difficulty: 'normal' }));
+    expect(second).toMatchObject({ saved: true, previousBest: 700, newBest: true, firstHere: false });
+    expect(progress.best('alps', 'normal')).toBe(900);
+    expect(progress.totals()).toMatchObject({ runs: 2, seconds: 180, score: 1600 });
+  });
+
+  it('has no daily and no streak, and never reports a goal met', () => {
+    const progress = bare();
+    expect(progress.daily()).toBeNull();
+    expect(progress.daily('2030-01-01')).toBeNull();
+    for (let i = 0; i < 3; i++) expect(progress.record(run({ score: 5000 })).daily).toBeNull();
+    expect(progress.streak()).toBe(0);
+  });
+
+  it('treats a spec that cannot make a goal as no spec at all, instead of failing every run', () => {
+    for (const daily of [{ variants: [], kinds: [] }, { variants: ['alps'], kinds: [] }, { variants: [], kinds: SPEC.kinds }] as DailyGoalSpec[]) {
+      const progress = bare({ daily });
+      expect(progress.daily()).toBeNull();
+      expect(progress.record(run())).toMatchObject({ saved: true, daily: null });
+    }
+  });
+
+  it('still gives the goal to a game that has a spec, as before', () => {
+    const progress = bare({ daily: SPEC });
+    expect(progress.daily()?.goal).toMatchObject({ variant: 'alps', target: 1000 });
+    expect(progress.record(run({ score: 1200 })).daily).toMatchObject({ streak: 1 });
   });
 });

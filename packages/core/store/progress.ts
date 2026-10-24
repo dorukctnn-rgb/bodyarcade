@@ -73,7 +73,11 @@ export interface RecordOutcome {
 
 export interface ProgressOptions {
   achievements: readonly AchievementDef[];
-  daily: DailyGoalSpec;
+  /**
+   * The game's own daily goal (the live runner has one, and a returning player keeps its streak). A game without one has no
+   * such goal: its daily is the platform's daily challenge (daily-challenge.ts), and nothing here throws for the lack of it.
+   */
+  daily?: DailyGoalSpec;
   /** How many runs are kept, newest first. v1 kept 200. */
   maxRuns?: number;
 }
@@ -97,7 +101,8 @@ export interface Progress {
   /** Unlocked ids with the time they were unlocked (0 when imported from v1). */
   unlocked(): Record<string, number>;
   achievements(): { def: AchievementDef; unlockedAt: number | null }[];
-  daily(day?: Day): DailyView;
+  /** Today's goal of this game, or null for a game that has none (see ProgressOptions.daily). */
+  daily(day?: Day): DailyView | null;
   /** The streak that is alive now: today's or yesterday's, else 0. */
   streak(): number;
   activity(): Record<Day, DayActivity>;
@@ -212,12 +217,16 @@ export function createProgress(store: BodyArcadeStore, ns: StoreNamespace, optio
 
   const aliveStreak = (d: DailyState, today: Day): number => (d.last === today || d.last === prevDay(today) ? d.n : 0);
 
-  function dailyView(day: Day): DailyView {
-    const goal = dailyGoalFor(day, options.daily);
+  /** The goal spec when it can make a goal: it needs a world and a kind to draw from. */
+  const spec: DailyGoalSpec | null = options.daily && options.daily.kinds.length > 0 && options.daily.variants.length > 0 ? options.daily : null;
+
+  function dailyView(day: Day): DailyView | null {
+    if (!spec) return null;
+    const goal = dailyGoalFor(day, spec);
     const state = dailySlot.get();
     return {
       goal,
-      text: (locale = 'en') => goalText(goal, options.daily, locale),
+      text: (locale = 'en') => goalText(goal, spec, locale),
       done: state.done === day,
       streak: aliveStreak(state, day),
     };
@@ -271,14 +280,16 @@ export function createProgress(store: BodyArcadeStore, ns: StoreNamespace, optio
 
     // Daily goal: only on the goal's variant, only once a day, and the stat must reach the target.
     let daily: RecordOutcome['daily'] = null;
-    const goal = dailyGoalFor(day, options.daily);
-    const dstate = dailySlot.get();
-    if (run.variant === goal.variant && dstate.done !== day) {
-      const value = statOf(run, goal.stat);
-      if (value !== undefined && value >= goal.target) {
-        const n = nextStreak({ n: dstate.n, last: dstate.last }, day, prevDay(day));
-        dailySlot.set({ done: day, n, last: day });
-        daily = { streak: n, goal };
+    if (spec) {
+      const goal = dailyGoalFor(day, spec);
+      const dstate = dailySlot.get();
+      if (run.variant === goal.variant && dstate.done !== day) {
+        const value = statOf(run, goal.stat);
+        if (value !== undefined && value >= goal.target) {
+          const n = nextStreak({ n: dstate.n, last: dstate.last }, day, prevDay(day));
+          dailySlot.set({ done: day, n, last: day });
+          daily = { streak: n, goal };
+        }
       }
     }
     const afterDaily = dailySlot.get();

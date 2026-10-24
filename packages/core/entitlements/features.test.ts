@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Entitlement } from '../types/index.ts';
+import { FREE_PLAN_ID, WORKOUT_PLAN_IDS, planFeature } from '../store/workout-plans.ts';
 import { DEFAULT_FREE_FEATURES, canUse, hasFamilyFeatures } from './features.ts';
 
 const FREE: Entitlement = { plan: 'free', source: 'none' };
@@ -32,6 +33,20 @@ describe('a free player', () => {
     expect(canUse('family', FREE)).toBe(false);
     expect(canUse('profiles:6', FREE)).toBe(false);
   });
+
+  it('has one workout plan, the desk break, and no other', () => {
+    expect(FREE_PLAN_ID).toBe('desk-break');
+    expect(canUse(planFeature(FREE_PLAN_ID), FREE)).toBe(true);
+    for (const id of WORKOUT_PLAN_IDS.filter((x) => x !== FREE_PLAN_ID)) expect(canUse(planFeature(id), FREE), id).toBe(false);
+    expect(canUse('plan:', FREE)).toBe(false);
+    expect(canUse('plan:made-up', FREE)).toBe(false);
+  });
+
+  it('keeps that plan and those only, whatever free set a caller hands in', () => {
+    expect(canUse('plan:desk-break', FREE, { free: new Set<string>() })).toBe(true);
+    expect(canUse('plan:legs-day', FREE, { free: new Set(['plan:legs-day']) })).toBe(false);
+    expect(canUse('plan:legs-day', FREE, { free: () => true })).toBe(false);
+  });
 });
 
 describe('a paying player', () => {
@@ -39,6 +54,10 @@ describe('a paying player', () => {
     for (const e of [PRO, FAMILY, LIFETIME, FOUNDER]) {
       for (const f of ['game:squat-flap', 'game:anything-new', 'world:volcano', 'difficulty:insane', 'history:full', 'live:ranked']) expect(canUse(f, e, rules), `${e.plan} ${f}`).toBe(true);
     }
+  });
+
+  it('has every workout plan on every paid plan', () => {
+    for (const e of [PRO, FAMILY, LIFETIME, FOUNDER]) for (const id of WORKOUT_PLAN_IDS) expect(canUse(planFeature(id), e), `${e.plan} ${id}`).toBe(true);
   });
 
   it('has the family features only with the Family plan or a founder purchase', () => {

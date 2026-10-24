@@ -9,6 +9,8 @@ describe('store public surface', () => {
       'createStore', 'memoryStorage', 'browserStorage', 'createProgress', 'importLegacyRunner', 'readLegacyV1', 'challengeLink', 'readChallenge',
       'dayOf', 'addDays', 'prevDay', 'daysBetween', 'daySeed', 'dayFromSeed', 'p', 'schemaOf', 'newlyUnlocked', 'dailyGoalFor',
       'RUNNER_ACHIEVEMENTS', 'RUNNER_DAILY', 'V1_KEYS', 'MAX_RUNS', 'bestKey', 'sanitizeRun',
+      'createArcade', 'createHabit', 'createChallengeBook', 'createPlanBook', 'createDocSync', 'dailyChallengeFor', 'resolvePlan',
+      'WORKOUT_PLANS', 'FREE_PLAN_ID', 'planFeature', 'HABIT', 'CHALLENGE', 'weekStart', 'mergeDays', 'withDay', 'GAME_NAMESPACE',
     ]) {
       expect((kit as Record<string, unknown>)[name], name).toBeDefined();
     }

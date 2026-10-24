@@ -107,7 +107,7 @@ describe('a returning player finds everything where v1 left it, and v2 goes on a
       expect(Object.keys(progress.unlocked()).sort(), `${where}: unlocked`).toEqual([...v1.unlocked()].sort());
       expect(progress.best(), `${where}: best`).toBe(v1.best());
       for (const w of WORLDS) expect(progress.best(w), `${where}: best of ${w}`).toBe(v1.best(w));
-      const view = progress.daily();
+      const view = progress.daily() as NonNullable<ReturnType<typeof progress.daily>>;
       const g = v1.dailyGoal();
       expect([view.goal.variant, view.goal.kind, view.goal.target, view.goal.seed], `${where}: goal`).toEqual([g.world, g.kind, g.target, g.seed]);
       expect(view.done, `${where}: done today`).toBe(v1.dailyDone());

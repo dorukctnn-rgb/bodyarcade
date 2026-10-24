@@ -1,8 +1,9 @@
 // can(feature): who may use what. A free player gets what is free; a paid plan gets everything, except the family
 // features, which need the Family plan (or a founder, who has them from the $99 purchase).
+import { FREE_PLAN_ID } from '../store/workout-plans.ts';
 import type { Entitlement, FeatureId } from '../types/index.ts';
 
-/** 'game:squat-flap', 'world:alps', 'difficulty:hard', 'history:full', 'family', 'profiles:6', 'live:ranked'. */
+/** 'game:squat-flap', 'world:alps', 'difficulty:hard', 'history:full', 'plan:desk-break', 'family', 'profiles:6', 'live:ranked'. */
 const FEATURE_RE = /^[a-z][a-z0-9]{0,15}(?::[A-Za-z0-9][A-Za-z0-9._-]{0,47})?$/;
 
 /** What stays free besides the free games: the three free worlds of the runner and the two easier difficulties. */
@@ -30,6 +31,8 @@ export function canUse(feature: FeatureId, e: Entitlement, rules: FeatureRules =
   if (FAMILY_FEATURES.has(kind)) return e.plan !== 'free' && hasFamilyFeatures(e);
   if (e.plan !== 'free') return true;
   if (kind === 'game') return rest !== undefined && (rules.isFreeGame?.(rest) ?? false);
+  // The workout plans are Pro, with one free plan. Which one is the store's data (workout-plans.ts), not a rule a caller may bend.
+  if (kind === 'plan') return rest === FREE_PLAN_ID;
   const free = rules.free ?? DEFAULT_FREE_FEATURES;
   return typeof free === 'function' ? free(feature) === true : free.has(feature);
 }
