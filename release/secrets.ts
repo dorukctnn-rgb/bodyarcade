@@ -37,6 +37,8 @@ export const SECRETS: readonly SecretSpec[] = [
   { name: 'TURN_KEY_ID', why: 'live video between friends behind strict NATs: Cloudflare Realtime TURN key id (STUN only without it)', required: false, generate: null },
   { name: 'TURN_KEY_API_TOKEN', why: 'the API token of that TURN key', required: false, generate: null },
   { name: 'PLAY_SA_JSON', why: 'entitlements: Google Play purchase checks (service account JSON)', required: false, generate: null },
+  { name: 'ENT_MAIL_TOKEN', why: 'entitlements: the ForwardEmail API token that sends the one trial-reminder e-mail on the web (goes with ENT_MAIL_FROM; without both the reminder box stays off)', required: false, generate: null },
+  { name: 'ENT_MAIL_FROM', why: 'entitlements: the sender of that e-mail, for example "BodyArcade <info@bodyarcade.com>" (goes with ENT_MAIL_TOKEN; without both the reminder box stays off)', required: false, generate: null },
 ];
 
 export function secretsDir(): string {
