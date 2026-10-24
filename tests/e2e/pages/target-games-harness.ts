@@ -174,28 +174,33 @@ function steerOf(game: GameId, mode: BotMode, seed: number): (lane: ViewLane, bo
 
 const size = (r: { w: number; h: number }): { w: number; h: number } => ({ w: r.w, h: r.h });
 
-function onLayout(r: Running, info: HudLayoutInfo): void {
-  r.layouts++;
+/** What the shell does with the HUD's layout for a mirror game: the 2D kit is told how big the plates are, so its mirror rectangle is the HUD's. */
+export function feedKit(kit: Scene2DKit, info: HudLayoutInfo): void {
   if (info.duo && info.twoPlayers) {
     const d = info.twoPlayers.rects;
     const m: MeasuredDuo = { statusP1: size(d.statusP1), statusP2: size(d.statusP2), timer: size(d.timer), command: size(d.command) };
     if (d.reasonP1) m.reasonP1 = size(d.reasonP1);
     if (d.reasonP2) m.reasonP2 = size(d.reasonP2);
-    r.kit.setHudDuo(m);
+    kit.setHudDuo(m);
   } else if (info.solo) {
     const s = info.solo.rects;
     const m: MeasuredHud = { statusLeft: size(s.statusLeft), statusRight: size(s.statusRight), command: size(s.command), reason: size(s.reason) };
-    r.kit.setHud({ mode: 'mirror', pipCorner: 'hidden', measured: m });
+    kit.setHud({ mode: 'mirror', pipCorner: 'hidden', measured: m });
   }
+}
+
+function onLayout(r: Running, info: HudLayoutInfo): void {
+  r.layouts++;
+  feedKit(r.kit, info);
 }
 
 
 // ───────── every target inside the picture and clear of every plate, checked while the game runs ─────────
 
-interface Box { x: number; y: number; w: number; h: number }
+export interface Box { x: number; y: number; w: number; h: number }
 const boxOf = (e: Element): Box => { const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
 
-function plateBoxes(): Record<string, Box> {
+export function plateBoxes(): Record<string, Box> {
   const plates: Record<string, Box> = {};
   for (const n of document.querySelectorAll('.ba-hud [data-hud]')) {
     const el = n as HTMLElement;
@@ -207,30 +212,32 @@ function plateBoxes(): Record<string, Box> {
 
 interface Seen { lane: number; x: number; y: number; r: number; kind: string }
 
-function targetsOf(r: Running): Seen[] {
-  const e = r.game.engine;
+function targetsOf(kit: Scene2DKit, e: TargetGame<BaseSpec>['engine']): Seen[] {
   if (!e) return [];
   const v = e.view();
   const out = { x: 0, y: 0 };
   const list: Seen[] = [];
   v.lanes.forEach((l, i) => {
-    const pr = makeProjector(l.profile, r.kit.rects.mirror, l.profile.aspect);
+    const pr = makeProjector(l.profile, kit.rects.mirror, l.profile.aspect);
     for (const t of l.targets) {
       pr.into({ x: t.x, y: t.y }, out);
-      list.push({ lane: i + 1, x: out.x, y: out.y, r: t.r * l.profile.T * r.kit.rects.mirror.h, kind: (t.spec as PadSpec).kind ?? 'target' });
+      list.push({ lane: i + 1, x: out.x, y: out.y, r: t.r * l.profile.T * kit.rects.mirror.h, kind: (t.spec as PadSpec).kind ?? 'target' });
     }
   });
   return list;
 }
 
-function checkGeometry(r: Running): void {
-  const m = r.kit.rects.mirror;
+export interface Geo { checked: number; violations: string[] }
+
+/** Every target (but a swinging bag, which comes in from the side by design) inside the picture and clear of every plate, right now. */
+export function checkTargets(kit: Scene2DKit, engine: TargetGame<BaseSpec>['engine'], geo: Geo): void {
+  const m = kit.rects.mirror;
   const plates = plateBoxes();
-  const t = r.game.engine?.view().t ?? 0;
-  const bad = (what: string): void => { if (r.geo.violations.length < 20) r.geo.violations.push(`${what} at ${Math.round(t)} ms`); };
-  for (const s of targetsOf(r)) {
+  const t = engine?.view().t ?? 0;
+  const bad = (what: string): void => { if (geo.violations.length < 20) geo.violations.push(`${what} at ${Math.round(t)} ms`); };
+  for (const s of targetsOf(kit, engine)) {
     if (s.kind === 'bag') continue;
-    r.geo.checked++;
+    geo.checked++;
     if (s.x - s.r < m.x - 1 || s.x + s.r > m.x + m.w + 1 || s.y - s.r < m.y - 1 || s.y + s.r > m.y + m.h + 1) bad(`lane ${s.lane} target outside the picture (${Math.round(s.x)}, ${Math.round(s.y)} r ${Math.round(s.r)})`);
     for (const [name, p] of Object.entries(plates)) {
       if (name === 'pip') continue;
@@ -272,7 +279,7 @@ function frame(r: Running, now: number): void {
   }
   r.game.render(Math.min(1, r.acc / (1000 / 60)));
   r.rendered++;
-  if (r.rendered % 3 === 0) checkGeometry(r);
+  if (r.rendered % 3 === 0) checkTargets(r.kit, r.game.engine ?? null, r.geo);
   if (r.phase === 'running') r.raf = requestAnimationFrame((t) => frame(r, t));
 }
 

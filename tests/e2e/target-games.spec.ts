@@ -9,7 +9,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { DEV_URL } from './support/ports.ts';
 import type * as Harness from './pages/target-games-harness.ts';
 
-type H = typeof Harness;
+type H = Pick<typeof Harness, 'start' | 'stop' | 'state' | 'pixel' | 'key' | 'aim'>;
 type State = NonNullable<Awaited<ReturnType<H['state']>>>;
 
 const GAMES = ['star-catch', 'pad-work', 'reaction-tag'] as const;
