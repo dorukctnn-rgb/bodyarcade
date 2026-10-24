@@ -48,8 +48,12 @@ export async function loadGame(id: string): Promise<GameModule | null> {
   return file.default;
 }
 
-/** The runner draws in 3D; every other template draws on the 2D kit. */
-export const kitFor = (template: string): '2d' | '3d' => (template === 'runner' ? '3d' : '2d');
+/**
+ * The games that draw with the 3D kit. Everything else draws on the 2D kit, whatever its template says: Knee Sprint is
+ * template A (the runner) like Road Run, but runs on the 2D kit. A game that moves to the 3D kit is added here.
+ */
+export const GAMES_IN_3D: ReadonlySet<string> = new Set(['road-run']);
+export const kitFor = (gameId: string): '2d' | '3d' => (GAMES_IN_3D.has(gameId) ? '3d' : '2d');
 
 export interface RealSessionDeps {
   /** The store of one game (its best scores and the like). */
@@ -77,7 +81,7 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
   return (r: SessionRequest): Session | null => {
     const doc = r.stage.scene.ownerDocument;
     const view = doc.defaultView as Window & typeof globalThis;
-    const kind = kitFor(r.game.template);
+    const kind = kitFor(r.game.id);
     const mode = hudModeFor(r.game);
     const canvas = doc.createElement('canvas');
     canvas.className = 'ba-scene-canvas';

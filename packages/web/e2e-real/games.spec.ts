@@ -81,16 +81,17 @@ for (const size of SIZES) {
         const time = page.locator('[data-ref="timer"]').first();
         const t0 = await time.textContent();
         const seen = { painted: 0, colours: 0 };
+        const in3d = g.id === 'road-run';
         for (let i = 0; i < 24; i++) {
           await page.keyboard.press(KEYS[i % KEYS.length] ?? 'Space');
           await page.waitForTimeout(250);
-          if (i % 6 === 5 && g.template !== 'runner') {
+          if (i % 6 === 5 && !in3d) {
             const s = await sceneStats(page);
             if (s) { seen.painted = Math.max(seen.painted, s.painted); seen.colours = Math.max(seen.colours, s.colours); }
           }
         }
         expect(await time.textContent(), 'the HUD timer moves').not.toBe(t0);
-        if (g.template !== 'runner') {
+        if (!in3d) {
           expect(seen.painted, 'the scene draws something').toBeGreaterThan(20);
           expect(seen.colours, 'more than one colour on the scene').toBeGreaterThan(2);
         }
@@ -149,7 +150,7 @@ test.describe('whole rounds on a fake clock (laptop)', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   // The full set takes about fifteen minutes (a round of Pad Work lasts seven); BA_FULL_ROUNDS=1 runs it, the default is the shortest 2D game.
-  for (const g of games.filter((x) => x.template !== 'runner' && (process.env['BA_FULL_ROUNDS'] === '1' || x.id === 'star-catch'))) {
+  for (const g of games.filter((x) => x.id !== 'road-run' && (process.env['BA_FULL_ROUNDS'] === '1' || x.id === 'star-catch'))) {
     test(`${g.id}: a whole round ends in the results, Play again starts it again`, async ({ page }) => {
       test.setTimeout(420_000);
       const errors = collectErrors(page);
