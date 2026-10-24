@@ -35,8 +35,8 @@ export const FJ_STRINGS: Tables = {
   de: {
     'fj.prompt.ready': 'Bereit',
     'fj.prompt.jack': `Hampel${S}mann`,
-    'fj.prompt.arm': 'Armhampeln',
-    'fj.prompt.step': 'Schritt-Jack',
+    'fj.prompt.arm': 'Arm­hampeln',
+    'fj.prompt.step': 'Schritt­jack',
     'fj.prompt.rest': 'Pause',
     'fj.prompt.finale': 'Finale',
     'fj.announce.set': 'Satz {n} von {of}, {bpm} Jacks pro Minute.',
@@ -108,7 +108,7 @@ export const TT_STRINGS: Tables = {
   de: {
     'tt.prompt.ready': 'Bereit',
     'tt.prompt.twist': 'Drehen',
-    'tt.prompt.fast': 'Schneller',
+    'tt.prompt.fast': 'Schnel­ler',
     'tt.prompt.holdL': 'Halte links',
     'tt.prompt.holdR': 'Halte rechts',
     'tt.prompt.rest': 'Pause',
@@ -126,7 +126,7 @@ export const TT_STRINGS: Tables = {
     'tt.prompt.ready': 'Listo',
     'tt.prompt.twist': 'Gira',
     'tt.prompt.fast': 'Más rápido',
-    'tt.prompt.holdL': 'Izquierda',
+    'tt.prompt.holdL': 'Izquier­da',
     'tt.prompt.holdR': 'Derecha',
     'tt.prompt.rest': 'Descanso',
     'tt.prompt.finale': 'Luces',
