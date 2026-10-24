@@ -95,6 +95,13 @@ export const SCENARIOS: Record<string, Scenario> = {
   // and the silence limit (40 s) must not mistake that for a vanished phone
   idle_lobby_long: { video: false, readyDelayMs: 75_000, note: 'sockets that only ping stay seated' },
   hide_long_b: { video: true, dur: 30, actions: [{ at: 8000, do: 'hide', p: 1 }, { at: 36_000, do: 'show', p: 1 }] },
+  // more ways an evening goes wrong: two reloads at once in a room of four, a hidden tab during the 3-2-1, both players
+  // hiding and coming back one after the other, a hidden tab that reloads before it comes back, three server restarts of the sockets in a row
+  group4_double_reload: { players: 4, video: false, dur: 30, actions: [{ at: 8000, do: 'reload', p: 1 }, { at: 8000, do: 'reload', p: 2 }] },
+  hide_countdown_b: { video: true, pre: [{ at: 800, do: 'hide', p: 1 }, { at: 2600, do: 'show', p: 1 }] },
+  both_hide: { video: true, dur: 30, actions: [{ at: 8000, do: 'hide', p: 0 }, { at: 8600, do: 'hide', p: 1 }, { at: 11_000, do: 'show', p: 0 }, { at: 12_500, do: 'show', p: 1 }] },
+  hide_reload_b: { video: true, dur: 30, actions: [{ at: 7000, do: 'hide', p: 1 }, { at: 10_000, do: 'reload', p: 1 }] },
+  ws_kick3: { video: true, dur: 30, actions: [{ at: 6000, do: 'kick' }, { at: 8000, do: 'kick' }, { at: 10_000, do: 'kick' }] },
   deploy_mid_match: { video: true, actions: [{ at: 8000, do: 'deploy' }] },
   deploy_countdown: { video: true, pre: [{ at: 1200, do: 'deploy' }] },
 };
