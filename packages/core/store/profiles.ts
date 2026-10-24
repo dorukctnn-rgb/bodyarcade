@@ -582,8 +582,10 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
 
   function viewOf(doc: BookDoc, rec: StoredProfile, locked: boolean, activeSeq: number): ProfileView {
     const owner = rec.seq === 1;
-    // The guard is for the owner while the owner is the one playing; a kid's rules until the parent gate is passed.
-    const guarded = doc.guard && owner && activeSeq === 1;
+    // The guard is for the owner while the owner is the one playing; a kid's rules until the parent gate is passed. It is also on
+    // for a page whose kid's profile the plan has just locked and that has not been told yet (refresh() writes it down a moment
+    // later): the answer of every read is the guarded one, so no read in between hands the child the owner's online identity.
+    const guarded = (doc.guard || lockedKid(doc, current)) && owner && activeSeq === 1;
     return {
       id: idOf(rec.seq),
       name: rec.name || recoveredName(rec.seq),
@@ -677,7 +679,9 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
   function liftGuard(): void {
     if (frozen || disposed) return;
     const doc = peekDoc();
-    if (!doc || !doc.guard) return;
+    if (!doc) return;
+    if (!doc.guard && lockedKid(doc, current)) settle(doc);       // the guard this page shows has not been written down yet: write it, so there is one to lift
+    if (!doc.guard) return;
     doc.guard = false;
     write(doc);
     emit('refreshed', null);

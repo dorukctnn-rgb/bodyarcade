@@ -821,6 +821,41 @@ describe('the guard: a child is not handed to the owner\'s profile because a pla
     expect(r.book.needsPicker()).toBe(true);
   });
 
+  it('is on at once for a page the plan has not told yet: every read says guarded before anybody calls refresh(), and nothing is written by reading', () => {
+    const r = family();
+    go(r, r.kid);
+    r.events.length = 0;
+    const before = r.storage.dump();
+    r.state.plan = 'free';                                                // the plan ended; the entitlements have not told the book yet
+    expect(r.book.active()).toMatchObject({ id: 'p1', owner: true, guarded: true, rules: { online: false, purchase: 'parent_gate' } });
+    expect(r.book.guarded).toBe(true);
+    expect(r.book.online()).toBe(false);
+    expect(r.book.canPurchase()).toBe(false);
+    expect(r.book.picker()).toMatchObject({ ask: true, guarded: true, manage: false });
+    expect(r.book.switchTo('p1')).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.book.create({ name: 'Yeni' })).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.storage.dump()).toEqual(before);                             // reads and refusals write nothing
+    r.book.refresh();                                                     // the told book writes it down, and says so
+    expect(r.storage.getItem('ba2.profiles.book')).toContain('"guard":true');
+    expect(r.events).toEqual([{ kind: 'switched', id: 'p1', active: 'p1', online: false, guarded: true, reason: 'plan' }]);
+  });
+
+  it('is lifted by a right answer even when the page was never told: the answer writes the guard down, then takes it off', () => {
+    const r = family();
+    go(r, r.kid);
+    r.events.length = 0;
+    r.state.plan = 'pro';                                                 // Family became Pro; nobody told the book
+    expect(r.book.guarded).toBe(true);
+    passGate(r);
+    expect(r.book.guarded).toBe(false);
+    expect(r.book.active()).toMatchObject({ id: 'p1', guarded: false });
+    expect(r.book.online()).toBe(true);
+    expect(r.storage.getItem('ba2.profiles.book')).toContain('"guard":false');
+    expect(r.events.at(-1)).toMatchObject({ kind: 'refreshed', active: 'p1', online: true, guarded: false });
+    expect(r.page().book.guarded).toBe(false);                            // lifted for good
+    expect(r.book.list().find((v) => v.id === r.kid)?.state).toBe('locked');   // and the kid's profile is still locked, nothing deleted
+  });
+
   it('keeps the online features and the sync port shut for it, even when the plan that is left would allow them', () => {
     const r = lapsed('pro');                                              // the Family plan became Pro: live play is paid for, the guard alone keeps it shut
     const owner = r.book.open();
