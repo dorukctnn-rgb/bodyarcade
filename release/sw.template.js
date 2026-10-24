@@ -9,6 +9,11 @@
 // Strategies: hashed build files cache first (they never change under one name); pages network first with a
 // time limit, then the cached copy of that page, then the cached start page of its language (the app draws the
 // route itself); /api/*, other origins and non-GET requests are never touched.
+//
+// Invitation and friend-link pages (/r/CODE, /f/BA-XXXXXX, also under a language prefix) are the exception to "the cached copy of
+// that page": the Worker serves the start page under every such address and the app reads the code from the address, so a
+// copy per code would only collect old shells and codes in the cache. They are never stored; when the network is out, slow or
+// answers with a failure they get the cached start page of their language, never an old copy and never a cached 404.
 /* eslint-disable no-restricted-globals */
 const CONFIG = /*__CONFIG__*/ { build: 'dev', precache: [], startPages: { en: '/' }, libPrefixes: ['/vendor/mediapipe/'], libCache: 'ba-lib-dev', navTimeoutMs: 3500 };
 
@@ -22,6 +27,8 @@ const isLib = (path) => CONFIG.libPrefixes.some((p) => path.startsWith(p));
 const isBuildFile = (path) => path.startsWith('/static/');
 const isMedia = (path) => /\.(?:png|jpe?g|webp|avif|gif|svg|ico|woff2?)$/i.test(path);
 const never = (path) => path.startsWith('/api/') || path === '/sw.js' || path === '/sw-register.js' || path === '/version.json';
+/** /r/CODE and /f/BA-XXXXXX, with or without a language prefix such as /tr/. */
+const isLink = (path) => /^\/(?:[a-z]{2}\/)?[fr]\/[^/]+\/?$/.test(path);
 const cacheable = (res) => !!res && res.ok && res.status === 200 && (res.type === 'basic' || res.type === 'default');
 
 self.addEventListener('install', (event) => {
@@ -96,18 +103,26 @@ function startPageFor(path) {
 async function page(event) {
   const request = event.request;
   const path = new URL(request.url).pathname;
+  const link = isLink(path);
   const network = (async () => {
     const preloaded = event.preloadResponse ? await event.preloadResponse.catch(() => undefined) : undefined;
     const res = preloaded || await fetch(request);
-    if (cacheable(res) && !res.redirected) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(path, copy)).catch(() => undefined); }
+    if (!link && cacheable(res) && !res.redirected) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(path, copy)).catch(() => undefined); }
     return res;
   })();
-  const fromCache = async () => (await caches.match(path)) || (await caches.match(startPageFor(path)));
+  const fromCache = async () => (link ? undefined : await caches.match(path)) || (await caches.match(startPageFor(path)));
   let timer;
   const slow = new Promise((resolve) => { timer = setTimeout(() => resolve('slow'), CONFIG.navTimeoutMs); });
   try {
     const first = await Promise.race([network, slow]);
-    if (first !== 'slow') return first;
+    if (first !== 'slow') {
+      // A link that the server could not answer well (not found, a failure) opens the start page the build carries: the app shows what it can.
+      if (link && (first.status === 404 || first.status >= 500)) {
+        const cached = await fromCache();
+        if (cached) return cached;
+      }
+      return first;
+    }
     // A slow network ("lie-fi"): the cached copy now, the network answer still updates the cache.
     const cached = await fromCache();
     if (cached) { event.waitUntil(network.catch(() => undefined)); return cached; }

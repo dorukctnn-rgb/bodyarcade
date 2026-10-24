@@ -230,6 +230,76 @@ describe('service worker', () => {
   });
 });
 
+describe('service worker: invitation and friend-link pages', () => {
+  const pathOf = (u: string) => new URL(u).pathname;
+  const cached = (s: ReturnType<typeof sandbox>) => [...(s.stores.get('ba-shell-b1')?.map.keys() ?? [])].map(pathOf).sort();
+
+  it('a room link and a friend link open from the network and are never stored under their own address', async () => {
+    const s = sandbox(async (url) => ok(`page ${pathOf(url)}`));
+    await s.lifecycle('install');
+    for (const p of ['/r/K7Q2MX', '/f/BA-7K2Q4X', '/tr/f/BA-7K2Q4X/', '/tr/r/K7Q2MX/', '/fr/r/K7Q2MX/', '/de/f/BA-7K2Q4X']) {
+      expect(await (await s.request(p, { mode: 'navigate' }))?.text(), p).toBe(`page ${p}`);
+    }
+    await s.settle();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(cached(s)).toEqual(['/', '/static/main-a.css', '/static/main-a.js', '/tr/']);
+    // the other pages are cached as before
+    await s.request('/friends/', { mode: 'navigate' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(cached(s)).toContain('/friends/');
+  });
+
+  it('with the network out they get the cached start page of their language, also when an older build left a copy of that address', async () => {
+    let online = true;
+    const s = sandbox(async (url) => { if (!online) throw new TypeError('offline'); return ok(`page ${pathOf(url)}`); });
+    await s.lifecycle('install');
+    // a copy under a code, as an older worker would have left it
+    await s.stores.get('ba-shell-b1')?.put('/r/K7Q2MX', ok('an old shell'));
+    online = false;
+    expect(await (await s.request('/r/K7Q2MX', { mode: 'navigate' }))?.text()).toBe('page /');
+    expect(await (await s.request('/f/BA-7K2Q4X', { mode: 'navigate' }))?.text()).toBe('page /');
+    expect(await (await s.request('/tr/f/BA-7K2Q4X/', { mode: 'navigate' }))?.text()).toBe('page /tr/');
+    expect(await (await s.request('/tr/r/K7Q2MX', { mode: 'navigate' }))?.text()).toBe('page /tr/');
+  });
+
+  it('a slow network gets the start page at once; a link the server cannot answer well (404 or a failure) gets it too, and a good answer is passed on as it is', async () => {
+    let mode: 'slow' | '404' | '503' | 'ok' = 'slow';
+    const s = sandbox(async (url) => {
+      if (mode === 'slow') await new Promise((r) => setTimeout(r, 200));
+      if (mode === '404') return new Response('missing', { status: 404 });
+      if (mode === '503') return new Response('down', { status: 503 });
+      return ok(`new ${pathOf(url)}`);
+    });
+    await s.lifecycle('install');
+    const t0 = Date.now();
+    expect(await (await s.request('/r/K7Q2MX', { mode: 'navigate' }))?.text()).toBe('new /');                       // the cached start page of the install
+    expect(Date.now() - t0).toBeLessThan(180);
+    await s.settle();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(cached(s)).not.toContain('/r/K7Q2MX');
+    mode = '404';
+    expect((await s.request('/f/BA-7K2Q4X', { mode: 'navigate' }))?.status).toBe(200);
+    mode = '503';
+    expect((await s.request('/f/BA-7K2Q4X', { mode: 'navigate' }))?.status).toBe(200);
+    mode = 'ok';
+    expect(await (await s.request('/f/BA-7K2Q4X', { mode: 'navigate' }))?.text()).toBe('new /f/BA-7K2Q4X');
+    // without a start page in the cache the answer itself is all there is
+    const bare = sandbox(async () => new Response('missing', { status: 404 }), { precache: [] });
+    await bare.lifecycle('install');
+    expect((await bare.request('/r/K7Q2MX', { mode: 'navigate' }))?.status).toBe(404);
+  });
+
+  it('only real link addresses are links: a page of the app that happens to start with f or r is cached like any other', async () => {
+    const s = sandbox(async (url) => ok(`page ${pathOf(url)}`));
+    await s.lifecycle('install');
+    for (const p of ['/r/', '/r', '/friends/', '/results/', '/f/a/b', '/frames/x']) await s.request(p, { mode: 'navigate' });
+    await s.settle();
+    await new Promise((r) => setTimeout(r, 0));
+    const stored = cached(s);
+    for (const p of ['/r/', '/r', '/friends/', '/results/', '/f/a/b', '/frames/x']) expect(stored, p).toContain(p);
+  });
+});
+
 describe('precache list', () => {
   it('takes every hashed build file but source maps, after the start pages', () => {
     expect(precacheList(['/static/a.js', '/static/a.js.map', '/index.html', '/static/b.css', '/vendor/x.wasm'], ['/', '/tr/'])).toEqual(['/', '/tr/', '/static/a.js', '/static/b.css']);
