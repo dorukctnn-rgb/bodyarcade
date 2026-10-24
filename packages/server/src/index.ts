@@ -8,11 +8,14 @@
 import type { Fetcher, ExecutionContextLike } from './cf.ts';
 import { router } from './router.ts';
 import { registerLiveRoutes } from './live/routes.ts';
+import { registerSocial } from './social/index.ts';
 
 export { Room } from './live/room.ts';
+export { PlayerHub } from './social/index.ts';
 
 // ───────── modules (one line each) ─────────
 registerLiveRoutes(router);
+registerSocial(router);
 
 export default {
   async fetch(req: Request, env: Record<string, unknown>, ctx: ExecutionContextLike): Promise<Response> {

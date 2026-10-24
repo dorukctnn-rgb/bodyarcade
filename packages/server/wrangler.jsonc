@@ -16,8 +16,12 @@
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "single-page-application"
   },
-  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "HUB", "class_name": "PlayerHub" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["PlayerHub"] }],
+  // Social (profiles, friends, presence, lobby directory, moderation). Create the database once, then put its id here:
+  //   npx wrangler d1 create bodyarcade-social        and        npx wrangler d1 migrations apply bodyarcade-social --remote
+  // Optional secrets: ADMIN_TOKEN (the moderation API answers 404 without it), SOCIAL_MAX_SIGNUPS_PER_DAY (var).
+  "d1_databases": [{ "binding": "DB", "database_name": "bodyarcade-social", "database_id": "SET_AT_DEPLOY", "migrations_dir": "migrations" }],
   "vars": { "PUBLIC_ORIGIN": "https://bodyarcade.com" },
   "observability": { "enabled": true }
 }
