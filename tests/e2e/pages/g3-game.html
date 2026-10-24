@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>G3 games harness</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1A1430; overflow: hidden; }
+  /* The shell reserves a scrollbar gutter; this page never scrolls, so the picture uses the whole width. */
+  html { scrollbar-gutter: auto; }
+  /* The shell's own self view tile is opaque; the harness lets the picture the game draws show through it. */
+  .ba-hud .tile[data-hud="pip"] { background: transparent; box-shadow: none; }
+  .ba-hud .tile[data-hud="pip"] .tag, .ba-hud .tile[data-hud="pip"] .move { display: none; }
+</style>
+</head>
+<body class="ba-app--play">
+<div class="ba-stage" data-stage>
+  <div class="ba-stage-scene" data-scene></div>
+  <div class="ba-camera-host" data-camera-host></div>
+  <div class="ba-hud" data-hud-root></div>
+</div>
+<script type="module" src="./g3-game-harness.ts"></script>
+</body>
+</html>

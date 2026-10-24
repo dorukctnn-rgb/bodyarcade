@@ -1,0 +1,190 @@
+// Browser side of tests/e2e/g3-games.spec.ts: one game of builder G3 on the real stack as far as a page can have it without a
+// person: the Session, the pose feed, the movement detectors, the input hub, the 2D scene kit, the shell's own HUD and stylesheet,
+// the real audio kit; only the camera and the pose model are replaced by a synthetic body (the movement library's rig) delivered as
+// pose frames in real time, and the body looks at the game to know what to do (the next beat, gate or wall). Nothing here asserts;
+// the spec does.
+//   ?game=firework-jacks|twist-turbine|limbo-bend|pose-wall  &mode=solo|local2  &difficulty=easy  &seated=1  &quiet=1
+//   &body=perfect|late|sloppy|idle  &corner=bottom-right  &workS=18  (the length of the one set that is played)
+import '../../../packages/web/src/styles/app.css';
+import { createAudio } from '../../../packages/core/audio/audio.ts';
+import { SFX_NAMES } from '../../../packages/core/audio/sfx.ts';
+import { rngStream } from '../../../packages/core/loop/rng.ts';
+import { createScene2D } from '../../../packages/core/render2d/scene2d.ts';
+import type { Rect } from '../../../packages/core/render2d/view.ts';
+import { createI18n } from '../../../packages/core/ui/i18n/index.ts';
+import { PlayHud } from '../../../packages/core/ui/hud/hud.ts';
+import type { PipPlacement } from '../../../packages/core/ui/layout.ts';
+import { SHAPE_FULL, SHAPE_UPPER, type RigShape } from '../../../packages/core/moves/testing/rig.ts';
+import type { GameModule } from '../../../packages/core/types/index.ts';
+import { createChain, type ChainPerson } from '../../../packages/games/kit-g1/testing/chain.ts';
+import { fireworkJacksModule, manifest as fjManifest, strings as fjStrings } from '../../../packages/games/firework-jacks/index.ts';
+import { twistTurbineModule, manifest as ttManifest, strings as ttStrings } from '../../../packages/games/twist-turbine/index.ts';
+import { limboBendModule, manifest as lbManifest, strings as lbStrings } from '../../../packages/games/limbo-bend/index.ts';
+import { poseWallModule, manifest as pwManifest, strings as pwStrings } from '../../../packages/games/pose-wall/index.ts';
+import { fjLayout } from '../../../packages/games/strength/fireworks-view.ts';
+import { ttLayout } from '../../../packages/games/strength/turbine-view.ts';
+import { lbLayout } from '../../../packages/games/gatepose/limbo-view.ts';
+import { pwLayout } from '../../../packages/games/gatepose/posewall-view.ts';
+import { jackPerson, twistPerson } from '../../../packages/games/strength/testing/people.ts';
+import { bendPerson, posePerson } from '../../../packages/games/gatepose/testing/people.ts';
+
+const q = new URLSearchParams(location.search);
+const id = q.get('game') ?? 'pose-wall';
+const mode = q.get('mode') === 'local2' ? 'local2' : 'solo';
+const difficulty = q.get('difficulty') ?? 'easy';
+const seated = q.get('seated') === '1';
+const quiet = q.get('quiet') === '1';
+const body = (q.get('body') ?? 'perfect') as 'perfect' | 'late' | 'sloppy' | 'idle';
+const workS = Number(q.get('workS') ?? 18);
+
+const errors: string[] = [];
+window.addEventListener('error', (e) => errors.push(`error: ${e.message}`));
+window.addEventListener('unhandledrejection', (e) => errors.push(`rejection: ${String((e.reason as Error)?.message ?? e.reason)}`));
+
+const sceneEl = document.querySelector('[data-scene]') as HTMLElement;
+const hudEl = document.querySelector('[data-hud-root]') as HTMLElement;
+const cameraHost = document.querySelector('[data-camera-host]') as HTMLElement;
+
+interface Geometry { w: number; h: number; play: Rect; pip: Rect | null; lanes: readonly [Rect, Rect] | null }
+interface Entry {
+  module: GameModule;
+  strings: Parameters<ReturnType<typeof createI18n>['extend']>[1];
+  /** The corner the self view starts in (design/LAYOUT.md 5: E bottom left, F bottom right). */
+  corner: PipPlacement;
+  people(shapes: RigShape[]): ChainPerson[];
+  /** What must stay out from under the plates and the self view. */
+  keep(g: Geometry, players: 1 | 2): Rect[];
+}
+
+const strengthTiming = { sets: 1, workS, restS: 4, finaleS: 3 };
+const games: Record<string, Entry> = {
+  'firework-jacks': {
+    module: fireworkJacksModule(structuredClone(fjManifest), { timing: { ...strengthTiming, countIn: 4 } }),
+    strings: fjStrings, corner: 'bottom-left',
+    people: (shapes) => shapes.map((shape, i) => jackPerson({ kind: body, lane: i, seated, quiet, shape })),
+    keep: (g, players) => fjLayout(g, players).zones.flatMap((z) => z.keep),
+  },
+  'twist-turbine': {
+    module: twistTurbineModule(structuredClone(ttManifest), { timing: { ...strengthTiming, workS: Math.max(workS, 30) } }),
+    strings: ttStrings, corner: 'bottom-left',
+    people: (shapes) => shapes.map((shape) => twistPerson({ kind: body, seated, shape })),
+    keep: (g) => { const k = ttLayout(g).keep; return [k.turbine, k.avatar, k.pace]; },
+  },
+  'limbo-bend': {
+    module: limboBendModule(structuredClone(lbManifest), { timing: { sets: 1, workS, finaleS: 3 } }),
+    strings: lbStrings, corner: 'bottom-right',
+    people: (shapes) => shapes.map((shape, i) => bendPerson({ kind: body === 'late' ? 'perfect' : body, lane: i as 0 | 1, seated, shape })),
+    keep: (g, players) => lbLayout(g, players).zones.map((z) => z.keep),
+  },
+  'pose-wall': {
+    module: poseWallModule(structuredClone(pwManifest), { timing: { sets: 1, workS, finaleS: 3 } }),
+    strings: pwStrings, corner: 'bottom-right',
+    people: (shapes) => shapes.map((shape, i) => posePerson({ kind: body === 'late' ? 'perfect' : body, lane: i as 0 | 1, seated, shape })),
+    keep: (g, players) => pwLayout(g, players).zones.map((z) => z.keep),
+  },
+};
+
+const entry = games[id];
+if (!entry) throw new Error(`No harness entry for ${id}`);
+const corner = (q.get('corner') ?? entry.corner) as PipPlacement;
+
+const i18n = createI18n('en');
+i18n.extend(`game.${id}`, entry.strings);
+const say = i18n.scoped(`game.${id}`);
+
+const canvas = document.createElement('canvas');
+sceneEl.append(canvas);
+const rng = rngStream(9, 'fx');
+const kit = createScene2D({ canvas, size: () => ({ width: sceneEl.clientWidth, height: sceneEl.clientHeight }), devicePixelRatio: () => window.devicePixelRatio || 1, rng });
+
+const announced: string[] = [];
+const hud: PlayHud = new PlayHud({
+  document, root: hudEl, cameraHost, i18n, mode: 'scene', pipCorner: corner, duo: mode === 'local2',
+  announce: (t) => { announced.push(t); }, toast: () => undefined, onPause: () => undefined, onMovePip: () => undefined,
+  onLayout: () => sync(),
+});
+
+/** The shell keeps the scene kit's layout in step with the plates the HUD really drew. */
+function size(name: string): { w: number; h: number } {
+  const el = hudEl.querySelector<HTMLElement>(`[data-hud="${name}"]`);
+  if (!el || el.hidden) return { w: 1, h: 1 };
+  const r = el.getBoundingClientRect();
+  return { w: Math.max(1, Math.ceil(r.width)), h: Math.max(1, Math.ceil(r.height)) };
+}
+function sync(): void {
+  if (mode === 'local2') kit.setHudDuo({ statusP1: size('statusP1'), statusP2: size('statusP2'), timer: size('timer'), command: size('command'), reasonP1: size('reasonP1'), reasonP2: size('reasonP2') });
+  else kit.setHud({ mode: 'scene', pipCorner: corner, measured: { statusLeft: size('statusLeft'), statusRight: size('statusRight'), command: size('command'), reason: size('reason') } });
+}
+
+const resize = (): void => { kit.resize(); sync(); };
+window.addEventListener('resize', resize);
+
+const audio = createAudio();
+const people = entry.people(mode === 'local2'
+  ? [{ ...SHAPE_FULL, aspect: 16 / 9, cx: 0.68, T: 0.17 }, { ...SHAPE_FULL, aspect: 16 / 9, cx: 0.32, T: 0.17 }]
+  : [seated ? { ...SHAPE_UPPER, aspect: 16 / 9, T: 0.24 } : { ...SHAPE_FULL, aspect: 16 / 9, T: 0.2 }]);
+
+const chain = createChain({
+  module: entry.module, mode, difficulty, seated, quiet, people, realtime: true, scene2d: kit, hud, audio, countdownMs: 1500, seed: 5, t: (k, v) => say(k, v),
+});
+const session = chain.session;
+session.on('state', (s) => {
+  if (s === 'calibrating' || s === 'setup') hud.setPhase('calibrate');
+  else if (s === 'countdown' || s === 'running') hud.setPhase('play');
+  if (s === 'running') frames.length = 0;
+});
+
+const frames: number[] = [];
+let last = 0;
+const tick = (t: number): void => {
+  if (session.state === 'running' && last) frames.push(t - last);
+  last = session.state === 'running' ? t : 0;
+  requestAnimationFrame(tick);
+};
+requestAnimationFrame(tick);
+
+function rect(el: Element | null): { x: number; y: number; w: number; h: number } | null {
+  if (!el || (el as HTMLElement).hidden) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height };
+}
+
+const geometry = (): Geometry => ({ w: kit.rects.w, h: kit.rects.h, play: kit.rects.play, pip: kit.rects.pip, lanes: kit.rects.lanes ?? null });
+
+window.ba = {
+  id, mode, difficulty, seated, quiet, body, say,
+  chain, hud, kit, canvas, audio, errors, announced,
+  start: async () => { audio.unlock(); resize(); await chain.start(); chain.pump(); },
+  state: () => {
+    const g = chain.game() as unknown as { sim?: { phase: string; k: number; segment: { kind: string } } } | null;
+    return { session: chain.session.state, game: g?.sim ? { phase: g.sim.phase, k: g.sim.k, segment: g.sim.segment.kind } : null, seen: chain.seen };
+  },
+  /** The score and counts of the run so far, from the game's own summary. */
+  summary: () => { try { return (chain.game() as unknown as { summary(): unknown } | null)?.summary() ?? null; } catch { return null; } },
+  /** What must stay clear of the plates and of the self view, where the view puts it on this screen. */
+  keep: () => entry.keep(geometry(), mode === 'local2' ? 2 : 1),
+  plates: () => [...hudEl.querySelectorAll('[data-hud]')].filter((e) => !(e as HTMLElement).hidden).map((e) => ({ name: (e as HTMLElement).dataset['hud'] as string, ...rect(e)! })),
+  /** The reason strip(s) as the player reads them. */
+  reasons: () => ['reason', 'reasonP1', 'reasonP2'].map((n) => hudEl.querySelector<HTMLElement>(`[data-hud="${n}"]`)).filter((e): e is HTMLElement => !!e && !e.hidden).map((e) => (e.textContent ?? '').trim()).filter((t) => t.length > 0),
+  command: () => (hudEl.querySelector<HTMLElement>('[data-hud="command"]')?.textContent ?? '').trim(),
+  rects: () => kit.rects,
+  problems: () => hud.problems(),
+  frames: () => [...frames],
+  audioStats: () => ({ ...audio.stats(), names: SFX_NAMES.length }),
+  pixelCheck: () => {
+    // Is the canvas drawn at all: count distinct colours on a coarse grid (one read-back of the whole picture).
+    const c = canvas.getContext('2d') as CanvasRenderingContext2D;
+    const img = c.getImageData(0, 0, canvas.width, canvas.height);
+    const seen = new Set<string>();
+    for (let gx = 1; gx < 12; gx++) for (let gy = 1; gy < 12; gy++) {
+      const i = (Math.floor((canvas.height * gy) / 12) * canvas.width + Math.floor((canvas.width * gx) / 12)) * 4;
+      seen.add(`${img.data[i]! >> 4},${img.data[i + 1]! >> 4},${img.data[i + 2]! >> 4}`);
+    }
+    return seen.size;
+  },
+};
+window.harnessReady = true;
+
+declare global {
+  interface Window { ba: Record<string, unknown> & { start(): Promise<void>; state(): unknown }; harnessReady?: boolean }
+}

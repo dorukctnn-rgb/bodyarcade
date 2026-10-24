@@ -15,19 +15,24 @@ const SOLO_ONLY: ReadonlySet<HudSlot> = new Set<HudSlot>(['score', 'hint', 'comb
 
 export class HudWriter {
   private readonly hud: Hud;
-  private readonly duo: boolean;
+  private readonly plates: boolean;
+  /** The run has two players: the plain score and reason plates are not there (the shell's HUD always has the player plates' writer, in a one-player run too). */
+  private twoPlayers = false;
   private readonly shown = new Map<string, string>();
 
   constructor(hud: Hud) {
     this.hud = hud;
-    this.duo = hasDuo(hud);
+    this.plates = hasDuo(hud);
   }
 
-  /** Is this the HUD of two players (with plates per player)? */
-  get hasPlayerPlates(): boolean { return this.duo; }
+  /** Does this HUD have plates per player (a duo-capable HUD)? */
+  get hasPlayerPlates(): boolean { return this.plates; }
+
+  /** How many players the run has: with two, the HUD has no plain score, combo or reason plate to write to (call it when a run starts). */
+  setPlayers(n: 1 | 2): void { this.twoPlayers = n === 2; }
 
   set(slot: HudSlot, v: HudValue): void {
-    if (this.duo && SOLO_ONLY.has(slot)) return;
+    if (this.plates && this.twoPlayers && SOLO_ONLY.has(slot)) return;
     const key = JSON.stringify(v);
     if (this.shown.get(slot) === key) return;
     this.shown.set(slot, key);

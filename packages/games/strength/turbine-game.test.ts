@@ -247,6 +247,21 @@ describe('the game on the contract', () => {
   });
 });
 
+describe('on the HUD of the shell (it has plates per player in every run)', () => {
+  it('a one-player run still writes the plain score, combo and reason', async () => {
+    const manifest = fresh();
+    const ctx = testContext({ seed: 3, duo: true });
+    const game = createTwistTurbineGame(manifest, { timing: SHORT });
+    await game.init(ctx);
+    game.start({ seed: 3, difficulty: 'normal', seated: false, mode: 'solo', profile: null });
+    game.step(FIXED_DT, inputFrame(1, {}, [], { source: 'pose' }));
+    game.render(0);
+    const slots = ctx.hudLog.map(([s]) => s);
+    for (const s of ['score', 'combo', 'hint', 'timer', 'prompt']) expect(slots, s).toContain(s);
+    expect(ctx.duoLog).toEqual([]);
+  });
+});
+
 describe('the view', () => {
   const corners: PipPlacement[] = ['bottom-left', 'bottom-right', 'top-left', 'top-right', 'hidden'];
 

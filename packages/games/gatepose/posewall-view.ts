@@ -57,6 +57,16 @@ export function mixHex(a: string, b: string, u: number): string {
   return `#${h(0)}${h(1)}${h(2)}`;
 }
 
+/**
+ * How big a wall is at progress u, as a share of its size at the arrival. It starts at a third of it and grows nearly in step with
+ * the time: a shape has to be read from afar, so the wall is not a speck at first (as a gate is in Limbo Bend, where only the
+ * tilt matters). Past the player it rushes up and fades, as every obstacle does (plan.ts).
+ */
+export function wallScale(u: number): number {
+  if (u <= 1) return 0.34 + 0.66 * Math.pow(Math.max(0, u), 1.7);
+  return depthScale(u);
+}
+
 const holeStyle = (rim: string): MoverStyle => ({ body: rim, head: rim, edge: null, bandL: rim, bandR: rim });
 const HOLE_DARK: MoverStyle = holeStyle(NIGHT.hole);
 const SLAB = { top: '#4B3D88', bottom: '#2D2356', lip: '#5A4A9E', edge: '#7567C8', seam: '#6A5BB0' } as const;
@@ -118,11 +128,11 @@ export function createPoseWallView(ctx: GameContext, stage: Stage, o: { reducedM
 
   /** The wall at progress u: the slab, and the hole in it. `glow` (0..1) warms the rim of a pending wall. */
   function drawWall(c: Ctx2D, z: Zone, sim: PoseWallSim, w: PwWall, u: number, state: Look, glow: number, seated: boolean): void {
-    const s = depthScale(u);
+    const s = wallScale(u);
     const px = z.vx + (z.hipX - z.vx) * s;
     const py = z.vy + (z.hipY - z.vy) * s;
     const T = z.T * s;
-    const alpha = u < 1 ? clamp(u * 3.2, 0, 1) : clamp(1 - (u - 1) / (PASS_END - 1), 0, 1);
+    const alpha = u < 1 ? clamp(u * 5, 0, 1) : clamp(1 - (u - 1) / (PASS_END - 1), 0, 1);
     if (alpha <= 0.01 || T < 1.2) return;
     const fade = state === 'skipped' ? 0.4 : state === 'missed' && u > 1 ? 0.6 : 1;
     const x = px - WALL.halfW * T;

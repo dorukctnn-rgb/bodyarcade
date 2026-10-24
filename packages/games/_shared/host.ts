@@ -157,6 +157,7 @@ export function createHostedGame<S extends HostSim>(spec: HostSpec<S>): HostedGa
       };
       sim = build(setup);
       freshView();
+      hud.setPlayers(setup.players);
       hud.reset();
       pending = [];
     },
@@ -198,6 +199,7 @@ export function createHostedGame<S extends HostSim>(spec: HostSpec<S>): HostedGa
       sim = build(setup);
       sim.restore(snap.sim);
       freshView();
+      hud.setPlayers(setup.players);
       hud.reset();
       pending = [];
     },
