@@ -10,6 +10,7 @@ import { createSession } from '../../core/loop/session.ts';
 import { DETECTORS } from '../../core/moves/index.ts';
 import { copyProblems } from '../../web/catalogue/copy.ts';
 import { duoFrame, evt, frame, testContext, type PlayerFrame, type TestCtx } from '../kit-g1/testing/context.ts';
+import { budgetProblems } from '../kit-g1/testing/strings.ts';
 import { testScene } from '../kit-g1/testing/scene.ts';
 import kneeSprint, { manifest, STRINGS } from '../knee-sprint/index.ts';
 import { createSprintGame, KEY_LIFT, MET, readLane, type SprintGame } from './game.ts';
@@ -331,7 +332,7 @@ describe('the quiet variant', () => {
     expect(types(r.events)).not.toContain('jump');
     expect(quiet.game.summary().cleared).toBe(2);
     expect(quiet.t.sounds).not.toContain('metronome');
-    expect(quiet.t.hud.some(([slot, v]) => slot === 'prompt' && (v as { text?: string })?.text === 'Knee to hip')).toBe(true);
+    expect(quiet.t.hud.some(([slot, v]) => slot === 'prompt' && (v as { text?: string })?.text === 'Lift knee')).toBe(true);
     // A player who jumps but never lifts a knee to the hip knocks them down.
     const jumper = await ready({ start: START({ difficulty: 'normal' }), ctx: { silent: true }, heats: 1 });
     const bot = sprintBot('perfect', 1);
@@ -457,6 +458,10 @@ describe('the manifest and the strings', () => {
       for (const k of ['cmd.march', 'cmd.run', 'cmd.jump', 'cmd.knee', 'warm.title', 'warm.body', 'ready.title', 'rest.title', 'miss.knee_not_high', 'miss.hurdle_none']) expect(STRINGS[lang]?.[k], `${lang} ${k}`).toBeTruthy();
     }
     expect(Object.keys(STRINGS.en ?? {}).length).toBeGreaterThan(30);
+  });
+
+  it('the commands and the reasons keep to the text budgets of design/LAYOUT.md section 8', () => {
+    expect(budgetProblems(STRINGS, { commands: /^(cmd\.|ready\.title$|rest\.title$)/, reasons: /^miss\./ })).toEqual([]);
   });
 
   it('the duration of the manifest is the length of a normal round: warm-up, four heats and three rests', () => {

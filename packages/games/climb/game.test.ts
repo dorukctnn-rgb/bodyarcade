@@ -10,6 +10,7 @@ import { createSession } from '../../core/loop/session.ts';
 import { DETECTORS } from '../../core/moves/index.ts';
 import { copyProblems } from '../../web/catalogue/copy.ts';
 import { evt, frame, testContext, type TestCtx } from '../kit-g1/testing/context.ts';
+import { budgetProblems } from '../kit-g1/testing/strings.ts';
 import { testScene } from '../kit-g1/testing/scene.ts';
 import summitClimb, { manifest, STRINGS } from '../summit-climb/index.ts';
 import { createClimbGame, HINT_SEC, KEY_LIFT, MET, readIn, type ClimbGame } from './game.ts';
@@ -485,6 +486,10 @@ describe('the manifest and the strings', () => {
     // The words in braces are the same in every language.
     const slots = (v: string): string => (v.match(/\{[a-z]+\}/g) ?? []).sort().join();
     for (const lang of ['tr', 'de', 'es', 'fr'] as const) for (const k of en) expect(slots(STRINGS[lang]?.[k] ?? ''), `${lang} ${k}`).toBe(slots(STRINGS.en?.[k] ?? ''));
+  });
+
+  it('the commands and the reasons keep to the text budgets of design/LAYOUT.md section 8', () => {
+    expect(budgetProblems(STRINGS, { commands: /^(cmd\.|ready\.title$|rest\.title$)/, reasons: /^miss\./ })).toEqual([]);
   });
 
   it('the duration of the manifest is the length of a normal round: warm-up, three climbs and two rests', () => {

@@ -120,9 +120,9 @@ export const tr: StringTable = {
 
 export const de: StringTable = {
   'cmd.reach': 'Hoch greifen',
-  'cmd.pull': 'Runterziehen',
+  'cmd.pull': 'Runter\u00ADziehen',
   'cmd.pullkey': 'Ziehen',
-  'cmd.step': 'Aufsteigen',
+  'cmd.step': 'Auf\u00ADsteigen',
   'cmd.leanLeft': 'Nach links',
   'cmd.leanRight': 'Nach rechts',
   'cmd.leanAside': 'Zur Seite',
@@ -180,7 +180,7 @@ export const es: StringTable = {
   'cmd.pull': 'Tira abajo',
   'cmd.pullkey': 'Tira',
   'cmd.step': 'Sube',
-  'cmd.leanLeft': 'Izquierda',
+  'cmd.leanLeft': 'Iz\u00ADquier\u00ADda',
   'cmd.leanRight': 'Derecha',
   'cmd.leanAside': 'Al lado',
   'cmd.crux': 'Manos rápidas',
@@ -233,13 +233,13 @@ export const es: StringTable = {
 };
 
 export const fr: StringTable = {
-  'cmd.reach': 'Lève la main',
+  'cmd.reach': 'Tends haut',
   'cmd.pull': 'Tire',
   'cmd.pullkey': 'Tire',
   'cmd.step': 'Monte',
   'cmd.leanLeft': 'À gauche',
   'cmd.leanRight': 'À droite',
-  'cmd.leanAside': 'Sur le côté',
+  'cmd.leanAside': 'De côté',
   'cmd.crux': 'Mains rapides',
   'cmd.breath': 'Respire',
   'cmd.rest': 'Repos',

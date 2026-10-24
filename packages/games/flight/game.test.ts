@@ -11,6 +11,7 @@ import { createSession } from '../../core/loop/session.ts';
 import { DETECTORS } from '../../core/moves/index.ts';
 import { copyProblems } from '../../web/catalogue/copy.ts';
 import { duoFrame, evt, frame, testContext, type TestCtx } from '../kit-g1/testing/context.ts';
+import { budgetProblems } from '../kit-g1/testing/strings.ts';
 import { testScene } from '../kit-g1/testing/scene.ts';
 import squatFlap, { manifest, STRINGS } from '../squat-flap/index.ts';
 import { createFlightGame, readLane, type FlightGame } from './game.ts';
@@ -344,6 +345,10 @@ describe('the manifest and the strings', () => {
       for (const k of ['cmd.squat', 'cmd.stand', 'warm.title', 'warm.body', 'ready.title', 'rest.title']) expect(STRINGS[lang]?.[k], `${lang} ${k}`).toBeTruthy();
     }
     expect(Object.keys(STRINGS.en ?? {}).length).toBeGreaterThan(20);
+  });
+
+  it('the commands and the reasons keep to the text budgets of design/LAYOUT.md section 8', () => {
+    expect(budgetProblems(STRINGS, { commands: /^(cmd\.|ready\.title$|rest\.title$)/, reasons: /^miss\./ })).toEqual([]);
   });
 
   it('the duration of the manifest is the length of a round: warm-up, three sets and two rests', () => {
