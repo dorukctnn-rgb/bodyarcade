@@ -47,7 +47,7 @@ body { overflow: hidden; }
 .ob-top .ob-logo { height: 30px; width: auto; }
 .ob-lang {
   display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 999px; border: 0;
-  background: color-mix(in srgb, var(--ba-surface) 82%, transparent); color: var(--ba-text); font-weight: 650; font-size: var(--ba-text-sm);
+  background: color-mix(in srgb, var(--ba-surface) 82%, transparent); color: var(--ba-text); font-weight: 600; font-size: var(--ba-text-sm);
   box-shadow: inset 0 0 0 1.5px var(--ba-border); cursor: pointer;
 }
 .ob-lang svg { width: 18px; height: 18px; }
@@ -68,15 +68,15 @@ body { overflow: hidden; }
 .ob-progress span { white-space: nowrap; }
 .ob-progress li.done { background: var(--ba-text); }
 .ob-progress li.now { background: var(--ba-accent); flex-basis: 34px; max-width: 34px; }
-.ob-progress span { font-size: var(--ba-text-xs); font-weight: 650; color: var(--ba-text-muted); }
+.ob-progress span { font-size: var(--ba-text-xs); font-weight: 600; color: var(--ba-text-muted); }
 
 .ob-title {
-  font-family: var(--ba-font-display); font-weight: 850; letter-spacing: -0.02em; line-height: 1.02;
+  font-family: var(--ba-font-display); font-weight: 800; letter-spacing: 0; line-height: 1.02;
   font-size: clamp(1.75rem, 1.2rem + 2.6vmin, 3.1rem); margin: 0 0 clamp(8px, 1.4vh, 14px); text-wrap: balance;
 }
 .ob[data-step="1"] .ob-title { font-size: clamp(2.05rem, 1.3rem + 3.6vmin, 3.9rem); }
 .ob-text { margin: 0 0 12px; max-width: 34em; color: var(--ba-text-muted); font-size: clamp(1rem, 0.94rem + 0.3vmin, 1.125rem); line-height: 1.5; }
-.ob-text strong { color: var(--ba-text); font-weight: 650; }
+.ob-text strong { color: var(--ba-text); font-weight: 600; }
 .ob-note { font-size: var(--ba-text-sm); color: var(--ba-text-muted); margin: 6px 0 0; }
 
 .ob-actions { flex: none; display: flex; gap: 10px; align-items: center; padding-top: clamp(10px, 1.6vh, 16px); }
@@ -103,7 +103,7 @@ body { overflow: hidden; }
   text-align: left; border: 0; border-radius: var(--ba-radius-md); padding: 10px 12px; cursor: pointer;
   background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); color: var(--ba-text);
 }
-.ob-level b { display: block; font-family: var(--ba-font-display); font-weight: 800; font-size: 1.12rem; letter-spacing: -0.01em; }
+.ob-level b { display: block; font-family: var(--ba-font-display); font-weight: 800; font-size: 1.12rem; letter-spacing: 0; }
 .ob-level span { display: block; font-size: var(--ba-text-xs); color: var(--ba-text-muted); line-height: 1.35; margin-top: 2px; }
 .ob-level[aria-checked="true"] { box-shadow: inset 0 0 0 2.5px var(--ba-text); background: var(--ba-surface); }
 .ob-level-desc { display: none; margin: -6px 0 12px; font-size: var(--ba-text-sm); color: var(--ba-text-muted); }
@@ -135,7 +135,7 @@ body { overflow: hidden; }
 
 /* Step 4: device choice and 3D labels */
 .ob-seg { display: inline-flex; padding: 4px; border-radius: 14px; background: var(--ba-surface-sunken); gap: 4px; margin: 0 0 12px; }
-.ob-seg button { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 650; background: transparent; color: var(--ba-text); cursor: pointer; white-space: nowrap; }
+.ob-seg button { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 600; background: transparent; color: var(--ba-text); cursor: pointer; white-space: nowrap; }
 .ob-seg button svg { width: 18px; height: 18px; }
 .ob-seg button[aria-checked="true"] { background: var(--ba-surface); box-shadow: 0 1px 0 var(--ba-border), 0 0 0 1.5px var(--ba-text); }
 .ob-health { margin-top: 8px; padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); font-size: var(--ba-text-sm); line-height: 1.45; color: var(--ba-text-muted); max-width: 40em; }
@@ -174,7 +174,7 @@ body { overflow: hidden; }
 /* Step 7: the quick win */
 .ob-game { position: absolute; inset: 0; }
 .ob-win { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: center; margin: 4px 0 10px; }
-.ob-win .big { font-family: var(--ba-font-text); font-weight: 800; font-size: clamp(3rem, 2rem + 6vmin, 5.2rem); line-height: 0.9; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ob-win .big { font-family: var(--ba-font-text); font-weight: 800; font-size: clamp(3rem, 2rem + 6vmin, 5.2rem); line-height: 0.9; letter-spacing: 0; font-variant-numeric: tabular-nums; }
 .ob-win .unit { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(1.3rem, 1rem + 1.4vmin, 2rem); line-height: 1.05; }
 .ob-win .unit small { display: block; font-family: var(--ba-font-text); font-weight: 600; font-size: var(--ba-text-sm); color: var(--ba-text-muted); margin-top: 4px; }
 

@@ -63,7 +63,7 @@ export function framingGuide(w: number, h: number, o: { ready: boolean; feetLabe
   const bottom = h * 0.95;
   const bw = Math.min(w * 0.42, (bottom - top) * 0.36);
   const feet = o.showFeet
-    ? `<rect x="${cx - bw * 0.8}" y="${bottom - h * 0.065}" width="${bw * 1.6}" height="${h * 0.065}" rx="10" fill="#FFC53A" opacity="0.45"/><text x="${cx}" y="${bottom - h * 0.022}" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="${Math.max(12, Math.min(18, h * 0.03))}" fill="#1C1433">${o.feetLabel}</text>`
+    ? `<rect x="${cx - bw * 0.8}" y="${bottom - h * 0.065}" width="${bw * 1.6}" height="${h * 0.065}" rx="10" fill="#FFC53A" opacity="0.45"/><text x="${cx}" y="${bottom - h * 0.022}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="${Math.max(12, Math.min(18, h * 0.03))}" fill="#1C1433">${o.feetLabel}</text>`
     : '';
   return `<svg viewBox="0 0 ${w} ${h}" aria-hidden="true" focusable="false"><rect x="${cx - bw / 2}" y="${top}" width="${bw}" height="${bottom - top}" rx="${bw * 0.45}" fill="none" stroke="${o.ready ? '#22C383' : '#F4F2F8'}" stroke-width="3" stroke-dasharray="10 8" opacity="0.9"/>${feet}</svg>`;
 }
@@ -75,7 +75,7 @@ const DOTS = '<svg class="dots" viewBox="0 0 14 14" aria-hidden="true" focusable
 /** The ring of the calibration screen: how many body checks are done, as a circle and as words. */
 export function ringHtml(done: number, total: number, label: string, text: string): string {
   const ok = done === total && total > 0;
-  return `<svg class="ring" viewBox="0 0 64 64" role="img" aria-label="${label}" data-calib-ring><circle cx="32" cy="32" r="26" fill="rgba(28,20,51,0.8)" stroke="rgba(244,242,248,0.2)" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="${ok ? '#22C383' : '#FF4F6E'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${RING}" stroke-dashoffset="${(RING * (1 - (total ? done / total : 0))).toFixed(1)}" transform="rotate(-90 32 32)" data-calib-arc/><text x="32" y="37.5" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="15" fill="#F4F2F8" data-calib-ringtext>${text}</text></svg>`;
+  return `<svg class="ring" viewBox="0 0 64 64" role="img" aria-label="${label}" data-calib-ring><circle cx="32" cy="32" r="26" fill="rgba(28,20,51,0.8)" stroke="rgba(244,242,248,0.2)" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="${ok ? '#22C383' : '#FF4F6E'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${RING}" stroke-dashoffset="${(RING * (1 - (total ? done / total : 0))).toFixed(1)}" transform="rotate(-90 32 32)" data-calib-arc/><text x="32" y="37.5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="15" fill="#F4F2F8" data-calib-ringtext>${text}</text></svg>`;
 }
 
 const CHECK_LABEL = { head: 'calib.check.head', hips: 'calib.check.hips', knees: 'calib.check.knees', feet: 'calib.check.feet' } as const;

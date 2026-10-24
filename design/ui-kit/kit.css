@@ -132,7 +132,7 @@ button { font: inherit; color: inherit; }
 }
 .hud-command {
   background: var(--ba-hud-command-bg); color: var(--ba-hud-command-text);
-  font-family: var(--ba-font-display); font-weight: 900; letter-spacing: -0.012em;
+  font-family: var(--ba-font-display); font-weight: 800; letter-spacing: 0;
   line-height: 1; display: inline-flex; align-items: center; white-space: nowrap;
   border-radius: 0.28em; padding: 0.12em 0.34em 0.17em 0.22em; gap: 0.16em;
   box-shadow: 0 0.09em 0 0 var(--ba-flush-700);
@@ -142,7 +142,7 @@ button { font: inherit; color: inherit; }
 /* HUD plates used by the in-game mockups (hud.html, hud-duo.html) */
 [data-hud] { position: absolute; }
 .status { gap: 0.32em; padding: 0.18em 0.36em 0.2em; }
-.status b { font-family: var(--ba-font-text); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.status b { font-family: var(--ba-font-text); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .status small { display: block; font-weight: 600; color: var(--ba-hud-plate-muted); line-height: 1.1; }
 .status .stack { display: flex; flex-direction: column; justify-content: center; }
 .feathers { display: flex; gap: 0.12em; margin-left: 0.1em; }
@@ -150,7 +150,7 @@ button { font: inherit; color: inherit; }
 .feathers i.off { background: transparent; box-shadow: inset 0 0 0 0.06em var(--ba-hud-plate-muted); }
 .pause { width: 1.15em; height: 1.15em; border-radius: 50%; display: grid; place-items: center; background: rgba(244,242,248,0.14); margin-left: 0.12em; }
 .pause svg { width: 0.5em; height: 0.5em; }
-.reason { gap: 0.45em; padding: 0.4em 0.7em 0.44em 0.5em; font-weight: 650; line-height: 1.2; }
+.reason { gap: 0.45em; padding: 0.4em 0.7em 0.44em 0.5em; font-weight: 600; line-height: 1.2; }
 .reason span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-wrap: balance; }
 .hud-command.wrap { white-space: normal; line-height: 0.98; text-wrap: balance; }
 .hud-command.no-glyph svg { display: none; }

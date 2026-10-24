@@ -91,11 +91,12 @@ export const hud = {
 };
 
 export const type = {
-  // Font stacks. (Kept under `family`: a second `display` key below used to overwrite the
-  // display stack, so --ba-font-display came out as "[object Object]" and Savate never loaded.)
+  // Font stacks: the system fonts of each platform, as apple.com sets its text (24 Oct: the web fonts were hard to read,
+  // "Çömel" most of all). No font file is loaded; headings and commands use the Display cut where the system has one.
+  // (Kept under `family`: a second `display` key below once overwrote the display stack.)
   family: {
-    display: '"Savate", "National Park", ui-sans-serif, system-ui, sans-serif',
-    text: '"National Park", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+    display: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    text: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   },
   // Shell scale (read at arm's length). rem values; body is 1rem = 16px on phones, 17px from 768px.
   size: {
@@ -111,9 +112,11 @@ export const type = {
     lg: 'clamp(2.25rem, 1.5rem + 3.4vw, 4.25rem)',
     xl: 'clamp(2.75rem, 1.6rem + 5.6vw, 6.25rem)',
   },
-  weight: { text: 400, 'text-strong': 650, label: 600, display: 820, 'display-heavy': 900, numeric: 760 },
-  leading: { tight: 0.98, display: 1.04, snug: 1.25, text: 1.5 },
-  tracking: { display: '-0.018em', 'display-xl': '-0.026em', text: '0', caps: '0.02em' },
+  // Headings and commands 700 to 800: the system fonts have no steps in between, and a heavier cut closes up small letters.
+  weight: { text: 400, 'text-strong': 600, label: 600, display: 800, 'display-heavy': 800, numeric: 700 },
+  // Room for the marks of Turkish capitals (İ, Ç, Ö, Ş, Ü, Ğ) above and below the line.
+  leading: { tight: 1.05, display: 1.1, snug: 1.25, text: 1.5 },
+  tracking: { display: '0', 'display-xl': '0', text: '0', caps: '0.02em' },
 };
 
 export const space = { 0: '0', 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '20px', 6: '24px', 8: '32px', 10: '40px', 12: '48px', 16: '64px', 20: '80px', 24: '96px' };

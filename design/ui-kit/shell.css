@@ -50,7 +50,7 @@
 .ba-pagehead .ba-h1 { font-size: clamp(2rem, 1.4rem + 2.6vw, 3.4rem); }
 .ba-section { margin: 30px 0 0; }
 .ba-section > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.ba-section > header h2 { font-family: var(--ba-font-display); font-weight: 820; font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.75rem); letter-spacing: -0.012em; margin: 0; }
+.ba-section > header h2 { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.75rem); letter-spacing: 0; margin: 0; }
 .ba-link { color: var(--ba-text); font-weight: 700; text-decoration: underline; text-decoration-color: var(--ba-accent); text-decoration-thickness: 2px; text-underline-offset: 4px; background: none; border: 0; padding: 0; cursor: pointer; font-size: var(--ba-text-sm); }
 
 /* Filter row: scrolls sideways on phones, wraps on wide screens */
@@ -68,8 +68,8 @@
 .ba-tile .art { position: relative; aspect-ratio: 4 / 3; border-radius: var(--ba-radius-lg); overflow: hidden; background: var(--ba-surface-sunken); }
 .ba-tile .art svg { width: 100%; height: 100%; display: block; }
 .ba-tile .art .ba-badge { position: absolute; left: 8px; top: 8px; }
-.ba-tile .t { font-family: var(--ba-font-display); font-weight: 820; font-size: clamp(1.02rem, 0.95rem + 0.3vw, 1.2rem); letter-spacing: -0.01em; line-height: 1.1; margin: 0; }
-.ba-tile .meta { display: flex; align-items: center; gap: 6px; font-size: var(--ba-text-xs); color: var(--ba-text-muted); font-weight: 650; flex-wrap: nowrap; min-width: 0; }
+.ba-tile .t { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(1.02rem, 0.95rem + 0.3vw, 1.2rem); letter-spacing: 0; line-height: 1.1; margin: 0; }
+.ba-tile .meta { display: flex; align-items: center; gap: 6px; font-size: var(--ba-text-xs); color: var(--ba-text-muted); font-weight: 600; flex-wrap: nowrap; min-width: 0; }
 .ba-tile .meta > * { flex: none; }
 .ba-tile .meta .r { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ba-tile .meta .ba-seat svg { width: 18px; height: 18px; }

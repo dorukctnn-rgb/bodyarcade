@@ -17,7 +17,7 @@ beforeAll(() => {
   writeFileSync(join(out, '.vite', 'manifest.json'), JSON.stringify({
     'src/main.ts': { file: 'static/main-abc123.js', src: 'src/main.ts', isEntry: true, css: ['static/main-abc123.css'], imports: ['_chunk.js'] },
     '_chunk.js': { file: 'static/chunk-def456.js' },
-    '../../../design/fonts/savate-var.woff2': { file: 'static/savate-var-aaa111.woff2', src: '../../../design/fonts/savate-var.woff2' },
+    '../../../design/fonts/example.woff2': { file: 'static/example-aaa111.woff2', src: '../../../design/fonts/example.woff2' },
   }));
   report = generate({ out, fixtures: 'only', version: '9.9.9' });
 });
@@ -53,7 +53,7 @@ describe('the generated site', () => {
     expect(html).toContain('<script type="module" src="/static/main-abc123.js">');
     expect(html).toContain('<link rel="stylesheet" href="/static/main-abc123.css">');
     expect(html).toContain('<link rel="modulepreload" href="/static/chunk-def456.js">');
-    expect(html).toContain('rel="preload" href="/static/savate-var-aaa111.woff2"');
+    expect(html).toContain('rel="preload" href="/static/example-aaa111.woff2"');
     expect(html).toContain('<link rel="canonical" href="https://bodyarcade.com/games/squat-flap/">');
     expect(html).toContain('<html lang="en">');
     expect(read('tr/games/squat-flap/index.html')).toContain('<html lang="tr">');

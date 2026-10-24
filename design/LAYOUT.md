@@ -35,7 +35,7 @@ Every HUD element is a plate: ink at 86 % (`--ba-hud-plate-bg`) with chalk text,
 |---|---|---|
 | Command | font-size = max(8 % of h, phone floor); phone floor 44 px in portrait, 52 px in landscape | Read from 2 to 3 m. 8 % of height is the game-design rule; a phone in landscape is only about 70 mm tall, so it needs a physical floor |
 | Command fallback for long words | 1) shrink, never below 8 % of h, 2) hide the move glyph, 3) wrap at a soft hyphen (two lines) | German and Turkish words are long; the size rule still holds |
-| Score and timer numerals | clamp(28, 4.2 % of h, 60), National Park 800, tabular figures | Secondary to the command; tabular figures stop the timer from jittering |
+| Score and timer numerals | clamp(28, 4.2 % of h, 60), system font 800, tabular figures | Secondary to the command; tabular figures stop the timer from jittering |
 | Labels under numerals | clamp(13, 0.4 x numeral, 22) | |
 | Reason strip | clamp(18, 3 % of h, 36), two lines at most | Every miss is explained, but during play the line stays short |
 | Self view (portrait) | width = clamp(96, 30 vw, 240); height = width / camera aspect; height capped at 22 % of h | Small, keeps the camera aspect (3:4 in portrait) |

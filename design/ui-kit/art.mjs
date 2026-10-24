@@ -86,7 +86,7 @@ export function cameraArt({ w = 300, h = 400, pose = 'squat', skeleton = true, l
     if (lineLabel && w > 160) {
       const fs = Math.max(10, 16 * s);
       sk.push(`<rect x="${w * 0.88 - fs * 6}" y="${ly - fs * 1.9}" width="${fs * 6}" height="${fs * 1.5}" rx="${fs * 0.4}" fill="#FF4F6E"/>`);
-      sk.push(`<text x="${w * 0.88 - fs * 3}" y="${ly - fs * 0.78}" text-anchor="middle" font-family="National Park, sans-serif" font-weight="700" font-size="${fs}" fill="#1C1433">${lineLabel}</text>`);
+      sk.push(`<text x="${w * 0.88 - fs * 3}" y="${ly - fs * 0.78}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="700" font-size="${fs}" fill="#1C1433">${lineLabel}</text>`);
     }
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"><g ${dim ? 'opacity="0.9"' : ''}>${roomSvg(w, h, s)}</g>${pl.svg}${sk.join('')}</svg>`;
@@ -101,7 +101,7 @@ export function cameraArtDuo({ w = 640, h = 360, away = null, guide = false, pos
   const bodyH = h * 0.8, floorY = h - h * 0.03, s = bodyH / 400;
   const p1 = away === 'p1' ? '' : playerSvg({ pose: poses[0], cx: w * 0.31, bodyH, floorY, jointColor: '#FFC53A' }).svg;
   const p2 = away === 'p2' ? '' : playerSvg({ pose: poses[1], cx: w * 0.69, bodyH, floorY, jointColor: '#46B4FF', clothes: ['#7A3F55', '#3F4650'], skin: '#E0B08E', hair: '#5A3B26' }).svg;
-  const tag = (x, label, color) => `<g><rect x="${x - 34 * s}" y="${h * 0.035}" width="${68 * s}" height="${24 * s}" rx="${12 * s}" fill="${color}"/><text x="${x}" y="${h * 0.035 + 17 * s}" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="${15 * s}" fill="#1C1433">${label}</text></g>`;
+  const tag = (x, label, color) => `<g><rect x="${x - 34 * s}" y="${h * 0.035}" width="${68 * s}" height="${24 * s}" rx="${12 * s}" fill="${color}"/><text x="${x}" y="${h * 0.035 + 17 * s}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="${15 * s}" fill="#1C1433">${label}</text></g>`;
   const outlines = guide ? [[0.31, '#FFC53A'], [0.69, '#46B4FF']].map(([fx, c]) => `<rect x="${w * fx - bodyH * 0.22}" y="${floorY - bodyH - h * 0.02}" width="${bodyH * 0.44}" height="${bodyH + h * 0.02}" rx="${bodyH * 0.2}" fill="none" stroke="${c}" stroke-width="${Math.max(2, 3 * s)}" stroke-dasharray="${10 * s} ${8 * s}"/>`).join('') : '';
   const divider = `<line x1="${w / 2}" y1="${h * 0.04}" x2="${w / 2}" y2="${h * 0.97}" stroke="#F4F2F8" stroke-width="${Math.max(1.5, 2.5 * s)}" stroke-dasharray="${6 * s} ${6 * s}" opacity="0.85"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true">${roomSvg(w, h, s)}${divider}${outlines}${p1}${p2}${away === 'p1' ? '' : tag(w * 0.31, 'P1', '#FFC53A')}${away === 'p2' ? '' : tag(w * 0.69, 'P2', '#46B4FF')}</svg>`;

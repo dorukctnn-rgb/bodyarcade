@@ -136,7 +136,7 @@ const STEPS = {
     <div class="ob-scroll">${progress(6)}
       <h2 class="ob-title">Step back until your feet show.</h2>
       <div class="ob-calib-msg">
-        <svg class="ob-ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="none" stroke="var(--ba-border)" stroke-width="7"/><circle cx="32" cy="32" r="27" fill="none" stroke="#FF4F6E" stroke-width="7" stroke-linecap="round" stroke-dasharray="170" stroke-dashoffset="85" transform="rotate(-90 32 32)"/><text x="32" y="38" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="17" fill="currentColor">3 of 4</text></svg>
+        <svg class="ob-ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="none" stroke="var(--ba-border)" stroke-width="7"/><circle cx="32" cy="32" r="27" fill="none" stroke="#FF4F6E" stroke-width="7" stroke-linecap="round" stroke-dasharray="170" stroke-dashoffset="85" transform="rotate(-90 32 32)"/><text x="32" y="38" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="17" fill="currentColor">3 of 4</text></svg>
         <p class="ob-text" style="margin:0">Stand where you will play. We measure your height, arm reach and comfortable squat depth so every game fits your body.</p>
       </div>
       <button class="ob-link" type="button">Play seated instead</button>
@@ -263,7 +263,7 @@ function guideSvg(cam) {
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
     <rect x="${cx - bw / 2}" y="${top}" width="${bw}" height="${bottom - top}" rx="${bw * 0.45}" fill="none" stroke="#F4F2F8" stroke-width="3" stroke-dasharray="10 8" opacity="0.9"/>
     <rect x="${cx - bw * 0.75}" y="${bottom - h * 0.07}" width="${bw * 1.5}" height="${h * 0.07}" rx="10" fill="#FFC53A" opacity="0.35"/>
-    <text x="${cx}" y="${bottom - h * 0.025}" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="${Math.max(12, h * 0.035)}" fill="#1C1433">Feet here</text></svg>`;
+    <text x="${cx}" y="${bottom - h * 0.025}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="${Math.max(12, h * 0.035)}" fill="#1C1433">Feet here</text></svg>`;
 }
 
 function renderPanel() {

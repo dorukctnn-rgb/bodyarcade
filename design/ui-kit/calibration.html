@@ -70,14 +70,14 @@ const tick = '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4l2.6 2.
 const dots = '<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="3.5" cy="7" r="1.4" fill="#1C1433"/><circle cx="7" cy="7" r="1.4" fill="#1C1433"/><circle cx="10.5" cy="7" r="1.4" fill="#1C1433"/></svg>';
 const checks = [['Head', true], ['Hips', true], ['Knees', true], ['Feet', state !== 'frame']];
 const done = state === 'frame' ? 3 : 4;
-const ring = (n, total) => `<svg class="ring" viewBox="0 0 64 64" role="img" aria-label="${n} of ${total} body checks done"><circle cx="32" cy="32" r="26" fill="rgba(28,20,51,0.8)" stroke="rgba(244,242,248,0.2)" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="${n === total ? '#22C383' : '#FF4F6E'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="${163.4 * (1 - n / total)}" transform="rotate(-90 32 32)"/><text x="32" y="37.5" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="15" fill="#F4F2F8">${n} of ${total}</text></svg>`;
+const ring = (n, total) => `<svg class="ring" viewBox="0 0 64 64" role="img" aria-label="${n} of ${total} body checks done"><circle cx="32" cy="32" r="26" fill="rgba(28,20,51,0.8)" stroke="rgba(244,242,248,0.2)" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="${n === total ? '#22C383' : '#FF4F6E'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="${163.4 * (1 - n / total)}" transform="rotate(-90 32 32)"/><text x="32" y="37.5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="15" fill="#F4F2F8">${n} of ${total}</text></svg>`;
 
 // Framing guide: where the body should stand, with the feet zone (onboarding step 6 uses the same drawing).
 function guide(w, h) {
   const cx = w / 2, top = h * 0.13, bottom = h * 0.95, bw = Math.min(w * 0.42, (bottom - top) * 0.36);
   return `<svg viewBox="0 0 ${w} ${h}" aria-hidden="true">
     <rect x="${cx - bw / 2}" y="${top}" width="${bw}" height="${bottom - top}" rx="${bw * 0.45}" fill="none" stroke="${state === 'frame' ? '#F4F2F8' : '#22C383'}" stroke-width="3" stroke-dasharray="10 8" opacity="0.9"/>
-    ${state === 'frame' ? `<rect x="${cx - bw * 0.8}" y="${bottom - h * 0.065}" width="${bw * 1.6}" height="${h * 0.065}" rx="10" fill="#FFC53A" opacity="0.45"/><text x="${cx}" y="${bottom - h * 0.022}" text-anchor="middle" font-family="National Park, sans-serif" font-weight="800" font-size="${Math.max(12, Math.min(18, h * 0.03))}" fill="#1C1433">Feet here</text>` : ''}</svg>`;
+    ${state === 'frame' ? `<rect x="${cx - bw * 0.8}" y="${bottom - h * 0.065}" width="${bw * 1.6}" height="${h * 0.065}" rx="10" fill="#FFC53A" opacity="0.45"/><text x="${cx}" y="${bottom - h * 0.022}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="${Math.max(12, Math.min(18, h * 0.03))}" fill="#1C1433">Feet here</text>` : ''}</svg>`;
 }
 
 const title = state === 'frame' ? 'Get your whole body in view' : state === 'hold' ? 'Hold still for a moment' : 'You are ready';

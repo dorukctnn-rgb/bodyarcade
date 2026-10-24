@@ -8,10 +8,10 @@ body { background: var(--ba-bg); }
 .doc-top nav { display: flex; gap: 6px; flex-wrap: wrap; }
 .doc-top nav a { height: 38px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 10px; font-weight: 700; font-size: var(--ba-text-sm); text-decoration: none; color: var(--ba-text-muted); }
 .doc-top nav a[aria-current="page"] { color: var(--ba-text); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
-.doc h1 { font-family: var(--ba-font-display); font-weight: 900; font-size: clamp(2.2rem, 1.4rem + 3.4vw, 4.2rem); letter-spacing: -0.024em; line-height: 0.98; margin: 0; text-wrap: balance; max-width: 14em; }
+.doc h1 { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(2.2rem, 1.4rem + 3.4vw, 4.2rem); letter-spacing: 0; line-height: 0.98; margin: 0; text-wrap: balance; max-width: 14em; }
 .doc .intro { font-size: var(--ba-text-lg); color: var(--ba-text-muted); line-height: 1.5; max-width: 40em; margin: 14px 0 0; }
-.doc h2 { font-family: var(--ba-font-display); font-weight: 850; font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.2rem); letter-spacing: -0.016em; line-height: 1.04; margin: clamp(40px, 6vw, 72px) 0 8px; }
-.doc h3 { font-family: var(--ba-font-display); font-weight: 820; font-size: 1.2rem; letter-spacing: -0.01em; margin: 0 0 6px; }
+.doc h2 { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.2rem); letter-spacing: 0; line-height: 1.04; margin: clamp(40px, 6vw, 72px) 0 8px; }
+.doc h3 { font-family: var(--ba-font-display); font-weight: 800; font-size: 1.2rem; letter-spacing: 0; margin: 0 0 6px; }
 .doc p, .doc li { line-height: 1.55; }
 .doc .lede { color: var(--ba-text-muted); max-width: 44em; margin: 0 0 18px; }
 .doc code { font-size: 0.9em; background: var(--ba-surface-sunken); padding: 1px 6px; border-radius: 6px; }
