@@ -105,6 +105,17 @@ describe.each(LANGS)('every page in %s', (lang) => {
       expect(found, url).toEqual([]);
     }
   });
+
+  it('a link or button whose name is set by hand keeps the words it shows in that name (WCAG 2.5.3, label in name)', () => {
+    for (const url of urls) {
+      const { html } = draw(lang, url);
+      for (const m of html.matchAll(/<(a|button)\b([^>]*?)\saria-label="([^"]+)"([^>]*)>([\s\S]*?)<\/\1>/g)) {
+        const visible = textOf(m[5] as string).replace(/\s+/g, ' ').trim().toLowerCase();
+        if (visible === '') continue;
+        expect((m[3] as string).toLowerCase(), `${url}: <${m[1]}> "${m[3]}" does not hold its visible text "${visible}"`).toContain(visible);
+      }
+    }
+  });
 });
 
 describe('home and region pages', () => {
