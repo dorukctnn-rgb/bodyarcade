@@ -32,6 +32,12 @@ export const FIT = {
   maxSpan: 0.92,
   /** Head to hips: the torso is shorter than this many image heights: too far. */
   minTorso: 0.05,
+  /**
+   * Hips the model finds only this close under the shoulders (shoulder midpoint to hip midpoint, in shoulder widths) are not
+   * hips: a desk edge or a chair back taken for them. Real torsos measure 1.2 to 1.5 on the recordings. The profile is then
+   * the head and shoulders, and the hips count as not in view.
+   */
+  minTorsoPerShoulder: 1.0,
 } as const;
 
 export type Want = 'full' | 'upper' | 'side';
@@ -156,6 +162,7 @@ function problemFor(l: Look, rank: Rank): Problem | null {
   if (rank >= 2) {
     if (!l.hips) return { code: 'hips_out', hint: backHint(l, rank, 'low') };
     if (l.hipY - l.shoulderY < FIT.minTorso) return { code: 'too_far', hint: moveHint('step_closer', wv, closerGoal(rank)) };
+    if (l.hipY - l.shoulderY < FIT.minTorsoPerShoulder * wv) return { code: 'hips_out', hint: backHint(l, rank, 'low') };
   }
   if (rank === 3) {
     if (!l.knees) return { code: 'knees_out', hint: backHint(l, rank, 'low') };
