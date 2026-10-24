@@ -7,6 +7,7 @@
 //   createArcade(...)       all of it behind one object, and recordRun(): the one call for the moment a round ends
 //   createHabit / createChallengeBook / createPlanBook   the streaks, the daily challenge, the workout plans (also on their own)
 //   createDocSync(...)      the three of them on a second device, through the social client's documents
+//   createProfileBook(...)  up to six players on one device (the Family plan), a record each; the parent gate; who has the online identity
 export { dayOf, addDays, prevDay, daysBetween, daySeed, dayFromSeed, parseDay, isDay, weekdayIndex, weekStart, monthOf, type Day } from './date.ts';
 export {
   EMPTY_DAYS, hasDay, withDay, mergeDays, daysOf, countDays, lastDay, pruneDays, dropAfter, sameDays, daySetParser, type DaySet,
@@ -34,10 +35,22 @@ export {
   createArcade, namespaceOf, GAME_NAMESPACE,
   type Arcade, type ArcadeGame, type ArcadeOptions, type GameContent, type PlanStepReport, type RunReport, type TodayView,
 } from './arcade.ts';
+export {
+  GATE, createParentGate,
+  type GateAnswer, type GateAsk, type GateQuestion, type ParentGate, type ParentGateOptions,
+} from './parent-gate.ts';
+export {
+  MAX_PROFILES, PROFILES_FEATURE, OWNER_ID, DEVICE_NAMESPACES, AVATARS, NAME_MAX, REMOVAL_VALID_MS, TOUCH_EVERY_MS,
+  createProfileBook, rulesFor, defaultsFor, normalizeName, watchOnline,
+  type AvatarId, type Capacity, type CreateFailure, type CreateResult, type FamilyEntry, type MigrationReport, type NameFailure, type NewProfile,
+  type OnlinePort, type PickerModel, type ProfileBook, type ProfileBookOptions, type ProfileDefaults, type ProfileEvent, type ProfileEventKind, type ProfilePatch,
+  type ProfileRules, type ProfileSpace, type ProfileState, type ProfileView, type RemovalFailure, type RemovalPlan, type RemovalSummary,
+  type RemoveFailure, type RemoveResult, type SpaceArcadeOptions, type SwitchFailure, type SwitchResult, type UpdateFailure, type UpdateResult,
+} from './profiles.ts';
 export { p, schemaOf, BAD, type Parser, type Infer } from './schema.ts';
 export {
   createStore, memoryStorage, browserStorage,
-  type BodyArcadeStore, type Slot, type StorageLike, type StoreNamespace, type StoreOptions, type StoreProblem,
+  type BodyArcadeStore, type Slot, type StorageLike, type StoreAccess, type StoreNamespace, type StoreOptions, type StoreProblem,
 } from './store.ts';
 export {
   newlyUnlocked, holds, isCond, assertAchievementDefs,

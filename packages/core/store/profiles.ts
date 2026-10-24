@@ -219,6 +219,21 @@ export interface Capacity {
   why: 'plan' | 'full' | null;
 }
 
+/** Everything the "who is playing?" screen and the switcher show, in one read. */
+export interface PickerModel {
+  /** Ask who is playing now: two or more profiles can be played and the owner wants it asked (the start of the app). */
+  ask: boolean;
+  /** One card per profile, in creation order, the owner first; locked ones are shown and cannot be chosen. */
+  cards: ProfileView[];
+  /** The "add a profile" card. `why` 'plan': offer the Family plan; 'full': six are used (show no card, or a disabled one); null: it can be added. */
+  add: { show: boolean; why: 'plan' | 'full' | null };
+  /** The profile list can be changed from here now: the owner is playing, or the parent gate is open. When false, open the gate first. */
+  manage: boolean;
+  askOnStart: boolean;
+  /** Something to say on the screen: 'frozen' (the list was written by a newer version and cannot be changed), 'memory' (nothing is kept after the page closes). */
+  notice: 'frozen' | 'memory' | null;
+}
+
 export interface MigrationReport {
   /**
    * fresh: nothing was here and the owner was made. single: the record of the one-player version became the owner's, where it
@@ -376,6 +391,8 @@ export interface ProfileBook {
   capacity(): Capacity;
   /** Ask "who is playing?" now: two or more profiles can be played and the owner wants it asked. */
   needsPicker(): boolean;
+  /** The states of the picker and the switcher in one read: the cards, the add card, whether to ask, whether it may be changed, what to say. */
+  picker(): PickerModel;
   setAskOnStart(on: boolean): { ok: true } | Failure<'parent_gate' | 'frozen'>;
 
   /** The space of the active profile. Falls back to the owner (and says so in the list) when the active one is locked. */
@@ -394,6 +411,11 @@ export interface ProfileBook {
 
   /** The active profile has the online identity. */
   online(): boolean;
+  /**
+   * A purchase screen (the paywall, the shop, the licence box, a Play purchase) may be shown now: the profile that plays has no gate on
+   * purchases, or the parent gate is open. Ask it before every one of them.
+   */
+  canPurchase(): boolean;
   /** Look again: the plan changed, another tab wrote, the entitlements were read. Emits when something is different. */
   refresh(): void;
   onChange(listener: (e: ProfileEvent) => void): Unsubscribe;
@@ -747,6 +769,20 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
       return doc.askOnStart && viewsOf(doc).filter((v) => v.state === 'ready').length >= 2;
     },
 
+    picker() {
+      const doc = readDoc();
+      const cap = toCapacity(doc);
+      const views = viewsOf(doc);
+      return {
+        ask: doc.askOnStart && views.filter((v) => v.state === 'ready').length >= 2,
+        cards: views,
+        add: { show: !frozen && (cap.canAdd || cap.why === 'plan'), why: cap.why },
+        manage: !frozen && mayManage(doc),
+        askOnStart: doc.askOnStart,
+        notice: frozen ? 'frozen' : base.persistent ? null : 'memory',
+      };
+    },
+
     setAskOnStart(on) {
       if (frozen) return { ok: false, code: 'frozen' };
       const doc = readDoc();
@@ -924,6 +960,7 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     },
 
     online: () => activeViewOf(readDoc()).rules.online,
+    canPurchase: () => activeViewOf(readDoc()).rules.purchase === 'open' || gate.isOpen(),
 
     refresh() {
       if (disposed) return;

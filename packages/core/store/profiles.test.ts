@@ -443,6 +443,50 @@ describe('switching', () => {
   });
 });
 
+describe('the picker, in one read', () => {
+  it('says what the screen shows for each plan and who is playing', () => {
+    const free = rig({ plan: 'free' });
+    expect(free.book.picker()).toEqual({
+      ask: false, cards: free.book.list(), add: { show: true, why: 'plan' }, manage: true, askOnStart: true, notice: null,
+    });
+    const r = rig({ plan: 'family' });
+    expect(r.book.picker()).toMatchObject({ ask: false, add: { show: true, why: null }, manage: true });
+    for (let i = 2; i <= 6; i++) r.book.create({ name: `Kişi ${i}`, kid: i === 3 });
+    expect(r.book.picker()).toMatchObject({ ask: true, add: { show: false, why: 'full' }, manage: true });
+    expect(r.book.picker().cards.map((c) => c.id)).toEqual(['p1', 'p2', 'p3', 'p4', 'p5', 'p6']);
+  });
+
+  it('asks for the parent gate before the profiles are changed from the profile of a kid, and not after it', () => {
+    const r = family();
+    go(r, r.kid);
+    expect(r.book.picker().manage).toBe(false);
+    passGate(r);
+    expect(r.book.picker().manage).toBe(true);
+  });
+
+  it('shows locked cards and the Family plan offer when the plan has ended', () => {
+    const r = family();
+    r.setPlan('free');
+    const model = r.book.picker();
+    expect(model).toMatchObject({ ask: false, add: { show: true, why: 'plan' } });
+    expect(model.cards.map((c) => c.state)).toEqual(['ready', 'locked', 'locked']);
+  });
+
+  it('has a notice when the list comes from a newer version, and when nothing is kept after the page closes', () => {
+    const frozen = rig({ plan: 'family', storage: memoryStorage({ 'ba2.profiles.book': '{"v":2,"d":{"profiles":"?"}}' }) });
+    expect(frozen.book.picker()).toMatchObject({ notice: 'frozen', manage: false, add: { show: false } });
+    const volatile = createProfileBook({ can: () => true });
+    expect(volatile.picker().notice).toBe(volatile.persistent ? null : 'memory');
+    expect(volatile.persistent).toBe(false);
+  });
+
+  it('remembers that the owner does not want to be asked', () => {
+    const r = family();
+    r.book.setAskOnStart(false);
+    expect(r.book.picker()).toMatchObject({ ask: false, askOnStart: false });
+  });
+});
+
 describe('records that never mix', () => {
   it('six profiles write the same keys and read back their own, and every key is under exactly one prefix', () => {
     const r = rig({ plan: 'founder' });
@@ -704,6 +748,24 @@ describe('kid profiles', () => {
     expect(first.habit).toMatchObject({ todayActive: true, dayStreak: 1 });
     expect(arcade.today().challenge.challenge).not.toBeNull();
     expect(arcade.plans.start('kids-break').ok).toBe(true);
+  });
+
+  it('show no purchase screen without the parent gate, and the gate does not stay open for the next profile', () => {
+    const r = family();
+    expect(r.book.canPurchase()).toBe(true);
+    expect(r.book.active().rules.autoPaywall).toBe(true);
+    go(r, r.kid);
+    expect(r.book.active().rules.autoPaywall).toBe(false);
+    expect(r.book.canPurchase()).toBe(false);
+    passGate(r);
+    expect(r.book.canPurchase()).toBe(true);
+    r.book.gate.close();
+    expect(r.book.canPurchase()).toBe(false);
+    passGate(r);
+    go(r, r.adult);                                                       // a grown-up's profile asks for nothing
+    expect(r.book.canPurchase()).toBe(true);
+    go(r, r.kid);
+    expect(r.book.canPurchase()).toBe(false);                             // and the gate that was open is shut
   });
 
   it('become grown-up profiles only through the parent gate, and are still not online', () => {

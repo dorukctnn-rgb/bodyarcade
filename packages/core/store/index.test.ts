@@ -11,6 +11,8 @@ describe('store public surface', () => {
       'RUNNER_ACHIEVEMENTS', 'RUNNER_DAILY', 'V1_KEYS', 'MAX_RUNS', 'bestKey', 'sanitizeRun',
       'createArcade', 'createHabit', 'createChallengeBook', 'createPlanBook', 'createDocSync', 'dailyChallengeFor', 'resolvePlan',
       'WORKOUT_PLANS', 'FREE_PLAN_ID', 'planFeature', 'HABIT', 'CHALLENGE', 'weekStart', 'mergeDays', 'withDay', 'GAME_NAMESPACE',
+      'createProfileBook', 'createParentGate', 'GATE', 'MAX_PROFILES', 'PROFILES_FEATURE', 'OWNER_ID', 'DEVICE_NAMESPACES', 'AVATARS', 'NAME_MAX',
+      'rulesFor', 'defaultsFor', 'normalizeName', 'watchOnline',
     ]) {
       expect((kit as Record<string, unknown>)[name], name).toBeDefined();
     }
