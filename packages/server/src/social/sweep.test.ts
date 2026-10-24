@@ -4,6 +4,10 @@ import { DAY, DECLINE_COOLDOWN_MS, HOUR, REQUEST_TTL_MS } from '../../../core/so
 import { AUDIT_KEEP_MS, LOBBY_GONE_MS, ORPHAN_REPORT_KEEP_MS, RESOLVED_REPORT_KEEP_MS, UNUSED_PROFILE_DAYS, maybeSweep, resetSweepThrottle, sweep } from './sweep.ts';
 import { createTestApp, type TestApp } from './testkit.ts';
 
+// Players are made with real WebCrypto keys and every request is signed and verified; a full-suite run on a busy machine is
+// several times slower than a run of this file alone, so the default five seconds is not enough.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+
 let app: TestApp;
 const T0 = Date.UTC(2026, 9, 24, 12, 0, 0);
 

@@ -4,6 +4,10 @@ import { generateDeviceKey, signRequest } from '../../../core/social/sign.ts';
 import { isPresetName } from '../../../core/social/presets.ts';
 import { createTestApp, TEST_ORIGIN, type TestApp } from './testkit.ts';
 
+// Players are made with real WebCrypto keys and every request is signed and verified; a full-suite run on a busy machine is
+// several times slower than a run of this file alone, so the default five seconds is not enough.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+
 let app: TestApp;
 const T0 = Date.UTC(2026, 9, 24, 12, 0, 0);
 

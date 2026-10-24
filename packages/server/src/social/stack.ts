@@ -105,7 +105,7 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
       LIVE_NO_LIMITS: '1',
       ...opts.vars,
     },
-    ...(opts.assetsDir ? { assets: { directory: opts.assetsDir, binding: 'ASSETS', run_worker_first: ['/api/*'], assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'single-page-application' } } } : {}),
+    ...(opts.assetsDir ? { assets: { directory: opts.assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, static_routing: { user_worker: ['/api/*'] } }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'single-page-application' } } } : {}),
     ...(opts.persistTo ? { resourcePersistencePath: opts.persistTo } : {}),
     handleStructuredLogs: (l: { message: string }) => { for (const line of String(l.message).split('\n')) logs.push(line); },
   } as Parameters<typeof convertV4MiniflareOptions>[0]));
