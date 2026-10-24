@@ -9,6 +9,7 @@ describe('entitlements public surface', () => {
       'bootEntitlements', 'createEntitlements', 'webPlans', 'playPlans', 'paywallModel', 'verifyToken', 'canUse', 'toShellPort', 'twaHint', 'detectBilling',
       'createServerProvider', 'createGumroadProvider', 'createPlayProvider', 'PLANS', 'PLAN_IDS', 'SOLD_PLAN_IDS', 'PLAY_PRODUCTS', 'GUMROAD_LEGACY_PRODUCTS',
       'API', 'standingOf', 'needsRefresh', 'loadDeviceId', 'CANCELLED', 'subscriptionEnd', 'judgePurchase',
+      'createTrial', 'trialNotice', 'maskEmail', 'reminderLangOf', 'NOTICE_LEAD_MS', 'GUMROAD_CATALOG', 'GUMROAD_CHECKOUT', 'placeholdersIn',
     ]) {
       expect((kit as Record<string, unknown>)[name], name).toBeDefined();
     }

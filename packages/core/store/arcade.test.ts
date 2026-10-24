@@ -93,6 +93,15 @@ describe('a round ends', () => {
     expect(() => arcade.progress('Bad Game!')).toThrow(RangeError);
   });
 
+  it('works when its calls are handed around on their own, as a shell does', () => {
+    const { arcade } = rig();
+    const { recordRun, finishPlanStep, today } = arcade;
+    expect(recordRun('squat-flap', roundOf()).outcome.saved).toBe(true);
+    arcade.plans.start(FREE_PLAN_ID);
+    expect(finishPlanStep(roundOf())?.report.outcome.saved).toBe(true);
+    expect(today().habit.todayActive).toBe(true);
+  });
+
   it('keeps one record per game', () => {
     const { arcade } = rig();
     arcade.recordRun('squat-flap', roundOf({ score: 100 }));
@@ -179,6 +188,35 @@ describe('plans through the arcade', () => {
     expect(arcade.today().plan).toMatchObject({ number: 1, total: 2, plan: { id: 'desk-break' } });
     arcade.plans.finishStep({ score: 100, seconds: 180 });
     expect(arcade.today().plan?.number).toBe(2);
+  });
+
+  it('plays a plan step by step through finishPlanStep: each round is recorded for its game and the plan moves on', () => {
+    const { arcade } = rig();
+    expect(arcade.finishPlanStep(roundOf())).toBeNull();                     // no plan is running
+    arcade.plans.start(FREE_PLAN_ID);
+    const one = arcade.finishPlanStep(roundOf({ score: 321, seconds: 181 }));
+    expect(one?.report.outcome).toMatchObject({ saved: true });
+    expect(one?.progress).toMatchObject({ over: false, played: 1, seconds: 181, view: { number: 2, current: { game: 'star-catch' } } });
+    expect(arcade.progress('twist-turbine').best('standard', 'normal')).toBe(321);       // the first step's game, not a game the caller named
+    const two = arcade.finishPlanStep(roundOf({ score: 111, seconds: 190 }));
+    expect(two?.progress).toMatchObject({ over: true, done: true, played: 2 });
+    expect(arcade.progress('star-catch').best('standard', 'normal')).toBe(111);
+    expect(arcade.plans.active()).toBeNull();
+    expect(arcade.habit.view().todaySeconds).toBe(371);                      // the plan's minutes are the day's minutes
+    expect(arcade.plans.card(FREE_PLAN_ID)?.doneThisWeek).toBe(1);
+  });
+
+  it('does not move a plan on for a round that was not one', () => {
+    const { arcade } = rig();
+    arcade.plans.start(FREE_PLAN_ID);
+    for (const bad of [null, {}, { score: 'x' }]) {
+      const r = arcade.finishPlanStep(bad as never);
+      expect(r?.report.outcome.saved).toBe(false);
+      expect(r?.progress).toBeNull();
+    }
+    expect(arcade.plans.active()).toMatchObject({ number: 1, current: { game: 'twist-turbine' } });
+    expect(arcade.habit.view().todaySeconds).toBe(0);
+    expect(arcade.plans.skipStep()).toMatchObject({ skipped: 1, view: { number: 2 } });       // the player can still leave the step out
   });
 
   it('starts every plan for a player who may have everything', () => {

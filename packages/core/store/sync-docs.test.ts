@@ -1,12 +1,13 @@
 // Syncing the streak, the daily challenge and the plans through the social client's documents: a second device picks up where
 // the first stopped, nothing is ever lost to a conflict, and a device with nothing new says nothing.
 import { describe, expect, it } from 'vitest';
+import type { SocialClient } from '../social/client.ts';
 import { createChallengeBook, type ChallengeBook } from './daily-challenge.ts';
 import { addDays, type Day } from './date.ts';
 import { daysOf } from './dayset.ts';
 import { createHabit, type Habit } from './habit.ts';
 import { createStore, memoryStorage } from './store.ts';
-import { DOC_KEYS, createDocSync, type DocSync, type SyncedDocument } from './sync-docs.ts';
+import { DOC_KEYS, createDocSync, type DocSync, type SyncPort, type SyncedDocument } from './sync-docs.ts';
 import { FakeSyncServer } from './testkit.ts';
 import { createPlanBook, type PlanBook, type PlanGame } from './workout-plans.ts';
 
@@ -29,6 +30,14 @@ function device(server: FakeSyncServer | null, start: Day = '2026-10-24'): Devic
     done: (d) => { at(d); challenge.record({ game: challenge.today().challenge?.game as string, seconds: 100 }); },
   };
 }
+
+describe('the social client', () => {
+  it('is what the port asks for, as it is (this is checked when the program is compiled, not when it runs)', () => {
+    // If the client's loadSync or updateSync change shape, this line stops compiling and says so.
+    const fits = (client: SocialClient): SyncPort => client;
+    expect(typeof fits).toBe('function');
+  });
+});
 
 describe('a first device with something to say and a server that has nothing', () => {
   it('writes what it knows, one document each, and nothing for a record that is empty', async () => {

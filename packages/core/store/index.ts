@@ -32,7 +32,7 @@ export {
 } from './sync-docs.ts';
 export {
   createArcade, namespaceOf, GAME_NAMESPACE,
-  type Arcade, type ArcadeGame, type ArcadeOptions, type GameContent, type RunReport, type TodayView,
+  type Arcade, type ArcadeGame, type ArcadeOptions, type GameContent, type PlanStepReport, type RunReport, type TodayView,
 } from './arcade.ts';
 export { p, schemaOf, BAD, type Parser, type Infer } from './schema.ts';
 export {

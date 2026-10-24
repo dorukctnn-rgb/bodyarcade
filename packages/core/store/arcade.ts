@@ -21,7 +21,7 @@ import { importLegacyRunner, type ImportReport } from './legacy.ts';
 import { createProgress, sanitizeRun, type Progress, type RecordOutcome, type RunInput } from './progress.ts';
 import type { BodyArcadeStore, StorageLike } from './store.ts';
 import { createDocSync, type DocSync, type SyncPort } from './sync-docs.ts';
-import { createPlanBook, type PlanBook, type PlanGame, type PlanRunView } from './workout-plans.ts';
+import { createPlanBook, type PlanBook, type PlanGame, type PlanProgress, type PlanRunView } from './workout-plans.ts';
 
 /** What of a game the arcade needs: the manifest has all of it. */
 export type ArcadeGame = PlanGame;
@@ -65,6 +65,13 @@ export interface RunReport {
   habit: HabitView;
 }
 
+export interface PlanStepReport {
+  /** What recordRun answered for the round of this step. */
+  report: RunReport;
+  /** The plan after this step; null when the round was not a round, so the step is still to be played (or skipped). */
+  progress: PlanProgress | null;
+}
+
 export interface TodayView {
   day: Day;
   habit: HabitView;
@@ -82,6 +89,11 @@ export interface Arcade {
   plans: PlanBook;
   sync: DocSync;
   recordRun(game: string, run: RunInput | null): RunReport;
+  /**
+   * A round of the step a workout plan is on has ended: recordRun for that step's game, and the plan moves on. A summary that
+   * was never made does not move it (a step is not played because a game handed over nothing). Null when no plan is running.
+   */
+  finishPlanStep(run: RunInput | null): PlanStepReport | null;
   today(): TodayView;
   /** The live site's record, once, into the runner's place (a returning player). */
   importLegacy(storage: StorageLike): ImportReport;
@@ -122,24 +134,32 @@ export function createArcade(o: ArcadeOptions): Arcade {
     saved: false, run: sanitizeRun((run ?? {}) as RunInput, store.now(), store.day()), totals: {}, previousBest: 0, newBest: false, firstHere: false, news: [], daily: null,
   });
 
-  return {
-    store, progress, habit, challenge, plans, sync,
+  function recordRun(game: string, run: RunInput | null): RunReport {
+    let outcome: RecordOutcome;
+    try {
+      outcome = progress(game).record(run as RunInput);
+    } catch (e) {
+      store.report({ kind: 'rejected', key: `arcade.${String(game).slice(0, 40)}`, detail: `recordRun failed: ${e instanceof Error ? e.message : String(e)}` });
+      outcome = unsaved(run);
+    }
+    let play: PlayResult | null = null;
+    let ch: ChallengeResult | null = null;
+    if (outcome.saved) {
+      try { play = habit.addPlay(outcome.run.seconds); } catch { /* the round is saved; the streak catches up with the next one */ }
+      try { ch = challenge.record({ game, seconds: outcome.run.seconds, newBest: outcome.newBest }); } catch { /* same */ }
+    }
+    return { outcome, play, challenge: ch, habit: habit.view() };
+  }
 
-    recordRun(game, run) {
-      let outcome: RecordOutcome;
-      try {
-        outcome = progress(game).record(run as RunInput);
-      } catch (e) {
-        store.report({ kind: 'rejected', key: `arcade.${String(game).slice(0, 40)}`, detail: `recordRun failed: ${e instanceof Error ? e.message : String(e)}` });
-        outcome = unsaved(run);
-      }
-      let play: PlayResult | null = null;
-      let ch: ChallengeResult | null = null;
-      if (outcome.saved) {
-        try { play = habit.addPlay(outcome.run.seconds); } catch { /* the round is saved; the streak catches up with the next one */ }
-        try { ch = challenge.record({ game, seconds: outcome.run.seconds, newBest: outcome.newBest }); } catch { /* same */ }
-      }
-      return { outcome, play, challenge: ch, habit: habit.view() };
+  return {
+    store, progress, habit, challenge, plans, sync, recordRun,
+
+    finishPlanStep(run) {
+      const step = plans.active()?.current;
+      if (!step) return null;
+      const report = recordRun(step.game, run);
+      if (!report.outcome.saved) return { report, progress: null };
+      return { report, progress: plans.finishStep({ score: report.outcome.run.score, seconds: report.outcome.run.seconds }) };
     },
 
     today() {
