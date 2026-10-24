@@ -1,13 +1,12 @@
 // Twist Turbine through the real feature extractor (calibration, One Euro filter, the 8 s "slow re-centring") and the real twist
 // detector, over a whole set of twisting. Found by the browser run of 24 Oct: the extractor's re-centring (core/body/features.ts,
-// the drift while standing neutral) follows the shoulder width of a twisted body, the reference width shrinks, the detector's span
-// (shoulder width over the reference) climbs over its 0.9 limit, and after about 15 s of twisting (or one 3 s hold of the overload)
-// no twist is counted any more ("Turn from the shoulders" for a player who is turning from the shoulders).
+// the drift while standing neutral) followed the shoulder width of a twisted body, the reference width shrank, the detector's span
+// (shoulder width over the reference) climbed over its 0.9 limit, and after about 15 s of twisting (or one 3 s hold of the overload)
+// no twist was counted any more ("Turn from the shoulders" for a player who is turning from the shoulders).
 //
-// The cure is one condition in the extractor (the drift only while the shoulders face the camera: `shoulderSpan > 0.93`); the patch is
-// takip/devir/bodyarcade-build/PATCH-features-drift-twist.diff (checked: 5 5 6 6 6 6 4 twists in 10 s windows instead of 5 5 0 0 0 0 0,
-// and the twists go on after a 12 s hold). The extractor belongs to the platform builder, so the tests wait: take the `.skip` off when
-// the patch has landed on v2.
+// The cure is one condition in the extractor (the drift only while the shoulders face the camera: `shoulderSpan > 0.93`), on v2 since
+// 041e62d (which has its own regression test, core/body/features.drift.test.ts). Counted here: 5 5 6 6 6 6 4 twists in 10 s windows
+// instead of 5 5 0 0 0 0 0, and the twists go on after a 12 s hold.
 import { describe, expect, it } from 'vitest';
 import { replayMotion } from '../../core/moves/testing/harness.ts';
 import { curve } from '../../core/moves/testing/motions.ts';
@@ -40,7 +39,7 @@ function swing(t0: number, count: number, period: number): (t: number) => number
 const repsPer10s = (events: readonly { kind: string; t: number }[], lead: number, windows: number): number[] =>
   Array.from({ length: windows }, (_, i) => events.filter((e) => e.kind === 'rep' && e.t - lead >= i * 10000 && e.t - lead < (i + 1) * 10000).length);
 
-describe.skip('a whole set of twisting through the real extractor (waits for the drift patch of core/body/features.ts)', () => {
+describe('a whole set of twisting through the real extractor (the drift of the extractor does not eat the twists)', () => {
   it('keeps counting twists for a minute, 6 in each 10 seconds at 35 a minute', () => {
     const r = replayMotion(turning(swing(1000, 38, 1700)), { detectors: [{ id: 'twist' }], durationMs: 68000 });
     const per10 = repsPer10s(r.events, r.leadMs, 6);
