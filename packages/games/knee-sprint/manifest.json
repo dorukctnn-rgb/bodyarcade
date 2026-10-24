@@ -16,7 +16,7 @@
     { "id": "kneeLift", "opts": { "enter": 0.5, "alternate": 1 } }
   ],
   "free": true,
-  "modes": ["solo", "local2"],
+  "modes": ["solo", "local2", "duel"],
   "minPoseHz": 15,
   "seo": { "slug": "knee-sprint", "keywords": ["high knees game", "run in place game", "webcam cardio game", "marching exercise game"] },
   "catalogue": {

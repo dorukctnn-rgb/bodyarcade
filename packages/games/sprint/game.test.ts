@@ -488,7 +488,7 @@ describe('the manifest and the strings', () => {
     const validate = new Ajv2020({ allErrors: true }).compile(schema);
     expect(validate(manifest), JSON.stringify(validate.errors)).toBe(true);
     expect(manifest.id).toBe('knee-sprint');
-    expect(manifest.modes).toEqual(['solo', 'local2']);
+    expect(manifest.modes).toEqual(['solo', 'local2', 'duel']);
     expect(manifest.free).toBe(true);
     expect(manifest.seated && manifest.silentSafe && manifest.lowImpact).toBe(true);
     for (const d of manifest.detectors) expect(DETECTORS[d.id], d.id).toBeTypeOf('function');

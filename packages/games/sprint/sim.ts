@@ -693,5 +693,9 @@ export const medalTimes = (s: SprintState): [number, number, number] => {
   return [par(lv.gold100, s.dist), par(lv.silver100, s.dist), par(lv.bronze100, s.dist)];
 };
 
+/** What one lane cleared and knocked over the whole run. A race has no heats to add up: the lane's own counters are the run's. */
+export const clearedOf = (s: Pick<SprintState, 'duel'>, l: Pick<LaneState, 'cleared' | 'results'>): number => (s.duel ? l.cleared : l.results.reduce((n, r) => n + r.cleared, 0));
+export const knockedOf = (s: Pick<SprintState, 'duel'>, l: Pick<LaneState, 'knocked' | 'results'>): number => (s.duel ? l.knocked : l.results.reduce((n, r) => n + r.knocked, 0));
+
 export const totals = (s: SprintState): { score: number; steps: number; cleared: number; knocked: number; bestStreak: number; heats: number }[] =>
-  s.lanes.map((l) => ({ score: l.score, steps: l.steps, cleared: l.results.reduce((n, r) => n + r.cleared, 0), knocked: l.results.reduce((n, r) => n + r.knocked, 0), bestStreak: l.bestStreak, heats: l.results.filter((r) => r.medal !== 'dnf').length }));
+  s.lanes.map((l) => ({ score: l.score, steps: l.steps, cleared: clearedOf(s, l), knocked: knockedOf(s, l), bestStreak: l.bestStreak, heats: l.results.filter((r) => r.medal !== 'dnf').length }));

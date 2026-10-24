@@ -15,7 +15,7 @@ import { clamp, createSay, hudWriter, lanesOf, round, type HudWriter, type LaneI
 import { createSelfView, type SelfView } from '../kit-g1/selfview.ts';
 import { createStage, type Stage } from '../kit-g1/stage.ts';
 import { en } from './strings.ts';
-import { cadenceOf, clockOf, createSprint, hurdleIn, stepSprint, type HintCode, type LaneIn, type SprintEvent, type SprintState, type StepIn } from './sim.ts';
+import { cadenceOf, clearedOf, clockOf, createSprint, hurdleIn, knockedOf, stepSprint, type HintCode, type LaneIn, type SprintEvent, type SprintState, type StepIn } from './sim.ts';
 import { createSprintView, type SprintFrame, type SprintView } from './view.ts';
 
 /** How long a reason stays on the strip after it was given. */
@@ -278,8 +278,8 @@ export function createSprintGame(manifest: GameManifest, o: SprintGameOptions = 
       const lanes = s.lanes;
       const best = lanes.reduce((m, l) => Math.max(m, l.score), 0);
       const steps = lanes.reduce((n, l) => n + l.steps, 0);
-      const cleared = lanes.reduce((n, l) => n + l.results.reduce((m, r) => m + r.cleared, 0), 0);
-      const knocked = lanes.reduce((n, l) => n + l.results.reduce((m, r) => m + r.knocked, 0), 0);
+      const cleared = lanes.reduce((n, l) => n + clearedOf(s, l), 0);
+      const knocked = lanes.reduce((n, l) => n + knockedOf(s, l), 0);
       const quality = (l: SprintState['lanes'][number]): number => (l.qN > 0 ? clamp(l.qSum / l.qN, 0, 1) : 0);
       const met = (l: SprintState['lanes'][number]): number => (s.seated ? MET.seated : MET.march + (MET.high - MET.march) * quality(l));
       const metSeconds = (l: SprintState['lanes'][number]): number => round(met(l) * l.ran, 1);
@@ -298,7 +298,7 @@ export function createSprintGame(manifest: GameManifest, o: SprintGameOptions = 
       if (players === 2) {
         const per: NonNullable<RunSummary['players']> = {};
         lanes.forEach((l, i) => {
-          per[(i + 1) as 1 | 2] = { score: l.score, reps: l.steps, hits: l.results.reduce((m, r) => m + r.knocked, 0), cleared: l.results.reduce((m, r) => m + r.cleared, 0), metSeconds: metSeconds(l) };
+          per[(i + 1) as 1 | 2] = { score: l.score, reps: l.steps, hits: knockedOf(s, l), cleared: clearedOf(s, l), metSeconds: metSeconds(l) };
         });
         sum.players = per;
       }
