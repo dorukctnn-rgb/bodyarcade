@@ -38,6 +38,11 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      # The release folder for bodyarcade.com (app + old content pages): fails on a missing must-have file, a broken
+      # link on any page or an asset over the Workers size limit. Nothing is deployed from CI.
+      - name: Release build check
+        run: node release/build.ts production
+
       - name: Install headless Chromium
         run: npx playwright install --with-deps --only-shell chromium
 
