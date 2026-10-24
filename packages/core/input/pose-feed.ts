@@ -10,11 +10,12 @@
 //   Features.ok). The hub's tracking for that player turns to 'no_person' (one player) or 'player_missing'
 //   (local2) and onPresence fires; it fires again when they are seen. Judged on frame time, so a trace replays the
 //   same way.
-import type {
-  BodyProfile, DetectorSpec, Framing, InputHub, Ms, MovementEngine, PlayerAssignment, PlayerFrame, PlayerSlot, PoseFrame, Unsubscribe,
+import {
+  LM, type BodyProfile, type DetectorSpec, type Framing, type InputHub, type Landmark, type Ms, type MovementEngine, type PlayerAssignment,
+  type PlayerFrame, type PlayerSlot, type PoseFrame, type Unsubscribe,
 } from '../types/index.ts';
 import { createPlayerAssignment } from '../body/players.ts';
-import { bodySeen } from '../body/geometry.ts';
+import { bodySeen, isVisible } from '../body/geometry.ts';
 import { createMovementEngine } from '../moves/engine.ts';
 
 export const FEED_DEFAULTS = { lostMs: 500 } as const;
@@ -56,6 +57,19 @@ export interface PoseFeed {
 interface Gate { armed: boolean; present: boolean; lastSeen: number | null; framing: Framing; hipsOptional: boolean }
 
 const slotsOf = (n: 1 | 2): PlayerSlot[] => (n === 2 ? [1, 2] : [1]);
+
+/**
+ * One player, several people in the frame (the model runs for two while one player calibrates): the player is the one
+ * nearest the camera, the widest shoulders. A frame with one person or none is returned as it is.
+ */
+function nearestPerson(f: PoseFrame): Landmark[] | null {
+  const poses = f.poses;
+  if (!poses || poses.length < 2) return f.landmarks;
+  const width = (p: Landmark[]): number => (isVisible(p, LM.leftShoulder, 0.4) && isVisible(p, LM.rightShoulder, 0.4) ? Math.abs((p[LM.leftShoulder] as Landmark).x - (p[LM.rightShoulder] as Landmark).x) : 0);
+  let best = poses[0] as Landmark[];
+  for (const p of poses) if (width(p) > width(best)) best = p;
+  return best;
+}
 
 export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
   const players: 1 | 2 = o.players === 2 ? 2 : 1;
@@ -133,7 +147,7 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
     },
 
     push(f: PoseFrame, opts?: { engines?: boolean }): PlayerFrame[] {
-      const frames: PlayerFrame[] = assignment ? [...assignment.push(f)] : [{ ...f, player: 1 }];
+      const frames: PlayerFrame[] = assignment ? [...assignment.push(f)] : [{ ...f, player: 1, landmarks: nearestPerson(f) }];
       const changes: PresenceChange[] = [];
       for (const pf of frames) {
         if (opts?.engines !== false && gates[pf.player].armed) engineOf(pf.player).push(pf);

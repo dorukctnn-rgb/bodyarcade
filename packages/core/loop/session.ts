@@ -22,16 +22,22 @@
 // - The screen stays on (Wake Lock) while calibrating, counting down, playing and waiting for a lost player: a camera
 //   player never touches the phone, which would otherwise dim and lock mid-run. A pause by hand, the results and
 //   errors let the screen sleep again.
+// - Calibration takes the best profile the camera measures (core/body/calibrator.ts). A game that wants the full body
+//   and gets only head and shoulders (a desk) plays its seated variant: after a short wait on its own, or at once on
+//   playAtDesk(). The 'profile' event says how it ended, so the screen can say "desk mode". One player calibrates with
+//   two poses running, so a second person in view is noticed; the model goes back to one pose for the game.
+// - Errors carry a code, an empty message and a developer's detail: the platform produces no words for players.
 import {
   FIXED_DT,
-  type BodyProfile, type CalibrationStatus, type Calibrator, type CameraAcquireOptions, type CameraLease, type CameraService,
+  type BodyProfile, type CalibrationStatus, type Calibrator, type CalibratorOptions, type CameraAcquireOptions, type CameraLease, type CameraService,
   type Capabilities, type Game, type GameContext, type GameManifest, type GameModule, type InputHub, type InputSourceId,
-  type PauseReason, type PlayerFrame, type PlayerSlot, type PoseFrame, type PoseLoadOptions, type PoseService, type Rng,
+  type FramingProfile, type PauseReason, type PlayerFrame, type PlayerSlot, type PoseFrame, type PoseLoadOptions, type PoseService, type Rng,
   type RunSummary, type Session, type SessionEvents, type SessionOptions, type SessionState, type StepResult,
   type TwoPlayerCalibrationStatus, type TwoPlayerCalibrator, type Unsubscribe,
 } from '../types/index.ts';
 import { createCalibrator } from '../body/calibrator.ts';
 import { createTwoPlayerCalibrator } from '../body/calibrator2.ts';
+import { RANK_OF, gameKindOf, kindOf, profileSupports, supportOf } from '../body/profile.ts';
 import { isAbortError } from '../camera/camera.ts';
 import { createInputHub, type InputHubOptions } from '../input/hub.ts';
 import { POSE_MODEL, WASM_BASE } from '../pose/assets.ts';
@@ -109,6 +115,10 @@ interface Run {
   players: 1 | 2;
   manifest: GameManifest | null;
   game: Game | null;
+  /** The context's flags, kept so a fallback to seated play reaches the game. */
+  flags: GameContext['flags'] | null;
+  /** One player calibrating with two poses running (a second person in view is noticed). */
+  crowd: boolean;
   started: boolean;
   hub: InputHub;
   feed: PoseFeed | null;
@@ -350,15 +360,31 @@ export function createSession(deps: SessionDeps): Session {
     return poseReady.then(() => pose.setNumPoses(r.players));
   }
 
+  /**
+   * One player calibrates with two poses running, so a second person in view is noticed (code 'many_people'); the game
+   * runs with one. The model switches without reloading; a request in flight is never overtaken (the service queues them).
+   */
+  function watchCrowd(r: Run, on: boolean): void {
+    if (r.players !== 1 || !deps.pose || r.crowd === on) return;
+    r.crowd = on;
+    deps.pose.setNumPoses(on ? 2 : 1).catch(() => {});
+  }
+
+  /** A game with a seated variant can be played at the desk when the full body does not fit; one without cannot. */
+  function calibrationOptions(r: Run): CalibratorOptions {
+    return { fallback: (r.manifest as GameManifest).seated && !r.options.seated };
+  }
+
   function beginCalibration(r: Run): void {
     const m = r.manifest as GameManifest;
     const framing = r.options.seated ? 'upper' : m.framing;
     if (r.players === 2) {
       r.calibrator2 ??= (deps.calibrator2 ?? (() => createTwoPlayerCalibrator()))();
-      r.calibrator2.begin(framing);
+      r.calibrator2.begin(framing, calibrationOptions(r));
     } else {
       r.calibrator ??= (deps.calibrator ?? (() => createCalibrator()))();
-      r.calibrator.begin(framing);
+      r.calibrator.begin(framing, calibrationOptions(r));
+      watchCrowd(r, true);
     }
     setState('calibrating');
     // A camera that ended while starting up: say so (B8) instead of waiting for frames that never come.
@@ -392,6 +418,17 @@ export function createSession(deps: SessionDeps): Session {
     }
   }
 
+  /** The profile that measures least: the run plays by what the weakest player's camera view gives. */
+  function lowestKind(profiles: Partial<Record<PlayerSlot, BodyProfile>>): FramingProfile {
+    const rank = (k: FramingProfile): number => (k === 'side' ? 2 : RANK_OF[k]);
+    let low: FramingProfile | null = null;
+    for (const p of Object.values(profiles)) {
+      const k = kindOf(p);
+      if (low === null || rank(k) < rank(low)) low = k;
+    }
+    return low ?? 'upper';
+  }
+
   function onCalibrated(r: Run): void {
     const feed = r.feed as PoseFeed;
     let profiles: Partial<Record<PlayerSlot, BodyProfile>> | null;
@@ -401,8 +438,19 @@ export function createSession(deps: SessionDeps): Session {
       profiles = p ? { 1: p } : null;
     }
     if (!profiles) return;
+    watchCrowd(r, false);
+    // What was measured against what the game needs: a full-body game that got head and shoulders plays its seated variant.
+    const m = r.manifest as GameManifest;
+    const kind = lowestKind(profiles);
+    const fits = profileSupports(kind, gameKindOf(m.framing, r.options.seated));
+    if (!fits) {
+      r.options = { ...r.options, seated: true };
+      if (r.flags) r.flags.seated = true;
+    }
     feed.setProfiles(profiles);
     feed.reset();
+    emit('profile', { profile: kind, outcome: fits ? 'measured' : 'fallback', seated: r.options.seated, supports: supportOf(kind) });
+    if (!live(r)) return;
     beginCountdown(r, profiles);
   }
 
@@ -490,11 +538,12 @@ export function createSession(deps: SessionDeps): Session {
     }
   }
 
-  function fail(r: Run, code: SessionErrorCode, msg: string): void {
+  /** `shown` is text the UI itself made for the player (it threw it from deps.ui in the player's language); the platform adds none. */
+  function fail(r: Run, code: SessionErrorCode, detail: string, shown = ''): void {
     if (!live(r)) return;
     run = null;
     teardown(r);
-    emit('error', { code, message: msg });
+    emit('error', { code, message: shown, detail });
     setState('error');
   }
 
@@ -534,7 +583,7 @@ export function createSession(deps: SessionDeps): Session {
       const players: 1 | 2 = o.mode === 'local2' ? 2 : 1;
       const hub = (deps.hub ?? createInputHub)({ players, now: () => r.clock.simMs });
       const r: Run = {
-        options: { ...o }, module: null, offControls: [], videoShown: false, lastFrameAt: 0, leaseFrames: 0, players, manifest: null, game: null, started: false, hub, feed: null, lease: null, offLease: null,
+        options: { ...o }, module: null, offControls: [], videoShown: false, lastFrameAt: 0, leaseFrames: 0, players, manifest: null, game: null, flags: null, crowd: false, started: false, hub, feed: null, lease: null, offLease: null,
         offPose: null, offPresence: null, abort: new AbortController(), calibrator: null, calibrator2: null,
         clock: createFixedStepClock(), rafId: null, alpha: 0, countdownEnd: 0, countdownShown: -1, fpsFrames: 0, fpsSince: 0,
         seed: (o.seed ?? deps.seed?.() ?? randomSeed()) >>> 0,
@@ -563,12 +612,20 @@ export function createSession(deps: SessionDeps): Session {
         const posePromise = o.input === 'camera' ? loadPose(r) : null;
         posePromise?.catch(() => {});
 
-        const ui = await deps.ui(m, o);
+        let ui: SessionUi;
+        try {
+          ui = await deps.ui(m, o);
+        } catch (e) {
+          if (!live(r) || isAbortError(e)) return;
+          return fail(r, 'unknown', message(e), message(e));   // the shell's own words (a scene that cannot be drawn)
+        }
         if (!live(r)) return;
         const game = module.create();
         r.game = game;
         const streams = new Map<string, Rng>();
         const flags = deps.flags?.() ?? { reducedMotion: false, silent: false };
+        const ctxFlags = { reducedMotion: flags.reducedMotion, silent: flags.silent, seated: o.seated };
+        r.flags = ctxFlags;
         const ctx: GameContext = {
           pose: deps.pose ?? NO_POSE,
           input: hub,
@@ -580,7 +637,7 @@ export function createSession(deps: SessionDeps): Session {
             if (!s) { s = rngStream(r.seed, name); streams.set(name, s); }
             return s;
           },
-          flags: { reducedMotion: flags.reducedMotion, silent: flags.silent, seated: o.seated },
+          flags: ctxFlags,
           t: ui.t,
         };
         if (ui.scene2d) ctx.scene2d = ui.scene2d;
@@ -640,6 +697,13 @@ export function createSession(deps: SessionDeps): Session {
         return;
       }
       beginCountdown(r, null);
+    },
+
+    playAtDesk(): void {
+      const r = run;
+      if (!r || state !== 'calibrating' || !(r.manifest as GameManifest | null)?.seated) return;
+      const done = r.calibrator2 ? r.calibrator2.accept() : r.calibrator?.accept();
+      if (done) onCalibrated(r);
     },
 
     async recalibrate(): Promise<void> {

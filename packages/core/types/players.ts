@@ -1,7 +1,7 @@
 // Two players, one camera (mode 'local2', BUILD-PLAN "Two players, one camera"): web on big screens only.
 // The pose service runs with numPoses 2; PlayerAssignment turns its unordered detections into two stable players;
 // each player then has their own Calibrator, FeatureExtractor and MovementEngine, exactly like one player.
-import type { BodyProfile, CalibrationCode, CalibrationStatus, CalibratorOptions, Framing } from './body.ts';
+import type { BodyProfile, CalibrationCode, CalibrationHint, CalibrationStatus, CalibratorOptions, Framing, FramingProfile, ProfileSupport } from './body.ts';
 import type { Ms } from './common.ts';
 import type { PoseFrame } from './pose.ts';
 
@@ -43,7 +43,7 @@ export type TwoPlayerCode = CalibrationCode | 'one_person' | 'too_close_together
 /** What the screen asks of whom. */
 export interface TwoPlayerGuidance {
   player?: PlayerSlot;
-  action: 'step_in' | 'step_back' | 'step_closer' | 'move_apart' | 'move_left' | 'move_right' | 'hold_still' | 'none';
+  action: 'step_in' | 'step_back' | 'step_closer' | 'move_apart' | 'move_left' | 'move_right' | 'hold_still' | 'more_light' | 'light_in_front' | 'none';
 }
 
 export interface TwoPlayerCalibrationStatus {
@@ -54,10 +54,22 @@ export interface TwoPlayerCalibrationStatus {
   guidance: TwoPlayerGuidance;
   players: Record<PlayerSlot, CalibrationStatus>;
   hz: number;
+  /** The lower of the two players' profiles (null when one is not measured), the game kinds it runs, and how it ended (see CalibrationStatus). */
+  profile?: FramingProfile | null;
+  supports?: ProfileSupport;
+  outcome?: 'measured' | 'fallback';
+  /** The player the code is about, with the measured advice for them. */
+  hint?: CalibrationHint;
+  /** Either player has waited long: offer another way to play. */
+  escape?: boolean;
+  /** Until the desk profile is taken for the pair on its own (the later of the two). */
+  fallbackInMs?: number;
 }
 
 export interface TwoPlayerCalibrator {
   begin(f: Framing, o?: CalibratorOptions): void;
+  /** "Play at the desk": both players' calibrations end with what is measured (see Calibrator.accept). True when both ended at once. */
+  accept(): boolean;
   /** Takes the assigned frames of one camera frame. */
   push(frames: readonly [PlayerFrame, PlayerFrame]): TwoPlayerCalibrationStatus;
   profiles(): Record<PlayerSlot, BodyProfile> | null;
