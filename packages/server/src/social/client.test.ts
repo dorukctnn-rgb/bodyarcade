@@ -384,6 +384,49 @@ describe('the hub socket', () => {
     expect(calls).toEqual(expect.arrayContaining(['GET /api/social/friends', 'GET /api/social/requests', 'GET /api/social/blocks', 'GET /api/social/me']));
   });
 
+  it('a connection that drops and returns reads the friends and the requests again, and the blocks and the profile only when the last full read is ten minutes old', async () => {
+    const d = await device('adult');
+    const ws1 = await online(d);                              // the first open reads all four
+    calls = [];
+    const reopen = async (waitMs: number): Promise<FakeWs> => {
+      const before = FakeWs.all.length;
+      lastWs().drop(1006);
+      await vi.advanceTimersByTimeAsync(waitMs);
+      await until(() => FakeWs.all.length > before, 'the socket to be opened again');
+      app.hubs.connect(d.pid());
+      lastWs().open();
+      return lastWs();
+    };
+    expect(ws1).toBeTruthy();
+    // a drop a minute later: what other players change while the page is away is read, the player's own settings are not
+    await reopen(60_000);
+    await until(() => calls.length >= 2, 'the two lists');
+    await idle();
+    expect([...calls].sort()).toEqual(['GET /api/social/friends', 'GET /api/social/requests']);
+    // eleven minutes after the full read the blocks and the profile are read as well
+    calls = [];
+    await reopen(11 * 60_000);
+    await until(() => calls.length >= 4, 'the four reads');
+    await idle();
+    expect([...calls].sort()).toEqual(['GET /api/social/blocks', 'GET /api/social/friends', 'GET /api/social/me', 'GET /api/social/requests']);
+  });
+
+  it('the profile\'s counts follow the lists the client loads, without asking for the profile again', async () => {
+    const a = await device('adult');
+    const b = await device('adult');
+    expect(a.client.profile?.counts).toEqual({ friends: 0, incoming: 0, outgoing: 0, blocks: 0 });
+    await a.client.sendRequest(b.client.profile?.code ?? '');
+    expect(a.client.profile?.counts).toMatchObject({ outgoing: 1, friends: 0 });
+    await b.client.loadRequests();
+    expect(b.client.profile?.counts).toMatchObject({ incoming: 1, friends: 0 });
+    await b.client.respond(a.fid(), true);
+    expect(b.client.profile?.counts).toMatchObject({ incoming: 0, friends: 1 });
+    await b.client.block(a.fid());
+    expect(b.client.profile?.counts).toMatchObject({ friends: 0, blocks: 1 });
+    await b.client.unblock(a.fid());
+    expect(b.client.profile?.counts).toMatchObject({ blocks: 0 });
+  });
+
   it('pings every 45 seconds, beats every four minutes while the page is visible and once on return', async () => {
     const d = await device('adult');
     const ws = await online(d);

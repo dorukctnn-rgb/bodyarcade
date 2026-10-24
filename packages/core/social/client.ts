@@ -139,6 +139,8 @@ const BACKOFF_MAX_MS = 30_000;
 const MAX_SYNC_ROUND_TRIP_MS = 10_000;
 /** Silence for this long (three missed pings) and the socket is treated as half open. */
 const STALE_AFTER_MS = PRESENCE.pingEveryMs * 3;
+/** The blocks and the profile are read again on a reconnect only when the last full read is older than this. */
+const FULL_REFRESH_AFTER_MS = 10 * 60_000;
 
 export class SocialClient {
   private readonly origin: string;
@@ -161,6 +163,8 @@ export class SocialClient {
   private blocksCache: BlockEntry[] = [];
   private invitesCache: PendingInvite[] = [];
   private syncing: Promise<void> | null = null;
+  /** When the profile, the friends, the requests and the blocks were last all read (0: not yet). */
+  private fullAt = 0;
 
   private hubStatus: HubStatus = 'idle';
   private hubWanted = false;
@@ -222,9 +226,14 @@ export class SocialClient {
     this.emit('profile', me);
   }
 
-  private setFriends(list: FriendEntry[]): void { this.friendsCache = list; this.emit('friends', list); }
-  private setRequests(v: RequestsView): void { this.requestsCache = v; this.emit('requests', v); }
-  private setBlocks(list: BlockEntry[]): void { this.blocksCache = list; this.emit('blocks', list); }
+  private setFriends(list: FriendEntry[]): void { this.friendsCache = list; this.count({ friends: list.length }); this.emit('friends', list); }
+  private setRequests(v: RequestsView): void { this.requestsCache = v; this.count({ incoming: v.incoming.length, outgoing: v.outgoing.length }); this.emit('requests', v); }
+  private setBlocks(list: BlockEntry[]): void { this.blocksCache = list; this.count({ blocks: list.length }); this.emit('blocks', list); }
+
+  /** A list that was just loaded is the truth about its count: the profile's counts follow it without asking the server again. */
+  private count(part: Partial<MyProfile['counts']>): void {
+    if (this.meCache) this.meCache = { ...this.meCache, counts: { ...this.meCache.counts, ...part } };
+  }
 
   // ───────── start, sign up, sign out ─────────
 
@@ -302,6 +311,7 @@ export class SocialClient {
     this.disconnect();
     this.identity = null;
     this.meCache = null;
+    this.fullAt = 0;
     this.recovery = null;
     this.friendsCache = [];
     this.requestsCache = { incoming: [], outgoing: [] };
@@ -428,8 +438,9 @@ export class SocialClient {
     return out.blocks;
   }
 
-  /** Friends, requests, blocks and the profile together (after sign in, after a reconnect). */
+  /** Friends, requests, blocks and the profile together (after sign in). */
   async refresh(): Promise<void> {
+    this.fullAt = this.clock();
     await Promise.all([
       this.loadFriends(), this.loadRequests(), this.loadBlocks(),
       this.meCache ? this.call<{ me: MyProfile }>('GET', '/api/social/me').then((out) => this.setProfile(out.me)) : undefined,
@@ -438,11 +449,16 @@ export class SocialClient {
 
   /**
    * refresh() for the moments the hub opens or the page comes back: while one is running, the callers share it (a flapping
-   * network does not pile up requests). Resolves when the lists are current.
+   * network does not pile up requests). Resolves when the lists are current. What other players change while the page is away
+   * (the friends and their presence, the requests) is read every time; the blocks and the profile change only by this player's own
+   * hand, so they are read again only when the last full read is over ten minutes old: a connection that drops and returns every
+   * minute costs two requests a time, not four (each one is a Durable Object request on the free plan's meter).
    */
   sync(): Promise<void> {
     if (this.syncing) return this.syncing;
-    const run: Promise<void> = this.refresh().finally(() => { if (this.syncing === run) this.syncing = null; });
+    const full = this.fullAt === 0 || this.clock() - this.fullAt > FULL_REFRESH_AFTER_MS;
+    const run: Promise<void> = (full ? this.refresh() : Promise.all([this.loadFriends(), this.loadRequests()]).then(() => undefined))
+      .finally(() => { if (this.syncing === run) this.syncing = null; });
     this.syncing = run;
     return run;
   }

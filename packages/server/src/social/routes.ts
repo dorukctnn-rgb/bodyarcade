@@ -39,17 +39,20 @@
 //
 // Every route except register and the admin routes needs a signed request (core/social/sign.ts: X-BA-Auth). Every answer
 // carries `serverTime`; every error is `{error, serverTime}` (src/http.ts fail()).
+import { AUTH_HEADER, AUTH_QUERY, parseAuth } from '../../../core/social/sign.ts';
+import { HUB_CLOSE } from '../../../core/social/types.ts';
 import type { Fetcher } from '../cf.ts';
 import { HttpError, clientIp, fail } from '../http.ts';
 import type { Handler, Router } from '../router.ts';
 import { directoryOf } from './env.ts';
+import { closedSocket } from './hub.ts';
 import { cancel, addBlock, listBlocks, listFriends, listRequests, removeBlock, removeFriend, respond, sendRequest } from './friends.ts';
 import { declineInvite, invite, listLobbies, quickMatch } from './lobbies.ts';
 import { adminAct, adminReports, adminStats, report } from './moderation.ts';
 import { deleteMe, exportMe, getMe, recover, register, renewCode, renewRecovery, updateMe } from './profile.ts';
 import { finishRun, leaderboard, startRun } from './scores.ts';
 import { getSync, putSync } from './sync.ts';
-import { authed, memAllow, open } from './util.ts';
+import { MAX_BODY_BYTES, authed, memAllow, open } from './util.ts';
 import { GEO_CONTINENT, GEO_COUNTRY, CALLER_IP } from './geo.ts';
 
 /**
@@ -94,15 +97,49 @@ export function forwardedHeaders(req: Request): Headers {
   return h;
 }
 
+/**
+ * What the Worker can refuse without asking the directory: every call that reaches the object is a Durable Object request on the
+ * free plan's meter (100,000 a day), so a request that cannot succeed is answered here. A signed route needs a signature that is
+ * at least well formed (the object checks it for real), a body is JSON of at most MAX_BODY_BYTES, and the moderation routes exist
+ * only where a token is configured and need one to be sent.
+ */
+export function edgeRefusal(req: Request, raw: Record<string, unknown>): HttpError | null {
+  const url = new URL(req.url);
+  if (url.pathname.startsWith('/api/admin/')) {
+    const token = raw.ADMIN_TOKEN;
+    if (typeof token !== 'string' || token.length < 16) return new HttpError(404, 'not_found');
+    return /^Bearer \S+$/.test(req.headers.get('Authorization') ?? '') ? null : new HttpError(401, 'unauthorized');
+  }
+  const refuse = (status: number, code: string): HttpError => new HttpError(status, code, { serverTime: Date.now() });
+  if (!parseAuth(req.headers.get(AUTH_HEADER) ?? url.searchParams.get(AUTH_QUERY))) return refuse(401, 'unauthorized');
+  if (req.method === 'POST' || req.method === 'PUT') {
+    if (!/^application\/json\b/i.test(req.headers.get('Content-Type') ?? '')) return refuse(415, 'json_expected');
+    if (Number(req.headers.get('Content-Length') ?? '0') > MAX_BODY_BYTES) return refuse(413, 'too_large');
+  }
+  return null;
+}
+
 /** Hands the request to the directory object and returns its answer (a WebSocket upgrade included). */
 export const forwardToDirectory: Handler = async (req, raw) => {
   const dir = directoryOf(raw);
-  if (raw.SOCIAL_NO_LIMITS !== '1') {
-    const ip = clientIp(req);
-    if (ip && !memAllow(`edge:${ip}`, EDGE_PER_MINUTE, 60_000)) throw new HttpError(429, 'rate_limited', { retryAfterMs: 60_000 });
+  const upgrade = req.headers.get('Upgrade')?.toLowerCase() === 'websocket';
+  const refused = (): HttpError | null => {
+    if (raw.SOCIAL_NO_LIMITS !== '1') {
+      const ip = clientIp(req);
+      if (ip && !memAllow(`edge:${ip}`, EDGE_PER_MINUTE, 60_000)) return new HttpError(429, 'rate_limited', { retryAfterMs: 60_000 });
+    }
+    return edgeRefusal(req, raw);
+  };
+  const no = refused();
+  if (no) {
+    // A refused upgrade is a socket that is accepted and closed at once with a code the page can act on (a bare HTTP error on an
+    // upgrade looks like a network failure to a browser), the same as the directory answers.
+    if (upgrade && no.status === 401) return closedSocket(HUB_CLOSE.AUTH, no.code);
+    if (upgrade && no.status === 429) return closedSocket(HUB_CLOSE.RATE, 'rate_limited');
+    throw no;
   }
   // An upgrade goes through as it came: the platform pairs the sockets of the request it was given.
-  if (req.headers.get('Upgrade')?.toLowerCase() === 'websocket') return dir.fetch(req);
+  if (upgrade) return dir.fetch(req);
   return dir.fetch(new Request(req, { headers: forwardedHeaders(req) }));
 };
 

@@ -46,6 +46,11 @@ beforeEach(() => build());
 
 interface Dev { keys: DeviceKeys }
 
+/** A signature header of nobody the directory knows: well formed, which is all the Worker looks at. */
+async function wellFormedAuth(): Promise<string> {
+  return signRequest(await generateDeviceKey(), { method: 'GET', url: `${TEST_ORIGIN}/api/social/me` }, Date.now());
+}
+
 /** A signed request through the Worker's router and the directory. */
 async function api(dev: Dev, method: string, path: string, body?: unknown, extra: Record<string, string> = {}): Promise<{ status: number; body: Record<string, any>; res: Response }> {
   const hasBody = body !== undefined && method !== 'GET';
@@ -154,7 +159,7 @@ describe('the Worker in front of the directory', () => {
     expect(seen.headers.get('X-BA-IP')).toBe('10.1.2.3');
     expect(seen.headers.get('X-BA-Continent')).toBeNull();
     // with Cloudflare's own view of the caller
-    const res = await h.call('POST', '/api/social/register', { body: { pub: 'x', band: 'adult' }, cf: { country: 'tr', continent: 'as' }, headers: { 'X-BA-Continent': 'AF' } });
+    const res = await h.call('POST', '/api/social/register', { body: { pub: 'x', band: 'adult' }, cf: { country: 'tr', continent: 'as' }, headers: { 'X-BA-Continent': 'AF', 'X-BA-Auth': await wellFormedAuth() } });
     expect(res.status).toBeGreaterThanOrEqual(400);   // the key is not a key: only the headers matter here
     const cf = h.calls.at(-1) as Request;
     expect(cf.headers.get('CF-IPCountry')).toBe('TR');
@@ -172,12 +177,39 @@ describe('the Worker in front of the directory', () => {
 
   it('lets 600 calls a minute from one address through and stops the 601st at the Worker, before the directory', async () => {
     const before = h.calls.length;
+    const auth = await wellFormedAuth();   // a signature of nobody: the directory says unknown_device, but it is asked
     let last = 0;
-    for (let i = 0; i < EDGE_PER_MINUTE + 1; i++) last = (await h.call('GET', '/api/social/me')).status;
+    for (let i = 0; i < EDGE_PER_MINUTE + 1; i++) last = (await h.call('GET', '/api/social/me', { headers: { 'X-BA-Auth': auth } })).status;
     expect(last).toBe(429);
     expect(h.calls.length - before).toBe(EDGE_PER_MINUTE);
     // another address is not affected
-    expect((await h.call('GET', '/api/social/me', { headers: { 'CF-Connecting-IP': '10.9.9.9' } })).status).toBe(401);
+    expect((await h.call('GET', '/api/social/me', { headers: { 'CF-Connecting-IP': '10.9.9.9', 'X-BA-Auth': auth } })).status).toBe(401);
+    expect(h.calls.length - before).toBe(EDGE_PER_MINUTE + 1);
+  });
+
+  it('refuses at the Worker what cannot succeed, so that it costs no call to the directory: no signature, a body that is not JSON or is too big, a moderation call without a token', async () => {
+    const before = h.calls.length;
+    const auth = await wellFormedAuth();
+    const read = async (r: Response) => ({ status: r.status, body: (await r.json()) as Record<string, unknown> });
+    // no signature, or one that cannot be a signature
+    expect(await read(await h.call('GET', '/api/social/me'))).toMatchObject({ status: 401, body: { error: 'unauthorized', serverTime: expect.any(Number) } });
+    expect((await h.call('GET', '/api/social/me', { headers: { 'X-BA-Auth': 'v1.nonsense' } })).status).toBe(401);
+    expect((await h.call('GET', '/api/social/friends', { headers: { 'X-BA-Auth': auth.replace(/^v1/, 'v9') } })).status).toBe(401);
+    // a write that is not JSON, or is more than the routes read
+    expect(await read(await h.call('POST', '/api/social/me', { headers: { 'X-BA-Auth': auth } }))).toMatchObject({ status: 415, body: { error: 'json_expected' } });
+    expect(await read(await h.call('POST', '/api/social/me', { headers: { 'X-BA-Auth': auth, 'Content-Type': 'text/plain' }, body: {} }))).toMatchObject({ status: 415 });
+    expect(await read(await h.call('POST', '/api/social/me', { headers: { 'X-BA-Auth': auth, 'Content-Length': '5000' }, body: { name: 'x' } }))).toMatchObject({ status: 413, body: { error: 'too_large' } });
+    // the moderation routes: not there without a token configured, and not for a call that carries none
+    expect((await h.call('GET', '/api/admin/social/stats')).status).toBe(401);
+    expect((await h.call('GET', '/api/admin/social/stats', { headers: { Authorization: 'Basic abc' } })).status).toBe(401);
+    expect(h.calls.length).toBe(before);
+    const none = createDirectoryHarness({ env: { ADMIN_TOKEN: undefined } });
+    expect((await none.call('GET', '/api/admin/social/stats', { headers: { Authorization: 'Bearer something-long-enough' } })).status).toBe(404);
+    expect(none.calls).toHaveLength(0);
+    // what is well formed does go through, the directory judges it
+    expect((await h.call('GET', '/api/social/me', { headers: { 'X-BA-Auth': auth } })).status).toBe(401);
+    expect((await h.call('GET', '/api/admin/social/stats', { headers: { Authorization: `Bearer ${TEST_ADMIN_TOKEN}` } })).status).toBe(200);
+    expect(h.calls.length).toBe(before + 2);
   });
 
   it('answers 503 unavailable when the directory is not bound (live play alone)', async () => {

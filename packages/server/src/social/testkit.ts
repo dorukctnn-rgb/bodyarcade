@@ -338,7 +338,7 @@ export function createDirectoryHarness(opts: { env?: Record<string, unknown> } =
     async call(method, path, o = {}) {
       const headers: Record<string, string> = { 'CF-Connecting-IP': '10.1.2.3', ...o.headers };
       const hasBody = o.body !== undefined && method !== 'GET';
-      if (hasBody) headers['Content-Type'] = 'application/json';
+      if (hasBody && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
       const req = new Request(`${TEST_ORIGIN}${path}`, { method, headers, ...(hasBody ? { body: JSON.stringify(o.body) } : {}) });
       if (o.cf) Object.defineProperty(req, 'cf', { value: o.cf });
       await Promise.all(state.blocked);
