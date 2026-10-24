@@ -11,7 +11,7 @@ import {
   checkRects, duoAvailable, duoReasonRows, hudMetrics, hudSlots, placeHud, placeHudDuo, typicalInsets,
   type DuoLayout, type HudLayout, type HudMetrics, type HudMode, type Insets, type PipPlacement, type PlacedRect, type Rect, type Size,
 } from '../layout.ts';
-import { calibrationPip, chooseReasonRow, fitCommand, fitReasonFont, fitStatusFont, type ReasonRows } from './fit.ts';
+import { calibrationPip, chooseReasonRow, fitCommand, fitReasonFont, fitStatusFont, REASON_LINES, type ReasonRows } from './fit.ts';
 
 export interface PlayHudOptions {
   document: Document;
@@ -397,7 +397,8 @@ export class PlayHud implements Hud {
     const lh = Number.parseFloat(this.doc.defaultView?.getComputedStyle(span).lineHeight ?? '') || Number.parseFloat(plate.style.fontSize) * 1.2;
     const lines = Math.round(span.getBoundingClientRect().height / lh);
     span.style.webkitLineClamp = '';
-    return lines;
+    // A word wider than the room cannot wrap: it then stands out of the text box (which clips it), which counts as a line too many.
+    return span.scrollWidth > span.clientWidth + 1 ? Math.max(lines, REASON_LINES) + 1 : lines;
   }
 
   /** A reason takes two lines in the room it has: its own size while that holds, then smaller; the plate keeps that size and width. */

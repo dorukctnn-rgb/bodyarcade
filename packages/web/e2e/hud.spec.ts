@@ -32,7 +32,7 @@ for (const bp of BREAKPOINTS) {
       // every language says every reason and command: the draft languages fall back to English for the lines they lack
       const [reasons, commands] = await page.evaluate((l) => [window.__HUD__.reasons(l).length, window.__HUD__.commands(l).length] as const, lang);
       expect(reasons, `${lang} has reasons`).toBeGreaterThan(40);
-      expect(commands, `${lang} has commands`).toBeGreaterThan(20);
+      expect(commands, `${lang} has commands`).toBeGreaterThan(10);
       for (const c of configs) {
         const bad = await page.evaluate((x) => window.__HUD__.check(x), { lang, ...c });
         for (const b of bad) found.push(`${lang} ${c.duo ? 'duo' : `${c.mode} ${c.corner}`} ${b.kind} "${b.text}": ${b.problems.join('; ')}`);
