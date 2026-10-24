@@ -22,10 +22,14 @@ export const PW_LIBRARY: readonly PoseTarget[] = [...POSES, ...EXTRA];
 
 const byName = new Map(PW_LIBRARY.map((p) => [p.name, p] as const));
 
-/** The shapes each level adds to the ones before it (standing). */
+/**
+ * The shapes each level adds to the ones before it (standing). On every level no two shapes of the pool are less than the level's
+ * tolerance apart (a body in one shape must not pass another wall of the same level): the easy shapes are the big, plain ones, and
+ * Y and handsUp, 30 degrees apart, wait for the level whose tolerance is 22.
+ */
 const TIERS: readonly (readonly string[])[] = [
-  ['tPose', 'handsUp', 'yPose', 'cactus'],
-  ['star', 'bendRight', 'bendLeft', 'raiseRight', 'raiseLeft'],
+  ['tPose', 'handsUp', 'cactus', 'raiseRight', 'raiseLeft'],
+  ['yPose', 'star', 'bendRight', 'bendLeft'],
   ['diagonalRight', 'diagonalLeft', 'sideLungeRight', 'sideLungeLeft'],
   ['treeRight', 'treeLeft', 'squatT'],
 ];

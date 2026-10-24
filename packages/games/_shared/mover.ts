@@ -53,6 +53,8 @@ export interface FigureDraw {
   fat?: number;
   /** false: no head and no bands (a hole needs only the shape). */
   detail?: boolean;
+  /** true: from the hips up (a seated player's figure and the holes of a seated wall have no legs to show). */
+  upperOnly?: boolean;
 }
 
 export interface Point { x: number; y: number }
@@ -111,14 +113,17 @@ export function drawFigure(ctx: Ctx2D, d: FigureDraw, style: MoverStyle): void {
   const fat = d.fat ?? 1;
   const limbW = BUILD_T.limb * T * fat;
   const detail = d.detail ?? true;
+  const legs = !d.upperOnly;
   ctx.save();
   ctx.globalAlpha = d.alpha ?? 1;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   const pass = (color: string, extra: number): void => {
     // legs, torso, arms: one colour, so the figure is one flat shape
-    line(ctx, g.hipL, g.kneeL, limbW + extra, color); line(ctx, g.kneeL, g.ankleL, limbW * 0.92 + extra, color);
-    line(ctx, g.hipR, g.kneeR, limbW + extra, color); line(ctx, g.kneeR, g.ankleR, limbW * 0.92 + extra, color);
+    if (legs) {
+      line(ctx, g.hipL, g.kneeL, limbW + extra, color); line(ctx, g.kneeL, g.ankleL, limbW * 0.92 + extra, color);
+      line(ctx, g.hipR, g.kneeR, limbW + extra, color); line(ctx, g.kneeR, g.ankleR, limbW * 0.92 + extra, color);
+    }
     ctx.beginPath();
     ctx.moveTo(g.shoulderL.x, g.shoulderL.y); ctx.lineTo(g.shoulderR.x, g.shoulderR.y);
     ctx.lineTo(g.hipR.x, g.hipR.y); ctx.lineTo(g.hipL.x, g.hipL.y);
