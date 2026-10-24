@@ -11,7 +11,9 @@ import type { ViewContext } from '../context.ts';
 import { overlayHtml, type CalibCheck, type CalibPart, type DeskCard, type GaugePos, type PlayOverlay, type ScreenFraming } from '../views/play.ts';
 import { framingGuide } from '../views/silhouette.ts';
 import type { SetupState } from '../views/setup.ts';
-import { bandsFor, calibMessage, checksFor, deskCard, DeskOffer, GUIDE_MESSAGE, gaugeFor, screenFraming, STUCK_MS } from './calib.ts';
+import {
+  bandsFor, bothSeen, calibMessage, checksFor, deskCard, DeskOffer, extrasOf, GUIDE_MESSAGE, gaugeFor, keepsChecks, needsHeadroom, screenFraming, STUCK_MS,
+} from './calib.ts';
 import type { StageHandles } from './ports.ts';
 
 export interface PlayHost {
@@ -86,6 +88,7 @@ export class PlayController {
   private calibSince = 0;
   private stuck = false;
   private deskShown: DeskCard = 'none';
+  private fellBack = false;
   private disposed = false;
   private usedFree = false;
   private launching = false;
@@ -205,13 +208,14 @@ export class PlayController {
         this.lastCalib = '';
         this.deskOffer.reset();
         this.deskShown = 'none';
+        this.fellBack = false;
         this.stuck = false;
         this.calibSince = this.clock();
         const framing = this.framing();
         this.lastChecks = checksFor(framing, 'no_person');
         this.show({
           kind: 'calibrating', framing, two: this.setup.players === 2, message: calibMessage(this.ctx().i18n, 'no_person', framing), checks: this.lastChecks,
-          progress: 0, slow: false, gauge: 'none', desk: 'none', stuck: false,
+          progress: 0, slow: false, gauge: 'none', desk: 'none', stuck: false, headroom: needsHeadroom(this.game),
         });
         break;
       }
@@ -299,22 +303,32 @@ export class PlayController {
     }
     if (!message) message = calibMessage(i18n, code, framing);
     const slow = code === 'too_slow';
-    // A device too slow to calibrate says nothing about the body: the checks stay as they were.
-    const checks = slow ? this.lastChecks : isTwo(c)
-      ? checksFor(framing, c.players[1].code === 'ok' || c.players[1].code === 'hold' ? c.players[2].code : c.players[1].code)
-      : checksFor(framing, code);
+    // What a newer platform measures itself (which parts are in view, that the wait is long); the code alone does without.
+    const x = extrasOf(c);
+    const seen = isTwo(c) ? bothSeen(extrasOf(c.players[1]).seen, extrasOf(c.players[2]).seen) : x.seen;
+    const worst = isTwo(c) ? (c.players[1].code === 'ok' || c.players[1].code === 'hold' ? c.players[2].code : c.players[1].code) : code;
+    // A device too slow to calibrate (or a code about the room rather than the body) says nothing about the parts: the checks stay as they were.
+    const checks = keepsChecks(code) && !seen ? this.lastChecks : checksFor(framing, worst, seen);
     this.lastChecks = checks;
     const gauge = gaugeFor(code);
     const now = this.clock();
     // The desk is for one player at a time: two people in front of one camera are not at a desk.
     const offered = !isTwo(c) && this.setup.players === 1 ? this.deskOffer.push(code, now) : false;
     const desk = deskCard(offered, this.game, this.setup.seated);
-    const stuck = c.progress < 0.25 && now - this.calibSince >= STUCK_MS;
-    const bands = bandsFor(framing, code);
-    const stamp = `${message}|${checks.map((x) => (x.ok ? 1 : 0)).join('')}|${Math.round(c.progress * 20)}|${slow}|${gauge}|${desk}|${stuck}|${bands.join(',')}`;
+    const stuck = x.escape === true || (c.progress < 0.25 && now - this.calibSince >= STUCK_MS);
+    const bands = bandsFor(framing, worst, seen);
+    const headroom = needsHeadroom(this.game);
+    // The calibration ended with the best that could be measured and not what the game wanted: the round is played at the desk, and the player is told.
+    if (c.ready && x.outcome === 'fallback' && !this.fellBack) {
+      this.fellBack = true;
+      const t = this.ctx().i18n;
+      this.host.announce(t.t('calib.fallback'));
+      this.host.toast(t.t('calib.fallback'));
+    }
+    const stamp = `${message}|${checks.map((y) => (y.ok ? 1 : 0)).join('')}|${Math.round(c.progress * 20)}|${slow}|${gauge}|${desk}|${stuck}|${bands.join(',')}`;
     if (stamp === this.lastCalib) return;
     this.lastCalib = stamp;
-    this.overlay = { kind: 'calibrating', framing, two: this.setup.players === 2, message, checks, progress: c.progress, slow, gauge, desk, stuck };
+    this.overlay = { kind: 'calibrating', framing, two: this.setup.players === 2, message, checks, progress: c.progress, slow, gauge, desk, stuck, headroom };
     this.updateCalibration({ message, checks, slow, gauge, desk, stuck, bands });
     if (desk !== 'none' && this.deskShown === 'none') {
       const t = this.ctx().i18n;
@@ -371,13 +385,25 @@ export class PlayController {
     const t = this.ctx().i18n;
     const labels: Partial<Record<CalibPart, string>> = {};
     for (const part of this.guide.bands) labels[part] = t.tx(`calib.check.${part}`);
-    target.innerHTML = framingGuide(w, h, { framing: this.framing(), ready: this.guide.ready, missing: this.guide.bands, labels });
+    target.innerHTML = framingGuide(w, h, { framing: this.framing(), ready: this.guide.ready, missing: this.guide.bands, labels, headroom: needsHeadroom(this.game) });
+  }
+
+  /**
+   * What the error panel says: a sentence of the player's own language for the code, or the shell's own words when it threw
+   * them itself (a scene that could not be drawn). What the platform writes for developers never reaches the player.
+   */
+  private errorText(code: string, message: string): string {
+    const t = this.ctx().i18n;
+    const own = t.t('play.error.scene');
+    if (message !== '' && message === own) return own;
+    const key = `play.err.${code}`;
+    return t.has(key) ? t.tx(key) : t.t('play.error.title');
   }
 
   private onError(code: string, message: string): void {
     if (this.disposed) return;
     if (CAMERA_CODES.has(code)) this.show({ kind: 'camera-error', code });
-    else this.show({ kind: 'error', message: message || this.ctx().i18n.t('play.error.title') });
+    else this.show({ kind: 'error', message: this.errorText(code, message) });
     this.host.announce(this.ctx().i18n.t('play.error.title'), { assertive: true });
   }
 

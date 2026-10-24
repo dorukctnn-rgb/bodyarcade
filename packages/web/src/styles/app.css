@@ -386,6 +386,7 @@ body > .ba-visually-hidden { position: fixed; top: 0; left: 0; }
 .cal .view .ba-pip-host { position: absolute; inset: 0; }
 .cal .view .guide { position: absolute; inset: 0; pointer-events: none; }
 .cal .view .guide svg { width: 100%; height: 100%; display: block; }
+.cal .guide text, .cal .ring text { font-family: var(--ba-font-display); }
 .cal .view .shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(26, 20, 48, 0.7), transparent 24%); pointer-events: none; }
 .cal-top { position: absolute; top: calc(env(safe-area-inset-top, 0px) + var(--m)); left: max(var(--m), env(safe-area-inset-left, 0px)); right: var(--m); display: flex; align-items: center; gap: 12px; }
 .cal-top .grow { flex: 1; min-width: 0; }
@@ -413,6 +414,8 @@ body > .ba-visually-hidden { position: fixed; top: 0; left: 0; }
 .cal .gauge .lbl span:nth-child(2) { color: var(--ba-go-400); }
 .cal .seated { color: #F4F2F8; font-weight: 750; background: none; border: 0; padding: 8px 4px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; text-decoration-color: var(--ba-accent); cursor: pointer; font-size: 15px; }
 .cal .slow { display: grid; gap: 10px; justify-items: center; }
+.cal .headroom { display: flex; align-items: center; gap: 10px; margin: 0; max-width: 30em; text-align: left; font-weight: 650; line-height: 1.35; color: rgba(244, 242, 248, 0.88); }
+.cal .headroom svg { flex: none; width: 36px; height: 36px; }
 .cal .desk { display: grid; gap: 10px; justify-items: center; padding: 12px 14px; border-radius: var(--ba-radius-lg, 16px); background: rgba(244, 242, 248, 0.08); box-shadow: inset 0 0 0 1.5px rgba(255, 197, 58, 0.55); max-width: 30em; animation: ba-fade var(--ba-dur-enter) var(--ba-ease-out); }
 .cal .desk .ba-btn { width: min(100%, 420px); }
 .cal .skips { display: flex; flex-wrap: wrap; gap: 0 20px; justify-content: center; }
@@ -436,6 +439,8 @@ body > .ba-visually-hidden { position: fixed; top: 0; left: 0; }
   .cal .gauge .lbl { font-size: 12px; margin-top: 5px; }
   .cal .sub { font-size: 0.9rem; }
   .cal .desk { padding: 8px 10px; gap: 8px; }
+  .cal .headroom { font-size: 0.9rem; gap: 8px; }
+  .cal .headroom svg { width: 28px; height: 28px; }
   .cal .desk .more { display: none; }
   .cal .skips { gap: 0 14px; }
   .cal .seated { font-size: 14px; padding: 6px 2px; }

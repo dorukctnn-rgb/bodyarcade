@@ -71,6 +71,45 @@ describe('the framing guide', () => {
     expect(framingGuide(800, 600, { framing: 'desk', ready: false, missing: [], labels: LABELS })).toContain('<line');
   });
 
+  for (const framing of ['full', 'upper', 'desk'] as const) {
+    for (const [w, h] of SIZES) {
+      it(`headroom, ${framing} at ${w}x${h}: the raised arms and every band stay inside the picture`, () => {
+        const svg = framingGuide(w, h, { framing, ready: false, missing: ['head', 'shoulders', 'hips', 'knees', 'feet'], labels: LABELS, headroom: true });
+        expect(svg).not.toMatch(/NaN|Infinity|undefined/);
+        const path = /<path d="([^"]+)"/.exec(svg)?.[1] ?? '';
+        const nums = [...path.matchAll(/-?[\d.]+/g)].map((n) => Number(n[0]));
+        let top = Infinity;
+        for (let i = 0; i < nums.length; i += 2) {
+          const px = nums[i] as number, py = nums[i + 1] as number;
+          expect(px, 'x').toBeGreaterThan(-w * 0.02);
+          expect(px, 'x').toBeLessThan(w * 1.02);
+          top = Math.min(top, py);
+        }
+        // the hands have room: the highest point of the figure is clear of the top edge
+        expect(top, 'the hands are inside the picture').toBeGreaterThan(h * 0.03);
+        for (const m of svg.matchAll(/<rect x="(-?[\d.]+)" y="(-?[\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)) {
+          const [x, y, rw, rh] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+          expect(x).toBeGreaterThanOrEqual(-0.5);
+          expect(y).toBeGreaterThanOrEqual(-0.5);
+          expect(x + rw).toBeLessThanOrEqual(w + 0.5);
+          expect(y + rh).toBeLessThanOrEqual(h + 0.5);
+        }
+      });
+    }
+  }
+
+  it('headroom raises the arms: the outline reaches well above the head, and without it nothing does', () => {
+    const measure = (headroom: boolean): { arms: number } => {
+      const svg = framingGuide(800, 600, { framing: 'full', ready: false, missing: [], labels: LABELS, headroom });
+      const path = /<path d="([^"]+)"/.exec(svg)?.[1] ?? '';
+      const ys = [...path.matchAll(/-?[\d.]+/g)].map((n) => Number(n[0])).filter((_, i) => i % 2 === 1);
+      const e = /<ellipse cx="[\d.]+" cy="([\d.]+)" rx="[\d.]+" ry="([\d.]+)"/.exec(svg);
+      return { arms: Number(e?.[1]) - Number(e?.[2]) - Math.min(...ys) };
+    };
+    expect(measure(true).arms, 'arms above the head').toBeGreaterThan(15);
+    expect(measure(false).arms, 'no arms above the head').toBeLessThan(8);
+  });
+
   it('skips a band for a part below the cut, and a label with a markup character is the caller\'s to escape', () => {
     const svg = framingGuide(800, 600, { framing: 'desk', ready: false, missing: ['feet', 'knees'], labels: LABELS });
     expect(svg).not.toContain('>Feet<');

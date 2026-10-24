@@ -317,7 +317,7 @@ describe('the calibration screen', () => {
   const phone: UiCapabilities = { device: 'phone', platform: 'web', deviceClass: 'phone', landscape: false, touch: true, camera: true, secure: true, tv: false, keyboard: false, local2: false, local2Reason: 'phone' };
   const squat = games.find((x) => x.id === 'squat-flap') as ShellGame;
   const standing: ShellGame = { ...squat, seated: false };
-  const base = { kind: 'calibrating', framing: 'full', two: false, message: 'Msg', checks: [{ part: 'head', ok: true }, { part: 'hips', ok: false }], progress: 0, slow: false, gauge: 'close', desk: 'none', stuck: false } as const;
+  const base = { kind: 'calibrating', framing: 'full', two: false, message: 'Msg', checks: [{ part: 'head', ok: true }, { part: 'hips', ok: false }], progress: 0, slow: false, gauge: 'close', desk: 'none', stuck: false, headroom: false } as const;
   const draw2 = (lang: Lang, g: ShellGame, o: Partial<Extract<Parameters<typeof overlayHtml>[2], { kind: 'calibrating' }>>, caps = bigScreen): string =>
     overlayHtml(makeContext({ lang, games, url: lang === 'en' ? '/' : `/${lang}/`, caps }), g, { ...base, ...o } as Parameters<typeof overlayHtml>[2]).value;
 
@@ -373,6 +373,14 @@ describe('the calibration screen', () => {
     expect(only).not.toMatch(/data-calib-desk="standing-only" hidden/);
     expect(textOf(only)).toContain('This game is played standing');
     expect(only).toContain('data-action="desk-games"');
+  });
+
+  it('a game that lifts the hands above the head says the hands must stay in view, and the others stay quiet', () => {
+    const summit = games.find((x) => x.id === 'summit-climb') as ShellGame;
+    expect(textOf(draw2('en', summit, { headroom: true }))).toContain('When you raise your arms, your hands should stay in view.');
+    expect(textOf(draw2('tr', summit, { headroom: true }))).toContain('Kollarını kaldırınca ellerin görünsün.');
+    expect(draw2('en', summit, { headroom: true })).toContain('data-calib-headroom');
+    expect(draw2('en', squat, {})).not.toContain('data-calib-headroom');
   });
 
   it('shows no raw code or key in any state, in English or Turkish', () => {

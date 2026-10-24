@@ -15,9 +15,11 @@ export function screenFraming(game: Pick<ShellGame, 'framing'>, seated: boolean)
 
 /**
  * One plain sentence for every state the platform reports. A Record over the platform's own lists: a code added there
- * does not build until it has words here, and a key that is not in the English table does not build either.
+ * does not build until it has words here, and a key that is not in the English table does not build either. The
+ * states of the newer, profile-based calibration (cut at the side, dark room, light behind, a crowd) have their words
+ * in advance: the second half of the type lets them stand in the table before the platform's list names them.
  */
-export const CALIB_MESSAGE: Readonly<Record<TwoPlayerCode, StringKey>> = {
+export const CALIB_MESSAGE: Readonly<Record<TwoPlayerCode, StringKey>> & Readonly<Record<string, StringKey>> = {
   no_person: 'calib.msg.no_person',
   too_close: 'calib.msg.too_close',
   too_far: 'calib.msg.too_far',
@@ -25,6 +27,11 @@ export const CALIB_MESSAGE: Readonly<Record<TwoPlayerCode, StringKey>> = {
   hips_out: 'calib.msg.hips_out',
   knees_out: 'calib.msg.knees_out',
   feet_out: 'calib.msg.feet_out',
+  move_left: 'calib.msg.move_left',
+  move_right: 'calib.msg.move_right',
+  too_dark: 'calib.msg.too_dark',
+  backlit: 'calib.msg.backlit',
+  many_people: 'calib.msg.many_people',
   move_still: 'calib.msg.move_still',
   hold: 'calib.msg.hold',
   ok: 'calib.msg.ok',
@@ -35,7 +42,7 @@ export const CALIB_MESSAGE: Readonly<Record<TwoPlayerCode, StringKey>> = {
 };
 
 /** What each way of guiding two players says; 'none' says nothing of its own. */
-export const GUIDE_MESSAGE: Readonly<Record<TwoPlayerGuidance['action'], StringKey | null>> = {
+export const GUIDE_MESSAGE: Readonly<Record<TwoPlayerGuidance['action'], StringKey | null>> & Readonly<Record<string, StringKey | null>> = {
   step_in: 'calib.guide.step_in',
   step_back: 'calib.guide.step_back',
   step_closer: 'calib.guide.step_closer',
@@ -43,8 +50,45 @@ export const GUIDE_MESSAGE: Readonly<Record<TwoPlayerGuidance['action'], StringK
   move_left: 'calib.guide.move_left',
   move_right: 'calib.guide.move_right',
   hold_still: 'calib.guide.hold_still',
+  more_light: 'calib.guide.more_light',
+  light_in_front: 'calib.guide.light_in_front',
   none: null,
 };
+
+/**
+ * What a newer platform adds to the calibration status. Every field is optional and this shell works from the code alone
+ * without them; with them the screen is exact about what is in view, says when a round plays at the desk by itself, and
+ * puts the way around the camera forward when the platform asks.
+ */
+export interface CalibExtras {
+  /** The parts of the body that are in view and inside the picture, as the platform measured them. */
+  seen?: Partial<Record<CalibPart, boolean>>;
+  /** What a finished calibration ended with: 'fallback' is the best that could be measured (the desk), not what the game wanted. */
+  outcome?: 'measured' | 'fallback';
+  /** The wait is long: another way to play is offered. */
+  escape?: boolean;
+}
+
+export const extrasOf = (status: object): CalibExtras => status as CalibExtras;
+
+/** The parts of two players' views that both of them show. */
+export function bothSeen(a: Partial<Record<CalibPart, boolean>> | undefined, b: Partial<Record<CalibPart, boolean>> | undefined): Partial<Record<CalibPart, boolean>> | undefined {
+  if (!a || !b) return undefined;
+  const out: Partial<Record<CalibPart, boolean>> = {};
+  for (const part of ['head', 'shoulders', 'hips', 'knees', 'feet'] as const) out[part] = a[part] === true && b[part] === true;
+  return out;
+}
+
+/**
+ * Games whose moves lift the hands above the head, so the camera needs room above the head as well as the body. The
+ * manifest may say so itself (`headroom`); until every manifest does, the games known to need it are listed here.
+ */
+const HEADROOM_GAMES: ReadonlySet<string> = new Set(['summit-climb']);
+
+export function needsHeadroom(game: Pick<ShellGame, 'id'>): boolean {
+  const flag = (game as { headroom?: unknown }).headroom;
+  return (flag !== undefined && flag !== false && flag !== null) || HEADROOM_GAMES.has(game.id);
+}
 
 /** At a desk "too close", "hips out" and the rest all mean the same thing to the person: sit back a little. */
 const DESK_SIT_BACK: ReadonlySet<string> = new Set(['too_close', 'hips_out', 'knees_out', 'feet_out']);
@@ -70,15 +114,21 @@ export function partsFor(framing: ScreenFraming): CalibPart[] {
 }
 
 const MISSING: Readonly<Record<string, CalibPart | undefined>> = { head_out: 'head', hips_out: 'hips', knees_out: 'knees', feet_out: 'feet' };
-const NOBODY: ReadonlySet<string> = new Set(['no_person', 'one_person', 'too_close', 'too_far', 'too_close_together', 'player_out']);
+const NOBODY: ReadonlySet<string> = new Set(['no_person', 'one_person', 'too_close', 'too_far', 'too_close_together', 'player_out', 'too_dark', 'backlit']);
 const LOWER: ReadonlySet<string> = new Set(['hips_out', 'knees_out', 'feet_out']);
+/** Codes about the device, the room or the crowd rather than about which parts of the body are in view: the ticks stay as they were. */
+const KEEP: ReadonlySet<string> = new Set(['too_slow', 'move_left', 'move_right', 'many_people']);
+
+export const keepsChecks = (code: string): boolean => KEEP.has(code);
 
 /**
  * Which of those parts are in view, from the code. The platform looks from the head down and reports the first part that
- * is missing, so that part and every one after it are not checked off yet.
+ * is missing, so that part and every one after it are not checked off yet. When the platform says which parts it sees
+ * (`seen`) that is what is shown.
  */
-export function checksFor(framing: ScreenFraming, code: string): CalibCheck[] {
+export function checksFor(framing: ScreenFraming, code: string, seen?: Partial<Record<CalibPart, boolean>>): CalibCheck[] {
   const parts = partsFor(framing);
+  if (seen) return parts.map((part) => ({ part, ok: seen[part] === true }));
   const nobody = NOBODY.has(code);
   // In the desk view the lower body is not asked for, so the codes about it say nothing about the parts that are.
   const missing = framing === 'desk' && LOWER.has(code) ? undefined : MISSING[code];
@@ -90,7 +140,14 @@ export function checksFor(framing: ScreenFraming, code: string): CalibCheck[] {
  * The bands laid over the picture: the part that is out of view, named where it sits on the body. While nobody is in view
  * a standing game shows where the feet go, the one thing people forget.
  */
-export function bandsFor(framing: ScreenFraming, code: string): CalibPart[] {
+export function bandsFor(framing: ScreenFraming, code: string, seen?: Partial<Record<CalibPart, boolean>>): CalibPart[] {
+  if (seen) {
+    const parts = partsFor(framing);
+    const some = parts.some((p) => seen[p] === true);
+    const missing = parts.filter((p) => seen[p] !== true);
+    // Part of the body is in view and part is not: each missing part is named where it sits. Nobody in view is handled below.
+    if (some && missing.length > 0) return missing;
+  }
   const part = MISSING[code];
   if (part !== undefined && !(framing === 'desk' && LOWER.has(code))) return partsFor(framing).includes(part) ? [part] : [];
   if ((code === 'no_person' || code === 'too_close' || code === 'too_far') && (framing === 'full' || framing === 'side')) return ['feet'];

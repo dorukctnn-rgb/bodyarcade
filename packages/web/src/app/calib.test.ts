@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { createI18n, stringTables } from '../../../core/ui/i18n/index.ts';
 import { copyProblems } from '../../catalogue/copy.ts';
 import {
-  bandsFor, calibMessage, CALIB_MESSAGE, checksFor, DESK_DELAY, DESK_HOLD_MS, deskCard, DeskOffer, gaugeFor, GUIDE_MESSAGE, partsFor, screenFraming,
+  bandsFor, bothSeen, calibMessage, CALIB_MESSAGE, checksFor, DESK_DELAY, DESK_HOLD_MS, deskCard, DeskOffer, extrasOf, gaugeFor, GUIDE_MESSAGE, keepsChecks,
+  needsHeadroom, partsFor, screenFraming,
 } from './calib.ts';
 
 const FRAMINGS = ['full', 'upper', 'side', 'desk'] as const;
@@ -17,6 +18,11 @@ describe('a sentence for every state', () => {
   it('lists the states the platform reports', () => {
     expect(CODES.length).toBeGreaterThanOrEqual(14);
     for (const c of ['no_person', 'too_close', 'too_far', 'head_out', 'hips_out', 'knees_out', 'feet_out', 'hold', 'ok', 'too_slow', 'one_person', 'player_out']) expect(CODES).toContain(c);
+  });
+
+  it('has words in advance for the states of the profile-based calibration, and for the light guidance of two players', () => {
+    for (const c of ['move_left', 'move_right', 'too_dark', 'backlit', 'many_people']) expect(CODES).toContain(c);
+    for (const a of ['more_light', 'light_in_front']) expect(Object.keys(GUIDE_MESSAGE)).toContain(a);
   });
 
   for (const lang of ['en', 'tr'] as const) {
@@ -132,6 +138,60 @@ describe('the checks and the picture guide', () => {
     expect(screenFraming({ framing: 'full' }, true)).toBe('desk');
     expect(screenFraming({ framing: 'full' }, false)).toBe('full');
     expect(screenFraming({ framing: 'side' }, false)).toBe('side');
+  });
+});
+
+describe('what a newer platform measures itself', () => {
+  it('the parts it says are in view are the ticks, whatever the code names', () => {
+    const oks = (framing: Parameters<typeof checksFor>[0], code: string, seen: Parameters<typeof checksFor>[2]): boolean[] => checksFor(framing, code, seen).map((c) => c.ok);
+    expect(oks('full', 'knees_out', { head: true, hips: true, knees: false, feet: false })).toEqual([true, true, false, false]);
+    expect(oks('full', 'hold', { head: true, hips: true, knees: true, feet: true })).toEqual([true, true, true, true]);
+    expect(oks('desk', 'hips_out', { head: true, shoulders: true, hips: false })).toEqual([true, true]);
+    expect(oks('full', 'no_person', {})).toEqual([false, false, false, false]);
+  });
+
+  it('every missing part is named on the picture when some of the body is in view, and none when nobody is', () => {
+    expect(bandsFor('full', 'knees_out', { head: true, hips: true, knees: false, feet: false })).toEqual(['knees', 'feet']);
+    expect(bandsFor('full', 'hold', { head: true, hips: true, knees: true, feet: true })).toEqual([]);
+    expect(bandsFor('full', 'no_person', {})).toEqual(['feet']);
+    expect(bandsFor('desk', 'hips_out', { head: true, shoulders: true })).toEqual([]);
+  });
+
+  it('two players: a part counts when both of them show it', () => {
+    expect(bothSeen({ head: true, hips: true }, { head: true, hips: false })).toEqual({ head: true, shoulders: false, hips: false, knees: false, feet: false });
+    expect(bothSeen(undefined, { head: true })).toBeUndefined();
+  });
+
+  it('codes about the room or the crowd leave the ticks as they were, the others set them', () => {
+    for (const c of ['too_slow', 'move_left', 'move_right', 'many_people']) expect(keepsChecks(c), c).toBe(true);
+    for (const c of ['no_person', 'hips_out', 'too_dark', 'backlit', 'hold']) expect(keepsChecks(c), c).toBe(false);
+    expect(checksFor('full', 'too_dark').some((c) => c.ok)).toBe(false);
+    expect(checksFor('full', 'backlit').some((c) => c.ok)).toBe(false);
+  });
+
+  it('reads the extras from a status without needing them', () => {
+    expect(extrasOf({ code: 'ok', progress: 1 }).seen).toBeUndefined();
+    expect(extrasOf({ escape: true }).escape).toBe(true);
+    expect(extrasOf({ outcome: 'fallback' }).outcome).toBe('fallback');
+  });
+});
+
+describe('the headroom state', () => {
+  it('Summit Climb lifts the hands above the head, so it asks for room there; the others do not', () => {
+    expect(needsHeadroom({ id: 'summit-climb' })).toBe(true);
+    for (const id of ['squat-flap', 'road-run', 'knee-sprint', 'star-catch', 'pad-work']) expect(needsHeadroom({ id }), id).toBe(false);
+  });
+
+  it('a manifest that says so is believed, and one that says no does not remove a game the list knows', () => {
+    expect(needsHeadroom({ id: 'new-game', headroom: 'arms-up' } as { id: string })).toBe(true);
+    expect(needsHeadroom({ id: 'summit-climb', headroom: false } as { id: string })).toBe(true);
+    expect(needsHeadroom({ id: 'new-game', headroom: false } as { id: string })).toBe(false);
+  });
+
+  it('says it in plain English and Turkish, in the words the brief gave', () => {
+    expect(createI18n('tr').t('calib.headroom')).toBe('Kollarını kaldırınca ellerin görünsün.');
+    expect(createI18n('en').t('calib.headroom')).toMatch(/raise your arms/i);
+    for (const lang of ['en', 'tr'] as const) expect(copyProblems(createI18n(lang).t('calib.headroom')), lang).toEqual([]);
   });
 });
 

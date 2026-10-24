@@ -1,6 +1,7 @@
 // The game stage and what is laid over it before and between rounds: the camera explainer, calibration, countdown,
 // pause and errors. The stage has three layers: the game (and the camera preview), the HUD, and these panels.
 import { attr, html, raw, type SafeHtml } from '../../../core/ui/html.ts';
+import { glyph } from '../../../core/ui/glyphs.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import type { Framing, PauseReason } from '../../../core/types/index.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
@@ -30,6 +31,8 @@ export type PlayOverlay =
     desk: DeskCard;
     /** The player has been at it a while: the way around the camera is put forward. */
     stuck: boolean;
+    /** The game lifts the hands above the head: the screen says the hands must stay in view. */
+    headroom: boolean;
   }
   | { kind: 'countdown'; n: number }
   | { kind: 'paused'; reason: PauseReason }
@@ -65,7 +68,7 @@ const DOTS = '<svg class="dots" viewBox="0 0 14 14" aria-hidden="true" focusable
 /** The ring of the calibration screen: how many body checks are done, as a circle and as words. */
 export function ringHtml(done: number, total: number, label: string, text: string): string {
   const ok = done === total && total > 0;
-  return `<svg class="ring" viewBox="0 0 64 64" role="img" aria-label="${label}" data-calib-ring><circle cx="32" cy="32" r="26" fill="rgba(28,20,51,0.8)" stroke="rgba(244,242,248,0.2)" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="${ok ? '#22C383' : '#FF4F6E'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${RING}" stroke-dashoffset="${(RING * (1 - (total ? done / total : 0))).toFixed(1)}" transform="rotate(-90 32 32)" data-calib-arc/><text x="32" y="37.5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="15" fill="#F4F2F8" data-calib-ringtext>${text}</text></svg>`;
+  return `<svg class="ring" viewBox="0 0 64 64" role="img" aria-label="${label}" data-calib-ring><circle cx="32" cy="32" r="26" fill="rgba(28,20,51,0.8)" stroke="rgba(244,242,248,0.2)" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="${ok ? '#22C383' : '#FF4F6E'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${RING}" stroke-dashoffset="${(RING * (1 - (total ? done / total : 0))).toFixed(1)}" transform="rotate(-90 32 32)" data-calib-arc/><text x="32" y="37.5" text-anchor="middle" font-weight="800" font-size="15" fill="#F4F2F8" data-calib-ringtext>${text}</text></svg>`;
 }
 
 const CHECK_LABEL = { head: 'calib.check.head', shoulders: 'calib.check.shoulders', hips: 'calib.check.hips', knees: 'calib.check.knees', feet: 'calib.check.feet' } as const;
@@ -113,6 +116,7 @@ export function overlayHtml(ctx: ViewContext, g: ShellGame, o: PlayOverlay): Saf
         </div>
         <div class="panel">
           <p class="msg" role="status" data-calib-msg>${o.message}</p>
+          ${o.headroom ? html`<p class="headroom" data-calib-headroom>${glyph('jackOpen', { decorative: true, floor: false, size: 30, ink: '#F4F2F8', accent: '#FFC53A', ball: '#F4F2F8' })}<span>${t.t('calib.headroom')}</span></p>` : ''}
           <div class="gauge" data-calib-gauge data-pos="${o.gauge}"${attr('hidden', o.gauge === 'none')} role="img" aria-label="${t.t('calib.gauge.label', { state: o.gauge === 'none' ? '' : gaugeText[o.gauge] })}"><div class="bar"><em></em></div><div class="lbl"><span>${gaugeText.close}</span><span>${gaugeText.good}</span><span>${gaugeText.far}</span></div></div>
           <div class="slow" data-calib-slow${attr('hidden', !o.slow)}>${ctx.caps.keyboard
             ? html`<p class="sub">${t.t('calib.slow.body')}</p><button type="button" class="ba-btn ba-btn--secondary" data-action="use-keyboard">${t.t('calib.slow.cta')}</button>`

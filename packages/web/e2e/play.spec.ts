@@ -118,7 +118,8 @@ test.describe('calibration', () => {
     const errors = collectErrors(page);
     // the practice session never asks the browser for the camera, so the permission a real first round would have given is given here
     await page.context().grantPermissions(['camera']);
-    await withHooks(page, { timeScale: 3, roundSeconds: 120, forceDemo: true });
+    // real speed: the four checks are all in view for about a second and a half, which a busy machine's polling cannot miss
+    await withHooks(page, { timeScale: 1, roundSeconds: 120, forceDemo: true });
     await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera`);
 
     // The camera is explained once, before the browser asks.
@@ -152,6 +153,29 @@ test.describe('calibration', () => {
     await expect(page.locator('.cal [data-calib-skip]')).toBeVisible();
     await page.locator('.cal').getByRole('button', { name: 'Close' }).click();
     await expect(page).toHaveURL(/\/games\/squat-flap\/$/);
+  });
+
+  test('Summit Climb asks for room above the head, in both languages, and the other games do not', async ({ page }) => {
+    await page.context().grantPermissions(['camera']);
+    await withHooks(page, { timeScale: 1, roundSeconds: 120, forceDemo: true });
+    await page.goto(`${WEB_DEV_URL}/play/summit-climb/?input=camera`);
+    await page.getByRole('button', { name: 'Continue' }).click();
+    const cal = page.locator('.cal');
+    await expect(cal.locator('[data-calib-headroom]')).toHaveText('When you raise your arms, your hands should stay in view.');
+    // the guide figure raises its arms: its outline reaches above the head
+    const reach = await cal.locator('[data-cal-guide] svg').evaluate((svg) => {
+      const head = svg.querySelector('ellipse');
+      const body = svg.querySelector('path');
+      if (!head || !body) return -1;
+      const ys = (body.getAttribute('d') ?? '').match(/-?[\d.]+/g)?.map(Number).filter((_, i) => i % 2 === 1) ?? [];
+      return Number(head.getAttribute('cy')) - Number(head.getAttribute('ry')) - Math.min(...ys);
+    });
+    expect(reach).toBeGreaterThan(10);
+    await page.goto(`${WEB_DEV_URL}/tr/play/summit-climb/?input=camera`);
+    await expect(page.locator('.cal [data-calib-headroom]')).toHaveText('Kollarını kaldırınca ellerin görünsün.');
+    await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera`);
+    await expect(page.locator('.cal')).toBeVisible();
+    await expect(page.locator('[data-calib-headroom]')).toHaveCount(0);
   });
 });
 
