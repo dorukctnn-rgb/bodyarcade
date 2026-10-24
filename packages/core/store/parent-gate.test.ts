@@ -93,6 +93,31 @@ describe('answering', () => {
     expect(gate.answer('', 100)).toEqual({ ok: false, code: 'no_question' });
     expect(gate.answer(undefined as never, 100)).toEqual({ ok: false, code: 'no_question' });
   });
+
+  it('tells whoever asked to hear it when a right answer opens the gate, and for nothing else', () => {
+    const storage = memoryStorage();
+    const clock = { t: Date.UTC(2026, 9, 24, 12, 0, 0) };
+    const store = createStore({ storage, now: () => clock.t, timeZone: 'UTC' });
+    let opened = 0;
+    const gate = createParentGate({ ns: store.ns('profiles'), now: () => clock.t, onOpen: () => { opened += 1; } });
+    const q = asked(gate.ask());
+    const wrong = gate.answer(q.id, productOf(q) + 1) as { next: GateQuestion };
+    expect(opened).toBe(0);
+    gate.answer('nope', 1);
+    expect(opened).toBe(0);
+    expect(gate.answer(wrong.next.id, productOf(wrong.next))).toEqual({ ok: true });
+    expect(opened).toBe(1);
+  });
+
+  it('opens even when the one who asked to hear it breaks', () => {
+    const storage = memoryStorage();
+    const clock = { t: Date.UTC(2026, 9, 24, 12, 0, 0) };
+    const store = createStore({ storage, now: () => clock.t, timeZone: 'UTC' });
+    const gate = createParentGate({ ns: store.ns('profiles'), now: () => clock.t, onOpen: () => { throw new Error('listener broke'); } });
+    const q = asked(gate.ask());
+    expect(gate.answer(q.id, productOf(q))).toEqual({ ok: true });
+    expect(gate.isOpen()).toBe(true);
+  });
 });
 
 describe('open and closed', () => {

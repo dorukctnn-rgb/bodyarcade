@@ -240,6 +240,15 @@ describe('the list at the start', () => {
     expect(r.book.needsPicker()).toBe(true);                              // a damaged flag is the default: ask who is playing
   });
 
+  it('never reads the owner as a kid, whatever the list says: that would only take their online identity away', () => {
+    const damaged = JSON.stringify({ v: 1, d: { seq: 1, active: 1, profiles: [{ seq: 1, name: 'Ayşe', avatar: 'fox', kid: 'maybe', seated: false, createdAt: 5, lastUsedAt: null }] } });
+    for (const kid of ['maybe', true]) {
+      const r = rig({ plan: 'family', storage: memoryStorage({ 'ba2.profiles.book': damaged.replace('"maybe"', JSON.stringify(kid)) }) });
+      expect(r.book.get('p1'), String(kid)).toMatchObject({ kid: false, rules: { online: true, purchase: 'open' } });
+      expect(r.book.online()).toBe(true);
+    }
+  });
+
   it('leaves a list written by a newer version exactly as it is, shows the owner alone, and changes nothing', () => {
     const newer = '{"v":2,"d":{"profiles":"a shape this version does not know"}}';
     const r = rig({ plan: 'family', storage: memoryStorage({ 'ba2.profiles.book': newer, 'ba2.runner.totals': '{"v":1,"d":{"runs":3}}' }) });
@@ -377,7 +386,7 @@ describe('switching', () => {
     expect(r.book.switchTo(r.kid)).toMatchObject({ ok: true, changed: true, space: { id: r.kid } });
     expect(r.book.active()).toMatchObject({ id: r.kid, lastUsedAt: r.clock.t, active: true });
     expect(r.book.list().filter((v) => v.active).map((v) => v.id)).toEqual([r.kid]);
-    expect(r.events.at(-1)).toEqual({ kind: 'switched', id: r.kid, active: r.kid, online: false });
+    expect(r.events.at(-1)).toEqual({ kind: 'switched', id: r.kid, active: r.kid, online: false, guarded: false });
     expect(r.page().book.open().id).toBe(r.kid);
   });
 
@@ -447,7 +456,7 @@ describe('the picker, in one read', () => {
   it('says what the screen shows for each plan and who is playing', () => {
     const free = rig({ plan: 'free' });
     expect(free.book.picker()).toEqual({
-      ask: false, cards: free.book.list(), add: { show: true, why: 'plan' }, manage: true, askOnStart: true, notice: null,
+      ask: false, guarded: false, cards: free.book.list(), add: { show: true, why: 'plan' }, manage: true, askOnStart: true, notice: null,
     });
     const r = rig({ plan: 'family' });
     expect(r.book.picker()).toMatchObject({ ask: false, add: { show: true, why: null }, manage: true });
@@ -650,7 +659,8 @@ describe('when the plan ends', () => {
     r.events.length = 0;
     r.setPlan('free');
     expect(r.book.active().id).toBe('p1');
-    expect(r.events).toEqual([{ kind: 'switched', id: 'p1', active: 'p1', online: true, reason: 'plan' }]);
+    // It was a kid's profile that locked, so the owner's profile waits behind the parent gate (the guard, below): no online identity yet.
+    expect(r.events).toEqual([{ kind: 'switched', id: 'p1', active: 'p1', online: false, guarded: true, reason: 'plan' }]);
     expect(r.page().book.open().id).toBe('p1');
     r.setPlan('family');
     expect(r.book.active().id).toBe('p1');
@@ -658,13 +668,25 @@ describe('when the plan ends', () => {
     expect(r.book.switchTo(r.kid)).toMatchObject({ ok: true });
   });
 
-  it('opens a page on the owner when the plan ended while a kid was the one playing', () => {
+  it('puts a grown-up whose profile locked on the owner, without a guard: nobody was a child', () => {
+    const r = family();
+    go(r, r.adult);
+    r.events.length = 0;
+    r.setPlan('free');
+    expect(r.book.active().id).toBe('p1');
+    expect(r.book.guarded).toBe(false);
+    expect(r.events).toEqual([{ kind: 'switched', id: 'p1', active: 'p1', online: true, guarded: false, reason: 'plan' }]);
+  });
+
+  it('opens a page on the owner when the plan ended while a kid was the one playing, behind the gate', () => {
     const r = family();
     r.book.switchTo(r.kid);
     r.state.plan = 'free';                                                // the entitlements changed while no page was open
     const next = r.page();
     expect(next.book.open().id).toBe('p1');
     expect(next.book.active().id).toBe('p1');
+    expect(next.book.guarded).toBe(true);
+    expect(next.book.online()).toBe(false);
   });
 
   it('gives everything back when the plan returns: the records, the states, the right to play and to write', () => {
@@ -778,6 +800,128 @@ describe('kid profiles', () => {
   });
 });
 
+describe('the guard: a child is not handed to the owner\'s profile because a plan ended', () => {
+  /** The Family plan ends (or drops to `to`) while the kid is the one playing. */
+  function lapsed(to: PlanKey = 'free') {
+    const r = family();
+    go(r, r.kid);
+    r.events.length = 0;
+    r.setPlan(to);
+    return r;
+  }
+
+  it('gives the owner\'s profile a kid\'s rules until the parent gate is passed', () => {
+    const r = lapsed();
+    expect(r.book.active()).toMatchObject({ id: 'p1', owner: true, kid: false, guarded: true, state: 'ready', rules: rulesFor({ owner: true, kid: true, locked: false }) });
+    expect(r.book.guarded).toBe(true);
+    expect(r.book.online()).toBe(false);
+    expect(r.book.canPurchase()).toBe(false);
+    expect(r.book.active().rules).toMatchObject({ online: false, purchase: 'parent_gate', autoPaywall: false, calories: false, share: false, freeText: false, ghosts: 'family' });
+    expect(r.book.picker()).toMatchObject({ ask: true, guarded: true, manage: false });
+    expect(r.book.needsPicker()).toBe(true);
+  });
+
+  it('keeps the online features and the sync port shut for it, even when the plan that is left would allow them', () => {
+    const r = lapsed('pro');                                              // the Family plan became Pro: live play is paid for, the guard alone keeps it shut
+    const owner = r.book.open();
+    const server = new FakeSyncServer();
+    expect(canUse('live:ranked', ENTITLEMENT.pro)).toBe(true);
+    expect(owner.can('live:ranked')).toBe(false);
+    expect(owner.can('friends:list')).toBe(false);
+    expect(owner.can(`game:${GAME}`)).toBe(true);
+    expect(owner.syncPort(() => server.port())()).toBeNull();
+    expect(owner.rules.online).toBe(false);
+  });
+
+  it('manages nothing while it is on: no new profile, no change, no deletion, no setting; sitting is still the player\'s own', () => {
+    const r = lapsed();
+    expect(r.book.create({ name: 'Yeni' })).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.book.update('p1', { name: 'Anne' })).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.book.update('p1', { avatar: 'owl' })).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.book.planRemoval('p1')).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.book.planRemoval(r.kid)).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.book.setAskOnStart(false)).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.book.update('p1', { seated: true })).toMatchObject({ ok: true, profile: { seated: true } });
+  });
+
+  it('is not lifted by tapping the owner\'s card: that asks for the gate, and a right answer lifts it for good and says so', () => {
+    const r = lapsed('pro');
+    const calls: string[] = [];
+    watchOnline(r.book, { open: () => { calls.push('open'); }, close: () => { calls.push('close'); } });
+    expect(calls).toEqual(['close']);                                     // it was closed for the kid, and the guard keeps it closed
+    expect(r.book.switchTo('p1')).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.book.guarded).toBe(true);
+    r.events.length = 0;
+    passGate(r);
+    expect(r.book.guarded).toBe(false);
+    expect(r.events).toEqual([{ kind: 'refreshed', id: null, active: 'p1', online: true, guarded: false }]);
+    expect(calls).toEqual(['close', 'open']);                             // the online identity is the owner's again
+    expect(r.book.switchTo('p1')).toMatchObject({ ok: true, changed: false });
+    expect(r.book.online()).toBe(true);
+    expect(r.book.canPurchase()).toBe(true);
+    expect(r.book.open().can('live:ranked')).toBe(true);
+    expect(r.book.update('p1', { name: 'Anne' })).toMatchObject({ ok: true });
+  });
+
+  it('is kept in the list: a page that opens later is guarded too, and a right answer in one page lifts it in the other', () => {
+    const r = lapsed();
+    const next = r.page();
+    expect(next.book.guarded).toBe(true);
+    expect(next.book.active().id).toBe('p1');
+    expect(next.book.online()).toBe(false);
+    passGate(next);
+    expect(next.book.guarded).toBe(false);
+    r.events.length = 0;
+    r.book.refresh();                                                     // the first page hears of it from the browser's storage event
+    expect(r.book.guarded).toBe(false);
+    expect(r.events).toEqual([{ kind: 'refreshed', id: null, active: 'p1', online: true, guarded: false }]);
+  });
+
+  it('stays after the plan returns: the kid goes to a kid\'s profile by a tap, a grown-up\'s needs the gate, and so does the way back', () => {
+    const r = lapsed();
+    r.setPlan('family');
+    expect(r.book.guarded).toBe(true);
+    expect(r.book.switchTo(r.adult)).toEqual({ ok: false, code: 'parent_gate' });
+    expect(r.book.switchTo(r.kid)).toMatchObject({ ok: true, changed: true });
+    expect(r.book.guarded).toBe(false);                                   // the owner is not the one playing now
+    expect(r.book.switchTo('p1')).toEqual({ ok: false, code: 'parent_gate' });
+    passGate(r);
+    expect(r.book.switchTo('p1')).toMatchObject({ ok: true, changed: true });
+    expect(r.book.guarded).toBe(false);
+    expect(r.book.online()).toBe(true);
+    expect(r.page().book.guarded).toBe(false);                            // lifted for good, not for a while
+  });
+
+  it('is not set for anybody else: a grown-up whose profile locked, a profile deleted in another page, the owner alone', () => {
+    const a = family();
+    go(a, a.adult);
+    a.setPlan('free');
+    expect(a.book.guarded).toBe(false);
+    const b = family();
+    go(b, b.kid);                                                         // this page is the kid's
+    const other = b.page();                                               // a second page opens on the profile the list remembers (the kid's)...
+    go(other, 'p1');                                                      // ...and a grown-up takes it to the owner, through the gate
+    const plan = other.book.planRemoval(b.kid) as { token: string };
+    expect(other.book.remove(b.kid, plan.token)).toMatchObject({ ok: true });
+    b.book.refresh();
+    expect(b.book.active().id).toBe('p1');
+    expect(b.events.at(-1)).toMatchObject({ kind: 'switched', reason: 'removed', guarded: false });
+    expect(b.book.guarded).toBe(false);
+    expect(rig({ plan: 'free' }).book.guarded).toBe(false);
+  });
+
+  it('reads a damaged flag as off, and writes nothing when there is nothing to guard', () => {
+    const damaged = JSON.stringify({ v: 1, d: { seq: 1, active: 1, guard: 'yes', profiles: [{ seq: 1, name: 'Ayşe', avatar: 'fox', kid: false, seated: false, createdAt: 5, lastUsedAt: null }] } });
+    const r = rig({ plan: 'family', storage: memoryStorage({ 'ba2.profiles.book': damaged }) });
+    expect(r.book.guarded).toBe(false);
+    r.book.open();                                                        // the first look settles the damaged list once...
+    expect(r.storage.getItem('ba2.profiles.book')).toContain('"guard":false');
+    const before = r.storage.dump();
+    for (let i = 0; i < 5; i++) { r.book.refresh(); r.book.open(); r.page().book.open(); }
+    expect(r.storage.dump()).toEqual(before);                             // ...and never again
+  });
+});
+
 describe('the online identity belongs to the owner', () => {
   it('the sync port goes to the owner only, and only while the owner is the one playing', () => {
     const r = family();
@@ -875,6 +1019,18 @@ describe('the online identity belongs to the owner', () => {
 });
 
 describe('changing a profile', () => {
+  it('takes a flag only as a true or a false: anything else is no request, and nothing is written for it', () => {
+    const r = family();
+    r.events.length = 0;
+    const before = r.storage.getItem('ba2.profiles.book');
+    expect(r.book.update(r.kid, { kid: 'no' as never, seated: 1 as never })).toMatchObject({ ok: true, profile: { kid: true, seated: false } });
+    expect(r.book.update('p1', { kid: 'true' as never })).toMatchObject({ ok: true, profile: { kid: false } });
+    expect(r.events).toEqual([]);
+    expect(r.storage.getItem('ba2.profiles.book')).toBe(before);
+    expect(r.book.update(r.kid, { name: 'Defne K.', kid: 'false' as never })).toMatchObject({ ok: true, profile: { name: 'Defne K.', kid: true } });
+    expect(r.storage.getItem('ba2.profiles.book')).not.toContain('"false"');
+  });
+
   it('the owner changes anybody\'s name, picture, sitting and kid flag, and the change is told and kept', () => {
     const r = family();
     r.events.length = 0;
@@ -1154,7 +1310,7 @@ describe('two pages on one device', () => {
     expect(b.book.list().map((v) => v.id)).toEqual(['p1', 'p2']);        // every call reads the list afresh
     expect(b.events).toEqual([]);
     b.book.refresh();
-    expect(b.events).toEqual([{ kind: 'refreshed', id: null, active: 'p1', online: true }]);
+    expect(b.events).toEqual([{ kind: 'refreshed', id: null, active: 'p1', online: true, guarded: false }]);
     b.book.refresh();
     expect(b.events).toHaveLength(1);                                     // nothing new, nothing said
   });
@@ -1178,7 +1334,7 @@ describe('two pages on one device', () => {
     expect(a.book.remove(a.kid, plan.token)).toMatchObject({ ok: true });
     b.book.refresh();
     expect(b.book.active().id).toBe('p1');
-    expect(b.events.at(-1)).toEqual({ kind: 'switched', id: 'p1', active: 'p1', online: true, reason: 'removed' });
+    expect(b.events.at(-1)).toEqual({ kind: 'switched', id: 'p1', active: 'p1', online: true, guarded: false, reason: 'removed' });
     expect(arcade.recordRun(GAME, round()).outcome.saved).toBe(false);
     expect(keysUnder(a, 'ba2p2')).toEqual([]);
   });

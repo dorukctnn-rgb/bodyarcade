@@ -55,6 +55,8 @@ export interface ParentGateOptions {
   now?: () => number;
   /** 0 up to (not including) 1. */
   random?: () => number;
+  /** Called each time a right answer opens the gate (the profile book lifts its guard here). Whatever it does, it cannot fail the answer. */
+  onOpen?: () => void;
 }
 
 interface Strikes { strikes: number; lockouts: number; until: number; last: number }
@@ -138,6 +140,7 @@ export function createParentGate(o: ParentGateOptions): ParentGate {
         openedAt = t;
         openUntil = t + GATE.OPEN_MS;
         if (s.strikes !== 0 || s.lockouts !== 0 || s.until !== 0 || s.last !== 0) slot.set({ ...CALM });
+        try { o.onOpen?.(); } catch { /* the gate is open either way */ }
         return { ok: true };
       }
 

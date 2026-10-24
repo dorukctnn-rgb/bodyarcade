@@ -18,6 +18,11 @@
 //   Kid profiles.               No online identity at all, no purchase screen without the parent gate, no calories and no weight,
 //                               local play and races against the family's recordings, low-impact defaults. Leaving a kid
 //                               profile for a profile that is not a kid's goes through the parent gate too.
+//   The guard.                  When a plan ends, a kid's profile is locked and the page that was playing it goes to the owner. A
+//                               child must not land in a grown-up's profile, and so in the online identity, because a subscription
+//                               ran out: the owner's profile then has the rules of a kid's profile (no online identity, no purchase,
+//                               nothing to manage) until a right answer at the parent gate lifts the guard. It is kept in the list,
+//                               so loading the page again does not undo it.
 //   The list can be lost.       If it is damaged, the profiles whose records are still in storage are taken back as kid
 //                               profiles (the cautious reading). If it was written by a newer version it is left alone.
 import type { Unsubscribe } from '../types/index.ts';
@@ -144,6 +149,8 @@ interface BookDoc {
   askOnStart: boolean;
   /** How many profiles the plan allowed the last time it was known (what holds while the entitlements are still being read). */
   cap: number;
+  /** A kid's profile was locked and its player sent to the owner: until the parent gate is passed the owner has a kid's rules. */
+  guard: boolean;
   profiles: StoredProfile[];
 }
 
@@ -162,15 +169,23 @@ const docShapeP = p.object({
   active: p.withDefault(seqP, 1),
   askOnStart: p.withDefault(p.boolean(), true),
   cap: p.withDefault(p.number({ int: true, min: 1, max: MAX_PROFILES }), 1),
+  guard: p.withDefault(p.boolean(), false),
   profiles: p.array(storedProfileP, { max: MAX_STORED, lenient: true }),
 });
 
-/** No owner, no list: a list without the first profile cannot be trusted, and is rebuilt from what storage still holds. */
+/**
+ * No owner, no list: a list without the first profile cannot be trusted, and is rebuilt from what storage still holds. The owner
+ * is never a kid (update() refuses it too): a damaged flag on the owner is not the cautious reading, it would only take their
+ * online identity away.
+ */
 const bookP: Parser<BookDoc> = (raw) => {
   const r = docShapeP(raw);
   if (r === BAD) return BAD;
   const seen = new Set<number>();
-  const profiles = r.profiles.filter((x) => (seen.has(x.seq) ? false : (seen.add(x.seq), true))).sort((a, b) => a.seq - b.seq);
+  const profiles = r.profiles
+    .filter((x) => (seen.has(x.seq) ? false : (seen.add(x.seq), true)))
+    .sort((a, b) => a.seq - b.seq)
+    .map((x) => (x.seq === 1 && x.kid ? { ...x, kid: false } : x));
   if (profiles[0]?.seq !== 1) return BAD;
   const highest = profiles.reduce((m, x) => Math.max(m, x.seq), 1);
   return {
@@ -178,11 +193,12 @@ const bookP: Parser<BookDoc> = (raw) => {
     active: seen.has(r.active) ? r.active : 1,
     askOnStart: r.askOnStart,
     cap: r.cap,
+    guard: r.guard,
     profiles,
   };
 };
 const BOOK_SCHEMA = schemaOf(1, bookP);
-const NONE: BookDoc = { seq: 0, active: 1, askOnStart: true, cap: 1, profiles: [] };
+const NONE: BookDoc = { seq: 0, active: 1, askOnStart: true, cap: 1, guard: false, profiles: [] };
 
 // ───────────────────────── what the interface sees ─────────────────────────
 
@@ -200,6 +216,11 @@ export interface ProfileView {
   active: boolean;
   /** 'locked': the plan no longer allows it; it is read-only and nothing in it was deleted. */
   state: ProfileState;
+  /**
+   * The guard is on and this is the profile that is playing (the owner): the player came here from a kid's profile that its plan
+   * locked, and `rules` are a kid's until the parent gate is passed. `kid` is still the profile's own flag.
+   */
+  guarded: boolean;
   createdAt: number;
   /** Epoch ms of the last saved round (written at most every ten minutes) or the last switch to it; null before. */
   lastUsedAt: number | null;
@@ -221,8 +242,13 @@ export interface Capacity {
 
 /** Everything the "who is playing?" screen and the switcher show, in one read. */
 export interface PickerModel {
-  /** Ask who is playing now: two or more profiles can be played and the owner wants it asked (the start of the app). */
+  /**
+   * Ask who is playing now: two or more profiles can be played and the owner wants it asked (the start of the app), or the guard is on
+   * (the screen then is the parent gate with the kid's profiles that can still be played beside it).
+   */
   ask: boolean;
+  /** The guard is on: show the parent gate instead of the owner's profile (see ProfileView.guarded). */
+  guarded: boolean;
   /** One card per profile, in creation order, the owner first; locked ones are shown and cannot be chosen. */
   cards: ProfileView[];
   /** The "add a profile" card. `why` 'plan': offer the Family plan; 'full': six are used (show no card, or a disabled one); null: it can be added. */
@@ -255,6 +281,8 @@ export interface ProfileEvent {
   active: string;
   /** Whether that profile has the online identity: open the social client when true, close it when false. */
   online: boolean;
+  /** The guard is on for the profile that plays: show the parent gate before anything of the owner's (see ProfileView.guarded). */
+  guarded: boolean;
   /** 'switched' by itself: 'plan' (the active profile was locked), 'removed' (it was deleted in another tab). */
   reason?: 'plan' | 'removed';
 }
@@ -380,6 +408,8 @@ export interface ProfileBook {
   readonly persistent: boolean;
   /** The list was written by a newer version: only the owner is shown and nothing is changed. */
   readonly frozen: boolean;
+  /** The guard is on for the profile that plays (ProfileView.guarded). Lifted by a right answer at `gate`, in this page or another. */
+  readonly guarded: boolean;
   /** The storage key of the list, for the browser's 'storage' event (call refresh() when it is written in another tab). */
   readonly registryKey: string;
 
@@ -442,7 +472,7 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
   const device = base.withPrefix(base.prefix, { allow: DEVICE_NAMESPACES });
   const registry = device.ns('profiles');
   const slot = registry.slot<BookDoc>('book', BOOK_SCHEMA, NONE);
-  const gate = createParentGate({ ns: registry, now, ...(o.random ? { random: o.random } : {}) });
+  const gate = createParentGate({ ns: registry, now, ...(o.random ? { random: o.random } : {}), onOpen: () => liftGuard() });
   const recoveredName = (seq: number): string => { try { return o.recoveredName?.(seq) || `Player ${seq}`; } catch { return `Player ${seq}`; } };
   const prefixOf = (seq: number): string => (seq === 1 ? base.prefix : `${base.prefix}p${seq}`);
   const can = (feature: string): boolean => { try { return o.can(feature) === true; } catch { return false; } };
@@ -487,7 +517,7 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     for (const seq of back) {
       profiles.push({ seq, name: recoveredName(seq), avatar: AVATARS[(seq - 1) % AVATARS.length] as AvatarId, kid: true, seated: false, createdAt: t, lastUsedAt: null });
     }
-    const doc: BookDoc = { seq: back.reduce((m, s) => Math.max(m, s), 1), active: 1, askOnStart: true, cap: 1, profiles };
+    const doc: BookDoc = { seq: back.reduce((m, s) => Math.max(m, s), 1), active: 1, askOnStart: true, cap: 1, guard: false, profiles };
     write(doc);
     migration = { kind: back.length > 0 ? 'recovered' : ownerHolds ? 'single' : 'fresh', adopted: back.map(idOf) };
     return doc;
@@ -517,7 +547,7 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     else if (registry.has('book')) {
       // Something is stored under the key that this version cannot read: a newer version wrote it. Leave it exactly as it is.
       frozen = true;
-      memoryDoc = { seq: 1, active: 1, askOnStart: false, cap: 1, profiles: [ownerRecord(now())] };
+      memoryDoc = { seq: 1, active: 1, askOnStart: false, cap: 1, guard: false, profiles: [ownerRecord(now())] };
       migration = { kind: 'frozen', adopted: [] };
     } else ensure();
   }
@@ -543,8 +573,17 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     return usable(doc, current) ? current : 1;
   }
 
+  /** A kid's profile (never the owner's) that is in the list and that the plan no longer lets anybody play. */
+  function lockedKid(doc: BookDoc, seq: number): boolean {
+    if (seq === 1) return false;
+    const rec = doc.profiles.find((r) => r.seq === seq);
+    return rec !== undefined && rec.kid && !usable(doc, seq);
+  }
+
   function viewOf(doc: BookDoc, rec: StoredProfile, locked: boolean, activeSeq: number): ProfileView {
     const owner = rec.seq === 1;
+    // The guard is for the owner while the owner is the one playing; a kid's rules until the parent gate is passed.
+    const guarded = doc.guard && owner && activeSeq === 1;
     return {
       id: idOf(rec.seq),
       name: rec.name || recoveredName(rec.seq),
@@ -554,9 +593,10 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
       owner,
       active: rec.seq === activeSeq,
       state: locked ? 'locked' : 'ready',
+      guarded,
       createdAt: rec.createdAt,
       lastUsedAt: rec.lastUsedAt,
-      rules: rulesFor({ owner, kid: rec.kid, locked }),
+      rules: rulesFor({ owner, kid: rec.kid || guarded, locked }),
       defaults: defaultsFor({ kid: rec.kid, seated: rec.seated }),
     };
   }
@@ -579,7 +619,7 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
 
   function signature(doc: BookDoc | null): string {
     if (!doc) return '';
-    return JSON.stringify([maxFor(doc), viewsOf(doc).map((v) => [v.id, v.state, v.name, v.avatar, v.kid, v.seated, v.active]), doc.askOnStart]);
+    return JSON.stringify([maxFor(doc), viewsOf(doc).map((v) => [v.id, v.state, v.name, v.avatar, v.kid, v.seated, v.active, v.guarded]), doc.askOnStart]);
   }
 
   /** What a profile's store asks at every write: is it still in the list, and not locked? The owner always is. */
@@ -619,14 +659,29 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     const doc = peekDoc();
     lastSignature = signature(doc);
     const active = doc ? activeViewOf(doc) : null;
-    const ev: ProfileEvent = { kind, id, active: active?.id ?? OWNER_ID, online: active?.rules.online ?? false, ...(reason ? { reason } : {}) };
+    const ev: ProfileEvent = {
+      kind, id, active: active?.id ?? OWNER_ID, online: active?.rules.online ?? false, guarded: active?.guarded ?? false, ...(reason ? { reason } : {}),
+    };
     for (const l of [...listeners]) { try { l(ev); } catch { /* a faulty listener must not stop the others */ } }
   }
 
   // ── who may do what ──
 
-  /** The owner may manage the profiles; anybody else needs the parent gate open. */
-  const mayManage = (doc: BookDoc): boolean => activeViewOf(doc).owner || gate.isOpen();
+  /** The owner may manage the profiles (unless the guard is on); anybody else needs the parent gate open. */
+  const mayManage = (doc: BookDoc): boolean => {
+    const me = activeViewOf(doc);
+    return (me.owner && !me.guarded) || gate.isOpen();
+  };
+
+  /** A right answer at the parent gate: the owner's profile is the owner's again (the guard lives in the list, so it is lifted for every page). */
+  function liftGuard(): void {
+    if (frozen || disposed) return;
+    const doc = peekDoc();
+    if (!doc || !doc.guard) return;
+    doc.guard = false;
+    write(doc);
+    emit('refreshed', null);
+  }
 
   function nameTaken(doc: BookDoc, name: string, except: number | null): boolean {
     const folded = foldName(name);
@@ -717,6 +772,9 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
 
   // ── the book itself ──
 
+  /** Ask who is playing: the guard is on, or two profiles can be played and the owner wants it asked. */
+  const askNow = (doc: BookDoc): boolean => activeViewOf(doc).guarded || (doc.askOnStart && viewsOf(doc).filter((v) => v.state === 'ready').length >= 2);
+
   const toCapacity = (doc: BookDoc): Capacity => {
     const max = maxFor(doc);
     const used = doc.profiles.length;
@@ -735,6 +793,8 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     let reason: 'plan' | 'removed' | null = null;
     if (!usable(doc, current)) {
       reason = doc.profiles.some((r) => r.seq === current) ? 'plan' : 'removed';
+      // A child whose profile the plan locked is not handed to the owner's profile just like that: the guard (see the header).
+      if (lockedKid(doc, current) && !doc.guard) { doc.guard = true; changed = true; }
       current = 1;
     }
     if (!usable(doc, doc.active)) { doc.active = 1; changed = true; }
@@ -746,6 +806,8 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     // This page starts as the profile the list remembers, when it can be played.
     const doc = peekDoc();
     current = doc && usable(doc, doc.active) ? doc.active : 1;
+    // The one it remembers is a kid's that the plan locked while no page was open: this page opens on the owner, behind the gate.
+    if (doc && !frozen && !doc.guard && lockedKid(doc, doc.active)) { doc.guard = true; write(doc); }
   }
   lastSignature = signature(peekDoc());
 
@@ -757,6 +819,7 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     get migration() { return migration; },
     persistent: base.persistent,
     get frozen() { return frozen; },
+    get guarded() { return activeViewOf(readDoc()).guarded; },
     registryKey: `${base.prefix}.profiles.book`,
 
     list: () => viewsOf(readDoc()),
@@ -765,8 +828,7 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
     capacity: () => toCapacity(readDoc()),
 
     needsPicker() {
-      const doc = readDoc();
-      return doc.askOnStart && viewsOf(doc).filter((v) => v.state === 'ready').length >= 2;
+      return askNow(readDoc());
     },
 
     picker() {
@@ -774,7 +836,8 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
       const cap = toCapacity(doc);
       const views = viewsOf(doc);
       return {
-        ask: doc.askOnStart && views.filter((v) => v.state === 'ready').length >= 2,
+        ask: askNow(doc),
+        guarded: activeViewOf(doc).guarded,
         cards: views,
         add: { show: !frozen && (cap.canAdd || cap.why === 'plan'), why: cap.why },
         manage: !frozen && mayManage(doc),
@@ -806,9 +869,10 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
       const view = viewsOf(doc).find((v) => v.id === id) as ProfileView;
       if (view.state === 'locked') return { ok: false, code: 'locked' };
       const from = activeViewOf(doc);
-      if (from.id === id) return { ok: true, space: spaceOf(target.seq), changed: false };
+      // The owner's profile while the guard is on is a kid's profile that only a right answer opens.
+      if (from.id === id) return from.guarded ? { ok: false, code: 'parent_gate' } : { ok: true, space: spaceOf(target.seq), changed: false };
       // A child does not walk out of a child's profile into a grown-up's by tapping.
-      if (from.kid && !view.kid && !gate.isOpen()) return { ok: false, code: 'parent_gate' };
+      if ((from.kid || from.guarded) && !view.kid && !gate.isOpen()) return { ok: false, code: 'parent_gate' };
       current = target.seq;
       doc.active = target.seq;
       target.lastUsedAt = now();
@@ -852,13 +916,16 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
       const view = views.find((v) => v.id === id) as ProfileView;
       if (view.state === 'locked') return { ok: false, code: 'locked' };
       const me = activeViewOf(doc);
-      const manage = me.owner || gate.isOpen();
+      const manage = mayManage(doc);
       const self = me.id === id;
-      const asks = patch ?? {};
-      if ((asks.name !== undefined || asks.avatar !== undefined) && !(manage || (self && !me.kid))) return { ok: false, code: 'parent_gate' };
-      if (asks.seated !== undefined && !(manage || self)) return { ok: false, code: 'parent_gate' };
-      if (asks.kid !== undefined && !manage) return { ok: false, code: 'parent_gate' };
-      if (asks.kid === true && rec.seq === 1) return { ok: false, code: 'owner_kid' };
+      const asks: ProfilePatch = patch && typeof patch === 'object' ? patch : {};
+      // A flag that is not a true or a false is not a request (the form of a call from a script that got it wrong).
+      const kidAsk = typeof asks.kid === 'boolean' ? asks.kid : undefined;
+      const seatedAsk = typeof asks.seated === 'boolean' ? asks.seated : undefined;
+      if ((asks.name !== undefined || asks.avatar !== undefined) && !(manage || (self && !me.kid && !me.guarded))) return { ok: false, code: 'parent_gate' };
+      if (seatedAsk !== undefined && !(manage || self)) return { ok: false, code: 'parent_gate' };
+      if (kidAsk !== undefined && !manage) return { ok: false, code: 'parent_gate' };
+      if (kidAsk === true && rec.seq === 1) return { ok: false, code: 'owner_kid' };
       let name = rec.name;
       if (asks.name !== undefined) {
         const named = normalizeName(asks.name);
@@ -870,8 +937,8 @@ export function createProfileBook(o: ProfileBookOptions): ProfileBook {
       const next: StoredProfile = {
         ...rec, name,
         avatar: asks.avatar ?? rec.avatar,
-        kid: asks.kid ?? rec.kid,
-        seated: asks.seated ?? rec.seated,
+        kid: kidAsk ?? rec.kid,
+        seated: seatedAsk ?? rec.seated,
       };
       const changed = next.name !== rec.name || next.avatar !== rec.avatar || next.kid !== rec.kid || next.seated !== rec.seated;
       if (changed) {
