@@ -40,6 +40,7 @@ export interface SprintGameOptions {
   /** Fewer or shorter heats (the end-to-end runs); the real ones come from the level. */
   heats?: number;
   dist?: number;
+  restSec?: number;
 }
 
 /** One lane's movement frame as the simulation's input. */
@@ -190,7 +191,7 @@ export function createSprintGame(manifest: GameManifest, o: SprintGameOptions = 
       quiet = ctx.flags.silent;
       state = createSprint({
         difficulty: s.difficulty, players, seated, quiet, rng: ctx.rng('course'),
-        ...(o.heats ? { heats: o.heats } : {}), ...(o.dist ? { dist: o.dist } : {}),
+        ...(o.heats ? { heats: o.heats } : {}), ...(o.dist ? { dist: o.dist } : {}), ...(o.restSec !== undefined ? { restSec: o.restSec } : {}),
       });
       log = [];
       fx = [];

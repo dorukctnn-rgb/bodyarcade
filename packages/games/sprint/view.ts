@@ -69,7 +69,7 @@ const BAND = 5;
 const hash = (n: number): number => { let h = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
 
 /** The size of a metre at the runner's depth, in pixels. */
-export const unitOf = (lane: Rect): number => Math.min(lane.w / 5.6, lane.h * 0.19);
+export const unitOf = (lane: Rect): number => Math.min(lane.w / 5.6, lane.h * (lane.w / lane.h > 3 ? 0.23 : 0.19));
 
 /** The runner's height in pixels. */
 export const runnerHeight = (lane: Rect): number => 1.75 * unitOf(lane);
@@ -180,12 +180,17 @@ export function createSprintView(o: SprintViewOptions): SprintView {
       const top = hz - (hz - region.y) * 0.62;
       ctx.fillStyle = th.stands[1];
       ctx.fillRect(x - 2, top, 4, hz - top);
-      ctx.globalAlpha = 0.3;
-      ctx.fillStyle = th.glow;
+      const rad = c.unit * 1.1;
+      ctx.fillStyle = grad(`halo|${th.id}|${Math.round(x)}|${Math.round(top)}|${Math.round(rad)}`, () => {
+        const g = ctx.createRadialGradient(x, top, 0, x, top, rad);
+        g.addColorStop(0, th.glow + '99');
+        g.addColorStop(0.45, th.glow + '33');
+        g.addColorStop(1, th.glow + '00');
+        return g;
+      });
       ctx.beginPath();
-      ctx.arc(x, top, c.unit * 0.8, 0, TAU);
+      ctx.arc(x, top, rad, 0, TAU);
       ctx.fill();
-      ctx.globalAlpha = 1;
       ctx.fillStyle = th.light;
       roundedRectPath(ctx, { x: x - c.unit * 0.3, y: top - c.unit * 0.12, w: c.unit * 0.6, h: c.unit * 0.24 }, 3);
       ctx.fill();
@@ -474,93 +479,129 @@ export function createSprintView(o: SprintViewOptions): SprintView {
 
   // ───────── messages ─────────
 
+  /**
+   * Where a message panel goes. The full form hangs from the top of the lane when the runner's head leaves room for it; on a
+   * short lane (a phone on its side) the compact form goes there, or beside the runner when it fits better; on a tiny one the
+   * compact form goes over the top anyway. `full` and `compact` are heights in units of `px`.
+   */
+  function panelBox(c: Cam, px: number, full: number, compact: number, wFull: number): { box: Rect; compact: boolean } {
+    const lane = c.lane;
+    const feet = lane.y + lane.h * 0.8;
+    const top = lane.y + lane.h * 0.03;
+    const room = feet - runnerHeight(lane) - px * 1.9 - top;
+    const cx = lane.x + lane.w / 2;
+    const wide = Math.min(lane.w * 0.92, wFull);
+    if (room >= full * px) return { box: { x: cx - wide / 2, y: top, w: wide, h: full * px }, compact: false };
+    const side0 = lane.x + clamp(lane.w * 0.03, 10, 28);
+    const sideW = cx - c.unit * 0.95 - side0 - 6;
+    const h = compact * px;
+    if (room >= h) return { box: { x: cx - wide / 2, y: top, w: wide, h }, compact: true };
+    if (sideW >= px * 12) { const w = Math.min(wFull, sideW); return { box: { x: side0, y: top, w, h }, compact: true }; }
+    return { box: { x: cx - wide / 2, y: top, w: wide, h }, compact: true };
+  }
+
   function banner(c: Cam, f: SprintFrame, i: number): void {
     const s = f.s;
     const l = s.lanes[i] as LaneState;
     const lane = c.lane;
-    const cx = lane.x + lane.w / 2;
     const px = clamp(lane.h * 0.034, 13, 30);
-    const w = Math.min(lane.w * 0.9, px * 22);
-    const cy = lane.y + lane.h * 0.3;
-    if (s.players === 2 && s.phase !== 'finish' && s.phase !== 'play') {
-      // A name over each half so that the colour is never alone.
-    }
+    const wFull = px * 22;
+    const light = '#F4F2F8';
     if (s.phase === 'warmup') {
-      const body = say(f.how === 'swing' ? 'warm.seated' : f.how === 'keys' ? 'warm.keys' : f.how === 'touch' ? 'warm.touch' : 'warm.body');
-      const h = px * 7;
-      plate(cx, cy, w, h);
-      text(say('warm.title'), cx, cy - h * 0.36, px * 1.15, '#FFC53A');
-      lines(cx, cy - h * 0.13, w - px * 1.4, body, px * 0.9, '#F4F2F8');
+      const { box, compact } = panelBox(c, px, 7.4, 3.8, wFull);
+      const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+      plate(cx, cy, box.w, box.h);
       const n = s.seated && f.how === 'swing' ? 8 : WARMUP.steps;
       const done = s.seated && f.how === 'swing' ? Math.min(n, Math.floor((s.warm.t / WARMUP.seatedSec) * n)) : s.warm.stepT.length;
+      const dotsY = compact ? cy + box.h * 0.26 : cy + box.h * 0.38;
+      text(say('warm.title'), cx, compact ? cy - box.h * 0.2 : cy - box.h * 0.36, px * 1.15, '#FFC53A');
+      if (!compact) {
+        const key = s.quiet && f.how === 'march' ? 'warm.quiet' : f.how === 'swing' ? 'warm.seated' : f.how === 'keys' ? 'warm.keys' : f.how === 'touch' ? 'warm.touch' : 'warm.body';
+        lines(cx, cy - box.h * 0.13, box.w - px * 1.4, say(key), px * 0.9, light);
+      }
+      const gap = Math.min(px * 1.15, (box.w - px * 1.6) / n);
       for (let k = 0; k < n; k++) {
         ctx.fillStyle = k < done ? '#22C383' : 'rgba(244,242,248,0.3)';
         ctx.beginPath();
-        ctx.arc(cx + (k - (n - 1) / 2) * px * 1.15, cy + h * 0.38, px * 0.3, 0, TAU);
+        ctx.arc(cx + (k - (n - 1) / 2) * gap, dotsY, px * 0.3, 0, TAU);
         ctx.fill();
       }
       return;
     }
     if (s.phase === 'ready') {
       const n = Math.max(1, Math.ceil(READY_SEC - s.hc - 1e-9));
-      const h = px * 6.4;
-      plate(cx, cy, w, h);
-      text(say('heat.label', { n: s.heat, total: s.heats }), cx, cy - h * 0.34, px * 0.95, '#F4F2F8', { weight: 700 });
-      text(say('heat.metres', { dist: s.dist }), cx, cy - h * 0.1, px * 0.85, '#F4F2F8', { weight: 700, alpha: 0.8 });
-      text(say('ready.body', { cad: Math.round(s.cadFull) }), cx, cy + h * 0.38, px * 0.78, '#F4F2F8', { weight: 700, alpha: 0.85 });
+      const { box, compact } = panelBox(c, px, 9.6, 4.6, wFull);
+      const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+      plate(cx, cy, box.w, box.h);
       const k = 1 - (s.hc % 1);
-      text(String(n), cx, lane.y + lane.h * 0.55, clamp(lane.h * 0.16, 56, 150) * (0.85 + 0.15 * smoothstep(k)), '#FFC53A', { alpha: 0.95 });
+      const size = (compact ? px * 2.9 : px * 3.3) * (0.88 + 0.12 * smoothstep(k));
+      if (compact) {
+        text(say('heat.label', { n: s.heat, total: s.heats }), box.x + box.w * 0.34, cy - box.h * 0.17, px * 0.95, light, { weight: 700 });
+        text(say('heat.metres', { dist: s.dist }), box.x + box.w * 0.34, cy + box.h * 0.2, px * 0.85, light, { weight: 700, alpha: 0.8 });
+        text(String(n), box.x + box.w * 0.82, cy, size, '#FFC53A', { alpha: 0.95 });
+      } else {
+        text(say('heat.label', { n: s.heat, total: s.heats }), cx, cy - box.h * 0.4, px * 0.95, light, { weight: 700 });
+        text(say('heat.metres', { dist: s.dist }), cx, cy - box.h * 0.27, px * 0.8, light, { weight: 700, alpha: 0.75 });
+        text(String(n), cx, cy + box.h * 0.03, size, '#FFC53A', { alpha: 0.95 });
+        text(say('ready.body', { cad: Math.round(s.cadFull) }), cx, cy + box.h * 0.4, px * 0.78, light, { weight: 700, alpha: 0.85 });
+      }
       return;
     }
     if (s.phase === 'rest') {
-      const h = px * 6.6;
-      plate(cx, cy, w, h);
-      text(say('rest.title'), cx, cy - h * 0.3, px * 1.1, '#FFC53A');
-      text(String(Math.ceil(s.restLeft)), cx, cy + h * 0.02, px * 2.3, '#F4F2F8');
-      text(say('rest.next', { n: s.heat + 1, total: s.heats }), cx, cy + h * 0.36, px * 0.85, '#F4F2F8', { weight: 700 });
+      const { box, compact } = panelBox(c, px, 7.6, 4, wFull);
+      const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+      plate(cx, cy, box.w, box.h);
       const last = l.results[l.results.length - 1];
-      if (last && last.medal !== 'dnf') text(`${say(`finish.${last.medal}`)}  ${last.time.toFixed(1)}`, cx, cy - h * 0.58, px * 0.85, MEDAL_COLORS[last.medal], { weight: 700 });
+      const medal = last && last.medal !== 'dnf' ? `${say(`finish.${last.medal}`)}  ${last.time.toFixed(1)}` : '';
+      if (compact) {
+        text(say('rest.title'), box.x + box.w * 0.3, cy - box.h * 0.22, px * 1.1, '#FFC53A');
+        text(String(Math.ceil(s.restLeft)), box.x + box.w * 0.78, cy - box.h * 0.12, px * 2, light);
+        text(say('rest.next', { n: s.heat + 1, total: s.heats }), box.x + box.w * 0.3, cy + box.h * 0.26, px * 0.8, light, { weight: 700, alpha: 0.9 });
+      } else {
+        if (medal && last) text(medal, cx, cy - box.h * 0.4, px * 0.85, MEDAL_COLORS[last.medal], { weight: 700 });
+        text(say('rest.title'), cx, cy - box.h * 0.22, px * 1.1, '#FFC53A');
+        text(String(Math.ceil(s.restLeft)), cx, cy + box.h * 0.08, px * 2.3, light);
+        text(say('rest.next', { n: s.heat + 1, total: s.heats }), cx, cy + box.h * 0.38, px * 0.85, light, { weight: 700 });
+      }
       return;
-    }
-    if (s.phase === 'play' && s.hc < 0.9 && s.players === 1) {
-      text(say('cmd.go'), cx, lane.y + lane.h * 0.45, clamp(lane.h * 0.14, 48, 130), '#22C383', { alpha: 1 - s.hc / 0.9 });
     }
     if (s.phase === 'finish' || (l.finished && s.phase === 'play')) {
       const last = l.results[l.results.length - 1];
       if (!last) return;
-      const h = px * 6.8;
-      const y = lane.y + lane.h * 0.3;
+      const { box, compact } = panelBox(c, px, 6.8, 3.6, wFull);
+      const cx = box.x + box.w / 2, y = box.y + box.h / 2, w = box.w, h = box.h;
       plate(cx, y, w, h, 0.9);
       if (last.medal === 'dnf') {
         text(say('dnf.title'), cx, y, px * 1.2, '#CFCBE0');
         return;
       }
       const col = MEDAL_COLORS[last.medal];
+      const r = compact ? px * 1.05 : px * 1.45;
       ctx.fillStyle = col;
       ctx.beginPath();
-      ctx.arc(cx - w * 0.36, y, px * 1.45, 0, TAU);
+      ctx.arc(box.x + w * 0.16, y, r, 0, TAU);
       ctx.fill();
-      ctx.fillStyle = '#1C1433';
-      ctx.font = `800 ${Math.round(px * 1.5)}px ${FONT}`;
-      text(String(s.players === 2 ? last.rank : s.heat), cx - w * 0.36, y, px * 1.5, '#1C1433');
-      text(say(`finish.${last.medal}`), cx + w * 0.08, y - h * 0.25, px * 1.2, col, { align: 'left' });
-      text(say('finish.time', { time: last.time.toFixed(1) }), cx + w * 0.08, y + h * 0.05, px * 1, '#F4F2F8', { align: 'left' });
+      text(String(s.players === 2 ? last.rank : s.heat), box.x + w * 0.16, y, r * 1.05, '#1C1433');
+      const tx = box.x + w * 0.3;
+      text(say(`finish.${last.medal}`), tx, compact ? y - h * 0.2 : y - h * 0.25, compact ? px * 1.05 : px * 1.2, col, { align: 'left' });
+      text(say('finish.time', { time: last.time.toFixed(1) }), tx, compact ? y + h * 0.2 : y + h * 0.05, compact ? px * 0.9 : px, light, { align: 'left' });
       const note = s.players === 2 ? say(last.rank === 1 ? 'finish.first' : 'finish.second') : s.rival ? say(last.beatRival ? 'finish.beat' : 'finish.lost') : '';
-      if (note) text(note, cx, y + h * 0.36, px * 0.82, '#F4F2F8', { weight: 700, alpha: 0.9 });
+      if (note && !compact) text(note, cx, y + h * 0.36, px * 0.82, light, { weight: 700, alpha: 0.9 });
     }
   }
 
   /** The race clock on the track, in tenths: the plate above says whole seconds. */
   function clock(c: Cam, f: SprintFrame, i: number): void {
     const s = f.s;
-    if (s.phase !== 'play' && s.phase !== 'finish') return;
+    if (s.phase !== 'play') return;
     const l = s.lanes[i] as LaneState;
-    const t = l.finished && !l.dnf ? l.finishT : s.hc;
+    if (l.finished) return;
+    const t = s.hc;
     const px = clamp(c.lane.h * 0.05, 16, 42);
     const cx = c.lane.x + c.lane.w / 2;
     const y = c.lane.y + c.lane.h * 0.06;
-    text(t.toFixed(1), cx, y, px, '#F4F2F8', { alpha: s.phase === 'finish' ? 0.5 : 0.95 });
-    if (s.phase === 'play' && !l.finished) {
+    text(t.toFixed(1), cx, y, px, '#F4F2F8', { alpha: 0.95 });
+    {
       const [g, sv, b] = medalTimes(s);
       const goal = t <= g ? g : t <= sv ? sv : t <= b ? b : 0;
       if (goal > 0) text(`${goal.toFixed(1)}`, cx, y + px * 1.05, px * 0.5, t <= g ? MEDAL_COLORS.gold : t <= sv ? MEDAL_COLORS.silver : MEDAL_COLORS.bronze, { alpha: 0.9 });
@@ -587,7 +628,7 @@ export function createSprintView(o: SprintViewOptions): SprintView {
       const d = hx - dist;
       if (d > NEAR && d < FAR) items.push({ d, draw: () => hurdle(th, c, d, knocked.has(`${s.heat}:${hx}`) && k < l.next) });
     });
-    if (s.dist - dist < FAR && s.dist - dist > NEAR) items.push({ d: s.dist - dist, draw: () => finishLine(th, c, s.dist - dist) });
+    if (s.dist - dist < FAR && s.dist - dist > -0.9) items.push({ d: s.dist - dist, draw: () => finishLine(th, c, s.dist - dist) });
     if (s.rival) {
       const d = f.rival - dist;
       if (d > NEAR + 0.2 && d < FAR) items.push({ d, draw: () => drawRival(c, f, d) });

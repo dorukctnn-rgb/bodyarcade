@@ -10,7 +10,7 @@ import { DEV_URL } from './support/ports.ts';
 interface Box { x: number; y: number; w: number; h: number }
 interface Ba {
   start(): Promise<void>;
-  state(): { session: string; game: { phase: string; round: { set: number }; lanes: { score: number; lives: number; hits: number; passes: number; flaps: number }[] } | null; seen: { states: string[]; errors: unknown[]; over: { score: number; seconds: number; reps?: number; cleared?: number; players?: Record<string, { score: number }> }[] } };
+  state(): { session: string; game: { phase: string; round: { set: number } | null; heat: number | null; lanes: { score: number; lives?: number; hits?: number; passes?: number; flaps?: number; results?: { medal: string; time: number }[] }[] } | null; seen: { states: string[]; errors: unknown[]; over: { score: number; seconds: number; reps?: number; cleared?: number; hits?: number; players?: Record<string, { score: number }> }[] } };
   birds(): ({ x: number; y: number; r: number } | null)[];
   plates(): ({ name: string } & Box)[];
   rects(): { play: Box; pip: Box | null; lanes?: [Box, Box] | null };
@@ -40,6 +40,28 @@ async function waitSession(page: Page, want: string, timeout = 90_000): Promise<
   throw new Error(`session never reached '${want}' (now '${last}'): ${JSON.stringify(await ba(page, (b) => b.state()))}`);
 }
 
+/** Waits for the results; with BA_G1_SHOTS set, keeps a screenshot of the first frame of every phase the game goes through. */
+async function waitResults(page: Page, label: string, timeout: number): Promise<void> {
+  const shots = process.env['BA_G1_SHOTS'];
+  const seen = new Set<string>();
+  const end = Date.now() + timeout;
+  let last = '';
+  while (Date.now() < end) {
+    const st = await ba(page, (b) => b.state());
+    last = st.session;
+    if (st.session === 'results') return;
+    if (st.session === 'error') break;
+    const phase = st.game?.phase;
+    if (shots && phase && !seen.has(phase)) {
+      seen.add(phase);
+      await page.waitForTimeout(350);
+      await page.screenshot({ path: join(shots, `${label}-${phase}.png`) });
+    }
+    await page.waitForTimeout(200);
+  }
+  throw new Error(`session never reached 'results' (now '${last}'): ${JSON.stringify(await ba(page, (b) => b.state()))}`);
+}
+
 const overlaps = (c: { x: number; y: number; r: number }, r: Box): boolean => {
   const nx = Math.max(r.x, Math.min(c.x, r.x + r.w)), ny = Math.max(r.y, Math.min(c.y, r.y + r.h));
   return (c.x - nx) ** 2 + (c.y - ny) ** 2 < c.r * c.r;
@@ -51,7 +73,7 @@ const SIZES = {
   'laptop-1280x800': { width: 1280, height: 800 },
 } as const;
 
-interface Case { game: string; size: keyof typeof SIZES; mode?: 'solo' | 'local2'; seated?: boolean; difficulty?: string }
+interface Case { game: string; size: keyof typeof SIZES; mode?: 'solo' | 'local2'; seated?: boolean; quiet?: boolean; difficulty?: string }
 
 const CASES: Case[] = [
   { game: 'squat-flap', size: 'phone-390x844' },
@@ -59,15 +81,21 @@ const CASES: Case[] = [
   { game: 'squat-flap', size: 'laptop-1280x800' },
   { game: 'squat-flap', size: 'laptop-1280x800', mode: 'local2' },
   { game: 'squat-flap', size: 'phone-390x844', seated: true },
+  { game: 'knee-sprint', size: 'phone-390x844', difficulty: 'normal' },
+  { game: 'knee-sprint', size: 'phone-844x390', difficulty: 'normal' },
+  { game: 'knee-sprint', size: 'laptop-1280x800', difficulty: 'normal' },
+  { game: 'knee-sprint', size: 'laptop-1280x800', mode: 'local2' },
+  { game: 'knee-sprint', size: 'phone-390x844', seated: true },
+  { game: 'knee-sprint', size: 'phone-390x844', quiet: true, difficulty: 'normal' },
 ];
 
 for (const c of CASES) {
-  const name = `${c.game} ${c.mode ?? 'solo'}${c.seated ? ' seated' : ''} at ${c.size}`;
+  const name = `${c.game} ${c.mode ?? 'solo'}${c.seated ? ' seated' : ''}${c.quiet ? ' quiet' : ''} at ${c.size}`;
   test(name, async ({ page }) => {
     test.setTimeout(150_000);
     const errors: string[] = [];
     await page.setViewportSize(SIZES[c.size]);
-    const params = new URLSearchParams({ game: c.game, mode: c.mode ?? 'solo', difficulty: c.difficulty ?? 'easy', seated: c.seated ? '1' : '0', body: 'perfect' });
+    const params = new URLSearchParams({ game: c.game, mode: c.mode ?? 'solo', difficulty: c.difficulty ?? 'easy', seated: c.seated ? '1' : '0', quiet: c.quiet ? '1' : '0', body: 'perfect' });
     await open(page, params.toString(), errors);
     await ba(page, (b) => b.start());
     await waitSession(page, 'running');
@@ -88,9 +116,9 @@ for (const c of CASES) {
       expect(bird!.y).toBeGreaterThan(area.y - 1);
       expect(bird!.y).toBeLessThan(area.y + area.h + 1);
     }
-    if (process.env['BA_G1_SHOTS']) await page.screenshot({ path: join(process.env['BA_G1_SHOTS'], `${c.game}-${c.mode ?? 'solo'}${c.seated ? '-seated' : ''}-${c.size}-play.png`) });
+    if (process.env['BA_G1_SHOTS']) await page.screenshot({ path: join(process.env['BA_G1_SHOTS'], `${c.game}-${c.mode ?? 'solo'}${c.seated ? '-seated' : ''}${c.quiet ? '-quiet' : ''}-${c.size}-play.png`) });
 
-    await waitSession(page, 'results', 120_000);
+    await waitResults(page, `${c.game}-${c.mode ?? 'solo'}${c.seated ? '-seated' : ''}${c.quiet ? '-quiet' : ''}-${c.size}`, 120_000);
     const end = await ba(page, (b) => ({ state: b.state(), audio: b.audioStats(), frames: b.frames() }));
     const over = end.state.seen.over[0]!;
     expect(over.seconds).toBeGreaterThan(8);

@@ -248,7 +248,7 @@ describe('the HUD and the sounds', () => {
     let k = 0;
     while (game.state!.phase === 'warmup' && k < 60 * 30) { const x = inputOf(++k, bot.next(game.state!, 0, FIXED_DT)); game.step(FIXED_DT, frame(k, x.channels, x.events)); }
     game.render(0);
-    expect(t.lastHud('prompt')).toBe('On your marks');
+    expect(t.lastHud('prompt')).toBe('Ready');
     expect(t.announced.some((a) => /Heat 1 of 4/.test(a))).toBe(true);
     // The three-two-one, then the run.
     while (game.state!.phase !== 'play' && k < 60 * 60) { game.step(FIXED_DT, frame(++k)); }

@@ -217,7 +217,8 @@ export interface SprintState {
   heats: number;
   /** Seconds into the phase (the heat clock in 'play'). */
   hc: number;
-  /** Seconds left in a rest, and the three-two-one's whole seconds already ticked. */
+  /** Seconds of rest between the heats (the level's own; shorter in the end-to-end runs), seconds left in a rest, and the three-two-one's whole seconds already ticked. */
+  restSec: number;
   restLeft: number;
   ticked: number;
   warm: { t: number; stepT: number[]; ks: number[]; eff: number[] };
@@ -282,6 +283,8 @@ export interface SprintOptions {
   heats?: number;
   /** A shorter heat (tests and the end-to-end runs), metres. */
   dist?: number;
+  /** A shorter rest between the heats (tests and the end-to-end runs), seconds. */
+  restSec?: number;
 }
 
 export function createSprint(o: SprintOptions): SprintState {
@@ -289,7 +292,7 @@ export function createSprint(o: SprintOptions): SprintState {
   const lv = LEVELS[difficulty];
   const s: SprintState = {
     v: 1, difficulty, players: o.players, seated: o.seated, quiet: o.quiet,
-    t: 0, phase: o.players === 2 ? 'ready' : 'warmup', heat: 1, heats: Math.min(MAX_HEATS, o.heats ?? lv.heats), hc: 0, restLeft: 0, ticked: 99,
+    t: 0, phase: o.players === 2 ? 'ready' : 'warmup', heat: 1, heats: Math.min(MAX_HEATS, o.heats ?? lv.heats), hc: 0, restSec: o.restSec ?? lv.restSec, restLeft: 0, ticked: 99,
     warm: { t: 0, stepT: [], ks: [], eff: [] },
     cadFull: lv.cadence, kFull: lv.kFull, effFull: SPEED.effort, dist: o.dist ?? lv.dist,
     hurdles: [], course: makeCourse(o.rng), rival: null,
@@ -567,9 +570,9 @@ export function stepSprint(s: SprintState, dt: number, ins: readonly LaneIn[]): 
       } else if (s.heat >= s.heats) {
         s.phase = 'complete';
         out.push({ type: 'complete' });
-      } else if (lv.restSec > 0) {
+      } else if (s.restSec > 0) {
         s.phase = 'rest';
-        s.restLeft = lv.restSec;
+        s.restLeft = s.restSec;
         s.hc = 0;
         out.push({ type: 'rest', heat: s.heat });
       } else toReady(s, out);

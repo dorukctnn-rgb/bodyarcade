@@ -3,7 +3,8 @@
 // stylesheet, the real audio kit; only the camera and the pose model are replaced by a synthetic body (the movement
 // library's rig) delivered as pose frames in real time. Nothing here asserts; the spec does.
 //   ?game=squat-flap|knee-sprint|summit-climb  &mode=solo|local2  &difficulty=easy  &seated=1  &body=perfect|good|sloppy|idle
-//   &sets=2&setSec=10&restSec=4  (a shorter round)  &corner=bottom-right
+//   &sets=2&setSec=10&restSec=4  (a shorter Squat Flap round)  &heats=2&dist=60&restSec=4  (a shorter Knee Sprint round)
+//   &quiet=1  (the quiet variant)  &corner=bottom-right
 import '../../../packages/web/src/styles/app.css';
 import { createAudio } from '../../../packages/core/audio/audio.ts';
 import { SFX_NAMES } from '../../../packages/core/audio/sfx.ts';
@@ -17,12 +18,15 @@ import type { GameManifest, GameModule } from '../../../packages/core/types/inde
 import { createChain, type ChainPerson } from '../../../packages/games/kit-g1/testing/chain.ts';
 import { manifest as flapManifest, squatFlapModule, STRINGS as FLAP_STRINGS } from '../../../packages/games/squat-flap/index.ts';
 import { squatPerson } from '../../../packages/games/flight/testing/body.ts';
+import { kneeSprintModule, manifest as sprintManifest, STRINGS as SPRINT_STRINGS } from '../../../packages/games/knee-sprint/index.ts';
+import { runnerPerson } from '../../../packages/games/sprint/testing/body.ts';
 
 const q = new URLSearchParams(location.search);
 const id = q.get('game') ?? 'squat-flap';
 const mode = q.get('mode') === 'local2' ? 'local2' : 'solo';
 const difficulty = q.get('difficulty') ?? 'easy';
 const seated = q.get('seated') === '1';
+const quiet = q.get('quiet') === '1';
 const body = (q.get('body') ?? 'perfect') as 'perfect' | 'good' | 'sloppy' | 'idle';
 const corner = (q.get('corner') ?? 'bottom-right') as PipPlacement;
 const plan = {
@@ -46,6 +50,13 @@ const games: Record<string, Entry> = {
     strings: FLAP_STRINGS,
     people: (kind, m, s, shapes) => shapes.map((shape, i) => squatPerson({ kind, lane: i, seed: i + 1, shape, arms: s })),
   },
+};
+
+games['knee-sprint'] = {
+  module: kneeSprintModule(sprintManifest, { heats: Number(q.get('heats') ?? 2), dist: Number(q.get('dist') ?? 60), restSec: Number(q.get('restSec') ?? 4) }),
+  manifest: sprintManifest,
+  strings: SPRINT_STRINGS,
+  people: (kind, m, s, shapes) => shapes.map((shape, i) => runnerPerson({ kind, lane: i, seed: i + 1, shape, arms: s })),
 };
 
 const entry = games[id];
@@ -88,7 +99,7 @@ const people = entry.people(body, mode, seated, mode === 'local2'
   : [seated ? { ...SHAPE_UPPER, aspect: 16 / 9, T: 0.24 } : { ...SHAPE_FULL, aspect: 16 / 9, T: 0.2 }]);
 
 const chain = createChain({
-  module: entry.module, mode, difficulty, seated, people, realtime: true, scene2d: kit, hud, audio, countdownMs: 1500, seed: 5, t: (k, v) => say(k, v),
+  module: entry.module, mode, difficulty, seated, quiet, people, realtime: true, scene2d: kit, hud, audio, countdownMs: 1500, seed: 5, t: (k, v) => say(k, v),
 });
 const session = chain.session;
 chain.session.on('state', (s) => {
@@ -113,16 +124,17 @@ function rect(el: Element | null): { x: number; y: number; w: number; h: number 
 }
 
 window.ba = {
-  id, mode, difficulty, seated, body, say,
+  id, mode, difficulty, seated, quiet, body, say,
   chain, hud, kit, canvas, audio, errors, announced,
   start: async () => { audio.unlock(); resize(); await chain.start(); chain.pump(); },
   state: () => {
     const g = chain.game() as unknown as { state?: Record<string, unknown> } | null;
-    return { session: chain.session.state, game: g?.state ? { phase: g.state['phase'], round: g.state['round'], lanes: g.state['lanes'] } : null, seen: chain.seen };
+    return { session: chain.session.state, game: g?.state ? { phase: g.state['phase'], round: g.state['round'] ?? null, heat: g.state['heat'] ?? null, lanes: g.state['lanes'] } : null, seen: chain.seen };
   },
+  /** The hero of each lane as the view drew it (the bird of Squat Flap, the runner of Knee Sprint). */
   birds: () => {
-    const g = chain.game() as unknown as { view?: { birdAt(i: number): { x: number; y: number; r: number } | null } } | null;
-    return [0, 1].map((i) => g?.view?.birdAt(i) ?? null);
+    const g = chain.game() as unknown as { view?: { birdAt?(i: number): { x: number; y: number; r: number } | null; runnerAt?(i: number): { x: number; y: number; r: number } | null } } | null;
+    return [0, 1].map((i) => g?.view?.birdAt?.(i) ?? g?.view?.runnerAt?.(i) ?? null);
   },
   plates: () => [...hudEl.querySelectorAll('[data-hud]')].filter((e) => !(e as HTMLElement).hidden).map((e) => ({ name: (e as HTMLElement).dataset['hud'] as string, ...rect(e)! })),
   rects: () => kit.rects,
