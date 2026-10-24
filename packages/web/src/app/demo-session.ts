@@ -4,8 +4,11 @@
 import type {
   CalibrationCode, CalibrationStatus, PauseReason, PlayerSlot, RunSummary, Session, SessionEvents, SessionState, TwoPlayerCalibrationStatus, Unsubscribe,
 } from '../../../core/types/index.ts';
+import { makeSchedule, scoreOf, specFor, type Obstacle } from '../../../core/net/schedule.ts';
+import type { ObstacleResult } from '../../../core/types/net.ts';
 import { glyph } from '../../../core/ui/glyphs.ts';
 import type { PlayHud } from '../../../core/ui/hud/hud.ts';
+import type { DuelFeed } from './duel.ts';
 import type { SessionRequest } from './ports.ts';
 
 export interface DemoOptions {
@@ -35,6 +38,8 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
   let raf = 0;
   let remaining = roundSeconds;
   let score: [number, number] = [0, 0];
+  /** A race ends when its own clock says so: how long it lasted, for the summary. */
+  let raced: number | null = null;
 
   const emit = <K extends keyof SessionEvents>(k: K, e: SessionEvents[K]): void => { listeners.get(k)?.forEach((cb) => (cb as (e: SessionEvents[K]) => void)(e)); };
   const setState = (s: SessionState): void => { state = s; if (s !== 'paused') reason = null; emit('state', s); };
@@ -106,7 +111,7 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
     stopTimers();
     const total = score[0] + score[1];
     const summary: RunSummary = {
-      score: two ? Math.max(score[0], score[1]) : score[0], seconds: roundSeconds - Math.max(0, Math.round(remaining)), reps: Math.round(total / 1.4), hits: Math.round(total / 1.4), bestStreak: 6,
+      score: two ? Math.max(score[0], score[1]) : score[0], seconds: raced ?? roundSeconds - Math.max(0, Math.round(remaining)), reps: Math.round(total / 1.4), hits: Math.round(total / 1.4), bestStreak: 6,
       quality: 0.82, metSeconds: 5 * roundSeconds,
       log: [{ t: 3000, kind: 'hips_not_low', ok: false, v: 4 }, { t: 7000, kind: 'hips_not_low', ok: false, v: 5 }, { t: 11000, kind: 'hips_not_up', ok: false, v: 2 }, { t: 5000, kind: 'squat', ok: true }],
       ...(two ? { players: { 1: { score: score[0], metSeconds: 5 * roundSeconds }, 2: { score: score[1], metSeconds: 5 * roundSeconds } } } : {}),
@@ -115,10 +120,45 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
     emit('over', summary);
   };
 
+  /**
+   * A race (against a recording): the practice player passes three obstacles in four, by the race's own clock (the real feed of
+   * core/net/ghost-race.ts), so the rows under the score, the result and "Race again" can be tried without a camera.
+   */
+  const raceRound = (feed: DuelFeed): void => {
+    const mine: ObstacleResult[] = [];
+    const done = new Set<number>();
+    let schedule: Obstacle[] = [];
+    let seed = -1;
+    tick = setInterval(() => {
+      if (state !== 'running') return;
+      const m = feed.match();
+      if (!m) return;
+      if (m.seed !== seed) { seed = m.seed; schedule = makeSchedule(m.seed, m.durationMs, specFor(m.gameId)); }
+      const t = feed.time();
+      if (feed.phase() !== 'run') return;
+      for (const ob of schedule) {
+        if (ob.t > t || done.has(ob.id)) continue;
+        done.add(ob.id);
+        const k = ob.id % 4 === 0 ? 'hit' : 'pass';
+        mine.push({ ob: ob.id, k });
+        feed.report(ob.id, k);
+      }
+      score = [scoreOf(schedule, mine).score, 0];
+      hud.set('score', score[0]);
+      hud.set('timer', Math.max(0, (m.durationMs - t) / 1000));
+      if (t >= m.durationMs) {
+        raced = Math.round(m.durationMs / 1000);
+        feed.finish(mine);
+        finish();
+      }
+    }, ms(100));
+  };
+
   const beginRunning = (): void => {
     hud.set('prompt', { icon: 'squat', text: 'Squat' });
     hud.set('hint', 'Hips 4 cm above the line');
     hud.set('lives', 3);
+    if (r.race) { raceRound(r.race.feed); return; }
     let n = 0;
     tick = setInterval(() => {
       if (state !== 'running') return;

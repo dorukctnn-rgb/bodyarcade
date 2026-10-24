@@ -982,7 +982,7 @@ export const en = {
   'race.ghost': 'Race a ghost',
   'game.ghost.note': 'Race a ghost: the same course against a recording, any time.',
   'race.title': 'Race a ghost',
-  'race.lead': 'A ghost plays the same course as you, at the same time. It is a recording: nobody is playing live.',
+  'race.lead': 'A ghost plays the same course as you, at the same time. It is a recording: nobody is playing live. You play with the camera.',
   'race.group': 'Who to race',
   'race.points': '{n, plural, one {# point} other {# points}}',
   'race.own': 'Your best run',

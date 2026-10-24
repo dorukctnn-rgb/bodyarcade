@@ -982,7 +982,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'race.ghost': 'Hayaletle yarış',
   'game.ghost.note': 'Hayaletle yarış: aynı parkur, bir kayda karşı, istediğin an.',
   'race.title': 'Hayaletle yarış',
-  'race.lead': 'Hayalet aynı parkuru seninle aynı anda oynar. Bu bir kayıt: kimse canlı oynamıyor.',
+  'race.lead': 'Hayalet aynı parkuru seninle aynı anda oynar. Bu bir kayıt: kimse canlı oynamıyor. Kamerayla oynarsın.',
   'race.group': 'Kiminle yarışacaksın',
   'race.points': '{n} puan',
   'race.own': 'En iyi turun',

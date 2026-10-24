@@ -1,41 +1,44 @@
 // Races against a recording in a real browser: the window that asks who to race (a practice partner by default, its level, a code
-// pasted in and kept for the next time, Cancel races nothing), a whole round against the practice partner on the real Squat Flap
-// (the others under the score, the result in words, "Race again", the link of the player's run and the card it opens on a game's
-// page), a friend's link, a child who cannot race a stranger's code, a recording that is not there, a game that cannot be raced,
-// and the results of a race on all ten sizes.
+// pasted in and kept for the next time, Cancel races nothing), a whole race against the practice partner (the others under the
+// score, the result in words, "Race again", the link of the player's run and the card it opens on a game's page), a friend's link,
+// a child who cannot race a stranger's code, a recording that is not there, a game that cannot be raced, and the results of a race
+// on all ten sizes.
+// A race is played with the camera (the platform's session does not start one by keyboard), so these runs use the practice session
+// as the player: it passes three obstacles in four by the race's own clock, and the recording, the plates, the result and the book
+// are the real ones. A race of fifteen seconds (the shortest there is) takes about four.
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { decodeRun } from '../../core/net/ghost.ts';
 import { BREAKPOINTS } from '../../core/ui/layout.ts';
 import { checkPage } from '../tools/layout-check.ts';
 import { friendCode } from '../tools/scenarios.ts';
-import { choose, collectErrors, useKeyboard, withHooks, type Hooks } from './support/helpers.ts';
+import { choose, collectErrors, withHooks, type Hooks } from './support/helpers.ts';
 import { WEB_DEV_URL } from './support/ports.ts';
 
-/** A race of fifteen seconds (the shortest there is) on the real game, with a keyboard. */
-const RACE: Hooks = { raceSeconds: 15, keyboard: true };
+const RACE: Hooks = { raceSeconds: 15, forceDemo: true, timeScale: 5 };
+
+/** The camera is explained and allowed already, so a round goes straight to its calibration. */
+async function cameraReady(page: Page): Promise<void> {
+  await page.addInitScript(() => { try { localStorage.setItem('ba2.shell.cameraExplained', JSON.stringify({ v: 1, d: true })); } catch { /* no storage */ } });
+}
 
 async function fresh(browser: Browser, hooks: Hooks = RACE, size = { w: 1280, h: 800 }): Promise<{ page: Page; context: BrowserContext; errors: string[] }> {
-  const context = await browser.newContext({ viewport: { width: size.w, height: size.h }, locale: 'en-US', permissions: ['clipboard-read', 'clipboard-write'] });
+  const context = await browser.newContext({ viewport: { width: size.w, height: size.h }, locale: 'en-US', permissions: ['camera', 'clipboard-read', 'clipboard-write'] });
   const page = await context.newPage();
   const errors = collectErrors(page);
+  await cameraReady(page);
   await withHooks(page, hooks);
   return { page, context, errors };
 }
 
-/** The round is on the stage and the others are under the score. */
+/** The race is on the stage and the others are under the score. */
 async function inRace(page: Page): Promise<void> {
   await page.waitForSelector('[data-hud-root] [data-hud="statusLeft"]', { timeout: 45_000 });
   await expect(page.locator('.rivals li')).toHaveCount(1, { timeout: 30_000 });
 }
 
-/** The keys that play Squat Flap, pressed until the results are on the screen. */
-async function playToResults(page: Page): Promise<void> {
-  const until = Date.now() + 90_000;
-  while (!/\/results\//.test(page.url()) && Date.now() < until) {
-    await page.keyboard.press('Space');
-    await page.waitForTimeout(330);
-  }
-  await expect(page).toHaveURL(/\/results\//);
+/** The race plays itself out (the practice player), and the results of a race are on the screen. */
+async function toResults(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\/results\//, { timeout: 60_000 });
   await expect(page.locator('[data-race]')).toBeVisible();
 }
 
@@ -45,15 +48,23 @@ async function leaveRound(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Leave', exact: true }).click();
 }
 
+/** The recording an address carries: `?ghost=code:<text>` for a recording of a friend. */
+function codeOf(url: string): string {
+  const g = new URL(url).searchParams.get('ghost') ?? '';
+  expect(g).toMatch(/^code:/);
+  return g.slice('code:'.length);
+}
+
 test('the window asks who to race: a practice partner to begin with, its level, a code kept for next time, and Cancel races nothing', async ({ browser }) => {
+  test.setTimeout(120_000);
   const { page, context, errors } = await fresh(browser);
   await page.goto(`${WEB_DEV_URL}/games/squat-flap/`);
-  await useKeyboard(page);
   await page.getByRole('button', { name: 'Race a ghost' }).click();
 
   const dialog = page.getByRole('dialog', { name: 'Race a ghost' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('It is a recording: nobody is playing live.');
+  await expect(dialog).toContainText('You play with the camera.');
   // nothing of the player's own yet: the choice is there and says why it cannot be taken
   await expect(dialog.getByRole('radio', { name: /Your best run/ })).toBeDisabled();
   await expect(dialog).toContainText('Race a ghost once and your best run is kept here.');
@@ -86,16 +97,18 @@ test('the window asks who to race: a practice partner to begin with, its level, 
 
   // the recording was kept for the next time
   await page.reload({ waitUntil: 'networkidle' });
-  await useKeyboard(page);
   await page.getByRole('button', { name: 'Race a ghost' }).click();
-  await expect(page.getByRole('dialog', { name: 'Race a ghost' }).getByRole('radio', { name: /Recording of Ada/ })).toBeEnabled();
-  await page.getByRole('dialog', { name: 'Race a ghost' }).getByRole('radio', { name: /Recording of Ada/ }).check();
+  const again = page.getByRole('dialog', { name: 'Race a ghost' });
+  await expect(again.getByRole('radio', { name: /Recording of Ada/ })).toBeEnabled();
+  await again.getByRole('radio', { name: /Recording of Ada/ }).check();
   await page.getByRole('button', { name: 'Start the race' }).click();
   await page.waitForURL(/\/play\/squat-flap\/\?.*ghost=/);
-  expect(new URL(page.url()).searchParams.get('input')).toBe('keyboard');
-  expect(decodeRun(new URL(page.url()).searchParams.get('ghost') ?? '')?.name).toBe('Ada');
+  // a race is played with the camera, whatever the page had chosen
+  expect(new URL(page.url()).searchParams.get('input')).toBe('camera');
+  expect(decodeRun(codeOf(page.url()))?.name).toBe('Ada');
   await inRace(page);
   await expect(page.locator('.rivals li')).toContainText('Ada');
+  await leaveRound(page);
   expect(errors).toEqual([]);
   await context.close();
 });
@@ -103,13 +116,13 @@ test('the window asks who to race: a practice partner to begin with, its level, 
 test('a whole race against the practice partner: the others under the score, the result in words, the link of the run, and the same race again', async ({ browser }) => {
   test.setTimeout(240_000);
   const { page, context, errors } = await fresh(browser);
-  await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=keyboard&ghost=practice%3Aeasy`);
+  await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera&ghost=practice%3Aeasy`);
   await inRace(page);
   await expect(page.locator('.rivals li')).toContainText('Practice bot');
   await expect(page.locator('.rivals li')).toHaveCount(1);
   // the plate with the score is whole and the rest of the HUD is clear of it
   expect(await page.evaluate(() => window.__BA__?.debug().playProblems)).toEqual([]);
-  await playToResults(page);
+  await toResults(page);
 
   const race = page.locator('[data-race]');
   await expect(race.getByRole('heading', { name: 'The race' })).toBeVisible();
@@ -137,6 +150,7 @@ test('a whole race against the practice partner: the others under the score, the
   expect(sent?.gameId).toBe('squat-flap');
   expect(sent?.durationMs).toBe(15_000);
   const other = await context.newPage();
+  await cameraReady(other);
   await withHooks(other, RACE);
   await other.goto(link);
   await expect(other.locator('[data-ghost-offer]')).toBeVisible();
@@ -154,6 +168,31 @@ test('a whole race against the practice partner: the others under the score, the
   await context.close();
 });
 
+test('the best run of a race is kept, and is the next race: the same course against your own best', async ({ browser }) => {
+  test.setTimeout(240_000);
+  const { page, context, errors } = await fresh(browser);
+  await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera&ghost=practice%3Aeasy`);
+  await toResults(page);
+  await expect(page.locator('[data-race-best]')).toHaveText('A new best run. It is kept on this device.');
+  // the window now offers it first, with its points
+  await page.goto(`${WEB_DEV_URL}/games/squat-flap/`);
+  await page.getByRole('button', { name: 'Race a ghost' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Race a ghost' });
+  const own = dialog.getByRole('radio', { name: /Your best run/ });
+  await expect(own).toBeEnabled();
+  await expect(own).toBeChecked();
+  await expect(dialog.locator('input[name="level"]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Start the race' }).click();
+  await page.waitForURL(/\/play\/squat-flap\/\?.*ghost=own/);
+  await inRace(page);
+  await expect(page.locator('.rivals li')).toContainText('Your best');
+  await toResults(page);
+  // the same player plays the same way, so the old best stays or is matched: never a worse one kept
+  await expect(page.locator('[data-race-verdict]')).toBeVisible();
+  expect(errors).toEqual([]);
+  await context.close();
+});
+
 test("a friend's link opens a card on the game's page, and the race is of the recording in it", async ({ browser }) => {
   test.setTimeout(120_000);
   const { page, context, errors } = await fresh(browser);
@@ -165,11 +204,11 @@ test("a friend's link opens a card on the game's page, and the race is of the re
   // a recording of another game is no offer here
   await page.goto(`${WEB_DEV_URL}/games/squat-flap/?ghost=${friendCode({ game: 'knee-sprint' })}`);
   await expect(page.locator('[data-ghost-offer]')).toHaveCount(0);
-  // the offer starts the race with the keys the page had chosen
+  // the offer starts the race, with the camera
   await page.goto(`${WEB_DEV_URL}/games/squat-flap/?ghost=${friendCode({ name: 'Ada' })}`);
-  await useKeyboard(page);
   await page.locator('[data-ghost-offer]').getByRole('link', { name: 'Start the race' }).click();
   await page.waitForURL(/\/play\/squat-flap\/\?.*ghost=/);
+  expect(new URL(page.url()).searchParams.get('input')).toBe('camera');
   await inRace(page);
   await expect(page.locator('.rivals li')).toContainText('Ada');
   await leaveRound(page);
@@ -180,11 +219,11 @@ test("a friend's link opens a card on the game's page, and the race is of the re
 test('a recording that is not there, and a game that cannot be raced', async ({ browser }) => {
   const { page, context, errors } = await fresh(browser);
   // your best run, before there is one
-  await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=keyboard&ghost=own`);
+  await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera&ghost=own`);
   await page.waitForURL(/\/games\/squat-flap\/$/);
   await expect(page.getByText('There is no recording to race yet.')).toBeVisible();
   // a code that is not a recording
-  await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=keyboard&ghost=0123456789notacode`);
+  await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=camera&ghost=0123456789notacode`);
   await page.waitForURL(/\/games\/squat-flap\/$/);
   await expect(page.getByText('That recording could not be opened.')).toBeVisible();
   // a game with no race has no button, and a round of it ignores the address
@@ -202,7 +241,7 @@ test("a child's profile races its own and the family's recordings and a practice
   await page.goto(`${WEB_DEV_URL}/games/squat-flap/?plan=family&ghost=${friendCode()}`);
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
   await expect(page.locator('[data-ghost-offer]')).toHaveCount(0);
-  await page.goto(`${WEB_DEV_URL}/play/squat-flap/?plan=family&input=keyboard&ghost=${friendCode()}`);
+  await page.goto(`${WEB_DEV_URL}/play/squat-flap/?plan=family&input=camera&ghost=${friendCode()}`);
   await page.waitForURL(/\/games\/squat-flap\/$/);
   await expect(page.getByText('That recording could not be opened.')).toBeVisible();
   // the window has no box for a code

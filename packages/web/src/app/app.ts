@@ -550,7 +550,7 @@ export class App {
       start: (g, ghost) => {
         this.o.onPlayGesture?.();
         const c = this.ctx();
-        this.nav.go(playHref(c, g, { ...this.setupFor(g, c), players: 1 }, { ghost }));
+        this.nav.go(playHref(c, g, { ...this.setupFor(g, c), players: 1, input: 'camera' }, { ghost }));
       },
     };
   }
@@ -561,7 +561,7 @@ export class App {
     if (!spec || spec.kind !== 'code' || !canRace(g) || this.rules().ghosts !== 'all') return null;
     const run = decodeRun(spec.text);
     if (!run || run.gameId !== g.id) return null;
-    return { run, startHref: playHref(ctx, g, { ...this.setupFor(g, ctx), players: 1 }, { ghost: ghostParam(spec) }) };
+    return { run, startHref: playHref(ctx, g, { ...this.setupFor(g, ctx), players: 1, input: 'camera' }, { ghost: ghostParam(spec) }) };
   }
 
   /** A race against the recording an address asks for. Null, with the reason said, when there is none to race. */
@@ -573,7 +573,9 @@ export class App {
       this.toaster.show(t.t(spec.kind === 'code' ? 'race.error.bad' : 'race.error.none'), { kind: 'warn' });
       return null;
     }
-    const ghost = new GhostRace(run, { name: this.playerFacts()?.name ?? '', book: this.ghostBook() });
+    // A test can speed the practice session up: the race's clock goes as fast (only where the practice session exists).
+    const scale = this.o.demo ? Math.max(1, this.win.__BA_TEST__?.timeScale ?? 1) : 1;
+    const ghost = new GhostRace(run, { name: this.playerFacts()?.name ?? '', book: this.ghostBook(), ...(scale > 1 ? { now: () => this.win.performance.now() * scale } : {}) });
     return ghostSource(ghost, { share: rules.share });
   }
 
@@ -692,11 +694,12 @@ export class App {
     const stage = this.doc.querySelector<HTMLElement>('[data-stage]');
     if (!g || !stage) return;
     const ctx = this.ctx();
-    // A race is one player's round (the other side is the recording, or the friends of a room), whatever the game's page had chosen.
+    // A race is one player's round (the other side is the recording, or the friends of a room), whatever the game's page had chosen,
+    // and it is played with the camera: the platform's session does not start a race by keyboard (the moves are the race).
     const spec = parseGhost(route.query.get('ghost'));
     const racing = spec !== null && canRace(g);
     const asked = setupFromQuery(ctx, g, route.query);
-    const setup: SetupState = racing ? { ...asked, players: 1 } : asked;
+    const setup: SetupState = racing ? { ...asked, players: 1, input: 'camera' } : asked;
     this.planRound = route.query.get('plan') === '1' && this.arcade.plans.active()?.current?.game === g.id;
     this.firstRound = route.query.get('first') === '1' && g.id === FIRST_GAME_ID;
     // A Pro game without Pro and without a free round left goes to the offer, not to a round that cannot count.
