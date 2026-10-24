@@ -31,7 +31,7 @@ import { encodeQr, qrToSvg, type QrSvgOptions } from './qr.ts';
 import { Emitter, realScheduler, type Scheduler } from './runtime.ts';
 import { makeSchedule, scoreOf, specFor, type Obstacle } from './schedule.ts';
 import { RivalBoard, ghostFrame, packPose } from './pose-frame.ts';
-import { TrackRecorder, checkRun, type GhostRun } from './ghost.ts';
+import { TrackRecorder, runFromResult, type GhostRun } from './ghost.ts';
 import type { VideoStatus } from './video.ts';
 import type { Landmark } from '../types/index.ts';
 
@@ -331,15 +331,11 @@ export class LiveRace extends Emitter<RaceEvents> {
   runOf(seat: SeatId): GhostRun | null {
     const r = this.lastResult?.result;
     const m = this.client.match;
-    const outcomes = r?.runs?.[seat];
-    if (!r || !m || m.id !== r.mid || typeof outcomes !== 'string') return null;
+    if (!r || !m) return null;
     const mine = seat === this.client.you;
-    const name = mine ? this.who.name : (this.client.members.find((x) => x.seat === seat)?.name ?? '');
-    const c = checkRun({
-      v: 1, gameId: m.gameId, seed: m.seed, durationMs: m.duration, outcomes, name, at: Math.floor(Date.now() / 60_000) * 60_000, source: mine ? 'own' : 'friend',
-      ...(mine && this.lastTrack ? { track: this.lastTrack } : {}),
+    return runFromResult({
+      result: r, match: m, seat, mine, name: mine ? this.who.name : (this.client.members.find((x) => x.seat === seat)?.name ?? ''), track: this.lastTrack,
     });
-    return c.ok ? c.run : null;
   }
 
   /** Your own run of the match that just ended (see runOf). */

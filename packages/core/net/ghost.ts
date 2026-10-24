@@ -13,7 +13,7 @@
 // Nothing stored here is trusted: checkRun rebuilds the course and checks every field, so a damaged file or a made-up link is
 // refused and never a crash, and the score is always recomputed from what happened, never read from a field.
 import { rngStream } from '../loop/rng.ts';
-import { MAX_DURATION_MS, MIN_DURATION_MS, type ObstacleResult, type Outcome, type SeatScore } from '../types/net.ts';
+import { MAX_DURATION_MS, MIN_DURATION_MS, type MatchInfo, type MatchResult, type ObstacleResult, type Outcome, type SeatId, type SeatScore } from '../types/net.ts';
 import { checkName, NAME_MAX_CHARS } from './chat-filter.ts';
 import { POSE_NUMBERS } from './pose-frame.ts';
 import { makeSchedule, passPoints, scoreOf, specFor, type Obstacle } from './schedule.ts';
@@ -78,6 +78,30 @@ export function runFromResults(o: { gameId: string; seed: number; durationMs: nu
   };
   if (o.track) run.track = o.track;
   return run;
+}
+
+/**
+ * One seat's run of the match a Room result describes (`MatchResult.runs`, which only a private room sends), as a recording: the
+ * player's own (it may carry the skeleton their page kept, and is theirs to keep) or a friend's. Null when the result has no runs, belongs to
+ * another match, or does not hold a valid run. Pure, so a stage that works on the client directly (not through LiveRace) uses it too.
+ */
+export function runFromResult(o: {
+  result: Pick<MatchResult, 'mid' | 'runs'>;
+  match: Pick<MatchInfo, 'id' | 'gameId' | 'seed' | 'duration'>;
+  seat: SeatId;
+  /** The name to put on it: this player's own, or the friend's as the Room shows it (empty when the friend has left). */
+  name: string;
+  mine: boolean;
+  track?: string | undefined;
+  at?: number;
+}): GhostRun | null {
+  const outcomes = o.result.runs?.[o.seat];
+  if (o.result.mid !== o.match.id || typeof outcomes !== 'string') return null;
+  const c = checkRun({
+    v: 1, gameId: o.match.gameId, seed: o.match.seed, durationMs: o.match.duration, outcomes, name: o.name, at: Math.floor((o.at ?? Date.now()) / 60_000) * 60_000,
+    source: o.mine ? 'own' : 'friend', ...(o.mine && o.track ? { track: o.track } : {}),
+  });
+  return c.ok ? c.run : null;
 }
 
 // ───────── checking ─────────

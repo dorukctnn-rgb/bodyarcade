@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { MAX_DURATION_MS, MIN_DURATION_MS, type ObstacleResult } from '../types/net.ts';
 import { createI18n } from '../ui/i18n/index.ts';
 import {
-  BOT_LEVELS, BOT_PASS, GHOST_HZ, TrackRecorder, botRun, checkRun, courseOf, decodeRun, encodeRun, ghostLabel, outcomeString, resultsOf, runFromResults, runScore, standingAt, trackPoseAt, type GhostRun,
+  BOT_LEVELS, BOT_PASS, GHOST_HZ, TrackRecorder, botRun, checkRun, courseOf, decodeRun, encodeRun, ghostLabel, outcomeString, resultsOf, runFromResult, runFromResults, runScore, standingAt, trackPoseAt, type GhostRun,
 } from './ghost.ts';
 import { POSE_NUMBERS } from './pose-frame.ts';
 import { scoreOf } from './schedule.ts';
@@ -249,5 +249,28 @@ describe('the words that say what a ghost is', () => {
         expect(s).not.toMatch(/{|}/);
       }
     }
+  });
+});
+
+describe('a run out of the result of a match', () => {
+  const run = made({ name: 'Ada' });
+  const match = { id: 'm1', gameId: run.gameId, seed: run.seed, duration: run.durationMs };
+  const result = { mid: 'm1', runs: { s1: run.outcomes, s2: run.outcomes.replace(/p/g, 'h') } };
+
+  it('is the own run of the player (with their name and skeleton) or a recording of a friend (with the friend name, never a skeleton)', () => {
+    const own = runFromResult({ result, match, seat: 's1', name: 'Me', mine: true, track: 'AAAA', at: AT + 5000 });
+    expect(own).toMatchObject({ source: 'own', name: 'Me', outcomes: run.outcomes, gameId: run.gameId, seed: run.seed, durationMs: run.durationMs, at: AT });
+    const theirs = runFromResult({ result, match, seat: 's2', name: 'Ada', mine: false, track: 'AAAA' });
+    expect(theirs).toMatchObject({ source: 'friend', name: 'Ada' });
+    expect(theirs?.track).toBeUndefined();
+    expect(runScore(theirs as GhostRun).passes).toBe(0);
+  });
+
+  it('is nothing for a result of another match, a result with no runs (a public room), a seat that is not in it, or a run that does not fit the course', () => {
+    expect(runFromResult({ result: { ...result, mid: 'm2' }, match, seat: 's1', name: 'Me', mine: true })).toBeNull();
+    expect(runFromResult({ result: { mid: 'm1' }, match, seat: 's1', name: 'Me', mine: true })).toBeNull();
+    expect(runFromResult({ result, match, seat: 's9', name: 'Me', mine: true })).toBeNull();
+    expect(runFromResult({ result: { mid: 'm1', runs: { s1: 'ppp' } }, match, seat: 's1', name: 'Me', mine: true })).toBeNull();
+    expect(runFromResult({ result, match, seat: 's1', name: 'visit www.example.com', mine: false })).toBeNull();
   });
 });

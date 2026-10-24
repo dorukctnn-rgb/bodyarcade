@@ -6,7 +6,7 @@ export { VideoTracker, VIDEO_CONNECT_MS, VIDEO_RETRY_GAP_MS, VIDEO_STALL_MS, typ
 export { friendTiles, type FriendTile, type TileNote } from './friend-tile.ts';
 export { RivalBoard, ghostFrame, packPose, unpackPose, readGhostFrame, POSE_JOINTS, POSE_STALE_MS, type GhostFrame, type RivalFrame } from './pose-frame.ts';
 export {
-  BOT_LEVELS, BOT_PASS, GHOST_HZ, GHOST_VERSION, TrackRecorder, botRun, checkRun, courseOf, decodeRun, encodeRun, ghostLabel, outcomeString, resultsOf, runFromResults, runScore, standingAt, trackPoseAt,
+  BOT_LEVELS, BOT_PASS, GHOST_HZ, GHOST_VERSION, TrackRecorder, botRun, checkRun, courseOf, decodeRun, encodeRun, ghostLabel, outcomeString, resultsOf, runFromResult, runFromResults, runScore, standingAt, trackPoseAt,
   type BotLevel, type GhostLabel, type GhostLabelKey, type GhostRun, type GhostSource, type RunCheck, type RunProblem, type Standing,
 } from './ghost.ts';
 export { FRIENDS_MAX, GhostBook, OWN_MAX, type OfferResult } from './ghost-book.ts';
