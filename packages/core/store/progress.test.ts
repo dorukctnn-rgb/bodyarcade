@@ -276,14 +276,92 @@ describe('B4: the results screen always gets an answer', () => {
       { score: Number.NaN, seconds: -5, variant: 7, difficulty: null, complete: 'yes', stats: 5 },
       { score: Number.POSITIVE_INFINITY, seconds: Number.POSITIVE_INFINITY, variant: '__proto__', difficulty: '../x', stats: { __proto__: 1, 'a b': 2, ok: 3, bad: Number.NaN } },
       { score: 1e30, seconds: 1e30, variant: 'x'.repeat(500), difficulty: '' },
+      { score: 40, seconds: -5, variant: 7, difficulty: null, complete: 'yes', stats: 5 },
     ];
     for (const g of garbage) expect(() => progress.record(g as RunInput)).not.toThrow();
-    const last = progress.runs()[0];
-    expect(last?.score).toBeLessThanOrEqual(1_000_000_000);
+    // Only the two objects that carry a finite score are runs (clamped); the rest was never a run.
+    expect(progress.runs().map((r) => r.score)).toEqual([40, 1_000_000_000]);
     for (const r of progress.runs()) {
       expect(Number.isFinite(r.score) && r.score >= 0).toBe(true);
       expect(Number.isFinite(r.seconds) && r.seconds >= 0 && r.seconds <= 86_400).toBe(true);
     }
+  });
+
+  // The CI log of 24 Oct showed "BodyArcade could not save this run TypeError: Cannot read properties of null (reading 'kcal')":
+  // the live site's afterRun was handed a null summary (a round that never produced one). v1 threw halfway through; this
+  // module was worse in its own way: it saved the nothing as a run (variant "unknown", score 0), counted it in the totals,
+  // the activity and the streak, and unlocked "First run" for a player who had not played.
+  describe('what is not a run is not saved (a null summary)', () => {
+    const NOT_RUNS: [string, unknown][] = [
+      ['null', null],
+      ['undefined', undefined],
+      ['a number', 5],
+      ['a string', 'x'],
+      ['an array', [run()]],
+      ['an empty object', {}],
+      ['a score that is a string', { ...run(), score: '900' }],
+      ['a score that is NaN', { ...run(), score: Number.NaN }],
+      ['a score that is infinite', { ...run(), score: Number.POSITIVE_INFINITY }],
+    ];
+
+    it.each(NOT_RUNS)('%s: nothing is stored, nothing is counted, nothing is unlocked, and the caller is told', (_name, input) => {
+      const { progress, store } = setup();
+      let out!: ReturnType<typeof progress.record>;
+      expect(() => { out = progress.record(input as RunInput); }).not.toThrow();
+      expect(out.saved).toBe(false);
+      expect(out.news).toEqual([]);
+      expect(out.daily).toBeNull();
+      expect(out.firstHere).toBe(false);
+      expect(out.newBest).toBe(false);
+      expect(progress.runs()).toEqual([]);
+      expect(progress.totals()).toEqual({});
+      expect(progress.variants()).toEqual([]);
+      expect(progress.unlocked()).toEqual({});
+      expect(progress.activity()).toEqual({});
+      expect(progress.best()).toBe(0);
+      expect(progress.streak()).toBe(0);
+      expect(store.problems().some((p) => p.kind === 'rejected' && p.key === 'runner.runs')).toBe(true);
+    });
+
+    it('writes nothing at all to the storage', () => {
+      const storage = memoryStorage();
+      const { progress } = setup({ storage });
+      for (const [, input] of NOT_RUNS) progress.record(input as RunInput);
+      expect(storage.dump()).toEqual({});
+    });
+
+    it('leaves what is already stored exactly as it was', () => {
+      const storage = memoryStorage();
+      const { progress } = setup({ storage });
+      progress.record(run({ score: 300, stats: { kcal: 2 } }));
+      const before = storage.dump();
+      for (const [, input] of NOT_RUNS) progress.record(input as RunInput);
+      expect(storage.dump()).toEqual(before);
+    });
+
+    it('does not spoil the next real run: it is the first one and gets the first-run unlock', () => {
+      const { progress } = setup();
+      for (const [, input] of NOT_RUNS) progress.record(input as RunInput);
+      const out = progress.record(run({ score: 640 }));
+      expect(out.saved).toBe(true);
+      expect(out.firstHere).toBe(true);
+      expect(out.news.map((d) => d.id)).toEqual(['first-run']);
+      expect(progress.totals()['runs']).toBe(1);
+      expect(progress.runs().map((r) => r.score)).toEqual([640]);
+    });
+
+    it('still saves a real run whose other fields are damaged (clamped, filed under "unknown")', () => {
+      const { progress } = setup();
+      const out = progress.record({ score: 55, seconds: Number.NaN, variant: 7, difficulty: null } as unknown as RunInput);
+      expect(out.saved).toBe(true);
+      expect(out.run).toMatchObject({ score: 55, seconds: 0, variant: 'unknown', difficulty: 'unknown' });
+      expect(progress.totals()['runs']).toBe(1);
+    });
+
+    it('a real run says saved', () => {
+      const { progress } = setup();
+      expect(progress.record(run()).saved).toBe(true);
+    });
   });
 
   it('clamps stats to finite non-negative numbers with safe names', () => {

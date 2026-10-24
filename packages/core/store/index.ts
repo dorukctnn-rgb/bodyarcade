@@ -19,7 +19,7 @@ export {
   type DailyGoal, type DailyGoalKind, type DailyGoalSpec,
 } from './daily.ts';
 export {
-  createProgress, sanitizeRun, bestKey, MAX_RUNS, LEGACY_DIFFICULTY,
+  createProgress, sanitizeRun, isRunInput, bestKey, MAX_RUNS, LEGACY_DIFFICULTY,
   type DailyState, type DailyView, type DayActivity, type Progress, type ProgressOptions, type RecordOutcome, type RunInput, type RunRecord, type Totals,
 } from './progress.ts';
 export { RUNNER_ACHIEVEMENTS, RUNNER_DAILY } from './runner-v1.ts';

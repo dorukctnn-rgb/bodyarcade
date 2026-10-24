@@ -321,7 +321,15 @@ test('B4: a damaged value is left in place until the next save overwrites it', (
 });
 
 test('B4: afterRun swallows any failure so the results screen can always show', () => {
-  assert.deepEqual(store.afterRun(null), { news: [], daily: null });
+  // A null summary is the failure on purpose here: afterRun must answer, and say so once with console.warn. The warning is
+  // caught so it does not land in the CI log, where it looked like a bug ("BodyArcade could not save this run TypeError:
+  // Cannot read properties of null (reading 'kcal')"). The v2 store (core/store progress.record) does not save a null run at all.
+  const realWarn = console.warn;
+  const warned = [];
+  console.warn = (...args) => { warned.push(args); };
+  try { assert.deepEqual(store.afterRun(null), { news: [], daily: null }); } finally { console.warn = realWarn; }
+  assert.equal(warned.length, 1, 'the failure is reported once, not swallowed in silence');
+  assert.match(String(warned[0][0]), /could not save this run/);
   const real = globalThis.localStorage;
   globalThis.localStorage = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
   try {

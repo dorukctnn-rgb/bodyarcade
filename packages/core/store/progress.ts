@@ -7,6 +7,11 @@
 // - A streak is only shown while it is alive (today or yesterday); v1 kept showing a dead streak's number.
 // - record() never throws: the results screen always appears (B4). A run with impossible numbers is clamped, and a
 //   damaged key was already reset by the store.
+// - What is not a run is not saved. A round that ended without a summary hands over null (the live site's afterRun
+//   met one in the CI log of 24 Oct: "Cannot read properties of null (reading 'kcal')"); a number, an array or an
+//   object without a finite score is no better. Such a call stores nothing, counts nothing, unlocks nothing, answers
+//   `saved: false` and is reported to the store (kind 'rejected'), so a caller's bug shows up instead of becoming a
+//   ghost run of 0 points that unlocks "First run".
 import { newlyUnlocked, type AchievementDef } from './achievements.ts';
 import { dailyGoalFor, goalText, nextStreak, type DailyGoal, type DailyGoalSpec } from './daily.ts';
 import { prevDay, type Day } from './date.ts';
@@ -47,6 +52,11 @@ export interface DayActivity { runs: number; seconds: number; best: number }
 export interface DailyState { done: Day | null; n: number; last: Day | null }
 
 export interface RecordOutcome {
+  /**
+   * False when nothing was stored: what the game handed over was not a run (null, a number, an object without a finite
+   * score), or saving failed inside. The results screen is still built from `run` (cleaned, not stored).
+   */
+  saved: boolean;
   run: RunRecord;
   totals: Totals;
   /** The best for this variant and difficulty before this run (0 when there was none). */
@@ -148,6 +158,25 @@ function sanitizeStats(stats: RunInput['stats']): Record<string, number> {
     if (++n >= MAX_STAT_KEYS) break;
   }
   return out;
+}
+
+/**
+ * Is this a run at all: an object with a finite score. A summary that was never produced (null), a number, an array
+ * and {} are not; an object whose score is NaN, infinite or a string is not either. Everything else about a run may be
+ * damaged and is cleaned by sanitizeRun.
+ */
+export function isRunInput(x: unknown): x is RunInput {
+  if (typeof x !== 'object' || x === null || Array.isArray(x)) return false;
+  const score = (x as { score?: unknown }).score;
+  return typeof score === 'number' && Number.isFinite(score);
+}
+
+/** What was handed over, in words and without its contents (a report must not carry a player's data around). */
+function describeInput(x: unknown): string {
+  if (x === null) return 'null';
+  if (Array.isArray(x)) return 'an array';
+  if (typeof x === 'object') return 'an object without a finite score';
+  return typeof x === 'undefined' ? 'undefined' : `a ${typeof x}`;
 }
 
 /** Everything a run is allowed to say, cleaned. Impossible numbers become safe ones; nothing here throws. */
@@ -272,11 +301,16 @@ export function createProgress(store: BodyArcadeStore, ns: StoreNamespace, optio
       unlockedSlot.set(already);
     }
 
-    return { run, totals: { ...totals }, previousBest, newBest: previousBest > 0 && run.score > previousBest, firstHere: !hadAny, news, daily };
+    return { saved: true, run, totals: { ...totals }, previousBest, newBest: previousBest > 0 && run.score > previousBest, firstHere: !hadAny, news, daily };
   }
 
   return {
     record(input) {
+      if (!isRunInput(input)) {
+        // No run happened, so nothing is written, counted or unlocked. The caller still gets an outcome it can show.
+        store.report({ kind: 'rejected', key: `${ns.name}.runs`, detail: `record() was handed ${describeInput(input)}, which is not a run; nothing was stored` });
+        return { saved: false, run: sanitizeRun(input, store.now(), store.day()), totals: {}, previousBest: 0, newBest: false, firstHere: false, news: [], daily: null };
+      }
       try {
         return recordUnsafe(input);
       } catch (e) {
@@ -285,7 +319,7 @@ export function createProgress(store: BodyArcadeStore, ns: StoreNamespace, optio
         store.report({ kind: 'write_failed', key: `${ns.name}.runs`, detail: `record() failed: ${e instanceof Error ? e.message : String(e)}` });
         const day = store.day();
         const run = sanitizeRun(input, store.now(), day);
-        return { run, totals: {}, previousBest: 0, newBest: false, firstHere: false, news: [], daily: null };
+        return { saved: false, run, totals: {}, previousBest: 0, newBest: false, firstHere: false, news: [], daily: null };
       }
     },
     runs: (limit) => runsSlot.get().slice(0, limit === undefined ? maxRuns : Math.max(0, limit)),

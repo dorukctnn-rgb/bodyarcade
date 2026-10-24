@@ -26,7 +26,9 @@ export type StoreProblem =
   | { kind: 'corrupt'; key: string; detail: string }
   | { kind: 'migration_failed'; key: string; detail: string }
   | { kind: 'write_failed'; key: string; detail: string }
-  | { kind: 'read_failed'; key: string; detail: string };
+  | { kind: 'read_failed'; key: string; detail: string }
+  /** The caller handed over something that is not what the store needs (for example a null run) and it was not stored. */
+  | { kind: 'rejected'; key: string; detail: string };
 
 export interface StoreOptions {
   /** Defaults to window.localStorage when it works, else memory. Pass memoryStorage() in tests. */
