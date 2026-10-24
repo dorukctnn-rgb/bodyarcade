@@ -103,10 +103,10 @@ ${ul([
         title: 'Planlar ve fiyatlar',
         html: `${table(null, ['Plan', 'Web’deki fiyat', 'Ne alırsın'], [
   ['Ücretsiz', 'Ücret yok', `${c.free} oyun, bunların oturarak ve sessiz sürümleri, Kolay ve Normal zorluk, reklam yok; her Pro oyun bir kez.`],
-  ['Pro aylık', `ayda ${$(F.PRICE.proMonthly)}`, `${c.total} oyunun hepsi ve her zorluk seviyesi. Sen iptal edene kadar her ay yenilenir. En çok ${F.DEVICES.pro} cihaz.`],
-  ['Pro yıllık', `yılda ${$(F.PRICE.proYearly)}`, `Pro aylık ile aynı, ${F.TRIAL_DAYS} günlük ücretsiz denemeyle. Sen iptal edene kadar her yıl yenilenir.`],
-  ...(F.FAMILY_PLAN ? [['Aile yıllık', `yılda ${$(F.PRICE.familyYearly)}`, `Pro ile aynı; en çok ${F.DEVICES.family} cihazın her birinde en çok ${F.FAMILY_PROFILES} profil, böylece evdeki herkes kendi sonuçlarını tutar.`]] : []),
-  ['Ömür boyu', `tek sefer ${$(F.PRICE.lifetime)}`, `Yenileme olmadan Pro; BodyArcade sunulduğu sürece. En çok ${F.DEVICES.pro} cihaz.`],
+  ['Pro aylık', `<span class="nw">ayda ${$(F.PRICE.proMonthly)}</span>`, `${c.total} oyunun hepsi ve her zorluk seviyesi. Sen iptal edene kadar her ay yenilenir. En çok ${F.DEVICES.pro} cihaz.`],
+  ['Pro yıllık', `<span class="nw">yılda ${$(F.PRICE.proYearly)}</span>`, `Pro aylık ile aynı, ${F.TRIAL_DAYS} günlük ücretsiz denemeyle. Sen iptal edene kadar her yıl yenilenir.`],
+  ...(F.FAMILY_PLAN ? [['Aile yıllık', `<span class="nw">yılda ${$(F.PRICE.familyYearly)}</span>`, `Pro ile aynı; en çok ${F.DEVICES.family} cihazın her birinde en çok ${F.FAMILY_PROFILES} profil, böylece evdeki herkes kendi sonuçlarını tutar.`]] : []),
+  ['Ömür boyu', `<span class="nw">tek sefer ${$(F.PRICE.lifetime)}</span>`, `Yenileme olmadan Pro; BodyArcade sunulduğu sürece. En çok ${F.DEVICES.pro} cihaz.`],
 ])}
 <p><strong>Eski planlar.</strong> Yukarıdaki planlar satışa çıkmadan önce Pro aylığı ayda ${$(F.PRICE.legacyMonthly)} fiyatıyla aldıysan, o üyelik kesintisiz sürdüğü sürece Pro’yu ayda ${$(F.PRICE.legacyMonthly)} ile korursun. O tarihten önce Ömür boyu planını ${$(F.PRICE.founder)} karşılığında aldıysan Kurucu’sun: BodyArcade sunulduğu sürece Pro, daha sonra eklenen her oyun, ${F.FAMILY_PROFILES} profil ve en çok ${F.DEVICES.founder} cihaz.</p>
 <p><strong>Android uygulaması.</strong> Orada fiyatları, para birimlerini ve ücretsiz denemeyi Google Play belirler; ülkeye göre değişebilir. Yukarıdaki fiyatlar web’deki liste fiyatlarıdır, ABD doları cinsindendir. Vergiler, satıcının gerektirdiği biçimde fiyata dahil edilir ya da ödemede eklenir.</p>

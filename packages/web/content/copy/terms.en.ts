@@ -103,10 +103,10 @@ ${ul([
         title: 'Plans and prices',
         html: `${table(null, ['Plan', 'Price on the web', 'What you get'], [
   ['Free', 'No charge', `${c.free} games, their seated and quiet versions, the Easy and Normal difficulties, no ads; each Pro game once.`],
-  ['Pro monthly', `${$(F.PRICE.proMonthly)} a month`, `All ${c.total} games and every difficulty. Renews every month until you cancel. Up to ${F.DEVICES.pro} devices.`],
-  ['Pro yearly', `${$(F.PRICE.proYearly)} a year`, `The same as Pro monthly, with a ${F.TRIAL_DAYS}-day free trial. Renews every year until you cancel.`],
-  ...(F.FAMILY_PLAN ? [['Family yearly', `${$(F.PRICE.familyYearly)} a year`, `The same as Pro, with up to ${F.FAMILY_PROFILES} profiles on each of up to ${F.DEVICES.family} devices, so everyone at home keeps their own results.`]] : []),
-  ['Lifetime', `${$(F.PRICE.lifetime)} once`, `Pro with no renewals, for as long as BodyArcade is offered. Up to ${F.DEVICES.pro} devices.`],
+  ['Pro monthly', `<span class="nw">${$(F.PRICE.proMonthly)} a month</span>`, `All ${c.total} games and every difficulty. Renews every month until you cancel. Up to ${F.DEVICES.pro} devices.`],
+  ['Pro yearly', `<span class="nw">${$(F.PRICE.proYearly)} a year</span>`, `The same as Pro monthly, with a ${F.TRIAL_DAYS}-day free trial. Renews every year until you cancel.`],
+  ...(F.FAMILY_PLAN ? [['Family yearly', `<span class="nw">${$(F.PRICE.familyYearly)} a year</span>`, `The same as Pro, with up to ${F.FAMILY_PROFILES} profiles on each of up to ${F.DEVICES.family} devices, so everyone at home keeps their own results.`]] : []),
+  ['Lifetime', `<span class="nw">${$(F.PRICE.lifetime)} once</span>`, `Pro with no renewals, for as long as BodyArcade is offered. Up to ${F.DEVICES.pro} devices.`],
 ])}
 <p><strong>Earlier plans.</strong> If you bought Pro monthly at ${$(F.PRICE.legacyMonthly)} a month before the plans above went on sale, you keep Pro at ${$(F.PRICE.legacyMonthly)} a month for as long as that membership runs without a break. If you bought Lifetime for ${$(F.PRICE.founder)} before then, you are a Founder: Pro for as long as BodyArcade is offered, every game added later, ${F.FAMILY_PROFILES} profiles and up to ${F.DEVICES.founder} devices.</p>
 <p><strong>The Android app.</strong> Prices, currencies and the free trial there are set by Google Play and can differ by country. The prices above are the list prices on the web, in US dollars. Taxes are included or added at checkout as the seller requires.</p>
