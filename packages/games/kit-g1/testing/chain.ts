@@ -28,6 +28,8 @@ export interface ChainOptions {
   mode: 'solo' | 'local2';
   difficulty?: string;
   seated?: boolean;
+  /** The quiet variant (no jumping and no stamping): the context's `silent` flag. */
+  quiet?: boolean;
   seed?: number;
   people: ChainPerson[];
   /** Pose frames per second (default 30). */
@@ -147,6 +149,7 @@ export function createChain(o: ChainOptions): Chain {
     seed: () => o.seed ?? 42,
     countdownMs: o.countdownMs ?? 600,
     wakeLock: null,
+    flags: () => ({ reducedMotion: false, silent: o.quiet === true }),
     extraSources: ['test'],
   });
 
