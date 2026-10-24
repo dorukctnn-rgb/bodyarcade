@@ -77,13 +77,13 @@ describe('two-person calibration', () => {
     const moving = (t: number): PoseParams => (t < 1500 ? { drop: 0.25 + 0.25 * Math.sin(t / 120) } : {});
     const { all, readyAt } = run(frames([{ shape: body(0.72) }, { shape: body(0.28), motion: moving }], 5000));
     expect(all.some((s) => s.code === 'move_still' && s.guidance.player === 2)).toBe(true);
-    expect(readyAt!).toBeGreaterThan(1500 + 1100);
+    expect(readyAt!).toBeGreaterThan(1500 + 900);
   });
 
   it('players squeezing together restart the hold for both', () => {
     const squeeze = (t: number): PoseParams => (t > 600 && t < 900 ? { shiftX: 0.5 } : {});
     const { all, readyAt } = run(frames([{ shape: body(0.72) }, { shape: body(0.28), motion: squeeze }], 5000));
     expect(all.some((s) => s.code === 'too_close_together')).toBe(true);
-    expect(readyAt!).toBeGreaterThan(900 + 1100);
+    expect(readyAt!).toBeGreaterThan(900 + 900);
   });
 });

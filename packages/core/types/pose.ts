@@ -30,6 +30,13 @@ export const POSE_CONNECTIONS: readonly (readonly [number, number])[] = [
 
 export type PoseFrameSource = 'camera' | 'trace' | 'test';
 
+/**
+ * A coarse brightness map of the camera picture: `cols` x `rows` cells, row by row from the top left of the RAW image,
+ * each 0..1 (0 black, 1 white, as the camera shows it). Measured a few times a second on the device and never kept or
+ * sent: the calibration reads "too dark" and "light behind you" from it. Not the image, only 192 numbers.
+ */
+export interface LightGrid { cols: number; rows: number; luma: number[] }
+
 export interface PoseFrame {
   /** Per source frame; keeps counting when an inference is dropped, so gaps are visible. */
   seq: number;
@@ -46,6 +53,8 @@ export interface PoseFrame {
    * `landmarks` is poses[0]. Two-player code reads players from PlayerAssignment, never from this order.
    */
   poses?: Landmark[][];
+  /** Camera frames only, and only on the frames that coincide with a brightness measurement (a few per second). */
+  light?: LightGrid;
 }
 
 export interface LoadProgress { phase: 'wasm' | 'model' | 'warmup'; loaded: number; total: number }

@@ -1,7 +1,7 @@
 // Synthetic landmark traces: a parametric stick figure that stands, jumps, squats, leans and raises its arms,
 // with seeded noise and dropouts. For unit tests and examples only. Synthetic traces are NOT evidence that a
 // detector works on real bodies (meta.origin = 'synthetic'); real recordings are (game-design.md, code-audit 11.9).
-import { LANDMARK_COUNT, LM, type Framing, type Landmark, type Trace, type TraceLabel, type TraceMeta } from '../types/index.ts';
+import { LANDMARK_COUNT, LM, type Framing, type Landmark, type LightGrid, type PoseFrame, type Trace, type TraceLabel, type TraceMeta } from '../types/index.ts';
 import { gaussian, mulberry32 } from '../loop/rng.ts';
 
 /** Body placement in the RAW camera image. T and W in image heights (the same unit on both axes). */
@@ -35,6 +35,18 @@ export interface PoseParams {
 }
 
 export const DEFAULT_SHAPE: BodyShape = { cx: 0.5, hipY: 0.52, T: 0.2, W: 0.16, aspect: 4 / 3 };
+
+/**
+ * A person at a desk, about half a metre from a webcam: the head and shoulders fill the picture (the shoulders are
+ * half its width), the hips and everything below are under its bottom edge, so the model gives them a low visibility.
+ */
+export const DESK_SHAPE: BodyShape = { cx: 0.5, hipY: 1.5, T: 0.95, W: 0.65, aspect: 4 / 3 };
+
+/** A person sitting back from the camera, framed to the hips: the knees are below the picture. */
+export const SEATED_SHAPE: BodyShape = { cx: 0.5, hipY: 0.8, T: 0.26, W: 0.2, aspect: 4 / 3 };
+
+/** Standing about two metres away: the whole body in the picture with room around it (the default shape). */
+export const FULL_SHAPE: BodyShape = DEFAULT_SHAPE;
 
 type P = { hx: number; y: number; z: number; v: number };
 
@@ -153,6 +165,51 @@ export function combine(...ms: Motion[]): Motion {
     }
     return out;
   };
+}
+
+export interface SynthFramesOptions {
+  durationMs: number;
+  fps?: number;
+  /** The body's place and size over time (walking back from a desk, say); merged over DEFAULT_SHAPE. */
+  shapeAt?: (tMs: number) => Partial<BodyShape>;
+  motion?: Motion;
+  noise?: number;
+  seed?: number;
+  /** Another person in the picture (numPoses 2): their shape and what they do, or null when they are not there. */
+  other?: (tMs: number) => { shape: Partial<BodyShape>; params?: PoseParams } | null;
+  /** A brightness map for the frames that should carry one (a few per second on a device). */
+  light?: (tMs: number) => LightGrid | undefined;
+  /** First frame time (default 0). */
+  t0?: number;
+}
+
+/** PoseFrames of a figure whose shape may change over time, for the calibration tests. Synthetic: no evidence of real bodies. */
+export function synthFrames(o: SynthFramesOptions): PoseFrame[] {
+  const fps = o.fps ?? 30;
+  const rng = mulberry32(o.seed ?? 1);
+  const noise = o.noise ?? 0.002;
+  const out: PoseFrame[] = [];
+  const n = Math.floor((o.durationMs * fps) / 1000) + 1;
+  const noisy = (lm: Landmark[], aspect: number): Landmark[] => (noise > 0
+    ? lm.map((q) => ({ x: q.x + (gaussian(rng) * noise) / aspect, y: q.y + gaussian(rng) * noise, z: q.z, visibility: q.visibility }))
+    : lm);
+  for (let i = 0; i < n; i++) {
+    const ideal = (i * 1000) / fps;
+    const t = (o.t0 ?? 0) + ideal;
+    const shape: BodyShape = { ...DEFAULT_SHAPE, ...o.shapeAt?.(ideal) };
+    const p = o.motion?.(ideal) ?? {};
+    const frame: PoseFrame = { seq: i, t, landmarks: null, inferenceMs: 20, source: 'test', aspect: shape.aspect };
+    if (!p.absent) frame.landmarks = noisy(synthPose(shape, p), shape.aspect);
+    const other = o.other?.(ideal);
+    if (other) {
+      const lm = noisy(synthPose({ ...DEFAULT_SHAPE, aspect: shape.aspect, ...other.shape }, other.params ?? {}), shape.aspect);
+      frame.poses = frame.landmarks ? [frame.landmarks, lm] : [lm];
+    }
+    const light = o.light?.(ideal);
+    if (light) frame.light = light;
+    out.push(frame);
+  }
+  return out;
 }
 
 export interface SynthTraceOptions {

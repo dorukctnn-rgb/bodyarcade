@@ -32,8 +32,8 @@ describe('B7: calibration finishes on time at any pose rate', () => {
   it.each([30, 10, 4])('a still person at %i Hz is calibrated in about the hold time', (hz) => {
     const { c, readyAt, seen } = run(traceFrames(still(5), { hz }));
     expect(readyAt).not.toBeNull();
-    expect(readyAt!).toBeGreaterThanOrEqual(1200);
-    expect(readyAt!).toBeLessThanOrEqual(1200 + 1000 / hz + 1);
+    expect(readyAt!).toBeGreaterThanOrEqual(1000);
+    expect(readyAt!).toBeLessThanOrEqual(1000 + 1000 / hz + 1);
     const p = c.profile()!;
     expect(p.T).toBeCloseTo(0.2, 2);
     expect(p.W).toBeCloseTo(0.16, 2);
@@ -109,7 +109,7 @@ describe('framing', () => {
     const t = synthTrace({ id: 'squat-then-still', durationMs: 5000, fps: 30, seed: 4, motion: combine(squatAt(300, 0.6, 500, 200, 500)) });
     const { seen, readyAt } = run(traceFrames(t));
     expect(seen.some((s) => s.code === 'move_still')).toBe(true);
-    expect(readyAt!).toBeGreaterThan(1500 + 1200 - 100);
+    expect(readyAt!).toBeGreaterThan(1500 + 1000 - 150);   // the hold counts from when the body is still again
   });
 
   it('reset() and begin() start again', () => {
@@ -131,7 +131,7 @@ describe('real recordings', () => {
     const t = realTrace('army-standing-12s');
     const { c, readyAt } = run(traceFrames(t, { hz }));
     expect(readyAt).not.toBeNull();
-    expect(readyAt!).toBeLessThan(1200 + 2000 / hz + 300);
+    expect(readyAt!).toBeLessThan(1000 + 2000 / hz + 300);
     const p = c.profile()!;
     expect(p.T).toBeGreaterThan(0.08);
     expect(p.W / p.T).toBeGreaterThan(0.4);

@@ -53,14 +53,16 @@ export function nearSide(lm: readonly Landmark[]): 'L' | 'R' {
 
 /**
  * The minimum for any game (Features.ok): both shoulders and both hips, or in side framing the shoulder and hip of
- * one side (the far side may be hidden).
+ * one side (the far side may be hidden). With `hipsOptional` (a profile taken at a desk, BodyProfile.hipsEstimated) the
+ * shoulders are enough: the hips are under the picture and the extractor holds them at their rest point.
  */
-export function bodySeen(lm: readonly Landmark[] | null, framing: Framing): boolean {
+export function bodySeen(lm: readonly Landmark[] | null, framing: Framing, hipsOptional = false): boolean {
   if (!lm) return false;
   if (framing === 'side') {
     return (isVisible(lm, LM.leftShoulder) && isVisible(lm, LM.leftHip)) || (isVisible(lm, LM.rightShoulder) && isVisible(lm, LM.rightHip));
   }
-  return isVisible(lm, LM.leftShoulder) && isVisible(lm, LM.rightShoulder) && isVisible(lm, LM.leftHip) && isVisible(lm, LM.rightHip);
+  const shoulders = isVisible(lm, LM.leftShoulder) && isVisible(lm, LM.rightShoulder);
+  return hipsOptional ? shoulders : shoulders && isVisible(lm, LM.leftHip) && isVisible(lm, LM.rightHip);
 }
 
 /** Raw image landmark to view space (mirrored, image heights). */

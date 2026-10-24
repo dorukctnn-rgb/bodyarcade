@@ -5,12 +5,17 @@
 // shoulder and hip of one side; a pair whose one side is hidden takes the seen side's position for both entries, so
 // means and midpoints follow the near side; `seen` counts a pair when either side is seen; `near` names the side that
 // faces the camera; lean is 0 and shoulderSpan 1 (sideways tilt and shoulder width are not visible from the side).
+// Desk profile (profile.hipsEstimated): the hips are under the picture. A frame counts (ok) with both shoulders; the
+// hips are held at their rest point, one T below the resting shoulders (a seated player's hips do not move), so rise and
+// drop are 0, the lean is the shoulders' sideways shift in W, and the trunk angle of the side bend is the shoulders over
+// that fixed point. The slow re-centring keeps the rest point under the shoulders.
 import {
   LM, type BodyProfile, type FeatureExtractor, type FeatureExtractorOptions, type Features, type JointName, type Landmark,
   type PoseFrame, type Vec2,
 } from '../types/index.ts';
 import { OneEuro } from '../pose/one-euro.ts';
 import { bodySeen, clamp, isVisible, meanView, nearSide, seenParts, seenPartsSide, viewOf } from './geometry.ts';
+import { TORSO_PER_SHOULDER } from './profile.ts';
 
 /** Points that get their own filter: [L, R] landmark groups (one group for the head). */
 const POINTS = {
@@ -77,7 +82,8 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
       const lm = f.landmarks;
       const sideMode = p.framing === 'side';
       const seen = sideMode ? seenPartsSide(lm) : seenParts(lm);
-      const ok = bodySeen(lm, p.framing);
+      const estimated = p.hipsEstimated === true;
+      const ok = bodySeen(lm, p.framing, estimated);
       if (!ok || !lm) { lastT = f.t; return (last = empty(f, seen)); }
       // A gap of more than half a second: start the filters afresh so stale velocities do not carry over.
       if (f.t - lastOkT > 500) filters = new Map();
@@ -92,6 +98,11 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
         deriv[name] = [];
         const groups: readonly (readonly number[])[] = POINTS[name];
         const raws = groups.map((idx) => (idx.length === 1 ? viewOf(lm as Landmark[], idx[0] as number, f.aspect) : meanView(lm as Landmark[], idx, f.aspect)));
+        if (estimated && name === 'hip') {
+          // Under the picture: the player's left hip is on the left of the mirror view, 0.19 T either side of the rest point.
+          raws[0] = { x: rest.hipX - 0.19 * rest.T, y: rest.hipY };
+          raws[1] = { x: rest.hipX + 0.19 * rest.T, y: rest.hipY };
+        }
         if (sideMode && groups.length === 2) {
           // One side hidden (from the side, the far one): both entries follow the side that is seen.
           const vis = groups.map((idx) => isVisible(lm as Landmark[], idx[0] as number));
@@ -137,13 +148,20 @@ export function createFeatureExtractor(o: FeatureExtractorOptions = {}): Feature
       // Slow re-centring while standing neutral (today's 8 s drift): camera nudged, player shifted a little.
       if (driftSeconds > 0 && dtSec > 0 && Math.abs(rise) < 0.06 && crouchLevel(-rise, headDrop) < 0.1 && Math.abs(lean) < 0.12) {
         const k = dtSec / driftSeconds;
-        rest.hipY += (hipV.y - rest.hipY) * k;
-        rest.hipX += (hipV.x - rest.hipX) * k;
         rest.shoulderY += (shV.y - rest.shoulderY) * k;
         rest.shoulderX += (shV.x - rest.shoulderX) * k;
         rest.noseY += (headV.y - rest.noseY) * k;
         if (!sideMode) rest.W += (Math.abs(shoulders[1].x - shoulders[0].x) - rest.W) * k;
-        rest.T += ((hipV.y - shV.y) - rest.T) * k;
+        if (estimated) {
+          // The hips follow the shoulders: one T below them, T tied to the shoulder width.
+          rest.T = TORSO_PER_SHOULDER * rest.W;
+          rest.hipX = rest.shoulderX;
+          rest.hipY = rest.shoulderY + rest.T;
+        } else {
+          rest.hipY += (hipV.y - rest.hipY) * k;
+          rest.hipX += (hipV.x - rest.hipX) * k;
+          rest.T += ((hipV.y - shV.y) - rest.T) * k;
+        }
       }
       return (last = features);
     },

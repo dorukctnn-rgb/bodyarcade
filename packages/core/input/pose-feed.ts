@@ -6,7 +6,8 @@
 // - Each player's engine is connected to the hub (with its player) once it has a profile. push(f, { engines: false })
 //   only splits the frame (calibration, pauses): the assignment still sees every frame and no events are produced.
 // - The gate (tech.md 4.1): once a player has a profile, a player whose shoulders and hips are not seen for lostMs
-//   (default 500 ms) is lost (side framing: the shoulder and hip of one side, as Features.ok). The hub's tracking for that player turns to 'no_person' (one player) or 'player_missing'
+//   (default 500 ms) is lost (side framing: the shoulder and hip of one side; a desk profile: the shoulders alone, as
+//   Features.ok). The hub's tracking for that player turns to 'no_person' (one player) or 'player_missing'
 //   (local2) and onPresence fires; it fires again when they are seen. Judged on frame time, so a trace replays the
 //   same way.
 import type {
@@ -52,7 +53,7 @@ export interface PoseFeed {
   dispose(): void;
 }
 
-interface Gate { armed: boolean; present: boolean; lastSeen: number | null; framing: Framing }
+interface Gate { armed: boolean; present: boolean; lastSeen: number | null; framing: Framing; hipsOptional: boolean }
 
 const slotsOf = (n: 1 | 2): PlayerSlot[] => (n === 2 ? [1, 2] : [1]);
 
@@ -66,7 +67,8 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
   for (const s of slots) engines[s] = make(s);
   const assignment = players === 2 ? (o.assignment ?? createPlayerAssignment()) : null;
   const gates: Record<PlayerSlot, Gate> = {
-    1: { armed: false, present: true, lastSeen: null, framing: 'full' }, 2: { armed: false, present: true, lastSeen: null, framing: 'full' },
+    1: { armed: false, present: true, lastSeen: null, framing: 'full', hipsOptional: false },
+    2: { armed: false, present: true, lastSeen: null, framing: 'full', hipsOptional: false },
   };
   const links = new Map<PlayerSlot, Unsubscribe>();
   const listeners = new Set<(e: PresenceChange) => void>();
@@ -89,7 +91,7 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
   function gate(p: PlayerSlot, f: PlayerFrame): PresenceChange | null {
     const g = gates[p];
     if (!g.armed) return null;
-    const seen = bodySeen(f.landmarks, g.framing);
+    const seen = bodySeen(f.landmarks, g.framing, g.hipsOptional);
     if (g.lastSeen === null) g.lastSeen = f.t;
     if (seen) {
       g.lastSeen = f.t;
@@ -126,6 +128,7 @@ export function createPoseFeed(o: PoseFeedOptions): PoseFeed {
         if (!links.has(s)) links.set(s, o.hub.connectPose(m, source, s));
         gates[s].armed = true;
         gates[s].framing = profile.framing;
+        gates[s].hipsOptional = profile.hipsEstimated === true;
       }
     },
 
