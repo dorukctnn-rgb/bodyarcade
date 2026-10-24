@@ -115,6 +115,17 @@ export async function boot(o: BootOptions): Promise<App> {
     practice = localEntitlements({ demo: true, initial: plan === 'pro' || plan === 'family' ? plan : 'free', isFreeGame: (id) => o.catalogue.games.find((g) => g.id === id)?.free === true });
     practice.onChange(() => book.refresh());
     entitlements = practice;
+    // Tests and pictures can ask for a family on a fresh device: players added before the app starts, one of them playing.
+    if (hooks.players?.length && book.list().length === 1) {
+      let playing: string | null = null;
+      for (const p of hooks.players) {
+        const made = book.create({ name: p.name, kid: p.kid === true, ...(p.avatar ? { avatar: p.avatar as never } : {}) });
+        if (made.ok && p.active === true) playing = made.profile.id;
+      }
+      // The page opens where it was asked to, not on the question of who is playing (a test turns the question on by its switch).
+      book.setAskOnStart(false);
+      if (playing) book.switchTo(playing);
+    }
   }
   if (o.demo && hooks.billing) {
     billing = pendingBilling(hooks.billing);
