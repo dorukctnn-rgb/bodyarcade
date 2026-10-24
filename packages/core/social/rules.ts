@@ -47,10 +47,15 @@ export const LIMITS = {
   /** All new profiles per day: the free-plan budget breaker (the server can raise it with SOCIAL_MAX_SIGNUPS_PER_DAY). */
   signupsDay: { name: 'sg', max: 4000, windowMs: DAY },
   deleteMe: { name: 'dl', max: 5, windowMs: DAY },
+  /** Calls of the operator's statistics a day: each reads at most STATS_COUNT_CAP rows of five tables, and a day has 5,000,000 free row reads. */
+  adminStats: { name: 'st', max: 12, windowMs: DAY },
 } as const satisfies Record<string, LimitSpec>;
 
 /** Per-player friend requests per day come from the age policy (age.ts requestsPerDay). */
 export const requestsPerDay = (band: AgeBand): LimitSpec => ({ name: 'rq', max: policyFor(band).requestsPerDay, windowMs: DAY });
+
+/** The operator's statistics count at most this many rows per table (the answer says "capped" beyond it). */
+export const STATS_COUNT_CAP = 10_000;
 
 export interface Window { id: number; start: number; end: number }
 

@@ -84,20 +84,45 @@ describe('who pays for it', () => {
     maybeSweep(app.db, T0 + 9 * 60_000, (p) => claims.push(p));
     expect(claims).toHaveLength(1);
     await Promise.all(claims);
-    expect(count('soc_limits')).toBe(1);
+    expect(count('soc_limits')).toBe(2);                      // the hourly claim and the daily claim; the stale counter is gone
     // another isolate in the same hour finds the claim taken
     resetSweepThrottle();
     app.db.raw.prepare('INSERT INTO soc_limits (k, n, exp) VALUES (?, 1, ?)').run('stale2', T0 - 1);
     const second: Promise<unknown>[] = [];
     maybeSweep(app.db, T0 + 20 * 60_000, (p) => second.push(p));
     await Promise.all(second);
-    expect(count('soc_limits')).toBe(2);
+    expect(count('soc_limits')).toBe(3);                      // the claim was taken: the second isolate swept nothing, stale2 is still there
     // and in the next hour it runs again
     resetSweepThrottle();
     const third: Promise<unknown>[] = [];
     maybeSweep(app.db, T0 + HOUR + 1000, (p) => third.push(p));
     await Promise.all(third);
     expect(app.db.raw.prepare("SELECT COUNT(*) AS n FROM soc_limits WHERE k LIKE 'stale%'").get()).toEqual({ n: 0 });
+  });
+
+  it('the daily part reads whole tables, so it runs on the first sweep of a day only; the hourly part runs every hour', async () => {
+    const run = (sql: string, ...p: unknown[]) => app.db.raw.prepare(sql).run(...(p as never[]));
+    const expired = (to: string) => run('INSERT INTO soc_requests (from_pid, to_pid, at) VALUES (?, ?, ?)', 'a', to, T0 - REQUEST_TTL_MS - 1);
+    expired('b');
+    run('INSERT INTO soc_limits (k, n, exp) VALUES (?, 1, ?)', 'stale1', T0 - 1);
+    resetSweepThrottle();
+    const first: Promise<unknown>[] = [];
+    maybeSweep(app.db, T0, (p) => first.push(p));
+    await Promise.all(first);
+    expect(count('soc_requests')).toBe(0);                    // the daily part ran
+    expired('c');
+    run('INSERT INTO soc_limits (k, n, exp) VALUES (?, 1, ?)', 'stale2', T0 + HOUR - 1);
+    resetSweepThrottle();
+    const nextHour: Promise<unknown>[] = [];
+    maybeSweep(app.db, T0 + HOUR + 1000, (p) => nextHour.push(p));
+    await Promise.all(nextHour);
+    expect(app.db.raw.prepare("SELECT COUNT(*) AS n FROM soc_limits WHERE k = 'stale2'").get()).toEqual({ n: 0 });   // the hourly part ran
+    expect(count('soc_requests')).toBe(1);                    // the daily part did not
+    resetSweepThrottle();
+    const nextDay: Promise<unknown>[] = [];
+    maybeSweep(app.db, T0 + 13 * HOUR, (p) => nextDay.push(p));
+    await Promise.all(nextDay);
+    expect(count('soc_requests')).toBe(0);                    // and does the next day
   });
 
   it('an ordinary request triggers it', async () => {

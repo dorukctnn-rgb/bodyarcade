@@ -67,6 +67,7 @@ CREATE TABLE soc_declines (
   at INTEGER NOT NULL,
   PRIMARY KEY (from_pid, to_pid)
 ) STRICT, WITHOUT ROWID;
+CREATE INDEX soc_declines_to ON soc_declines (to_pid);
 
 -- Fixed-window counters for the abuse limits: k = <scope>:<limit name>:<window id>, exp = when the row may be deleted.
 CREATE TABLE soc_limits (
@@ -108,7 +109,9 @@ CREATE TABLE soc_lobbies (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 ) STRICT;
-CREATE INDEX soc_lobbies_dir ON soc_lobbies (kind, grp, game, phase, open);
+-- Only the columns that never change for a room: phase, open and players change on every join and every round, and an index that
+-- contained them would be rewritten each time (a free-plan row write each). The few live rooms of one game are filtered on the row.
+CREATE INDEX soc_lobbies_dir ON soc_lobbies (kind, grp, game);
 
 -- The moderation queue. reporter becomes NULL when the reporter deletes their data; the target's name is blanked when the
 -- target does. evidence is the JSON list of chat lines the Room saw (at most 50).

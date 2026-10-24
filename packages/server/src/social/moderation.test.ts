@@ -1,6 +1,6 @@
 // Reports, the automatic steps and the moderator API.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DAY, HOUR, MOD } from '../../../core/social/rules.ts';
+import { DAY, HOUR, LIMITS, MOD, STATS_COUNT_CAP } from '../../../core/social/rules.ts';
 import type { AgeBand, ReportReason } from '../../../core/social/types.ts';
 import { socialHooks } from './hooks.ts';
 import { cleanNote, fileReport, REPORTER_MIN_AGE_MS } from './moderation.ts';
@@ -338,7 +338,21 @@ describe('the moderator API', () => {
     await a.post('/api/social/friends/request', { code: b.me.code });
     await b.post('/api/social/friends/respond', { fid: a.me.fid, accept: true });
     await report(a, target, 'sexual');
-    const s = (await app.admin('GET', '/api/admin/social/stats')).body.stats;
-    expect(s).toMatchObject({ profiles: 5, children: 1, teens: 1, adults: 3, friendships: 1, open_reports: 1, urgent_reports: 1, banned: 0, online: 0, lobbies: 0, pending_requests: 0 });
+    const res = (await app.admin('GET', '/api/admin/social/stats')).body;
+    expect(res.stats).toMatchObject({ profiles: 5, children: 1, teens: 1, adults: 3, friendships: 1, open_reports: 1, urgent_reports: 1, banned: 0, online: 0, lobbies: 0, pending_requests: 0 });
+    expect(res).toMatchObject({ cap: STATS_COUNT_CAP, capped: false });
+  });
+
+  it('stats read a bounded number of rows and are limited to a few calls a day', async () => {
+    await player('adult');
+    for (let i = 0; i < LIMITS.adminStats.max; i++) expect((await app.admin('GET', '/api/admin/social/stats')).status).toBe(200);
+    expect((await app.admin('GET', '/api/admin/social/stats')).status).toBe(429);
+    // a table bigger than the cap is counted up to the cap, and the answer says so
+    app.db.raw.exec(`WITH RECURSIVE s(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM s WHERE i < ${STATS_COUNT_CAP + 500})
+      INSERT INTO soc_profiles (pid, fid, code, name, band, region, created_at, seen_day) SELECT 'p' || i, 'F' || i, 'C' || i, 'n', 'adult', 'eu', 0, 1 FROM s`);
+    vi.setSystemTime(Date.now() + 2 * DAY);
+    const big = (await app.admin('GET', '/api/admin/social/stats')).body;
+    expect(big.stats.profiles).toBe(STATS_COUNT_CAP);
+    expect(big.capped).toBe(true);
   });
 });

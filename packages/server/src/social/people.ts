@@ -70,7 +70,9 @@ export async function eraseProfile(db: D1Like, pid: string): Promise<{ friends: 
   const friends = (await rows<{ friend: string }>(db, 'SELECT friend FROM soc_friends WHERE pid = ?1', pid)).map((r) => r.friend);
   await db.batch([
     stmt(db, 'DELETE FROM soc_devices WHERE pid = ?1', pid),
-    stmt(db, 'DELETE FROM soc_friends WHERE pid = ?1 OR friend = ?1', pid),
+    // the other side's rows first, found through this player's own (primary key lookups: no scan of the whole table)
+    stmt(db, 'DELETE FROM soc_friends WHERE (pid, friend) IN (SELECT friend, pid FROM soc_friends WHERE pid = ?1)', pid),
+    stmt(db, 'DELETE FROM soc_friends WHERE pid = ?1', pid),
     stmt(db, 'DELETE FROM soc_requests WHERE from_pid = ?1 OR to_pid = ?1', pid),
     stmt(db, 'DELETE FROM soc_blocks WHERE pid = ?1 OR target = ?1', pid),
     stmt(db, 'DELETE FROM soc_declines WHERE from_pid = ?1 OR to_pid = ?1', pid),

@@ -67,6 +67,19 @@ export async function publishRoom(db: D1Like, s: RoomSummary, pids: readonly str
     const p = await one<{ region: string }>(db, 'SELECT region FROM soc_profiles WHERE pid = ?1', pids[0]);
     if (p) region = p.region;
   }
+  if (prev) {
+    // Only the columns that changed are written: assigning an indexed column rewrites its index entry even when the value is
+    // the same, and a free-plan row write is a row write. Players, seats, names and phase are in no index.
+    const set: [string, unknown][] = [['players', s.players], ['open', s.open], ['names', names], ['pids', members], ['phase', s.phase], ['updated_at', now]];
+    if (prev.kind !== s.kind) set.push(['kind', s.kind]);
+    if (prev.grp !== grp) set.push(['grp', grp]);
+    if (prev.game !== s.gameId) set.push(['game', s.gameId]);
+    if (prev.band !== s.band) set.push(['band', s.band]);
+    if (prev.size !== s.size) set.push(['size', s.size]);
+    if (prev.region !== region) set.push(['region', region]);
+    await db.prepare(`UPDATE soc_lobbies SET ${set.map(([col], i) => `${col} = ?${i + 2}`).join(', ')} WHERE code = ?1`).bind(s.code, ...set.map(([, v]) => v)).run();
+    return true;
+  }
   await db.prepare(
     `INSERT INTO soc_lobbies (code, kind, grp, region, game, band, size, players, open, names, pids, phase, created_at, updated_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)

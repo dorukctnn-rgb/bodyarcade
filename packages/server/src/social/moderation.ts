@@ -7,13 +7,13 @@
 // (sexual content, a child) within a day, close public lobbies for three days. Reporters count only when their profile is
 // at least an hour old, so a script that makes accounts cannot silence a player. A moderator ends or extends any of it.
 import { policyFor } from '../../../core/social/age.ts';
-import { DAY, HOUR, LIMITS, MOD, escalate, isUrgentReason, type Escalation } from '../../../core/social/rules.ts';
+import { DAY, HOUR, LIMITS, MOD, STATS_COUNT_CAP, escalate, isUrgentReason, type Escalation } from '../../../core/social/rules.ts';
 import { isFid } from '../../../core/social/codes.ts';
 import { REPORT_REASONS, type ReportReason } from '../../../core/social/types.ts';
 import { HttpError } from '../http.ts';
 import { one, rows, stmt } from './db.ts';
 import type { D1Like } from './db.ts';
-import { used, bump } from './limits.ts';
+import { used, bump, enforce } from './limits.ts';
 import { blockPlayer, byFid, byPid } from './people.ts';
 import { hubClose, hubSend } from './presence.ts';
 import { open, sha256Bytes, type Ctx, type SocialHandler } from './util.ts';
@@ -205,25 +205,30 @@ export const adminAct = open(async (c: Omit<Ctx, 'me'>) => {
   return { ok: true, report: row ? reportView(row) : null };
 });
 
-/** GET /api/admin/social/stats: counts for the operator (no personal data). */
+/**
+ * GET /api/admin/social/stats: counts for the operator (no personal data). Reading whole tables costs rows read (5,000,000 a
+ * day on the free plan), so every count looks at the first STATS_COUNT_CAP rows of its table and says so when it stopped there,
+ * and the call itself is limited to a few a day.
+ */
 export const adminStats = open(async (c: Omit<Ctx, 'me'>) => {
   await adminCheck(c.env, c.req);
+  await enforce(c.db, 'admin', LIMITS.adminStats, c.now);
+  const cap = STATS_COUNT_CAP;
+  const bands = await rows<{ band: string; n: number }>(c.db, 'SELECT band, COUNT(*) AS n FROM (SELECT band FROM soc_profiles LIMIT ?1) GROUP BY band', cap);
+  const by = (band: string): number => bands.find((r) => r.band === band)?.n ?? 0;
+  const profiles = bands.reduce((sum, r) => sum + r.n, 0);
   const s = await one<Record<string, number>>(
     c.db,
     `SELECT
-       (SELECT COUNT(*) FROM soc_profiles) AS profiles,
-       (SELECT COUNT(*) FROM soc_profiles WHERE band = 'child') AS children,
-       (SELECT COUNT(*) FROM soc_profiles WHERE band = 'teen') AS teens,
-       (SELECT COUNT(*) FROM soc_profiles WHERE band = 'adult') AS adults,
-       (SELECT COUNT(*) FROM soc_presence WHERE online = 1 AND seen_at > ?1) AS online,
-       (SELECT COUNT(*) FROM soc_friends) / 2 AS friendships,
-       (SELECT COUNT(*) FROM soc_requests) AS pending_requests,
+       (SELECT COUNT(*) FROM (SELECT online, seen_at FROM soc_presence LIMIT ?3) WHERE online = 1 AND seen_at > ?1) AS online,
+       (SELECT COUNT(*) FROM (SELECT 1 FROM soc_friends LIMIT ?3)) / 2 AS friendships,
+       (SELECT COUNT(*) FROM (SELECT 1 FROM soc_requests LIMIT ?3)) AS pending_requests,
        (SELECT COUNT(*) FROM soc_lobbies) AS lobbies,
        (SELECT COUNT(*) FROM soc_reports WHERE status = 'open') AS open_reports,
        (SELECT COUNT(*) FROM soc_reports WHERE status = 'open' AND urgent = 1) AS urgent_reports,
-       (SELECT COUNT(*) FROM soc_profiles WHERE banned_until > ?2) AS banned`,
-    c.now - 9 * 60_000, c.now,
+       (SELECT COUNT(*) FROM (SELECT banned_until FROM soc_profiles LIMIT ?3) WHERE banned_until > ?2) AS banned`,
+    c.now - 9 * 60_000, c.now, cap,
   );
-  return { stats: s ?? {} };
+  return { stats: { profiles, children: by('child'), teens: by('teen'), adults: by('adult'), ...(s ?? {}) }, cap, capped: profiles >= cap };
 });
 
