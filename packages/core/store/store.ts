@@ -36,8 +36,11 @@ export type StoreProblem =
 
 /** What a store may do. Every field only restricts. */
 export interface StoreAccess {
-  /** Reads only: every write is refused and reported ('rejected'), and reading repairs, migrates and removes nothing. */
-  readOnly?: boolean;
+  /**
+   * Reads only: every write is refused and reported ('rejected'), and reading repairs, migrates and removes nothing. A function
+   * is asked at every write, so a store can turn read-only later (a profile whose plan ended) wherever a handle to it is held.
+   */
+  readOnly?: boolean | (() => boolean);
   /** Only these namespaces can be opened (the device's own: 'entitlements', 'profiles'). */
   allow?: readonly string[];
   /** These namespaces cannot be opened (a profile's store never reaches the device's namespaces). */
@@ -78,7 +81,7 @@ export interface StoreNamespace extends Namespace {
 
 export interface BodyArcadeStore extends Store {
   readonly prefix: string;
-  /** True when no write goes through (a look at a record, a profile whose plan ended). */
+  /** True when no write goes through now (a look at a record, a profile whose plan ended). */
   readonly readOnly: boolean;
   ns(gameId: string): StoreNamespace;
   /**
@@ -89,6 +92,8 @@ export interface BodyArcadeStore extends Store {
   withPrefix(prefix: string, access?: StoreAccess): BodyArcadeStore;
   /** Distinct key prefixes in the storage (the part before the first dot) that match, sorted; [] when the storage cannot be listed. */
   scanPrefixes(pattern: RegExp): string[];
+  /** How many keys this store holds, in the namespaces it may open. */
+  size(): number;
   /** The store's clock (epoch ms). */
   now(): number;
   /** Removes every key this store wrote, in every namespace. Returns how many were removed. */
@@ -139,14 +144,19 @@ const PREFIX_RE = /^[a-z][a-z0-9]{1,19}$/;
 
 /** StoreAccess settled: what one store may do. */
 interface Access {
-  readOnly: boolean;
+  /** Asked at every write; a function that throws counts as read-only. */
+  readOnly: () => boolean;
   /** null: every namespace not denied. */
   allow: ReadonlySet<string> | null;
   deny: ReadonlySet<string>;
 }
 
 const accessOf = (a: StoreAccess | undefined): Access => ({
-  readOnly: a?.readOnly === true,
+  readOnly: ((): (() => boolean) => {
+    const r = a?.readOnly;
+    if (typeof r !== 'function') return () => r === true;
+    return () => { try { return r() === true; } catch { return true; } };
+  })(),
   allow: a?.allow ? new Set(a.allow) : null,
   deny: new Set(a?.deny ?? []),
 });
@@ -155,7 +165,7 @@ const accessOf = (a: StoreAccess | undefined): Access => ({
 function narrow(parent: Access, more: StoreAccess | undefined): Access {
   const extra = accessOf(more);
   return {
-    readOnly: parent.readOnly || extra.readOnly,
+    readOnly: () => parent.readOnly() || extra.readOnly(),
     allow: parent.allow && extra.allow ? new Set([...parent.allow].filter((x) => (extra.allow as ReadonlySet<string>).has(x))) : parent.allow ?? extra.allow,
     deny: new Set([...parent.deny, ...extra.deny]),
   };
@@ -192,7 +202,7 @@ export function createStore(o: StoreOptions = {}): BodyArcadeStore {
     }
 
     function writeRaw(full: string, text: string): void {
-      if (access.readOnly) return;
+      if (access.readOnly()) return;
       known.add(full);
       try {
         storage.setItem(full, text);
@@ -204,7 +214,7 @@ export function createStore(o: StoreOptions = {}): BodyArcadeStore {
     }
 
     function removeRaw(full: string): void {
-      if (access.readOnly) return;
+      if (access.readOnly()) return;
       volatile.delete(full);
       known.delete(full);
       try { storage.removeItem(full); } catch { /* nothing to remove from a storage that throws */ }
@@ -299,13 +309,13 @@ export function createStore(o: StoreOptions = {}): BodyArcadeStore {
         get: <T>(key: string, schema: Schema<T>, fallback: T | (() => T)): T => getValue(fullOf(key), schema, fallback),
         set: <T>(key: string, v: T, schema?: Schema<T>): void => {
           const full = fullOf(key);
-          if (access.readOnly) { refuse(full); return; }
+          if (access.readOnly()) { refuse(full); return; }
           if (schema) versions.set(full, schema.version);
           writeEnvelope(full, v, versions.get(full));
         },
         remove: (key) => {
           const full = fullOf(key);
-          if (access.readOnly) { refuse(full); return; }
+          if (access.readOnly()) { refuse(full); return; }
           removeRaw(full);
         },
         has: (key) => readRaw(fullOf(key)) !== null,
@@ -320,18 +330,18 @@ export function createStore(o: StoreOptions = {}): BodyArcadeStore {
             key,
             get: () => getValue(full, schema, fallback),
             set: (v) => {
-              if (access.readOnly) { refuse(full); return; }
+              if (access.readOnly()) { refuse(full); return; }
               writeEnvelope(full, v, schema.version);
             },
             update: (fn) => {
               const current = slot.get();
-              if (access.readOnly) { refuse(full); return current; }
+              if (access.readOnly()) { refuse(full); return current; }
               const next = fn(current);
               slot.set(next);
               return next;
             },
             remove: () => {
-              if (access.readOnly) { refuse(full); return; }
+              if (access.readOnly()) { refuse(full); return; }
               removeRaw(full);
             },
           };
@@ -358,12 +368,12 @@ export function createStore(o: StoreOptions = {}): BodyArcadeStore {
 
     return {
       prefix,
-      readOnly: access.readOnly,
+      get readOnly() { return access.readOnly(); },
       ns: namespace,
       now,
       day: () => dayOf(now(), o.timeZone),
       clearAll: () => {
-        if (access.readOnly) { refuse(`${prefix}.*`); return 0; }
+        if (access.readOnly()) { refuse(`${prefix}.*`); return 0; }
         const keys = allKeys();
         for (const k of keys) removeRaw(k);
         return keys.length;
@@ -389,6 +399,7 @@ export function createStore(o: StoreOptions = {}): BodyArcadeStore {
         } catch { /* a storage that cannot be listed has nothing to show */ }
         return [...found].sort();
       },
+      size: () => allKeys().length,
       problems: () => problemLog.slice(),
       report,
     };

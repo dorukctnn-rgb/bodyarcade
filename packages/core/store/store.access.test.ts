@@ -142,6 +142,37 @@ describe('readOnly: a look that leaves no mark', () => {
     expect(JSON.parse(storage.getItem('ba2p2.runner.old') as string)).toEqual({ v: 1, d: 3 });
   });
 
+  it('can turn read-only later: a function is asked at every write, so every handle to the store stops writing at once', () => {
+    const { storage, store, problems } = rig();
+    const lock = { on: false };
+    const live = store.withPrefix('ba2p2', { readOnly: () => lock.on });
+    const ns = live.ns('runner');
+    const slot = ns.slot('count', Count, 0);
+    const derived = live.withPrefix('ba2p2');
+    slot.set(1);
+    expect(live.readOnly).toBe(false);
+    lock.on = true;
+    expect(live.readOnly).toBe(true);
+    expect(derived.readOnly).toBe(true);
+    slot.set(2);
+    ns.set('other', 3, Count);
+    derived.ns('runner').set('count', 4, Count);
+    expect(JSON.parse(storage.getItem('ba2p2.runner.count') as string)).toEqual({ v: 1, d: 1 });
+    expect(storage.getItem('ba2p2.runner.other')).toBeNull();
+    expect(problems.filter((x) => x.kind === 'rejected')).toHaveLength(3);
+    lock.on = false;
+    slot.set(5);
+    expect(slot.get()).toBe(5);
+  });
+
+  it('counts a read-only function that throws as read-only', () => {
+    const { storage, store } = rig();
+    const ro = store.withPrefix('ba2p2', { readOnly: () => { throw new Error('no registry'); } });
+    ro.ns('runner').set('count', 1, Count);
+    expect(storage.dump()).toEqual({});
+    expect(ro.readOnly).toBe(true);
+  });
+
   it('cannot be turned back into a writable store by asking for another one', () => {
     const { storage, store } = rig(seeded());
     const ro = store.withPrefix('ba2p2', { readOnly: true });
@@ -149,6 +180,17 @@ describe('readOnly: a look that leaves no mark', () => {
     expect(again.readOnly).toBe(true);
     again.ns('runner').set('count', 1, Count);
     expect(JSON.parse(storage.getItem('ba2p2.runner.count') as string)).toEqual({ v: 1, d: 7 });
+  });
+});
+
+describe('size', () => {
+  it('counts the keys of this prefix in the namespaces the store may open', () => {
+    const { store } = rig({ 'ba2.entitlements.did': '1', 'ba2.runner.count': '1', 'ba2.shell.settings': '1', 'ba2p2.runner.count': '1' });
+    expect(store.size()).toBe(3);
+    expect(store.withPrefix('ba2', { deny: ['entitlements'] }).size()).toBe(2);
+    expect(store.withPrefix('ba2', { allow: ['entitlements'] }).size()).toBe(1);
+    expect(store.withPrefix('ba2p2').size()).toBe(1);
+    expect(store.withPrefix('ba2p3').size()).toBe(0);
   });
 });
 
