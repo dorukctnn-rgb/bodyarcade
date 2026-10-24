@@ -1,6 +1,6 @@
 // B13: one local-date rule. The tests pin time zones so they pass on any machine.
 import { describe, expect, it } from 'vitest';
-import { addDays, dayFromSeed, dayOf, daySeed, daysBetween, isDay, parseDay, prevDay } from './date.ts';
+import { addDays, dayFromSeed, dayOf, daySeed, daysBetween, isDay, monthOf, parseDay, prevDay, weekStart, weekdayIndex } from './date.ts';
 
 describe('dayOf', () => {
   // 2026-10-23 22:30 UTC
@@ -71,5 +71,29 @@ describe('day arithmetic', () => {
     expect(dayFromSeed(0)).toBeNull();
     expect(dayFromSeed('20261023')).toBeNull();
     expect(dayFromSeed(2026.5)).toBeNull();
+  });
+});
+
+describe('weeks and months of the calendar', () => {
+  it('counts Monday as the first day of the week', () => {
+    expect(weekdayIndex('2026-10-19')).toBe(0);      // a Monday
+    expect(weekdayIndex('2026-10-24')).toBe(5);      // the Saturday of the plan
+    expect(weekdayIndex('2026-10-25')).toBe(6);
+    expect(weekdayIndex('2026-10-26')).toBe(0);
+    expect(() => weekdayIndex('nope')).toThrow(RangeError);
+  });
+
+  it('finds the Monday of a week, also across a month, a year and a leap day', () => {
+    expect(weekStart('2026-10-24')).toBe('2026-10-19');
+    expect(weekStart('2026-10-19')).toBe('2026-10-19');
+    expect(weekStart('2026-11-01')).toBe('2026-10-26');
+    expect(weekStart('2027-01-01')).toBe('2026-12-28');
+    expect(weekStart('2028-03-01')).toBe('2028-02-28');
+  });
+
+  it('names the month of a day', () => {
+    expect(monthOf('2026-10-24')).toBe('2026-10');
+    expect(monthOf('2027-01-01')).toBe('2027-01');
+    expect(() => monthOf('2026-02-30')).toThrow(RangeError);
   });
 });

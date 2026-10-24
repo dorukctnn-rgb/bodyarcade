@@ -95,3 +95,19 @@ export function dayFromSeed(seed: unknown): Day | null {
   const day = format(y, m, d);
   return parseDay(day) ? day : null;
 }
+
+/** 0 for Monday to 6 for Sunday: the week of the player's calendar starts on Monday. */
+export function weekdayIndex(day: Day): number {
+  const p = parseDay(day);
+  if (!p) throw new RangeError(`not a day: ${String(day)}`);
+  return (new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay() + 6) % 7;
+}
+
+/** The Monday of the week a day is in. */
+export const weekStart = (day: Day): Day => addDays(day, -weekdayIndex(day));
+
+/** 'YYYY-MM' of a day: the key of the month bitmaps (dayset.ts). */
+export function monthOf(day: Day): string {
+  if (!parseDay(day)) throw new RangeError(`not a day: ${String(day)}`);
+  return day.slice(0, 7);
+}
