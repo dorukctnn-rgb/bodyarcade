@@ -8,8 +8,8 @@ export const LB_STRINGS: Tables = {
   en: {
     'lb.prompt.ready': 'Ready',
     'lb.prompt.bend': 'Bend',
-    'lb.prompt.left': 'Lean left',
-    'lb.prompt.right': 'Lean right',
+    'lb.prompt.left': 'Left',
+    'lb.prompt.right': 'Right',
     'lb.prompt.leftUp': 'Up, left',
     'lb.prompt.rightUp': 'Up, right',
     'lb.prompt.rest': 'Rest',
@@ -21,8 +21,8 @@ export const LB_STRINGS: Tables = {
   tr: {
     'lb.prompt.ready': 'Hazır',
     'lb.prompt.bend': 'Eğil',
-    'lb.prompt.left': 'Sola eğil',
-    'lb.prompt.right': 'Sağa eğil',
+    'lb.prompt.left': 'Sola',
+    'lb.prompt.right': 'Sağa',
     'lb.prompt.leftUp': 'Yukarı, sola',
     'lb.prompt.rightUp': 'Yukarı, sağa',
     'lb.prompt.rest': 'Dinlen',
@@ -34,8 +34,8 @@ export const LB_STRINGS: Tables = {
   de: {
     'lb.prompt.ready': 'Bereit',
     'lb.prompt.bend': 'Neigen',
-    'lb.prompt.left': 'Nach links',
-    'lb.prompt.right': 'Nach rechts',
+    'lb.prompt.left': 'Links',
+    'lb.prompt.right': 'Rechts',
     'lb.prompt.leftUp': 'Hoch, links',
     'lb.prompt.rightUp': 'Hoch, rechts',
     'lb.prompt.rest': 'Pause',

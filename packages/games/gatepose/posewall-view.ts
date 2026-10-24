@@ -298,12 +298,7 @@ export function createPoseWallView(ctx: GameContext, stage: Stage, o: { reducedM
           c.restore();
         }
         const away = !!p && !p.seen;
-        // While a wall is on its way the avatar is a little see-through where the body is far from the shape: the hole behind it (it
-        // is the avatar who stands in front of the wall) can be read, and the avatar fills in as the body fits.
-        const next = sim.nextWall(i as 0 | 1);
-        const onItsWay = !!next && approachU(k, next.arriveK, approachK) > 0.04;
-        const fitted = p && onItsWay && !resting && !hold ? 0.55 + 0.45 * clamp(p.live, 0, 1) : 1;
-        drawFigure(c, { x: z.hipX, y: z.hipY + dy, T: z.T, limbs, upperOnly: seated, alpha: away ? 0.3 : resting ? 0.75 : fitted }, MOVER_NIGHT);
+        drawFigure(c, { x: z.hipX, y: z.hipY + dy, T: z.T, limbs, upperOnly: seated, alpha: away ? 0.3 : resting ? 0.75 : 1 }, MOVER_NIGHT);
       }
       c.restore();
 

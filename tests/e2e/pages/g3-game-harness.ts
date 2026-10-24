@@ -5,6 +5,7 @@
 // the spec does.
 //   ?game=firework-jacks|twist-turbine|limbo-bend|pose-wall  &mode=solo|local2  &difficulty=easy  &seated=1  &quiet=1
 //   &body=perfect|late|sloppy|idle  &corner=bottom-right  &workS=18  (the length of the one set that is played)
+//   &lang=tr|de|es|fr  plays in that language (the shell's words and the game's)
 //   &tile=1  keeps the shell's self view tile opaque with a stand-in picture, so a screenshot shows the layout as the player sees it
 import '../../../packages/web/src/styles/app.css';
 import { createAudio } from '../../../packages/core/audio/audio.ts';
@@ -12,7 +13,7 @@ import { SFX_NAMES } from '../../../packages/core/audio/sfx.ts';
 import { rngStream } from '../../../packages/core/loop/rng.ts';
 import { createScene2D } from '../../../packages/core/render2d/scene2d.ts';
 import type { Rect } from '../../../packages/core/render2d/view.ts';
-import { createI18n } from '../../../packages/core/ui/i18n/index.ts';
+import { createI18n, isLang } from '../../../packages/core/ui/i18n/index.ts';
 import { PlayHud } from '../../../packages/core/ui/hud/hud.ts';
 import type { PipPlacement } from '../../../packages/core/ui/layout.ts';
 import { SHAPE_FULL, SHAPE_UPPER, type RigShape } from '../../../packages/core/moves/testing/rig.ts';
@@ -90,7 +91,8 @@ const entry = games[id];
 if (!entry) throw new Error(`No harness entry for ${id}`);
 const corner = (q.get('corner') ?? entry.corner) as PipPlacement;
 
-const i18n = createI18n('en');
+const langParam = q.get('lang');
+const i18n = createI18n(isLang(langParam) ? langParam : 'en');
 i18n.extend(`game.${id}`, entry.strings);
 const say = i18n.scoped(`game.${id}`);
 

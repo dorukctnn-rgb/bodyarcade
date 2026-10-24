@@ -166,6 +166,21 @@ describe('the game on the contract', () => {
     expect(q.ctx.last['prompt']).toEqual({ icon: 'jackOpen', text: 'Step jack' });
   });
 
+  it('the detector follows the way the run is played when it starts, not only what was asked at init: a full-body run that falls back to seated play at a desk is read for arm jacks', async () => {
+    const manifest = fresh();
+    const ctx = testContext({ seed: 3, flags: { seated: false, silent: false } });
+    const game = createFireworkJacksGame(manifest, { timing: SHORT });
+    await game.init(ctx);
+    expect(manifest.detectors).toEqual([{ id: 'jumpingJack' }]);
+    // the session decides after the calibration that the player plays seated, and tells the game in the start options
+    game.start({ seed: 3, difficulty: 'normal', seated: true, mode: 'solo', profile: null });
+    expect(manifest.detectors).toEqual([{ id: 'jumpingJack', opts: { armsOnly: 1 } }]);
+    expect((game.sim as FireworkSim).variant).toBe('arms');
+    game.start({ seed: 3, difficulty: 'normal', seated: false, mode: 'solo', profile: null });
+    expect(manifest.detectors).toEqual([{ id: 'jumpingJack' }]);
+    expect((game.sim as FireworkSim).variant).toBe('standard');
+  });
+
   it('snapshot and restore give the same continuation, also in a new game that was only init-ed', async () => {
     const a = await rig({ seed: 9 });
     const plan = (a.game.sim as FireworkSim).plan;
@@ -227,6 +242,16 @@ describe('two players on one camera', () => {
     const s = r.game.summary();
     expect(s.players?.[1]?.score).toBeGreaterThan(0);
     expect(nonFiniteCalls(kit.canvas.ctx)).toEqual([]);
+  });
+
+  it('the first double firework of a run is announced once, and every one has its sound', async () => {
+    const kit = testKitDuo(1280, 800);
+    const r = await rig({ players: 2, scene2d: kit.kit });
+    const plan = (r.game.sim as FireworkSim).plan;
+    play(r, [jackBot(plan, { mode: 'perfect' }), jackBot(plan, { mode: 'perfect' })], { steps: 900 });
+    expect((r.game.sim as FireworkSim).doubles).toBeGreaterThan(2);
+    expect(r.ctx.announced.filter((a) => a === 'Double firework.')).toHaveLength(1);
+    expect(r.ctx.played.filter((s) => s === 'star').length).toBeGreaterThan(2);
   });
 
   it('a HUD that has no player plates shows Player 1 on the plain slots, and Player 2 nowhere', async () => {

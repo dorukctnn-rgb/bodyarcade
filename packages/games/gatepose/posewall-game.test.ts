@@ -18,7 +18,7 @@ import { MISS_EN } from '../_shared/reasons.ts';
 import { STAND } from '../_shared/mover.ts';
 import poseWall, { manifest as realManifest, poseWallModule } from '../pose-wall/index.ts';
 import { createPoseWallGame, limbGroup, missText, pwDetectors, stripText, type PoseWallGameOptions } from './posewall-game.ts';
-import { holeOf, mixHex, pwLayout, WALL } from './posewall-view.ts';
+import { holeOf, mixHex, pwLayout, wallScale, wallStart, WALL } from './posewall-view.ts';
 import type { GpTiming } from './plan.ts';
 import { PW_STRINGS } from './strings.ts';
 import type { PoseWallSim, PwWall } from './posewall.ts';
@@ -454,6 +454,21 @@ describe('the view', () => {
     expect(mixHex('#FFC53A', '#22C383', 1)).toBe('#22c383');
     expect(mixHex('#000000', '#ffffff', 0.5)).toBe('#808080');
     expect(mixHex('#000000', '#ffffff', 7)).toBe('#ffffff');
+  });
+
+  it('a wall starts at two fifths of its size, at 80 px wide on a screen so small that two fifths would be a speck, grows to its full size at the arrival and rushes past it', () => {
+    expect(wallScale(0)).toBeCloseTo(0.42, 6);
+    expect(wallScale(1)).toBe(1);
+    expect(wallScale(1.1)).toBeGreaterThan(1);
+    let was = 0;
+    for (let u = 0; u <= 1.0001; u += 0.05) { const s = wallScale(u); expect(s).toBeGreaterThanOrEqual(was); was = s; }
+    // a figure of 58 px (a phone upright) or more: two fifths; one of 26 px (a phone on its side): what makes the wall 80 px wide
+    expect(wallStart(58)).toBe(0.42);
+    expect(wallStart(100)).toBe(0.42);
+    expect(wallStart(26)).toBeCloseTo(80 / (2 * WALL.halfW * 26), 6);
+    expect(wallScale(0, wallStart(26)) * 2 * WALL.halfW * 26).toBeGreaterThanOrEqual(79.9);
+    expect(wallStart(3)).toBe(0.8);                                   // never more than four fifths: it still has to come
+    expect(wallScale(1, 0.8)).toBe(1);
   });
 
   it('a new run starts the view afresh (no spark of the last run flies on), and dispose frees it', async () => {

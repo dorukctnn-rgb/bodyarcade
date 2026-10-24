@@ -150,6 +150,9 @@ export function createHostedGame<S extends HostSim>(spec: HostSpec<S>): HostedGa
 
     start(o: StartOptions): void {
       if (!ctx || !hud) throw new Error('Call init() before start().');
+      // The way of playing is known for sure only now (a full-body game that got head and shoulders at a desk is played seated, which the
+      // session decides after init): the detectors follow it, for a session that asks the manifest again before the countdown.
+      if (spec.detectors) manifest.detectors = spec.detectors({ seated: o.seated, silent: ctx.flags.silent });
       setup = {
         start: { seed: o.seed, difficulty: o.difficulty, seated: o.seated, mode: o.mode },
         flags: { reducedMotion: ctx.flags.reducedMotion, silent: ctx.flags.silent, seated: o.seated },

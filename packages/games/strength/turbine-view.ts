@@ -56,7 +56,8 @@ export function ttLayout(g: Geometry): TtLayout {
   const paceMax = clamp(P.w * (landscape ? 0.42 : 0.62), 110, 360 * unit);
   // the avatar beside the turbine (landscape) is as tall as the height allows (4.05 torso lengths in a play area that is all its own);
   // below the turbine (portrait) it takes a share of the width
-  const baseT = clamp(landscape ? Math.min(P.w * 0.15, P.h * 0.19) : Math.min(P.w, P.h) * 0.15, 20, 80 * unit);
+  // (below the turbine the avatar is not made bigger on a big screen: the turbine has the room that is left, and that is less, not more)
+  const baseT = clamp(landscape ? Math.min(P.w * 0.15, P.h * 0.19) : Math.min(P.w, P.h) * 0.15, 20, landscape ? 80 * unit : 80);
 
   const make = (T: number, shiftA: number, shiftH: number, rScale: number): TtLayout | null => {
     const acx = P.x + P.w * ((landscape ? 0.7 : 0.5) + shiftA);

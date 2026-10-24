@@ -19,6 +19,7 @@ interface Ba {
   keep(): Box[];
   plates(): ({ name: string } & Box)[];
   reasons(): string[];
+  command(): string;
   rects(): { w: number; h: number; play: Box; pip: Box | null; lanes?: [Box, Box] | null };
   problems(): string[];
   pixelCheck(): number;
@@ -38,7 +39,7 @@ const TWO: readonly GameId[] = ['firework-jacks', 'limbo-bend', 'pose-wall'];
 /** Seconds of the run (simulation time) at which a picture is kept: after the count-in, and when the game has something going on. */
 const AT: Record<GameId, readonly number[]> = { 'firework-jacks': [7, 11], 'twist-turbine': [8, 15], 'limbo-bend': [7, 11], 'pose-wall': [7, 11] };
 
-interface Case { game: GameId; screen: string; mode: 'solo' | 'local2'; seated?: boolean; quiet?: boolean }
+interface Case { game: GameId; screen: string; mode: 'solo' | 'local2'; seated?: boolean; quiet?: boolean; lang?: string; body?: 'perfect' | 'sloppy'; finale?: boolean }
 
 const CASES: Case[] = [];
 for (const game of Object.keys(LEVEL) as GameId[]) {
@@ -52,6 +53,16 @@ for (const game of Object.keys(LEVEL) as GameId[]) {
   CASES.push({ game, screen: '1280x800', mode: 'solo', seated: true });
 }
 CASES.push({ game: 'firework-jacks', screen: '390x844', mode: 'solo', quiet: true });
+
+// the end of a run, a second and a half into the finale (every firework again, the lights of the city, the last gate and wall)
+const FINALE_AT: Record<GameId, number> = { 'firework-jacks': 19.5, 'twist-turbine': 31.5, 'limbo-bend': 19.5, 'pose-wall': 19.5 };
+for (const game of Object.keys(LEVEL) as GameId[]) for (const screen of ['390x844', '1280x800']) CASES.push({ game, screen, mode: 'solo', finale: true });
+
+// BA_G3_LANGS=1: every game in the other four languages of the product (the longest words) on the narrowest phone and on a phone on its side,
+// with a body that does things wrong, so that the reason strip speaks as well as the command
+if (process.env['BA_G3_LANGS']) {
+  for (const lang of ['tr', 'de', 'es', 'fr']) for (const game of Object.keys(LEVEL) as GameId[]) for (const screen of ['360x780', '844x390']) CASES.push({ game, screen, mode: 'solo', lang, body: 'sloppy' });
+}
 
 async function simSeconds(page: Page): Promise<number> {
   return ba(page, (b) => (b.state().game?.k ?? 0) / 60);
@@ -72,7 +83,7 @@ const overlaps = (a: Box, b: Box): boolean => a.x < b.x + b.w && b.x < a.x + a.w
 const inside = (a: Box, b: Box): boolean => a.x >= b.x - 1 && a.x + a.w <= b.x + b.w + 1 && a.y >= b.y - 1 && a.y + a.h <= b.y + b.h + 1;
 
 for (const c of CASES) {
-  const label = `${c.game}-${c.mode}${c.seated ? '-seated' : ''}${c.quiet ? '-quiet' : ''}-${c.screen}`;
+  const label = `${c.game}-${c.mode}${c.seated ? '-seated' : ''}${c.quiet ? '-quiet' : ''}${c.lang ? `-${c.lang}` : ''}${c.finale ? '-finale' : ''}-${c.screen}`;
   test(label, async ({ page }) => {
     test.setTimeout(120_000);
     const errors: string[] = [];
@@ -81,7 +92,7 @@ for (const c of CASES) {
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`console ${m.type()}: ${m.text()}`); });
     const params = new URLSearchParams({
-      game: c.game, mode: c.mode, difficulty: LEVEL[c.game], seated: c.seated ? '1' : '0', quiet: c.quiet ? '1' : '0', body: 'perfect',
+      game: c.game, mode: c.mode, difficulty: LEVEL[c.game], seated: c.seated ? '1' : '0', quiet: c.quiet ? '1' : '0', body: c.body ?? 'perfect', lang: c.lang ?? 'en',
       workS: c.game === 'twist-turbine' ? '30' : '18', tile: '1',
     });
     await page.goto(`${DEV_URL}/tests/e2e/pages/g3-game.html?${params.toString()}`);
@@ -89,10 +100,13 @@ for (const c of CASES) {
     await ba(page, (b) => b.start());
 
     const shots = process.env['BA_G3_SHOTS'];
-    for (const [n, at] of AT[c.game].entries()) {
+    const words = new Set<string>();
+    for (const [n, at] of (c.finale ? [FINALE_AT[c.game]] : c.lang ? [6, 9, 12, 15] : AT[c.game]).entries()) {
       await untilSim(page, at);
       // the read-back of the picture only once: a second one makes the browser warn about the page's own check
-      const look = await ba(page, (b) => ({ problems: b.problems(), keep: b.keep(), plates: b.plates(), rects: b.rects(), colours: 0 }));
+      const look = await ba(page, (b) => ({ problems: b.problems(), keep: b.keep(), plates: b.plates(), rects: b.rects(), colours: 0, command: b.command(), reasons: b.reasons() }));
+      words.add(`command: ${look.command}`);
+      for (const r of look.reasons) words.add(`reason: ${r}`);
       if (n === 0) look.colours = await ba(page, (b) => b.pixelCheck());
       if (shots) await page.screenshot({ path: join(shots, `${label}-${String(at).padStart(2, '0')}s.png`) });
       expect(look.problems, `HUD problems at ${at} s`).toEqual([]);
@@ -113,6 +127,7 @@ for (const c of CASES) {
         for (const k of look.keep) expect(inside(k, (lanes as [Box, Box])[0]) || inside(k, (lanes as [Box, Box])[1]), `a key object ${JSON.stringify(k)} in one lane (lanes ${JSON.stringify(lanes)})`).toBe(true);
       }
     }
+    if (c.lang) console.log(`${label}  ${[...words].join(' | ')}`);
     await page.evaluate(() => (window as unknown as { ba: { chain: { session: { quit(): void } } } }).ba.chain.session.quit());
     expect((await ba(page, (b) => b.state())).seen.errors).toEqual([]);
     expect(errors).toEqual([]);

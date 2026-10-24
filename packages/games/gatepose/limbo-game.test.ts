@@ -117,16 +117,16 @@ describe('the game on the contract', () => {
     expect(r.ctx.hudLog.map(([s]) => s).sort()).toEqual(['combo', 'hint', 'prompt', 'score', 'timer']);
     const prompt = r.ctx.last['prompt'] as { icon: string; text: string; progress?: number };
     expect(prompt.icon).toBe('sideBend');
-    expect(['Lean left', 'Lean right', 'Up, left', 'Up, right']).toContain(prompt.text);
+    expect(['Left', 'Right', 'Up, left', 'Up, right']).toContain(prompt.text);
     expect(r.ctx.last['timer']).toBe(24);
     expect(r.ctx.last['score']).toBe(0);
     expect(r.ctx.last['hint']).toBe('');
   });
 
   it('takes the words from the shell when it has them', async () => {
-    const r = await rig({ t: (k) => (k === 'lb.prompt.left' ? 'Sola eğil' : k === 'lb.prompt.right' ? 'Sağa eğil' : k === 'lb.prompt.leftUp' ? 'Yukarı, sola' : k === 'lb.prompt.rightUp' ? 'Yukarı, sağa' : k) });
+    const r = await rig({ t: (k) => (k === 'lb.prompt.left' ? 'Sola' : k === 'lb.prompt.right' ? 'Sağa' : k === 'lb.prompt.leftUp' ? 'Yukarı, sola' : k === 'lb.prompt.rightUp' ? 'Yukarı, sağa' : k) });
     r.game.render(0);
-    expect(['Sola eğil', 'Sağa eğil', 'Yukarı, sola', 'Yukarı, sağa']).toContain((r.ctx.last['prompt'] as { text: string }).text);
+    expect(['Sola', 'Sağa', 'Yukarı, sola', 'Yukarı, sağa']).toContain((r.ctx.last['prompt'] as { text: string }).text);
   });
 
   it('the command names the side of the next gate, says "up" for a tall one, and its progress grows as the gate comes', async () => {
@@ -145,7 +145,7 @@ describe('the game on the contract', () => {
     }
     expect(seen.length).toBeGreaterThan(50);
     for (const s of seen) {
-      const word = s.target < 0 ? (s.tall ? 'Up, left' : 'Lean left') : (s.tall ? 'Up, right' : 'Lean right');
+      const word = s.target < 0 ? (s.tall ? 'Up, left' : 'Left') : (s.tall ? 'Up, right' : 'Right');
       expect(s.text).toBe(word);
       expect(s.progress).toBeGreaterThanOrEqual(0);
       expect(s.progress).toBeLessThanOrEqual(1);
