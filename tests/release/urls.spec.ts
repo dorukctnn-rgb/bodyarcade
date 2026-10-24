@@ -4,14 +4,18 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, request, test, type APIRequestContext } from '@playwright/test';
-import { BASE, IS_PREVIEW, OUT, localBuild, sitemapUrls } from './support.ts';
+import { chooseMode, openPlayers, type RacePlayer } from './players.ts';
+import { BASE, IDENTITIES, IS_PREVIEW, KEEP_PROFILES, OUT, SIGNING, localBuild, sitemapUrls } from './support.ts';
 
 const rows: { path: string; status: number; location?: string; note?: string }[] = [];
 let api: APIRequestContext;
+let checker: RacePlayer | null = null;
 test.beforeAll(async () => { api = await request.newContext({ baseURL: BASE, maxRedirects: 0 }); });
 test.afterAll(async () => {
   await api.dispose();
   writeFileSync(join(OUT, 'urls.json'), JSON.stringify(rows, null, 1));
+  // bodyarcade.com keeps no test profile: one that could not be deleted is said, and its key stays so the next run can try again
+  if (checker && !KEEP_PROFILES) await checker.retire().catch((e: unknown) => console.warn(`test profile left on ${BASE}: ${String(e)}`));
 });
 
 async function get(path: string, init?: { method?: 'GET' | 'POST' | 'HEAD'; data?: unknown; headers?: Record<string, string> }) {
@@ -116,14 +120,32 @@ test('security and cache headers', async () => {
   expect(model.headers()['cache-control']).toContain('immutable');
 });
 
+test('the social module is deployed: an unsigned call is refused with 401, and the friend-link and invite pages open', async () => {
+  // 401 is the edge refusing a call with no signature; 503 means the Worker has no SOCIAL binding, 404 or 500 a build from before the module
+  const me = await get('/api/social/me');
+  expect(me.status(), 'GET /api/social/me with no signature (redeploy the preview when this is not 401)').toBe(401);
+  const friend = await get('/f/BA-ABCDEF');
+  expect(friend.status(), '/f/BA-ABCDEF').toBe(200);
+  expect(friend.headers()['x-robots-tag'] ?? '', '/f/BA-ABCDEF stays out of search').toContain('noindex');
+  const invite = await get('/r/ABCDEF');
+  expect(invite.status(), '/r/ABCDEF').toBe(200);
+});
+
 test('the API answers: ICE servers, a room made and looked up, a CSP report taken', async () => {
   const ice = await get('/api/ice', { method: 'POST' });
   expect(ice.status()).toBe(200);
   const grant = (await ice.json()) as { iceServers: unknown[]; turn: boolean };
   expect(grant.iceServers.length).toBeGreaterThan(0);
   rows.push({ path: '/api/ice (turn)', status: 200, note: `turn=${grant.turn}` });
-  const made = await get('/api/rooms', { method: 'POST', data: { kind: 'private', gameId: 'squat-flap', size: 2, durationMs: 30_000, pid: 'release-check-0001', name: 'Checker', age: 'adult' }, headers: { 'Content-Type': 'application/json' } });
-  expect(made.status()).toBe(201);
+  // the room is made by a player who signs the call (bodyarcade.com takes no guests; see players.ts), a guest only on a build from before the social module
+  const verdict = await chooseMode(BASE, { want: SIGNING, production: !IS_PREVIEW });
+  checker = (await openPlayers(BASE, ['Release Check'], { mode: verdict.mode, dir: IDENTITIES }))[0] ?? null;
+  const player = checker as RacePlayer;
+  const roomBody = { kind: 'private', gameId: 'squat-flap', size: 2, durationMs: 30_000, ...player.identity() };
+  const auth = await player.authFor('POST', `${BASE}/api/rooms`, roomBody);
+  const made = await get('/api/rooms', { method: 'POST', data: roomBody, headers: { 'Content-Type': 'application/json', ...(auth ? { 'X-BA-Auth': auth } : {}) } });
+  rows.push({ path: '/api/rooms (who made it)', status: made.status(), note: `${verdict.mode}: ${verdict.why}` });
+  expect(made.status(), `a room made (${verdict.mode}): ${await made.text()}`).toBe(201);
   const room = (await made.json()) as { code: string; link: string };
   expect(room.link).toContain(room.code);
   expect(new URL(room.link).origin).toBe(BASE);

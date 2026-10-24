@@ -4,16 +4,24 @@
 // built here and served to each browser under <origin>/__live-test/ by request interception, so nothing test-only is
 // deployed and the page's origin is the deployed one. Checks as in tests/live/support/runner.ts: every player gets
 // every result, the results are identical, complete, and each player's own score equals the Room's.
+//
+// The players are social profiles that SIGN their room calls (tests/release/players.ts): the room is made by a signed call from here,
+// and each browser's context signs the calls its page makes (create, join, a fresh ticket) with the player's device key, as the shell
+// does. That is how bodyarcade.com takes players (no guests), and how the preview does once the bridge SOCIAL_ALLOW_UNSIGNED is gone.
+// Only a deployed build from before the social module is played with guests; the evidence file of each race says which it was.
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
 import { build } from 'vite';
 import { withFakeVideo } from '../e2e/support/browser.ts';
-import { BASE, OUT, ROOT, sleep } from './support.ts';
+import { chooseMode, openPlayers, signRoomCalls, type ModeVerdict, type RacePlayer } from './players.ts';
+import { BASE, IDENTITIES, IS_PREVIEW, KEEP_PROFILES, LOCAL_ARGS, OUT, ROOT, SIGNING, sleep } from './support.ts';
 
 const PREFIX = '/__live-test/';
 let pagesDir = '';
+let verdict: ModeVerdict = { mode: 'guest', why: 'not decided yet' };
+let players: RacePlayer[] = [];
 const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 
 test.beforeAll(async () => {
@@ -23,8 +31,17 @@ test.beforeAll(async () => {
     root: join(ROOT, 'tests/live/pages'), base: PREFIX, configFile: false, logLevel: 'warn',
     build: { outDir: pagesDir, emptyOutDir: true, minify: false, target: 'es2022', sourcemap: false, rollupOptions: { input: join(ROOT, 'tests/live/pages/duel.html') } },
   });
+  verdict = await chooseMode(BASE, { want: SIGNING, production: !IS_PREVIEW });
+  players = await openPlayers(BASE, ['Release Ana', 'Release Ben', 'Release Cem', 'Release Dua'], { mode: verdict.mode, dir: IDENTITIES });
 });
-test.afterAll(() => { if (pagesDir) rmSync(pagesDir, { recursive: true, force: true }); });
+test.afterAll(async () => {
+  if (pagesDir) rmSync(pagesDir, { recursive: true, force: true });
+  // bodyarcade.com keeps no test profiles: a profile that could not be deleted is said, and its key stays so the next run can try again
+  if (!KEEP_PROFILES) {
+    const done = await Promise.allSettled(players.map((p) => p.retire()));
+    for (const d of done) if (d.status === 'rejected') console.warn(`test profile left on ${BASE}: ${String(d.reason)}`);
+  }
+});
 
 interface M {
   done: boolean; seat: string | null; fatal: unknown; results: { scores: Record<string, { score: number }>; winner: string | null; reason: string; places: Record<string, number>; forfeited: string[] }[];
@@ -39,19 +56,22 @@ const grab = (p: Page): Promise<M | null> => p.evaluate(() => {
 interface Race { players: number; video: boolean; matches: number; dur: number; reloadAt?: number }
 
 async function race(name: string, r: Race): Promise<Record<string, unknown>> {
-  const names = ['ana', 'ben', 'cem', 'dua'].slice(0, r.players);
-  const pids = names.map((n, i) => `release-${n}-${Date.now().toString(36)}-${i}`);
-  const created = await fetch(`${BASE}/api/rooms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'private', gameId: 'squat-flap', size: Math.max(2, r.players), durationMs: r.dur * 1000, pid: pids[0], name: names[0], age: 'adult' }) });
-  expect(created.status, `create room: ${await created.clone().text()}`).toBe(201);
+  const racers = players.slice(0, r.players);
+  expect(racers.length, 'the players of this run').toBe(r.players);
+  const host = racers[0] as RacePlayer;
+  const created = await host.post(`${BASE}/api/rooms`, { kind: 'private', gameId: 'squat-flap', size: Math.max(2, r.players), durationMs: r.dur * 1000, ...host.identity() });
+  expect(created.status, `create room (${verdict.mode}): ${await created.clone().text()}`).toBe(201);
   const { code } = (await created.json()) as { code: string };
   const browsers: Browser[] = [];
   const pages: Page[] = [];
   const errors: string[] = [];
   try {
     for (let i = 0; i < r.players; i++) {
-      const b = await chromium.launch(withFakeVideo(join(ROOT, 'tests/e2e/fixtures/standing-640x360.mjpeg')));
+      const cam = withFakeVideo(join(ROOT, 'tests/e2e/fixtures/standing-640x360.mjpeg'));
+      const b = await chromium.launch({ ...cam, args: [...(cam.args ?? []), ...LOCAL_ARGS] });
       browsers.push(b);
       const ctx = await b.newContext({ permissions: ['camera'], serviceWorkers: 'block' });
+      await signRoomCalls(ctx, BASE, racers[i] as RacePlayer);
       await ctx.route(`${BASE}${PREFIX}**`, async (route) => {
         const path = new URL(route.request().url()).pathname.slice(PREFIX.length) || 'duel.html';
         const file = join(pagesDir, path === 'duel' ? 'duel.html' : path);
@@ -59,11 +79,12 @@ async function race(name: string, r: Race): Promise<Record<string, unknown>> {
         return route.fulfill({ status: 200, body: readFileSync(file), headers: { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' } });
       });
       const page = await ctx.newPage();
-      page.on('pageerror', (e) => errors.push(`${names[i]}: ${String(e).slice(0, 200)}`));
+      page.on('pageerror', (e) => errors.push(`${(racers[i] as RacePlayer).label}: ${String(e).slice(0, 200)}`));
       pages.push(page);
     }
     const url = (i: number) => {
-      const q = new URLSearchParams({ room: code, pid: pids[i] as string, name: names[i] as string, age: 'adult', video: r.video ? '1' : '0', matches: String(r.matches) });
+      const who = (racers[i] as RacePlayer).identity();
+      const q = new URLSearchParams({ room: code, pid: who.pid, name: who.name, age: who.age, video: r.video ? '1' : '0', matches: String(r.matches) });
       if (r.players > 2) q.set('noready', '1');
       return `${BASE}${PREFIX}duel.html?${q.toString()}`;
     };
@@ -99,7 +120,7 @@ async function race(name: string, r: Race): Promise<Record<string, unknown>> {
     if (r.players > 2) checks.placesForEveryone = allDone && live.every((m) => m.results.every((x) => Object.keys(x.places).length === r.players));
     if (r.video) checks.videoFlows = live.every((m) => m.remoteFrames > 30);
     if (r.reloadAt !== undefined) checks.rejoined = !!live[1] && live[1].phases.some((p) => p.why === 'welcome');
-    const out = { name, code, checks, errors, results: live.map((m) => ({ seat: m.seat, results: m.results.map((x) => ({ winner: x.winner, reason: x.reason, scores: x.scores })), remoteFrames: m.remoteFrames, roomErrors: m.roomErrors })) };
+    const out = { name, code, signing: verdict, players: racers.map((s) => s.label), checks, errors, results: live.map((m) => ({ seat: m.seat, results: m.results.map((x) => ({ winner: x.winner, reason: x.reason, scores: x.scores })), remoteFrames: m.remoteFrames, roomErrors: m.roomErrors })) };
     writeFileSync(join(OUT, `live-${name}.json`), JSON.stringify(out, null, 1));
     return out;
   } finally {

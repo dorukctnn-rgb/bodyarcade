@@ -1,13 +1,38 @@
 // Shared by the release checks: the deployed origin under test, the build it should be, and the evidence folder.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const BASE = (process.env['BA_RELEASE_URL'] ?? 'https://bodyarcade-v2-preview.railer-iot.workers.dev').replace(/\/$/, '');
 export const IS_PREVIEW = !/^https:\/\/bodyarcade\.com$/.test(BASE);
-export const OUT = join(ROOT, 'tests', 'release', 'out');
+/** The evidence folder. BA_RELEASE_OUT moves it (a rehearsal against a local stack keeps its evidence apart from the deployed build's). */
+export const OUT = process.env['BA_RELEASE_OUT'] ? resolve(process.env['BA_RELEASE_OUT']) : join(ROOT, 'tests', 'release', 'out');
 mkdirSync(OUT, { recursive: true });
+
+/**
+ * How the players of the live checks identify themselves (tests/release/players.ts).
+ *   auto    signed players when the deployed build has the social module (and always on bodyarcade.com, which takes no guests),
+ *           guests on an older build that does not
+ *   signed  always signed; guest  never signed (only a build that still has the preview bridge SOCIAL_ALLOW_UNSIGNED accepts them)
+ */
+export const SIGNING = process.env['BA_RELEASE_SIGNING'] ?? 'auto';
+
+/** The Worker under test runs on this machine (tests/release/local-stack.ts), not on Cloudflare. */
+export const IS_LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(BASE);
+
+/**
+ * Chromium flags for the browsers that play the live races. The races' page is served by request interception (a response Chromium
+ * does not see as coming from this machine), and Chromium 138+ blocks such a page's WebSocket to a Worker on loopback
+ * (net::ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS): only a local stack needs the check off. A deployed https origin never does.
+ */
+export const LOCAL_ARGS: string[] = IS_LOCAL ? ['--disable-features=LocalNetworkAccessChecks'] : [];
+
+/** Where the saved device keys of the signed players live (private keys of test profiles: under out/, never committed). Null for a local stack: its profiles die with it. */
+export const IDENTITIES: string | null = IS_LOCAL ? null : join(OUT, 'identities', BASE.replace(/^https?:\/\//, '').replace(/[^A-Za-z0-9.-]+/g, '-'));
+
+/** The test profiles stay on the server after a run (so the next run signs in with them and uses no sign-up of the address' hourly allowance), except on bodyarcade.com, where they are deleted again. */
+export const KEEP_PROFILES = IS_PREVIEW || process.env['BA_RELEASE_KEEP_PROFILES'] === '1';
 
 /** The build stamp of the local dist/ (what was deployed), or null when there is no local build. */
 export function localBuild(): { build: string; commit: string; target: string } | null {
