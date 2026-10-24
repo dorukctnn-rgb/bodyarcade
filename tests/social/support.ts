@@ -89,6 +89,8 @@ export interface Player {
   until(cond: (s: Snapshot) => boolean, what: string, ms?: number): Promise<Snapshot>;
   /** Opens (or reloads) the harness page, in a new page when the old one was closed, and waits for the device's identity to load. */
   open(): Promise<void>;
+  /** Opens the harness page at an address of the site (a friend link /f/BA-XXXXXX), as a link a friend sent would. */
+  openAt(path: string): Promise<void>;
   /** A second page of the same device (shared storage): another tab. */
   newTab(): Promise<Page>;
   close(): Promise<void>;
@@ -106,8 +108,8 @@ export async function player(site: Site, label: string): Promise<Player> {
     });
     return page;
   };
-  const load = async (page: Page): Promise<void> => {
-    await page.goto(`${site.origin}/`);
+  const load = async (page: Page, path = '/'): Promise<void> => {
+    await page.goto(`${site.origin}${path}`);
     await page.waitForFunction(() => 'ba' in window);
     await page.evaluate(() => (window as unknown as { ba: { ready: Promise<unknown> } }).ba.ready);
   };
@@ -131,6 +133,10 @@ export async function player(site: Site, label: string): Promise<Player> {
     async open() {
       if (p.page.isClosed()) p.page = watch(await context.newPage());
       await load(p.page);
+    },
+    async openAt(path) {
+      if (p.page.isClosed()) p.page = watch(await context.newPage());
+      await load(p.page, path);
     },
     async newTab() {
       const tab = watch(await context.newPage());

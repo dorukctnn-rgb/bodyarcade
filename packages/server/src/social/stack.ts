@@ -20,7 +20,7 @@ const SERVER_DIR = fileURLToPath(new URL('../../', import.meta.url));
 export const STACK_ADMIN_TOKEN = 'stack-admin-token-0123456789abcdef';
 
 export interface StackOptions {
-  /** A folder served as the site's static assets (`/api/*` still goes to the Worker first, as in production). */
+  /** A folder served as the site's static assets (`/api/*` and the invitation and friend-link pages `/r/*`, `/f/*` go to the Worker first, as in production). */
   assetsDir?: string;
   /** Extra or replaced Worker vars and secrets. */
   vars?: Record<string, string>;
@@ -126,7 +126,7 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
       TEST_CLOCK: '1',
       ...opts.vars,
     },
-    ...(opts.assetsDir ? { assets: { directory: opts.assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, static_routing: { user_worker: ['/api/*'] } }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'single-page-application' } } } : {}),
+    ...(opts.assetsDir ? { assets: { directory: opts.assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, static_routing: { user_worker: ['/api/*', '/f/*', '/r/*'] } }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'single-page-application' } } } : {}),
     ...(opts.persistTo ? { resourcePersistencePath: opts.persistTo } : {}),
     handleStructuredLogs: (l: { message: string }) => { for (const line of String(l.message).split('\n')) logs.push(line); },
   } as Parameters<typeof convertV4MiniflareOptions>[0]));

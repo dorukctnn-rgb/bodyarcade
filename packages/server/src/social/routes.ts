@@ -26,6 +26,7 @@
 //   POST /api/social/scores              {run, game, score}                                                  -> {improved, best, week}
 //   GET  /api/social/leaderboard         ?game=&scope=friends|country&week=current|previous                  -> {board}
 //   GET  /api/social/hub                 WebSocket, ?ba_auth=<signature>                                     (presence and pushes)
+//   GET  /f/:code                        the app's start page under a friend link (the page reads the code from its address)
 //   GET  /api/admin/social/reports       ?status=open&limit=50      (Authorization: Bearer ADMIN_TOKEN; 404 without the token)
 //   POST /api/admin/social/reports/:id   {action: dismiss|warn|mute|suspend|ban|clear, days?, note?}
 //   GET  /api/admin/social/stats
@@ -33,6 +34,7 @@
 // Every route except register and the admin routes needs a signed request (core/social/sign.ts: X-BA-Auth). Every answer
 // carries `serverTime`; every error is `{error, serverTime}` (src/http.ts fail()).
 import { HUB_CLOSE } from '../../../core/social/types.ts';
+import type { Fetcher } from '../cf.ts';
 import { HttpError, fail } from '../http.ts';
 import type { Handler, Router } from '../router.ts';
 import { authenticate } from './auth.ts';
@@ -84,6 +86,26 @@ const hubConnect: Handler = async (req, raw, ctx) => {
   }
 };
 
+/**
+ * A friend link `<origin>/f/BA-7K2Q4X` opens the app. The page reads the code from its own address (parseFriendLink(location.href)),
+ * so every code gets the same shell: the Worker serves the start page (`/`) under the link's address and keeps it out of search
+ * results, the way live play does for its `/r/CODE` invitations. Needs "/f/*" in `assets.run_worker_first` of the wrangler config:
+ * without it the static assets answer first, and a shared link is a 404. The code is a key to the player's request inbox, so the
+ * page is sent with no referrer.
+ */
+export const openFriendLink: Handler = async (req, raw) => {
+  const assets = raw.ASSETS as Fetcher | undefined;
+  if (!assets) return new Response('not found', { status: 404 });
+  const shell = await assets.fetch(new Request(new URL('/', req.url), { method: 'GET', headers: { Accept: 'text/html' } }));
+  const redirected = shell.status >= 300 && shell.status < 400;
+  const headers = new Headers(shell.headers);
+  headers.set('X-Robots-Tag', 'noindex, nofollow');
+  headers.set('Cache-Control', 'no-cache');
+  headers.set('Referrer-Policy', 'no-referrer');
+  headers.delete('Location');
+  return new Response(redirected ? 'unavailable' : shell.body, { status: redirected ? 503 : shell.status, headers });
+};
+
 export function registerSocialRoutes(router: Router): void {
   router.add('POST', '/api/social/register', open(register));
   router.add('POST', '/api/social/recover', open(recover));
@@ -116,4 +138,5 @@ export function registerSocialRoutes(router: Router): void {
   router.add('GET', '/api/admin/social/reports', adminReports);
   router.add('POST', '/api/admin/social/reports/:id', adminAct);
   router.add('GET', '/api/admin/social/stats', adminStats);
+  router.add('GET', '/f/:code', openFriendLink);
 }

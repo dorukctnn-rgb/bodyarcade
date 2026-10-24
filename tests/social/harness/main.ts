@@ -4,6 +4,7 @@
 import { LiveClient } from '../../../packages/core/net/client.ts';
 import type { SocketLike } from '../../../packages/core/net/runtime.ts';
 import { SocialClient, type MatchDriver, type SignUp } from '../../../packages/core/social/client.ts';
+import { parseFriendLink } from '../../../packages/core/social/codes.ts';
 import { openKeyStore } from '../../../packages/core/social/keystore.ts';
 import type { JoinGrant } from '../../../packages/core/types/net.ts';
 
@@ -91,6 +92,8 @@ const ba = {
   ready: social.init().then((me) => { render(); return me; }),
   snapshot,
   attempt,
+  /** The friend code in the page's own address (a friend link /f/BA-XXXXXX), the way the shell reads it. */
+  addressCode: (): string | null => parseFriendLink(location.href),
   signUp: async (input: SignUp) => { const me = await social.signUp(input); render(); return me; },
   seat,
   leaveRoom: (): void => { live?.leave(); live = null; welcomed = false; render(); },
