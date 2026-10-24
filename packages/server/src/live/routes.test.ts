@@ -221,7 +221,38 @@ describe('the WebSocket route and ICE', () => {
 
   it('answers unknown API paths with JSON 404 and leaves other paths to the assets', async () => {
     expect((await get('/api/rooms/AAAAAA/nothing'))?.status).toBe(404);
-    expect(await get('/r/K7P2QX')).toBeNull();
+    expect(await get('/games/squat-flap')).toBeNull();
   });
 });
 
+describe('invite links', () => {
+  const shell = new Response('<!doctype html><title>BodyArcade</title>', { headers: { 'Content-Type': 'text/html; charset=utf-8', ETag: '"x"' } });
+  const withAssets = (fn: (req: Request) => Response | Promise<Response>): LiveEnv => ({ ...env, ASSETS: { fetch: async (r: Request | string) => fn(typeof r === 'string' ? new Request(r) : r) } });
+
+  it('serves the start page under /r/<CODE>, kept out of search results and revalidated', async () => {
+    const seen: string[] = [];
+    const e = withAssets((r) => { seen.push(new URL(r.url).pathname); return shell.clone(); });
+    const res = await router.handle(new Request('http://site/r/K7P2QX?utm=x'), e as unknown as Record<string, unknown>, ctx);
+    expect(res?.status).toBe(200);
+    expect(await res?.text()).toContain('<title>BodyArcade</title>');
+    expect(seen).toEqual(['/']);
+    expect(res?.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
+    expect(res?.headers.get('Cache-Control')).toBe('no-cache');
+    expect(res?.headers.get('Content-Type')).toContain('text/html');
+  });
+
+  it('serves the shell for any code (the page says what is wrong with a mistyped one), answers HEAD, and refuses other methods', async () => {
+    const e = withAssets(() => shell.clone());
+    expect((await router.handle(new Request('http://site/r/not-a-code'), e as unknown as Record<string, unknown>, ctx))?.status).toBe(200);
+    expect((await router.handle(new Request('http://site/r/K7P2QX', { method: 'HEAD' }), e as unknown as Record<string, unknown>, ctx))?.status).toBe(200);
+    expect((await router.handle(new Request('http://site/r/K7P2QX', { method: 'POST' }), e as unknown as Record<string, unknown>, ctx))?.status).toBe(405);
+  });
+
+  it('is a 404 without static assets, and a redirecting or failing start page never leaks a redirect', async () => {
+    expect((await router.handle(new Request('http://site/r/K7P2QX'), env as unknown as Record<string, unknown>, ctx))?.status).toBe(404);
+    const e = withAssets(() => new Response(null, { status: 301, headers: { Location: 'https://elsewhere.test/' } }));
+    const res = await router.handle(new Request('http://site/r/K7P2QX'), e as unknown as Record<string, unknown>, ctx);
+    expect(res?.status).toBe(503);
+    expect(res?.headers.get('Location')).toBeNull();
+  });
+});

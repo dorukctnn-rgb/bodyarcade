@@ -5,6 +5,8 @@
 //   POST /api/rooms/:code/join      take a seat: signs a ticket                               -> JoinGrant
 //   GET  /api/rooms/:code/ws        WebSocket, ?ticket=...                                    (the Room protocol)
 //   POST /api/ice (GET too)         STUN and TURN credentials                                 -> IceGrant
+//   GET  /r/:code                   an invite link: serves the app's start page, the page reads the code from the path
+//                                   (needs "/r/*" in run_worker_first of the wrangler config, or the static assets answer first)
 //
 // Builder SO (social) and S (store) do not call these: SO uses the Room through the hooks in hooks.ts and the
 // summary stream they get from publishRoom; creating a room for a matchmade group goes through createRoomFor().
@@ -213,7 +215,23 @@ const iceRoute = async (req: Request, rawEnv: Record<string, unknown>): Promise<
   return json(await iceGrant(env, Date.now()));
 };
 
+/**
+ * An invite link `<origin>/r/<CODE>` opens the app. The code is read by the page from its own address, so every code gets
+ * the same shell: the Worker serves the start page (`/`) under the invite address and keeps it out of search results.
+ */
+const openInvite = async (req: Request, rawEnv: Record<string, unknown>): Promise<Response> => {
+  const assets = liveEnv(rawEnv).ASSETS;
+  if (!assets) return new Response('not found', { status: 404 });
+  const shell = await assets.fetch(new Request(new URL('/', req.url), { method: 'GET', headers: { Accept: 'text/html' } }));
+  const headers = new Headers(shell.headers);
+  headers.set('X-Robots-Tag', 'noindex, nofollow');
+  headers.set('Cache-Control', 'no-cache');
+  headers.delete('Location');
+  return new Response(shell.status >= 300 && shell.status < 400 ? 'unavailable' : shell.body, { status: shell.status >= 300 && shell.status < 400 ? 503 : shell.status, headers });
+};
+
 export function registerLiveRoutes(router: Router): void {
+  router.add('GET', '/r/:code', openInvite);
   router.add('POST', '/api/rooms', createRoom);
   router.add('GET', '/api/rooms/:code', previewRoom);
   router.add('POST', '/api/rooms/:code/join', joinRoom);
