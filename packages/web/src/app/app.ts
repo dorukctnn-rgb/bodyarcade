@@ -129,6 +129,8 @@ export class App {
   private state: PageState = { ...EMPTY_STATE };
   /** Everything the player does, kept as facts: runs and bests, the habit, the challenge of the day, the workout plans. */
   private arcade: Arcade;
+  /** What the page on the screen showed of the players when it was drawn (see shownOfPlayers). */
+  private shown = '';
   /** The round that is on the stage is a game of the workout plan that is going. */
   private planRound = false;
   private restTimer: ReturnType<typeof setInterval> | null = null;
@@ -284,20 +286,38 @@ export class App {
     };
   }
 
-  /** The book moved by itself (another tab, the plan ended): follow it. */
+  /**
+   * What the pages show of the players: who plays and what their rules say, how many there are, and on the players screen the cards.
+   * A change of the book that leaves it as it was (a seat switched, the question at start) draws nothing again: the switch the player
+   * just pressed stays the element they pressed, and focus stays where it was.
+   */
+  private shownOfPlayers(): string {
+    const book = this.book;
+    if (!book) return '';
+    const cards = this.route?.id === 'profiles' ? book.picker().cards.map((c) => [c.id, c.name, c.avatar, c.kid, c.state, c.active, c.lastUsedAt]) : [];
+    return JSON.stringify([this.playerFacts(), cards, this.route?.id === 'profiles' ? book.picker().notice : null]);
+  }
+
+  /** The book moved (another tab, the plan ended, the player's own action): follow it. */
   private onBookChange(e: { active: string }): void {
     if (!this.book || !this.space) return;
     if (e.active !== this.space.id) this.played(this.book.open());
     this.profiles?.refresh();
-    if (this.route && this.route.id !== 'play') this.render();
+    if (this.route && this.route.id !== 'play' && this.shownOfPlayers() !== this.shown) this.render();
   }
 
   // ---- context -----------------------------------------------------------------------------------------------------
 
-  /** What this device offers. A test can say a keyboard is there (a phone-sized window in a test browser has none worth using). */
+  /**
+   * What this device offers. A test can say a keyboard is there (a phone-sized window in a test browser has none worth using), and in
+   * development and test builds so does an address that asks for the keyboard (`?input=keyboard`): a tool that opens a round at a phone's
+   * size reaches the round and its results without a keyboard to press. A published build ignores both: a phone is asked for its camera.
+   */
   private detectCaps(): UiCapabilities {
     const hooks = this.o.demo ? this.win.__BA_TEST__ : undefined;
-    return detectUiCapabilities(this.win, hooks?.keyboard !== undefined ? { keyboard: hooks.keyboard } : {});
+    const asked = this.o.demo && new URLSearchParams(this.win.location.search).get('input') === 'keyboard' ? true : undefined;
+    const keyboard = hooks?.keyboard ?? asked;
+    return detectUiCapabilities(this.win, keyboard !== undefined ? { keyboard } : {});
   }
 
   private currentSettings(): Readonly<Settings> { return this.settings.get(); }
@@ -493,6 +513,7 @@ export class App {
       profiles: route?.id === 'profiles' && this.profiles ? this.profiles.state() : null,
     };
     const page = renderPage(ctx, route, state);
+    this.shown = this.shownOfPlayers();
     swap(this.host, page.body.value);
     const info = LANG_INFO.find((l) => l.code === this.lang);
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });

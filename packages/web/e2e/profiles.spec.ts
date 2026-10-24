@@ -102,10 +102,11 @@ test('what is wrong with a name is said at the name: empty, taken, the wrong cha
 test('the pictures are radio buttons: arrow keys move between them, the chosen one is kept in the list', async ({ browser }) => {
   const { page, context } = await bare(browser);
   await page.locator('[data-action="profile-add"]').first().click();
-  await expect(page.getByRole('radio', { name: 'Fox' })).toBeChecked();
-  await page.getByRole('radio', { name: 'Fox' }).focus();
-  await page.keyboard.press('ArrowRight');
+  // the main player has the first picture: the new one starts with the next that nobody has
   await expect(page.getByRole('radio', { name: 'Owl' })).toBeChecked();
+  await page.getByRole('radio', { name: 'Owl' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio', { name: 'Bear' })).toBeChecked();
   await page.locator('#pf-name').fill('Mert');
   await page.getByRole('button', { name: 'Add player' }).click();
   await expect(page.locator('.pf-row').nth(1).locator('svg[aria-hidden="true"]').first()).toBeVisible();
@@ -161,7 +162,7 @@ test('a child has no weight, no friends, no trial notice and no shop without a g
   const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, 'players-kid', { w: 1280, h: 800, hooks: { ...BASE, plan: 'family', social: true, trial: { endsInHours: 30 }, players: [{ name: 'Defne', kid: true, avatar: 'fox', active: true }, { name: 'Mert', avatar: 'robot' }] } });
   // the settings: no weight, and the row of players
   await expect(page.locator('[name="weightKg"]')).toHaveCount(0);
-  await expect(page.getByText('2 of 6 on this device')).toBeVisible();
+  await expect(page.getByText('3 of 6 on this device')).toBeVisible();
   // the bar has no Friends tab and the friends pages say who to ask
   await expect(page.getByRole('navigation', { name: 'Main navigation' }).first().getByText('Friends')).toHaveCount(0);
   await page.goto(`${WEB_DEV_URL}/friends/?social=1&plan=family`, { waitUntil: 'networkidle' });
@@ -229,9 +230,10 @@ test('removing the player who is playing needs the gate for a child and moves th
   await passGate(page);
   await expect(page.locator('dialog')).toContainText('Remove Defne?');
   await page.locator('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
-  await expect(page.locator('.pf-switch')).toHaveCount(0);
+  // the page is the main player's now, and the two that are left are still there
+  await expect(page.locator('.pf-switch').first()).toHaveAttribute('aria-label', 'Playing as Me. Switch player');
   await page.goto(`${WEB_DEV_URL}/profiles/?plan=family`, { waitUntil: 'networkidle' });
-  await expect(page.locator('[data-action="profile-pick"]')).toHaveCount(1);
+  await expect(page.locator('[data-action="profile-pick"]')).toHaveCount(2);
   await context.close();
 });
 
@@ -240,7 +242,7 @@ test('with the question switched on, the app opens on who is playing and goes on
   await page.getByRole('button', { name: 'Done' }).click();
   const ask = page.getByRole('checkbox', { name: 'Ask who is playing when the app opens' });
   await expect(ask).not.toBeChecked();
-  await ask.check({ force: true });
+  await page.locator('label[for="pf-ask"]').click();
   await expect(ask).toBeChecked();
   await page.goto(`${WEB_DEV_URL}/games/squat-flap/?plan=family`, { waitUntil: 'networkidle' });
   await page.waitForURL(/\/profiles\/\?next=%2Fgames%2Fsquat-flap%2F/);
@@ -278,7 +280,7 @@ test('a player keeps their own settings: the seat chosen for one is not the seat
   const { page, context } = await openScenario(browser, WEB_DEV_URL, 'players-kid', { w: 1280, h: 800 });
   const seated = page.getByRole('checkbox', { name: /Seated mode/ });
   await expect(seated).not.toBeChecked();
-  await seated.check({ force: true });
+  await page.locator('label[for="set-seated"]').click();
   await expect(seated).toBeChecked();
   await page.goto(`${WEB_DEV_URL}/profiles/?plan=family`, { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
@@ -318,6 +320,8 @@ for (const bp of BREAKPOINTS) {
           await page.goto(`${WEB_DEV_URL}/profiles/?plan=family`, { waitUntil: 'networkidle' });
           await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
           await page.locator('dialog.pf-gatebox').waitFor();
+          // the window slides in: it is measured where it stops
+          await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))));
           const box = await page.locator('dialog.pf-gatebox').boundingBox();
           if (!box || box.x < 0 || box.y < 0 || box.x + box.width > bp.w + 1 || box.y + box.height > bp.h + 1) found.push(`gate: the window is not whole on the screen (${JSON.stringify(box)})`);
           const over = await page.locator('dialog.pf-gatebox').evaluate((d) => d.scrollWidth > d.clientWidth + 1 || d.scrollHeight > d.clientHeight + 1);

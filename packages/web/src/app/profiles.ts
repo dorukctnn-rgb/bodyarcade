@@ -164,10 +164,15 @@ export class ProfilesController {
   /** The switch that says whether to ask who is playing when the app opens. */
   change(el: HTMLInputElement): boolean {
     if (el.name !== 'askOnStart') return false;
+    const want = el.checked;
     void (async () => {
-      const r = await this.viaGate(() => this.host.book.setAskOnStart(el.checked));
-      if (!r.ok && r.code !== 'parent_gate') this.say(this.words(r.code ?? 'unknown'), 'warn');
-      this.set({});
+      const r = await this.viaGate(() => this.host.book.setAskOnStart(want));
+      // The switch the player pressed is the one that stays: it is put back only when the book did not take the answer.
+      if (!r.ok) {
+        el.checked = !want;
+        if (r.code !== 'parent_gate') this.say(this.words(r.code ?? 'unknown'), 'warn');
+      }
+      this.st = { ...this.st, picker: this.host.book.picker() };
     })();
     return true;
   }
