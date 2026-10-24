@@ -86,8 +86,25 @@ describe.each(LANGS)('every page in %s', (lang) => {
     }
   });
 
+  it("the footer's links to the site's own pages (privacy, terms, FAQ) go to the pages of the page's language: Turkish under /tr/, English at the root", () => {
+    const root = lang === 'tr' ? '/tr' : '';
+    let withFooter = 0;
+    for (const url of urls) {
+      const page = draw(lang, url).html;
+      if (!page.includes('class="ba-footer"')) continue; // the paywall, the tour and the round are full-screen pages with no footer
+      withFooter += 1;
+      const links = hrefs(page);
+      for (const name of ['privacy', 'terms', 'faq']) {
+        expect(links, `${url} ${name}`).toContain(`${root}/${name}`);
+        // and never the other language's page
+        expect(links, `${url} ${name}`).not.toContain(lang === 'tr' ? `/${name}` : `/tr/${name}`);
+      }
+    }
+    expect(withFooter).toBeGreaterThan(10);
+  });
+
   it('links only to pages that exist, in the same language', () => {
-    const files = new Set(['/privacy', '/terms']);
+    const files = new Set(['/privacy', '/terms', '/faq', '/tr/privacy', '/tr/terms', '/tr/faq']);
     for (const url of urls) {
       const { html } = draw(lang, url);
       for (const h of hrefs(html)) {

@@ -32,12 +32,23 @@ export interface BootOptions {
   profiles?: { storage?: StorageLike | null; random?: () => number };
 }
 
+// ---- the switches of launch day: each is one line, and each stays false until what it names is true --------------------------------
+
 /**
- * Family is sold once its six profiles are there to use: the screen of players (who is playing, add, edit, remove), the parent
- * gate, the rules of a child's profile in every screen, and the table of the family on a game's page, all tested on the ten sizes.
- * The entitlements keep the plan off the page until it is told (realBilling's `family`), so this is the one switch.
+ * LAUNCH DAY, switch 1 of 2: Family is sold once its six profiles are there to use: the screen of players (who is playing, add, edit,
+ * remove), the parent gate, the rules of a child's profile in every screen, and the table of the family on a game's page, all tested on
+ * the ten sizes. The entitlements keep the plan off the page until it is told (realBilling's `family`), so this is the one switch:
+ * change `false` to `true` on this line and nothing else (no test pins it off; the release gate of content.test.ts, BA_RELEASE=1,
+ * asks for `true`).
  */
 export const FAMILY_ON = false;
+
+/**
+ * LAUNCH DAY, switch 2 of 2: the paywall says that rooms play the host's Pro games only once the Room verifies the host's signed Pro
+ * before a Pro game starts (builder N; BUILD-PLAN, launch-day list, "Room claim"). Until that check is on v2 the line stays out of the
+ * paywall. When it is, change `false` to `true` on this line.
+ */
+export const ROOM_PRO_ON = false;
 
 /** How long the first page waits for the entitlements before it is drawn from what the device kept. */
 export const ENTITLEMENTS_WAIT_MS = 600;
@@ -146,7 +157,7 @@ export async function boot(o: BootOptions): Promise<App> {
   }
 
   const app = new App({
-    win: o.win, catalogue: o.catalogue, version: o.version, demo: o.demo, profiles: book, family: FAMILY_ON, billing,
+    win: o.win, catalogue: o.catalogue, version: o.version, demo: o.demo, profiles: book, family: FAMILY_ON, roomsPro: ROOM_PRO_ON, billing,
     ...(entitlements ? { entitlements } : {}),
     ...(o.sessionFactory ? { sessionFactory: o.sessionFactory } : { makeSessionFactory }),
     social,

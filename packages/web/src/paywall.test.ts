@@ -313,3 +313,29 @@ describe('the free trial of an active membership, and the one reminder e-mail', 
     expect(onWeb).not.toContain('play.google.com');
   });
 });
+
+describe("the paywall's line about rooms is a promise the Room keeps", () => {
+  const withFlags = (lang: Lang, flags: { social: boolean; roomsPro?: boolean }): string => {
+    const m = web();
+    const ctx = makeContext({ lang, games, url: lang === 'en' ? '/pro/' : `/${lang}/pro/`, plans: m.plans, paywall: infoOf(m), flags });
+    return paywallPage(ctx, defaultPaywallState(ctx)).value;
+  };
+
+  it('is not there while the Room does not check the host\'s Pro, with the friends side on or off', () => {
+    for (const lang of LANGS) {
+      const said = lang === 'en' ? /Rooms where everyone plays the Pro games the host picks/ : /Ev sahibinin seçtiği Pro oyunların/;
+      expect(textOf(withFlags(lang, { social: true })), lang).not.toMatch(said);
+      expect(textOf(withFlags(lang, { social: true, roomsPro: false })), lang).not.toMatch(said);
+      expect(textOf(withFlags(lang, { social: false, roomsPro: false })), lang).not.toMatch(said);
+    }
+  });
+
+  it('is there once the check is on and the friends side is, and only then', () => {
+    for (const lang of LANGS) {
+      const said = lang === 'en' ? /Rooms where everyone plays the Pro games the host picks/ : /Ev sahibinin seçtiği Pro oyunların/;
+      expect(textOf(withFlags(lang, { social: true, roomsPro: true })), lang).toMatch(said);
+      // no friends side, no rooms to promise
+      expect(textOf(withFlags(lang, { social: false, roomsPro: true })), lang).not.toMatch(said);
+    }
+  });
+});

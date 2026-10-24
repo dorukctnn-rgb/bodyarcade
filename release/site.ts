@@ -29,17 +29,17 @@ export const LEGACY_INLINE_SCRIPT_HASH = "'sha256-Du+OJKJSbdUgz5nrHeWWINvez6XKDD
 /**
  * The Content-Security-Policy, report-only for now (code-audit 9.3 step 6). What each source is for:
  *   script-src  the app's own files; 'wasm-unsafe-eval' for the pose model's WebAssembly; the old content pages'
- *               one inline script by hash and their Plausible counter
+ *               one inline script by hash (nothing loads an analytics script: no third party is named here)
  *   connect-src the API and the live rooms (same origin, wss named for browsers that do not count it as 'self'),
- *               Gumroad's licence check (the direct fallback of the entitlements), Plausible on the content pages
+ *               Gumroad's licence check (the direct fallback of the entitlements)
  *   worker-src  the pose worker (a module worker from 'self'); blob: for the WASM loader's helper
  */
 export function contentSecurityPolicy(t: Target): string {
   const host = new URL(t.origin).host;
   const directives: [string, string[]][] = [
     ['default-src', ["'self'"]],
-    ['script-src', ["'self'", "'wasm-unsafe-eval'", LEGACY_INLINE_SCRIPT_HASH, 'https://plausible.io']],
-    ['connect-src', ["'self'", `wss://${host}`, 'https://api.gumroad.com', 'https://plausible.io']],
+    ['script-src', ["'self'", "'wasm-unsafe-eval'", LEGACY_INLINE_SCRIPT_HASH]],
+    ['connect-src', ["'self'", `wss://${host}`, 'https://api.gumroad.com']],
     ['img-src', ["'self'", 'data:', 'blob:']],
     ['media-src', ["'self'", 'blob:']],
     ['worker-src', ["'self'", 'blob:']],

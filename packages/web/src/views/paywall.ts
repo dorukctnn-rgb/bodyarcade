@@ -44,7 +44,8 @@ function benefits(ctx: ViewContext): SafeHtml {
   const items: SafeHtml[] = [];
   if (pro.length > 0) items.push(html`<li>${icon('arcade')}<span>${t.t('paywall.benefit.gamesList', { n: pro.length, names: t.list(pro.map((g) => titleOf(ctx, g))) })}</span></li>`);
   items.push(html`<li>${icon('trophy')}<span>${t.t('paywall.benefit.levels')}</span></li>`);
-  if (ctx.flags.social) items.push(html`<li>${icon('friends')}<span>${t.t('paywall.benefit.rooms')}</span></li>`);
+  // Only a promise the Room keeps: it must verify the host's Pro before a Pro game starts (ROOM_PRO_ON in app/boot.ts).
+  if (ctx.flags.social && ctx.flags.roomsPro) items.push(html`<li>${icon('friends')}<span>${t.t('paywall.benefit.rooms')}</span></li>`);
   return html`<ul class="k-benefits">${items}</ul>`;
 }
 

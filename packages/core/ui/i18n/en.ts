@@ -39,6 +39,7 @@ export const en = {
   'footer.made': 'BodyArcade is made by Peak Apps Studio.',
   'footer.privacy': 'Privacy',
   'footer.terms': 'Terms',
+  'footer.faq': 'FAQ',
   'footer.contact': 'Contact',
   'footer.camera': 'Camera video stays on your device.',
   'footer.language': 'Language',

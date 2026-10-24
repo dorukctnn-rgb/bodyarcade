@@ -77,6 +77,8 @@ export interface AppOptions {
   profiles?: ProfileBook;
   /** The Family plan is sold: the players screen may offer to add players to a device that has none to add yet. */
   family?: boolean;
+  /** The Room verifies the host's Pro before a Pro game starts: the paywall may say that rooms play the host's Pro games. */
+  roomsPro?: boolean;
   entitlements?: EntitlementsPort;
   /** The offers, what the paywall may say where the page runs, and the free trial: from core/entitlements (billing.ts). */
   billing: BillingPort;
@@ -341,7 +343,7 @@ export class App {
       // The notice of a trial and its reminder are about buying: a child's screens say nothing of it unless a grown-up has opened them.
       trial: this.trialDismissed || this.rules().purchase !== 'open' ? null : this.billing.trial.notice(), assets: this.assets,
       player: this.playerFacts(),
-      flags: { social: !!this.social && this.rules().online, family: this.o.family === true, socialChild: !!this.social && !this.rules().online }, version: this.o.version, server: false,
+      flags: { social: !!this.social && this.rules().online, family: this.o.family === true, socialChild: !!this.social && !this.rules().online, roomsPro: this.o.roomsPro === true }, version: this.o.version, server: false,
     });
   }
 

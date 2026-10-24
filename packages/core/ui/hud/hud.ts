@@ -254,8 +254,11 @@ export class PlayHud implements Hud {
         const range = this.doc.createRange();
         range.selectNodeContents(n);
         const view = this.doc.defaultView;
-        const tol = 0.25 * Number.parseFloat(view?.getComputedStyle(parent).fontSize ?? '16');
-        for (const rr of range.getClientRects()) {
+        const style = view?.getComputedStyle(parent);
+        const tol = 0.25 * Number.parseFloat(style?.fontSize ?? '16');
+        // A name that is cut with an ellipsis is meant to be: what is seen of it is its box, not the whole of the text behind the cut.
+        const clipped = style?.textOverflow === 'ellipsis' && style.overflowX !== 'visible';
+        for (const rr of clipped ? [parent.getBoundingClientRect()] : range.getClientRects()) {
           if (rr.left < pr.left - 0.5 || rr.right > pr.right + 0.5 || rr.top < pr.top - tol || rr.bottom > pr.bottom + tol) {
             out.push(`text spills out of ${plate.dataset['hud']}`);
             break;

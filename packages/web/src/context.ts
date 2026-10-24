@@ -20,6 +20,8 @@ export interface Flags {
   family: boolean;
   /** The friends side exists in this build but the player has no online identity (a child): its pages say so and lead to the main player. */
   socialChild: boolean;
+  /** The Room checks the host's signed Pro before a Pro game starts, so the paywall may say that a room plays the host's Pro games. */
+  roomsPro: boolean;
 }
 
 export interface ViewContext {

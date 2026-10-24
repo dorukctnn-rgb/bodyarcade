@@ -15,6 +15,8 @@ import { choose, collectErrors, withHooks, type Hooks } from './support/helpers.
 import { WEB_DEV_URL } from './support/ports.ts';
 
 const RACE: Hooks = { raceSeconds: 15, forceDemo: true, timeScale: 5 };
+/** A slower clock, for the races that are left in the middle: there is time to press the keys while the race is on. */
+const SLOW: Hooks = { ...RACE, timeScale: 3 };
 
 /** The camera is explained and allowed already, so a round goes straight to its calibration. */
 async function cameraReady(page: Page): Promise<void> {
@@ -30,9 +32,10 @@ async function fresh(browser: Browser, hooks: Hooks = RACE, size = { w: 1280, h:
   return { page, context, errors };
 }
 
-/** The race is on the stage and the others are under the score. */
+/** The calibration and the countdown are over, the HUD is up and the others are under the score. */
 async function inRace(page: Page): Promise<void> {
   await page.waitForSelector('[data-hud-root] [data-hud="statusLeft"]', { timeout: 45_000 });
+  await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal') && !document.querySelector('.ba-loading'), undefined, { timeout: 45_000 });
   await expect(page.locator('.rivals li')).toHaveCount(1, { timeout: 30_000 });
 }
 
@@ -57,7 +60,7 @@ function codeOf(url: string): string {
 
 test('the window asks who to race: a practice partner to begin with, its level, a code kept for next time, and Cancel races nothing', async ({ browser }) => {
   test.setTimeout(120_000);
-  const { page, context, errors } = await fresh(browser);
+  const { page, context, errors } = await fresh(browser, SLOW);
   await page.goto(`${WEB_DEV_URL}/games/squat-flap/`);
   await page.getByRole('button', { name: 'Race a ghost' }).click();
 
@@ -143,7 +146,7 @@ test('a whole race against the practice partner: the others under the score, the
 
   // "Send my run": the link goes to the clipboard, and what it opens is the card of a recording
   await race.getByRole('button', { name: 'Send my run' }).click();
-  await expect(page.getByText('The link to your run is copied.')).toBeVisible();
+  await expect(page.locator('.ba-toast')).toContainText('The link to your run is copied.');
   const link = await page.evaluate(() => navigator.clipboard.readText());
   expect(link).toMatch(/\/games\/squat-flap\/\?ghost=/);
   const sent = decodeRun(new URL(link).searchParams.get('ghost') ?? '');
@@ -157,7 +160,8 @@ test('a whole race against the practice partner: the others under the score, the
   await expect(other.locator('[data-ghost-offer]')).toContainText('Nobody is playing live.');
   await other.close();
 
-  // the same race again
+  // the same race again, on a slower clock (the hooks are read when a round starts), so there is time to leave it
+  await page.evaluate(() => { const h = window.__BA_TEST__; if (h) h.timeScale = 3; });
   await race.getByRole('link', { name: 'Race again' }).click();
   await page.waitForURL(/\/play\/squat-flap\/\?.*ghost=practice/);
   await inRace(page);
@@ -195,7 +199,7 @@ test('the best run of a race is kept, and is the next race: the same course agai
 
 test("a friend's link opens a card on the game's page, and the race is of the recording in it", async ({ browser }) => {
   test.setTimeout(120_000);
-  const { page, context, errors } = await fresh(browser);
+  const { page, context, errors } = await fresh(browser, SLOW);
   await page.goto(`${WEB_DEV_URL}/games/squat-flap/?ghost=${friendCode({ name: 'Ada' })}`);
   const offer = page.locator('[data-ghost-offer]');
   await expect(offer).toBeVisible();

@@ -42,14 +42,21 @@ function languageLinks(ctx: ViewContext): SafeHtml {
   return html`<nav class="ba-footer-langs" aria-label="${ctx.i18n.t('footer.language')}"><ul>${items}</ul></nav>`;
 }
 
+/**
+ * The pages that belong to the site and not to the app (their sources are in content/): English at the root, Turkish under /tr/.
+ * Every other language of the app reads the English ones, as the site has no others.
+ */
+export const sitePageHref = (lang: Lang, page: 'privacy' | 'terms' | 'faq'): string => `${lang === 'tr' ? '/tr' : ''}/${page}`;
+
 function footer(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
   return html`<footer class="ba-footer">
     <div class="ba-footer-inner">
       <p class="ba-footer-made">${t.t('footer.made')} ${t.t('footer.camera')}</p>
       <ul class="ba-footer-links">
-        <li><a href="/privacy" data-native>${t.t('footer.privacy')}</a></li>
-        <li><a href="/terms" data-native>${t.t('footer.terms')}</a></li>
+        <li><a href="${sitePageHref(ctx.lang, 'privacy')}" data-native>${t.t('footer.privacy')}</a></li>
+        <li><a href="${sitePageHref(ctx.lang, 'terms')}" data-native>${t.t('footer.terms')}</a></li>
+        <li><a href="${sitePageHref(ctx.lang, 'faq')}" data-native>${t.t('footer.faq')}</a></li>
         <li><a href="mailto:info@peakappsstudio.com">${t.t('footer.contact')}</a></li>
       </ul>
       ${languageLinks(ctx)}

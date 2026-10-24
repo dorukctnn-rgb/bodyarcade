@@ -49,7 +49,7 @@ export function makeContext(init: ContextInit): ViewContext {
     trial: init.trial ?? null,
     player: init.player ?? null,
     assets: init.assets ?? devAssets,
-    flags: { social: false, family: false, socialChild: false, ...init.flags },
+    flags: { social: false, family: false, socialChild: false, roomsPro: false, ...init.flags },
     url: init.url,
     href: (id, o) => router.href(id, { ...o, lang }),
     version: init.version ?? '0.0.0',

@@ -39,6 +39,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'footer.made': 'BodyArcade, Peak Apps Studio tarafından yapılır.',
   'footer.privacy': 'Gizlilik',
   'footer.terms': 'Koşullar',
+  'footer.faq': 'SSS',
   'footer.contact': 'İletişim',
   'footer.camera': 'Kamera görüntüsü cihazında kalır.',
   'footer.language': 'Dil',
