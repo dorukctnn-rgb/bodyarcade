@@ -93,7 +93,7 @@ export const SUSPEND_DAYS = 3;
 /** The window of the automatic mute (hours) and of the automatic suspension (days). */
 export const MUTE_WINDOW_HOURS = 24;
 export const SUSPEND_WINDOW_DAYS = 7;
-/** Different reporters within 24 hours for a serious reason (sexual content, a player who seems under 13) who do the same. */
+/** Different reporters within 24 hours for a serious reason (sexual content, a player who seems under 16) who do the same. */
 export const URGENT_REPORTERS_TO_SUSPEND = 2;
 /** A report counts towards those automatic steps only when the reporter's profile is at least this old, in hours. */
 export const REPORTER_MIN_PROFILE_HOURS = 1;
@@ -134,8 +134,12 @@ export const LEVEL_MAX = 99;
 /** Devices one profile may hold at the same time (the oldest goes when a sixth is added). */
 export const PROFILE_DEVICES = 5;
 export const MAX_FRIENDS = { teen: 50, adult: 100 } as const;
-/** The age lines. */
-export const AGE = { online: 13, video: 18 } as const;
+/**
+ * The age lines: no online identity below `online` (decided 24 Oct 23:00, raised from 13: GDPR art. 8 allows up to 16 and KVKK needs a
+ * guardian for minors; reversible after a lawyer check), preset names and messages from there to 17, text and video from `video`.
+ * The shell's words (core/ui/i18n: safety.age.*) and the friends screens say the same numbers; content.test.ts keeps them together.
+ */
+export const AGE = { online: 16, video: 18 } as const;
 
 export type Lang = 'en' | 'tr';
 

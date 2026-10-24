@@ -200,7 +200,7 @@ describe('the online profile is the code', () => {
     expect(roomVideoAllowed(['adult', 'teen'], 'private')).toBe(false);
   });
 
-  it('the ages 13 and 18 are the ones the app says', () => {
+  it('the ages 16 and 18 are the ones the app says', () => {
     const en = read('packages/core/ui/i18n/en.ts');
     expect(en).toContain(`'safety.age.child': 'Under ${F.AGE.online}'`);
     expect(en).toContain(`'safety.age.teen': '${F.AGE.online} to 17'`);
