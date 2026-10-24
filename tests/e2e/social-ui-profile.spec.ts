@@ -217,7 +217,7 @@ test('a friend link opened by somebody with no profile: the code, never a name; 
   await expect(ada.page.locator('[data-action="friendlink.send"]')).toHaveCount(0);
   // a link with no code in it
   await ada.open('/f/BA-12');
-  await expect(ada.page.locator('[role="alert"]')).toContainText('does not hold a valid friend code');
+  await expect(ada.page.locator('main [role="alert"]')).toContainText('does not hold a valid friend code');
 });
 
 // ───────── the weekly boards ─────────
