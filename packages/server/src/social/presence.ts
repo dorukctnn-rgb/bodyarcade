@@ -170,13 +170,15 @@ export interface RoomState { room: string; state: 'lobby' | 'playing'; game: str
 /** What the Room said (setPlaying hook): the player is in `room`, in its lobby or in a match; or, with null, left `room`. */
 export async function setRoomState(db: D1Like, pid: string, leaving: string | null, st: RoomState | null, now: number): Promise<boolean> {
   if (st) {
-    await run(
+    // Only for a stored profile: a player who erased their data while still in a room must not leave a row behind.
+    const n = await run(
       db,
-      `INSERT INTO soc_presence (pid, online, seen_at, room, r_state, r_game, changed_at) VALUES (?1, 0, ?2, ?3, ?4, ?5, ?2)
+      `INSERT INTO soc_presence (pid, online, seen_at, room, r_state, r_game, changed_at)
+       SELECT ?1, 0, ?2, ?3, ?4, ?5, ?2 WHERE EXISTS (SELECT 1 FROM soc_profiles WHERE pid = ?1)
        ON CONFLICT(pid) DO UPDATE SET room = ?3, r_state = ?4, r_game = ?5, changed_at = ?2`,
       pid, now, st.room, st.state, st.game,
     );
-    return true;
+    return n > 0;
   }
   // Leaving: only when the stored room is the one being left (a quick hop between two rooms must not erase the new one).
   const n = await run(
