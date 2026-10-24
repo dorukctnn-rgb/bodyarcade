@@ -55,7 +55,7 @@ export interface PlansConfig {
 
 export const STUB_PLANS: PlansConfig = {
   trialEligible: true,
-  trialReminder: false,
+  trialReminder: true,
   offers: [
     { id: 'pro-monthly', plan: 'pro', period: 'month', price: { amount: 7.99, currency: 'USD' }, checkout: {} },
     { id: 'pro-yearly', plan: 'pro', period: 'year', price: { amount: 39.99, currency: 'USD' }, trialDays: 7, featured: true, checkout: {} },
@@ -67,9 +67,12 @@ export const STUB_PLANS: PlansConfig = {
 /** The plans that have a free trial. Pro yearly only: Family, monthly and Lifetime have none, whatever a config says. */
 export const TRIAL_PLANS: readonly PlanId[] = ['pro-yearly'];
 
-/** "7 days free" appears only when the offer has a trial, it is one that has one, and this player can still use it. */
-export function trialApplies(offer: PlanOffer, cfg: Pick<PlansConfig, 'trialEligible'>): boolean {
-  return cfg.trialEligible && TRIAL_PLANS.includes(offer.id) && typeof offer.trialDays === 'number' && offer.trialDays > 0;
+/**
+ * "7 days free" and the sentence about the reminder appear together and only when the entitlements say a trial is on offer
+ * (`trialReminder`: this player can still use one and a plan has it), the offer is one that has a trial and carries its length.
+ */
+export function trialApplies(offer: PlanOffer, cfg: Pick<PlansConfig, 'trialEligible' | 'trialReminder'>): boolean {
+  return cfg.trialEligible && cfg.trialReminder && TRIAL_PLANS.includes(offer.id) && typeof offer.trialDays === 'number' && offer.trialDays > 0;
 }
 
 /** Price per month for a yearly plan, rounded to cents; null for other periods. */
@@ -105,7 +108,7 @@ const NAME_KEY = {
   lifetime: 'paywall.plan.lifetime',
 } as const;
 
-export function describeOffer(offer: PlanOffer, i18n: I18n, cfg: Pick<PlansConfig, 'trialEligible'>): OfferText {
+export function describeOffer(offer: PlanOffer, i18n: I18n, cfg: Pick<PlansConfig, 'trialEligible' | 'trialReminder'>): OfferText {
   const money = i18n.currency(offer.price.amount, offer.price.currency);
   const priceLine = i18n.t(offer.period === 'month' ? 'paywall.price.month' : offer.period === 'year' ? 'paywall.price.year' : 'paywall.price.once', { price: money });
   const pm = perMonth(offer);

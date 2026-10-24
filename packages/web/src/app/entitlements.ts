@@ -1,6 +1,7 @@
 // A stand-in for core/entitlements (builder S) until it lands: it holds the plan in the store, says honestly that the
 // license server cannot be reached when a key is typed, and in the demo build accepts one fixed key so the Pro screens
 // can be walked through. Swap in boot.ts when the real module exists.
+import { canUse } from '../../../core/entitlements/features.ts';
 import type { ActivateFailureCode, Plan, Unsubscribe } from '../../../core/types/index.ts';
 import type { EntitlementsPort } from './ports.ts';
 
@@ -10,6 +11,8 @@ export interface LocalEntitlementsOptions {
   initial?: Plan;
   /** Accept DEMO_KEY (development and test builds only). */
   demo?: boolean;
+  /** The games everybody may play (the manifests' free flag): the rule that `can` follows. */
+  isFreeGame?: (id: string) => boolean;
   /** Where the plan is remembered; null keeps it in memory. */
   save?: (plan: Plan) => void;
 }
@@ -25,6 +28,7 @@ export function localEntitlements(o: LocalEntitlementsOptions = {}): Entitlement
   };
   return {
     plan: () => plan,
+    can: (feature) => canUse(feature, { plan, source: 'none' }, o.isFreeGame ? { isFreeGame: o.isFreeGame } : {}),
     set,
     onChange(cb): Unsubscribe {
       listeners.add(cb);

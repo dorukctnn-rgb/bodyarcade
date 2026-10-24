@@ -1,6 +1,6 @@
 // From the numbers a round ends with to what the results screen shows: calories as an honest estimate, the reasons
-// moves missed (counted and put into words), personal bests kept per game and difficulty, and the per-player split.
-import type { RunSummary, Schema } from '../../../core/types/index.ts';
+// moves missed (counted and put into words) and the per-player split. Personal bests are the arcade's (core/store).
+import type { RunSummary } from '../../../core/types/index.ts';
 import type { I18n } from '../../../core/ui/i18n/index.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import type { PlayerResult, ResultExtra, RoundResult } from '../views/results.ts';
@@ -81,33 +81,4 @@ export function buildRoundResult(i: BuildInput): RoundResult {
     ...(players ? { players } : {}),
     replay: i.replay ?? null,
   };
-}
-
-// ---- personal bests ------------------------------------------------------------------------------------------------
-
-/** game id -> difficulty -> best score. */
-export type Bests = Record<string, Record<string, number>>;
-
-export const BESTS_SCHEMA: Schema<Bests> = {
-  version: 1,
-  parse(raw) {
-    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-    const out: Bests = {};
-    for (const [game, byLevel] of Object.entries(raw as Record<string, unknown>)) {
-      if (typeof byLevel !== 'object' || byLevel === null || Array.isArray(byLevel)) continue;
-      const clean: Record<string, number> = {};
-      for (const [level, v] of Object.entries(byLevel as Record<string, unknown>)) if (typeof v === 'number' && Number.isFinite(v) && v >= 0) clean[level] = v;
-      out[game] = clean;
-    }
-    return out;
-  },
-};
-
-export const bestOf = (b: Bests, game: string, difficulty: string): number | null => b[game]?.[difficulty] ?? null;
-
-/** Returns the new set of bests; a lower or equal score changes nothing. */
-export function withBest(b: Bests, game: string, difficulty: string, score: number): Bests {
-  const prev = bestOf(b, game, difficulty);
-  if (prev !== null && score <= prev) return b;
-  return { ...b, [game]: { ...(b[game] ?? {}), [difficulty]: score } };
 }

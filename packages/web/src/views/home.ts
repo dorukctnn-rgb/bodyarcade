@@ -6,9 +6,11 @@ import { icon } from '../../../core/ui/icons.ts';
 import type { BodyRegion } from '../../../core/types/index.ts';
 import { filterGames, orderForPlayer, proGames, supportsLocal2 } from '../../catalogue/filter.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
-import { CHART_TOP_MINUTES, DAILY_GOAL_MINUTES, type RecentBest, type WeekStats } from '../app/history.ts';
+import { ACTIVE_DAY_SECONDS, CHART_TOP_MINUTES, type RecentBest, type WeekStats } from '../app/arcade.ts';
+import type { ChallengeToday } from '../../../core/store/daily-challenge.ts';
 import { hasPro, regionLabel, taglineOf, titleOf, type ViewContext } from '../context.ts';
 import { chrome } from './chrome.ts';
+import { NO_PLANS_DATA, planStrip, type PlansData } from './plans.ts';
 import { gameGrid, regionChips } from './tiles.ts';
 import { weekdayNames } from './parts.ts';
 
@@ -18,9 +20,13 @@ export interface HomeData {
   recent: RecentBest[];
   /** Mode chip "2 players" is on: only games that can be played by two. */
   duoOnly: boolean;
+  /** The challenge of the day and where the player stands; null in a page drawn without a visitor. */
+  challenge: ChallengeToday | null;
+  /** The workout plans and the one that is going. */
+  plans: PlansData;
 }
 
-export const NO_HOME_DATA: HomeData = { week: null, recent: [], duoOnly: false };
+export const NO_HOME_DATA: HomeData = { week: null, recent: [], duoOnly: false, challenge: null, plans: NO_PLANS_DATA };
 
 /** The game shown large at the top of the home page: the first free game in menu order. */
 export function featuredGame(ctx: ViewContext): ShellGame | undefined {
@@ -44,17 +50,20 @@ function hero(ctx: ViewContext): SafeHtml {
   </article>`;
 }
 
-/** The week card: minutes per day against the daily line, the streak, and the recent bests. */
+/** The week card: minutes per day against the line of an active day, the week and day streaks, and the recent bests. */
 function weekCard(ctx: ViewContext, w: WeekStats, recent: RecentBest[]): SafeHtml {
   const t = ctx.i18n;
   const names = weekdayNames(t.tag);
   const long = new Intl.DateTimeFormat(t.tag, { weekday: 'long', timeZone: 'UTC' });
   const level = (m: number | null): number => (m === null ? 1 : Math.max(1, Math.min(20, Math.round((Math.min(m, CHART_TOP_MINUTES) / CHART_TOP_MINUTES) * 20))));
+  const lineMinutes = Math.round(ACTIVE_DAY_SECONDS / 60);
   const aria = t.t('home.week.chart', {
     days: w.days.filter((d) => d.minutes !== null).map((d) => `${long.format(new Date(`${d.day}T00:00:00Z`))} ${d.minutes}`).join(', '),
-    goal: DAILY_GOAL_MINUTES,
+    goal: lineMinutes,
   });
-  const goalLevel = Math.round((DAILY_GOAL_MINUTES / CHART_TOP_MINUTES) * 20);
+  const goalLevel = Math.round((lineMinutes / CHART_TOP_MINUTES) * 20);
+  const goalLine = w.met ? t.t('home.week.goal.met', { days: w.activeDays }) : t.t('home.week.goal', { days: w.activeDays, goal: w.goal });
+  const streaks = [w.weekStreak > 0 ? t.t('home.week.weekStreak', { n: w.weekStreak }) : '', w.dayStreak >= 2 ? t.t('home.week.dayStreak', { n: w.dayStreak }) : ''].filter(Boolean).join(' ');
   const dayName = (day: string): string => {
     const d = w.days.find((x) => x.day === day);
     return d?.today ? t.t('home.today') : d ? (names[d.index] ?? '') : t.date(new Date(`${day}T00:00:00Z`), { month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -64,16 +73,38 @@ function weekCard(ctx: ViewContext, w: WeekStats, recent: RecentBest[]): SafeHtm
     <div class="big">${t.number(w.totalMinutes)}<small>${t.t('home.week.minutes')}</small></div>
     <div class="k-bars" role="img" aria-label="${aria}">
       ${w.days.map((d) => html`<i class="h${level(d.minutes)} ${d.minutes === null ? 'later' : d.today ? 'now' : d.hit ? 'hit' : ''}"></i>`)}
-      <span class="goal g${goalLevel}"><span>${t.t('home.week.line', { n: DAILY_GOAL_MINUTES })}</span></span>
+      <span class="goal g${goalLevel}"><span>${t.t('home.week.line', { n: lineMinutes })}</span></span>
     </div>
     <div class="k-days" aria-hidden="true">${w.days.map((d) => html`<span>${names[d.index] ?? ''}</span>`)}</div>
-    <p class="ba-small">${t.t('home.week.streak', { n: w.streak, m: w.hits })}</p>
+    <p class="ba-small" data-week-goal>${goalLine}${streaks ? ` ${streaks}` : ''}</p>
+    ${w.weekStreak === 0 && !w.met ? html`<p class="ba-small">${t.t('home.week.start', { goal: w.goal, n: lineMinutes })}</p>` : ''}
     ${recent.length ? html`<div class="bests"><span class="k-label">${t.t('home.bests')}</span>
       <ul class="k-mix">${recent.map((b) => {
         const g = ctx.games.find((x) => x.id === b.game);
         return g ? html`<li><img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="56" height="42"><div><b>${t.number(b.score)}</b><small>${titleOf(ctx, g)}</small></div><span class="min">${dayName(b.day)}</span></li>` : '';
       })}</ul></div>` : ''}
   </aside>`;
+}
+
+/** The challenge of the day: one free game, the same for everybody on the same date, done by a minute of play. */
+function challengeCard(ctx: ViewContext, c: ChallengeToday | null): SafeHtml {
+  const ch = c?.challenge;
+  if (!c || !ch) return html``;
+  const g = ctx.games.find((x) => x.id === ch.game);
+  if (!g) return html``;
+  const t = ctx.i18n;
+  const href = ctx.href('game', { params: { slug: g.seo.slug } });
+  return html`<section class="k-card k-challenge" aria-labelledby="challenge-h" data-challenge="${g.id}">
+    <img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="160" height="120">
+    <div class="body">
+      <h2 class="k-h3" id="challenge-h">${t.t('challenge.title')}</h2>
+      <p>${t.t('challenge.body', { game: titleOf(ctx, g), n: Math.max(1, Math.round(ch.minSeconds / 60)) })}</p>
+      ${c.done ? html`<p class="ok" role="status">${icon('check')}<span>${t.t('challenge.done')}</span></p>` : ''}
+      ${c.bonus ? html`<p class="ok">${icon('star')}<span>${t.t('challenge.bonus')}</span></p>` : ''}
+      <p class="ba-small">${t.t('challenge.week', { n: c.doneThisWeek })}</p>
+      <div class="ba-actions"><a class="ba-btn ${c.done ? 'ba-btn--secondary' : 'ba-btn--primary'}" href="${href}">${icon('play')}<span>${t.t('home.cta.play', { game: titleOf(ctx, g) })}</span></a></div>
+    </div>
+  </section>`;
 }
 
 function modeChips(ctx: ViewContext, duoOnly: boolean): SafeHtml {
@@ -143,6 +174,7 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
 
   const main = html`
     ${top}
+    ${region ? '' : challengeCard(ctx, data.challenge)}
     <section class="ba-section k-allsec" aria-labelledby="games-h">
       <header class="k-allhead">
         <h2 id="games-h">${t.t('home.all')}</h2>
@@ -152,6 +184,7 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
       <div>${shown.length ? gameGrid(ctx, shown, t.t('home.all')) : empty}</div>
       ${hidden}
     </section>
+    ${region ? '' : planStrip(ctx, data.plans)}
     ${together(ctx)}
     ${proTeaser(ctx)}`;
 

@@ -10,6 +10,14 @@ import { shouldShowPaywallAfterRound } from '../../../core/ui/plans.ts';
 import { applySettingsToDocument, createSettingsStore, type Settings, type SettingsStore } from '../../../core/ui/settings.ts';
 import { createToaster, type Toaster } from '../../../core/ui/toast.ts';
 import { createStore, type BodyArcadeStore, type StorageLike, type StoreNamespace } from '../../../core/store/store.ts';
+import type { Arcade, PlanStepReport, RunReport } from '../../../core/store/arcade.ts';
+import type { AchievementDef } from '../../../core/store/achievements.ts';
+import type { ChallengeResult } from '../../../core/store/daily-challenge.ts';
+import type { HabitView } from '../../../core/store/habit.ts';
+import { browserStorage } from '../../../core/store/store.ts';
+import type { SyncPort } from '../../../core/store/sync-docs.ts';
+import type { PlanProgress, PlanRunView, WorkoutPlan } from '../../../core/store/workout-plans.ts';
+import { localized } from '../../../core/ui/i18n/localized.ts';
 import type { Catalogue, ShellGame } from '../../catalogue/types.ts';
 import { gameById, gameBySlug } from '../../catalogue/filter.ts';
 import { mappedAssets, devAssets, type AssetResolver } from '../assets.ts';
@@ -22,16 +30,18 @@ import type { GameData } from '../views/game.ts';
 import type { HomeData } from '../views/home.ts';
 import { confirmHtml, type ConfirmOptions } from '../views/misc.ts';
 import { defaultPaywallState, selectedOffer, type KeyStatus, type PaywallState } from '../views/paywall.ts';
-import type { RoundResult } from '../views/results.ts';
+import { NO_HOME_DATA } from '../views/home.ts';
+import { NO_PLANS_DATA, stepHref, type PlanPanel } from '../views/plans.ts';
+import type { RoundProgress, RoundResult } from '../views/results.ts';
 import { PRO_DIFFICULTIES, defaultSetup, playHref, sanitizeSetup, setupFields, setupFromForm, setupFromQuery, type SetupState } from '../views/setup.ts';
 import { applyHead, readAssetMap, swap } from './dom.ts';
 import { localEntitlements } from './entitlements.ts';
-import { addRound, HISTORY_SCHEMA, recentBests, weekStats, type RoundRecord } from './history.ts';
+import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
 import { PlayController, type PlayHost } from './play.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
 import type { SocialServices } from '../social/port.ts';
-import { BESTS_SCHEMA, bestOf, buildRoundResult, withBest, type Bests } from './results.ts';
+import { buildRoundResult, caloriesFor } from './results.ts';
 
 /** What a session factory needs from the app: where the store is, the words, and the player's switches. */
 export interface AppServices {
@@ -57,6 +67,12 @@ export interface AppOptions {
   sessionFactory?: SessionFactory;
   /** Makes the session factory once the app's services exist (the real session needs the store and the words). */
   makeSessionFactory?: (s: AppServices) => SessionFactory;
+  /**
+   * The social client as the arcade's document sync wants it (its loadSync and updateSync), once there is a profile; null before.
+   * Whoever wires the real social client (builder UX, in boot.ts) hands it over here: the streak, the daily challenge and the plans
+   * then follow the player to a second device.
+   */
+  syncPort?: () => SyncPort | null;
   /** Friends, lobbies and rooms: the social client and the live client behind the ports. Off (null) until the social server exists. */
   social?: SocialServices | null;
   /** The player pressed something that starts a round: the place to unlock the sound. */
@@ -97,8 +113,11 @@ export class App {
   private lang: Lang = 'en';
   private route: Matched<RouteId> | null = null;
   private state: PageState = { ...EMPTY_STATE };
-  private bests: Bests;
-  private history: RoundRecord[];
+  /** Everything the player does, kept as facts: runs and bests, the habit, the challenge of the day, the workout plans. */
+  private readonly arcade: Arcade;
+  /** The round that is on the stage is a game of the workout plan that is going. */
+  private planRound = false;
+  private restTimer: ReturnType<typeof setInterval> | null = null;
   private play: PlayController | null = null;
   /** Back during a round: the page goes forward again and asks ('restoring'); a yes goes back for real ('leaving'). */
   private backGuard: 'idle' | 'restoring' | 'leaving' = 'idle';
@@ -125,6 +144,7 @@ export class App {
     if (first && this.caps.tv) this.settings.set({ bigText: true });
     this.entitlements = o.entitlements ?? localEntitlements({
       demo: o.demo,
+      isFreeGame: (id) => this.games.find((g) => g.id === id)?.free === true,
       initial: this.shell.get('plan', { version: 1, parse: (r) => (r === 'pro' || r === 'family' || r === 'lifetime' || r === 'free' ? r : null) }, 'free' as Plan),
       save: (p) => this.shell.set('plan', p),
     });
@@ -132,8 +152,13 @@ export class App {
     this.billing = o.billing;
     const map = readAssetMap(this.doc);
     this.assets = Object.keys(map).length > 0 ? mappedAssets(map) : devAssets;
-    this.bests = this.shell.get('bests', BESTS_SCHEMA, {});
-    this.history = this.shell.get('history', HISTORY_SCHEMA, []);
+    this.arcade = makeArcade({
+      store: this.store, games: () => this.games, can: (f) => this.entitlements.can?.(f) ?? false, paid: () => this.plan !== 'free',
+      seated: () => this.currentSettings().seated, syncPort: () => this.o.syncPort?.() ?? null,
+    });
+    // A player who comes back from the live site brings the runner's record, once.
+    const legacy = browserStorage();
+    if (legacy) { try { this.arcade.importLegacy(legacy); } catch { /* the record starts empty */ } }
     this.live = createLiveRegion(this.doc as never);
     this.toaster = createToaster(this.doc as never, this.live);
     this.social = o.social ? new SocialController(this.socialHost(), o.social) : null;
@@ -185,6 +210,8 @@ export class App {
     this.on(this.doc, 'input', (e) => this.onInput(e));
     this.on(this.doc, 'submit', (e) => this.onSubmit(e));
     this.on(this.win, 'offline', () => this.toaster.show(this.ctx().i18n.t('toast.offline'), { kind: 'warn' }));
+    this.on(this.doc, 'visibilitychange', () => { if (!this.doc.hidden) void this.arcade.sync.sync(); });
+    void this.arcade.sync.sync();
     this.on(this.win, 'resize', () => this.onResize());
     this.on(this.win, 'orientationchange', () => this.onResize());
     this.watchEntitlements();
@@ -223,6 +250,7 @@ export class App {
     this.nav.stop();
     for (const c of this.cleanups.splice(0)) c();
     this.offEntitlements?.();
+    this.stopRestTimer();
     this.live.dispose();
     this.toaster.dispose();
   }
@@ -262,25 +290,26 @@ export class App {
   }
 
   private bestAnyLevel(gameId: string): number | null {
-    const by = this.bests[gameId];
-    if (!by) return null;
-    const v = Object.values(by);
-    return v.length ? Math.max(...v) : null;
+    const best = this.arcade.progress(gameId).best();
+    return best > 0 ? best : null;
   }
 
-  /** What the home page knows about this player's weeks. */
+  /** What the home page knows about this player: the week and its streaks, the challenge of the day, the plans. */
   private homeData(route: Matched<RouteId> | null): HomeData {
-    const today = this.store.day();
-    const week = this.history.length > 0 ? weekStats(this.history, today) : null;
+    const today = this.arcade.today();
+    const played = hasPlayed(this.arcade, this.games);
     return {
-      week,
-      recent: week ? recentBests(this.history, (g) => this.bestAnyLevel(g)) : [],
+      week: played ? weekStats(secondsByDay(this.arcade, this.games), today.day, today.habit) : null,
+      recent: played ? recentBests(this.arcade, this.games) : [],
       duoOnly: this.caps.local2 && route?.query.get('players') === '2',
+      challenge: today.challenge,
+      plans: { cards: this.arcade.plans.list(), active: today.plan },
     };
   }
 
   private gameData(g: ShellGame, ctx: ViewContext): GameData {
-    return { best: this.bestAnyLevel(g.id), setup: this.setupFor(g, ctx) };
+    const today = this.arcade.challenge.today();
+    return { best: this.bestAnyLevel(g.id), setup: this.setupFor(g, ctx), challenge: today.challenge?.game === g.id ? { done: today.done, bonus: today.bonus } : null };
   }
 
   private setupFor(g: ShellGame, ctx: ViewContext): SetupState {
@@ -301,8 +330,9 @@ export class App {
     const state: PageState = {
       ...this.state,
       reducedMotion: this.reducedMotion(),
-      home: this.homeData(route),
+      home: route?.id === 'home' || route?.id === 'region' ? this.homeData(route) : NO_HOME_DATA,
       game: game ? this.gameData(game, ctx) : this.state.game,
+      plans: route?.id === 'plans' ? { cards: this.arcade.plans.list(), active: this.arcade.plans.active() } : NO_PLANS_DATA,
       social: this.social && route && SOCIAL_ROUTES.has(route.id) ? this.social.pageState(route) : null,
     };
     const page = renderPage(ctx, route, state);
@@ -310,6 +340,7 @@ export class App {
     const info = LANG_INFO.find((l) => l.code === this.lang);
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });
     if (route?.id === 'play' && page.status === 200) this.beginPlay(route);
+    if (route?.id === 'results') this.startRestTimer();
   }
 
   /** Redraws the page after something changed (the plan, the language of the page, the device). */
@@ -333,6 +364,7 @@ export class App {
     if (!g || !stage) return;
     const ctx = this.ctx();
     const setup = setupFromQuery(ctx, g, route.query);
+    this.planRound = route.query.get('plan') === '1' && this.arcade.plans.active()?.current?.game === g.id;
     // A Pro game without Pro and without a free round left goes to the offer, not to a round that cannot count.
     if (accessOf(ctx, g) === 'locked') {
       this.nav.go(ctx.href('pro', { query: { game: g.id } }), { replace: true });
@@ -440,20 +472,113 @@ export class App {
 
   private rounds(): number { return this.shell.get('rounds', { version: 1, parse: (r) => (typeof r === 'number' && r >= 0 ? r : null) }, 0); }
 
+  /**
+   * The round is over: it goes into the record (a plan's game moves the plan on), and the results screen is built from what the
+   * record says happened. Two players on one camera add their minutes to the habit and set no personal record.
+   */
   private finishRound(game: ShellGame, setup: SetupState, summary: Parameters<PlayHost['finish']>[2]): void {
     const ctx = this.ctx();
-    const previous = bestOf(this.bests, game.id, setup.difficulty);
-    const result = buildRoundResult({ game, setup, summary, weightKg: this.currentSettings().weightKg, i18n: ctx.i18n, previousBest: previous });
-    if (setup.players === 1) {
-      this.bests = withBest(this.bests, game.id, setup.difficulty, summary.score);
-      this.shell.set('bests', this.bests);
-    }
-    const now = Date.now();
-    this.history = addRound(this.history, { day: this.store.day(), game: game.id, score: summary.score, seconds: Math.round(summary.seconds), at: now });
-    this.shell.set('history', this.history);
+    const weightKg = this.currentSettings().weightKg;
+    const input = runInputOf({ game, setup, summary, kcal: caloriesFor(summary.metSeconds, weightKg) });
+    const solo = setup.players === 1;
+    const before = this.arcade.plans.active();
+    let report: RunReport | null = null;
+    let step: PlanStepReport | null = null;
+    let shared: { play: ReturnType<Arcade['habit']['addPlay']>; habit: HabitView } | null = null;
+    if (!solo) {
+      shared = { play: this.arcade.habit.addPlay(summary.seconds), habit: this.arcade.habit.view() };
+    } else if (this.planRound && before?.current?.game === game.id) {
+      step = this.arcade.finishPlanStep(input);
+      report = step?.report ?? this.arcade.recordRun(game.id, input);
+    } else report = this.arcade.recordRun(game.id, input);
+    this.planRound = false;
+    const previous = report?.outcome.saved && report.outcome.previousBest > 0 ? report.outcome.previousBest : null;
+    const progress = this.progressOf(report ? { play: report.play, challenge: report.challenge, habit: report.habit, news: report.outcome.news } : { play: shared?.play ?? null, challenge: null, habit: shared?.habit ?? this.arcade.habit.view(), news: [] });
+    const plan = step?.progress && before ? this.panelOf(step.progress, before.plan, before.total) : null;
+    const result: RoundResult = { ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous }), progress, plan };
     this.state = { ...this.state, result };
     this.shell.set('rounds', this.rounds() + 1);
+    void this.arcade.sync.sync();
     this.nav.go(ctx.href('results'), { replace: true });
+  }
+
+  /** What the round did to the record, as the results screen tells it: only what happened. */
+  private progressOf(r: { play: ReturnType<Arcade['habit']['addPlay']> | null; challenge: ChallengeResult | null; habit: HabitView; news: readonly AchievementDef[] }): RoundProgress | null {
+    const activeDay = r.play?.becameActive === true;
+    const weekGoalReached = activeDay && r.habit.week.met && r.habit.week.days === r.habit.week.goal;
+    const challengeDone = r.challenge?.justDone === true;
+    const challengeBonus = r.challenge?.justBonus === true;
+    const achievements = r.news.map((a) => localized(a.name, this.lang));
+    if (!activeDay && !weekGoalReached && !challengeDone && !challengeBonus && achievements.length === 0) return null;
+    return { activeDay, weekGoalReached, weekDays: r.habit.week.days, weekStreak: r.habit.weekStreak, challengeDone, challengeBonus, achievements };
+  }
+
+  /** Where the plan stands after a game of it: the next game with its address and rest, or how it ended. */
+  private panelOf(p: PlanProgress, plan: WorkoutPlan, total: number): PlanPanel {
+    const view: PlanRunView | null = p.view;
+    const ctx = this.ctx();
+    const step = view?.current ?? null;
+    const href = step ? stepHref(ctx, step) : null;
+    return {
+      plan, over: p.over, done: p.done, played: p.played, skipped: p.skipped, total, minutes: Math.max(1, Math.round(p.seconds / 60)),
+      next: !p.over && view && step && href ? { game: step.game, href, number: view.number, restSec: view.restSec } : null,
+    };
+  }
+
+  /** The player starts a plan: its first game opens, played the way the plan asks (its level, seated or not). */
+  private startPlan(id: string): void {
+    const ctx = this.ctx();
+    const r = this.arcade.plans.start(id);
+    if (!r.ok) {
+      if (r.code === 'locked') this.nav.go(ctx.href('pro'));
+      else this.toaster.show(ctx.i18n.t('plans.noGames'), { kind: 'warn' });
+      return;
+    }
+    const href = r.view.current ? stepHref(ctx, r.view.current) : null;
+    if (!href) { this.arcade.plans.abandon(); this.toaster.show(ctx.i18n.t('plans.noGames'), { kind: 'warn' }); return; }
+    this.o.onPlayGesture?.();
+    this.nav.go(href);
+  }
+
+  /** The player leaves out the game that is next: the plan moves on, and the panel shows the one after it (or the end). */
+  private skipPlanStep(): void {
+    const prev = this.state.result?.plan;
+    if (!prev || prev.over) return;
+    const progress = this.arcade.plans.skipStep();
+    if (this.state.result) this.state = { ...this.state, result: { ...this.state.result, plan: this.panelOf(progress, prev.plan, prev.total) } };
+    this.rerender();
+  }
+
+  private leavePlan(): void {
+    this.arcade.plans.abandon();
+    if (this.state.result) this.state = { ...this.state, result: { ...this.state.result, plan: null } };
+    this.toaster.show(this.ctx().i18n.t('plan.left'));
+    this.rerender();
+  }
+
+  /** The rest between two games of a plan counts down on the results screen; it only says when it is over, the player starts the next game. */
+  private startRestTimer(): void {
+    this.stopRestTimer();
+    const note = this.doc.querySelector<HTMLElement>('[data-plan-rest]');
+    if (!note) return;
+    let left = Number(note.dataset['planRest']);
+    const text = note.querySelector<HTMLElement>('[data-plan-rest-text]');
+    const count = note.querySelector<HTMLElement>('[data-plan-count]');
+    if (!Number.isFinite(left) || left <= 0 || !text || !count) return;
+    const t = this.ctx().i18n;
+    count.textContent = String(left);
+    this.restTimer = setInterval(() => {
+      left -= 1;
+      if (left > 0) { count.textContent = String(left); return; }
+      this.stopRestTimer();
+      count.hidden = true;
+      text.textContent = t.t('plan.restOver');
+    }, 1000);
+  }
+
+  private stopRestTimer(): void {
+    if (this.restTimer) clearInterval(this.restTimer);
+    this.restTimer = null;
   }
 
   /** After the first good round (and then at most every three quiet days) the offer opens once, never mid-play. */
@@ -513,6 +638,18 @@ export class App {
       case 'restore':
         e.preventDefault();
         void this.restore();
+        break;
+      case 'plan-start':
+        e.preventDefault();
+        this.startPlan(el.dataset['plan'] ?? '');
+        break;
+      case 'plan-skip':
+        e.preventDefault();
+        this.skipPlanStep();
+        break;
+      case 'plan-leave':
+        e.preventDefault();
+        this.leavePlan();
         break;
       case 'trial-dismiss':
         e.preventDefault();
@@ -642,11 +779,20 @@ export class App {
     const yes = await this.confirm({ title: t.t('settings.data.confirm.title'), body: t.t('settings.data.confirm.body'), confirm: t.t('settings.data.confirm.yes'), cancel: t.t('common.cancel'), danger: true });
     if (!yes) return;
     const plan = this.plan;
+    // The licence is the player's, not a setting: it stays, so Pro does too (the words of the question promise it).
+    const kept: [string, string][] = [];
+    try {
+      const ls = this.win.localStorage;
+      for (let i = 0; i < ls.length; i++) {
+        const k = ls.key(i);
+        const v = k?.startsWith('ba2.entitlements.') ? ls.getItem(k) : null;
+        if (k && v !== null) kept.push([k, v]);
+      }
+    } catch { /* no storage to keep from */ }
     this.store.clearAll();
+    try { for (const [k, v] of kept) this.win.localStorage.setItem(k, v); } catch { /* nothing to put back into */ }
     this.settings.reset();
     this.shell.set('plan', plan);
-    this.bests = {};
-    this.history = [];
     this.setups.clear();
     this.state = { ...EMPTY_STATE };
     this.apply();

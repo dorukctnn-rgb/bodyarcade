@@ -11,6 +11,8 @@ import type { SetupState } from '../views/setup.ts';
 export interface EntitlementsPort {
   plan(): Plan;
   onChange(cb: (plan: Plan) => void): Unsubscribe;
+  /** The entitlements' can(): 'plan:<id>', 'game:<id>', 'difficulty:<level>', 'profiles:6'. */
+  can?(feature: string): boolean;
   /** A license key typed in by the player. Never throws. */
   activate(key: string): Promise<{ ok: true; plan: Plan } | { ok: false; code: ActivateFailureCode }>;
   /** Android only: ask Google Play for the purchases again. */

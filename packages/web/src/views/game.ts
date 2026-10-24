@@ -23,9 +23,11 @@ export interface GameData {
   best: number | null;
   /** The choices on the page; the defaults for this player when not given. */
   setup?: SetupState;
+  /** This game is the challenge of the day, and how it stands. */
+  challenge?: { done: boolean; bonus: boolean } | null;
 }
 
-export const NO_GAME_DATA: GameData = { best: null };
+export const NO_GAME_DATA: GameData = { best: null, challenge: null };
 
 /** The words about whether this player can start the game now. */
 export function accessNote(ctx: ViewContext, access: Access): string {
@@ -97,6 +99,7 @@ export function gamePage(ctx: ViewContext, g: ShellGame, data: GameData = NO_GAM
         <div class="k-top">
           <h1 id="game-h1" data-main-heading>${titleOf(ctx, g)}</h1>
           <p class="k-lead">${taglineOf(ctx, g)}</p>
+          ${data.challenge ? html`<p class="k-challengechip" data-challenge-today>${icon(data.challenge.done ? 'check' : 'star')}<span>${t.t('challenge.title')}${data.challenge.done ? `: ${t.t('challenge.done')}` : ''}</span></p>` : ''}
           ${facts(ctx, g)}
         </div>
         <div class="k-block"><span class="k-label">${t.t('game.section.how')}</span>${how(ctx, g)}</div>

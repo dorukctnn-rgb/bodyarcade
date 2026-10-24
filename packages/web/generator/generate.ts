@@ -147,7 +147,7 @@ export function generate(o: GenerateOptions): GenerateReport {
     if (games.some((g) => g.regions.includes(region) || (region === 'seated' && g.seated))) emit('region', { region });
   }
   for (const g of games) { emit('game', { slug: g.seo.slug }); emit('play', { slug: g.seo.slug }); }
-  for (const id of ['settings', 'pro', 'results', 'welcome'] as const) emit(id, {});
+  for (const id of ['plans', 'settings', 'pro', 'results', 'welcome'] as const) emit(id, {});
 
   // 404.html: what the host serves for an address that does not exist.
   {

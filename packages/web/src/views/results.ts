@@ -8,6 +8,7 @@ import type { ShellGame } from '../../catalogue/types.ts';
 import { durationLabel, hasPro, titleOf, type ViewContext } from '../context.ts';
 import { chrome } from './chrome.ts';
 import { pageHead } from './parts.ts';
+import { planPanel, type PlanPanel } from './plans.ts';
 import { playHref, type SetupState } from './setup.ts';
 
 /** A number a game adds to its results beyond the common ones (Reaction Tag: the average and the best reaction), already in words. */
@@ -20,6 +21,21 @@ export interface PlayerResult {
   hits?: number;
   cleared?: number;
   extras?: ResultExtra[];
+}
+
+/** What a round did to the player's record, in the facts the results screen tells. Only what happened is here. */
+export interface RoundProgress {
+  /** This round made today an active day. */
+  activeDay: boolean;
+  /** This round was the one that reached the week's goal. */
+  weekGoalReached: boolean;
+  weekDays: number;
+  weekStreak: number;
+  /** This round finished the challenge of the day, and beat the player's own best in it. */
+  challengeDone: boolean;
+  challengeBonus: boolean;
+  /** Names of the achievements this round unlocked, in the page language. */
+  achievements: string[];
 }
 
 export interface RoundResult {
@@ -46,6 +62,10 @@ export interface RoundResult {
   players?: PlayerResult[];
   /** There is a one second skeleton replay of a miss. The slot stays out of the page until the session gives frames. */
   replay?: { reason: string } | null;
+  /** What this round did to the record of the player. */
+  progress?: RoundProgress | null;
+  /** Where the workout plan stands, when this round was one of its games. */
+  plan?: PlanPanel | null;
 }
 
 export function formatClock(seconds: number): string {
@@ -93,6 +113,21 @@ function why(ctx: ViewContext, r: RoundResult): SafeHtml {
   </section>`;
 }
 
+/** The lines about the record: an active day, the week, the challenge, achievements. Nothing when nothing happened. */
+function progressBlock(ctx: ViewContext, p: RoundProgress | null | undefined): SafeHtml {
+  if (!p) return html``;
+  const t = ctx.i18n;
+  const lines: SafeHtml[] = [];
+  if (p.activeDay) lines.push(html`<li>${icon('check')}<span>${t.t('results.progress.active')}</span></li>`);
+  if (p.weekGoalReached) lines.push(html`<li>${icon('star')}<span>${t.t('results.progress.weekGoal', { days: p.weekDays })}</span></li>`);
+  if (p.weekStreak > 0 && (p.activeDay || p.weekGoalReached)) lines.push(html`<li>${icon('trophy')}<span>${t.t('results.progress.weekStreak', { n: p.weekStreak })}</span></li>`);
+  if (p.challengeDone) lines.push(html`<li>${icon('check')}<span>${t.t('results.progress.challengeDone')}</span></li>`);
+  if (p.challengeBonus) lines.push(html`<li>${icon('star')}<span>${t.t('results.progress.challengeBonus')}</span></li>`);
+  for (const name of p.achievements) lines.push(html`<li>${icon('trophy')}<span>${t.t('results.progress.achievement', { name })}</span></li>`);
+  if (lines.length === 0) return html``;
+  return html`<section class="k-card k-progress" aria-labelledby="progress-h" data-progress><h2 class="k-h3" id="progress-h">${t.t('results.progress.title')}</h2><ul>${lines}</ul></section>`;
+}
+
 function duo(ctx: ViewContext, r: RoundResult): SafeHtml {
   const t = ctx.i18n;
   const ps = r.players ?? [];
@@ -132,8 +167,10 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
         ${r.setup.players === 2 && r.players ? duo(ctx, r) : html`${score(ctx, r, g)}${counted(ctx, r)}`}
         ${stats(ctx, r)}
         ${calories(ctx, r)}
+        ${progressBlock(ctx, r.progress)}
       </div>
       <div class="k-stack">
+        ${r.plan ? planPanel(ctx, r.plan) : ''}
         ${why(ctx, r)}
         ${r.replay ? html`<section class="k-card k-replay" aria-labelledby="replay"><h2 id="replay" class="k-h3">${t.t('results.replay.title')}</h2>
           <div class="view" data-replay role="img" aria-label="${t.t('results.replay.alt', { reason: r.replay.reason })}"></div>

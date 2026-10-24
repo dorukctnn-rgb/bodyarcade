@@ -9,9 +9,15 @@ const monthly = STUB_PLANS.offers.find((o) => o.id === 'pro-monthly')!;
 
 describe('plans', () => {
   it('shows a trial only when the offer has one and the player is eligible', () => {
-    expect(trialApplies(yearly, { trialEligible: true })).toBe(true);
-    expect(trialApplies(yearly, { trialEligible: false })).toBe(false);
-    expect(trialApplies(monthly, { trialEligible: true })).toBe(false);
+    expect(trialApplies(yearly, { trialEligible: true, trialReminder: true })).toBe(true);
+    expect(trialApplies(yearly, { trialEligible: false, trialReminder: false })).toBe(false);
+    // the entitlements say whether a trial is on offer at all: without that the words are not shown
+    expect(trialApplies(yearly, { trialEligible: true, trialReminder: false })).toBe(false);
+    expect(trialApplies(monthly, { trialEligible: true, trialReminder: true })).toBe(false);
+    // Family has no trial, whatever a config says
+    const family = STUB_PLANS.offers.find((o) => o.id === 'family-yearly')!;
+    expect(family.trialDays).toBeUndefined();
+    expect(trialApplies({ ...family, trialDays: 7 }, { trialEligible: true, trialReminder: true })).toBe(false);
   });
 
   it('computes honest figures from the config', () => {
@@ -22,14 +28,14 @@ describe('plans', () => {
 
   it('describes offers in English and Turkish without a trial line when it does not apply', () => {
     const en = createI18n('en');
-    const a = describeOffer(yearly, en, { trialEligible: true });
+    const a = describeOffer(yearly, en, { trialEligible: true, trialReminder: true });
     expect(a.priceLine).toBe('$39.99 a year');
     expect(a.trialLine).toContain('7 days free');
     expect(a.detail).toContain('$3.33');
-    const b = describeOffer(yearly, en, { trialEligible: false });
+    const b = describeOffer(yearly, en, { trialEligible: false, trialReminder: false });
     expect(b.trialLine).toBeNull();
     expect(b.cta).not.toMatch(/free/i);
-    const tr = describeOffer(yearly, createI18n('tr'), { trialEligible: true });
+    const tr = describeOffer(yearly, createI18n('tr'), { trialEligible: true, trialReminder: true });
     expect(tr.trialLine).toContain('7 gün ücretsiz');
   });
 });

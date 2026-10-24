@@ -156,7 +156,7 @@ describe('Google Play policy: nothing in the app names another way to pay', () =
 
 describe('the free trial is promised where there is one', () => {
   /** Words of a trial, a reminder or a day count: none of them may stand near a plan that has no trial. */
-  const TRIALISH = /d+ days? free|Try d+ days?|remind|d+ gün ücretsiz|d+ gün dene|hatırlat/i;
+  const TRIALISH = /\d+ days? free|Try \d+ days?|remind|\d+ gün ücretsiz|\d+ gün dene|hatırlat/i;
   /** What sits under the plans: the button of the chosen plan and the note about the trial, the cancelling and the reminder. */
   const bar = (m: PaywallModel, id: PlanId, lang: Lang = 'en'): string => textOf(page(lang, m, { selected: id }).split('<div class="k-actionbar">')[1] ?? '');
   /** The row of one plan in the list. */

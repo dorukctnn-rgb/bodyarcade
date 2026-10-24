@@ -40,10 +40,14 @@ interface RealParts { port: EntitlementsPort; billing: BillingPort }
 
 async function startEntitlements(o: BootOptions, store: BodyArcadeStore): Promise<RealParts | null> {
   try {
-    const boot = await bootEntitlements({ store, window: o.win as unknown as BootWindow });
+    const boot = await bootEntitlements({
+      store, window: o.win as unknown as BootWindow,
+      // A game that is free for everyone, from the manifests: the entitlements' can('game:<id>') says yes to it for a free player.
+      rules: { isFreeGame: (id) => o.catalogue.games.find((g) => g.id === id)?.free === true },
+    });
     const details = await loadPlayDetails(boot.env);
     const real = realBilling(boot, { family: FAMILY_ON, details: () => details });
-    return { port: boot.port, billing: o.placeholderPlans ? withPreviewOffers(real) : real };
+    return { port: { ...boot.port, can: (feature) => boot.service.can(feature) }, billing: o.placeholderPlans ? withPreviewOffers(real) : real };
   } catch (e) {
     console.error(e);
     return null;

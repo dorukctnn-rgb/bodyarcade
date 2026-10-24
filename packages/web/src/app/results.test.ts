@@ -4,7 +4,7 @@ import { createI18n } from '../../../core/ui/i18n/index.ts';
 import { loadCatalogue } from '../../catalogue/load.ts';
 import { makeContext } from '../make-context.ts';
 import { defaultSetup } from '../views/setup.ts';
-import { BESTS_SCHEMA, bestOf, buildRoundResult, caloriesFor, reactionExtras, reasonsFrom, withBest } from './results.ts';
+import { buildRoundResult, caloriesFor, reactionExtras, reasonsFrom } from './results.ts';
 
 const games = loadCatalogue({ fixtures: 'only', requiredLangs: ['en', 'tr'] }).catalogue.games;
 const game = games[0]!;
@@ -102,24 +102,5 @@ describe('reaction times', () => {
   });
   it('are spoken in Turkish too', () => {
     expect(reactionExtras(taps, createI18n('tr'))[0]).toEqual({ label: 'Ortalama tepki', value: '370 ms' });
-  });
-});
-
-describe('personal bests', () => {
-  it('keep the highest score per game and difficulty', () => {
-    let b = withBest({}, 'squat-flap', 'normal', 20);
-    expect(bestOf(b, 'squat-flap', 'normal')).toBe(20);
-    expect(bestOf(b, 'squat-flap', 'hard')).toBeNull();
-    const same = withBest(b, 'squat-flap', 'normal', 15);
-    expect(same).toBe(b);
-    b = withBest(b, 'squat-flap', 'normal', 25);
-    expect(bestOf(b, 'squat-flap', 'normal')).toBe(25);
-    b = withBest(b, 'squat-flap', 'hard', 5);
-    expect(bestOf(b, 'squat-flap', 'hard')).toBe(5);
-  });
-  it('are read back safely from damaged storage', () => {
-    expect(BESTS_SCHEMA.parse(null)).toBeNull();
-    expect(BESTS_SCHEMA.parse([])).toBeNull();
-    expect(BESTS_SCHEMA.parse({ a: { normal: 5, hard: 'x', easy: -1 }, b: 3 })).toEqual({ a: { normal: 5 } });
   });
 });

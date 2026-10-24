@@ -35,6 +35,7 @@ function pageUrls(lang: Lang): string[] {
     `${p}/`,
     ...REGION_ORDER.map((r) => `${p}/workouts/${r}/`),
     ...games.map((g) => `${p}/games/${g.seo.slug}/`),
+    `${p}/plans/`,
     `${p}/settings/`,
     `${p}/pro/`,
     `${p}/results/`,

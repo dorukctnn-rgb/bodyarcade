@@ -6,7 +6,7 @@ import { openScenario, type Scenario } from '../tools/scenarios.ts';
 import { scan } from './support/axe.ts';
 import { WEB_DEV_URL } from './support/ports.ts';
 
-const PAGES: Scenario[] = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'];
+const PAGES: Scenario[] = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'];
 const SIZES = [{ w: 390, h: 844 }, { w: 768, h: 1024 }, { w: 1280, h: 800 }];
 
 for (const dark of [false, true]) {

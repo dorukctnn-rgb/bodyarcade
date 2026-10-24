@@ -14,6 +14,7 @@ import { notFoundPage } from './views/misc.ts';
 import { friendLinkPage, friendsPage, lobbiesPage, NO_FRIENDS_VIEW, roomPage, safetyPage } from './views/social.ts';
 import { NO_ROOM_STATE } from './social/port.ts';
 import { defaultPaywallState, paywallPage, type PaywallState } from './views/paywall.ts';
+import { NO_PLANS_DATA, plansPage, type PlansData } from './views/plans.ts';
 import { playPage } from './views/play.ts';
 import { resultsPage, type RoundResult } from './views/results.ts';
 import { settingsPage } from './views/settings.ts';
@@ -27,11 +28,13 @@ export interface PageState {
   reducedMotion: boolean;
   home: HomeData;
   game: GameData;
+  /** The workout plans and the one that is going. */
+  plans: PlansData;
   /** What the Friends screens draw; null in the page generator, which never draws them. */
   social: SocialPageState | null;
 }
 
-export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, social: null };
+export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null };
 
 export interface Rendered {
   body: SafeHtml;
@@ -109,6 +112,11 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
     }
     case 'results':
       return { body: resultsPage(ctx, state.result), title: named(t.t('results.title')), description: t.t('results.title'), noindex, status: 200, jsonLd: [] };
+    case 'plans':
+      return {
+        body: plansPage(ctx, state.plans), title: named(t.t('plans.title')), description: t.t('plans.description'), noindex: false, status: 200,
+        jsonLd: [crumbs(ctx, [{ name: brand, path: ctx.href('home') }, { name: t.t('plans.title'), path: ctx.href('plans') }])],
+      };
     case 'pro':
       return { body: paywallPage(ctx, state.paywall ?? defaultPaywallState(ctx, route.query.get('game') ?? undefined)), title: named(t.t('paywall.title')), description: t.t('paywall.lead'), noindex, status: 200, jsonLd: [] };
     case 'settings':

@@ -26,6 +26,43 @@ body { overflow-x: hidden; }
 .k-trial [data-trial-note]:empty { margin-top: -10px; }
 .k-emailbox { display: grid; gap: 10px; }
 .k-note.k-preview { color: var(--ba-text-muted); font-weight: 650; }
+/* The challenge of the day, the workout plans and what a round did to the record. */
+.k-challenge { display: grid; grid-template-columns: minmax(96px, 160px) minmax(0, 1fr); gap: clamp(12px, 2vw, 22px); align-items: center; margin-block: clamp(14px, 2vw, 24px); }
+.k-challenge img { width: 100%; height: auto; border-radius: 14px; aspect-ratio: 4 / 3; object-fit: cover; background: var(--ba-surface-sunken); display: block; }
+.k-challenge .body { display: grid; gap: 6px; }
+.k-challenge .body > * { margin: 0; }
+.k-challenge .ok { display: flex; align-items: center; gap: 8px; color: var(--ba-text); font-weight: 700; }
+.k-challenge .ok svg { width: 20px; height: 20px; flex: none; }
+.k-challenge .ba-actions { margin-top: 8px; }
+.k-challengechip { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 6px 12px; border-radius: 999px; background: var(--ba-accent-tint); color: var(--ba-accent-text); font-weight: 750; font-size: var(--ba-text-sm); }
+.k-challengechip svg { width: 18px; height: 18px; }
+.k-plans-grid { display: grid; gap: clamp(14px, 2vw, 22px); grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); margin-top: 18px; align-items: start; }
+.k-plancard { display: grid; gap: 10px; align-content: start; scroll-margin-top: 90px; }
+.k-plancard > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.k-plancard h2, .k-plancard p { margin: 0; }
+.k-planmeta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ba-text-muted); font-size: var(--ba-text-sm); font-weight: 650; }
+.k-steps { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 10px; }
+.k-steps li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: center; }
+.k-steps img { width: 56px; height: 42px; border-radius: 10px; object-fit: cover; background: var(--ba-surface-sunken); }
+.k-steps b { display: block; font-weight: 750; line-height: 1.2; }
+.k-steps b a { color: inherit; text-decoration: none; }
+.k-steps b a:hover { text-decoration: underline; }
+.k-steps small { display: block; color: var(--ba-text-muted); font-size: var(--ba-text-xs); line-height: 1.35; }
+.k-steps li.skipped { grid-template-columns: minmax(0, 1fr); }
+.k-planstrip { display: grid; gap: 14px; }
+.k-planlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+a.k-planmini { display: grid; gap: 6px; align-content: start; height: 100%; text-decoration: none; color: inherit; }
+.k-planmini b { font-family: var(--ba-font-display); font-weight: 800; font-size: 1.1rem; line-height: 1.15; }
+.k-planmini .ba-badge { justify-self: start; }
+.k-planactive, .k-planpanel { display: grid; gap: 8px; }
+.k-planactive h2, .k-planactive p, .k-planpanel h2, .k-planpanel p { margin: 0; }
+.k-planpanel .ba-actions { margin-top: 10px; }
+.k-rest { display: flex; align-items: baseline; gap: 10px; }
+.k-count { font-family: var(--ba-font-display); font-weight: 800; font-size: 1.6rem; line-height: 1; color: var(--ba-text); min-width: 2ch; }
+.k-progress ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.k-progress li { display: flex; align-items: center; gap: 10px; color: var(--ba-text); font-weight: 650; }
+.k-progress li svg { width: 20px; height: 20px; flex: none; }
+@media (max-width: 520px) { .k-challenge { grid-template-columns: minmax(0, 1fr); } .k-challenge img { max-width: 220px; } }
 .k-note.k-soon { font-weight: 650; }
 .ba-page { padding-bottom: 32px; }
 .ba-noscript { margin: 0; padding: 12px var(--ba-space-4); background: var(--ba-surface-sunken); text-align: center; }
