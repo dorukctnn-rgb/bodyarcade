@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { CLOSE, type JoinGrant, type MatchInfo, type ObstacleResult } from '../../../core/types/net.ts';
 import { LiveClient, type LiveClientOptions, type LiveEvents } from '../../../core/net/client.ts';
 import { makeSchedule, specFor } from '../../../core/net/schedule.ts';
-import { LoopSocket, Net, seeded } from './loopkit.ts';
+import { LoopConn, LoopSocket, Net, seeded } from './loopkit.ts';
 import { Room, claimsFor } from './testkit.ts';
 
 interface Probe {

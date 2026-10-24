@@ -167,7 +167,7 @@ export async function runScenario(stack: Stack, name: string, sc: Scenario): Pro
         case 'reload': await (pages[idx] as Page).reload(); break;
         case 'reloadAll': await Promise.all(pages.map((p) => p.reload())); break;
         case 'quit': await (browsers[idx] as Browser).close(); browsers[idx] = null; gone.add(idx); break;
-        case 'leave': gone.add(idx); await (pages[idx] as Page).evaluate(() => (window as unknown as { __lm: { leave(): void } }).__lm.leave()); break;
+        case 'leave': gone.add(idx); await (pages[idx] as Page).evaluate(() => (window as unknown as { __race: { leave(): void } }).__race.leave()); break;
         case 'thirdJoin': {
           const full = await postJson(`${stack.base}/api/rooms/${code}/join`, { pid: 'dave-device-0004', name: 'dave', age: 'adult' });
           const ws = thirdTicket ? await wsProbe(stack.base, thirdTicket, 'probe') : { closeCode: null, msgs: [] };
