@@ -12,7 +12,7 @@ import { overlayHtml, type CalibCheck, type CalibPart, type DeskCard, type Gauge
 import { framingGuide } from '../views/silhouette.ts';
 import type { SetupState } from '../views/setup.ts';
 import {
-  bandsFor, bothSeen, calibMessage, checksFor, deskCard, DeskOffer, extrasOf, GUIDE_MESSAGE, gaugeFor, keepsChecks, needsHeadroom, screenFraming, STUCK_MS,
+  bandsFor, bothSeen, calibMessage, checksFor, deskCard, DeskOffer, extrasOf, gaugeFor, guideMessage, keepsChecks, needsHeadroom, screenFraming, STUCK_MS,
 } from './calib.ts';
 import type { StageHandles } from './ports.ts';
 
@@ -297,10 +297,7 @@ export class PlayController {
     const code = c.code;
     const framing = this.framing();
     let message = '';
-    if (isTwo(c) && c.guidance.action !== 'none') {
-      const key = GUIDE_MESSAGE[c.guidance.action];
-      if (key) message = i18n.tx(key, { player: c.guidance.player ? i18n.t(c.guidance.player === 1 ? 'hud.player1' : 'hud.player2') : '' });
-    }
+    if (isTwo(c) && c.guidance.action !== 'none') message = guideMessage(i18n, c.guidance);
     if (!message) message = calibMessage(i18n, code, framing);
     const slow = code === 'too_slow';
     // What a newer platform measures itself (which parts are in view, that the wait is long); the code alone does without.

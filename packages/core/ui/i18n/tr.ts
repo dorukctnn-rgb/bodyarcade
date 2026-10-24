@@ -304,6 +304,11 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'calib.guide.hold_still': 'İkiniz de sabit durun.',
   'calib.guide.more_light': 'Ortam çok karanlık, sizi göremiyoruz: bir ışık açın.',
   'calib.guide.light_in_front': 'Işık arkanızda kalıyor: pencereye ya da lambaya dönün.',
+  'calib.guide.step_in.any': 'Görüntüye gir.',
+  'calib.guide.step_back.any': 'Geri çekil.',
+  'calib.guide.step_closer.any': 'Biraz yaklaş.',
+  'calib.guide.move_left.any': 'Sola kay.',
+  'calib.guide.move_right.any': 'Sağa kay.',
 
   'countdown.ready': 'Hazırlan',
   'countdown.go': 'Başla',

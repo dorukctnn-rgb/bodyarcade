@@ -304,6 +304,11 @@ export const en = {
   'calib.guide.hold_still': 'Hold still, both of you.',
   'calib.guide.more_light': 'It is too dark to see you. Turn on a light.',
   'calib.guide.light_in_front': 'The light is behind you. Face the window or lamp.',
+  'calib.guide.step_in.any': 'Step into view.',
+  'calib.guide.step_back.any': 'Step back.',
+  'calib.guide.step_closer.any': 'Step a little closer.',
+  'calib.guide.move_left.any': 'Move to the left.',
+  'calib.guide.move_right.any': 'Move to the right.',
 
   'countdown.ready': 'Get ready',
   'countdown.go': 'Go',

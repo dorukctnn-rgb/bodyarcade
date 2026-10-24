@@ -55,6 +55,23 @@ export const GUIDE_MESSAGE: Readonly<Record<TwoPlayerGuidance['action'], StringK
   none: null,
 };
 
+/** Stands in for a name while a sentence is tried: a sentence that holds it names somebody. */
+const NAME_MARK = '\u{E000}';
+
+/**
+ * The words for what the guidance of two players asks. A sentence that names who it is for ("Player 2, step back.") has a twin
+ * for the moment the platform names nobody ("Step back."), so a sentence never starts with a comma or a hole.
+ */
+export function guideMessage(i18n: Pick<I18n, 't' | 'tx' | 'has'>, g: TwoPlayerGuidance): string {
+  const key = GUIDE_MESSAGE[g.action];
+  if (!key) return '';
+  const named = i18n.tx(key, { player: NAME_MARK });
+  if (!named.includes(NAME_MARK)) return named;
+  if (g.player) return named.replace(NAME_MARK, i18n.t(g.player === 1 ? 'hud.player1' : 'hud.player2'));
+  const any = `${key}.any`;
+  return i18n.has(any) ? i18n.tx(any) : i18n.t('calib.msg.generic');
+}
+
 /**
  * What a newer platform adds to the calibration status. Every field is optional and this shell works from the code alone
  * without them; with them the screen is exact about what is in view, says when a round plays at the desk by itself, and

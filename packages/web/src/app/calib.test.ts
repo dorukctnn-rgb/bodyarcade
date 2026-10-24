@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { createI18n, stringTables } from '../../../core/ui/i18n/index.ts';
 import { copyProblems } from '../../catalogue/copy.ts';
 import {
-  bandsFor, bothSeen, calibMessage, CALIB_MESSAGE, checksFor, DESK_DELAY, DESK_HOLD_MS, deskCard, DeskOffer, extrasOf, gaugeFor, GUIDE_MESSAGE, keepsChecks,
+  bandsFor, bothSeen, calibMessage, CALIB_MESSAGE, checksFor, DESK_DELAY, DESK_HOLD_MS, deskCard, DeskOffer, extrasOf, gaugeFor, GUIDE_MESSAGE, guideMessage, keepsChecks,
   needsHeadroom, partsFor, screenFraming,
 } from './calib.ts';
 
@@ -45,6 +45,14 @@ describe('a sentence for every state', () => {
       expect(s).not.toContain('hips_missing');
     });
 
+    it(`${lang}: a sentence that names a player has a twin that names nobody`, () => {
+      for (const [action, key] of Object.entries(GUIDE_MESSAGE)) {
+        if (!key) continue;
+        const names = i18n.tx(key, { player: 'P' }).includes('P') && /\{player\}/.test(stringTables.en[key] ?? '');
+        if (names) expect(i18n.has(`${key}.any`), `${action} has no ${key}.any`).toBe(true);
+      }
+    });
+
     it(`${lang}: the guidance for two players is plain too`, () => {
       for (const [action, key] of Object.entries(GUIDE_MESSAGE)) {
         if (!key) { expect(action).toBe('none'); continue; }
@@ -52,6 +60,24 @@ describe('a sentence for every state', () => {
         expect(s.length, action).toBeGreaterThan(5);
         expect(copyProblems(s), `${action}: ${s}`).toEqual([]);
         if (lang === 'tr') expect(s, `${action}: ${s}`).not.toMatch(ENGLISH);
+      }
+    });
+
+    it(`${lang}: the guidance reads whole whether or not the platform names a player, and never starts with a comma`, () => {
+      for (const action of Object.keys(GUIDE_MESSAGE)) {
+        if (action === 'none') { expect(guideMessage(i18n, { action: 'none' })).toBe(''); continue; }
+        const guide = { action } as Parameters<typeof guideMessage>[1];
+        const anyone = guideMessage(i18n, guide);
+        expect(anyone.length, action).toBeGreaterThan(5);
+        expect(anyone, `${action}: ${anyone}`).not.toMatch(/^[\s,.:;]|\{|\}|undefined|calib\./);
+        expect(copyProblems(anyone), `${action}: ${anyone}`).toEqual([]);
+        for (const player of [1, 2] as const) {
+          const named = guideMessage(i18n, { ...guide, player });
+          expect(named.length, action).toBeGreaterThan(5);
+          expect(named, `${action}: ${named}`).not.toMatch(/^[\s,.:;]|\{|\}|undefined/);
+          if (named !== anyone) expect(named, `${action}: ${named}`).toContain(i18n.t(player === 1 ? 'hud.player1' : 'hud.player2'));
+        }
+        if (lang === 'tr') expect(anyone, `${action}: ${anyone}`).not.toMatch(ENGLISH);
       }
     });
 
