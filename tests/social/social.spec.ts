@@ -136,6 +136,34 @@ test('a teen and a child never type a name, and what the band allows is told to 
   expect(await teen.try((ba) => ba.social.signUp({ band: 'adult' }), undefined)).toMatchObject({ ok: false, status: 409 });
 });
 
+test('under 13 has no online identity in production: the page makes no key and the Worker stores nothing', async () => {
+  const kid = await who('Kid');
+  const other = await who('Other');
+  const count = async (): Promise<number> => (await site.stack.db.prepare('SELECT COUNT(*) AS n FROM soc_profiles WHERE band = ?1').bind('child').first<{ n: number }>())?.n ?? -1;
+  const before = await count();                                     // the cases before this one made children (the stack is shared)
+  await site.stack.setOnline('child', false);
+  await kid.run((ba) => { ba.setOnline('child', false); return null; });
+  try {
+    expect(await kid.try((ba) => ba.social.signUp({ band: 'child' }), undefined)).toMatchObject({ ok: false, status: 403, code: 'child_no_online' });
+    expect((await kid.snap()).profile).toBeNull();
+    // no device key was made or kept: the identity record of the page's database is empty
+    expect(await kid.page.evaluate(async () => {
+      const db: IDBDatabase = await new Promise((res, rej) => { const r = indexedDB.open('bodyarcade-social', 1); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+      const rec: unknown = await new Promise((res, rej) => { const r = db.transaction('device').objectStore('device').get('identity'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+      db.close();
+      return rec ?? null;
+    })).toBeNull();
+    // a page of somebody else's making that sends the registration by hand: the Worker refuses, and keeps nothing of it
+    await other.run((ba) => { ba.setOnline('child', true); return null; });
+    expect(await other.try((ba) => ba.social.signUp({ band: 'child' }), undefined)).toMatchObject({ ok: false, status: 403, code: 'child_no_online' });
+    expect(await count()).toBe(before);
+    // teens and adults are not affected
+    expect((await (await who('Teen')).signUp({ band: 'teen' })).band).toBe('teen');
+  } finally {
+    await site.stack.setOnline('child', true);
+  }
+});
+
 // ───────── friends ─────────
 
 test('a request by link reaches the other page the moment it is sent, and accepting fills both lists', async () => {

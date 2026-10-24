@@ -201,6 +201,7 @@ export type SocialErrorCode =
   | 'you_blocked'
   | 'not_friends'
   | 'child_no_public'
+  | 'child_no_online'
   | 'public_suspended'
   | 'not_joinable'
   | 'not_in_room'

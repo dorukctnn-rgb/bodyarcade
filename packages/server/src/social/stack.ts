@@ -52,6 +52,8 @@ export interface Stack {
   logs: string[];
   /** The directory's tables: tests read and write them directly (each call is one request to the object that holds them). */
   db: SqlLike;
+  /** Turns a band's online identity on or off in the Worker (it is on for every band here; production has the under-13 band off, core/social/age.ts). */
+  setOnline(band: 'child' | 'teen' | 'adult', online: boolean): Promise<void>;
   mf: Miniflare;
   /** The logged events with this `evt` name. */
   events(evt: string): Record<string, unknown>[];
@@ -136,6 +138,10 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
   return {
     origin: url.origin,
     clock: { now: () => clockCall('now'), pin: () => clockCall('pin'), advance: (ms) => clockCall('advance', ms), release: () => clockCall('release') },
+    async setOnline(band, online) {
+      const res = await fetch(`${url.origin}/api/__test/online`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ band, online }) });
+      if (!res.ok) throw new Error(`the test switch answered ${res.status}`);
+    },
     logs,
     db,
     mf,

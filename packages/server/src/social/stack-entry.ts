@@ -11,6 +11,7 @@
 // The tables are inside the directory object, so a test cannot open them from outside the way it could open a database. The
 // directory of this bundle is a subclass that also answers `POST https://test.internal/sql`, and the Worker has one test route
 // that carries a test's statements to it; both exist only here and only where TEST_CLOCK is "1".
+import { POLICY, isAgeBand } from '../../../core/social/age.ts';
 import { HttpError, isRecord, json, readJson } from '../http.ts';
 import { router } from '../router.ts';
 import worker from '../index.ts';
@@ -19,6 +20,11 @@ import { directoryOf } from './env.ts';
 
 export * from '../index.ts';
 export default worker;
+
+// Test bundle only: the suites of this module exercise every age band, the under-13 one included, so the switch that production
+// keeps off (POLICY.child.online, no online identity under 13) is on in this Worker. A test that needs the production rule turns it
+// off with POST /api/__test/online (stack.setOnline('child', false)).
+POLICY.child.online = true;
 
 /** The statements a test sends: `{statements: [{sql, params}], mode: 'first' | 'all' | 'run' | 'batch'}`. */
 interface SqlCall { statements: { sql: string; params: unknown[] }[]; mode: 'first' | 'all' | 'run' | 'batch' }
@@ -76,4 +82,15 @@ router.add('POST', '/api/__test/sql', async (req, env) => {
   if (env.TEST_CLOCK !== '1') throw new HttpError(404, 'not_found');
   const body = await readJson(req, 1_000_000);
   return directoryOf(env).fetch(new Request('https://test.internal/sql', { method: 'POST', body: JSON.stringify(body) }));
+});
+
+/** POST /api/__test/online {band, online} -> {band, online}: turns a band's online identity on or off in this Worker (the under-13 switch); only where TEST_CLOCK is "1". */
+router.add('POST', '/api/__test/online', async (req, env) => {
+  if (env.TEST_CLOCK !== '1') throw new HttpError(404, 'not_found');
+  const body = await readJson(req);
+  const band = isRecord(body) ? body.band : undefined;
+  const online = isRecord(body) ? body.online : undefined;
+  if (!isAgeBand(band) || typeof online !== 'boolean') throw new HttpError(400, 'bad_request');
+  POLICY[band].online = online;
+  return json({ band, online });
 });

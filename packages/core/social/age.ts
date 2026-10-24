@@ -2,8 +2,11 @@
 // game-design 2.9 and 3.x). The band is self-declared once, at first social use, with a neutral question; this module is
 // the single place where the consequences are written down, and the Worker, the Room and the interface all ask it.
 //
-//   child (under 13): preset names, preset messages, friends and private rooms only by code or link, no public
-//                     lobby, no quick match, no video.
+//   child (under 13): NO ONLINE IDENTITY AT ALL (decided 24 Oct, COPPA-safe): `online` is false, so no device key is made, no
+//                     profile and no friend code are registered, and there are no friends, lobbies, boards or chat. The rest
+//                     of the row (names, friends, requests) is what the band would be allowed the day `online` is switched
+//                     on; nothing reads it while the switch is off. Local play, family ghost races and local records work
+//                     without any of it.
 //   teen (13-17):     preset names, preset messages, no video; public lobbies and quick match, but only among teens.
 //   adult (18+):      filtered free names; free text and video only in private rooms where every member is an adult.
 //
@@ -12,6 +15,12 @@
 import type { AgeBand, LobbyGroup } from './types.ts';
 
 export interface BandPolicy {
+  /**
+   * May have an online identity: a device key and a profile registered on the server, with a friend code. THE SWITCH of the
+   * under-13 rule (BUILD-PLAN: "the only switch is POLICY in core/social/age.ts"): false for `child`, and then the client makes
+   * no key, the Worker refuses the registration (403 child_no_online) and a profile cannot be lowered to this band.
+   */
+  online: boolean;
   /** The display name must come from the preset list (core/social/presets.ts). */
   presetNameOnly: boolean;
   /** May type free text, but only in a private room where every member is an adult. */
@@ -28,9 +37,9 @@ export interface BandPolicy {
 }
 
 export const POLICY: Readonly<Record<AgeBand, BandPolicy>> = {
-  child: { presetNameOnly: true, freeText: false, video: false, publicPlay: false, lobbyGroup: null, maxFriends: 25, maxIncomingRequests: 15, maxOutgoingRequests: 10, requestsPerDay: 10 },
-  teen: { presetNameOnly: true, freeText: false, video: false, publicPlay: true, lobbyGroup: 'teen', maxFriends: 50, maxIncomingRequests: 25, maxOutgoingRequests: 15, requestsPerDay: 15 },
-  adult: { presetNameOnly: false, freeText: true, video: true, publicPlay: true, lobbyGroup: 'adult', maxFriends: 100, maxIncomingRequests: 40, maxOutgoingRequests: 25, requestsPerDay: 25 },
+  child: { online: false, presetNameOnly: true, freeText: false, video: false, publicPlay: false, lobbyGroup: null, maxFriends: 25, maxIncomingRequests: 15, maxOutgoingRequests: 10, requestsPerDay: 10 },
+  teen: { online: true, presetNameOnly: true, freeText: false, video: false, publicPlay: true, lobbyGroup: 'teen', maxFriends: 50, maxIncomingRequests: 25, maxOutgoingRequests: 15, requestsPerDay: 15 },
+  adult: { online: true, presetNameOnly: false, freeText: true, video: true, publicPlay: true, lobbyGroup: 'adult', maxFriends: 100, maxIncomingRequests: 40, maxOutgoingRequests: 25, requestsPerDay: 25 },
 };
 
 const RANK: Record<AgeBand, number> = { child: 0, teen: 1, adult: 2 };
@@ -38,6 +47,8 @@ const RANK: Record<AgeBand, number> = { child: 0, teen: 1, adult: 2 };
 export const isAgeBand = (x: unknown): x is AgeBand => x === 'child' || x === 'teen' || x === 'adult';
 export const isMinor = (band: AgeBand): boolean => band !== 'adult';
 export const policyFor = (band: AgeBand): BandPolicy => POLICY[band];
+/** May a player of this band have an online identity (a device key, a profile, a friend code) at all? False under 13. */
+export const canGoOnline = (band: AgeBand): boolean => POLICY[band].online;
 export const lobbyGroupOf = (band: AgeBand): LobbyGroup | null => POLICY[band].lobbyGroup;
 
 /**
@@ -68,5 +79,7 @@ export function sameLobbyGroup(a: AgeBand, b: AgeBand): boolean {
 /**
  * The band a player may switch to. Only downwards: someone who declared adult and is not can step down at any time,
  * but nobody can raise their own band afterwards (a new profile starts over). Same band: allowed, nothing changes.
+ * Stepping down to a band that has no online identity (`canGoOnline`) is not a change of the profile: the profile is
+ * deleted instead, and the Worker refuses the change (403 child_no_online).
  */
 export const lowerBand = (current: AgeBand, requested: AgeBand): AgeBand | null => (RANK[requested] <= RANK[current] ? requested : null);

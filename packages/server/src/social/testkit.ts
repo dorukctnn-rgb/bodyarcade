@@ -3,6 +3,7 @@
 // object built on them, and a signed-request client that talks to the module's router in process. What only the Workers
 // runtime can show (real Durable Object SQL, real hibernating sockets) is covered by the Miniflare tests.
 import { DatabaseSync } from 'node:sqlite';
+import { POLICY } from '../../../core/social/age.ts';
 import { generateDeviceKey, signRequest, type DeviceKeys } from '../../../core/social/sign.ts';
 import type { MyProfile, HubEvent, AgeBand } from '../../../core/social/types.ts';
 import type { CfWebSocket, DurableObjectIdLike, DurableObjectNamespaceLike, DurableObjectStateLike, ExecutionContextLike, Fetcher } from '../cf.ts';
@@ -17,6 +18,11 @@ import { registerDirectoryRoutes, registerSocialRoutes } from './routes.ts';
 import { SocialDirectory } from './directory.ts';
 import { runOp } from './ops.ts';
 import { ALL_STATEMENTS } from './schema.ts';
+
+// Under 13 has no online identity in production (POLICY.child.online is false: the Worker refuses the registration). These tests
+// exercise the rules of every band, that one included (what it would be allowed the day the switch is turned on), so the kit
+// turns the switch on for the test process. profile.test.ts turns it off again to test the production rule.
+POLICY.child.online = true;
 
 // ───────── SQL on node:sqlite ─────────
 

@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { LiveClient } from '../../../core/net/client.ts';
 import type { SocketLike } from '../../../core/net/runtime.ts';
+import { POLICY } from '../../../core/social/age.ts';
 import { SocialApiError, SocialClient, type SignUp } from '../../../core/social/client.ts';
 import { MemoryKeyStore } from '../../../core/social/keystore.ts';
 import { generateDeviceKey, signRequest } from '../../../core/social/sign.ts';
@@ -16,6 +17,10 @@ import type { JoinGrant } from '../../../core/types/net.ts';
 import { STACK_ADMIN_TOKEN, startStack, type Stack } from './stack.ts';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
+
+// Under 13 has no online identity in production (POLICY.child.online); the Worker of this stack has the switch on (stack-entry.ts), and so
+// has the client in this process, because the cases below exercise every band the day it is turned on.
+POLICY.child.online = true;
 
 let stack: Stack;
 

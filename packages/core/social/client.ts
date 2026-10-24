@@ -14,8 +14,10 @@
 //   await social.invite(fid, grant.code);                  // a push to the friend's open hub socket
 import { createRoom as apiCreateRoom, joinRoom as apiJoinRoom, type Identity, type NewRoomRequest } from '../net/api.ts';
 import type { JoinGrant } from '../types/net.ts';
+import { canGoOnline } from './age.ts';
 import { formatRecoveryCode, parseFriendCode, parseFriendLink, parseRecoveryCode } from './codes.ts';
 import type { KeyStore, StoredIdentity } from './keystore.ts';
+import { isPresetName } from './presets.ts';
 import { MAX_SEARCH_MS, POLL_EVERY_MS } from './quickmatch.ts';
 import { PRESENCE } from './rules.ts';
 import { AUTH_HEADER, AUTH_QUERY, generateDeviceKey, signRequest } from './sign.ts';
@@ -55,7 +57,7 @@ export interface PendingInvite { id: string; from: { fid: string; name: string }
 export interface SignUp {
   /** The age declaration (child under 13, teen 13-17, adult 18+). It decides everything the profile may do. */
   band: AgeBand;
-  /** Adults only; everyone else gets a generated name. */
+  /** Adults: a name of their own, filtered by the server. Under 18: only a generated name (core/social/presets.ts randomPresetName) is taken; anything else is ignored and the server generates one. */
   name?: string;
   region?: string;
   lang?: string;
@@ -259,13 +261,16 @@ export class SocialClient {
 
   /** Makes the profile (a new device key signs the request, which proves the key is held). */
   async signUp(input: SignUp): Promise<MyProfile> {
+    // Under 13 has no online identity at all (POLICY in age.ts): not even a device key is made, and nothing is sent.
+    if (!canGoOnline(input.band)) throw new SocialApiError(403, 'child_no_online');
     await this.load();
     if (this.identity?.registered) throw new SocialApiError(409, 'conflict');
     const keys = this.identity?.keys ?? (await generateDeviceKey());
     this.identity = { keys, registered: false };
     await this.store.save(this.identity);
     const body: Record<string, unknown> = { pub: keys.publicRaw, band: input.band };
-    if (input.name !== undefined && input.band === 'adult') body.name = input.name;   // under 18 the server names the player
+    // An adult's name is filtered by the server; under 18 only a generated name is taken (the one the sign-up showed), anything else is left out and the server makes one.
+    if (input.name !== undefined && (input.band === 'adult' || isPresetName(input.name))) body.name = input.name;
     if (input.region !== undefined) body.region = input.region;
     if (input.lang !== undefined) body.lang = input.lang;
     if (input.level !== undefined) body.level = input.level;

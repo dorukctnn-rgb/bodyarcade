@@ -3,10 +3,15 @@
 // the events it saw, so a test can read what a player would see without any product screen. window.ba is the test's handle.
 import { LiveClient } from '../../../packages/core/net/client.ts';
 import type { SocketLike } from '../../../packages/core/net/runtime.ts';
+import { POLICY } from '../../../packages/core/social/age.ts';
 import { SocialClient, type MatchDriver, type SignUp } from '../../../packages/core/social/client.ts';
 import { parseFriendLink } from '../../../packages/core/social/codes.ts';
 import { openKeyStore } from '../../../packages/core/social/keystore.ts';
 import type { JoinGrant } from '../../../packages/core/types/net.ts';
+
+// This suite exercises every age band, the under-13 one included (what it would be allowed the day the switch is turned on), so the
+// page's copy of the switch is on, as it is in the Worker of the stack. ba.setOnline turns it off to see the production rule.
+POLICY.child.online = true;
 
 const keys = await openKeyStore();
 const social = new SocialClient({ origin: '', keys });
@@ -96,6 +101,7 @@ const ba = {
   addressCode: (): string | null => parseFriendLink(location.href),
   signUp: async (input: SignUp) => { const me = await social.signUp(input); render(); return me; },
   seat,
+  setOnline: (band: 'child' | 'teen' | 'adult', online: boolean): void => { POLICY[band].online = online; },
   leaveRoom: (): void => { live?.leave(); live = null; welcomed = false; render(); },
   driver,
   /** A quick match search that runs until it finds a lobby, times out, or stopQuickMatch() is called. */

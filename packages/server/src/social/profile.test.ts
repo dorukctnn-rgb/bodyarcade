@@ -1,5 +1,6 @@
 // Profile rules: passwordless sign-up with a device key, the age gate on names, the limits, export and deletion.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { POLICY } from '../../../core/social/age.ts';
 import { generateDeviceKey, signRequest } from '../../../core/social/sign.ts';
 import { isPresetName } from '../../../core/social/presets.ts';
 import { createTestApp, TEST_ORIGIN, type TestApp } from './testkit.ts';
@@ -397,5 +398,41 @@ describe('key handling', () => {
     const other = await generateDeviceKey();
     const r = await app.call('GET', '/api/social/me', { dev: { keys: other, ip: p.dev.ip } });
     expect(r.status).toBe(401);
+  });
+});
+
+// The production setting of the under-13 rule: the test kit turns POLICY.child.online on so the suites can exercise every band;
+// these cases turn it off again, as it is in the real Worker (core/social/age.ts).
+describe('under 13 has no online identity (the production setting)', () => {
+  beforeEach(() => { POLICY.child.online = false; });
+  afterEach(() => { POLICY.child.online = true; });
+
+  it('refuses the registration and stores nothing, not even a rate-limit count', async () => {
+    const dev = await app.newDevice();
+    const r = await app.call('POST', '/api/social/register', { dev, body: { pub: dev.keys.publicRaw, band: 'child' } });
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: 'child_no_online' });
+    expect(JSON.stringify(r.body)).not.toContain(dev.keys.publicRaw);
+    for (const table of ['soc_profiles', 'soc_devices', 'soc_limits']) {
+      expect((app.db.raw.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n, table).toBe(0);
+    }
+    // a name or anything else in the body changes nothing: the band decides
+    const named = await app.call('POST', '/api/social/register', { dev, body: { pub: dev.keys.publicRaw, band: 'child', name: 'Swift Falcon 42' } });
+    expect(named.status).toBe(403);
+    expect((app.db.raw.prepare('SELECT COUNT(*) AS n FROM soc_profiles').get() as { n: number }).n).toBe(0);
+  });
+
+  it('keeps the other bands as they were', async () => {
+    expect((await app.signup('teen')).me.band).toBe('teen');
+    expect((await app.signup('adult')).me.band).toBe('adult');
+  });
+
+  it('does not let a profile step down to it: the player deletes the profile instead', async () => {
+    const t = await app.signup('teen');
+    const r = await t.post('/api/social/me', { band: 'child' });
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: 'child_no_online' });
+    expect((await t.get('/api/social/me')).body.me.band).toBe('teen');
+    expect((await t.post('/api/social/me/delete', { confirm: 'delete' })).status).toBe(200);
   });
 });
