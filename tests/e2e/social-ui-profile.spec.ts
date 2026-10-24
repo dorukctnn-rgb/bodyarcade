@@ -249,10 +249,12 @@ test('boards fill from real rounds: the player\'s best of the week, among friend
   await ada.page.locator('label:has(input[name="week"][value="previous"])').click();
   await expect(ada.page.locator('main')).toContainText('last week', { timeout: 20_000 });
   await expect(rows).toHaveCount(0);
-  // the country board: the service cannot tell the country of a local connection
+  // the country board: the players who connect from the same country (here, both of them), real players only
   await ada.page.locator('label:has(input[name="week"][value="current"])').click();
   await ada.page.locator('label:has(input[name="scope"][value="country"])').click();
-  await expect(ada.page.locator('main')).toContainText('no country board', { timeout: 20_000 });
+  await expect(ada.page.locator('[data-board="country"] li')).toHaveCount(2, { timeout: 20_000 });
+  await expect(ada.page.locator('main')).toContainText('Players in');
+  await expect(ada.page.locator('[data-board="country"] .ba-avatar')).toHaveCount(0);                  // a country board never shows who is a friend
 });
 
 // ───────── the connection ─────────

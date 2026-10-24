@@ -58,7 +58,7 @@ function seatCard(ctx: ViewContext, m: MemberInfo, me: boolean, canShow: boolean
     : m.ready ? html`<span class="k-state ready"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4l2.6 2.6L11 4.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>${t.t('room.seat.ready')}</span>`
     : html`<span class="k-state wait">${t.t('room.seat.notReady')}</span>`;
   const more = me ? '' : html`<button class="ba-icon-btn k-seatmore" type="button" data-action="room.seat" data-seat="${m.seat}" aria-label="${u('room.seatMore', { name: m.name })}">${icon('more')}</button>`;
-  return html`<div class="k-seat" data-seat="${m.seat}">${m.host ? html`<span class="host" role="img" aria-label="${t.t('room.seat.host')}">${icon('host')}</span>` : ''}${canShow ? html`<span class="cam" role="img" aria-label="${m.video ? t.t('room.cam.shared') : t.t('room.cam.off')}">${m.video ? icon('camera') : icon('cameraOff')}</span>` : ''}${avatar(m.seat)}<b>${m.name}${me ? html` <span class="ba-small">(${t.t('room.seat.you')})</span>` : ''}</b>${state}${more}</div>`;
+  return html`<div class="k-seat" data-seat="${m.seat}">${m.host ? html`<span class="host" role="img" aria-label="${t.t('room.seat.host')}">${icon('host')}</span>` : ''}${canShow ? html`<span class="cam" role="img" aria-label="${m.video ? t.t('room.cam.shared') : t.t('room.cam.off')}">${m.video ? icon('camera') : icon('cameraOff')}</span>` : ''}${avatar(m.seat)}<b>${m.name}${me ? html` <span class="ba-small">(${t.t('room.seat.you')})</span>` : ''}</b><div class="k-seatfoot">${state}${more}</div></div>`;
 }
 
 function feedRow(ctx: ViewContext, f: FeedItem, members: readonly MemberInfo[]): SafeHtml {
@@ -125,7 +125,7 @@ function inviteCard(ctx: ViewContext, v: RoomView): SafeHtml {
       ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="social.invite" data-fid="${f.fid}" aria-label="${u('invite.sendLabel', { name: f.name })}"${attr('disabled', sent)}>${sent ? u('invite.asked') : u('invite.send')}</button>` : ''}</li>`;
   };
   return html`<section class="k-card k-invitecard" aria-labelledby="invite-h"><h2 class="k-h3" id="invite-h">${u('invite.cardTitle')}</h2><p class="ba-small k-flat">${u('invite.cardBody')}</p>
-    ${list.length > 0 ? html`<ul class="ba-list k-mt" data-list="invite">${list.slice(0, 8).map(row)}</ul>` : html`<p class="ba-small k-mt">${u('invite.cardEmpty')}</p>`}</section>`;
+    ${list.length > 0 ? html`<ul class="ba-list k-mt" data-list="invite">${list.slice(0, 8).map(row)}</ul>` : html`<p class="ba-small k-mt">${v.friends.length > 0 ? u('invite.cardAll') : u('invite.cardEmpty')}</p>`}</section>`;
 }
 
 export function roomMain(ctx: ViewContext, v: RoomView): SafeHtml {

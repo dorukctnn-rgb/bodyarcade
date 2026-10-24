@@ -19,6 +19,8 @@ interface State {
   prepare?: (page: Page) => Promise<void>;
   /** A window is open: the picture is the screen, not the page. */
   window?: boolean;
+  /** Something is laid over the page by design (the tray of invitations): the overlap check does not apply, axe does. */
+  overlay?: boolean;
 }
 
 const control = (page: Page, js: string): Promise<unknown> => page.evaluate(`(() => { const c = window.__BA_SOCIAL__; ${js} })()`);
@@ -30,7 +32,7 @@ const STATES: State[] = [
   ...(['ready', 'teen', 'alone', 'fresh', 'offline', 'under13', 'kid', 'banned', 'replaced', 'reconnecting', 'recovery', 'deleted', 'unknown', 'muted', 'suspended'] as const).map((m) => ({ id: `friends-${m}`, path: `/friends/?social=${m}` })),
   { id: 'friends-offline-saved', path: '/friends/?social=ready', prepare: async (p) => { await control(p, 'c.offline(true);'); await p.waitForSelector('[data-banner="offline"]'); } },
   { id: 'friends-add-error', path: '/friends/?social=ready', prepare: async (p) => { await p.locator('#friend-code').fill('BA-DDDDDD'); await p.locator('[data-form="friend-add"] button[type="submit"]').click(); await p.waitForSelector('#add-note.is-error'); } },
-  { id: 'friends-tray', path: '/friends/?social=ready', window: true, prepare: async (p) => { await control(p, "c.invite('Elif', 'squat-flap');"); await p.waitForSelector('.k-tray__card'); } },
+  { id: 'friends-tray', path: '/friends/?social=ready', window: true, overlay: true, prepare: async (p) => { await control(p, "c.invite('Elif', 'squat-flap');"); await p.waitForSelector('.k-tray__card'); } },
   { id: 'friends-toast', path: '/friends/?social=ready', window: true, prepare: async (p) => { await control(p, "c.request('Zed');"); await p.waitForSelector('.ba-toast'); } },
   // my profile
   ...(['ready', 'teen', 'banned', 'fresh', 'under13', 'recovery', 'muted'] as const).map((m) => ({ id: `profile-${m}`, path: `/friends/?view=profile&social=${m}` })),
@@ -93,7 +95,7 @@ async function look(s: State, size: { w: number; h: number }, o: { lang?: 'en' |
     if (s.prepare) await s.prepare(p.page);
     await p.page.waitForTimeout(350);
     await p.page.evaluate(() => window.scrollTo(0, 0));
-    for (const x of await inspect(p.page)) found.push(`${s.id} ${size.w}${o.lang === 'tr' ? ' tr' : ''}${o.dark ? ' dark' : ''}: ${x}`);
+    for (const x of await inspect(p.page, { layout: !s.overlay })) found.push(`${s.id} ${size.w}${o.lang === 'tr' ? ' tr' : ''}${o.dark ? ' dark' : ''}: ${x}`);
     await shot(p.page, `${s.id}-${size.w}${o.lang === 'tr' ? '-tr' : ''}${o.dark ? '-dark' : ''}`, { full: !s.window });
     for (const x of p.problems) found.push(`${s.id} ${size.w}: ${x}`);
   } finally {

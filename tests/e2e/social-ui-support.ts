@@ -165,8 +165,8 @@ export async function befriend(a: Page, b: Page, bCode: string): Promise<void> {
 }
 
 /** The problems the layout rule and the accessibility checks find on the page as it is now. */
-export async function inspect(page: Page, o: { axe?: boolean } = {}): Promise<string[]> {
-  const out = [...(await checkPage(page))];
+export async function inspect(page: Page, o: { axe?: boolean; layout?: boolean } = {}): Promise<string[]> {
+  const out = o.layout === false ? [] : [...(await checkPage(page))];
   if (o.axe !== false) out.push(...(await scan(page)).map((x) => `axe: ${x}`));
   return out;
 }

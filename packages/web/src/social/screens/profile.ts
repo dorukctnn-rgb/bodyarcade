@@ -13,7 +13,7 @@ import type { SocialState } from '../port.ts';
 import { qrSvg } from '../qr.ts';
 import { ux } from '../strings.ts';
 import { avatar, stateBanners } from '../ui.ts';
-import { kidPanel, panel, under13Panel } from './friends.ts';
+import { kidPanel, needProfile, under13Panel } from './friends.ts';
 
 export interface ProfileView {
   state: SocialState;
@@ -143,11 +143,7 @@ export function profileMain(ctx: ViewContext, v: ProfileView): SafeHtml {
   const p = s.profile;
   if (s.noOnline === 'under13') return html`${head}${under13Panel(ctx)}`;
   if (s.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
-  if (!p) {
-    const body = s.status === 'loading' ? html`<p class="ba-lead k-mt" role="status">${t.t('social.loading')}</p>`
-      : panel({ icon: 'friends', title: t.t('social.intro.title'), body: t.t('social.intro.body'), actions: html`<button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="social.profile">${t.t('social.intro.cta')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="social.recover">${u('age.have')}</button>` });
-    return html`${head}${banners}<div class="k-mt">${body}</div>`;
-  }
+  if (!p) return html`${head}${banners}<div class="k-mt">${needProfile(ctx, s, { icon: 'friends', title: t.t('social.intro.title'), body: t.t('social.intro.body') })}</div>`;
   // A suspended profile can still be downloaded and deleted, and nothing else.
   if (s.bannedUntil !== null) return html`${head}${banners}<p class="k-sub">${u('me.sub')}</p>${accountSection(ctx, v, null)}`;
   return html`${head}${banners}<p class="k-sub">${u('me.sub')}</p>

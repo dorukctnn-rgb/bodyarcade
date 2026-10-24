@@ -207,6 +207,7 @@ export const en = {
   'invite.cardTitle': 'Invite friends',
   'invite.cardBody': 'Friends who are online get a notice they can accept. Everyone else can use the link.',
   'invite.cardEmpty': 'Add friends to invite them here.',
+  'invite.cardAll': 'All your friends are in this room.',
   'invite.send': 'Invite',
   'invite.asked': 'Invited',
   'invite.sendLabel': 'Invite {name} to this room',
@@ -359,7 +360,7 @@ export const tr: Words = {
   'recover.hasProfile': 'Bu cihazda zaten bir profil var.',
 
   // ---- arkadaşlar sayfasının durumları ----
-  'banner.offline': 'Bağlantı yok. Gördüğün, cihazının kaydettiği hâl. Çevrimiçi olunca arkadaşların ve durumları güncellenir.',
+  'banner.offline': 'Bağlantı yok. Cihazının kaydettiği bilgileri görüyorsun. Çevrimiçi olunca arkadaşların ve durumları güncellenir.',
   'banner.reconnecting': 'Arkadaşlarına yeniden bağlanılıyor. Durumları eski olabilir.',
   'banner.replaced': 'BodyArcade bu profille başka bir yerde açık. Seni yalnızca tek bir yer çevrimiçi gösterebilir.',
   'banner.takeOver': 'Burada kullan',
@@ -443,7 +444,7 @@ export const tr: Words = {
 
   // ---- haftalık sıralamalar ----
   'boards.title': 'Haftalık sıralamalar',
-  'boards.sub': 'Haftanın en iyi skorun, arkadaşların ya da ülkendeki oyuncularla karşılaştırılır. Yeni hafta her Pazartesi başlar.',
+  'boards.sub': 'Haftanın en iyi skorun, arkadaşlarınla ya da ülkendeki oyuncularla karşılaştırılır. Yeni hafta her Pazartesi başlar.',
   'boards.game': 'Oyun',
   'boards.scope': 'Sıralama',
   'boards.friends': 'Arkadaşlar',
@@ -501,6 +502,7 @@ export const tr: Words = {
   'invite.cardTitle': 'Arkadaşlarını davet et',
   'invite.cardBody': 'Çevrimiçi arkadaşlar kabul edebilecekleri bir bildirim alır. Diğerleri bağlantıyı kullanabilir.',
   'invite.cardEmpty': 'Burada davet etmek için arkadaş ekle.',
+  'invite.cardAll': 'Bütün arkadaşların bu odada.',
   'invite.send': 'Davet et',
   'invite.asked': 'Davet edildi',
   'invite.sendLabel': '{name} kişisini bu odaya davet et',
@@ -585,7 +587,7 @@ export const tr: Words = {
   'err.run_expired': 'Bu tur haftalık sıralamada sayılmak için çok uzun sürdü.',
   'err.run_too_short': 'Bu tur haftalık sıralamada sayılmak için çok kısaydı.',
   'err.score_implausible': 'Bu skor haftalık sıralamada sayılmak için çok yüksekti.',
-  'wait.soon': 'birazdan',
+  'wait.soon': 'Birazdan',
   'wait.seconds': '{n, plural, other {# saniye}} sonra',
   'wait.minutes': '{n, plural, other {# dakika}} sonra',
   'wait.hours': '{n, plural, other {# saat}} sonra',

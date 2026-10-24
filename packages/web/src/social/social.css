@@ -98,9 +98,6 @@
 .k-linkcard .ba-actions { margin-top: 14px; }
 
 /* ---------- a room: invitations and the seat menu ---------- */
-.k-seat .k-seatmore { position: absolute; right: 6px; bottom: 6px; width: 36px; height: 36px; }
-.k-seat .k-seatmore svg { width: 18px; height: 18px; }
-.k-seat { padding-bottom: 14px; }
 .k-invitecard .ba-list > li { min-height: 56px; }
 .k-invitecard .ba-btn { min-height: 40px; padding: 0 14px; font-size: var(--ba-text-sm); }
 
@@ -123,3 +120,14 @@
 .k-tray__card .k-rowbtns { flex: 1 1 100%; justify-content: flex-end; }
 @media (min-width: 560px) { .k-tray__card .k-rowbtns { flex: none; } }
 :root[data-motion="reduce"] .k-tray__card { animation: none; }
+
+/* A state panel on a phone: the picture above the words, not beside them (the words need the width). */
+@media (max-width: 599px) {
+  .k-statepanel { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .k-statepanel > svg { width: 32px; height: 32px; }
+}
+
+/* The footer of a seat: its state, and the menu of the player in it. */
+.k-seatfoot { display: flex; align-items: center; justify-content: center; gap: 6px; max-width: 100%; }
+.k-seat .k-seatmore { position: static; width: 32px; height: 32px; flex: none; }
+.k-seat .k-seatmore svg { width: 16px; height: 16px; }

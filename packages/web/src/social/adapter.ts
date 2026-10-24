@@ -99,7 +99,8 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
     // A kid profile shows nothing of the device's own online profile (that one belongs to a parent).
     const hide = none === 'kid';
     return {
-      status,
+      // With no online identity to use there is nothing to wait for: the page can say so at once.
+      status: none ? 'ready' : status,
       profile: hide ? null : client.profile,
       friends: hide ? NO_SOCIAL_STATE.friends : client.friends,
       requests: hide ? NO_SOCIAL_STATE.requests : client.requests,
@@ -108,7 +109,8 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
       hub: hide ? 'idle' : client.hub,
       signedOut,
       bannedUntil,
-      recovery: recoveryPending ? client.recoveryCode : null,
+      // A recovery code that was not saved yet waits (in memory) for the owner: it is never shown while a kid's profile plays.
+      recovery: !hide && recoveryPending ? client.recoveryCode : null,
       persistent: client.persistent,
       noOnline: none,
     };

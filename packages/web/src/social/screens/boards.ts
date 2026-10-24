@@ -13,7 +13,7 @@ import { dateText } from '../messages.ts';
 import type { SocialState } from '../port.ts';
 import { ux } from '../strings.ts';
 import { avatar, stateBanners } from '../ui.ts';
-import { kidPanel, panel, under13Panel } from './friends.ts';
+import { kidPanel, needProfile, under13Panel } from './friends.ts';
 
 export interface BoardsView {
   state: SocialState;
@@ -67,11 +67,7 @@ export function boardsMain(ctx: ViewContext, v: BoardsView): SafeHtml {
   if (s.noOnline === 'under13') return html`${head}${under13Panel(ctx)}`;
   if (s.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
   const banners = stateBanners(ctx, s);
-  if (!s.profile) {
-    const body = s.status === 'loading' ? html`<p class="ba-lead k-mt" role="status">${t.t('social.loading')}</p>`
-      : panel({ icon: 'trophy', title: u('boards.title'), body: u('boards.needProfile'), actions: html`<button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="social.profile">${t.t('social.intro.cta')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="social.recover">${u('age.have')}</button>` });
-    return html`${head}${banners}<div class="k-mt">${body}</div>`;
-  }
+  if (!s.profile) return html`${head}${banners}<div class="k-mt">${needProfile(ctx, s, { icon: 'trophy', title: u('boards.title'), body: u('boards.needProfile') })}</div>`;
   if (v.games.length === 0 || !v.game) return html`${head}${banners}<p class="ba-lead k-mt">${u('boards.noGames')}</p>`;
   const g = v.game;
   const chips = v.games.map((x) => html`<button class="ba-chip" type="button" data-action="boards.game" data-game="${x.id}" aria-pressed="${x.id === g.id ? 'true' : 'false'}"><img src="${ctx.assets.tile(x.catalogue.tile, 400)}" alt="" width="34" height="26">${titleOf(ctx, x)}</button>`);

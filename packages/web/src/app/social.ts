@@ -609,7 +609,8 @@ export class SocialController {
     const r = await this.svc.social.createProfile({ band: p.band as AgeBand, name: p.name });
     p.busy = false;
     if (!r.ok) { p.error = this.text(r); this.draw(); return; }
-    const text = ctx.i18n.t('safety.name.created', { code: r.value.code });
+    // The hyphen of the code does not break the line (a toast on a small phone would cut BA- from the rest).
+    const text = ctx.i18n.t('safety.name.created', { code: r.value.code.replace('-', '\u2011') });
     this.host.toast(text);
     this.host.announce(text);
     const after = this.svc.social.state();
@@ -807,7 +808,9 @@ export class SocialController {
     if (this.svc.social.state().profile?.code === formatFriendCode(chars)) { this.link = { busy: false, note: { ok: false, text: u('link.own') }, done: null }; this.host.rerender(); return; }
     this.link = { busy: true, note: null, done: null };
     this.host.rerender();
-    const r = await this.svc.social.addByCode(formatFriendCode(chars));
+    // The address itself goes to the client, so the other player is told the request came from their link (and not from their code).
+    const here = this.host.document.defaultView?.location.href ?? '';
+    const r = await this.svc.social.addByCode(parseFriendLink(here) === chars ? here : formatFriendCode(chars));
     if (r.ok) {
       this.link = r.value.status === 'friends'
         ? { busy: false, done: 'friends', note: { ok: true, text: u('link.friends', { name: r.value.friend.name }) } }

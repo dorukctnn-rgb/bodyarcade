@@ -14,7 +14,7 @@ import { dateTimeText } from '../messages.ts';
 import type { SocialState } from '../port.ts';
 import { ux } from '../strings.ts';
 import { stateBanners } from '../ui.ts';
-import { kidPanel, panel, under13Panel } from './friends.ts';
+import { kidPanel, needProfile, under13Panel } from './friends.ts';
 
 /** The state of a quick match search, as the page draws it. */
 export interface QuickView {
@@ -96,9 +96,7 @@ export function lobbiesMain(ctx: ViewContext, v: LobbiesView): SafeHtml {
   let body: SafeHtml;
   const p = s.profile;
   if (!p) {
-    body = s.status === 'loading'
-      ? html`<p class="ba-lead k-mt" role="status">${t.t('social.loading')}</p>`
-      : panel({ icon: 'users', title: t.t('lobby.title'), body: t.t('lobby.needProfile'), actions: html`<button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="social.profile">${t.t('social.intro.cta')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="social.recover">${u('age.have')}</button>` });
+    body = needProfile(ctx, s, { icon: 'users', title: t.t('lobby.title'), body: t.t('lobby.needProfile') });
     return html`${head}<p class="k-sub">${t.t('lobby.sub')}</p>${banners}<div class="k-mt">${body}</div>`;
   }
   if (s.bannedUntil !== null) return html`${head}${banners}`;
@@ -112,9 +110,9 @@ export function lobbiesMain(ctx: ViewContext, v: LobbiesView): SafeHtml {
       : v.failed ? html`<p class="ba-small k-mt" role="status">${v.failed}</p><button class="ba-btn ba-btn--secondary k-mt" type="button" data-action="lobby.refresh">${t.t('common.retry')}</button>`
       : (list ?? []).length === 0 ? html`<p class="ba-small k-mt">${t.t('lobby.none')}</p>`
       : html`<ul class="k-lobbies k-mt">${g ? (list ?? []).map((l) => lobbyRow(ctx, g, l)) : ''}</ul>`;
-    body = html`<div class="k-cols k-cols--side k-mt-lg">
+    body = html`<div class="ba-filters k-gamechips k-mt-lg" role="group" aria-label="${t.t('lobby.games')}">${chips}</div>
+    <div class="k-cols k-cols--side k-mt-lg">
       <div class="k-stack">
-        <div class="ba-filters k-gamechips" role="group" aria-label="${t.t('lobby.games')}">${chips}</div>
         <section aria-labelledby="open">
           <header class="k-sechead"><h2 id="open" class="k-h3">${g ? t.t('lobby.open', { game: titleOf(ctx, g) }) : t.t('lobby.title')}</h2>
             <span class="k-regionpick"><label class="ba-small" for="lobby-region">${u('lobby.region')}</label><select class="ba-input k-regionselect" id="lobby-region" name="region" data-form="lobby-region" data-key="lobby-region">${REGIONS.map((r) => html`<option value="${r}"${attr('selected', r === v.region)}>${t.tx(`lobby.region.${r}`)}</option>`)}</select><button class="ba-icon-btn" type="button" data-action="lobby.refresh" aria-label="${u('lobby.refresh')}">${icon('replay')}</button></span></header>

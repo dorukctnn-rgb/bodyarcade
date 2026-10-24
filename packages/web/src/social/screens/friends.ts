@@ -24,6 +24,23 @@ export function panel(o: { icon: Parameters<typeof icon>[0]; title: string; body
   return html`<div class="ba-panel ba-soon k-statepanel">${icon(o.icon)}<div><h2 class="k-h3">${o.title}</h2><p>${o.body}</p>${o.note ? html`<p class="ba-small k-mt">${o.note}</p>` : ''}<div class="ba-actions k-mt">${o.actions}</div></div></div>`;
 }
 
+/**
+ * What a page that needs a profile shows when there is none: the first answer is still on its way, the service does not answer, or
+ * the player has not made a profile yet (the age question waits behind a button, and a profile can be brought back).
+ */
+export function needProfile(ctx: ViewContext, s: SocialState, o: { icon: Parameters<typeof icon>[0]; title: string; body: string }): SafeHtml {
+  const t = ctx.i18n;
+  const u = ux(ctx);
+  if (s.status === 'loading') return html`<p class="ba-lead" role="status">${t.t('social.loading')}</p>`;
+  if (s.status === 'offline') {
+    return panel({ icon: 'wifi', title: t.t('social.offline.title'), body: t.t('social.offline.body'), actions: html`<button class="ba-btn ba-btn--secondary" type="button" data-action="social.retry">${t.t('social.retry')}</button>` });
+  }
+  return panel({
+    icon: o.icon, title: o.title, body: o.body,
+    actions: html`<button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="social.profile">${t.t('social.intro.cta')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="social.recover">${u('age.have')}</button>`,
+  });
+}
+
 export function under13Panel(ctx: ViewContext): SafeHtml {
   const u = ux(ctx);
   return panel({
