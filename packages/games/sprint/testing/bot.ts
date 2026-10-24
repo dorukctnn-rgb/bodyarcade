@@ -61,7 +61,7 @@ export function sprintBot(kind: BotKind, seed = 1): SprintBot {
     // The quiet and the seated ways over a hurdle: when this stride is counted inside the hurdle's window, lift this knee to the hip.
     const arrive = hurdleIn(s, lane);
     const at = 0.55 * period;
-    if (!warm && s.quiet && arrive < 2 && arrive - at >= -0.02 && arrive - at <= 0.5 && kind !== 'early' && (kind === 'perfect' || rnd() < 0.75)) { peak = 1.02; counted = true; }
+    if (!warm && s.quiet && arrive < 2 && arrive - at >= -0.02 && arrive - at <= 0.5 && kind !== 'early' && (kind === 'perfect' || rnd() < 0.75)) { peak = 1.1; counted = true; }
     u = 0;
     emitted = false;
     started = true;

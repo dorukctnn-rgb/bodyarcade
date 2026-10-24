@@ -49,7 +49,9 @@ export function runnerPerson(o: RunnerPersonOptions): ChainPerson {
         const a = 62 + 48 * Math.sin(swing * Math.PI * 2);
         return { armL: { a, f: a }, armR: { a: 124 - a, f: 124 - a } };
       }
-      if (l.jumps > 0) jumpT = t - (o.jumpEarly ?? 0) * 1000;
+      // The bot decides again at every frame until the game has seen the jump (the detector sees it a little late):
+      // a jump already under way is not started over.
+      if (l.jumps > 0 && (t - jumpT) / (jumpSec * 1000) > 1) jumpT = t - (o.jumpEarly ?? 0) * 1000;
       const u = (t - jumpT) / (jumpSec * 1000);
       const spec: FigureSpec = { legL: { k: bot.knees[0] }, legR: { k: bot.knees[1] } };
       if (u >= 0 && u <= 1) {

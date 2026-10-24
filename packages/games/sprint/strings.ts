@@ -139,6 +139,13 @@ export const de: StringTable = {
   'announce.go': 'Los',
   'announce.finish': '{medal}, {time} Sekunden',
   'announce.hurdle': 'Hürde voraus',
+  'miss.knee_not_high': 'Heb die Knie höher',
+  'miss.same_leg_twice': 'Wechsle das Bein',
+  'miss.move_more': 'Halte die Knie in Bewegung',
+  'miss.body_not_straight': 'Steh aufrecht, lehn dich nicht zurück',
+  'miss.hurdle_early': 'Zu früh für die Hürde',
+  'miss.hurdle_late': 'Zu spät für die Hürde',
+  'miss.hurdle_none': 'Spring oder heb ein Knie bis zur Hüfte',
 };
 
 export const es: StringTable = {
@@ -180,6 +187,13 @@ export const es: StringTable = {
   'announce.go': 'Ya',
   'announce.finish': '{medal}, {time} segundos',
   'announce.hurdle': 'Valla delante',
+  'miss.knee_not_high': 'Sube más las rodillas',
+  'miss.same_leg_twice': 'Cambia de pierna',
+  'miss.move_more': 'Mantén las rodillas en movimiento',
+  'miss.body_not_straight': 'Mantente erguido, no te inclines hacia atrás',
+  'miss.hurdle_early': 'Demasiado pronto para la valla',
+  'miss.hurdle_late': 'Demasiado tarde para la valla',
+  'miss.hurdle_none': 'Salta o sube una rodilla hasta la cadera',
 };
 
 export const fr: StringTable = {
@@ -221,6 +235,13 @@ export const fr: StringTable = {
   'announce.go': 'Partez',
   'announce.finish': '{medal}, {time} secondes',
   'announce.hurdle': 'Haie devant',
+  'miss.knee_not_high': 'Monte les genoux plus haut',
+  'miss.same_leg_twice': 'Change de jambe',
+  'miss.move_more': 'Garde les genoux en mouvement',
+  'miss.body_not_straight': 'Tiens-toi droit, ne te penche pas en arrière',
+  'miss.hurdle_early': 'Trop tôt pour la haie',
+  'miss.hurdle_late': 'Trop tard pour la haie',
+  'miss.hurdle_none': 'Saute ou monte un genou jusqu’à la hanche',
 };
 
 export const STRINGS: StringTables = { en, tr, de, es, fr };
