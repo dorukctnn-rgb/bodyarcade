@@ -14,6 +14,10 @@ export interface Hooks {
   keyboard?: boolean;
   /** The practice session sees a person at a desk: head and shoulders, no hips, until the round is a seated one. */
   desk?: boolean;
+  /** The player is in the last days of a free trial: it ends this many hours from now. */
+  trial?: { endsInHours: number; where?: 'web' | 'play'; cancelled?: boolean; email?: 'offer' | 'none' };
+  /** What a published build shows while nothing can be bought: no offers, a note. */
+  billing?: 'unavailable' | 'checking';
 }
 
 /** Sets the test hooks before the page's own scripts run. Development builds only read them. */

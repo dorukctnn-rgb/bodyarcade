@@ -133,14 +133,109 @@ test.describe('a round', () => {
   test('the Pro offer says a trial only when it applies, and picking a plan changes the button', async ({ page }) => {
     await page.goto(`${WEB_DEV_URL}/pro/`);
     await expect(page.getByRole('button', { name: 'Try 7 days free' })).toBeVisible();
+    await expect(page.locator('.k-note').first()).toContainText('We remind you two days before the trial ends');
     await page.locator('label.k-plan', { hasText: 'Lifetime' }).click();
     await expect(page.getByRole('button', { name: 'Choose this plan' })).toBeVisible();
-    await expect(page.locator('.k-note')).not.toContainText('7 days free');
+    await expect(page.locator('.k-note').first()).not.toContainText('7 days free');
+    await expect(page.locator('.k-note').first()).not.toContainText('remind you');
+    // Family has no free trial: not in its row, not on its button, not in the note
+    await page.locator('label.k-plan', { hasText: 'Family' }).click();
+    await expect(page.getByRole('button', { name: 'Choose this plan' })).toBeVisible();
+    await expect(page.locator('label.k-plan', { hasText: 'Family' })).not.toContainText(/free|trial/i);
+    await expect(page.locator('.k-note').first()).not.toContainText(/free|remind/i);
     await page.locator('label.k-plan', { hasText: 'Pro yearly' }).click();
     await expect(page.getByRole('button', { name: 'Try 7 days free' })).toBeVisible();
-    // Checkout is not open yet in this build: a plain notice instead of a dead button.
+  });
+
+  test('a preview build has made-up offers and says that nothing can be bought, instead of a button that does nothing', async ({ page }) => {
+    await page.addInitScript(() => {
+      const opened: string[] = [];
+      (window as unknown as { __opened: string[] }).__opened = opened;
+      window.open = ((u: string) => { opened.push(u); return null; }) as typeof window.open;
+    });
+    await page.goto(`${WEB_DEV_URL}/pro/`);
+    await expect(page.locator('[data-paywall-preview]')).toContainText('Preview build: the checkout link is not set yet');
     await page.getByRole('button', { name: 'Try 7 days free' }).click();
-    await expect(page.locator('.ba-toast')).toContainText('Checkout is not open yet.');
+    await expect(page.locator('.ba-toast')).toContainText('Preview build: the checkout link is not set yet');
+    // nothing was opened: a made-up address is never sent a player to
+    expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual([]);
+  });
+});
+
+test.describe('the free trial', () => {
+  test('the last two days of a trial are said on every open, on every page, and closing the notice lasts for the visit only', async ({ page }) => {
+    await withHooks(page, { trial: { endsInHours: 30 }, forceDemo: true });
+    await page.goto(`${WEB_DEV_URL}/`);
+    const note = page.locator('[data-trial-notice]');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText(/Your free trial ends (today|tomorrow|the day after tomorrow)\./);
+    await expect(note).toContainText('cancel in your Gumroad library');
+    // it follows the player from page to page
+    await page.getByRole('link', { name: 'Settings' }).first().click();
+    await expect(page).toHaveURL(/\/settings\/$/);
+    await expect(note).toBeVisible();
+    // closing hides it for now; the next open shows it again
+    await note.getByRole('button', { name: 'Got it' }).click();
+    await expect(note).toHaveCount(0);
+    await page.getByRole('link', { name: 'Games' }).first().click();
+    await expect(note).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('[data-trial-notice]')).toBeVisible();
+  });
+
+  test('there is no notice before the last two days, and none on the stage of a round', async ({ page }) => {
+    await withHooks(page, { trial: { endsInHours: 100 }, forceDemo: true });
+    await page.goto(`${WEB_DEV_URL}/`);
+    await expect(page.locator('a.ba-tile').first()).toBeVisible();
+    await expect(page.locator('[data-trial-notice]')).toHaveCount(0);
+    const near = await page.context().newPage();
+    await withHooks(near, { trial: { endsInHours: 30 }, forceDemo: true, keyboard: true, timeScale: 40, roundSeconds: 5 });
+    await near.goto(`${WEB_DEV_URL}/play/squat-flap/?input=keyboard`);
+    await expect(near.locator('[data-stage]')).toBeVisible();
+    await expect(near.locator('[data-trial-notice]')).toHaveCount(0);
+    await near.close();
+  });
+
+  test('a cancelled membership says nothing will be charged, and Google Play says where to cancel', async ({ page }) => {
+    await withHooks(page, { trial: { endsInHours: 30, cancelled: true }, forceDemo: true });
+    await page.goto(`${WEB_DEV_URL}/`);
+    await expect(page.locator('[data-trial-notice]')).toContainText('You already cancelled, so nothing will be charged.');
+    const play = await page.context().newPage();
+    await withHooks(play, { trial: { endsInHours: 30, where: 'play' }, forceDemo: true });
+    await play.goto(`${WEB_DEV_URL}/`);
+    await expect(play.locator('[data-trial-notice]')).toContainText('cancel in Google Play subscriptions');
+    await play.close();
+  });
+
+  test('the notice in Turkish, and the plan page with the one reminder e-mail: a wrong address is refused in words, a good one is kept masked and can be taken back', async ({ page }) => {
+    await withHooks(page, { trial: { endsInHours: 30 }, forceDemo: true, plan: 'pro' });
+    await page.goto(`${WEB_DEV_URL}/tr/`);
+    await expect(page.locator('[data-trial-notice]')).toContainText(/Ücretsiz denemen (bugün|yarın|öbür gün) bitiyor\./);
+    await page.goto(`${WEB_DEV_URL}/pro/`);
+    const block = page.locator('[data-trial]');
+    await expect(block).toContainText('Your free trial ends on');
+    await expect(block.locator('[data-trial-email="offer"]')).toBeVisible();
+
+    await block.locator('#tr-email').fill('not an address');
+    await block.getByRole('button', { name: 'Remind me by e-mail' }).click();
+    await expect(block.locator('[data-trial-note]')).toHaveText('That does not look like an e-mail address.');
+
+    await block.locator('#tr-email').fill('alice@example.com');
+    await block.getByRole('button', { name: 'Remind me by e-mail' }).click();
+    await expect(block.locator('[data-trial-email="set"]')).toContainText('a***@example.com');
+    await expect(block).not.toContainText('alice@');
+    await expect(block.locator('[data-trial-note]')).toHaveText('Done. The reminder is set.');
+
+    await block.getByRole('button', { name: 'Take my address back' }).click();
+    await expect(block.locator('[data-trial-email="offer"]')).toBeVisible();
+    await expect(block.locator('[data-trial-note]')).toHaveText('Your address is deleted. You will still see the notice in the app.');
+  });
+
+  test('there is no e-mail box in Google Play, which sends its own reminder', async ({ page }) => {
+    await withHooks(page, { trial: { endsInHours: 30, where: 'play' }, forceDemo: true, plan: 'pro' });
+    await page.goto(`${WEB_DEV_URL}/pro/`);
+    await expect(page.locator('[data-trial]')).toBeVisible();
+    await expect(page.locator('[data-trial-email]')).toHaveCount(0);
   });
 });
 

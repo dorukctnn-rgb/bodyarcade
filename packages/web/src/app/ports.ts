@@ -1,7 +1,9 @@
 // What the shell needs from the other parts of the platform, as small interfaces. Each one has a stand-in here or in
 // the demo code until the real module is wired; swapping it in is a change in boot.ts only.
+import type { TrialService } from '../../../core/entitlements/trial.ts';
 import type { ActivateFailureCode, Hud, Plan, Session, Unsubscribe } from '../../../core/types/index.ts';
 import type { HudLayoutInfo } from '../../../core/ui/hud/hud.ts';
+import type { PaywallInfo, PlansConfig } from '../../../core/ui/plans.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import type { SetupState } from '../views/setup.ts';
 
@@ -15,6 +17,16 @@ export interface EntitlementsPort {
   restore?(): Promise<boolean>;
   /** Android only: start a purchase for a Play product id. */
   purchase?(productId: string): Promise<boolean>;
+}
+
+/**
+ * What the paywall and the trial notice get from the entitlements (core/entitlements: bootEntitlements): the plans and what
+ * may be said where the page runs, and the last two days of a free trial. The real one is billing.ts: realBilling.
+ */
+export interface BillingPort {
+  /** Fresh every call: Google's answers and a trial that was just bought change it. */
+  paywall(): { plans: PlansConfig; info: PaywallInfo };
+  trial: Pick<TrialService, 'notice' | 'view' | 'setEmail' | 'clearEmail'>;
 }
 
 /** What the stage hands a session so it can draw the game and the player's own view. */

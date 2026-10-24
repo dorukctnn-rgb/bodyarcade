@@ -3,4 +3,4 @@ import './styles/app.css';
 import catalogue from 'virtual:catalogue';
 import { boot } from './app/boot.ts';
 
-boot({ win: window, catalogue, version: __BA_VERSION__, demo: __BA_DEMO__ });
+void boot({ win: window, catalogue, version: __BA_VERSION__, demo: __BA_DEMO__, placeholderPlans: __BA_PLACEHOLDER_PLANS__ });

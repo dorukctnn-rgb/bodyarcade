@@ -49,6 +49,21 @@ function footer(ctx: ViewContext): SafeHtml {
   </footer>`;
 }
 
+/**
+ * The last two days of a free trial: the promise the paywall makes, kept in the app on every open. It says when the trial ends
+ * and where to cancel (or that it was cancelled already), and leads to the page that holds the reminder e-mail box. Closing it
+ * hides it for this visit only: the next open shows it again.
+ */
+export function trialNotice(ctx: ViewContext): SafeHtml {
+  const n = ctx.trial;
+  if (!n) return html``;
+  const t = ctx.i18n;
+  const day = t.tx(`trial.notice.${Math.min(2, Math.max(0, n.dayOffset))}`);
+  const rest = n.cancelled ? t.t('trial.notice.cancelled') : n.where === 'play' ? t.t('trial.notice.play') : t.t('trial.notice.web');
+  return html`<aside class="ba-trialnote" aria-label="${t.t('trial.notice.label')}" data-trial-notice><p><b>${day}</b> ${rest}</p>
+    <div class="ba-trialnote-actions"><a class="ba-link" href="${ctx.href('pro')}">${t.t('trial.notice.manage')}</a><button type="button" class="ba-link" data-action="trial-dismiss">${t.t('trial.notice.dismiss')}</button></div></aside>`;
+}
+
 export interface ChromeOptions {
   tab: NavTab | null;
   main: SafeHtml;
@@ -73,6 +88,7 @@ export function chrome(ctx: ViewContext, o: ChromeOptions): SafeHtml {
       <nav aria-label="${t.t('nav.label')}">${topLinks}</nav>
       <span class="ba-me">${proBadge}</span>
     </header>
+    ${trialNotice(ctx)}
     <main id="main" class="ba-page ${o.mainClass ?? ''}" tabindex="-1">
       ${o.pushed ? '' : html`<div class="ba-mobilehead"><a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 28)}</a>${proBadge}</div>`}
       ${o.main}

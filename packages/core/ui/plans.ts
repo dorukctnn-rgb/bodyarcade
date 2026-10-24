@@ -1,6 +1,7 @@
 // The four plans the paywall shows (BUILD-PLAN: Pro monthly, Pro yearly with a trial, Family yearly, Lifetime) and the
 // rules for what the paywall may say about them. Prices, trial length and checkout targets come from the entitlements
-// builder's plans config; STUB_PLANS below mirrors BUILD-PLAN until that config lands and is only used then.
+// (core/entitlements: paywallModel); STUB_PLANS below mirrors BUILD-PLAN for the pages that are drawn without a visitor
+// (the page generator, tests) and has no checkout address at all.
 import type { Plan } from '../types/index.ts';
 import type { I18n } from './i18n/index.ts';
 
@@ -22,6 +23,28 @@ export interface PlanOffer {
   checkout: { web?: string; play?: string };
 }
 
+/**
+ * What the paywall may do where it runs, from the entitlements' paywall model. 'web': the plans with a real checkout
+ * address and the licence key box. 'play': Google's own plans and no word about another shop. 'play-unsupported': the app
+ * cannot sell here. 'neutral': the proof of where it runs is not in yet.
+ */
+export interface PaywallInfo {
+  mode: 'web' | 'play' | 'play-unsupported' | 'neutral';
+  /** Something honest to say instead of offers. */
+  note: 'unavailable' | 'play-only' | 'checking' | null;
+  keyEntry: { visible: boolean; wording: 'web' | 'neutral' };
+  /** Play's own page for changing or cancelling a subscription (play mode only). */
+  manageUrl: string | null;
+  /** The offers are made up for a preview (development and test builds, or a build made for a design review): the buy button says so. */
+  preview: boolean;
+}
+
+/** The paywall of a page that is drawn without a visitor: the web, with whatever plans the page was given. */
+export const WEB_PAYWALL: PaywallInfo = { mode: 'web', note: null, keyEntry: { visible: true, wording: 'web' }, manageUrl: null, preview: false };
+
+/** What a page drawn without a visitor says about buying: it does not know yet, and nothing on it can be pressed. */
+export const CHECKING_PAYWALL: PaywallInfo = { mode: 'neutral', note: 'checking', keyEntry: { visible: false, wording: 'neutral' }, manageUrl: null, preview: false };
+
 export interface PlansConfig {
   offers: readonly PlanOffer[];
   /** False when this player already used a trial (Gumroad allows one) or the provider offers none. */
@@ -36,14 +59,17 @@ export const STUB_PLANS: PlansConfig = {
   offers: [
     { id: 'pro-monthly', plan: 'pro', period: 'month', price: { amount: 7.99, currency: 'USD' }, checkout: {} },
     { id: 'pro-yearly', plan: 'pro', period: 'year', price: { amount: 39.99, currency: 'USD' }, trialDays: 7, featured: true, checkout: {} },
-    { id: 'family-yearly', plan: 'family', period: 'year', price: { amount: 59.99, currency: 'USD' }, trialDays: 7, profiles: 6, devices: 4, checkout: {} },
+    { id: 'family-yearly', plan: 'family', period: 'year', price: { amount: 59.99, currency: 'USD' }, profiles: 6, devices: 4, checkout: {} },
     { id: 'lifetime', plan: 'lifetime', period: 'once', price: { amount: 119.99, currency: 'USD' }, checkout: {} },
   ],
 };
 
-/** "7 days free" appears only when the offer has a trial and this player can still use it. */
+/** The plans that have a free trial. Pro yearly only: Family, monthly and Lifetime have none, whatever a config says. */
+export const TRIAL_PLANS: readonly PlanId[] = ['pro-yearly'];
+
+/** "7 days free" appears only when the offer has a trial, it is one that has one, and this player can still use it. */
 export function trialApplies(offer: PlanOffer, cfg: Pick<PlansConfig, 'trialEligible'>): boolean {
-  return cfg.trialEligible && typeof offer.trialDays === 'number' && offer.trialDays > 0;
+  return cfg.trialEligible && TRIAL_PLANS.includes(offer.id) && typeof offer.trialDays === 'number' && offer.trialDays > 0;
 }
 
 /** Price per month for a yearly plan, rounded to cents; null for other periods. */

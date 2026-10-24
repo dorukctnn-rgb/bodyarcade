@@ -4,17 +4,32 @@
 // Everything runs against a server the caller started with the fixtures as the catalogue (BA_FIXTURES=only or fill), where
 // the practice session and the test hooks exist.
 import type { Browser, BrowserContext, Page } from '@playwright/test';
+import type { Hooks } from '../e2e/support/helpers.ts';
 
-export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'] as const;
+export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 
 /** The address of each scenario, without the language prefix. */
 const PATHS: Record<Scenario, string> = {
   home: '/', 'home-week': '/', region: '/workouts/legs/', game: '/games/squat-flap/', 'game-more': '/games/squat-flap/', 'game-pro': '/games/pad-work/',
   'game-locked': '/games/pad-work/', settings: '/settings/', pro: '/pro/', results: '/play/squat-flap/?input=keyboard', play: '/play/squat-flap/?input=keyboard',
-  calibrate: '/play/squat-flap/?input=camera', 'calibrate-desk': '/play/squat-flap/?input=camera', 'calibrate-headroom': '/play/summit-climb/?input=camera', notfound: '/nope/', friends: '/friends/?social=1', 'friends-new': '/friends/?social=fresh', 'friends-offline': '/friends/?social=offline', lobbies: '/lobbies/?social=1',
+  calibrate: '/play/squat-flap/?input=camera', 'calibrate-desk': '/play/squat-flap/?input=camera', 'calibrate-headroom': '/play/summit-climb/?input=camera', 'pro-unavailable': '/pro/', 'pro-trial': '/pro/', 'home-trial': '/', notfound: '/nope/', friends: '/friends/?social=1', 'friends-new': '/friends/?social=fresh', 'friends-offline': '/friends/?social=offline', lobbies: '/lobbies/?social=1',
   room: '/r/K7Q2MX/?social=1', 'room-host': '/friends/?social=1', safety: '/safety/?social=1', friendlink: '/f/BA-9PXMR3/?social=1',
 };
+
+/** The test hooks each screen is reached with: a keyboard is there in every one, and the practice session runs at the speed the screen needs. */
+function hooksOf(name: Scenario): Hooks {
+  const base: Hooks = { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true };
+  switch (name) {
+    case 'play': return { ...base, timeScale: 5, roundSeconds: 120 };
+    case 'calibrate': case 'calibrate-headroom': return { ...base, timeScale: 1, roundSeconds: 120 };
+    case 'calibrate-desk': return { ...base, timeScale: 12, roundSeconds: 120, desk: true };
+    case 'pro-unavailable': return { ...base, billing: 'unavailable' };
+    case 'pro-trial': return { ...base, plan: 'pro', trial: { endsInHours: 30 } };
+    case 'home-trial': return { ...base, trial: { endsInHours: 30 } };
+    default: return base;
+  }
+}
 
 /** Seeds the player's store before the page loads: a week of rounds for the home page, a used free round for the lock. */
 const SEED = `(() => {
@@ -44,7 +59,7 @@ export interface OpenOptions {
   plan?: 'free' | 'pro';
   dark?: boolean;
   /** Pages with a camera view ask for the camera; the practice session does not need one. */
-  hooks?: { timeScale?: number; roundSeconds?: number; forceDemo?: boolean; keyboard?: boolean; desk?: boolean };
+  hooks?: Hooks;
 }
 
 export interface Opened {
@@ -68,7 +83,7 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   // A keyboard is there in every scenario: the screens of a round are reached with it even at phone sizes (a real phone
   // has none, and a camera game there says it needs the camera; e2e-real/games.spec.ts looks at that).
-  const hooks = o.hooks ?? (name === 'play' ? { timeScale: 5, roundSeconds: 120, forceDemo: true, keyboard: true } : name === 'calibrate' || name === 'calibrate-headroom' ? { timeScale: 1, roundSeconds: 120, forceDemo: true, keyboard: true } : name === 'calibrate-desk' ? { timeScale: 12, roundSeconds: 120, forceDemo: true, keyboard: true, desk: true } : { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true });
+  const hooks: Hooks = o.hooks ?? hooksOf(name);
   await page.addInitScript((h) => { window.__BA_TEST__ = h; }, hooks);
   await page.addInitScript(`window.__SEED__ = ${JSON.stringify(name)};`);
   await page.addInitScript(SEED);

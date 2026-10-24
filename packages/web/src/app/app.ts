@@ -6,7 +6,7 @@ import { openDialog } from '../../../core/ui/dialog.ts';
 import { detectLang, isLang, LANG_INFO, type I18n, type Lang } from '../../../core/ui/i18n/index.ts';
 import { createLiveRegion, type LiveRegion } from '../../../core/ui/live-region.ts';
 import { createNavigation, type Matched, type Navigation, type RouteChange } from '../../../core/ui/router.ts';
-import { shouldShowPaywallAfterRound, STUB_PLANS, type PlansConfig } from '../../../core/ui/plans.ts';
+import { shouldShowPaywallAfterRound } from '../../../core/ui/plans.ts';
 import { applySettingsToDocument, createSettingsStore, type Settings, type SettingsStore } from '../../../core/ui/settings.ts';
 import { createToaster, type Toaster } from '../../../core/ui/toast.ts';
 import { createStore, type BodyArcadeStore, type StorageLike, type StoreNamespace } from '../../../core/store/store.ts';
@@ -28,7 +28,7 @@ import { applyHead, readAssetMap, swap } from './dom.ts';
 import { localEntitlements } from './entitlements.ts';
 import { addRound, HISTORY_SCHEMA, recentBests, weekStats, type RoundRecord } from './history.ts';
 import { PlayController, type PlayHost } from './play.ts';
-import type { EntitlementsPort, SessionFactory } from './ports.ts';
+import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
 import type { SocialServices } from '../social/port.ts';
 import { BESTS_SCHEMA, bestOf, buildRoundResult, withBest, type Bests } from './results.ts';
@@ -49,11 +49,14 @@ export interface AppOptions {
   /** Development and test builds: the practice session, test hooks and the demo license key. */
   demo: boolean;
   storage?: StorageLike | null;
+  /** The page's own store, when something else (the entitlements) has to share it. */
+  store?: BodyArcadeStore;
   entitlements?: EntitlementsPort;
+  /** The offers, what the paywall may say where the page runs, and the free trial: from core/entitlements (billing.ts). */
+  billing: BillingPort;
   sessionFactory?: SessionFactory;
   /** Makes the session factory once the app's services exist (the real session needs the store and the words). */
   makeSessionFactory?: (s: AppServices) => SessionFactory;
-  plans?: PlansConfig;
   /** Friends, lobbies and rooms: the social client and the live client behind the ports. Off (null) until the social server exists. */
   social?: SocialServices | null;
   /** The player pressed something that starts a round: the place to unlock the sound. */
@@ -78,12 +81,16 @@ export class App {
   private readonly store: BodyArcadeStore;
   private readonly shell: StoreNamespace;
   private readonly settings: SettingsStore;
-  private readonly entitlements: EntitlementsPort;
+  private entitlements: EntitlementsPort;
+  private billing: BillingPort;
+  private offEntitlements: (() => void) | null = null;
+  /** The notice of a free trial was closed for this visit: the next open shows it again. */
+  private trialDismissed = false;
+  private trialLoading = false;
   private readonly live: LiveRegion;
   private readonly toaster: Toaster;
   private readonly games: readonly ShellGame[];
   private readonly assets: AssetResolver;
-  private readonly plans: PlansConfig;
   private readonly factory: SessionFactory | undefined;
   private nav!: Navigation<RouteId>;
   private caps: UiCapabilities;
@@ -110,7 +117,7 @@ export class App {
     this.doc = o.win.document;
     this.host = this.doc.getElementById('app') as HTMLElement;
     this.games = o.catalogue.games;
-    this.store = createStore({ ...(o.storage !== undefined ? { storage: o.storage } : {}) });
+    this.store = o.store ?? createStore({ ...(o.storage !== undefined ? { storage: o.storage } : {}) });
     this.shell = this.store.ns('shell');
     const first = !this.shell.has('settings');
     this.settings = createSettingsStore(this.shell);
@@ -122,7 +129,7 @@ export class App {
       save: (p) => this.shell.set('plan', p),
     });
     this.plan = this.entitlements.plan();
-    this.plans = o.plans ?? STUB_PLANS;
+    this.billing = o.billing;
     const map = readAssetMap(this.doc);
     this.assets = Object.keys(map).length > 0 ? mappedAssets(map) : devAssets;
     this.bests = this.shell.get('bests', BESTS_SCHEMA, {});
@@ -146,8 +153,10 @@ export class App {
   private currentSettings(): Readonly<Settings> { return this.settings.get(); }
 
   private context(url: string, lang: Lang = this.lang): ViewContext {
+    const pay = this.billing.paywall();
     return makeContext({
-      lang, games: this.games, url, settings: this.currentSettings(), caps: this.caps, plan: this.plan, plans: this.plans, assets: this.assets,
+      lang, games: this.games, url, settings: this.currentSettings(), caps: this.caps, plan: this.plan, plans: pay.plans, paywall: pay.info,
+      trial: this.trialDismissed ? null : this.billing.trial.notice(), assets: this.assets,
       flags: { social: !!this.social }, version: this.o.version, server: false,
     });
   }
@@ -178,11 +187,29 @@ export class App {
     this.on(this.win, 'offline', () => this.toaster.show(this.ctx().i18n.t('toast.offline'), { kind: 'warn' }));
     this.on(this.win, 'resize', () => this.onResize());
     this.on(this.win, 'orientationchange', () => this.onResize());
-    this.cleanups.push(this.entitlements.onChange((p) => { this.plan = p; this.rerender(); }));
+    this.watchEntitlements();
     this.cleanups.push(this.settings.subscribe(() => this.apply()));
     this.social?.start();
     this.apply();
     this.nav.start();
+  }
+
+  private watchEntitlements(): void {
+    this.offEntitlements?.();
+    this.offEntitlements = this.entitlements.onChange((p) => { this.plan = p; this.state = { ...this.state, paywall: null }; this.rerender(); });
+  }
+
+  /**
+   * The real entitlements arrive after the page started (checking a licence kept from the old site can take a moment): the
+   * page was drawn from what was kept on the device, and is drawn again with the answer.
+   */
+  attach(o: { entitlements?: EntitlementsPort; billing: BillingPort }): void {
+    if (o.entitlements) this.entitlements = o.entitlements;
+    this.billing = o.billing;
+    this.plan = this.entitlements.plan();
+    this.watchEntitlements();
+    this.state = { ...this.state, paywall: null };
+    this.rerender();
   }
 
   private on(target: EventTarget, type: string, cb: (e: Event) => void): void {
@@ -195,6 +222,7 @@ export class App {
     this.social?.stop();
     this.nav.stop();
     for (const c of this.cleanups.splice(0)) c();
+    this.offEntitlements?.();
     this.live.dispose();
     this.toaster.dispose();
   }
@@ -267,6 +295,7 @@ export class App {
     if (route?.id === 'pro') {
       const gameId = route.query.get('game') ?? undefined;
       if (!this.state.paywall || this.state.paywall.gameId !== gameId) this.state = { ...this.state, paywall: defaultPaywallState(ctx, gameId) };
+      if (hasPro(ctx) && !this.state.paywall?.trial) void this.loadTrial();
     }
     const game = route?.id === 'game' ? gameBySlug(this.games, route.params['slug'] ?? '') : undefined;
     const state: PageState = {
@@ -485,6 +514,19 @@ export class App {
         e.preventDefault();
         void this.restore();
         break;
+      case 'trial-dismiss':
+        e.preventDefault();
+        this.trialDismissed = true;
+        this.rerender();
+        break;
+      case 'trial-email':
+        e.preventDefault();
+        void this.leaveEmail();
+        break;
+      case 'trial-clear':
+        e.preventDefault();
+        void this.takeEmailBack();
+        break;
       default:
         break;
     }
@@ -622,18 +664,65 @@ export class App {
     if (this.route?.id === 'pro') this.render();
   }
 
+  /**
+   * The buy button does what the page it is on can do: Google Play inside the Android app, the Gumroad page on the web. A
+   * plan that has no real address is not on the page at all, so the only offers that cannot be bought are the made-up ones of a
+   * preview build, and those say so.
+   */
   private buy(planId: string): void {
     const ctx = this.ctx();
+    const t = ctx.i18n;
     const offer = selectedOffer(ctx, planId as PaywallState['selected']);
     if (!offer) return;
-    if (ctx.caps.platform === 'android-app') {
+    if (ctx.paywall.mode === 'play') {
       const id = offer.checkout.play;
-      if (id && this.entitlements.purchase) { void this.entitlements.purchase(id); return; }
+      if (id && this.entitlements.purchase) {
+        void this.entitlements.purchase(id).then((ok) => { if (!ok) this.toaster.show(t.t('paywall.notDone'), { kind: 'warn' }); });
+        return;
+      }
+    } else if (ctx.paywall.preview) {
+      this.toaster.show(t.t('paywall.preview'), { kind: 'warn' });
+      return;
     } else if (offer.checkout.web) {
       this.win.open(offer.checkout.web, '_blank', 'noopener,noreferrer');
       return;
     }
-    this.toaster.show(ctx.i18n.t('paywall.unavailable'), { kind: 'warn' });
+    this.toaster.show(t.t('paywall.unavailable'), { kind: 'warn' });
+  }
+
+  // ---- the free trial -----------------------------------------------------------------------------------------------
+
+  /** The page of Pro asks what the free trial of an active membership looks like: its end and the box for the one reminder e-mail. */
+  private async loadTrial(): Promise<void> {
+    if (this.trialLoading) return;
+    this.trialLoading = true;
+    try {
+      const view = await this.billing.trial.view();
+      this.setPaywall({ trial: view });
+    } finally {
+      this.trialLoading = false;
+    }
+  }
+
+  private async leaveEmail(): Promise<void> {
+    const email = this.doc.querySelector<HTMLInputElement>('#tr-email')?.value ?? '';
+    this.setPaywall({ emailBusy: true, emailNote: null });
+    const r = await this.billing.trial.setEmail(email, this.lang);
+    if (r.ok) {
+      const view = await this.billing.trial.view();
+      this.setPaywall({ trial: view, emailBusy: false, emailNote: { kind: 'saved' } });
+      this.live.announce(this.ctx().i18n.t('trial.email.saved'));
+    } else this.setPaywall({ emailBusy: false, emailNote: { kind: 'error', code: r.code } });
+  }
+
+  private async takeEmailBack(): Promise<void> {
+    this.setPaywall({ emailBusy: true, emailNote: null });
+    const r = await this.billing.trial.clearEmail();
+    if (r.ok) {
+      const view = await this.billing.trial.view();
+      this.setPaywall({ trial: view, emailBusy: false, emailNote: { kind: 'cleared' } });
+      this.live.announce(this.ctx().i18n.t('trial.email.cleared'));
+    } else this.setPaywall({ emailBusy: false, emailNote: { kind: 'error', code: r.code } });
   }
 
   private async activateKey(): Promise<void> {
@@ -643,7 +732,7 @@ export class App {
     const r = await this.entitlements.activate(key);
     if (r.ok) {
       this.plan = r.plan;
-      this.setPaywall({ keyStatus: 'ok' });
+      this.setPaywall({ keyStatus: 'ok', trial: null });
       this.live.announce(this.ctx().i18n.t('paywall.key.ok'));
     } else this.setPaywall({ keyOpen: true, keyStatus: r.code });
   }

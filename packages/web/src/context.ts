@@ -4,7 +4,8 @@ import type { BodyRegion, Plan } from '../../core/types/index.ts';
 import { localized } from '../../core/ui/i18n/localized.ts';
 import type { I18n, Lang } from '../../core/ui/i18n/index.ts';
 import type { UiCapabilities } from '../../core/ui/capabilities.ts';
-import type { PlansConfig } from '../../core/ui/plans.ts';
+import type { TrialNotice } from '../../core/entitlements/trial.ts';
+import type { PaywallInfo, PlansConfig } from '../../core/ui/plans.ts';
 import type { HrefOptions } from '../../core/ui/router.ts';
 import type { Settings } from '../../core/ui/settings.ts';
 import type { ShellGame } from '../catalogue/types.ts';
@@ -25,6 +26,10 @@ export interface ViewContext {
   /** What the player owns. 'free' until Pro is active. */
   plan: Plan;
   plans: PlansConfig;
+  /** What the paywall may do where this page runs (the web shop, Google Play, neither). */
+  paywall: PaywallInfo;
+  /** The last two days of a free trial: the notice shown on every open. Null otherwise. */
+  trial: TrialNotice | null;
   assets: AssetResolver;
   flags: Flags;
   /** The page being drawn: its path and query in the page language, for the language links and the current tab. */

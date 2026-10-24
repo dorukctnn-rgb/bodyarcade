@@ -15,6 +15,18 @@ html[data-big-text="1"] { font-size: 150%; }
 body { overflow-x: hidden; }
 .ba-app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; }
 .ba-app > main { flex: 1 0 auto; width: 100%; }
+.ba-trialnote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px max(16px, env(safe-area-inset-left, 0px)); background: var(--ba-surface-sunken, var(--ba-surface)); color: var(--ba-text); box-shadow: inset 0 -1.5px 0 var(--ba-border); font-size: 0.9375rem; }
+.ba-trialnote p { margin: 0; flex: 1 1 22em; }
+.ba-trialnote-actions { display: flex; gap: 16px; align-items: center; }
+.ba-trialnote .ba-link { min-height: 44px; display: inline-flex; align-items: center; background: none; border: 0; padding: 0 2px; font: inherit; font-weight: 700; cursor: pointer; }
+.k-trial { display: grid; gap: 10px; padding: 16px; border-radius: var(--ba-radius-lg); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.k-trial p, .k-trial h2, .k-trial h3 { margin: 0; }
+.k-trial h2 { font-size: 1.25rem; line-height: 1.2; }
+.k-trial h3 { font-size: 1rem; line-height: 1.25; }
+.k-trial [data-trial-note]:empty { margin-top: -10px; }
+.k-emailbox { display: grid; gap: 10px; }
+.k-note.k-preview { color: var(--ba-text-muted); font-weight: 650; }
+.k-note.k-soon { font-weight: 650; }
 .ba-page { padding-bottom: 32px; }
 .ba-noscript { margin: 0; padding: 12px var(--ba-space-4); background: var(--ba-surface-sunken); text-align: center; }
 main:focus, main:focus-visible, [data-main-heading]:focus, [data-main-heading]:focus-visible { outline: none; box-shadow: none; }
