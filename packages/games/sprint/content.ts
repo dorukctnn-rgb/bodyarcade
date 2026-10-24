@@ -38,4 +38,3 @@ export const RUNNER = {
 
 export const MEDAL_COLORS = { gold: '#FFC53A', silver: '#D5D9E4', bronze: '#E0925A', none: '#F4F2F8', dnf: '#9C96B8' } as const;
 
-export const FONT = '"Savate", "National Park", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';

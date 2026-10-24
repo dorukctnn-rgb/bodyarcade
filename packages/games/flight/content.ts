@@ -56,4 +56,3 @@ export const BIRD = {
 /** Player colours of the second lane's bird (Player 2 is sky). */
 export const BIRD_P2 = { ...BIRD, body: '#46B4FF', belly: '#BFE3FF', cheek: '#2B8DD6' } as const;
 
-export const FONT = '"Savate", "National Park", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';

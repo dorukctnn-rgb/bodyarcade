@@ -9,11 +9,12 @@
 import type { Rng } from '../../core/types/index.ts';
 import { roundedRectPath } from '../../core/render2d/pip.ts';
 import { clamp, smoothstep, wave } from '../kit-g1/index.ts';
+import { canvasFont } from '../kit-g1/font.ts';
 import { createPipPainter } from '../kit-g1/pip.ts';
 import type { SelfView } from '../kit-g1/selfview.ts';
 import type { Say } from '../kit-g1/say.ts';
 import type { Rect, Stage } from '../kit-g1/stage.ts';
-import { CLIMBER, FONT, MEDAL_COLORS, ROCK, themeOf, type Theme } from './content.ts';
+import { CLIMBER, MEDAL_COLORS, ROCK, themeOf, type Theme } from './content.ts';
 import { READY_SEC, WARMUP, WARN_SEC, type ClimbEvent, type ClimbState, type Section } from './sim.ts';
 
 export interface ClimbFrame {
@@ -88,6 +89,7 @@ function clearOf(box: Rect, avoid: readonly (Rect | null)[], lane: Rect): Rect {
 export function createClimbView(o: ClimbViewOptions): ClimbView {
   const { stage, say } = o;
   const ctx = stage.ctx;
+  let font = canvasFont();
   const pip = createPipPainter();
   const gradients = new Map<string, CanvasGradient>();
   const pops: Pop[] = [];
@@ -110,7 +112,7 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
   };
 
   function text(str: string, x: number, y: number, px: number, color: string, o2: { weight?: number; align?: CanvasTextAlign; alpha?: number; baseline?: CanvasTextBaseline } = {}): void {
-    ctx.font = `${o2.weight ?? 800} ${Math.round(px)}px ${FONT}`;
+    ctx.font = `${o2.weight ?? 800} ${Math.round(px)}px ${font}`;
     ctx.textAlign = o2.align ?? 'center';
     ctx.textBaseline = o2.baseline ?? 'middle';
     ctx.globalAlpha = o2.alpha ?? 1;
@@ -131,7 +133,7 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
     const words = str.split(' ');
     let line = '';
     const out: string[] = [];
-    ctx.font = `700 ${Math.round(px)}px ${FONT}`;
+    ctx.font = `700 ${Math.round(px)}px ${font}`;
     for (const word of words) {
       const t = line ? `${line} ${word}` : word;
       if (ctx.measureText(t).width > w && line) { out.push(line); line = word; } else line = t;
@@ -643,7 +645,7 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
     ctx.lineJoin = 'round';
     ctx.lineWidth = Math.max(3, px * 0.2);
     ctx.strokeStyle = 'rgba(28,20,51,0.55)';
-    ctx.font = `800 ${Math.round(px)}px ${FONT}`;
+    ctx.font = `800 ${Math.round(px)}px ${font}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const t = say('hud.height', { h: Math.floor(h) });
@@ -800,6 +802,7 @@ export function createClimbView(o: ClimbViewOptions): ClimbView {
   return {
     render(f) {
       if (disposed) return;
+      font = canvasFont();
       const r = stage.rects();
       stage.setCamera(o.self.aspect());
       stage.begin();

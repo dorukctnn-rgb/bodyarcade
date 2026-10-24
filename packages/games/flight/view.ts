@@ -9,11 +9,12 @@
 import type { Rng } from '../../core/types/index.ts';
 import { roundedRectPath } from '../../core/render2d/pip.ts';
 import { clamp, wave } from '../kit-g1/index.ts';
+import { canvasFont } from '../kit-g1/font.ts';
 import { createPipPainter } from '../kit-g1/pip.ts';
 import type { SelfView } from '../kit-g1/selfview.ts';
 import type { Say } from '../kit-g1/say.ts';
 import type { Rect, Stage } from '../kit-g1/stage.ts';
-import { BIOMES, BIRD, BIRD_P2, biomeAt, FONT, type Biome } from './content.ts';
+import { BIOMES, BIRD, BIRD_P2, biomeAt, type Biome } from './content.ts';
 import { gapCentre, levelFor, timeLeft, WORLD, type FlightEvent, type FlightState, type LaneState } from './sim.ts';
 
 export interface FlightFrame {
@@ -65,6 +66,7 @@ const hash = (n: number): number => { let h = Math.imul(n ^ 0x9e3779b9, 0x85ebca
 export function createFlightView(o: FlightViewOptions): FlightView {
   const { stage, say } = o;
   const ctx = stage.ctx;
+  let font = canvasFont();
   const pip = createPipPainter();
   const gradients = new Map<string, CanvasGradient>();
   const pops: Pop[] = [];
@@ -80,7 +82,7 @@ export function createFlightView(o: FlightViewOptions): FlightView {
   };
 
   function text(str: string, x: number, y: number, px: number, color: string, o2: { weight?: number; align?: CanvasTextAlign; alpha?: number; baseline?: CanvasTextBaseline } = {}): void {
-    ctx.font = `${o2.weight ?? 800} ${Math.round(px)}px ${FONT}`;
+    ctx.font = `${o2.weight ?? 800} ${Math.round(px)}px ${font}`;
     ctx.textAlign = o2.align ?? 'center';
     ctx.textBaseline = o2.baseline ?? 'middle';
     ctx.globalAlpha = o2.alpha ?? 1;
@@ -307,17 +309,22 @@ export function createFlightView(o: FlightViewOptions): FlightView {
 
   // ───────── messages ─────────
 
-  function lines(cx: number, top: number, w: number, str: string, px: number, color: string): number {
-    // Word wrap by measuring.
+  /** Word wrap by measuring. */
+  function wrap(str: string, px: number, w: number): string[] {
     const words = str.split(' ');
     let line = '';
     const out: string[] = [];
-    ctx.font = `700 ${Math.round(px)}px ${FONT}`;
+    ctx.font = `700 ${Math.round(px)}px ${font}`;
     for (const word of words) {
       const t = line ? `${line} ${word}` : word;
       if (ctx.measureText(t).width > w && line) { out.push(line); line = word; } else line = t;
     }
     if (line) out.push(line);
+    return out;
+  }
+
+  function lines(cx: number, top: number, w: number, str: string, px: number, color: string): number {
+    const out = wrap(str, px, w);
     out.forEach((ln, i) => text(ln, cx, top + i * px * 1.3, px, color, { weight: 700 }));
     return out.length;
   }
@@ -357,10 +364,16 @@ export function createFlightView(o: FlightViewOptions): FlightView {
       const plan = s.plan;
       const h = px * 6.6;
       const cy = lane.y + lane.h * 0.3;
-      plate(cx, cy, w, h);
+      if (s.ready <= 0) plate(cx, cy, w, h);
       if (s.ready > 0) {
-        text(say('ready.title'), cx, cy - h * 0.2, px * 1.5, '#FFC53A');
-        text(say('ready.body', { sec: s.tempo.toFixed(1) }), cx, cy + h * 0.22, px * 0.85, '#F4F2F8', { weight: 700 });
+        // The command plate says "get ready" already: the panel gives the set, the count and how the course was made.
+        const wrapped = wrap(say('ready.body', { sec: s.tempo.toFixed(1) }), px * 0.85, w - px * 1.4);
+        const hh = px * (4.3 + wrapped.length * 1.2);
+        const top = cy - hh / 2;
+        plate(cx, cy, w, hh);
+        text(say('set.label', { n: 1, total: plan.sets }), cx, top + px * 0.9, px * 1, '#F4F2F8', { weight: 700 });
+        text(String(Math.max(1, Math.ceil(s.ready))), cx, top + px * 2.7, px * 2.2, '#FFC53A');
+        lines(cx, top + px * 4.2, w - px * 1.4, say('ready.body', { sec: s.tempo.toFixed(1) }), px * 0.85, '#F4F2F8');
       } else {
         text(say('rest.title'), cx, cy - h * 0.3, px * 1.1, '#FFC53A');
         text(String(Math.ceil(timeLeft(s))), cx, cy + h * 0.02, px * 2.3, '#F4F2F8');
@@ -444,6 +457,7 @@ export function createFlightView(o: FlightViewOptions): FlightView {
   return {
     render(f) {
       if (disposed) return;
+      font = canvasFont();
       const r = stage.rects();
       stage.setCamera(o.self.aspect());
       stage.begin();

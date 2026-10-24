@@ -9,11 +9,12 @@
 import type { Rng } from '../../core/types/index.ts';
 import { roundedRectPath } from '../../core/render2d/pip.ts';
 import { clamp, smoothstep } from '../kit-g1/index.ts';
+import { canvasFont } from '../kit-g1/font.ts';
 import { createPipPainter } from '../kit-g1/pip.ts';
 import type { SelfView } from '../kit-g1/selfview.ts';
 import type { Say } from '../kit-g1/say.ts';
 import type { Rect, Stage } from '../kit-g1/stage.ts';
-import { FONT, MEDAL_COLORS, RUNNER, themeOf, type Theme } from './content.ts';
+import { MEDAL_COLORS, RUNNER, themeOf, type Theme } from './content.ts';
 import { clockOf, levelFor, medalTimes, READY_SEC, WARMUP, type LaneState, type SprintEvent, type SprintState } from './sim.ts';
 
 export interface SprintFrame {
@@ -91,6 +92,7 @@ function clearOf(box: Rect, avoid: readonly (Rect | null)[], lane: Rect): Rect {
 export function createSprintView(o: SprintViewOptions): SprintView {
   const { stage, say } = o;
   const ctx = stage.ctx;
+  let font = canvasFont();
   const pip = createPipPainter();
   const gradients = new Map<string, CanvasGradient>();
   const pops: Pop[] = [];
@@ -107,7 +109,7 @@ export function createSprintView(o: SprintViewOptions): SprintView {
   };
 
   function text(str: string, x: number, y: number, px: number, color: string, o2: { weight?: number; align?: CanvasTextAlign; alpha?: number; baseline?: CanvasTextBaseline } = {}): void {
-    ctx.font = `${o2.weight ?? 800} ${Math.round(px)}px ${FONT}`;
+    ctx.font = `${o2.weight ?? 800} ${Math.round(px)}px ${font}`;
     ctx.textAlign = o2.align ?? 'center';
     ctx.textBaseline = o2.baseline ?? 'middle';
     ctx.globalAlpha = o2.alpha ?? 1;
@@ -128,7 +130,7 @@ export function createSprintView(o: SprintViewOptions): SprintView {
     const words = str.split(' ');
     let line = '';
     const out: string[] = [];
-    ctx.font = `700 ${Math.round(px)}px ${FONT}`;
+    ctx.font = `700 ${Math.round(px)}px ${font}`;
     for (const word of words) {
       const t = line ? `${line} ${word}` : word;
       if (ctx.measureText(t).width > w && line) { out.push(line); line = word; } else line = t;
@@ -417,7 +419,7 @@ export function createSprintView(o: SprintViewOptions): SprintView {
     runner(x, y, h, { liftL: a * 0.8, liftR: b * 0.8, air: 0, wobble: 0, head: RUNNER.computerHead, body: RUNNER.computer, shade: '#7C7699', stripe: RUNNER.computerHead, alpha: 0.95 }, 0.03);
     const px = clamp(h * 0.16, 9, 18);
     const label = say('rival.name');
-    ctx.font = `800 ${Math.round(px)}px ${FONT}`;
+    ctx.font = `800 ${Math.round(px)}px ${font}`;
     const w = ctx.measureText(label).width + px * 1.2;
     plate(x, y - h * 1.12, w, px * 1.7, 0.78);
     text(label, x, y - h * 1.12, px, '#F4F2F8');
@@ -663,7 +665,7 @@ export function createSprintView(o: SprintViewOptions): SprintView {
     if (o.players === 2) {
       const px = clamp(lane.h * 0.032, 12, 24);
       const label = say(`player.${i + 1}`);
-      ctx.font = `800 ${Math.round(px)}px ${FONT}`;
+      ctx.font = `800 ${Math.round(px)}px ${font}`;
       const w = ctx.measureText(label).width + px * 1.4;
       const col = i === 1 ? RUNNER.headP2 : RUNNER.head;
       const y = c.feet - h * 1.2;
@@ -711,6 +713,7 @@ export function createSprintView(o: SprintViewOptions): SprintView {
   return {
     render(f) {
       if (disposed) return;
+      font = canvasFont();
       const r = stage.rects();
       stage.setCamera(o.self.aspect());
       stage.begin();

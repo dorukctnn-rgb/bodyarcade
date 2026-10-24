@@ -41,4 +41,3 @@ export const MEDAL_COLORS = { gold: '#FFC53A', silver: '#D5D9E4', bronze: '#E092
 /** Rocks: the warning colour and the stone. */
 export const ROCK = { warn: '#FF4F6E', stone: '#8A839E', dark: '#4A4466', safe: '#22C383' } as const;
 
-export const FONT = '"Savate", "National Park", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';
