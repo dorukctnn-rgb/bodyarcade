@@ -1,6 +1,7 @@
 // The plans: what is sold, what was sold before, what each one grants, and the offers the paywall shows.
 //
-// Four plans are for sale (Pro monthly, Pro yearly, Family yearly, Lifetime). Two exist only for people who bought
+// Four plans are for sale (Pro monthly, Pro yearly, Family yearly, Lifetime). Pro yearly is the only one with a free trial
+// (7 days; BUILD-PLAN 24 Oct), so it is the only one whose trial the app reminds a person of. Two exist only for people who bought
 // earlier and keep everything (game-design 4.5: "your price does not change, the new games are yours"): the $4.99
 // monthly membership and the $99 lifetime purchase ("founder"). The ids of the four sold plans are the ids the
 // paywall in core/ui already uses, so an offer id can be handed straight to activation and purchase code.
@@ -42,7 +43,7 @@ export const PLAY_PACKAGE = 'com.peakapps.bodyarcade';
 export const PLANS: Readonly<Record<PlanId, PlanInfo>> = {
   'pro-monthly': { id: 'pro-monthly', plan: 'pro', founder: false, period: 'month', devices: 3, profiles: 1, feat: ['pro'], sold: true, price: 7.99, play: 'bodyarcade_pro_monthly', rank: 2 },
   'pro-yearly': { id: 'pro-yearly', plan: 'pro', founder: false, period: 'year', devices: 3, profiles: 1, feat: ['pro'], sold: true, price: 39.99, trialDays: 7, play: 'bodyarcade_pro_yearly', rank: 3 },
-  'family-yearly': { id: 'family-yearly', plan: 'family', founder: false, period: 'year', devices: 4, profiles: 6, feat: ['pro', 'family6'], sold: true, price: 59.99, trialDays: 7, play: 'bodyarcade_family_yearly', rank: 4 },
+  'family-yearly': { id: 'family-yearly', plan: 'family', founder: false, period: 'year', devices: 4, profiles: 6, feat: ['pro', 'family6'], sold: true, price: 59.99, play: 'bodyarcade_family_yearly', rank: 4 },
   lifetime: { id: 'lifetime', plan: 'lifetime', founder: false, period: 'once', devices: 3, profiles: 1, feat: ['pro'], sold: true, price: 119.99, play: 'bodyarcade_lifetime', rank: 5 },
   'legacy-monthly': { id: 'legacy-monthly', plan: 'pro', founder: false, period: 'month', devices: 3, profiles: 1, feat: ['pro'], sold: false, price: 4.99, rank: 2 },
   founder: { id: 'founder', plan: 'lifetime', founder: true, period: 'once', devices: 6, profiles: 6, feat: ['pro', 'family6'], sold: false, price: 99, rank: 6 },

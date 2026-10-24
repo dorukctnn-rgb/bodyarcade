@@ -51,12 +51,12 @@ describe('when a free trial runs', () => {
   describe('on Gumroad', () => {
     it('is the first week after the purchase, for the plans that have a trial', () => {
       expect(trialEndFor({ ...base, plan: 'pro-yearly', src: 'gumroad', startedAt: NOW - DAY_S })).toBe(NOW + 6 * DAY_S);
-      expect(trialEndFor({ ...base, plan: 'family-yearly', src: 'gumroad', startedAt: NOW })).toBe(NOW + 7 * DAY_S);
     });
     it('is not there after the week, without a purchase time, or for a plan without a trial', () => {
       expect(trialEndFor({ ...base, plan: 'pro-yearly', src: 'gumroad', startedAt: NOW - 7 * DAY_S })).toBeNull();
       expect(trialEndFor({ ...base, plan: 'pro-yearly', src: 'gumroad', startedAt: null })).toBeNull();
-      for (const plan of ['pro-monthly', 'lifetime', 'legacy-monthly', 'founder'] as const) expect(trialEndFor({ ...base, plan, src: 'gumroad', startedAt: NOW })).toBeNull();
+      // Pro yearly is the only plan with a trial (24 Oct), so a Family purchase is never "in its trial".
+      for (const plan of ['pro-monthly', 'family-yearly', 'lifetime', 'legacy-monthly', 'founder'] as const) expect(trialEndFor({ ...base, plan, src: 'gumroad', startedAt: NOW })).toBeNull();
     });
   });
 
@@ -71,6 +71,7 @@ describe('when a free trial runs', () => {
       expect(trialEndFor({ ...base, plan: 'pro-yearly', src: 'play', startedAt: null, expiry: NOW + DAY_S })).toBeNull();
       expect(trialEndFor({ ...base, plan: 'pro-yearly', src: 'play', startedAt: NOW, expiry: null })).toBeNull();
       expect(trialEndFor({ ...base, plan: 'pro-monthly', src: 'play', startedAt: NOW, expiry: NOW + 6 * DAY_S })).toBeNull();
+      expect(trialEndFor({ ...base, plan: 'family-yearly', src: 'play', startedAt: NOW, expiry: NOW + 6 * DAY_S })).toBeNull();
     });
   });
 

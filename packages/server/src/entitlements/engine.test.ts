@@ -427,10 +427,18 @@ describe('a free trial', () => {
   it('a trial that was cancelled still says when it ends, and the token ends there too', async () => {
     const r = await makeRig();
     const end = r.clock.now() + 4 * DAY;
-    r.gum.add(PRODUCT_FAMILY, KEY as string, { subscription_cancelled_at: iso(end) });
+    r.gum.add(PRODUCT_PRO_YEARLY, KEY as string, { subscription_cancelled_at: iso(end) });
     const c = await claimsOf(r, (await r.engine.grantKey({ key: KEY as string, did: D0 }, '')).body['token'], D0);
-    expect(c).toMatchObject({ pe: end / 1000, exp: end / 1000, plan: 'family-yearly' });
+    expect(c).toMatchObject({ pe: end / 1000, exp: end / 1000, plan: 'pro-yearly' });
     expect(c.tr).toBe(r.clock.now() / 1000 + 7 * 86_400);
+  });
+
+  it('a Family purchase never carries a trial (Pro yearly is the only plan with one)', async () => {
+    const r = await makeRig();
+    r.gum.add(PRODUCT_FAMILY, KEY as string);
+    const c = await claimsOf(r, (await r.engine.grantKey({ key: KEY as string, did: D0 }, '')).body['token'], D0);
+    expect(c).toMatchObject({ plan: 'family-yearly' });
+    expect(c.tr).toBeUndefined();
   });
 });
 

@@ -16,11 +16,17 @@ describe('the catalogue', () => {
   it('keeps the prices and trials of BUILD-PLAN', () => {
     expect(PLANS['pro-monthly'].price).toBe(7.99);
     expect(PLANS['pro-yearly']).toMatchObject({ price: 39.99, trialDays: 7 });
-    expect(PLANS['family-yearly']).toMatchObject({ price: 59.99, trialDays: 7, profiles: 6 });
+    expect(PLANS['family-yearly']).toMatchObject({ price: 59.99, profiles: 6 });
+    expect(PLANS['family-yearly'].trialDays).toBeUndefined();
     expect(PLANS.lifetime.price).toBe(119.99);
     expect(PLANS['pro-monthly'].trialDays).toBeUndefined();
     expect(PLANS['legacy-monthly'].price).toBe(4.99);
     expect(PLANS.founder.price).toBe(99);
+  });
+
+  it('gives a free trial to Pro yearly and to no other plan (24 Oct: "the only plan with a trial")', () => {
+    expect(PLAN_IDS.filter((id) => PLANS[id].trialDays !== undefined)).toEqual(['pro-yearly']);
+    expect(PLANS['pro-yearly'].trialDays).toBe(7);
   });
 
   it('allows 3 devices for Pro and Lifetime, 4 for Family and 6 for a Founder', () => {
@@ -79,7 +85,10 @@ describe('the web offers', () => {
     expect(m?.trialDays).toBeUndefined();
     expect(y).toMatchObject({ period: 'year', price: { amount: 39.99, currency: 'USD' }, trialDays: 7, featured: true });
     expect(l).toMatchObject({ plan: 'lifetime', period: 'once', price: { amount: 119.99, currency: 'USD' } });
-    expect(webPlans({ checkout: urls, family: true }).offers[2]).toMatchObject({ plan: 'family', profiles: 6, devices: 4, trialDays: 7 });
+    const family = webPlans({ checkout: urls, family: true }).offers[2];
+    expect(family).toMatchObject({ plan: 'family', profiles: 6, devices: 4, price: { amount: 59.99, currency: 'USD' } });
+    expect(family?.trialDays).toBeUndefined();
+    expect(webPlans({ checkout: urls, family: true }).offers.filter((o) => o.trialDays !== undefined).map((o) => o.id)).toEqual(['pro-yearly']);
   });
 
   it('offers nothing it cannot sell: no address, a plain http address or a script address', () => {

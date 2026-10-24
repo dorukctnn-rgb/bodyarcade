@@ -11,8 +11,8 @@
 // replace the two placeholders of that plan. Nothing else needs to change.
 //
 //   pro-monthly    membership, $7.99 every month, no trial
-//   pro-yearly     membership, $39.99 every year, 7 day free trial
-//   family-yearly  membership, $59.99 every year, 7 day free trial (shown only once the family profiles exist)
+//   pro-yearly     membership, $39.99 every year, 7 day free trial (the only plan with a trial)
+//   family-yearly  membership, $59.99 every year, no trial (shown only once the family profiles exist)
 //   lifetime       one payment of $119.99
 //   (all four: "generate a unique licence key per sale" on; the licence key is what the buyer types into the app)
 import { PLANS, type PlanId, type SoldPlanId } from './plans.ts';
