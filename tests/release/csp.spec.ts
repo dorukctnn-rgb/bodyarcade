@@ -41,8 +41,21 @@ test('no page and no camera round breaks the policy', async () => {
   await page.waitForTimeout(8000);
   dom.push(...(await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp)).map((d) => `/play/road-run/: ${d}`));
   visited.push('/play/road-run/ (camera round)');
-  writeFileSync(join(OUT, 'csp.json'), JSON.stringify({ visited, console, dom, reports, pose }, null, 1));
+
+  // Positive control, in a page of its own after the real checks: an inline script added on purpose must be seen by
+  // the detectors (so "nothing seen" above means nothing happened, not that nothing was watched).
+  const control = await context.newPage();
+  const controlConsole: string[] = [];
+  control.on('console', (m) => { if (/Content.Security.Policy|\[Report Only\]/i.test(m.text())) controlConsole.push(m.text().slice(0, 160)); });
+  const before = reports.length;
+  await control.goto(`${BASE}/`, { waitUntil: 'load' });
+  await control.evaluate(() => { const s = document.createElement('script'); s.textContent = 'window.__cspControl = 1'; document.head.append(s); });
+  await control.waitForTimeout(3000);
+  const controlDom = await control.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
+  const controlSeen = { console: controlConsole.length, dom: controlDom.length, reports: reports.length - before };
+  writeFileSync(join(OUT, 'csp.json'), JSON.stringify({ visited, console, dom, reports: reports.slice(0, before), pose, controlSeen }, null, 1));
   await browser.close();
   expect(pose.every((p) => p.status === 200), JSON.stringify(pose)).toBe(true);
-  expect({ console, dom, reports }).toEqual({ console: [], dom: [], reports: [] });
+  expect({ console, dom, reports: reports.slice(0, before) }).toEqual({ console: [], dom: [], reports: [] });
+  expect(controlSeen.console + controlSeen.dom, JSON.stringify(controlSeen)).toBeGreaterThan(0);
 });
