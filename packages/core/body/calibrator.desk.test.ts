@@ -234,10 +234,27 @@ describe('light: the code that explains why nobody is found', () => {
     expect(readyAt!).toBeLessThan(1100);
   });
 
-  it('a person found but the picture black: not calibrated on garbage, too_dark', () => {
-    const { seen, readyAt } = run(synthFrames({ durationMs: 3000, shapeAt: () => FULL_SHAPE, light: everySecond(dark), seed: 4 }), 'full');
-    expect(readyAt).toBeNull();
+  it('a person found but the picture black: not calibrated on garbage for a few seconds (too_dark), and then not held for ever', () => {
+    const { seen, readyAt } = run(synthFrames({ durationMs: 9000, shapeAt: () => FULL_SHAPE, light: everySecond(dark), seed: 4 }), 'full');
+    expect(seen.slice(0, 120).every((s) => s.code === 'too_dark')).toBe(true);       // the first four seconds
+    expect(seen[120]!.hint).toEqual({ action: 'more_light' });
+    expect(readyAt).not.toBeNull();                                                  // a dim room where the model sees the player must be playable
+    expect(readyAt!).toBeGreaterThanOrEqual(STILL.darkGraceMs);
+    expect(readyAt!).toBeLessThan(STILL.darkGraceMs + 200);
+  });
+
+  it('light that comes back ends the block at once', () => {
+    const lit = (t: number): LightGrid | undefined => (Math.round(t) % 330 < 34 ? (t < 2000 ? dark : fine) : undefined);
+    const { readyAt, seen } = run(synthFrames({ durationMs: 9000, shapeAt: () => FULL_SHAPE, light: lit, seed: 4 }), 'full');
+    expect(seen[30]!.code).toBe('too_dark');
+    expect(readyAt!).toBeGreaterThanOrEqual(2000);          // the first lit picture ends it: the hold had been going on all along
+    expect(readyAt!).toBeLessThan(2100);
+  });
+
+  it('a dark picture with nobody found keeps saying too_dark: it is the reason, not a block, so it has no end', () => {
+    const { seen } = run(synthFrames({ durationMs: 12_000, motion: () => ({ absent: true }), light: everySecond(dark) }), 'full');
     expect(seen.at(-1)!.code).toBe('too_dark');
+    expect(seen.at(-1)!.escape).toBe(true);                                          // after 12 s the screen offers another way to play
   });
 
   it('the light measurement expires: after 1.5 s without one the old verdict is dropped', () => {

@@ -65,6 +65,8 @@ export const STILL = {
   /** Another person must be in view this long to count, and blocks the calibration for no more than the grace. */
   manyMs: 500,
   manyGraceMs: 4000,
+  /** A very dark picture blocks the calibration for no more than this: a dim room where the model still sees the player must not stop them. */
+  darkGraceMs: 6000,
   /** The longest steady window kept. */
   keepMs: 12_000,
   /** A measured hint on the screen changes only when the distance moves by this many metres (about a third of a step). */
@@ -164,6 +166,7 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
   let aspect = 4 / 3;
   let light: { code: LightCode | null; t: number } | null = null;
   let manyFrom: number | null = null;
+  let darkFrom: number | null = null;
   let acceptRequested = false;
   let result: BodyProfile | null = null;
   let outcome: 'measured' | 'fallback' = 'measured';
@@ -370,6 +373,10 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
       if (f.light && validGrid(f.light)) light = { code: lightProblem(f.light, f.landmarks, f.aspect), t: f.t };
       const lightCode = light && f.t - light.t <= STILL.lightMs ? light.code : null;
 
+      // A very dark picture: said at once, and it holds the calibration back for a grace period only.
+      if (lightCode === 'too_dark') darkFrom ??= f.t; else darkFrom = null;
+      const darkBlocks = darkFrom !== null && f.t - darkFrom < STILL.darkGraceMs;
+
       // Others in view (solo): counted when present for a while; blocks only for a grace period.
       const others = want !== 'side' && othersInView(f) > 0;
       if (others) manyFrom ??= f.t; else manyFrom = null;
@@ -404,11 +411,11 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
       if (stage === 'hands') return handsStep(f, rd, escape) ?? status('hold', 0, { ...(escape ? { escape: true } : {}) });
 
       // Does anything end the calibration now?
-      if (holding && covers && fits && !manyBlocks && lightCode !== 'too_dark') {
+      if (holding && covers && fits && !manyBlocks && !darkBlocks) {
         if (settle(recRank as Rank, f.t)) return status('ok', 1);
         return handsStep(f, rd, escape) ?? status('hold', 0);
       }
-      const canFallBack = opts.fallback && want !== 'side' && wantR > 1 && recRank >= 1 && win.length >= STILL.fallbackMinSamples && dur >= STILL.fallbackMinMs && lightCode !== 'too_dark';
+      const canFallBack = opts.fallback && want !== 'side' && wantR > 1 && recRank >= 1 && win.length >= STILL.fallbackMinSamples && dur >= STILL.fallbackMinMs && !darkBlocks;
       const idleMs = opts.idleFallbackSeconds * 1000;
       const still = Math.min(dur, f.t - rankSince);
       const waited = tPerson === null ? 0 : f.t - tPerson;
@@ -418,7 +425,7 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
           return handsStep(f, rd, escape) ?? status('hold', 0);
         }
       }
-      if (acceptRequested && win.length >= STILL.fallbackMinSamples && dur >= STILL.fallbackMinMs && lightCode !== 'too_dark' && want !== 'side' && fits) {
+      if (acceptRequested && win.length >= STILL.fallbackMinSamples && dur >= STILL.fallbackMinMs && !darkBlocks && want !== 'side' && fits) {
         if (settle(recRank as Rank, f.t)) return status('ok', 1);
         return handsStep(f, rd, escape) ?? status('hold', 0);
       }
@@ -430,7 +437,8 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
       });
 
       if (slow) return status('too_slow', 0, extra());
-      if (lightCode === 'too_dark') return status('too_dark', 0, extra({ action: 'more_light' }));
+      // While it holds the calibration back, or while nobody is found (the model cannot see in the dark): too_dark is the thing to say.
+      if (lightCode === 'too_dark' && (darkBlocks || rd.rank === 0)) return status('too_dark', 0, extra({ action: 'more_light' }));
       if (rd.problem) {
         if (lightCode === 'backlit' || (rd.problem === 'no_person' && lightCode)) {
           return status(lightCode, 0, extra({ action: lightCode === 'backlit' ? 'light_in_front' : 'more_light' }));
@@ -466,7 +474,7 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
 
     reset(): void {
       tBegin = null; tPerson = null; times = []; win = []; history = []; movedAt = -Infinity; lastSampleT = -Infinity;
-      light = null; manyFrom = null; acceptRequested = false; result = null; outcome = 'measured'; lastReading = null; lastT = 0;
+      light = null; manyFrom = null; darkFrom = null; acceptRequested = false; result = null; outcome = 'measured'; lastReading = null; lastT = 0;
       rankSince = 0; prevRank = 0;
       stage = 'framing'; pending = null; handsSince = null; handsLastT = 0; handsOkMs = 0; handsCut = false; handsCentres = []; handsGoneSince = null;
       shownHint = null;
