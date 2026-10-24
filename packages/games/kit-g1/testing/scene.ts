@@ -6,7 +6,7 @@ import { fakeSurfaces, recorder, type Recorder } from '../../../core/render2d/te
 import type { HudMode, PipPlacement } from '../../../core/ui/layout.ts';
 
 export interface TextRecorder extends Recorder {
-  texts: { text: string; x: number; y: number; font: string }[];
+  texts: { text: string; x: number; y: number; font: string; align: string }[];
 }
 
 export function textRecorder(): TextRecorder {
@@ -17,7 +17,7 @@ export function textRecorder(): TextRecorder {
   r['textBaseline'] = 'alphabetic';
   r['lineDashOffset'] = 0;
   r['letterSpacing'] = '0px';
-  r['fillText'] = (text: string, x: number, y: number): void => { r.texts.push({ text, x, y, font: String(r['font']) }); };
+  r['fillText'] = (text: string, x: number, y: number): void => { r.texts.push({ text, x, y, font: String(r['font']), align: String(r['textAlign']) }); };
   r['strokeText'] = (): void => undefined;
   r['setLineDash'] = (): void => undefined;
   r['measureText'] = (text: string): { width: number } => ({ width: text.length * 0.55 * (Number.parseFloat(String(r['font']).match(/(\d+(?:\.\d+)?)px/)?.[1] ?? '10')) });

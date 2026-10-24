@@ -13,6 +13,8 @@ import { copyProblems } from '../../web/catalogue/copy.ts';
 import { duoFrame, evt, frame, testContext, type TestCtx } from '../kit-g1/testing/context.ts';
 import { budgetProblems } from '../kit-g1/testing/strings.ts';
 import { testScene } from '../kit-g1/testing/scene.ts';
+import { BREAKPOINTS, type PipPlacement } from '../../core/ui/layout.ts';
+import { screenProblems } from '../kit-g1/testing/screens.ts';
 import squatFlap, { manifest, STRINGS } from '../squat-flap/index.ts';
 import { createFlightGame, readLane, type FlightGame } from './game.ts';
 import { LEVELS, type LaneIn } from './sim.ts';
@@ -313,6 +315,56 @@ describe('the picture', () => {
     game.dispose();
     expect(t.subscribers()).toBe(0);
     expect(game.view).toBeNull();
+  });
+});
+
+describe('the view on the ten screens and in every corner of the self view', () => {
+  const CORNERS: PipPlacement[] = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
+
+  /** Flies a whole short round with a bot on a screen and collects what is wrong with every frame drawn. */
+  async function sweep(w: number, h: number, corner: PipPlacement, o: { seated?: boolean; local2?: boolean } = {}): Promise<{ problems: string[]; frames: number; phases: Set<string> }> {
+    const scene = testScene(w, h, { corner });
+    const t = testContext({ scene2d: scene.kit, seated: o.seated ?? false, duoHud: o.local2 ?? false });
+    const game = createFlightGame(manifest, { plan: { sets: 2, setSec: 12, restSec: 3 } });
+    await game.init(t.ctx);
+    game.start(START({ difficulty: 'easy', seated: o.seated ?? false, mode: o.local2 ? 'local2' : 'solo' }));
+    const kinds: BotKind[] = o.local2 ? ['perfect', 'good'] : ['perfect'];
+    const bots = kinds.map((kind, i) => squatBot(kind, 3 + i));
+    const problems = new Set<string>();
+    const phases = new Set<string>();
+    let frames = 0;
+    for (let k = 1; k < 60 * 120 && game.state!.phase !== 'complete' && game.state!.phase !== 'over'; k++) {
+      const ins = bots.map((b, i) => inputOf(k, b.next(game.state!, i, FIXED_DT)));
+      game.step(FIXED_DT, kinds.length === 1 ? frame(k, ins[0]!.channels, ins[0]!.events) : duoFrame(k, ins[0], ins[1]));
+      if (k % 20 === 0) {
+        scene.ctx.texts.length = 0;
+        game.render(0.5);
+        frames++;
+        phases.add(game.state!.phase);
+        for (let i = 0; i < kinds.length; i++) for (const p of screenProblems(scene, game.view!.birdAt(i), `${w}x${h} ${corner} ${game.state!.phase}`)) problems.add(p);
+      }
+    }
+    return { problems: [...problems], frames, phases };
+  }
+
+  it('on every one of the ten screens nothing runs off the screen and the bird is clear of the plates and the self view', async () => {
+    for (const b of BREAKPOINTS) {
+      const r = await sweep(b.w, b.h, 'bottom-right');
+      expect(r.problems, b.label).toEqual([]);
+      expect(r.frames, b.label).toBeGreaterThan(30);
+      for (const ph of ['warmup', 'play', 'rest']) expect(r.phases.has(ph), `${b.label} ${ph}`).toBe(true);
+    }
+  });
+
+  it('in every corner of the self view, on a phone, a phone on its side and a laptop', async () => {
+    for (const [w, h] of [[390, 844], [844, 390], [1280, 800]] as const) {
+      for (const corner of CORNERS) expect((await sweep(w, h, corner)).problems, `${w}x${h} ${corner}`).toEqual([]);
+    }
+  });
+
+  it('the seated flapper too, and two players on a laptop, a wide laptop and a TV', async () => {
+    for (const [w, h] of [[390, 844], [1280, 800]] as const) expect((await sweep(w, h, 'bottom-right', { seated: true })).problems, `${w}x${h} seated`).toEqual([]);
+    for (const [w, h] of [[1280, 800], [1440, 900], [1920, 1080]] as const) expect((await sweep(w, h, 'bottom-right', { local2: true })).problems, `${w}x${h} local2`).toEqual([]);
   });
 });
 

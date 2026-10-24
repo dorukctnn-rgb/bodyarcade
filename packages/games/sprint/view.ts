@@ -253,7 +253,9 @@ export function createSprintView(o: SprintViewOptions): SprintView {
       quad(c, -HALF, HALF, d, d + (big ? 0.5 : 0.25));
       if (big || m % 20 === 0) {
         const px = clamp(c.unit * scaleAt(d) * 0.9, 9, 40);
-        text(String(m), xAt(c, -HALF - 0.75, d), yAt(c, d + 0.3), px, th.chalk, { alpha: 0.8 });
+        const x = xAt(c, -HALF - 0.75, d), y = yAt(c, d + 0.3), half = String(m).length * px * 0.3 + 2;
+        // A marker that would be cut by the edge of the picture is not drawn.
+        if (x - half >= c.region.x && x + half <= c.region.x + c.region.w && y - px >= c.region.y && y + px <= c.region.y + c.region.h) text(String(m), x, y, px, th.chalk, { alpha: 0.8 });
       }
     }
     ctx.globalAlpha = 1;
@@ -421,8 +423,13 @@ export function createSprintView(o: SprintViewOptions): SprintView {
     const label = say('rival.name');
     ctx.font = `800 ${Math.round(px)}px ${font}`;
     const w = ctx.measureText(label).width + px * 1.2;
-    plate(x, y - h * 1.12, w, px * 1.7, 0.78);
-    text(label, x, y - h * 1.12, px, '#F4F2F8');
+    // The name tag stays inside the picture; when the computer is out of it there is no tag.
+    const ty = y - h * 1.12;
+    if (ty - px >= c.region.y && ty + px <= c.region.y + c.region.h) {
+      const tx = clamp(x, c.region.x + w / 2 + 3, c.region.x + c.region.w - w / 2 - 3);
+      plate(tx, ty, w, px * 1.7, 0.78);
+      text(label, tx, ty, px, '#F4F2F8');
+    }
   }
 
   // ───────── the instruments ─────────

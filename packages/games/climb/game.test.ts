@@ -12,6 +12,8 @@ import { copyProblems } from '../../web/catalogue/copy.ts';
 import { evt, frame, testContext, type TestCtx } from '../kit-g1/testing/context.ts';
 import { budgetProblems } from '../kit-g1/testing/strings.ts';
 import { testScene } from '../kit-g1/testing/scene.ts';
+import { BREAKPOINTS, type PipPlacement } from '../../core/ui/layout.ts';
+import { screenProblems } from '../kit-g1/testing/screens.ts';
 import summitClimb, { manifest, STRINGS } from '../summit-climb/index.ts';
 import { createClimbGame, HINT_SEC, KEY_LIFT, MET, readIn, type ClimbGame } from './game.ts';
 import { BREATH_SEC, LEVELS, pendingRock, POINTS, WARMUP, type ClimbIn, type Section } from './sim.ts';
@@ -438,6 +440,62 @@ describe('the picture', () => {
     game.dispose();
     expect(t.subscribers()).toBe(0);
     expect(game.view).toBeNull();
+  });
+});
+
+describe('the view on the ten screens and in every corner of the self view', () => {
+  const CORNERS: PipPlacement[] = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
+
+  /** Climbs a whole short round with a bot on a screen and collects what is wrong with every frame drawn. */
+  async function sweep(w: number, h: number, corner: PipPlacement, kind: BotKind, o: { seated?: boolean; quiet?: boolean } = {}): Promise<{ problems: string[]; frames: number; phases: Set<string> }> {
+    const scene = testScene(w, h, { corner });
+    const t = testContext({ scene2d: scene.kit, seated: o.seated ?? false, silent: o.quiet ?? false });
+    const game = createClimbGame(manifest, { sets: 2, summit: 16, setSec: 24, restSec: 3 });
+    await game.init(t.ctx);
+    game.start(START({ difficulty: 'hard', seated: o.seated ?? false }));
+    const bot = climbBot(kind, 2);
+    const problems = new Set<string>();
+    const phases = new Set<string>();
+    let frames = 0;
+    for (let k = 1; k < 60 * 120 && game.state!.phase !== 'complete' && game.state!.phase !== 'over'; k++) {
+      const x = inputOf(k, bot.next(game.state!, FIXED_DT));
+      game.step(FIXED_DT, frame(k, x.channels, x.events));
+      if (k % 20 === 0) {
+        scene.ctx.texts.length = 0;
+        game.render(0.5);
+        frames++;
+        phases.add(game.state!.phase);
+        for (const p of screenProblems(scene, game.view!.climberAt(), `${w}x${h} ${corner} ${game.state!.phase}`)) problems.add(p);
+      }
+    }
+    return { problems: [...problems], frames, phases };
+  }
+
+  it('on every one of the ten screens nothing runs off the screen and the climber is clear of the plates and the self view', async () => {
+    for (const b of BREAKPOINTS) {
+      const r = await sweep(b.w, b.h, 'bottom-right', 'good');
+      expect(r.problems, b.label).toEqual([]);
+      expect(r.frames, b.label).toBeGreaterThan(40);
+      for (const ph of ['warmup', 'ready', 'climb', 'finish', 'rest']) expect(r.phases.has(ph), `${b.label} ${ph}`).toBe(true);
+    }
+  });
+
+  it('in every corner of the self view, on a phone, a phone on its side and a laptop', async () => {
+    for (const [w, h] of [[390, 844], [844, 390], [1280, 800]] as const) {
+      for (const corner of CORNERS) {
+        const r = await sweep(w, h, corner, 'sloppy');
+        expect(r.problems, `${w}x${h} ${corner}`).toEqual([]);
+      }
+    }
+  });
+
+  it('the seated and the quiet climbers too, on a phone and a laptop', async () => {
+    for (const [w, h] of [[390, 844], [1280, 800]] as const) {
+      for (const v of [{ seated: true }, { quiet: true }]) {
+        const r = await sweep(w, h, 'bottom-right', 'perfect', v);
+        expect(r.problems, `${w}x${h} ${JSON.stringify(v)}`).toEqual([]);
+      }
+    }
   });
 });
 
