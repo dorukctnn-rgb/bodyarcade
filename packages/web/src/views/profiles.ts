@@ -47,7 +47,8 @@ function addCard(ctx: ViewContext, st: ProfilesPageState): SafeHtml {
   const t = ctx.i18n;
   const add = st.picker?.add;
   if (!add?.show) return html``;
-  if (add.why === 'full') return html`<li><div class="pf-card pf-card--add is-disabled" aria-disabled="true"><span class="pf-plus" aria-hidden="true">${icon('plus')}</span><small>${t.t('profile.full')}</small></div></li>`;
+  // While the Family plan is not sold, a device that cannot add players is not told about it.
+  if (add.why === 'plan' && !ctx.flags.family) return html``;
   if (add.why === 'plan') return html`<li><a class="pf-card pf-card--add" href="${ctx.href('pro')}"><span class="pf-plus" aria-hidden="true">${icon('plus')}</span><b>${t.t('profile.add.plan')}</b></a></li>`;
   return html`<li><button type="button" class="pf-card pf-card--add" data-action="profile-add"><span class="pf-plus" aria-hidden="true">${icon('plus')}</span><b>${t.t('profile.add')}</b></button></li>`;
 }
@@ -94,8 +95,8 @@ function manageView(ctx: ViewContext, st: ProfilesPageState, now: number): SafeH
     <ul class="pf-list" aria-label="${t.t('profile.title.manage')}">${(p?.cards ?? []).map((c) => manageRow(ctx, c, now))}</ul>
     <div class="ba-actions pf-actions">
       ${p?.add.show && p.add.why === null ? html`<button type="button" class="ba-btn ba-btn--secondary" data-action="profile-add">${icon('plus')}<span>${t.t('profile.add')}</span></button>` : ''}
-      ${p?.add.show && p.add.why === 'plan' ? html`<a class="ba-btn ba-btn--secondary" href="${ctx.href('pro')}">${t.t('profile.add.plan')}</a>` : ''}
-      ${p?.add.show && p.add.why === 'full' ? html`<p class="ba-small">${t.t('profile.full')}</p>` : ''}
+      ${p?.add.show && p.add.why === 'plan' && ctx.flags.family ? html`<a class="ba-btn ba-btn--secondary" href="${ctx.href('pro')}">${t.t('profile.add.plan')}</a>` : ''}
+      ${p?.add.why === 'full' ? html`<p class="ba-small" data-full>${t.t('profile.full')}</p>` : ''}
       <button type="button" class="ba-btn ba-btn--primary" data-action="profile-done">${t.t('profile.done')}</button>
     </div>
     ${askRow(ctx, st)}`;
