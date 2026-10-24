@@ -13,7 +13,7 @@ export type PlayOverlay =
   | { kind: 'camera-explainer' }
   | { kind: 'camera-error'; code: string }
   | { kind: 'loading' }
-  | { kind: 'calibrating'; framing: Framing; two: boolean; message: string; checks: CalibCheck[]; progress: number; slow: boolean; gauge: GaugePos }
+  | { kind: 'calibrating'; framing: Framing; two: boolean; message: string; checks: CalibCheck[]; progress: number; slow: boolean; gauge: GaugePos; /** Only the upper body is in view: the way to play at the desk is offered. */ desk: boolean; /** The round is a seated one already. */ seated: boolean }
   | { kind: 'countdown'; n: number }
   | { kind: 'paused'; reason: PauseReason }
   | { kind: 'error'; message: string };
@@ -126,7 +126,9 @@ export function overlayHtml(ctx: ViewContext, g: ShellGame, o: PlayOverlay): Saf
           <div class="slow" data-calib-slow${attr('hidden', !o.slow)}>${ctx.caps.keyboard
             ? html`<p class="sub">${t.t('calib.slow.body')}</p><button type="button" class="ba-btn ba-btn--secondary" data-action="use-keyboard">${t.t('calib.slow.cta')}</button>`
             : html`<p class="sub">${t.t('calib.slow.phone')}</p>`}</div>
-          ${g.seated ? html`<button class="seated" type="button" data-action="seated-instead">${t.t('calib.seatedInstead')}</button>` : ''}
+          <div class="desk" data-calib-desk${attr('hidden', !o.desk)}><p class="sub"><b>${t.t('calib.desk.title')}</b> ${t.t('calib.desk.body')}</p><button type="button" class="ba-btn ba-btn--primary" data-action="seated-instead">${t.t('calib.desk.cta')}</button></div>
+          ${g.seated && !o.seated ? html`<button class="seated" type="button" data-action="seated-instead" data-calib-skip${attr('hidden', o.desk)}>${t.t('calib.seatedInstead')}</button>` : ''}
+          ${!g.seated || o.seated ? html`<a class="seated" href="${ctx.href('home')}">${t.t('calib.leaveGame')}</a>` : ''}
         </div>
       </div>`;
     }

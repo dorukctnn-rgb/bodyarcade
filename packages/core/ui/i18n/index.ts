@@ -137,7 +137,13 @@ export function createI18n(lang: Lang, opts: I18nOptions = {}): I18n {
     scoped(namespace) {
       return (key, vars) => {
         const full = `${namespace}.${key}`;
-        return resolve(lookup(full, lang) !== undefined || lookup(full, 'en') !== undefined ? full : key, vars);
+        // In the player's language first (the game's own line, then the shell's), English only when neither has one: a
+        // game's English line must never stand in front of the shell's line in the player's language.
+        const pick = lookup(full, lang) !== undefined ? full
+          : lookup(key, lang) !== undefined ? key
+            : lookup(full, 'en') !== undefined ? full
+              : key;
+        return resolve(pick, vars);
       };
     },
     number: (n, o) => (o ? new Intl.NumberFormat(tag, o).format(n) : nf.format(n)),
