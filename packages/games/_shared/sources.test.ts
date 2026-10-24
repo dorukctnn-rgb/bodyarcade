@@ -56,7 +56,8 @@ describe.each(GAMES)('$name: the source files', (g) => {
     const said = new Set(sources.flatMap((s) => [...s.matchAll(literal)].map((m) => m[1] as string)));
     // a line named by a template (`pw.off.${limb}`) is said by every line that begins that way
     const prefixes = sources.flatMap((s) => [...s.matchAll(new RegExp(`\`(${g.prefix}\\.[A-Za-z0-9.]*\\.)\\$\\{`, 'g'))].map((m) => m[1] as string));
-    const keys = Object.keys(g.tables.en);
+    // the cues of the reason strip (`cue.<code>`, cues.ts) are said by reasonText for whichever code a detector gives: cues.test.ts walks them
+    const keys = Object.keys(g.tables.en).filter((k) => !k.startsWith('cue.'));
     for (const k of said) expect(keys, `the line '${k}' of the source`).toContain(k);
     for (const k of keys) expect(said.has(k) || prefixes.some((p) => k.startsWith(p)), `the line '${k}' of the table is said`).toBe(true);
   });

@@ -95,15 +95,15 @@ describe('the real detector and the figure', () => {
       expect(event['code'], name).toBe('limb_off');
       const say = (k: string): string => PW_STRINGS.en[k] ?? k;
       if (['tPose', 'handsUp', 'yPose', 'raiseRight', 'raiseLeft', 'cactus', 'diagonalRight', 'diagonalLeft'].includes(name)) {
-        expect(missText(say, event as unknown as { code: string; limb?: string }), name).toMatch(/arm off the shape$/);
+        expect(missText(say, event as unknown as { code: string; limb?: string }), name).toMatch(/^Adjust (left|right) arm$/);
       }
     }
   });
 
   it('"left" is the player\'s left: the left arm too low in a T shape says so, and so does the right', () => {
     for (const [limb, spec, words] of [
-      ['left', { armL: { a: 20, f: 20 }, armR: side }, 'Left arm off the shape'],
-      ['right', { armL: side, armR: { a: 20, f: 20 } }, 'Right arm off the shape'],
+      ['left', { armL: { a: 20, f: 20 }, armR: side }, 'Adjust left arm'],
+      ['right', { armL: side, armR: { a: 20, f: 20 } }, 'Adjust right arm'],
     ] as const) {
       const { sim, wall } = wallFor('tPose');
       const { event } = chain(sim, wall, spec);

@@ -1,13 +1,16 @@
 // The words of the strength games (Firework Jacks, Twist Turbine): commands on the HUD, the reasons the player is told,
 // and the lines the screen reader speaks. Keys start with the game's short name (fj, tt) so that they cannot meet another
 // game's keys whether the shell adds them under `game.<id>` or not. The shell's own `miss.<code>` lines say why a move
-// did not count; these are only the words that belong to the game. A command is one or two words (design/LAYOUT.md 8):
+// did not count (the full sentences, for the results); the strip of the HUD says the short cue of the same code (`cue.<code>`,
+// _shared/cues.ts, added to this table by withCues), because on the narrowest phone it holds two lines of ten letters. The rest
+// are the words that belong to the game. A command is one or two words (design/LAYOUT.md 8):
 // a word over eight letters carries a soft hyphen (U+00AD) so that a long language wraps instead of shrinking.
+import { withCues } from '../_shared/cues.ts';
 import type { Tables } from '../_shared/text.ts';
 
 const S = '­';
 
-export const FJ_STRINGS: Tables = {
+export const FJ_STRINGS: Tables = withCues({
   en: {
     'fj.prompt.ready': 'Ready',
     'fj.prompt.jack': 'Jack',
@@ -68,9 +71,9 @@ export const FJ_STRINGS: Tables = {
     'fj.announce.finale': 'Final. Tous les feux d’artifice repartent.',
     'fj.announce.double': 'Feu d’artifice double.',
   },
-};
+});
 
-export const TT_STRINGS: Tables = {
+export const TT_STRINGS: Tables = withCues({
   en: {
     'tt.prompt.ready': 'Ready',
     'tt.prompt.twist': 'Twist',
@@ -156,4 +159,4 @@ export const TT_STRINGS: Tables = {
     'tt.announce.stormOk': 'Tempête surmontée. Bonus de {bonus} points.',
     'tt.announce.stormLost': 'La tempête est passée sans bonus.',
   },
-};
+});

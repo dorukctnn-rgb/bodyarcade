@@ -175,10 +175,10 @@ describe('the game on the contract', () => {
     expect(r.ctx.announced).toContain('The storm passed without the bonus.');
   });
 
-  it('says why a try did not count on the reason strip, in the shell\'s words, and takes it down after a moment', async () => {
+  it('says why a try did not count on the reason strip, as a short cue, translated when the shell has the words, and takes it down after a moment', async () => {
     const hints = new Set<string>();
     for (const seed of [5, 6, 7]) {
-      const r = await rig({ seed, timing: { sets: 1, workS: 30, finaleS: 2 }, t: (k) => (k === 'miss.turn_more' ? 'Turn further' : k === 'miss.hands_apart' ? 'Hands too far apart' : k === 'miss.turn_shoulders' ? 'Turn from the shoulders' : k) });
+      const r = await rig({ seed, timing: { sets: 1, workS: 30, finaleS: 2 }, t: (k) => (k === 'cue.turn_more' ? 'Daha fazla dön' : k) });
       const bot = twistBot(sim(r).plan, { mode: 'sloppy', seed });
       for (let k = 1; k < 1500; k++) {
         const at = bot.at(k);
@@ -191,7 +191,7 @@ describe('the game on the contract', () => {
       expect(['', 'Move more']).toContain(r.ctx.last['hint']);
     }
     expect(hints.size).toBeGreaterThan(0);
-    for (const h of hints) expect(['Turn further', 'Hands too far apart', 'Turn from the shoulders', 'Wrong side']).toContain(h);
+    for (const h of hints) expect(['Daha fazla dön', 'Hands closer', 'Turn shoulders', 'Wrong side']).toContain(h);
   });
 
   it('seated and quiet play need the same detector, and the prompt does not change', async () => {

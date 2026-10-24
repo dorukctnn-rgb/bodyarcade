@@ -115,7 +115,7 @@ describe('the game on the contract', () => {
   });
 
   it('takes the words from the shell when it has them', async () => {
-    const r = await rig({ t: (k) => (k === 'fj.prompt.ready' ? 'Hazır' : k === 'miss.arms_not_up' ? 'Kollar yeterince yükselmedi' : k) });
+    const r = await rig({ t: (k) => (k === 'fj.prompt.ready' ? 'Hazır' : k === 'cue.arms_not_up' ? 'Kolları kaldır' : k) });
     r.game.render(0);
     expect(r.ctx.last['prompt']).toEqual({ icon: 'stand', text: 'Hazır' });
   });
@@ -131,8 +131,8 @@ describe('the game on the contract', () => {
     expect(r.ctx.announced[0]).toMatch(/^Set 1 of 1, \d+ jacks a minute\.$/);
   });
 
-  it('says why a try did not count on the reason strip, in the shell\'s words, and takes it down after a moment', async () => {
-    const r = await rig({ seed: 5, t: (k) => (k === 'miss.arms_not_up' ? 'Arms not high enough' : k) });
+  it('says why a try did not count on the reason strip, as a short cue, translated when the shell has the words, and takes it down after a moment', async () => {
+    const r = await rig({ seed: 5, t: (k) => (k === 'cue.arms_not_up' ? 'Kolları kaldır' : k) });
     const sim = r.game.sim as FireworkSim;
     // a sloppy player: some tries do not reach
     const bot = jackBot(sim.plan, { mode: 'sloppy', seed: 5 });
@@ -141,7 +141,7 @@ describe('the game on the contract', () => {
       r.game.step(FIXED_DT, inputFrame(k, { ...bot.at(k).ch }, [...bot.at(k).events], { source: 'pose' }));
       if (k % 2 === 0) { r.game.render(0); const h = r.ctx.last['hint']; if (typeof h === 'string' && h) sawHint ||= h; }
     }
-    expect(['Arms not high enough', 'Feet not wide enough']).toContain(sawHint);
+    expect(['Kolları kaldır', 'Feet wider']).toContain(sawHint);
     // stand still: the strip empties
     for (let k = 800; k < 1100; k++) r.game.step(FIXED_DT, inputFrame(k, {}, [], { source: 'pose' }));
     r.game.render(0);

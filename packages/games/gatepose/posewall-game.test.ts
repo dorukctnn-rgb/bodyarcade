@@ -124,11 +124,11 @@ describe('the words', () => {
     expect(['armUpperL', 'armLowerL', 'armUpperR', 'armLowerR', 'thighL', 'shinL', 'thighR', 'shinR', 'torso', 'neck'].map(limbGroup))
       .toEqual(['armL', 'armL', 'armR', 'armR', 'legL', 'legL', 'legR', 'legR', 'torso', 'neck']);
     const say = (k: string): string => PW_STRINGS.en[k] ?? MISS_EN[k] ?? k;
-    expect(missText(say, { code: 'limb_off', limb: 'armLowerL' })).toBe('Left arm off the shape');
-    expect(missText(say, { code: 'limb_off', limb: 'shinR' })).toBe('Right leg off the shape');
-    expect(missText(say, { code: 'limb_off' })).toBe('An arm or leg was off the shape');
-    expect(missText(say, { code: 'held_too_short' })).toBe('Hold it longer');
-    expect(missText(say, { code: 'hips_not_low' })).toBe('Hips not low enough');
+    expect(missText(say, { code: 'limb_off', limb: 'armLowerL' })).toBe('Adjust left arm');
+    expect(missText(say, { code: 'limb_off', limb: 'shinR' })).toBe('Adjust right leg');
+    expect(missText(say, { code: 'limb_off' })).toBe('Match the shape');
+    expect(missText(say, { code: 'held_too_short' })).toBe('Hold longer');
+    expect(missText(say, { code: 'hips_not_low' })).toBe('Hips lower');
   });
 });
 
@@ -187,14 +187,14 @@ describe('the game on the contract', () => {
     for (const s of ['good', 'go']) expect(r.ctx.played, s).toContain(s);
     expect(r.ctx.played.some((s) => s === 'pass' || s === 'perfect')).toBe(true);
     expect(r.ctx.announced[0]).toBe('Set 1 of 1. Make the shape of each wall before it reaches you.');
-    expect([...hints].some((h) => /^Fit \d+ percent$/.test(h))).toBe(true);
+    expect([...hints].some((h) => /^Match \d+ percent$/.test(h))).toBe(true);
     expect(hints.has('')).toBe(true);
-    const fits = [...hints].filter((h) => h.startsWith('Fit ')).map((h) => Number(h.replace(/\D/g, '')));
+    const fits = [...hints].filter((h) => h.startsWith('Match ')).map((h) => Number(h.replace(/\D/g, '')));
     for (const f of fits) { expect(f).toBeGreaterThanOrEqual(50); expect(f).toBeLessThanOrEqual(100); }
   });
 
-  it('a missed wall sounds the hit and says on the reason strip which arm or leg was off, in the shell\'s words when it has them, then takes it down after a moment', async () => {
-    const r = await rig({ t: (k) => (k === 'pw.off.armL' ? 'Sol kol şekilden çıktı' : k) });
+  it('a missed wall sounds the hit and says on the reason strip which arm or leg was off, translated when the shell has the words, then takes it down after a moment', async () => {
+    const r = await rig({ t: (k) => (k === 'pw.off.armL' ? 'Sol kolu düzelt' : k) });
     const b = bot(r, { mode: 'idle' });
     const hints: string[] = [];
     let k = 0;
@@ -208,7 +208,7 @@ describe('the game on the contract', () => {
     const said = hints.filter((h) => h !== '');
     expect(said.length).toBeGreaterThan(5);
     // a body that stands still with its arms down is off the shape with its arms, and the strip says which one
-    expect(said.every((h) => /Left arm off the shape|Right arm off the shape|Left leg off the shape|Right leg off the shape|Lean off the shape|Head off the shape|Sol kol şekilden çıktı|Hold it longer/.test(h))).toBe(true);
+    expect(said.every((h) => /Adjust (left|right) (arm|leg)|Adjust your (lean|head)|Sol kolu düzelt|Hold longer/.test(h))).toBe(true);
     expect(said.some((h) => /arm|kol/.test(h))).toBe(true);
     // the strip is empty again before the next miss: it is not on all the time
     expect(hints.filter((h) => h === '').length).toBeGreaterThan(hints.filter((h) => h !== '').length);
@@ -224,8 +224,8 @@ describe('the game on the contract', () => {
       r.game.step(FIXED_DT, inputFrame(k, { ...b.at(k).ch }, [], { source: 'pose' }));
       if (k % 2 === 0) { r.game.render(0); const h = String(r.ctx.last['hint']); if (h) seen.add(h); }
     }
-    for (const h of ['Your hands were out of view', 'Your knees were out of view', 'Hold it longer', 'Hips not low enough']) expect([...seen], h).toContain(h);
-    expect([...seen].some((h) => /off the shape$/.test(h))).toBe(true);
+    for (const h of ['Hands in view', 'Knees in view', 'Hold longer', 'Hips lower']) expect([...seen], h).toContain(h);
+    expect([...seen].some((h) => /^Adjust /.test(h))).toBe(true);
     for (const h of seen) expect(h.length, h).toBeLessThanOrEqual(40);
   });
 
@@ -329,7 +329,7 @@ describe('two players on one camera', () => {
     expect(nonFiniteCalls(kit.canvas.ctx)).toEqual([]);
   });
 
-  it('two exact players make team passes: the coin sound, "Both through" on both strips, and nothing is lost', async () => {
+  it('two exact players make team passes: the coin sound, the team bonus on both strips, and nothing is lost', async () => {
     const r = await rig({ players: 2 });
     const strips = new Set<string>();
     const b0 = bot(r, { mode: 'perfect', lane: 0 }), b1 = bot(r, { mode: 'perfect', lane: 1 });
@@ -338,7 +338,7 @@ describe('two players on one camera', () => {
       if (k % 3 === 0) { r.game.render(0); strips.add(String(r.ctx.last['hint1'])); strips.add(String(r.ctx.last['hint2'])); }
     }
     expect(r.ctx.played).toContain('coin');
-    expect(strips.has('Both through, 25 extra')).toBe(true);
+    expect(strips.has('Team bonus 25')).toBe(true);
     expect(sim(r).summary().players?.[2]?.score).toBeGreaterThan(0);
   });
 
@@ -359,7 +359,7 @@ describe('two players on one camera', () => {
     const say = (k: string, v?: Record<string, string | number>): string => (PW_STRINGS.en[k] ?? MISS_EN[k] ?? k).replace(/\{(\w+)\}/g, (m, n: string) => String(v?.[n] ?? m));
     expect(stripText(s, s.playerStates[0]!, say)).toBe('');
     play(r, [b], { steps: (s.plan.walls[0] as PwWall).arriveK + 20 });
-    expect(stripText(s, s.playerStates[0]!, say)).toMatch(/^Fit \d+ percent$/);
+    expect(stripText(s, s.playerStates[0]!, say)).toMatch(/^Match \d+ percent$/);
     play(r, [b], { from: (s.plan.walls[0] as PwWall).arriveK + 20, steps: 200 });
     expect(stripText(s, s.playerStates[0]!, say)).toBe('');
   });

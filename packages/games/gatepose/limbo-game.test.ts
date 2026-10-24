@@ -165,8 +165,8 @@ describe('the game on the contract', () => {
     expect(r.ctx.announced[0]).toBe('Set 1 of 1. Lean to the tilt of each gate, within 7 degrees.');
   });
 
-  it('a missed gate sounds the miss and says why on the reason strip, in the shell\'s words, then takes it down after a moment', async () => {
-    const r = await rig({ t: (k) => (k === 'miss.bend_more' ? 'Bend further' : k) });
+  it('a missed gate sounds the miss and says why on the reason strip, as a short cue, then takes it down after a moment', async () => {
+    const r = await rig({ t: (k) => (k === 'cue.bend_more' ? 'Bend further' : k) });
     const idle = limboBot(sim(r).plan, { mode: 'idle' });
     const hints: string[] = [];
     let k = 0;

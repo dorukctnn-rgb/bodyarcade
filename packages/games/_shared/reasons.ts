@@ -1,6 +1,9 @@
 // The sentence for a miss ("Bend further"). Every movement detector names its misses with a code (MissCode in
 // core/moves/kit.ts); the shell has one sentence per code under `miss.<code>`. These are the English lines of the codes
-// these games can give, as the fallback when the shell cannot be asked; reasons.test.ts keeps them equal to the shell's.
+// these games can give, as the fallback when the shell cannot be asked; the game tests keep them equal to the shell's. What the
+// strip of the HUD says during play is the short cue of the same code (cues.ts); the full sentence is the shell's, for the
+// results and for a code that has no cue yet.
+import { cueText } from './cues.ts';
 import type { Say } from './text.ts';
 
 export const MISS_EN: Readonly<Record<string, string>> = {
@@ -41,5 +44,5 @@ export interface MissNote {
   limb?: string;
 }
 
-/** The sentence of a miss code in the player's language (the game's `say` must know MISS_EN as its fallback). */
-export const reasonText = (say: Say, code: string): string => say(`miss.${code}`);
+/** What the strip says for a miss code in the player's language: the game's cue, else the shell's sentence (the game's `say` must know MISS_EN and the cues as its fallback). */
+export const reasonText = (say: Say, code: string): string => cueText(say, code);
