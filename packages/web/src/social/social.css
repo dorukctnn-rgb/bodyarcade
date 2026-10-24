@@ -131,3 +131,29 @@
 .k-seatfoot { display: flex; align-items: center; justify-content: center; gap: 6px; max-width: 100%; }
 .k-seat .k-seatmore { position: static; width: 32px; height: 32px; flex: none; }
 .k-seat .k-seatmore svg { width: 16px; height: 16px; }
+
+/* ---------- what the first screenshots showed (phones) ---------- */
+/* The profile card: the hint beside the QR code and the share button under both (the button is wider than the column beside the code). */
+@media (max-width: 519px) {
+  .k-share { grid-template-columns: minmax(0, 1fr) auto; row-gap: 12px; }
+  .k-share > .k-stack { display: contents; }
+  .k-share > .k-stack > p { grid-column: 1; grid-row: 1; align-self: center; }
+  .k-share > .ba-qr { grid-column: 2; grid-row: 1; }
+  .k-share > .k-stack > .ba-btn { grid-column: 1 / -1; grid-row: 2; }
+}
+/* A request: the words get the width, the two answers sit under them. */
+@media (max-width: 479px) {
+  .k-req { flex-wrap: wrap; }
+  .k-req .grow { flex: 1 1 8em; }
+  .k-req .k-rowbtns { flex: 1 1 100%; }
+  .k-req .k-rowbtns .ba-btn { flex: 1 1 0; }
+}
+/* A section head wraps instead of squeezing the control beside its title; the region picker takes the right side of its own line. */
+.k-sechead { flex-wrap: wrap; }
+.k-regionpick { margin-left: auto; }
+/* The games row scrolls under the gutter: the first chip starts where the page does, a little below the words above it. */
+.ba-filters.k-gamechips { scroll-padding-inline: var(--ba-gutter); }
+.ba-filters.k-gamechips.k-mt-lg { margin-top: 14px; }
+/* The age groups of the safety page are cards without a radio: the name above the list, not beside it. */
+.k-age.k-age--static ul { grid-column: 1; }
+legend.k-label { padding: 0; }

@@ -164,11 +164,103 @@ export async function befriend(a: Page, b: Page, bCode: string): Promise<void> {
   await expect(a.locator('[data-list="friends"] li')).toHaveCount(1, { timeout: 20_000 });
 }
 
-/** The problems the layout rule and the accessibility checks find on the page as it is now. */
-export async function inspect(page: Page, o: { axe?: boolean; layout?: boolean } = {}): Promise<string[]> {
+/** The problems the layout rule, the crowding check and the accessibility checks find on the page as it is now. */
+export async function inspect(page: Page, o: { axe?: boolean; layout?: boolean; crowding?: boolean } = {}): Promise<string[]> {
   const out = o.layout === false ? [] : [...(await checkPage(page))];
+  if (o.crowding !== false) out.push(...(await crowding(page)).map((x) => `crowding: ${x}`));
   if (o.axe !== false) out.push(...(await scan(page)).map((x) => `axe: ${x}`));
   return out;
+}
+
+/**
+ * What the shared layout rule (checkPage) leaves alone: words drawn over other words, a picture (the QR code, an avatar) over a
+ * control or over words, a control over a control anywhere on the page (the rule only looks at the first screen), and a paragraph
+ * squeezed into a sliver. Each of them was first found by opening a screenshot; the test finds them now. What is fixed to the
+ * screen (the bars, the tray of invitations, a toast) lies over the page by design and is left out, and while a window is open
+ * only the window counts.
+ */
+export async function crowding(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const problems: string[] = [];
+    interface Rect { left: number; top: number; right: number; bottom: number }
+    interface Box { el: Element; r: Rect; kind: 'text' | 'control' | 'picture' }
+    const FIXED = '.ba-tabbar, .ba-topbar, .ba-skip, .ba-invites, .ba-toast, .k-actionbar';
+    const open = [...document.querySelectorAll('dialog[open]')];
+    const top = open[open.length - 1] ?? null;
+    const counts = (el: Element): boolean => (top ? top.contains(el) : !el.closest('dialog')) && !el.closest(FIXED);
+    const shown = (el: Element): boolean => {
+      for (let n: Element | null = el; n; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
+        if (n.hasAttribute('hidden') || n.hasAttribute('inert') || n.classList.contains('ba-visually-hidden')) return false;
+      }
+      return true;
+    };
+    /** The part of a rectangle that is not cut off by an ancestor that clips (a row that scrolls, a name that ends in dots). */
+    const clip = (r: DOMRect, el: Element, self: boolean): Rect | null => {
+      let { left, top: t, right, bottom } = r;
+      for (let n: Element | null = self ? el : el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
+        const b = n.getBoundingClientRect();
+        if (cs.overflowX !== 'visible') { left = Math.max(left, b.left); right = Math.min(right, b.right); }
+        if (cs.overflowY !== 'visible') { t = Math.max(t, b.top); bottom = Math.min(bottom, b.bottom); }
+      }
+      return right - left > 0.5 && bottom - t > 0.5 ? { left, top: t, right, bottom } : null;
+    };
+    const label = (el: Element): string => `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className ? `.${el.className.split(' ')[0]}` : ''} "${(el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 28)}"`;
+
+    const boxes: Box[] = [];
+    // the words: one box for each line of each run of text
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = (node.nodeValue ?? '').trim();
+      const owner = node.parentElement;
+      if (!text || !owner || !counts(owner) || owner.closest('script, style, noscript, option, textarea, select, svg') || !shown(owner)) continue;
+      range.selectNodeContents(node);
+      const lines: Rect[] = [];
+      for (const rect of range.getClientRects()) {
+        const c = rect.width >= 1 && rect.height >= 1 ? clip(rect, owner, true) : null;
+        if (c) { boxes.push({ el: owner, r: c, kind: 'text' }); lines.push(c); }
+      }
+      // a paragraph in a sliver: a few words broken into many short lines
+      const widest = Math.max(0, ...lines.map((l) => l.right - l.left));
+      if (lines.length >= 3 && text.split(/\s+/).length >= 4 && widest < 96) problems.push(`${label(owner)} is squeezed into a column ${Math.round(widest)}px wide`);
+    }
+    // the controls and the pictures
+    for (const el of document.querySelectorAll('a[href], button, input:not([type=hidden]):not([type=radio]):not([type=checkbox]), select, textarea, summary')) {
+      if (!counts(el) || !shown(el)) continue;
+      const r = el.getBoundingClientRect();
+      const c = r.width >= 1 && r.height >= 1 ? clip(r, el, false) : null;
+      if (c) boxes.push({ el, r: c, kind: 'control' });
+    }
+    for (const el of document.querySelectorAll('img, canvas, video, .ba-qr, .ba-avatar')) {
+      if (!counts(el) || !shown(el)) continue;
+      const r = el.getBoundingClientRect();
+      const c = r.width >= 1 && r.height >= 1 ? clip(r, el, false) : null;
+      if (c) boxes.push({ el, r: c, kind: 'picture' });
+    }
+
+    const said = new Set<string>();
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i] as Box;
+        const b = boxes[j] as Box;
+        if (a.kind === 'picture' && b.kind === 'picture') continue;
+        if (a.el === b.el || a.el.contains(b.el) || b.el.contains(a.el)) continue;
+        const w = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
+        const h = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+        if (w <= 3 || h <= 0) continue;
+        // two lines of words that follow each other may touch a little (their boxes are taller than their letters); words on words may not
+        if (a.kind === 'text' && b.kind === 'text' ? h < 0.35 * Math.min(a.r.bottom - a.r.top, b.r.bottom - b.r.top) : h <= 4) continue;
+        const kinds = a.kind === b.kind ? `${a.kind}s` : `${a.kind} and ${b.kind}`;
+        const line = `${kinds} overlap: ${label(a.el)} over ${label(b.el)}`;
+        if (!said.has(line)) { said.add(line); problems.push(line); }
+      }
+    }
+    return problems;
+  });
 }
 
 /** A screenshot of the page as it is (the whole page, or the viewport for a window). */

@@ -50,7 +50,7 @@ function list(ctx: ViewContext, v: BoardsView, g: ShellGame): SafeHtml {
   const head = html`<div class="k-sechead k-mt"><h2 class="k-h3">${b.scope === 'country' && b.country ? u('boards.countryOf', { country: countryName(ctx, b.country) }) : u('boards.friends')}</h2><span class="ba-small">${u('boards.weekLine', { start: dateText(ctx, b.week.start), end: dateText(ctx, end) })}</span></div>`;
   const inList = b.entries.some((e) => e.you);
   const yours = b.you
-    ? html`<p class="k-yours" role="status">${b.you.atLeast ? u('boards.yoursLow', { score: ctx.i18n.number(b.you.score), rank: b.you.rank }) : u('boards.yours', { score: ctx.i18n.number(b.you.score), rank: b.you.rank })}</p>`
+    ? html`<p class="k-yours" role="status">${u(b.you.atLeast ? (b.week.current ? 'boards.yoursLow' : 'boards.yoursLowPrevious') : (b.week.current ? 'boards.yours' : 'boards.yoursPrevious'), { score: ctx.i18n.number(b.you.score), rank: b.you.rank })}</p>`
     : html`<p class="k-yours" role="status">${u(b.week.current ? 'boards.yoursNone' : 'boards.yoursNonePrevious', { game: titleOf(ctx, g) })}</p>`;
   if (b.entries.length === 0 && !b.you) {
     return html`${head}<p class="ba-lead k-mt">${b.scope === 'friends' && v.state.friends.length === 0 ? u('boards.noFriends') : u(b.week.current ? 'boards.empty' : 'boards.emptyPrevious', { game: titleOf(ctx, g) })}</p>`;

@@ -208,6 +208,13 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(list).toContain('data-action="boards.game"');
     expect(list).toContain('name="scope"');
     expect(list).toContain('name="week"');
+    // last week's own line says last week (it is not this week's)
+    const lastWeek = { id: 2979, start: Date.UTC(2026, 9, 12), end: Date.UTC(2026, 9, 19), current: false };
+    const before = textOf(boardsMain(ctx, { ...boardsView(s), week: 'previous', board: board({ week: lastWeek }) }).value);
+    expect(before).toContain(lang === 'en' ? 'Your best last week: 4,310, rank 2.' : 'Geçen haftaki en iyin: 4.310, sıra 2.');
+    expect(before).not.toContain(lang === 'en' ? 'this week' : 'Bu haftaki');
+    const beforeLow = textOf(boardsMain(ctx, { ...boardsView(s), week: 'previous', scope: 'country', board: board({ week: lastWeek, scope: 'country', country: 'TR', entries: [], you: { score: 50, rank: 100, atLeast: true } }) }).value);
+    expect(beforeLow).toContain(lang === 'en' ? 'Your best last week: 50, rank 100 or lower.' : 'Geçen haftaki en iyin: 50, sıra 100 ya da daha geride.');
     // an own line below the visible entries, as a lower bound
     const low = boardsMain(ctx, { ...boardsView(s), scope: 'country', board: board({ scope: 'country', country: 'TR', entries: [{ rank: 1, name: 'Kestrel', score: 9000, you: false }], you: { score: 50, rank: 100, atLeast: true } }) }).value;
     expect(low).toContain('class="you gap"');
@@ -237,6 +244,7 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(missing).toEqual([]);
     expect(textOf(html)).not.toMatch(NO_LEAK);
     expect((html.match(/data-action="lobby.join"/g) ?? []).length).toBe(3);
+    expect(textOf(html)).toContain(ctx.i18n.tx('ux.lobby.playersShort', { n: 2, of: 4 }));
     expect(html).toContain('class="full"');
     expect(html).toContain('data-action="lobby.quick"');
     expect(html).toContain('name="region"');
@@ -433,6 +441,9 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(textOf(html)).not.toMatch(NO_LEAK);
     expect(textOf(safetyPage(ctx, []).value)).toContain(ctx.i18n.t('safety.blocked.empty'));
     for (const key of ['ux.age.child.1', 'ux.safety.keepBody', 'ux.safety.searchBody', 'ux.safety.sentBody', 'ux.safety.under13Body']) expect(textOf(html), key).toContain(ctx.i18n.tx(key));
+    // the sample windows of a report and a block name nobody (no placeholder dots where a name would stand)
+    for (const key of ['ux.safety.reportTitle', 'ux.safety.reportFine', 'ux.safety.blockTitle', 'ux.safety.blockBody']) expect(textOf(html), key).toContain(ctx.i18n.tx(key));
+    expect(textOf(html)).not.toContain('...');
     // the old promise that under 13 plays in private rooms is gone
     expect(textOf(html)).not.toContain(ctx.i18n.tx('safety.age.child.3'));
   });

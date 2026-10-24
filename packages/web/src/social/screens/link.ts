@@ -73,8 +73,8 @@ export function safetyMain(ctx: ViewContext, blocks: readonly BlockEntry[]): Saf
     <p class="k-sub">${t.t('safety.sub')}</p>
     <div class="k-flows">
       <div><span class="k-flow-label">${t.t('safety.flow.age')}</span><section class="k-sheet" aria-labelledby="age-h"><h2 id="age-h">${u('age.title')}</h2><p class="ba-small k-flat">${u('age.body')}</p>${ageCards(ctx)}</section></div>
-      <div><span class="k-flow-label">${t.t('safety.flow.report')}</span><section class="k-sheet" aria-labelledby="rep-h"><h2 id="rep-h">${t.t('safety.report.title', { name: '...' })}</h2><ul class="k-plainlist">${REPORT_REASONS.map((r) => html`<li>${t.tx(`safety.report.reason.${r}`)}</li>`)}</ul><p class="k-fine">${t.t('safety.report.fine', { name: '...' })}</p></section></div>
-      <div><span class="k-flow-label">${t.t('safety.flow.block')}</span><section class="k-sheet" aria-labelledby="blk-h"><h2 id="blk-h">${t.t('safety.block.title', { name: '...' })}</h2><p class="ba-small k-flat">${t.t('safety.block.body', { name: '...' })}</p></section></div>
+      <div><span class="k-flow-label">${t.t('safety.flow.report')}</span><section class="k-sheet" aria-labelledby="rep-h"><h2 id="rep-h">${u('safety.reportTitle')}</h2><ul class="k-plainlist">${REPORT_REASONS.map((r) => html`<li>${t.tx(`safety.report.reason.${r}`)}</li>`)}</ul><p class="k-fine">${u('safety.reportFine')}</p></section></div>
+      <div><span class="k-flow-label">${t.t('safety.flow.block')}</span><section class="k-sheet" aria-labelledby="blk-h"><h2 id="blk-h">${u('safety.blockTitle')}</h2><p class="ba-small k-flat">${u('safety.blockBody')}</p></section></div>
     </div>
     <section class="ba-section" aria-labelledby="sees"><header><h2 id="sees">${t.t('safety.sees.title')}</h2></header>
       <div class="k-sees">${sees('strangers', dark('jackOpen', '#46B4FF'))}${sees('friends', avatar('friends'), 'friend')}${sees('video', html`${dark('squat', '#FF4F6E')}`)}</div>

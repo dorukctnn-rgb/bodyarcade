@@ -51,9 +51,10 @@ const seatDots = (ctx: ViewContext, n: number, of: number): SafeHtml =>
 
 function lobbyRow(ctx: ViewContext, g: ShellGame, l: LobbyEntry): SafeHtml {
   const t = ctx.i18n;
+  const u = ux(ctx);
   const full = l.open <= 0;
   const level = l.band ? t.t('lobby.levelLine', { level: bandLabel(ctx, l.band) }) : t.t('lobby.anyLevel');
-  return html`<li class="${full ? 'full' : ''}"><img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="72" height="54"><div><b>${level}</b><small>${seatDots(ctx, l.players, l.size)}<span>${t.t('lobby.players', { n: l.players, of: l.size })}</span><span>${t.t('lobby.host', { name: l.hostName })}</span></small></div>${full
+  return html`<li class="${full ? 'full' : ''}"><img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="72" height="54"><div><b>${level}</b><small>${seatDots(ctx, l.players, l.size)}<span>${u('lobby.playersShort', { n: l.players, of: l.size })}</span><span>${t.t('lobby.host', { name: l.hostName })}</span></small></div>${full
     ? html`<span class="ba-badge">${t.t('lobby.full')}</span>`
     : html`<button class="ba-btn ba-btn--secondary" type="button" data-action="lobby.join" data-code="${l.code}" aria-label="${t.t('lobby.joinLabel', { level: l.band ? bandLabel(ctx, l.band) : t.t('lobby.anyLevel'), name: l.hostName })}">${t.t('lobby.join')}</button>`}</li>`;
 }

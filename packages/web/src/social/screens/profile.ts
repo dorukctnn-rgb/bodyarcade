@@ -109,29 +109,36 @@ function syncCard(ctx: ViewContext): SafeHtml {
   return html`<section class="k-card k-under18" aria-labelledby="me-sync">${icon('replay')}<div><h2 class="k-h3" id="me-sync">${u('me.syncTitle')}</h2><p>${u('me.syncBody')}</p></div></section>`;
 }
 
-function accountSection(ctx: ViewContext, v: ProfileView, p: MyProfile | null): SafeHtml {
+function recoveryCard(ctx: ViewContext, v: ProfileView, p: MyProfile | null): SafeHtml {
+  const u = ux(ctx);
+  return html`<section class="k-card" aria-labelledby="me-rec">
+    <h2 class="k-h3" id="me-rec">${u('me.recoveryTitle')}</h2>
+    <p class="ba-small k-flat">${u('me.recoveryBody')}</p>
+    <div class="k-rowbtns k-mt"><button class="ba-btn ba-btn--secondary" type="button" data-action="me.renewRecovery"${attr('disabled', v.busy !== null || !p)}>${icon('key')}${u('me.recoveryRenew')}</button></div>
+    ${noteLine(v, 'recovery')}
+  </section>`;
+}
+
+function dataCard(ctx: ViewContext, v: ProfileView): SafeHtml {
   const u = ux(ctx);
   const busy = v.busy !== null;
-  return html`<div class="k-cols k-cols--even k-mt-lg">
-    <section class="k-card" aria-labelledby="me-rec">
-      <h2 class="k-h3" id="me-rec">${u('me.recoveryTitle')}</h2>
-      <p class="ba-small k-flat">${u('me.recoveryBody')}</p>
-      <div class="k-rowbtns k-mt"><button class="ba-btn ba-btn--secondary" type="button" data-action="me.renewRecovery"${attr('disabled', busy || !p)}>${icon('key')}${u('me.recoveryRenew')}</button></div>
-      ${noteLine(v, 'recovery')}
-    </section>
-    <section class="k-card" aria-labelledby="me-data">
-      <h2 class="k-h3" id="me-data">${u('me.dataTitle')}</h2>
-      <p class="ba-small k-flat">${u('me.dataDownloadHint')}</p>
-      <div class="k-rowbtns k-rowbtns--wrap k-mt"><button class="ba-btn ba-btn--secondary" type="button" data-action="me.download"${attr('disabled', busy)}>${icon('download')}${u('me.dataDownload')}</button><button class="ba-btn ba-btn--danger" type="button" data-action="me.delete"${attr('disabled', busy)}>${icon('trash')}${u('me.dataDelete')}</button></div>
-      ${noteLine(v, 'data')}
-    </section>
-    ${p ? html`<section class="k-card k-cols-wide" aria-labelledby="me-age">
-      <h2 class="k-h3" id="me-age">${u('me.ageTitle')}</h2>
-      <p class="ba-small k-flat">${u('me.ageNow', { band: bandName(ctx, p.band) })}</p>
-      <div class="k-rowbtns k-rowbtns--wrap k-mt">${p.band === 'adult' ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="me.ageDown"${attr('disabled', busy)}>${u('me.ageDown')}</button>` : ''}<button class="ba-btn ba-btn--secondary" type="button" data-action="me.ageChild"${attr('disabled', busy)}>${u('me.ageChild')}</button></div>
-      ${noteLine(v, 'age')}
-    </section>` : ''}
-  </div>`;
+  return html`<section class="k-card" aria-labelledby="me-data">
+    <h2 class="k-h3" id="me-data">${u('me.dataTitle')}</h2>
+    <p class="ba-small k-flat">${u('me.dataDownloadHint')}</p>
+    <div class="k-rowbtns k-rowbtns--wrap k-mt"><button class="ba-btn ba-btn--secondary" type="button" data-action="me.download"${attr('disabled', busy)}>${icon('download')}${u('me.dataDownload')}</button><button class="ba-btn ba-btn--danger" type="button" data-action="me.delete"${attr('disabled', busy)}>${icon('trash')}${u('me.dataDelete')}</button></div>
+    ${noteLine(v, 'data')}
+  </section>`;
+}
+
+function ageCard(ctx: ViewContext, v: ProfileView, p: MyProfile): SafeHtml {
+  const u = ux(ctx);
+  const busy = v.busy !== null;
+  return html`<section class="k-card" aria-labelledby="me-age">
+    <h2 class="k-h3" id="me-age">${u('me.ageTitle')}</h2>
+    <p class="ba-small k-flat">${u('me.ageNow', { band: bandName(ctx, p.band) })}</p>
+    <div class="k-rowbtns k-rowbtns--wrap k-mt">${p.band === 'adult' ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="me.ageDown"${attr('disabled', busy)}>${u('me.ageDown')}</button>` : ''}<button class="ba-btn ba-btn--secondary" type="button" data-action="me.ageChild"${attr('disabled', busy)}>${u('me.ageChild')}</button></div>
+    ${noteLine(v, 'age')}
+  </section>`;
 }
 
 export function profileMain(ctx: ViewContext, v: ProfileView): SafeHtml {
@@ -145,13 +152,13 @@ export function profileMain(ctx: ViewContext, v: ProfileView): SafeHtml {
   if (s.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
   if (!p) return html`${head}${banners}<div class="k-mt">${needProfile(ctx, s, { icon: 'friends', title: t.t('social.intro.title'), body: t.t('social.intro.body') })}</div>`;
   // A suspended profile can still be downloaded and deleted, and nothing else.
-  if (s.bannedUntil !== null) return html`${head}${banners}<p class="k-sub">${u('me.sub')}</p>${accountSection(ctx, v, null)}`;
+  if (s.bannedUntil !== null) return html`${head}${banners}<p class="k-sub">${u('me.sub')}</p><div class="k-cols k-cols--even k-mt-lg">${recoveryCard(ctx, v, null)}${dataCard(ctx, v)}</div>`;
   return html`${head}${banners}<p class="k-sub">${u('me.sub')}</p>
     <div class="k-cols k-cols--even k-mt-lg">
       <div class="k-stack">${identityCard(ctx, v, p)}${codeCard(ctx, v, p)}${prefsCard(ctx, v, p)}</div>
-      <div class="k-stack">${canCard(ctx, p)}${listsCard(ctx, p)}${syncCard(ctx)}</div>
+      <div class="k-stack">${canCard(ctx, p)}${listsCard(ctx, p)}${syncCard(ctx)}${recoveryCard(ctx, v, p)}${dataCard(ctx, v)}</div>
     </div>
-    ${accountSection(ctx, v, p)}`;
+    <div class="k-mt-lg">${ageCard(ctx, v, p)}</div>`;
 }
 
 export function profilePage(ctx: ViewContext, v: ProfileView = NO_PROFILE_VIEW): SafeHtml {

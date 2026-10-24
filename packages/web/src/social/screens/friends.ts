@@ -81,7 +81,7 @@ function addCard(ctx: ViewContext, v: FriendsView): SafeHtml {
 
 function requestRow(ctx: ViewContext, r: IncomingRequest): SafeHtml {
   const t = ctx.i18n;
-  return html`<li>${avatar(r.fid)}<div class="grow"><b>${r.name}</b><small>${t.tx(`social.req.via.${r.via}`)}</small></div><div class="k-rowbtns"><button class="ba-btn ba-btn--secondary" type="button" data-action="social.accept" data-fid="${r.fid}">${t.t('social.req.accept')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="social.decline" data-fid="${r.fid}">${t.t('social.req.decline')}</button></div></li>`;
+  return html`<li class="k-req">${avatar(r.fid)}<div class="grow"><b>${r.name}</b><small>${t.tx(`social.req.via.${r.via}`)}</small></div><div class="k-rowbtns"><button class="ba-btn ba-btn--secondary" type="button" data-action="social.accept" data-fid="${r.fid}">${t.t('social.req.accept')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="social.decline" data-fid="${r.fid}">${t.t('social.req.decline')}</button></div></li>`;
 }
 
 function outgoingRow(ctx: ViewContext, r: OutgoingRequest): SafeHtml {
