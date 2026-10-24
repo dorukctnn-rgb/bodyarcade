@@ -47,6 +47,7 @@ export {
   type ProfileRules, type ProfileSpace, type ProfileState, type ProfileView, type RemovalFailure, type RemovalPlan, type RemovalSummary,
   type RemoveFailure, type RemoveResult, type SpaceArcadeOptions, type SwitchFailure, type SwitchResult, type UpdateFailure, type UpdateResult,
 } from './profiles.ts';
+export { keyValueOf, type KeyValue } from './keyvalue.ts';
 export { p, schemaOf, BAD, type Parser, type Infer } from './schema.ts';
 export {
   createStore, memoryStorage, browserStorage,
