@@ -90,7 +90,7 @@ describe('both raise their hands', () => {
     expect(readyAt).not.toBeNull();
     const asks = all.filter((s) => s.code === 'raise_hands');
     expect(asks.length).toBeGreaterThan(5);
-    expect(asks[0]).toMatchObject({ guidance: { action: 'raise_hands' }, hint: { action: 'raise_hands' } });
+    expect(asks[0]).toMatchObject({ guidance: { player: 1, action: 'none' }, hint: { action: 'raise_hands' } });   // the code and the hint say it; no guidance of its own
     expect(last).toMatchObject({ ready: true, code: 'ok', outcome: 'measured' });
     const p = cal.profiles()!;
     expect(p[1].headroom).toBe('ok');
@@ -105,12 +105,12 @@ describe('both raise their hands', () => {
     expect(cal.profiles()![1].headroom).toBe('unchecked');
   });
 
-  it('the guidance follows the hint: a camera that points too low is a tilt, not a step back', () => {
+  it('a camera that points too low is a tilt, not a step back: the hint says so, the guidance says nothing of its own', () => {
     // far from the camera (shoulders 0.096 wide in image heights) with the heads near the top edge
     const far = (cx: number): BodyShape => body(cx, { hipY: 0.22, T: 0.12, W: 0.096 });
     const { all } = run(frames([{ shape: far(0.72), motion: up(1500) }, { shape: far(0.28), motion: up(1500) }], 5000), { headroom: 'arms-up' }, 'upper');
     const cut = all.filter((s) => s.code === 'headroom');
     expect(cut.length).toBeGreaterThan(10);
-    expect(cut.at(-1)).toMatchObject({ hint: { action: 'tilt_camera_up' }, guidance: { action: 'tilt_camera_up' } });
+    expect(cut.at(-1)).toMatchObject({ hint: { action: 'tilt_camera_up' }, guidance: { action: 'none' } });
   });
 });

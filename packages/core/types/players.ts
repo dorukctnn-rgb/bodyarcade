@@ -1,7 +1,7 @@
 // Two players, one camera (mode 'local2', BUILD-PLAN "Two players, one camera"): web on big screens only.
 // The pose service runs with numPoses 2; PlayerAssignment turns its unordered detections into two stable players;
 // each player then has their own Calibrator, FeatureExtractor and MovementEngine, exactly like one player.
-import type { BodyProfile, CalibrationCode, CalibrationHint, CalibrationStatus, CalibratorOptions, Framing, FramingProfile, ProfileSupport } from './body.ts';
+import type { BodyProfile, CalibrationCode, CalibrationHint, CalibrationStatus, CalibratorOptions, Framing, FramingProfile, HeadroomCode, ProfileSupport } from './body.ts';
 import type { Ms } from './common.ts';
 import type { PoseFrame } from './pose.ts';
 
@@ -43,14 +43,15 @@ export type TwoPlayerCode = CalibrationCode | 'one_person' | 'too_close_together
 /** What the screen asks of whom. */
 export interface TwoPlayerGuidance {
   player?: PlayerSlot;
-  action: 'step_in' | 'step_back' | 'step_closer' | 'move_apart' | 'move_left' | 'move_right' | 'hold_still' | 'more_light' | 'light_in_front' | 'tilt_camera_up' | 'tilt_camera_down' | 'raise_hands' | 'none';
+  action: 'step_in' | 'step_back' | 'step_closer' | 'move_apart' | 'move_left' | 'move_right' | 'hold_still' | 'more_light' | 'light_in_front' | 'none';
 }
 
 export interface TwoPlayerCalibrationStatus {
   ready: boolean;
   /** The lower of the two players' progress. */
   progress: number;
-  code: TwoPlayerCode;
+  /** A game with headroom adds the two codes of the hands-up step (the guidance is then `none` with the player named: the code and the hint say it). */
+  code: TwoPlayerCode | HeadroomCode;
   guidance: TwoPlayerGuidance;
   players: Record<PlayerSlot, CalibrationStatus>;
   hz: number;

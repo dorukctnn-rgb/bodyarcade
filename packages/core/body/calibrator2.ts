@@ -2,7 +2,7 @@
 // inside the picture, each at a usable distance; then both hold still together and each gets their own profile.
 // The guidance names one player and one action so the screen can say "Player 2, step back".
 import {
-  type BodyProfile, type CalibrationCode, type CalibrationStatus, type CalibratorOptions, type Framing, type FramingProfile, type Landmark,
+  type BodyProfile, type CalibrationCode, type CalibrationStatus, type CalibratorOptions, type Framing, type FramingProfile, type HeadroomCode, type Landmark,
   type PlayerFrame, type PlayerSlot, type TwoPlayerCalibrationStatus, type TwoPlayerCalibrator, type TwoPlayerCode, type TwoPlayerGuidance,
 } from '../types/index.ts';
 import { createCalibrator, type CalibratorDeps } from './calibrator.ts';
@@ -39,18 +39,16 @@ function extent(lm: Landmark[], aspect: number): { minX: number; maxX: number; W
 const ACTION: Partial<Record<CalibrationCode, TwoPlayerGuidance['action']>> = {
   no_person: 'step_in', too_close: 'step_back', too_far: 'step_closer', head_out: 'step_back', hips_out: 'step_back',
   knees_out: 'step_back', feet_out: 'step_back', move_left: 'move_left', move_right: 'move_right',
-  too_dark: 'more_light', backlit: 'light_in_front', raise_hands: 'raise_hands', headroom: 'step_back',
-  move_still: 'hold_still', hold: 'hold_still',
+  too_dark: 'more_light', backlit: 'light_in_front', move_still: 'hold_still', hold: 'hold_still',
 };
 
-const HINT_ACTIONS: ReadonlySet<string> = new Set([
-  'step_in', 'step_back', 'step_closer', 'move_left', 'move_right', 'tilt_camera_up', 'tilt_camera_down', 'more_light', 'light_in_front', 'raise_hands', 'hold_still',
-]);
-
-/** What one player is asked to do: what the measured hint says (a tilt, not a step back, when the camera points wrong), else by the code. */
+/**
+ * What one player is asked to do. The hands-up codes have no guidance of their own: `none` with the player named says "this
+ * is about them", and the code and the measured hint carry the rest (no game with headroom is played by two today).
+ */
 function actionOf(st: CalibrationStatus): TwoPlayerGuidance['action'] {
-  const a = st.hint?.action;
-  return a && HINT_ACTIONS.has(a) ? (a as TwoPlayerGuidance['action']) : ACTION[st.code] ?? 'hold_still';
+  if (st.code === 'raise_hands' || st.code === 'headroom') return 'none';
+  return ACTION[st.code] ?? 'hold_still';
 }
 
 /** The profile that measures least; null when either is not measured. */
@@ -75,7 +73,7 @@ export function createTwoPlayerCalibrator(deps: CalibratorDeps = {}): TwoPlayerC
     return span > 0 ? Math.round(((times.length - 1) * 1000 / span) * 10) / 10 : 0;
   };
 
-  const out = (code: TwoPlayerCode, guidance: TwoPlayerGuidance): TwoPlayerCalibrationStatus => {
+  const out = (code: TwoPlayerCode | HeadroomCode, guidance: TwoPlayerGuidance): TwoPlayerCalibrationStatus => {
     const profile = lowerProfile(last[1].profile, last[2].profile);
     const s: TwoPlayerCalibrationStatus = {
       ready: last[1].ready && last[2].ready,

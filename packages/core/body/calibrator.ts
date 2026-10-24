@@ -22,7 +22,7 @@
 //   4 Hz as well as at 30 Hz, and says 'too_slow' instead of waiting for ever on a device that cannot keep up.
 import {
   LM, type BodyProfile, type CalibrationCode, type CalibrationHint, type CalibrationStatus, type Calibrator, type CalibratorOptions,
-  type Framing, type FramingProfile, type HeadroomNeed, type HeadroomState, type Landmark, type PoseFrame, type Vec2,
+  type Framing, type FramingProfile, type HeadroomCode, type HeadroomNeed, type HeadroomState, type Landmark, type PoseFrame, type Vec2,
 } from '../types/index.ts';
 import { clamp, dist, isVisible, median, mid, viewOf } from './geometry.ts';
 import { HEADROOM, readHands } from './headroom.ts';
@@ -252,7 +252,7 @@ export function createCalibrator(deps: CalibratorDeps = {}): Calibrator {
     return want === 'side' ? 'side' : PROFILE_OF[r as Rank];
   };
 
-  function status(code: CalibrationCode, progress: number, o: { hint?: CalibrationHint; fallbackInMs?: number; escape?: boolean } = {}): CalibrationStatus {
+  function status(code: CalibrationCode | HeadroomCode, progress: number, o: { hint?: CalibrationHint; fallbackInMs?: number; escape?: boolean } = {}): CalibrationStatus {
     const profile = shownProfile();
     const s: CalibrationStatus = {
       progress: clamp(progress, 0, 1), ready: result !== null, samples: win.length, code, hz: hzNow(),

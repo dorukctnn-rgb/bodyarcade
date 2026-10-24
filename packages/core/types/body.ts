@@ -99,14 +99,20 @@ export type CalibrationCode =
   | 'backlit'
   /** One player calibrates but more than one person is in view (mode 'local2' has its own codes). */
   | 'many_people'
-  /** The body fits and the game raises the hands overhead (headroom 'arms-up'): the player raises both hands, once. */
-  | 'raise_hands'
-  /** The raised hands are cut by the top of the picture (or the model lost them): step back or tilt the camera up (see hint). */
-  | 'headroom'
   | 'move_still'
   | 'hold'
   | 'ok'
   | 'too_slow';
+
+/**
+ * The two codes of the hands-up step, which only a game with manifest.headroom ever sees (CalibratorOptions.headroom), after
+ * the body fits. Kept apart from CalibrationCode so a screen that lists the codes of every game is not asked for words for
+ * them until it shows such a game.
+ * - 'raise_hands': the player raises both hands, once (hint: action 'raise_hands').
+ * - 'headroom': the raised hands are cut by the top of the picture, or the model lost them: step back or tilt the camera
+ *   up (hint: action 'step_back' with steps, or 'tilt_camera_up').
+ */
+export type HeadroomCode = 'raise_hands' | 'headroom';
 
 /** What the player should do about a code. */
 export type HintAction =
@@ -131,12 +137,12 @@ export interface CalibrationHint {
 export interface CalibrationSeen { head: boolean; shoulders: boolean; hips: boolean; knees: boolean; feet: boolean }
 
 export interface CalibrationStatus {
-  /** 0..1 of the hold time. */
+  /** 0..1 of the way: the hold time, and for a game with headroom the hands-up check as the last 40%. */
   progress: number;
   ready: boolean;
   /** Steady samples collected in the current hold. */
   samples: number;
-  code: CalibrationCode;
+  code: CalibrationCode | HeadroomCode;
   /** Measured pose rate so far. */
   hz: number;
   /** The best profile the camera measures right now (smoothed over half a second); null when not even head and shoulders. */
