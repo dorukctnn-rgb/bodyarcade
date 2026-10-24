@@ -19,6 +19,7 @@ import { registerGameStrings, type I18n, type Lang } from '../../../core/ui/i18n
 import type { StoreNamespace } from '../../../core/store/store.ts';
 import { setMirrorVideo } from '../../../games/target/video.ts';
 import { followHud } from './layout-bridge.ts';
+import { FIRST_GAME_ID, FIRST_SECONDS } from './welcome-model.ts';
 import { hudModeFor } from './play.ts';
 import type { SessionFactory, SessionRequest } from './ports.ts';
 
@@ -34,6 +35,13 @@ export function playableGameIds(): string[] {
 }
 
 const withWords = new Set<string>();
+
+/** The first game of the welcome tour: the real game with one set of thirty seconds and no rest, so the first win is quick. */
+async function loadFirstRound(): Promise<GameModule | null> {
+  if (!(await loadGame(FIRST_GAME_ID))) return null; // its words are added to the shell's on the way
+  const file = await import('../../../games/squat-flap/index.ts');
+  return file.squatFlapModule({ ...file.manifest, durationSec: FIRST_SECONDS }, { plan: { sets: 1, setSec: FIRST_SECONDS, restSec: 0 } });
+}
 
 /** The game's code, and its words added to the shell's (once), under `game.<id>`. */
 export async function loadGame(id: string): Promise<GameModule | null> {
@@ -106,7 +114,7 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
     };
 
     const session = createBrowserSession({
-      games: (id) => loadGame(id),
+      games: (id) => (r.first === true && id === FIRST_GAME_ID ? loadFirstRound() : loadGame(id)),
       ui: (m, o) => {
         // A round that was left and started again draws into the same canvas, with a new kit.
         dropKit();

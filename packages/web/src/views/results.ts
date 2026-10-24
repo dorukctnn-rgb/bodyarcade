@@ -66,6 +66,8 @@ export interface RoundResult {
   progress?: RoundProgress | null;
   /** Where the workout plan stands, when this round was one of its games. */
   plan?: PlanPanel | null;
+  /** This was the first game of the welcome tour: the page says so and leads on to the full round and the other games. */
+  first?: boolean;
 }
 
 export function formatClock(seconds: number): string {
@@ -156,8 +158,9 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
   const proMore = proGames(ctx.games).length;
   const again = g ? playHref(ctx, g, r.setup) : ctx.href('home');
   const level = t.tx(`setup.difficulty.${r.setup.difficulty}`);
+  const first = r.first === true;
   const main = html`
-    ${pageHead(ctx, t.t('results.title'), { back: g ? ctx.href('game', { params: { slug: g.seo.slug } }) : ctx.href('home') })}
+    ${pageHead(ctx, first ? t.t('onboarding.s7.done') : t.t('results.title'), { back: g ? ctx.href('game', { params: { slug: g.seo.slug } }) : ctx.href('home') })}
     <div class="k-cols k-cols--results">
       <div class="k-stack">
         <div class="ba-row-wrap k-between">
@@ -167,6 +170,7 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
         ${r.setup.players === 2 && r.players ? duo(ctx, r) : html`${score(ctx, r, g)}${counted(ctx, r)}`}
         ${stats(ctx, r)}
         ${calories(ctx, r)}
+        ${first ? html`<p class="k-sub" data-first-saved>${t.t('onboarding.s7.saved')}</p>` : ''}
         ${progressBlock(ctx, r.progress)}
       </div>
       <div class="k-stack">
@@ -179,8 +183,8 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
         ${!hasPro(ctx) && proMore > 0 ? html`<div class="k-card k-procard"><p>${t.t('results.proCard', { n: proMore })}</p><a class="ba-link" href="${ctx.href('pro')}">${t.t('results.proLink')}</a></div>` : ''}
       </div>
       <div class="k-actionbar"><div class="k-actions k-actions--results">
-        <a class="ba-btn ba-btn--primary ba-btn--lg" href="${again}" data-action="again" data-replace>${icon('replay')}<span>${t.t('results.again')}</span></a>
-        <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${t.t('results.other')}</a>
+        <a class="ba-btn ba-btn--primary ba-btn--lg" href="${again}" data-action="again" data-replace>${icon('replay')}<span>${first ? t.t('onboarding.s7.full') : t.t('results.again')}</span></a>
+        <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${first ? t.t('onboarding.s7.all', { n: ctx.games.length }) : t.t('results.other')}</a>
       </div></div>
     </div>`;
   return chrome(ctx, { tab: 'games', main, mainClass: 'ba-page--results', pushed: true });

@@ -18,6 +18,8 @@ import { NO_PLANS_DATA, plansPage, type PlansData } from './views/plans.ts';
 import { playPage } from './views/play.ts';
 import { resultsPage, type RoundResult } from './views/results.ts';
 import { settingsPage } from './views/settings.ts';
+import type { TourState } from './app/welcome-model.ts';
+import { FIRST_TOUR, welcomePage } from './views/welcome.ts';
 
 export const SITE_ORIGIN = 'https://bodyarcade.com';
 
@@ -32,9 +34,11 @@ export interface PageState {
   plans: PlansData;
   /** What the Friends screens draw; null in the page generator, which never draws them. */
   social: SocialPageState | null;
+  /** Where the welcome tour stands; null draws its first step (the generator, a visitor without scripts). */
+  welcome: TourState | null;
 }
 
-export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null };
+export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null, welcome: null };
 
 export interface Rendered {
   body: SafeHtml;
@@ -138,7 +142,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       return { body, title: named(title), description: t.t('social.intro.body'), noindex: true, status: 200, jsonLd: [] };
     }
     case 'welcome':
-      // The tour is drawn by the browser app only (it owns a 3D stage); this is what a crawler or a script-less visit gets.
-      return { body: html`<main id="main"><h1>${t.t('onboarding.h1')}</h1><p>${t.t('onboarding.text1', { n: ctx.games.length })}</p><p><a href="${ctx.href('home')}">${t.t('notfound.cta')}</a></p></main>`, title: named(t.t('onboarding.h1')), description: t.t('home.description'), noindex: true, status: 200, jsonLd: [] };
+      // The tour is drawn in full by the browser app (it owns the 3D stage); a crawler or a visit without scripts gets its first step, and no index.
+      return { body: welcomePage(ctx, state.welcome ?? FIRST_TOUR), title: named(t.t('onboarding.h1')), description: t.t('home.description'), noindex: true, status: 200, jsonLd: [] };
   }
 }

@@ -48,10 +48,10 @@ export function defaultSetup(ctx: ViewContext, g: ShellGame): SetupState {
 }
 
 /** The play address for a state. Everything the round needs is in it, so a reload or a shared link starts the same round. */
-export function playHref(ctx: ViewContext, g: ShellGame, s: SetupState): string {
+export function playHref(ctx: ViewContext, g: ShellGame, s: SetupState, extra: Record<string, string | number> = {}): string {
   return ctx.href('play', {
     params: { slug: g.seo.slug },
-    query: { players: s.players, input: s.input, difficulty: s.difficulty, seated: s.seated ? 1 : 0, quiet: s.quiet ? 1 : 0 },
+    query: { players: s.players, input: s.input, difficulty: s.difficulty, seated: s.seated ? 1 : 0, quiet: s.quiet ? 1 : 0, ...extra },
   });
 }
 

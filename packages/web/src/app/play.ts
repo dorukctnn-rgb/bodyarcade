@@ -54,6 +54,8 @@ export interface PlayControllerOptions {
   makeSession(stage: StageHandles, setup: SetupState): Session | null;
   /** Called when the round is over or left, to give back what the session's scene held (the 3D kit, say). */
   release?(): void;
+  /** The player has just read what the camera is for (the welcome tour's page does it): the camera is asked for without that panel again. */
+  explained?: boolean;
 }
 
 const CAMERA_CODES = new Set(['denied', 'not_found', 'in_use', 'overconstrained', 'no_frames', 'insecure', 'unsupported', 'unknown']);
@@ -145,7 +147,7 @@ export class PlayController {
       return;
     }
     this.wire(this.session);
-    if (this.setup.input === 'camera' && !(await this.cameraReady())) {
+    if (this.setup.input === 'camera' && this.o.explained !== true && !(await this.cameraReady())) {
       this.show({ kind: 'camera-explainer' });
       return;
     }

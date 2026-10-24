@@ -18,7 +18,7 @@ export function tabsOf(ctx: ViewContext): Tab[] {
 }
 
 /** Both logos are in the page; the stylesheet shows the one that fits the theme. */
-function logo(ctx: ViewContext, height: number): SafeHtml {
+export function logo(ctx: ViewContext, height: number): SafeHtml {
   const name = ctx.i18n.t('brand.name');
   return html`<span class="ba-logo"><img class="ba-logo-light" src="${ctx.assets.logo('light')}" alt="${name}" height="${height}" width="${Math.round(height * 5.59)}"><img class="ba-logo-dark" src="${ctx.assets.logo('dark')}" alt="" aria-hidden="true" height="${height}" width="${Math.round(height * 5.59)}"></span>`;
 }

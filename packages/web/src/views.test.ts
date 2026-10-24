@@ -39,6 +39,7 @@ function pageUrls(lang: Lang): string[] {
     `${p}/settings/`,
     `${p}/pro/`,
     `${p}/results/`,
+    `${p}/welcome/`,
     `${p}/nope/`,
   ];
 }

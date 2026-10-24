@@ -48,6 +48,8 @@ export interface SessionRequest {
   game: ShellGame;
   setup: SetupState;
   stage: StageHandles;
+  /** The first game of the welcome tour: the real game, one set of thirty seconds and nothing to beat. */
+  first?: boolean;
 }
 
 /**

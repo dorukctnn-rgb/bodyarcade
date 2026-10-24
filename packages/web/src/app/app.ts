@@ -38,6 +38,8 @@ import { applyHead, readAssetMap, swap } from './dom.ts';
 import { localEntitlements } from './entitlements.ts';
 import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
 import { PlayController, type PlayHost } from './play.ts';
+import { WelcomeController, type WelcomeHost } from './welcome.ts';
+import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
 import type { SocialServices } from '../social/port.ts';
@@ -119,6 +121,10 @@ export class App {
   private planRound = false;
   private restTimer: ReturnType<typeof setInterval> | null = null;
   private play: PlayController | null = null;
+  /** The welcome tour that is on the screen. */
+  private tour: WelcomeController | null = null;
+  /** The round on the stage is the first game of the welcome tour. */
+  private firstRound = false;
   /** Back during a round: the page goes forward again and asks ('restoring'); a yes goes back for real ('leaving'). */
   private backGuard: 'idle' | 'restoring' | 'leaving' = 'idle';
   private readonly social: SocialController | null;
@@ -246,6 +252,7 @@ export class App {
 
   stop(): void {
     this.endPlay();
+    this.endTour();
     this.social?.stop();
     this.nav.stop();
     for (const c of this.cleanups.splice(0)) c();
@@ -272,6 +279,18 @@ export class App {
         this.nav.go(router.withLang(this.urlNow(), want), { replace: true });
         return;
       }
+    }
+    // A first visit to the home page is taken to the tour, once (a script or a crawler never is, so the page a search engine lists is the one it gets).
+    if (route?.id === 'home' && this.firstVisit(change)) {
+      this.nav.go(router.href('welcome', { lang: route.lang }), { replace: true });
+      return;
+    }
+    // The tour moves between its pages without being drawn again: its 3D stage stays and the panel follows the address.
+    if (route?.id === 'welcome' && this.tour && this.route?.id === 'welcome' && route.lang === this.lang) {
+      this.route = route;
+      if (!change.initial && !change.replaced) this.moves += 1;
+      this.tour.show(stepFrom(route.query.get('step')));
+      return;
     }
     if (this.backGuard === 'restoring') { this.backGuard = 'idle'; return; }        // back at the round after the Back button: nothing changed
     if (change.popped && this.play?.isLive() && route?.id !== 'play') {
@@ -320,6 +339,8 @@ export class App {
   private render(): void {
     const route = this.route;
     this.endPlay();
+    this.endTour();
+    if (route?.id === 'welcome') this.tour = new WelcomeController(this.welcomeHost(), stepFrom(route.query.get('step')));
     const ctx = this.ctx();
     if (route?.id === 'pro') {
       const gameId = route.query.get('game') ?? undefined;
@@ -334,17 +355,67 @@ export class App {
       game: game ? this.gameData(game, ctx) : this.state.game,
       plans: route?.id === 'plans' ? { cards: this.arcade.plans.list(), active: this.arcade.plans.active() } : NO_PLANS_DATA,
       social: this.social && route && SOCIAL_ROUTES.has(route.id) ? this.social.pageState(route) : null,
+      welcome: this.tour?.tour() ?? null,
     };
     const page = renderPage(ctx, route, state);
     swap(this.host, page.body.value);
     const info = LANG_INFO.find((l) => l.code === this.lang);
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });
     if (route?.id === 'play' && page.status === 200) this.beginPlay(route);
+    if (route?.id === 'welcome') void this.tour?.begin();
     if (route?.id === 'results') this.startRestTimer();
   }
 
+  // ---- the welcome tour -------------------------------------------------------------------------------------------------
+
+  private tourHook(): 'static' | 'fallback' | 'first' | undefined { return this.o.demo ? this.win.__BA_TEST__?.tour : undefined; }
+
+  /** The home page, the first time this device opens it: no tour seen, no round played, no script or crawler. */
+  private firstVisit(change: RouteChange<RouteId>): boolean {
+    const forced = this.tourHook() === 'first';
+    return takeToTour({
+      initial: change.initial, atHome: true, onboardingDone: this.currentSettings().onboardingDone, rounds: this.rounds(),
+      automated: !forced && isAutomated({ userAgent: this.win.navigator.userAgent, webdriver: this.win.navigator.webdriver }),
+    });
+  }
+
+  private endTour(): void {
+    this.tour?.dispose();
+    this.tour = null;
+  }
+
+  private welcomeHost(): WelcomeHost {
+    return {
+      document: this.doc,
+      context: () => this.ctx(),
+      settings: () => this.currentSettings(),
+      saveSettings: (patch) => this.settings.set(patch),
+      stepHref: (step: TourStep) => this.ctx().href('welcome', step === 1 ? {} : { query: { step: String(step) } }),
+      firstGameHref: (s: TourState) => this.firstGameHref(s),
+      go: (href, o) => this.nav.go(href, o ?? {}),
+      cameraExplained: () => this.shell.set('cameraExplained', true),
+      announce: (text) => this.live.announce(text),
+      reducedMotion: () => this.reducedMotion(),
+      hook: () => this.tourHook(),
+      homeHref: () => this.ctx().href('home'),
+    };
+  }
+
+  /** The real first game: Squat Flap on the camera, played the way the tour was answered, for thirty seconds. */
+  private firstGameHref(s: TourState): string {
+    const ctx = this.ctx();
+    const g = gameById(this.games, FIRST_GAME_ID) ?? this.games.find((x) => x.free) ?? this.games[0];
+    if (!g) return ctx.href('home');
+    const base = defaultSetup(ctx, g);
+    this.o.onPlayGesture?.();
+    return playHref(ctx, g, sanitizeSetup(ctx, g, { ...base, players: 1, input: 'camera', difficulty: firstDifficulty(s.level), seated: s.seated, quiet: s.quiet }), { first: 1 });
+  }
+
   /** Redraws the page after something changed (the plan, the language of the page, the device). */
-  private rerender(): void { if (this.route && this.route.id !== 'play') this.render(); }
+  private rerender(): void {
+    if (this.route?.id === 'welcome') { this.tour?.refresh(); return; }
+    if (this.route && this.route.id !== 'play') this.render();
+  }
 
   private onResize(): void {
     if (this.capsTimer) clearTimeout(this.capsTimer);
@@ -365,6 +436,7 @@ export class App {
     const ctx = this.ctx();
     const setup = setupFromQuery(ctx, g, route.query);
     this.planRound = route.query.get('plan') === '1' && this.arcade.plans.active()?.current?.game === g.id;
+    this.firstRound = route.query.get('first') === '1' && g.id === FIRST_GAME_ID;
     // A Pro game without Pro and without a free round left goes to the offer, not to a round that cannot count.
     if (accessOf(ctx, g) === 'locked') {
       this.nav.go(ctx.href('pro', { query: { game: g.id } }), { replace: true });
@@ -373,8 +445,9 @@ export class App {
     const factory = this.factory;
     this.play = new PlayController({
       host: this.playHost(g), game: g, setup, stage,
-      makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles }) ?? null,
+      makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}) }) ?? null,
       ...(this.o.onRoundEnded ? { release: this.o.onRoundEnded } : {}),
+      ...(this.firstRound ? { explained: true } : {}),
     });
     void this.play.begin();
   }
@@ -479,7 +552,9 @@ export class App {
   private finishRound(game: ShellGame, setup: SetupState, summary: Parameters<PlayHost['finish']>[2]): void {
     const ctx = this.ctx();
     const weightKg = this.currentSettings().weightKg;
-    const input = runInputOf({ game, setup, summary, kcal: caloriesFor(summary.metSeconds, weightKg) });
+    const first = this.firstRound;
+    this.firstRound = false;
+    const input = runInputOf({ game: first ? { durationSec: FIRST_SECONDS } : game, setup, summary, kcal: caloriesFor(summary.metSeconds, weightKg) });
     const solo = setup.players === 1;
     const before = this.arcade.plans.active();
     let report: RunReport | null = null;
@@ -495,7 +570,7 @@ export class App {
     const previous = report?.outcome.saved && report.outcome.previousBest > 0 ? report.outcome.previousBest : null;
     const progress = this.progressOf(report ? { play: report.play, challenge: report.challenge, habit: report.habit, news: report.outcome.news } : { play: shared?.play ?? null, challenge: null, habit: shared?.habit ?? this.arcade.habit.view(), news: [] });
     const plan = step?.progress && before ? this.panelOf(step.progress, before.plan, before.total) : null;
-    const result: RoundResult = { ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous }), progress, plan };
+    const result: RoundResult = { ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous }), progress, plan, ...(first ? { first: true } : {}) };
     this.state = { ...this.state, result };
     this.shell.set('rounds', this.rounds() + 1);
     void this.arcade.sync.sync();
@@ -608,6 +683,7 @@ export class App {
     if (!el) return;
     const action = el.dataset['action'] ?? '';
     if (this.play?.action(action)) { e.preventDefault(); return; }
+    if (this.tour?.action(action, el)) { e.preventDefault(); return; }
     if (this.social?.click(action, el)) { e.preventDefault(); return; }
     switch (action) {
       case 'mode':
@@ -688,6 +764,7 @@ export class App {
     const t = e.target as HTMLInputElement | HTMLSelectElement | null;
     if (!t) return;
     if (this.social?.change(t)) return;
+    if (t instanceof this.win.HTMLInputElement && t.name.startsWith('tour-') && this.tour?.change(t)) return;
     if (t.closest('[data-form="settings"]')) this.onSettingChanged(t);
     else if (t.closest('[data-form="setup"]')) this.onSetupChanged(t.closest('form') as HTMLFormElement);
     else if (t.closest('[data-form="paywall"]') && (t as HTMLInputElement).name === 'plan') this.setPaywall({ selected: t.value as PaywallState['selected'] });

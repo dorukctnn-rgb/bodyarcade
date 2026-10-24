@@ -18,6 +18,8 @@ export interface Hooks {
   trial?: { endsInHours: number; where?: 'web' | 'play'; cancelled?: boolean; email?: 'offer' | 'none' };
   /** What a published build shows while nothing can be bought: no offers, a note. */
   billing?: 'unavailable' | 'checking';
+  /** The welcome tour: the stage drawn once and still ('static'), the pre-rendered pictures ('fallback'), or a first visit that is taken to it ('first'). */
+  tour?: 'static' | 'fallback' | 'first';
 }
 
 /** Sets the test hooks before the page's own scripts run. Development builds only read them. */

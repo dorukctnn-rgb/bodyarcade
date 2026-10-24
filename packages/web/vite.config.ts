@@ -15,11 +15,11 @@ import { loadCatalogue, type FixtureMode } from './catalogue/load.ts';
 const here = (p: string): string => fileURLToPath(new URL(p, import.meta.url));
 const repo = here('../../');
 
-const TYPES: Record<string, string> = { '.webp': 'image/webp', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
+const TYPES: Record<string, string> = { '.webp': 'image/webp', '.avif': 'image/avif', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.webm': 'video/webm' };
 
-/** Serves the art director's pictures at the addresses the views use: /assets/tiles/... and /assets/brand/... */
+/** Serves the art director's pictures at the addresses the views use: /assets/tiles/..., /assets/brand/... and /assets/onboarding/... */
 function designAssets(): Plugin {
-  const roots: [string, string][] = [['/assets/tiles/', join(repo, 'design', 'art', 'tiles')], ['/assets/brand/', join(repo, 'design', 'brand')]];
+  const roots: [string, string][] = [['/assets/tiles/', join(repo, 'design', 'art', 'tiles')], ['/assets/brand/', join(repo, 'design', 'brand')], ['/assets/onboarding/', join(repo, 'design', 'onboarding', 'fallback')]];
   return {
     name: 'bodyarcade-design-assets',
     configureServer(server) {

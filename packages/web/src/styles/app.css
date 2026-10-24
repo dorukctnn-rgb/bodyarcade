@@ -4,6 +4,7 @@
 @import url("../../../../design/ui-kit/kit.css");
 @import url("../../../../design/ui-kit/shell.css");
 @import url("../../../../design/ui-kit/pages.css");
+@import url("./welcome.css");
 
 /* ---------- Base ---------- */
 html { scrollbar-gutter: stable; }

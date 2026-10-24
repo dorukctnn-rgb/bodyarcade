@@ -10,7 +10,7 @@ import { createStore, memoryStorage } from '../../core/store/store.ts';
 import { weekdayIndex } from '../src/app/arcade.ts';
 import type { Hooks } from '../e2e/support/helpers.ts';
 
-export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'] as const;
+export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'welcome', 'welcome-2', 'welcome-3', 'welcome-4', 'welcome-5'] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 
 /** The address of each scenario, without the language prefix. */
@@ -19,6 +19,7 @@ const PATHS: Record<Scenario, string> = {
   'game-locked': '/games/pad-work/', settings: '/settings/', pro: '/pro/', results: '/play/squat-flap/?input=keyboard', play: '/play/squat-flap/?input=keyboard',
   calibrate: '/play/squat-flap/?input=camera', 'calibrate-desk': '/play/squat-flap/?input=camera', 'calibrate-headroom': '/play/summit-climb/?input=camera', plans: '/plans/', 'plans-pro': '/plans/', 'results-plan': '/plans/', 'results-progress': '/games/squat-flap/', 'pro-unavailable': '/pro/', 'pro-trial': '/pro/', 'home-trial': '/', notfound: '/nope/', friends: '/friends/?social=1', 'friends-new': '/friends/?social=fresh', 'friends-offline': '/friends/?social=offline', lobbies: '/lobbies/?social=1',
   room: '/r/K7Q2MX/?social=1', 'room-host': '/friends/?social=1', safety: '/safety/?social=1', friendlink: '/f/BA-9PXMR3/?social=1',
+  welcome: '/welcome/', 'welcome-2': '/welcome/?step=2', 'welcome-3': '/welcome/?step=3', 'welcome-4': '/welcome/?step=4', 'welcome-5': '/welcome/?step=5',
 };
 
 /** The test hooks each screen is reached with: a keyboard is there in every one, and the practice session runs at the speed the screen needs. */
@@ -32,6 +33,7 @@ function hooksOf(name: Scenario): Hooks {
     case 'pro-trial': return { ...base, plan: 'pro', trial: { endsInHours: 30 } };
     case 'home-trial': return { ...base, trial: { endsInHours: 30 } };
     case 'plans-pro': return { ...base, plan: 'pro' };
+    case 'welcome': case 'welcome-2': case 'welcome-3': case 'welcome-4': case 'welcome-5': return { ...base, tour: 'static' };
     case 'results-plan': return { ...base, roundSeconds: 120 };
     case 'results-progress': return { ...base, roundSeconds: 200 };
     default: return base;
@@ -110,6 +112,7 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
     await page.locator('[data-action="room.new"]').click();
     await page.waitForURL(/\/r\//, { timeout: 15_000 });
   }
+  if (name.startsWith('welcome')) await page.waitForSelector('[data-welcome][data-ready="1"]', { timeout: 30_000 });
   if (name.startsWith('friends') || name === 'lobbies' || name.startsWith('room') || name === 'safety' || name === 'friendlink') await page.waitForSelector('main h1', { timeout: 15_000 });
   if (name === 'results') await page.waitForURL(/results/, { timeout: 30_000 });
   // The first game of the desk break played to its end: the panel that goes on to the next game, with the rest counting.
