@@ -73,7 +73,7 @@ const TR: Cues = {
   hips_shifted: 'Kalçayı sabit tut',
   bending_forward: 'Öne eğilme',
   limb_off: 'Şekle uy',
-  move_more: 'Daha çok hareket',
+  move_more: 'Daha çok hareket et',
   hold_still: 'Sabit dur',
   held_too_short: 'Daha uzun tut',
 };
