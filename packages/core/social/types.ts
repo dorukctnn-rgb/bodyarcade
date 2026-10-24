@@ -109,6 +109,41 @@ export type QuickAction =
   /** An older fitting lobby exists and the caller's own room is still empty: leave it and join this one. */
   | { action: 'merge'; code: string; searchId: string };
 
+// ───────── weekly boards ─────────
+
+export type BoardScope = 'friends' | 'country';
+
+/** The server's ticket for one run: signed, bound to the player and the game, and timed by the server's own clock. */
+export interface RunTicket { run: string; game: string; /** Server time the run was started. */ at: number }
+
+export interface ScoreResult {
+  /** True when this score is the player's best of the week for the game (and so it is on the boards). */
+  improved: boolean;
+  best: number;
+  week: number;
+}
+
+export interface BoardEntry {
+  rank: number;
+  name: string;
+  score: number;
+  /** This is the player themselves. */
+  you: boolean;
+  /** Friends boards only: the friend id, to open the friend. Country boards never carry one. */
+  fid?: string;
+}
+
+export interface BoardView {
+  game: string;
+  scope: BoardScope;
+  week: { id: number; start: number; end: number; current: boolean };
+  /** Country boards: the two-letter country of the board (where the player is connecting from); null when it is not known. */
+  country: string | null;
+  entries: BoardEntry[];
+  /** The player's own line: always present when they have a score this week, also when they are not among the entries. */
+  you: { score: number; rank: number; /** The rank is a lower bound: more than this many players are ahead. */ atLeast: boolean } | null;
+}
+
 /** Everything the server holds about a player, for the "download my data" button. */
 export interface DataExport {
   exportedAt: number;
@@ -117,6 +152,8 @@ export interface DataExport {
   incoming: IncomingRequest[];
   outgoing: OutgoingRequest[];
   blocks: BlockEntry[];
+  /** The player's best score of each game this week and last week (the boards keep nothing older). */
+  scores: { week: number; game: string; score: number }[];
   reportsFiled: number;
   reportsAgainstYou: number;
 }
@@ -149,6 +186,12 @@ export type SocialErrorCode =
   | 'offline'
   | 'conflict'
   | 'closed'
+  | 'unknown_game'
+  | 'bad_run'
+  | 'bad_score'
+  | 'run_expired'
+  | 'run_too_short'
+  | 'score_implausible'
   | 'unavailable';
 
 /** Error answers are `{ error: code, serverTime, retryAfterMs? }` with the status of the failure (router.ts fail()). */

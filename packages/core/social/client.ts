@@ -21,8 +21,8 @@ import { PRESENCE } from './rules.ts';
 import { AUTH_HEADER, AUTH_QUERY, generateDeviceKey, signRequest } from './sign.ts';
 import {
   HUB_CLOSE,
-  type AgeBand, type BlockEntry, type DataExport, type FriendEntry, type HubCommand, type HubEvent, type LevelBand, type LobbyEntry,
-  type MyProfile, type QuickAction, type ReportReason, type RequestResult, type RequestsView, type SocialErrorBody,
+  type AgeBand, type BlockEntry, type BoardScope, type BoardView, type DataExport, type FriendEntry, type HubCommand, type HubEvent, type LevelBand, type LobbyEntry,
+  type MyProfile, type QuickAction, type ReportReason, type RequestResult, type RequestsView, type RunTicket, type ScoreResult, type SocialErrorBody,
 } from './types.ts';
 
 // ───────── errors ─────────
@@ -540,6 +540,32 @@ export class SocialClient {
       if (this.clock() - began > MAX_SEARCH_MS) return { outcome: 'timeout', hosting };
       await sleep(poll, opts.signal);
     }
+  }
+
+  // ───────── weekly boards ─────────
+
+  /**
+   * A run begins: the server notes the time and signs a ticket for this player and game (nothing is stored). Keep the ticket
+   * until the run ends. Only solo runs of the games with a board count.
+   */
+  async startRun(game: string): Promise<RunTicket> {
+    return this.call<RunTicket>('POST', '/api/social/scores/start', { game });
+  }
+
+  /**
+   * The run ended with `score`. The server checks the ticket, the time the run took and the most the game can award in that
+   * time, and keeps the score when it is the player's best of the week (`improved`). Throws score_implausible, run_too_short,
+   * run_expired or bad_run when the score cannot count; the player's result screen still shows the score, it is just not posted.
+   */
+  async finishRun(ticket: RunTicket, score: number): Promise<ScoreResult> {
+    return this.call<ScoreResult>('POST', '/api/social/scores', { run: ticket.run, game: ticket.game, score });
+  }
+
+  /** The weekly board of a game: the player's friends, or the players of the same age group in the country they connect from. */
+  async leaderboard(q: { game: string; scope: BoardScope; week?: 'current' | 'previous' }): Promise<BoardView> {
+    const params = new URLSearchParams({ game: q.game, scope: q.scope });
+    if (q.week) params.set('week', q.week);
+    return (await this.call<{ board: BoardView }>('GET', `/api/social/leaderboard?${params.toString()}`)).board;
   }
 
   // ───────── hub: presence and pushes ─────────

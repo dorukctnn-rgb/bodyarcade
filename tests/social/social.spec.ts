@@ -304,6 +304,52 @@ test('a player who blocked another does not meet them in the lobby list, and can
   await a.run((ba) => { ba.leaveRoom(); return null; });
 });
 
+// ───────── weekly boards ─────────
+
+test('weekly boards: scores from three browsers, the best of the week kept, friends and country boards, nothing posted that cannot count', async () => {
+  const { a, b, aMe, bMe } = await friends('Ada', 'Bo');
+  const cy = await who('Cy');
+  await cy.signUp({ band: 'adult', name: 'Cy' });
+  const kid = await who('Kid');
+  await kid.signUp({ band: 'child' });
+  const players = [a, b, cy, kid];
+  // the runs start together; the server must see at least three seconds before it takes a score
+  const tickets = await Promise.all(players.map((p) => p.run((ba) => ba.social.startRun('star-catch'), undefined))) as { run: string; game: string }[];
+  await sleep(3400);
+  const posted: unknown[] = [];
+  for (const [i, score] of [600, 1000, 1000, 200].entries()) posted.push(await (players[i] as Player).run((ba, x) => ba.social.finishRun(x.ticket, x.score), { ticket: tickets[i], score }));
+  expect(posted).toEqual([0, 1, 2, 3].map((i) => expect.objectContaining({ improved: true, best: [600, 1000, 1000, 200][i] })));
+  // beaten once, then not beaten, then a score nobody can reach in that time
+  expect(await a.run((ba, x) => ba.social.finishRun(x.ticket, 800), { ticket: tickets[0] })).toMatchObject({ improved: true, best: 800 });
+  expect(await a.run((ba, x) => ba.social.finishRun(x.ticket, 700), { ticket: tickets[0] })).toMatchObject({ improved: false, best: 800 });
+  expect(await a.try((ba, x) => ba.social.finishRun(x.ticket, 4_000_000), { ticket: tickets[0] })).toMatchObject({ ok: false, status: 422, code: 'score_implausible' });
+  expect(await a.try((ba, x) => ba.social.finishRun({ ...x.ticket, game: 'knee-sprint' }, 10), { ticket: tickets[0] })).toMatchObject({ ok: false, status: 400, code: 'bad_run' });
+
+  // friends: Ada and Bo only, Bo first; each carries the friend id of the other and the player's own line has none
+  const friendsBoard = await a.run((ba) => ba.social.leaderboard({ game: 'star-catch', scope: 'friends' }), undefined) as { entries: { rank: number; name: string; score: number; you: boolean; fid?: string }[]; you: { rank: number } };
+  expect(friendsBoard.entries).toEqual([
+    { rank: 1, name: 'Bo', score: 1000, you: false, fid: bMe.fid },
+    { rank: 2, name: 'Ada', score: 800, you: true },
+  ]);
+  expect(friendsBoard.you.rank).toBe(2);
+  // country: the adults who connect from the same country, with no friend id and the same score sharing a place
+  const countryBoard = await a.run((ba) => ba.social.leaderboard({ game: 'star-catch', scope: 'country' }), undefined) as { country: string; entries: { rank: number; name: string; you: boolean }[] };
+  expect(countryBoard.country).toMatch(/^[A-Z]{2}$/);
+  expect(countryBoard.entries.map((e) => e.name)).toEqual(['Bo', 'Cy', 'Ada']);
+  expect(countryBoard.entries.map((e) => e.rank)).toEqual([1, 1, 3]);
+  expect(JSON.stringify(countryBoard)).not.toMatch(/"fid"/);
+  // a child: a friends board of its own and no country board
+  expect(await kid.try((ba) => ba.social.leaderboard({ game: 'star-catch', scope: 'country' }), undefined)).toMatchObject({ ok: false, status: 403, code: 'child_no_public' });
+  expect(((await kid.run((ba) => ba.social.leaderboard({ game: 'star-catch', scope: 'friends' }), undefined)) as { entries: unknown[] }).entries).toHaveLength(1);
+  // another game has its own boards, empty here, and last week's is empty too
+  expect(((await b.run((ba) => ba.social.leaderboard({ game: 'knee-sprint', scope: 'friends' }), undefined)) as { entries: unknown[] }).entries).toEqual([]);
+  expect(((await b.run((ba) => ba.social.leaderboard({ game: 'star-catch', scope: 'friends', week: 'previous' }), undefined)) as { entries: unknown[] }).entries).toEqual([]);
+  // after the reload of a page the same boards come back (the key and the profile are on the device)
+  await b.open();
+  expect(((await b.run((ba) => ba.social.leaderboard({ game: 'star-catch', scope: 'friends' }), undefined)) as { entries: { name: string }[] }).entries.map((e) => e.name)).toEqual(['Bo', 'Ada']);
+  expect(aMe.fid).toBeTruthy();
+});
+
 // ───────── reports, a ban, and erasing a profile ─────────
 
 test('a report with a block files in the queue; a ban closes the player\'s page connection and refuses their calls until it is cleared', async () => {

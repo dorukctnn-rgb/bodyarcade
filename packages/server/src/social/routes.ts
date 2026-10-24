@@ -18,6 +18,9 @@
 //   POST /api/social/invite/decline      {fid, id}
 //   GET  /api/social/lobbies             ?game=&region=                                                      -> {lobbies}
 //   POST /api/social/match               {game, searchId?, hosting?}                                         -> QuickAction
+//   POST /api/social/scores/start        {game}                                                              -> {run, game, at}
+//   POST /api/social/scores              {run, game, score}                                                  -> {improved, best, week}
+//   GET  /api/social/leaderboard         ?game=&scope=friends|country&week=current|previous                  -> {board}
 //   GET  /api/social/hub                 WebSocket, ?ba_auth=<signature>                                     (presence and pushes)
 //   GET  /api/admin/social/reports       ?status=open&limit=50      (Authorization: Bearer ADMIN_TOKEN; 404 without the token)
 //   POST /api/admin/social/reports/:id   {action: dismiss|warn|mute|suspend|ban|clear, days?, note?}
@@ -35,6 +38,7 @@ import { HUB_HEADERS, closedSocket } from './hub.ts';
 import { declineInvite, invite, listLobbies, quickMatch } from './lobbies.ts';
 import { adminAct, adminReports, adminStats, report } from './moderation.ts';
 import { deleteMe, exportMe, getMe, register, renewCode, updateMe } from './profile.ts';
+import { finishRun, leaderboard, startRun } from './scores.ts';
 import { authed, guardRequest, open } from './util.ts';
 
 /** GET /api/social/hub: verify the signed request, then hand the socket to the player's PlayerHub. */
@@ -96,6 +100,9 @@ export function registerSocialRoutes(router: Router): void {
   router.add('POST', '/api/social/invite/decline', authed(declineInvite));
   router.add('GET', '/api/social/lobbies', authed(listLobbies));
   router.add('POST', '/api/social/match', authed(quickMatch));
+  router.add('POST', '/api/social/scores/start', authed(startRun));
+  router.add('POST', '/api/social/scores', authed(finishRun));
+  router.add('GET', '/api/social/leaderboard', authed(leaderboard));
   router.add('GET', '/api/social/hub', hubConnect);
   router.add('GET', '/api/admin/social/reports', adminReports);
   router.add('POST', '/api/admin/social/reports/:id', adminAct);

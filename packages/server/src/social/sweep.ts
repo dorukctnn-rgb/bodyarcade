@@ -7,6 +7,7 @@
 // reads whole tables (requests, declines, presence, reports, profiles) and so runs once a day, never hourly. With 50,000
 // profiles that is about 150,000 rows read a day, 3 percent of the allowance.
 import { DAY, DECLINE_COOLDOWN_MS, HOUR, REQUEST_TTL_MS } from '../../../core/social/rules.ts';
+import { KEEP_WEEKS, weekOf } from '../../../core/social/scores.ts';
 import { run, rows, type D1Like } from './db.ts';
 import { bump, sweepLimits } from './limits.ts';
 import { eraseProfile } from './people.ts';
@@ -21,7 +22,7 @@ export const UNUSED_PROFILE_DAYS = 400;
 const PROFILES_PER_SWEEP = 25;
 
 export interface SweepReport {
-  limits: number; requests: number; declines: number; lobbies: number; presence: number; reports: number; audit: number; profiles: number;
+  limits: number; requests: number; declines: number; lobbies: number; presence: number; reports: number; audit: number; profiles: number; scores: number;
 }
 
 /** The cheap part (index-backed or tiny tables): runs every hour. */
@@ -33,16 +34,18 @@ export async function sweepHourly(db: D1Like, now: number): Promise<Pick<SweepRe
 }
 
 /** The part that reads whole tables: runs once a day. */
-export async function sweepDaily(db: D1Like, now: number): Promise<Pick<SweepReport, 'requests' | 'declines' | 'presence' | 'reports' | 'profiles'>> {
+export async function sweepDaily(db: D1Like, now: number): Promise<Pick<SweepReport, 'requests' | 'declines' | 'presence' | 'reports' | 'profiles' | 'scores'>> {
   const requests = await run(db, 'DELETE FROM soc_requests WHERE at < ?1', now - REQUEST_TTL_MS);
   const declines = await run(db, 'DELETE FROM soc_declines WHERE at < ?1', now - DECLINE_COOLDOWN_MS);
   const presence = await sweepPresence(db, now);
+  // the boards keep this week and the last (a range on the leading column of the primary key)
+  const scores = await run(db, 'DELETE FROM soc_scores WHERE wk <= ?1', weekOf(now) - KEEP_WEEKS);
   const reports =
     (await run(db, "DELETE FROM soc_reports WHERE status != 'open' AND handled_at < ?1", now - RESOLVED_REPORT_KEEP_MS)) +
     (await run(db, 'DELETE FROM soc_reports WHERE at < ?1 AND target NOT IN (SELECT pid FROM soc_profiles)', now - ORPHAN_REPORT_KEEP_MS));
   const idle = await rows<{ pid: string }>(db, 'SELECT pid FROM soc_profiles WHERE seen_day < ?1 LIMIT ?2', Math.floor(now / DAY) - UNUSED_PROFILE_DAYS, PROFILES_PER_SWEEP);
   for (const p of idle) await eraseProfile(db, p.pid);
-  return { requests, declines, presence, reports, profiles: idle.length };
+  return { requests, declines, presence, reports, profiles: idle.length, scores };
 }
 
 /** Both parts (tests and tools; the Worker runs them on their own cadences). */

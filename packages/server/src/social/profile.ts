@@ -16,6 +16,7 @@ import type { SocialEnv } from './env.ts';
 import { bumpStmt, enforce, guard, used } from './limits.ts';
 import { eraseProfile } from './people.ts';
 import { hubClose, hubSend, pushPresence } from './presence.ts';
+import { scoresOf } from './scores.ts';
 import { addressHash, ok, randomId, type Ctx, type SocialHandler } from './util.ts';
 
 export const DEFAULT_MAX_SIGNUPS_PER_DAY = 4000;
@@ -254,6 +255,7 @@ export const exportMe: SocialHandler = async (c) => {
     incoming,
     outgoing,
     blocks,
+    scores: await scoresOf(db, me.pid, now),
     reportsFiled: counts?.filed ?? 0,
     reportsAgainstYou: counts?.against ?? 0,
   };

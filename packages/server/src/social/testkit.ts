@@ -2,7 +2,7 @@
 // namespace that records pushes, a fake Durable Object state with fake sockets, and a signed-request client that talks to
 // the module's router in process. Workers-runtime behaviour (real D1, real hibernating sockets) is covered by the Miniflare tests.
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { generateDeviceKey, signRequest, type DeviceKeys } from '../../../core/social/sign.ts';
 import type { MyProfile, HubEvent, AgeBand } from '../../../core/social/types.ts';
 import type { CfWebSocket, DurableObjectIdLike, DurableObjectNamespaceLike, DurableObjectStateLike, ExecutionContextLike, Fetcher } from '../cf.ts';
@@ -12,11 +12,13 @@ import type { SocialEnv } from './env.ts';
 import { resetAuthCaches } from './auth.ts';
 import { resetMemLimits } from './util.ts';
 import { resetSweepThrottle } from './sweep.ts';
+import { resetBoardCache } from './scores.ts';
 import { registerSocialRoutes } from './routes.ts';
 
 // ───────── D1 on node:sqlite ─────────
 
-const MIGRATION = readFileSync(new URL('../../migrations/0001_social.sql', import.meta.url), 'utf8');
+const MIGRATIONS = readdirSync(new URL('../../migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort()
+  .map((f) => readFileSync(new URL(`../../migrations/${f}`, import.meta.url), 'utf8'));
 
 /** Statements that return rows (a SELECT, or anything with RETURNING). */
 const RETURNS_ROWS = /^\s*(SELECT|WITH|PRAGMA)\b|\bRETURNING\b/i;
@@ -100,7 +102,7 @@ export class SqliteD1 implements D1Like {
 /** A fresh in-memory database with the social schema. */
 export function createTestDb(): SqliteD1 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(MIGRATION);
+  for (const m of MIGRATIONS) raw.exec(m);
   return new SqliteD1(raw);
 }
 
@@ -245,6 +247,7 @@ export function createTestApp(opts: AppOptions = {}): TestApp {
   resetAuthCaches();
   resetMemLimits();
   resetSweepThrottle();
+  resetBoardCache();
   const db = createTestDb();
   const hubs = new FakeHubs();
   const router = new Router();

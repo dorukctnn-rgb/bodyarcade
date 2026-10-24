@@ -46,7 +46,7 @@ describe('sweep', () => {
     rep('open', null, now - 1000, 'ghost');
     rep('open', null, now - 200 * DAY, 'live');
     const r = await sweep(app.db, now);
-    expect(r).toEqual({ limits: 1, requests: 1, declines: 1, lobbies: 1, presence: 1, reports: 2, audit: 1, profiles: 0 });
+    expect(r).toEqual({ limits: 1, requests: 1, declines: 1, lobbies: 1, presence: 1, reports: 2, audit: 1, profiles: 0, scores: 0 });
     expect(count('soc_limits')).toBe(1);
     expect(count('soc_requests')).toBe(1);
     expect(count('soc_declines')).toBe(1);

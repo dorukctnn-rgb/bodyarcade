@@ -217,6 +217,12 @@ async function simulateDay(n: number): Promise<{ rows: number; byTable: Map<stri
     await socialHooks.removeRoom?.(env(), code);
     await p.get('/api/social/lobbies?game=jacks');
     for (let k = 0; k < 3; k++) { minutes(0.07); await p.post('/api/social/match', { game: 'jacks' }); }
+    // one score a day, the dearer kind (the first of the week in a game: the row and two index entries), and a look at both boards
+    const ticket = await p.post('/api/social/scores/start', { game: 'squat-flap' });
+    minutes(1);
+    await p.post('/api/social/scores', { run: ticket.body.run, game: 'squat-flap', score: 500 + i });
+    await p.get('/api/social/leaderboard?game=squat-flap&scope=friends');
+    await p.get('/api/social/leaderboard?game=squat-flap&scope=country');
     hub.webSocketClose(ws, 1000, 'bye');
     await state.settle();
   }
@@ -238,11 +244,11 @@ describe('a day of a typical social player', () => {
     const tables = Object.fromEntries([...large.byTable].map(([t, rows]) => [t, Math.round((rows / 36) * 10) / 10]));
     // eslint-disable-next-line no-console
     console.info(`social budget: ${perPlayer.toFixed(1)} rows written per player-day, ${fixed.toFixed(0)} a day for everyone (${JSON.stringify(tables)} per player at 36); the free plan carries about ${capacity} such players a day`);
-    expect(perPlayer).toBeLessThan(40);
+    expect(perPlayer).toBeLessThan(45);
     expect(fixed).toBeLessThan(250);
-    expect(capacity).toBeGreaterThan(2500);
-    // presence and the lobby directory are the two heavy writers; nothing else may become one
-    const heavy = [...large.byTable].filter(([t]) => !['soc_presence', 'soc_lobbies', 'soc_limits', 'soc_profiles'].includes(t)).reduce((sum, [, rows]) => sum + rows, 0);
+    expect(capacity).toBeGreaterThan(2200);
+    // presence and the lobby directory are the two heavy writers (scores and counters come after); nothing else may become one
+    const heavy = [...large.byTable].filter(([t]) => !['soc_presence', 'soc_lobbies', 'soc_limits', 'soc_profiles', 'soc_scores'].includes(t)).reduce((sum, [, rows]) => sum + rows, 0);
     expect(heavy / 36).toBeLessThan(2);
   });
 
@@ -282,6 +288,14 @@ describe('a day of a typical social player', () => {
     await state.settle();
     await app.admin('GET', '/api/admin/social/reports?status=open');
     await app.admin('GET', '/api/admin/social/stats');
+    const ticket = await a.post('/api/social/scores/start', { game: 'squat-flap' });
+    minutes(1);
+    await a.post('/api/social/scores', { run: ticket.body.run, game: 'squat-flap', score: 300 });
+    await a.post('/api/social/scores', { run: ticket.body.run, game: 'squat-flap', score: 400 });
+    await b.get('/api/social/leaderboard?game=squat-flap&scope=friends');
+    await a.get('/api/social/leaderboard?game=squat-flap&scope=friends&week=previous');
+    await a.get('/api/social/leaderboard?game=squat-flap&scope=country');
+    await a.get('/api/social/me/export');
     await x.post('/api/social/me/delete', { confirm: 'delete' });
     await sweep(app.db, Date.now() + 2 * DAY);
     const scans = meter.scans();
@@ -298,6 +312,25 @@ describe('a day of a typical social player', () => {
 // ───────── the worst one client can do ─────────
 
 describe('what one client can make the database write', () => {
+  it('a weekly score costs three rows the first time, two when it is beaten and none when it is not; a client cannot beat it more than thirty times', async () => {
+    const [p] = await ring(3) as [TestPlayer];
+    const post = async (score: number): Promise<number> => {
+      const run = await p.post('/api/social/scores/start', { game: 'squat-flap' });
+      minutes(1);
+      meter.reset();
+      await p.post('/api/social/scores', { run: run.body.run, game: 'squat-flap', score });
+      return meter.weighted;
+    };
+    await p.get('/api/social/me');
+    expect(await post(100)).toBe(3);
+    expect(await post(200)).toBe(2);
+    expect(await post(150)).toBe(0);
+    let writes = 0;
+    for (let i = 3; i <= 40; i++) writes += await post(200 + i);
+    expect(writes).toBeGreaterThanOrEqual(2 * 28);                   // thirty beats in all, the third to the thirtieth are left
+    expect(writes).toBeLessThanOrEqual(2 * 28 + 10);                 // plus an hourly sweep's claim while the minutes go by
+  });
+
   it('a socket that sends a thousand beats in a day writes one row every thirty seconds at most', async () => {
     const [p] = await ring(3) as [TestPlayer];
     const { send } = await connect(p);

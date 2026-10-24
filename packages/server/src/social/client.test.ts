@@ -79,6 +79,7 @@ function makeClient(store: MemoryKeyStore, ip: string, skew: { ms: number }): So
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const req = new Request(url, init);
     req.headers.set('CF-Connecting-IP', ip);
+    req.headers.set('CF-IPCountry', 'TR');
     calls.push(`${req.method} ${new URL(url).pathname}`);
     const res = await app.router.handle(req, app.env, ctx);
     while (pending.length > 0) await Promise.allSettled(pending.splice(0));
@@ -691,5 +692,48 @@ describe('quick match', () => {
     expect(await me.client.lobbies({ game: 'jacks' })).toHaveLength(1);
     expect(await me.client.lobbies({ game: 'squat-flap' })).toEqual([]);
     expect(await me.client.lobbies({ game: 'jacks', region: 'as' })).toEqual([]);
+  });
+});
+
+describe('weekly boards', () => {
+  it('a run is started and finished, the best of the week is kept, and the boards show it for friends and for the country', async () => {
+    const a = await device('adult', { name: 'Ada' });
+    const b = await device('adult', { name: 'Bo' });
+    await a.client.sendRequest(b.client.profile?.code ?? '');
+    await b.client.respond(a.fid(), true);
+
+    const ticket = await a.client.startRun('squat-flap');
+    expect(ticket).toMatchObject({ game: 'squat-flap' });
+    expect(ticket.run).toMatch(/^r1./);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(await a.client.finishRun(ticket, 1500)).toMatchObject({ improved: true, best: 1500 });
+    expect(await a.client.finishRun(ticket, 900)).toMatchObject({ improved: false, best: 1500 });
+
+    const bTicket = await b.client.startRun('squat-flap');
+    await vi.advanceTimersByTimeAsync(90_000);
+    await b.client.finishRun(bTicket, 2100);
+
+    const friends = await a.client.leaderboard({ game: 'squat-flap', scope: 'friends' });
+    expect(friends.entries.map((e) => `${e.rank}:${e.name}:${e.score}:${e.you}`)).toEqual(['1:Bo:2100:false', '2:Ada:1500:true']);
+    expect(friends.entries[0]?.fid).toBe(b.fid());
+    const country = await a.client.leaderboard({ game: 'squat-flap', scope: 'country' });
+    expect(country.country).toBe('TR');
+    expect(country.entries.map((e) => e.name)).toEqual(['Bo', 'Ada']);
+    expect(country.you).toEqual({ score: 1500, rank: 2, atLeast: false });
+    expect((await a.client.leaderboard({ game: 'squat-flap', scope: 'friends', week: 'previous' })).entries).toEqual([]);
+  });
+
+  it('a score that cannot count is refused with a code the result screen can act on, and a child has no country board', async () => {
+    const a = await device('adult', { name: 'Ada' });
+    const ticket = await a.client.startRun('knee-sprint');
+    await vi.advanceTimersByTimeAsync(500);
+    await expect(a.client.finishRun(ticket, 10)).rejects.toMatchObject({ status: 409, code: 'run_too_short' });
+    await vi.advanceTimersByTimeAsync(20_000);
+    await expect(a.client.finishRun(ticket, 5_000_000)).rejects.toMatchObject({ status: 422, code: 'score_implausible' });
+    await expect(a.client.finishRun({ ...ticket, run: 'r1.1.2.3' }, 10)).rejects.toMatchObject({ status: 400, code: 'bad_run' });
+    await expect(a.client.startRun('no-such-game')).rejects.toMatchObject({ status: 400, code: 'unknown_game' });
+    const kid = await device('child');
+    await expect(kid.client.leaderboard({ game: 'squat-flap', scope: 'country' })).rejects.toMatchObject({ status: 403, code: 'child_no_public' });
+    expect((await kid.client.leaderboard({ game: 'squat-flap', scope: 'friends' })).entries).toEqual([]);
   });
 });

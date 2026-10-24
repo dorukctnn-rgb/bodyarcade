@@ -357,6 +357,44 @@ describe('moderation, export and deletion in the platform', () => {
   });
 });
 
+describe('weekly boards on the platform', () => {
+  it('a run is timed by the server, the best of the week is kept, and both boards come out of the real index', async () => {
+    const ada = await player({ band: 'adult', name: 'Ada' });
+    const bo = await player({ band: 'adult', name: 'Bo' });
+    const cy = await player({ band: 'adult', name: 'Cy' });
+    const kid = await player({ band: 'child' });
+    await befriend(ada, bo);
+    const tickets = await Promise.all([ada, bo, cy, kid].map((w) => w.client.startRun('knee-sprint')));
+    await new Promise((r) => setTimeout(r, 3300));                    // the server's own clock must see three seconds (a shorter run is refused: the unit tests move the clock for that)
+    const results = [];
+    for (const [i, [w, score]] of ([[ada, 800], [bo, 1300], [cy, 1300], [kid, 100]] as [Who, number][]).entries()) results.push(await w.client.finishRun(tickets[i]!, score));
+    expect(results.map((r) => r.improved)).toEqual([true, true, true, true]);
+    expect((await ada.client.finishRun(tickets[0]!, 500)).improved).toBe(false);
+    await expect(ada.client.finishRun(tickets[0]!, 5_000_000)).rejects.toMatchObject({ status: 422, code: 'score_implausible' });
+    await expect(ada.client.finishRun({ ...tickets[0]!, run: 'r1.1.2.3' }, 5)).rejects.toMatchObject({ status: 400, code: 'bad_run' });
+    await expect(bo.client.finishRun(tickets[0]!, 5)).rejects.toMatchObject({ status: 400, code: 'bad_run' });   // somebody else's ticket
+
+    const friends = await ada.client.leaderboard({ game: 'knee-sprint', scope: 'friends' });
+    expect(friends.entries.map((e) => `${e.rank}:${e.name}:${e.score}`)).toEqual(['1:Bo:1300', '2:Ada:800']);
+    const country = await ada.client.leaderboard({ game: 'knee-sprint', scope: 'country' });
+    expect(country.country).toMatch(/^[A-Z]{2}$/);
+    expect(country.entries.map((e) => e.name)).toEqual(['Bo', 'Cy', 'Ada']);        // Bo before Cy: the same score, earlier
+    expect(country.entries.map((e) => e.rank)).toEqual([1, 1, 3]);
+    expect(country.you).toEqual({ score: 800, rank: 3, atLeast: false });
+    expect(JSON.stringify(country)).not.toMatch(/fid|pid/);
+    await expect(kid.client.leaderboard({ game: 'knee-sprint', scope: 'country' })).rejects.toMatchObject({ status: 403, code: 'child_no_public' });
+    expect((await kid.client.leaderboard({ game: 'knee-sprint', scope: 'friends' })).entries.map((e) => e.score)).toEqual([100]);
+    const exported = await ada.client.exportData();
+    expect(exported.scores).toEqual([{ week: country.week.id, game: 'knee-sprint', score: 800 }]);
+    // the query goes through the board index on the platform's SQLite too
+    const plan = await stack.db.prepare("EXPLAIN QUERY PLAN SELECT s.pid FROM soc_scores s WHERE s.wk = ?1 AND s.game = ?2 AND s.grp = ?3 AND s.country = ?4 ORDER BY s.score DESC, s.at ASC LIMIT 80")
+      .bind(country.week.id, 'knee-sprint', 'adult', country.country).all<{ detail: string }>();
+    const text = plan.results.map((r) => r.detail).join(' | ');
+    expect(text).toContain('soc_scores_board');
+    expect(text).not.toContain('TEMP B-TREE');
+  });
+});
+
 describe('what the Worker logs', () => {
   it('has logged no error of the social module, of live play or of the hub during all of the above', () => {
     expect(stack.events('hub_error')).toEqual([]);
