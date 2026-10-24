@@ -470,7 +470,8 @@ describe('the manifest and the strings', () => {
     expect(summitClimb.controls?.keys?.ArrowRight).toEqual({ channel: 'lane', value: 1 });
     expect(summitClimb.controls?.touch?.tap).toEqual({ event: 'pull' });
     expect(summitClimb.controls?.touch?.down).toEqual({ event: 'kneeLift' });
-    expect(summitClimb.controls?.touch?.left).toMatchObject({ channel: 'lane', step: -1, min: -1, max: 1 });
+    expect(summitClimb.controls?.touch?.left).toMatchObject({ channel: 'lane', value: -1, holdMs: 1800 });
+    expect(summitClimb.controls?.touch?.right).toMatchObject({ channel: 'lane', value: 1, holdMs: 1800 });
     expect(summitClimb.create().manifest).toBe(manifest);
   });
 

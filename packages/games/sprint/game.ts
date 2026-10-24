@@ -23,8 +23,8 @@ export const HINT_SEC = 2.6;
 /** The lift a key or a tap stands for: a good stride, short of a hip-high knee. */
 export const KEY_LIFT = 0.9;
 
-/** MET of a march and of high knees (game-design.md calorie table); a seated run is rated lower. */
-export const MET = { march: 4, high: 7.5, seated: 3.5 } as const;
+/** MET of a march and of high knees, and of the seated ways (upper body, light to moderate), from the game-design.md calorie table. */
+export const MET = { march: 4, high: 7.5, seated: 3 } as const;
 
 interface Snapshot { v: 1; opts: StartOptions; quiet: boolean; state: SprintState; log: RunSummary['log'] }
 

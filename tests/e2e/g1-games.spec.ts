@@ -7,6 +7,8 @@ import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { DEV_URL } from './support/ports.ts';
 
+test.skip(!!process.env['CI'], 'whole-chain runs in real time (the pose feed, the detectors and the picture at the display rate): the local release gate, not the CI runners');
+
 interface Box { x: number; y: number; w: number; h: number }
 interface Ba {
   start(): Promise<void>;
