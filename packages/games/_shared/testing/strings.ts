@@ -33,9 +33,9 @@ export function tableCopyProblems(tables: Tables): string[] {
 
 /**
  * What a reason of the strip has to fit: the strip beside the self view is the narrowest plate of the HUD. On a 360 px phone with the view in
- * the bottom left corner it is about 205 px wide measured from where the last, short reason left it, minus the dot and the padding (three
- * letter heights), which holds about ten letters of the 23 px type, and a reason takes two lines at most (design/LAYOUT.md 8). The browser
- * run that decides is tests/e2e/g3-hud-reasons.spec.ts; this is the cheap check that finds a line that cannot pass it.
+ * the bottom left corner it is about 205 px wide (measured from where the last, short reason left it); the dot and the padding take three ems
+ * of the type, and what is left holds about ten letters of the 23 px type to a line. A reason takes two lines at most (design/LAYOUT.md 8).
+ * The browser run that decides is tests/e2e/g3-hud-reasons.spec.ts; this is the cheap check that finds a line that cannot pass it.
  */
 export const STRIP = { perLine: 10, lines: 2 } as const;
 

@@ -112,12 +112,12 @@ const CASES: Case[] = [
   { game: 'firework-jacks', size: 'laptop-1280x800', mode: 'local2' },
   { game: 'firework-jacks', size: 'phone-390x844', seated: true },
   { game: 'firework-jacks', size: 'phone-390x844', quiet: true },
-  { game: 'firework-jacks', size: 'phone-390x844', body: 'sloppy', reason: /Feet not wide enough/ },
+  { game: 'firework-jacks', size: 'phone-390x844', body: 'sloppy', reason: /Feet wider/ },
   { game: 'twist-turbine', size: 'phone-390x844' },
   { game: 'twist-turbine', size: 'phone-844x390' },
   { game: 'twist-turbine', size: 'laptop-1280x800' },
   { game: 'twist-turbine', size: 'phone-390x844', seated: true },
-  { game: 'twist-turbine', size: 'phone-390x844', body: 'sloppy', reason: /Hands too far apart/ },
+  { game: 'twist-turbine', size: 'phone-390x844', body: 'sloppy', reason: /Hands closer/ },
   { game: 'limbo-bend', size: 'phone-390x844' },
   { game: 'limbo-bend', size: 'phone-844x390' },
   { game: 'limbo-bend', size: 'laptop-1280x800' },
@@ -129,7 +129,7 @@ const CASES: Case[] = [
   { game: 'pose-wall', size: 'laptop-1280x800' },
   { game: 'pose-wall', size: 'laptop-1280x800', mode: 'local2' },
   { game: 'pose-wall', size: 'phone-390x844', seated: true },
-  { game: 'pose-wall', size: 'phone-390x844', body: 'sloppy', reason: /arm off the shape/ },
+  { game: 'pose-wall', size: 'phone-390x844', body: 'sloppy', reason: /Adjust (left|right) arm/ },
 ];
 
 for (const c of CASES) {
