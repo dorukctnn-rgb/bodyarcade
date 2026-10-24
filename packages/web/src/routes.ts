@@ -4,7 +4,7 @@ import type { Lang } from '../../core/ui/i18n/index.ts';
 import type { BodyRegion } from '../../core/types/index.ts';
 import { REGION_IDS } from '../../core/ui/settings.ts';
 
-export type RouteId = 'home' | 'region' | 'game' | 'play' | 'results' | 'pro' | 'settings' | 'friends' | 'welcome';
+export type RouteId = 'home' | 'region' | 'game' | 'play' | 'results' | 'pro' | 'settings' | 'friends' | 'lobbies' | 'room' | 'friendlink' | 'safety' | 'welcome';
 
 export const ROUTES: readonly RouteSpec<RouteId>[] = [
   { id: 'home', pattern: '/' },
@@ -15,6 +15,10 @@ export const ROUTES: readonly RouteSpec<RouteId>[] = [
   { id: 'pro', pattern: '/pro' },
   { id: 'settings', pattern: '/settings' },
   { id: 'friends', pattern: '/friends' },
+  { id: 'lobbies', pattern: '/lobbies' },
+  { id: 'room', pattern: '/r/:code' },
+  { id: 'friendlink', pattern: '/f/:code' },
+  { id: 'safety', pattern: '/safety' },
   { id: 'welcome', pattern: '/welcome' },
 ];
 
@@ -35,5 +39,5 @@ export const isRegion = (v: unknown): v is BodyRegion => typeof v === 'string' &
 /** The tab that is lit for a route. */
 export type NavTab = 'games' | 'friends' | 'pro' | 'settings';
 export const TAB_OF: Readonly<Record<RouteId, NavTab | null>> = {
-  home: 'games', region: 'games', game: 'games', play: null, results: 'games', pro: 'pro', settings: 'settings', friends: 'friends', welcome: null,
+  home: 'games', region: 'games', game: 'games', play: null, results: 'games', pro: 'pro', settings: 'settings', friends: 'friends', lobbies: 'friends', room: 'friends', friendlink: 'friends', safety: 'friends', welcome: null,
 };

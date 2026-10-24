@@ -9,7 +9,10 @@ import { aboutOf, regionLabel, titleOf, type ViewContext } from './context.ts';
 import { INDEXABLE, isRegion, type RouteId } from './routes.ts';
 import { homePage, NO_HOME_DATA, type HomeData } from './views/home.ts';
 import { gamePage, NO_GAME_DATA, type GameData } from './views/game.ts';
-import { friendsPage, notFoundPage } from './views/misc.ts';
+import type { SocialPageState } from './app/social.ts';
+import { notFoundPage } from './views/misc.ts';
+import { friendLinkPage, friendsPage, lobbiesPage, NO_FRIENDS_VIEW, roomPage, safetyPage } from './views/social.ts';
+import { NO_ROOM_STATE } from './social/port.ts';
 import { defaultPaywallState, paywallPage, type PaywallState } from './views/paywall.ts';
 import { playPage } from './views/play.ts';
 import { resultsPage, type RoundResult } from './views/results.ts';
@@ -24,9 +27,11 @@ export interface PageState {
   reducedMotion: boolean;
   home: HomeData;
   game: GameData;
+  /** What the Friends screens draw; null in the page generator, which never draws them. */
+  social: SocialPageState | null;
 }
 
-export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA };
+export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, social: null };
 
 export interface Rendered {
   body: SafeHtml;
@@ -109,8 +114,21 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
     case 'settings':
       return { body: settingsPage(ctx, { reducedMotion: state.reducedMotion || ctx.settings.motion === 'reduce' }), title: named(t.t('settings.title')), description: t.t('settings.title'), noindex, status: 200, jsonLd: [] };
     case 'friends':
+    case 'lobbies':
+    case 'room':
+    case 'friendlink':
+    case 'safety': {
       if (!ctx.flags.social) return notFound();
-      return { body: friendsPage(ctx), title: named(t.t('social.title')), description: t.t('social.soon'), noindex, status: 200, jsonLd: [] };
+      const s = state.social;
+      const room = { room: NO_ROOM_STATE, game: null, profile: null, games: [], draft: '', chatNote: '' };
+      const body = route.id === 'friends' ? friendsPage(ctx, s?.friends ?? NO_FRIENDS_VIEW)
+        : route.id === 'lobbies' ? lobbiesPage(ctx, s?.lobbies ?? { state: NO_FRIENDS_VIEW.state, games: [], game: null, band: 'medium', region: 'eu', list: null, failed: false, search: 'idle' })
+        : route.id === 'room' ? roomPage(ctx, s?.room ?? room)
+        : route.id === 'friendlink' ? friendLinkPage(ctx, s?.friendLink ?? { code: null, profile: false, busy: false, note: null })
+        : safetyPage(ctx, s?.friends.state.blocks ?? []);
+      const title = route.id === 'lobbies' ? t.t('lobby.title') : route.id === 'room' ? t.t('room.title') : route.id === 'safety' ? t.t('safety.title') : t.t('social.title');
+      return { body, title: named(title), description: t.t('social.intro.body'), noindex: true, status: 200, jsonLd: [] };
+    }
     case 'welcome':
       // The tour is drawn by the browser app only (it owns a 3D stage); this is what a crawler or a script-less visit gets.
       return { body: html`<main id="main"><h1>${t.t('onboarding.h1')}</h1><p>${t.t('onboarding.text1', { n: ctx.games.length })}</p><p><a href="${ctx.href('home')}">${t.t('notfound.cta')}</a></p></main>`, title: named(t.t('onboarding.h1')), description: t.t('home.description'), noindex: true, status: 200, jsonLd: [] };

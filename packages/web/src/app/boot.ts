@@ -4,6 +4,7 @@
 import type { Catalogue } from '../../catalogue/types.ts';
 import { App, type AppServices } from './app.ts';
 import { createDemoSession } from './demo-session.ts';
+import { createDemoSocial, type DemoSocialMode } from './demo-social.ts';
 import type { SessionFactory } from './ports.ts';
 import { createRealSessionFactory, pageAudio, playableGameIds } from './session.ts';
 
@@ -33,10 +34,15 @@ export function boot(o: BootOptions): App {
     };
   };
 
+  // The friends side needs a server that does not exist yet: development and test builds can ask for the practice one
+  // (`?social=1`, `?social=fresh` for a player with no profile, `?social=offline`); a published build has none.
+  const socialParam = o.demo ? (hooks.social === true ? '1' : typeof hooks.social === 'string' ? hooks.social : query.get('social')) : null;
+  const social = socialParam ? createDemoSocial({ mode: (socialParam === 'fresh' || socialParam === 'offline' ? socialParam : 'ready') as DemoSocialMode, origin: o.win.location.origin }) : null;
+
   const app = new App({
     win: o.win, catalogue: o.catalogue, version: o.version, demo: o.demo,
     ...(o.sessionFactory ? { sessionFactory: o.sessionFactory } : { makeSessionFactory }),
-    social: o.demo && (hooks.social === true || query.get('social') === '1'),
+    social,
     onPlayGesture: () => { try { pageAudio().unlock(); } catch { /* no Web Audio here: the round plays without sound */ } },
   });
   app.start();

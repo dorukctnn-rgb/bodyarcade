@@ -227,7 +227,7 @@ describe('page state', () => {
     expect(draw('en', '/friends/').r.status).toBe(404);
     const on = draw('en', '/friends/', { flags: { social: true } });
     expect(on.r.status).toBe(200);
-    expect(textOf(on.html)).toContain('Nothing here is live yet.');
+    expect(textOf(on.html)).toContain('Loading your friends');
   });
 
   it('shows two players in the grid only where the device allows it', () => {

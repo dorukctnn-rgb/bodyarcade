@@ -12,7 +12,7 @@
   "met": 8,
   "detectors": [{ "id": "kneeLift" }],
   "free": true,
-  "modes": ["solo", "local2"],
+  "modes": ["solo", "local2", "duel"],
   "seo": { "slug": "knee-sprint", "keywords": ["high knees game", "run in place game", "cardio game"] },
   "catalogue": {
     "tagline": { "en": "Run on the spot. Higher knees, more speed.", "tr": "Olduğunuz yerde koşun. Dizler ne kadar yüksekse hız o kadar fazla." },

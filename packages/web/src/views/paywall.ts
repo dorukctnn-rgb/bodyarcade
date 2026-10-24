@@ -80,13 +80,13 @@ export function paywallPage(ctx: ViewContext, st: PaywallState): SafeHtml {
   const close = html`<a class="ba-icon-btn k-close" href="${ctx.href('home')}" data-action="close-paywall" aria-label="${t.t('paywall.closeLabel')}">${icon('close')}</a>`;
 
   if (hasPro(ctx)) {
-    return html`<div class="ba-app ba-app--bare"><a class="ba-skip" href="#main">${t.t('common.skipToContent')}</a>${close}
-      <main id="main" class="ba-page ba-page--pro" tabindex="-1"><div class="k-stack"><h1 data-main-heading>${t.t('settings.section.pro')}</h1><p class="ba-callout">${icon('check')}<span>${t.t('paywall.active')}</span></p>
+    return html`<div class="ba-app ba-app--bare"><a class="ba-skip" href="#main">${t.t('common.skipToContent')}</a>
+      <main id="main" class="ba-page ba-page--pro" tabindex="-1">${close}<div class="k-stack"><h1 data-main-heading>${t.t('settings.section.pro')}</h1><p class="ba-callout">${icon('check')}<span>${t.t('paywall.active')}</span></p>
       <div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('home')}">${t.t('notfound.cta')}</a></div></div></main></div>`;
   }
 
-  return html`<div class="ba-app ba-app--bare"><a class="ba-skip" href="#main">${t.t('common.skipToContent')}</a>${close}
-    <main id="main" class="ba-page ba-page--pro" tabindex="-1">
+  return html`<div class="ba-app ba-app--bare"><a class="ba-skip" href="#main">${t.t('common.skipToContent')}</a>
+    <main id="main" class="ba-page ba-page--pro" tabindex="-1">${close}
       <div class="k-pw" data-form="paywall">
         <div class="k-stack">
           <div class="k-pw-art" aria-hidden="true">${pro.slice(0, 3).map((g) => html`<img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="400" height="300">`)}</div>

@@ -12,7 +12,7 @@
   "met": 5,
   "detectors": [{ "id": "squat" }],
   "free": true,
-  "modes": ["solo", "ghost", "local2"],
+  "modes": ["solo", "ghost", "local2", "duel"],
   "seo": { "slug": "squat-flap", "keywords": ["squat game", "webcam squat game", "exercise game for legs"] },
   "catalogue": {
     "tagline": { "en": "Every rise is a wing beat. Stay low to glide.", "tr": "Her kalkış bir kanat çırpışı. Alçakta kalırsan süzülürsün." },

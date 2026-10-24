@@ -31,7 +31,7 @@ function hero(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
   const g = featuredGame(ctx);
   return html`<article class="k-today" aria-labelledby="home-h1">
-    <div class="art">${g ? html`<a href="${ctx.href('game', { params: { slug: g.seo.slug } })}" aria-label="${titleOf(ctx, g)}"><img src="${ctx.assets.tile(g.catalogue.tile, 800)}" srcset="${ctx.assets.tile(g.catalogue.tile, 400)} 400w, ${ctx.assets.tile(g.catalogue.tile, 800)} 800w" sizes="(min-width: 1200px) 34vw, (min-width: 640px) 46vw, 92vw" width="800" height="600" alt="" fetchpriority="high" decoding="async"><span class="cap"><b>${titleOf(ctx, g)}</b><span>${taglineOf(ctx, g)}</span></span></a>` : ''}</div>
+    <div class="art">${g ? html`<a href="${ctx.href('game', { params: { slug: g.seo.slug } })}"><img src="${ctx.assets.tile(g.catalogue.tile, 800)}" srcset="${ctx.assets.tile(g.catalogue.tile, 400)} 400w, ${ctx.assets.tile(g.catalogue.tile, 800)} 800w" sizes="(min-width: 1200px) 34vw, (min-width: 640px) 46vw, 92vw" width="800" height="600" alt="" fetchpriority="high" decoding="async"><span class="cap"><b>${titleOf(ctx, g)}</b><span>${taglineOf(ctx, g)}</span></span></a>` : ''}</div>
     <div class="body">
       <h1 id="home-h1" data-main-heading>${t.t('home.h1')}</h1>
       <p class="lead">${t.t('home.lead', { n: ctx.games.length })}</p>
@@ -60,7 +60,7 @@ function weekCard(ctx: ViewContext, w: WeekStats, recent: RecentBest[]): SafeHtm
     return d?.today ? t.t('home.today') : d ? (names[d.index] ?? '') : t.date(new Date(`${day}T00:00:00Z`), { month: 'short', day: 'numeric', timeZone: 'UTC' });
   };
   return html`<aside class="k-card k-week" aria-labelledby="week-h">
-    <div class="top"><h3 id="week-h">${t.t('home.week.title')}</h3></div>
+    <div class="top"><h2 class="k-h3" id="week-h">${t.t('home.week.title')}</h2></div>
     <div class="big">${t.number(w.totalMinutes)}<small>${t.t('home.week.minutes')}</small></div>
     <div class="k-bars" role="img" aria-label="${aria}">
       ${w.days.map((d) => html`<i class="h${level(d.minutes)} ${d.minutes === null ? 'later' : d.today ? 'now' : d.hit ? 'hit' : ''}"></i>`)}

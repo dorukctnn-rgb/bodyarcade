@@ -7,7 +7,7 @@ import { checkPage } from '../tools/layout-check.ts';
 import { openScenario, type Scenario } from '../tools/scenarios.ts';
 import { WEB_DEV_URL } from './support/ports.ts';
 
-const PAGES: Scenario[] = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'notfound'];
+const PAGES: Scenario[] = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'notfound', 'friends', 'friends-new', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'];
 
 for (const bp of BREAKPOINTS) {
   test(`${bp.label}: every page keeps the layout rule`, async ({ browser }) => {

@@ -85,6 +85,7 @@ export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml
     </ul></section>
     <section class="k-setgroup" aria-labelledby="s-data"><h2 id="s-data">${t.t('settings.section.data')}</h2><ul class="k-set">
       ${row({ icon: 'lock', title: t.t('settings.section.data'), hint: t.t('settings.data.body'), wrap: true, control: html`<button class="ba-btn ba-btn--quiet k-danger" type="button" data-action="clear-data">${icon('trash')}${t.t('settings.data.clear')}</button>` })}
+      ${ctx.flags.social ? link('shield', t.t('settings.safety'), t.t('settings.safety.hint'), ctx.href('safety')) : ''}
       ${link('play', t.t('settings.tour'), t.t('settings.version', { v: ctx.version }), ctx.href('welcome'))}
     </ul></section>
   </div>`;

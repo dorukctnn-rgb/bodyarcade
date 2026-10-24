@@ -8,7 +8,7 @@ export interface Hooks {
   roundSeconds?: number;
   /** Use the practice session even for a game that has real code (Road Run). */
   forceDemo?: boolean;
-  social?: boolean;
+  social?: boolean | 'fresh' | 'offline';
   plan?: 'free' | 'pro';
 }
 

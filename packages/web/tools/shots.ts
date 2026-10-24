@@ -33,7 +33,7 @@ const browser = await chromium.launch(baseLaunchOptions);
 mkdirSync(out, { recursive: true });
 
 let failed = 0;
-const list = pages.length ? pages : [...SCENARIOS.filter((n) => n !== 'friends')];
+const list = pages.length ? pages : [...SCENARIOS];
 for (const name of list) {
   if (!known.has(name)) { console.error(`unknown page ${name}`); continue; }
   for (const size of sizes) {

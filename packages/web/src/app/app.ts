@@ -29,6 +29,8 @@ import { localEntitlements } from './entitlements.ts';
 import { addRound, HISTORY_SCHEMA, recentBests, weekStats, type RoundRecord } from './history.ts';
 import { PlayController, type PlayHost } from './play.ts';
 import type { EntitlementsPort, SessionFactory } from './ports.ts';
+import { SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
+import type { SocialServices } from '../social/port.ts';
 import { BESTS_SCHEMA, bestOf, buildRoundResult, withBest, type Bests } from './results.ts';
 
 /** What a session factory needs from the app: where the store is, the words, and the player's switches. */
@@ -52,8 +54,8 @@ export interface AppOptions {
   /** Makes the session factory once the app's services exist (the real session needs the store and the words). */
   makeSessionFactory?: (s: AppServices) => SessionFactory;
   plans?: PlansConfig;
-  /** Friends, lobbies and rooms (off until the social server exists). */
-  social?: boolean;
+  /** Friends, lobbies and rooms: the social client and the live client behind the ports. Off (null) until the social server exists. */
+  social?: SocialServices | null;
   /** The player pressed something that starts a round: the place to unlock the sound. */
   onPlayGesture?: () => void;
   /** Called when a round's page goes away, so the session factory can give back what it holds. */
@@ -91,6 +93,7 @@ export class App {
   private bests: Bests;
   private history: RoundRecord[];
   private play: PlayController | null = null;
+  private readonly social: SocialController | null;
   private plan: Plan;
   private capsTimer: ReturnType<typeof setTimeout> | null = null;
   /** The choices on each game's page, kept while the app is open. */
@@ -124,6 +127,7 @@ export class App {
     this.history = this.shell.get('history', HISTORY_SCHEMA, []);
     this.live = createLiveRegion(this.doc as never);
     this.toaster = createToaster(this.doc as never, this.live);
+    this.social = o.social ? new SocialController(this.socialHost(), o.social) : null;
     this.factory = o.sessionFactory ?? o.makeSessionFactory?.({
       store: this.store, i18n: () => this.ctx().i18n, reducedMotion: () => this.reducedMotion(), soundOn: () => this.currentSettings().sound, quiet: () => this.currentSettings().quiet,
     });
@@ -136,7 +140,7 @@ export class App {
   private context(url: string, lang: Lang = this.lang): ViewContext {
     return makeContext({
       lang, games: this.games, url, settings: this.currentSettings(), caps: this.caps, plan: this.plan, plans: this.plans, assets: this.assets,
-      flags: { social: !!this.o.social }, version: this.o.version, server: false,
+      flags: { social: !!this.social }, version: this.o.version, server: false,
     });
   }
 
@@ -168,6 +172,7 @@ export class App {
     this.on(this.win, 'orientationchange', () => this.onResize());
     this.cleanups.push(this.entitlements.onChange((p) => { this.plan = p; this.rerender(); }));
     this.cleanups.push(this.settings.subscribe(() => this.apply()));
+    this.social?.start();
     this.apply();
     this.nav.start();
   }
@@ -179,6 +184,7 @@ export class App {
 
   stop(): void {
     this.endPlay();
+    this.social?.stop();
     this.nav.stop();
     for (const c of this.cleanups.splice(0)) c();
     this.live.dispose();
@@ -207,6 +213,7 @@ export class App {
     this.endPlay();
     this.route = route;
     this.lang = route && route.lang !== 'en' ? route.lang : (route ? 'en' : this.lang);
+    this.social?.enter(route);
     this.apply();
     this.render();
     if (!change.initial) this.live.announce(this.doc.title);
@@ -254,6 +261,7 @@ export class App {
       reducedMotion: this.reducedMotion(),
       home: this.homeData(route),
       game: game ? this.gameData(game, ctx) : this.state.game,
+      social: this.social && route && SOCIAL_ROUTES.has(route.id) ? this.social.pageState(route) : null,
     };
     const page = renderPage(ctx, route, state);
     swap(this.host, page.body.value);
@@ -334,6 +342,40 @@ export class App {
     };
   }
 
+  // ---- friends and rooms --------------------------------------------------------------------------------------------
+
+  private socialHost(): SocialHost {
+    return {
+      document: this.doc,
+      context: () => this.ctx(),
+      go: (href, o) => this.nav.go(href, o),
+      toast: (text, kind) => this.toaster.show(text, kind ? { kind } : {}),
+      announce: (text) => this.live.announce(text),
+      rerender: () => this.rerender(),
+      share: (text, o) => this.shareText(text, o),
+    };
+  }
+
+  /** A link goes to the system share sheet on a touch device that has one; everything else is copied. */
+  private async shareText(text: string, o: { link: boolean }): Promise<boolean> {
+    const nav = this.win.navigator;
+    if (o.link && this.caps.touch && typeof nav.share === 'function') {
+      try { await nav.share({ url: text }); return true; } catch (e) { if ((e as { name?: string }).name === 'AbortError') return false; }
+    }
+    try { await nav.clipboard.writeText(text); return true; } catch { /* no clipboard permission: the older way below */ }
+    try {
+      const box = this.doc.createElement('textarea');
+      box.value = text;
+      box.setAttribute('readonly', '');
+      box.className = 'ba-visually-hidden';
+      this.doc.body.append(box);
+      box.select();
+      const ok = this.doc.execCommand('copy');
+      box.remove();
+      return ok;
+    } catch { return false; }
+  }
+
   private rounds(): number { return this.shell.get('rounds', { version: 1, parse: (r) => (typeof r === 'number' && r >= 0 ? r : null) }, 0); }
 
   private finishRound(game: ShellGame, setup: SetupState, summary: Parameters<PlayHost['finish']>[2]): void {
@@ -379,6 +421,7 @@ export class App {
     if (!el) return;
     const action = el.dataset['action'] ?? '';
     if (this.play?.action(action)) { e.preventDefault(); return; }
+    if (this.social?.click(action, el)) { e.preventDefault(); return; }
     switch (action) {
       case 'mode':
         this.toggleMode(el.dataset['mode'] ?? '');
@@ -432,6 +475,7 @@ export class App {
   private onChange(e: Event): void {
     const t = e.target as HTMLInputElement | HTMLSelectElement | null;
     if (!t) return;
+    if (this.social?.change(t)) return;
     if (t.closest('[data-form="settings"]')) this.onSettingChanged(t);
     else if (t.closest('[data-form="setup"]')) this.onSetupChanged(t.closest('form') as HTMLFormElement);
     else if (t.closest('[data-form="paywall"]') && (t as HTMLInputElement).name === 'plan') this.setPaywall({ selected: t.value as PaywallState['selected'] });
@@ -439,13 +483,15 @@ export class App {
 
   private onInput(e: Event): void {
     const t = e.target as HTMLInputElement | null;
+    if (t && this.social?.input(t)) return;
     if (t?.name === 'weightKg' && t.closest('[data-form="settings"]')) this.onSettingChanged(t);
   }
 
   private onSubmit(e: Event): void {
     const form = e.target as HTMLFormElement | null;
     if (!form) return;
-    if (form.matches('[data-form="setup"]')) { e.preventDefault(); this.startRound(form); }
+    if (form.matches('[data-form="friend-add"], [data-form="room-say"], [data-form="lobby"]')) { e.preventDefault(); this.social?.submit(form); }
+    else if (form.matches('[data-form="setup"]')) { e.preventDefault(); this.startRound(form); }
     else if (form.matches('[data-form="settings"], [data-form="paywall"]')) e.preventDefault();
   }
 

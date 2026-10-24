@@ -5,14 +5,15 @@
 // the practice session and the test hooks exist.
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 
-export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'notfound', 'friends'] as const;
+export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink'] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 
 /** The address of each scenario, without the language prefix. */
 const PATHS: Record<Scenario, string> = {
   home: '/', 'home-week': '/', region: '/workouts/legs/', game: '/games/squat-flap/', 'game-more': '/games/squat-flap/', 'game-pro': '/games/pad-work/',
   'game-locked': '/games/pad-work/', settings: '/settings/', pro: '/pro/', results: '/play/squat-flap/?input=keyboard', play: '/play/squat-flap/?input=keyboard',
-  calibrate: '/play/squat-flap/?input=camera', notfound: '/nope/', friends: '/friends/',
+  calibrate: '/play/squat-flap/?input=camera', notfound: '/nope/', friends: '/friends/?social=1', 'friends-new': '/friends/?social=fresh', 'friends-offline': '/friends/?social=offline', lobbies: '/lobbies/?social=1',
+  room: '/r/K7Q2MX/?social=1', 'room-host': '/friends/?social=1', safety: '/safety/?social=1', friendlink: '/f/BA-9PXMR3/?social=1',
 };
 
 /** Seeds the player's store before the page loads: a week of rounds for the home page, a used free round for the lock. */
@@ -73,6 +74,11 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
   await page.goto(`${base}${path}${path.includes('?') ? '&' : '?'}plan=${o.plan ?? 'free'}`, { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
   if (name === 'game-more') await page.locator('details.k-more summary').click();
+  if (name === 'room-host') {
+    await page.locator('[data-action="room.new"]').click();
+    await page.waitForURL(/\/r\//, { timeout: 15_000 });
+  }
+  if (name.startsWith('friends') || name === 'lobbies' || name.startsWith('room') || name === 'safety' || name === 'friendlink') await page.waitForSelector('main h1', { timeout: 15_000 });
   if (name === 'results') await page.waitForURL(/results/, { timeout: 30_000 });
   if (name === 'play') {
     await page.waitForSelector('[data-hud="statusLeft"]', { timeout: 15_000 });

@@ -1,15 +1,7 @@
-// Small pages and windows: friends (until the social server exists), not found, and the yes/no confirmation.
+// Small pages and windows: not found, and the yes/no confirmation.
 import { html, type SafeHtml } from '../../../core/ui/html.ts';
-import { icon } from '../../../core/ui/icons.ts';
 import type { ViewContext } from '../context.ts';
 import { chrome } from './chrome.ts';
-
-export function friendsPage(ctx: ViewContext): SafeHtml {
-  const t = ctx.i18n;
-  const main = html`<header class="ba-pagehead"><h1 class="ba-h1" data-main-heading>${t.t('social.title')}</h1></header>
-    <div class="ba-panel ba-soon">${icon('friends')}<p>${t.t('social.soon')}</p></div>`;
-  return chrome(ctx, { tab: 'friends', main, mainClass: 'ba-page--friends' });
-}
 
 export function notFoundPage(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;

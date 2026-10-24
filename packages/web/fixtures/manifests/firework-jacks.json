@@ -12,7 +12,7 @@
   "met": 8,
   "detectors": [{ "id": "jumpingJack" }],
   "free": true,
-  "modes": ["solo", "local2"],
+  "modes": ["solo", "local2", "duel"],
   "seo": { "slug": "firework-jacks", "keywords": ["jumping jacks game", "jumping jack workout game", "cardio game"] },
   "catalogue": {
     "tagline": { "en": "Every jumping jack sends a firework up.", "tr": "Her jumping jack gökyüzüne bir havai fişek yollar." },

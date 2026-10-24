@@ -12,7 +12,7 @@
   "met": 3.5,
   "detectors": [{ "id": "handHit" }],
   "free": true,
-  "modes": ["solo", "local2"],
+  "modes": ["solo", "local2", "duel"],
   "seo": { "slug": "star-catch", "keywords": ["reach game", "arm exercise game", "hand tracking game"] },
   "catalogue": {
     "tagline": { "en": "Catch each star with the hand of its colour.", "tr": "Her yıldızı kendi renginin eliyle yakalayın." },
