@@ -138,9 +138,16 @@ export const forwardToDirectory: Handler = async (req, raw) => {
     if (upgrade && no.status === 429) return closedSocket(HUB_CLOSE.RATE, 'rate_limited');
     throw no;
   }
-  // An upgrade goes through as it came: the platform pairs the sockets of the request it was given.
-  if (upgrade) return dir.fetch(req);
-  return dir.fetch(new Request(req, { headers: forwardedHeaders(req) }));
+  try {
+    // An upgrade goes through as it came: the platform pairs the sockets of the request it was given.
+    if (upgrade) return await dir.fetch(req);
+    return await dir.fetch(new Request(req, { headers: forwardedHeaders(req) }));
+  } catch (e) {
+    // The object could not answer (it was restarted under the call, it is overloaded): the player is told to try again, not that
+    // something is broken. A request whose body was read cannot be sent twice, so the Worker does not retry by itself.
+    console.log(JSON.stringify({ evt: 'social_forward_error', path: new URL(req.url).pathname, error: String((e as { message?: unknown })?.message ?? e).slice(0, 200) }));
+    throw new HttpError(503, 'unavailable', { serverTime: Date.now(), retryAfterMs: 2000 });
+  }
 };
 
 // ───────── the table ─────────

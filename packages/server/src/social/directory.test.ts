@@ -212,6 +212,20 @@ describe('the Worker in front of the directory', () => {
     expect(h.calls.length).toBe(before + 2);
   });
 
+  it('tells the player to try again (503 unavailable, logged) when the object cannot answer, instead of an error of its own', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      const auth = await wellFormedAuth();
+      const env = { ...h.env, SOCIAL: { idFromName: (n: string) => ({ name: n, toString: () => n }), get: () => ({ fetch: async () => { throw new Error('Durable Object reset because its code was updated'); } }) } };
+      const r = await h.worker.handle(new Request(`${TEST_ORIGIN}/api/social/friends`, { headers: { 'X-BA-Auth': auth, 'CF-Connecting-IP': '10.5.5.6' } }), env, { waitUntil: () => undefined });
+      expect(r?.status).toBe(503);
+      expect(await r?.json()).toEqual({ error: 'unavailable', serverTime: expect.any(Number), retryAfterMs: 2000 });
+      expect(log.mock.calls.some((c) => String(c[0]).includes('social_forward_error') && String(c[0]).includes('/api/social/friends'))).toBe(true);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it('answers 503 unavailable when the directory is not bound (live play alone)', async () => {
     const r = await h.worker.handle(new Request(`${TEST_ORIGIN}/api/social/me`, { headers: { 'CF-Connecting-IP': '10.5.5.5' } }), { TICKET_SECRET: 'x'.repeat(40) }, { waitUntil: () => undefined });
     expect(r?.status).toBe(503);
