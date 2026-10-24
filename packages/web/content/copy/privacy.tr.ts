@@ -11,7 +11,7 @@ export function privacyTr(): PageSpec {
     : 'Cihazlarınız birbirine doğrudan ulaşamazsa görüntü gösterilmez ve oyun iskeletinle devam eder.';
   const analytics = F.ANALYTICS_ON
     ? '<p>Bu web sitesine yapılan ziyaretleri, sayfa görüntülemelerini ve sayfa hızını sayan Cloudflare Web Analytics ile sayıyoruz. Cloudflare, bunun için çerez ya da yerel depolama kullanmadığını ve ziyaretçilerin parmak izini çıkarmadığını söylüyor.</p>'
-    : '<p>Siteye yapılan ziyaretleri hiçbir betikle ölçmüyoruz. Siteyi sunan Cloudflare, sunduğu istekleri kendi tarafında sayar; örneğin kaç sayfanın hangi ülkelerden istendiğini.</p>';
+    : '<p>Siteye yapılan ziyaretleri hiçbir betikle ölçmüyoruz. Cloudflare, sunduğu istekleri kendi tarafında sayar; örneğin kaç sayfanın hangi ülkelerden istendiğini.</p>';
   return {
     file: 'tr/privacy.html',
     url: '/tr/privacy',
@@ -83,11 +83,11 @@ ${ul([
   'rastgele bir oyuncu numarası (hiçbir oyuncunun görmediği bir cihaz numarası), görünen adın, yaş grubun ve diğer oyuncuların oyuncu numaran yerine gördüğü bir koltuk numarası;',
   'kimin hazır, kimin çevrimiçi olduğu, oyun ve ayarları, ve odadaki engellediğin oyuncular (karıştırılmış anahtarlar olarak);',
   'turların sonuçları ve skorları;',
-  `son ${F.CHAT_KEEP_LINES} sohbet mesajı (her birinde yazanın görünen adıyla) ve odada yapılan bildirimler (hangi koltuğun hangi koltuğu, neden ve ne zaman bildirdiği).`,
+  `son ${F.CHAT_KEEP_LINES} sohbet mesajı (her birinde yazanın görünen adıyla) ve odada yapılan bildirimler (hangi koltuktan hangi koltuğa, hangi nedenle ve ne zaman).`,
 ])}
 <p>Bir tur sırasında cihazın diğer oyunculara skorunu ve ${F.SHARED_JOINTS} eklemli bir iskeleti saniyede yaklaşık ${F.SHARE_HZ} kez bildirir: burun, omuzlar, dirsekler, bilekler, kalçalar, dizler ve ayak bilekleri; görüntü yok. Bu veri doğrudan cihazlar arasında ya da onu ileten ama kopyasını tutmayan oda sunucumuz üzerinden gider. İki cihazın birbirini bulmak için değiştirdiği, ağ adresleri içeren bağlantı bilgileri için de aynısı geçerlidir.</p>
-<p>Özel bir odada bir turun sonunda her oyuncunun cihazı, diğerlerinin her engelde ne yaptığını görünen adlarıyla birlikte alır. Arkadaşların bunu daha sonra karşı yarışmak için bir kayıt olarak saklayabilir. Görüntü ve iskelet içermez. Bir arkadaşına kısa bir kod ya da bağlantı olarak gönderdiğin koşu, görünen adını ve ne yaptığını taşır; başka bir şey taşımaz.</p>
-<p>Bir oda, içinde ${F.ROOM_EMPTY_MINUTES} dakika kimse kalmazsa ve her durumda son hareketinden ${F.ROOM_IDLE_HOURS} saat sonra silinir. Odayı silmek sohbetini, sonuçlarını ve bildirimlerini de siler. İletilmiş bir bildirim, kendisini ilgilendiren sohbet satırlarının kendi kopyasını tutar; ne kadar süre tuttuğunu aşağıdaki tablo söyler.</p>
+<p>Özel bir odada bir turun sonunda her oyuncunun cihazı, diğerlerinin her engelde ne yaptığını görünen adlarıyla birlikte alır. Arkadaşların bunu, daha sonra ona karşı yarışmak üzere bir kayıt olarak saklayabilir. Görüntü ve iskelet içermez. Bir arkadaşına kısa bir kod ya da bağlantı olarak gönderdiğin koşu, görünen adını ve ne yaptığını taşır; başka bir şey taşımaz.</p>
+<p>Bir oda, içinde ${F.ROOM_EMPTY_MINUTES} dakika kimse kalmazsa ve her durumda son hareketinden ${F.ROOM_IDLE_HOURS} saat sonra silinir. Bir odanın silinmesi, onun sohbetini, sonuçlarını ve bildirimlerini de siler. İletilmiş bir bildirim, kendisini ilgilendiren sohbet satırlarının kendi kopyasını tutar; ne kadar süre tuttuğunu aşağıdaki tablo söyler.</p>
 <p>Oyunu eş zamanlı tutmak için bir odadaki cihazlar birbirine doğrudan bağlanmaya çalışır. Bu, diğer cihazların ağ (IP) adresini görmesine izin verir. Tarayıcın ayrıca bir Cloudflare sunucusuna (STUN) internetin seni hangi adresten gördüğünü sorar; böylece cihazlar birbirini bulabilir. Bunu istemiyorsan bir odaya katılmadan oyna.</p>
 <h3>Sohbet</h3>
 <p>Yazılı sohbet yalnızca herkesin ${F.AGE.video} yaşında ya da daha büyük olduğu özel odalarda vardır. Süzgeçten geçer (bağlantı, e-posta adresi, telefon numarası, @ ile başlayan adlar ve kaba sözler olmaz), en çok ${F.CHAT_MAX_CHARS} karakter olabilir ve ${F.CHAT_GAP_SECONDS} saniyede bir mesaja izin verir. Diğer herkes hazır mesajları ve tepkileri kullanır.</p>
@@ -100,7 +100,7 @@ ${ul([
   `${F.SUSPEND_WINDOW_DAYS} gün içinde ${F.REPORTS_TO_SUSPEND} farklı oyuncu ya da bir gün içinde ciddi bir nedenle ${F.URGENT_REPORTERS_TO_SUSPEND} oyuncu bildirirse herkese açık lobiler o oyuncuya ${F.SUSPEND_DAYS} gün kapanır;`,
   `bu adımlara yalnızca en az ${F.REPORTER_MIN_PROFILE_HOURS} saatlik profillerden gelen bildirimler sayılır.`,
 ])}
-<p>Bunların hepsini bitirebilir ya da uzatabiliriz; bir profili uyarabilir, susturabilir, askıya alabilir ya da yasaklayabiliriz. Bildirdiğin oyuncu, onu kimin bildirdiğini öğrenmez.</p>`,
+<p>Bunların hepsini bitirebilir ya da uzatabiliriz; bir profili uyarabilir, susturabilir, askıya alabilir ya da yasaklayabiliriz. Bildirdiğin oyuncu, onu kimin bildirdiğini öğrenmez. Otomatik adımları bir insan değil kurallar atar. Birinin yanlış olduğunu düşünüyorsan bize yaz, bir insan ona bakar.</p>`,
       },
       {
         id: 'profil',
@@ -113,7 +113,7 @@ ${ul([
 ])}
 <p>Parola ve e-posta adresi yoktur. Cihazın profil için bir anahtar çifti üretir; özel yarısı tarayıcıdan çıkarılamaz ve her isteği imzalar. Kimse seni arayamaz: insanlar seni arkadaş kodunla (BA-7K2Q4X gibi görünür) ya da davet bağlantınla bulur ya da yaş grubundaki herkese açık bir lobide karşılaşır. Arkadaş kodunu istediğin zaman yenileyebilirsin; eskisi çalışmaz olur.</p>
 <p>Arkadaşların görünen adını ve çevrimiçi, bir odada, bir oyunda ya da çevrimdışı olup olmadığını görür; oda katılınabilir olduğu sürece odanın kodunu da. Uygulamaları ayrıca yaş grubunu öğrenir, çünkü aranızdaki sohbet ve görüntü buna bağlıdır. Çevrimdışı görünmeyi seçebilirsin.</p>
-<p>Bir profilin olduğu sürece her oyunda ve haftada en iyi skorun haftalık sıralamalara gider. Arkadaşların bunu arkadaş sıralamasında görür; ülkendeki ve yaş grubundaki oyuncular da görünen adını ve skorunu ülke sıralamasında görür. Sunucu, bir skorun turun sürdüğü süre içinde mümkün olup olmadığını denetler ama oyunu yeniden oynatamaz; bu yüzden sıralamalarda ödül yoktur.</p>
+<p>Bir profilin olduğu sürece her oyunun her haftaki en iyi skoru haftalık sıralamalara gider. Arkadaşların bunu arkadaş sıralamasında görür; ülkendeki ve yaş grubundaki oyuncular da görünen adını ve skorunu ülke sıralamasında görür. Sunucu, bir skorun turun sürdüğü süre içinde mümkün olup olmadığını denetler ama oyunu yeniden oynatamaz; bu yüzden sıralamalarda ödül yoktur.</p>
 <p>Profili yaptığında uygulama ${F.RECOVERY_CODE_CHARS} karakterli bir kurtarma kodunu bir kez gösterir. Biz yalnızca onun özetini (hash) sakladığımız için kodu sana yeniden gösteremez ya da senin için kurtaramayız. Kurtarma kodu ve arkadaş kodunla profili yeni bir tarayıcıda ya da telefonda geri getirebilirsin; bir profil aynı anda en çok ${F.PROFILE_DEVICES} cihazda durabilir. Kod, sen yenisini isteyene kadar geçerli kalır; yenisi eskisinin yerine geçer. Örneğin Safari, bir sitenin verilerini yedi gün ziyaret edilmezse silebilir; geri dönüş yolu kurtarma kodudur.</p>`,
       },
       {

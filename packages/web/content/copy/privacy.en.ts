@@ -12,7 +12,7 @@ export function privacyEn(): PageSpec {
     : 'If your devices cannot reach each other directly, no picture is shown and the game goes on with your skeleton.';
   const analytics = F.ANALYTICS_ON
     ? `<p>We count visits to this website with Cloudflare Web Analytics, which counts page views and page speed. Cloudflare says that it uses no cookies or local storage for this and does not fingerprint visitors.</p>`
-    : `<p>We do not measure visits to the site with any script. Cloudflare, which delivers the site, counts the requests it serves on its own side, for example how many pages were asked for and from which countries.</p>`;
+    : `<p>We do not measure visits to the site with any script. Cloudflare counts the requests it serves on its own side, for example how many pages were asked for and from which countries.</p>`;
   return {
     file: 'privacy.html',
     url: '/privacy',
@@ -101,7 +101,7 @@ ${ul([
   `when ${F.REPORTS_TO_SUSPEND} different players report them within ${F.SUSPEND_WINDOW_DAYS} days, or ${F.URGENT_REPORTERS_TO_SUSPEND} do for a serious reason within a day, public lobbies are closed to them for ${F.SUSPEND_DAYS} days;`,
   `only reports from profiles that are at least ${F.REPORTER_MIN_PROFILE_HOURS} hour old count towards these steps.`,
 ])}
-<p>We can end or extend any of this, and we can warn, mute, suspend or ban a profile. The player you report is not told who reported them.</p>`,
+<p>We can end or extend any of this, and we can warn, mute, suspend or ban a profile. The player you report is not told who reported them. The automatic steps are made by rules, not by a person. If you think one of them was wrong, write to us and a person will look at it.</p>`,
       },
       {
         id: 'profile',

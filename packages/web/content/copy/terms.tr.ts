@@ -70,7 +70,7 @@ ${note('Tıbbi tavsiye değildir', 'BodyArcade kalp atış hızını ölçmez ve
         html: `<p>Çevrimiçi profil isteğe bağlıdır ve parolası yoktur. Kurtarma kodunu güvende tut: arkadaş kodunla birlikte profilini geri getirir ve ikisine de sahip olan herkes profili ele geçirebilir.</p>
 ${ul([
   `<strong>Adlar.</strong> ${F.AGE.video} yaş ve üzeri oyuncular en çok ${F.NAME_MAX_CHARS} karakterlik bir görünen ad seçer. Daha küçük oyunculara üretilmiş bir ad verilir. Ad, başkası gibi davranmamalı, kişisel bilgi taşımamalı ve kaba olmamalıdır.`,
-  '<strong>Arkadaş kodları ve bağlantıları.</strong> Onları yalnızca haber almak istediğin kişilerle paylaş. Bir arkadaşlık isteğinin olması için karşı tarafın onu kabul etmesi gerekir.',
+  '<strong>Arkadaş kodları ve bağlantıları.</strong> Onları yalnızca haber almak istediğin kişilerle paylaş. Bir arkadaşlık isteği, karşı taraf kabul edene kadar arkadaşlık sayılmaz.',
   `<strong>Odalar.</strong> Bir odada ${F.SEATS.min} ile ${F.SEATS.max} oyuncu bulunur. Oyunu ev sahibi seçer ve bir oyuncuyu odadan çıkarabilir.`,
   '<strong>Herkese açık lobiler.</strong> Kendi yaş grubundaki oyuncularla karşılaşırsın. Onlar görünen adını ve renginde bir iskelet görür, sana hazır mesajlar ve tepkiler gönderebilir. Tanımadığın hiç kimse senden yazılı metin ya da görüntü almaz.',
   `<strong>Yazılı sohbet</strong> yalnızca her oyuncunun ${F.AGE.video} yaşında ya da daha büyük olduğu özel odalarda vardır. Arkadaşlar arasında <strong>görüntü</strong> isteğe bağlıdır, varsayılan olarak kapalıdır ve yalnızca böyle bir odada iki arkadaş da açtığında çalışır.`,
@@ -87,7 +87,7 @@ ${ul([
   'bir ada ya da mesaja, kendinin ya da bir başkasının kişisel bilgilerini koyma ya da sohbet süzgecini aşmaya çalışma;',
   'istenmeyen ileti, reklam ya da bağlantı gönderme;',
   `BodyArcade’ı ${F.AGE.video} yaşından küçük oyuncularla iletişim kurmak için kullanma. Uygulama, bir yetişkinin ${F.AGE.video} yaşından küçük bir oyuncuya arkadaşlık isteği göndermesine izin vermez ve yetişkinler bunu aşmanın yollarını aramamalıdır;`,
-  'hareketlerini ya da skorlarını sahtelemek için betik, değiştirilmiş uygulama ya da başka araç kullanma, skor takası ya da yükseltmesi yapma, bir hatadan çıkar sağlama (hataları bunun yerine bize bildir);',
+  'hareketlerini ya da skorlarını sahtelemek için betik, değiştirilmiş uygulama ya da başka araç kullanma, skor alıp satma ya da skor yükseltme yapma, bir hatadan çıkar sağlama (hataları bunun yerine bize bildir);',
   'insanları art niyetle bildirme.',
 ])}
 <p>Haftalık sıralamalar yalnızca gerçek oyuncuları listeler ve ödül içermez. Sunucu, bir skorun turun sürdüğü süre içinde mümkün olup olmadığını denetler ama oyununu yeniden oynatamaz; bu yüzden bir skor kanıt değildir. Bir skoru kaldırabilir ya da bir profili bir sıralamadan gizleyebiliriz.</p>`,
@@ -124,7 +124,7 @@ ${ul([
         id: 'iade',
         title: 'İadeler',
         html: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır.</p>
-<p>Web’de iadeyi Gumroad yapar. Bir ürünün iade süresi Gumroad sayfasında ve makbuzunda yazar. İade istemek için makbuzundaki bağlantıyı kullan ya da ${mail()} adresine yaz; politika izin verdiğinde Gumroad’dan iade etmesini isteriz. İade edilen bir satın alma, bir sonraki kontrolde, yani bir gün içinde, cihazlarındaki Pro’yu bitirir.</p>
+<p>Web’de iadeyi Gumroad yapar. Bir ürünün iade süresi Gumroad sayfasında ve makbuzunda yazar. İade istemek için makbuzundaki bağlantıyı kullan ya da ${mail()} adresine yaz; politika izin verdiğinde Gumroad’dan iade etmesini isteriz. İade edilen bir satın alma, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>
 <p>Android uygulamasında Google Play’in iade kuralları geçerlidir ve kararı Google verir. Yardım gerekirse bize yaz.</p>
 <p>Bu koşullardaki hiçbir şey, ülkenin hukukunun sana tüketici olarak verdiği iade ya da cayma hakkını ortadan kaldırmaz.</p>`,
       },

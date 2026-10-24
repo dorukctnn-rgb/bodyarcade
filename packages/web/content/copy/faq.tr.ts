@@ -14,7 +14,7 @@ export function faqTr(): PageSpec {
   const $ = (n: number): string => F.usd(n, 'tr');
   const app = F.ANDROID_APP_LIVE
     ? '<p>Google Play’de bir Android uygulaması var. Aynı oyunları oynatır ve ödemeleri Google Play üzerinden alır. iPhone’da BodyArcade’ı Safari’de kullan.</p>'
-    : '<p>BodyArcade her cihazın tarayıcısında çalışır, bu yüzden kurulacak bir şey yoktur. Google Play’deki Android uygulaması web sürümünün ardından gelir. Ücretli planların ikisinde de çalışması amaçlanır.</p>';
+    : '<p>BodyArcade her cihazın tarayıcısında çalışır, bu yüzden kurulacak bir şey yoktur. Google Play’deki Android uygulaması web sürümünün ardından gelir. Ücretli planların her iki yerde de geçerli olması amaçlanır.</p>';
 
   const groups: Group[] = [
     {
@@ -27,7 +27,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Nereye durmalıyım?',
-          a: '<p>Oyuna bağlı. Tüm vücut oyunlarında başından ayak bileklerine kadar görünmelisin: dizüstünden 2 ile 3 metre, dik duran bir telefondan 1,5 ile 2 metre uzakta dur. Üst vücut oyunlarında başından kalçana kadar görünmelisin, yaklaşık 1 metre uzakta. Her oyundan önceki kalibrasyon adımı geri mi çekileceğini yoksa yaklaşılacağını söyler. Işığın önünde ya da yanında olması en iyisidir; arkandaki bir pencere seni kameradan saklar.</p>',
+          a: '<p>Oyuna bağlı. Tüm vücut oyunlarında başından ayak bileklerine kadar görünmelisin: dizüstünden 2 ile 3 metre, dik duran bir telefondan 1,5 ile 2 metre uzakta dur. Üst vücut oyunlarında başından kalçana kadar görünmelisin, yaklaşık 1 metre uzakta. Her oyundan önceki kalibrasyon adımı geri mi çekileceğini yoksa yaklaşılacağını söyler. Işığın önünde ya da yanında durman en iyisidir; arkandaki bir pencere seni kameradan saklar.</p>',
         },
         {
           q: 'Oturarak oynayabilir miyim?',
@@ -99,7 +99,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Haftalık sıralamalar nedir?',
-          a: '<p>Bir profilin olunca her oyunda ve haftada en iyi skorun arkadaşlarının sıralamasına ve ülkendeki, yaş grubundaki oyuncuların sıralamasına gider. Yeni hafta her Pazartesi başlar. Sıralamalar yalnızca gerçek oyuncuları listeler ve ödül içermez.</p>',
+          a: '<p>Bir profilin olunca her oyunun her haftaki en iyi skoru, arkadaşlarının sıralamasına ve ülkendeki, yaş grubundaki oyuncuların sıralamasına gider. Yeni hafta her Pazartesi başlar. Sıralamalar yalnızca gerçek oyuncuları listeler ve ödül içermez.</p>',
         },
         {
           q: 'Hayalet yarışı nedir?',
@@ -121,7 +121,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Planların fiyatı ne kadar?',
-          a: `<p>Web’de: Pro aylık ayda ${$(F.PRICE.proMonthly)}, Pro yıllık yılda ${$(F.PRICE.proYearly)} ve ${F.TRIAL_DAYS} günlük ücretsiz deneme, ${F.FAMILY_PLAN ? `Aile yıllık yılda ${$(F.PRICE.familyYearly)}, ` : ''}Ömür boyu tek sefer ${$(F.PRICE.lifetime)}. Android uygulamasında fiyatı ve para birimini ülken için Google Play belirler. Ayrıntılar <a href="/tr/terms">koşullarda</a>.</p>`,
+          a: `<p>Web’de: Pro aylık ayda ${$(F.PRICE.proMonthly)}, Pro yıllık yılda ${$(F.PRICE.proYearly)} (${F.TRIAL_DAYS} günlük ücretsiz denemeyle), ${F.FAMILY_PLAN ? `Aile yıllık yılda ${$(F.PRICE.familyYearly)}, ` : ''}Ömür boyu tek sefer ${$(F.PRICE.lifetime)}. Android uygulamasında fiyatı ve para birimini ülken için Google Play belirler. Ayrıntılar <a href="/tr/terms">koşullarda</a>.</p>`,
         },
         {
           q: 'Ücretsiz deneme nasıl çalışır?',
@@ -133,7 +133,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Nasıl iade alırım?',
-          a: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır. Web’de iadeyi Gumroad yapar; iade süresi ürün sayfasında ve makbuzunda yazar, yardım için ${mail()} adresine yazabilirsin. Google Play’de Google’ın kuralları geçerlidir. İade edilen bir plan, bir sonraki kontrolde, yani bir gün içinde cihazlarındaki Pro’yu bitirir.</p>`,
+          a: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır. Web’de iadeyi Gumroad yapar; iade süresi ürün sayfasında ve makbuzunda yazar, yardım için ${mail()} adresine yazabilirsin. Google Play’de Google’ın kuralları geçerlidir. İade edilen bir plan, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>`,
         },
         {
           q: 'Pro’yu lisans anahtarımla nasıl açarım?',

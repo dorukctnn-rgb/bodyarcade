@@ -133,7 +133,7 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'How do I get a refund?',
-          a: `<p>Refunds follow the rules of the store that sold the plan. On the web, Gumroad refunds you; the refund period is on the product page and your receipt, and you can write to ${mail()} for help. On Google Play, Google&rsquo;s rules apply. A refunded plan ends Pro on your devices at the next check, within a day.</p>`,
+          a: `<p>Refunds follow the rules of the store that sold the plan. On the web, Gumroad refunds you; the refund period is on the product page and your receipt, and you can write to ${mail()} for help. On Google Play, Google&rsquo;s rules apply. A refunded plan ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>`,
         },
         {
           q: 'How do I turn Pro on with my license key?',
