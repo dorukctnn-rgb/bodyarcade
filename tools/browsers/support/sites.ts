@@ -2,7 +2,9 @@
 //   demo     the web shell's production bundle built with the practice catalogue (BA_FIXTURES=fill): the test hooks, the practice
 //            session and `?social=1` exist in it, every game that has code runs for real. -> qa-out/browsers/site-demo
 //   release  what bodyarcade.com serves: the release build (node release/build.ts preview) with the content pages (privacy, terms, FAQ,
-//            EN and TR), the web app manifest and the service worker. -> dist/
+//            EN and TR), the web app manifest and the service worker. -> a copy of dist/ in qa-out/browsers/site-release, in which the
+//            page that registers the service worker may also do it on http://127.0.0.1 (it registers on https and not on localhost, so
+//            a local run would never meet the worker; sw.js itself is the release's, byte for byte).
 // The builds are kept between runs and made again when the sources changed (a stamp of HEAD and of what is not committed).
 //   node tools/browsers/support/sites.ts            build when needed, serve both, hold until stopped
 //   node tools/browsers/support/sites.ts --build    only build (what CI does before the browsers start)
@@ -19,7 +21,7 @@ import { startSite } from './serve.ts';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 export const OUT = join(ROOT, 'qa-out', 'browsers');
 export const DEMO_DIR = join(OUT, 'site-demo');
-export const RELEASE_DIR = join(ROOT, 'dist');
+export const RELEASE_DIR = join(OUT, 'site-release');
 const STAMP = join(OUT, 'sites.stamp');
 
 const git = (...args: string[]): string => { try { return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26 }); } catch { return ''; } };
@@ -47,7 +49,7 @@ export function build(force = false): void {
   mkdirSync(OUT, { recursive: true });
   const now = sourceStamp();
   const kept = existsSync(STAMP) ? readFileSync(STAMP, 'utf8').trim() : '';
-  if (!force && kept === now && existsSync(join(DEMO_DIR, 'index.html')) && existsSync(join(RELEASE_DIR, 'sw.js'))) {
+  if (!force && kept === now && existsSync(join(DEMO_DIR, 'index.html')) && existsSync(join(RELEASE_DIR, 'sw.js')) && existsSync(join(RELEASE_DIR, 'sw-register.js'))) {
     console.log('[sites] the builds are current (the sources did not change)');
     return;
   }
@@ -56,6 +58,13 @@ export function build(force = false): void {
   rmSync(DEMO_DIR, { recursive: true, force: true });
   cpSync(join(ROOT, 'packages', 'web', 'dist'), DEMO_DIR, { recursive: true });
   run('release build', ['release/build.ts', 'preview']);
+  rmSync(RELEASE_DIR, { recursive: true, force: true });
+  cpSync(join(ROOT, 'dist'), RELEASE_DIR, { recursive: true });
+  const reg = join(RELEASE_DIR, 'sw-register.js');
+  const src = readFileSync(reg, 'utf8');
+  const patched = src.replace("location.protocol === 'https:' && !local", "(location.protocol === 'https:' || local)");
+  if (patched === src) throw new Error("release/sw-register.js no longer has the condition `location.protocol === 'https:' && !local`: update tools/browsers/support/sites.ts");
+  writeFileSync(reg, patched);
   writeFileSync(STAMP, now);
 }
 
