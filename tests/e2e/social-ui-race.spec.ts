@@ -211,6 +211,8 @@ for (const e of ENGINES) {
       await bo.page.locator('label:has(input[name="age"][value="adult"])').click();
       await bo.page.locator('[data-action="sheet.age.next"]').click();
       await bo.page.locator('#profile-name').fill('Bo');
+      // the terms and the community rules are agreed to before an online profile is made (fe693f6)
+      await bo.page.locator('#profile-terms').check();
       await bo.page.locator('[data-action="sheet.name.create"]').click();
       await bo.page.locator('[data-action="sheet.recovery.saved"]').click();
       await expect(bo.page.locator('.k-seat[data-seat]')).toHaveCount(2, { timeout: 30_000 });
