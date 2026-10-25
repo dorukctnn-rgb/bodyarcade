@@ -173,6 +173,17 @@ test.describe('on a phone', () => {
     await tile(page, 'forest').tap();
     expect(await checked(page)).toBe('forest');
   });
+
+  test('on the narrowest common phones the ten tiles make rows of four, four and two, never a lone tile', async ({ page }) => {
+    for (const width of [360, 375, 390, 412]) {
+      await page.setViewportSize({ width, height: 780 });
+      await page.goto(`${WEB_DEV_URL}/games/road-run/`);
+      await expect(page.locator('.k-worldgrid')).toBeVisible();
+      const tops = await page.locator('label.k-world').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+      const rows = [...new Set(tops)].map((t) => tops.filter((x) => x === t).length);
+      expect(rows, `${width} px`).toEqual([4, 4, 2]);
+    }
+  });
 });
 
 test.describe('accessibility', () => {
