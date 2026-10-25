@@ -6,7 +6,7 @@
 //
 // The camera: on every engine a person stands in front of it. Chromium plays a file as its fake camera; Firefox and WebKit get the same
 // pictures through a page-side camera (support/camera.ts), so the app's camera code, the pose model and the games run on them for real.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { checkPage } from '../../packages/web/tools/layout-check.ts';
 import { withHooks, type Hooks } from '../../packages/web/e2e/support/helpers.ts';
 import { cameraState, installPersonCamera } from './support/camera.ts';
@@ -15,6 +15,7 @@ import { DEMO_URL, RELEASE_URL } from './support/ports.ts';
 import { ROOT } from './support/sites.ts';
 
 const FIXTURE = `${ROOT}/tests/e2e/fixtures/standing-640x360.mjpeg`;
+const TWO_FIXTURE = `${ROOT}/tests/e2e/fixtures/two-standing-640x360.mjpeg`;
 const FAST: Hooks = { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true };
 
 test.describe.configure({ timeout: 150_000 });
@@ -23,11 +24,13 @@ test.describe.configure({ timeout: 150_000 });
 async function phase(page: Page): Promise<string> {
   return page.evaluate(() => {
     const q = (s: string): Element | null => document.querySelector(s);
-    const alert = (q('.ba-explain [role=alert]')?.textContent ?? '').trim();
+    const alert = (q('dialog [role=alert], .ba-explain [role=alert]')?.textContent ?? '').trim();
+    if (alert && !q('.cal')) return `error: ${alert}`;
     if (q('#ov-title') && /could not start|ba\u015flat\u0131lamad\u0131/i.test(q('#ov-title')?.textContent ?? '')) return `error: ${alert}`;
     if (q('[data-action="camera-continue"]')) return 'explainer';
     if (q('.cal')) return `calibrating ${document.querySelectorAll('[data-calib-check].is-ok').length}/${document.querySelectorAll('[data-calib-check]').length}`;
     if (q('.ba-countdown')) return 'countdown';
+    if (q('.ba-loading')) return 'loading';
     if (q('[data-hud-root] [data-hud]')) return 'running';
     if (/\/results\//.test(location.pathname)) return 'results';
     return `other ${location.pathname}`;
@@ -45,10 +48,22 @@ async function until(page: Page, want: string, ms: number, seen: string[] = []):
     if (last.startsWith('error')) break;
     await page.waitForTimeout(400);
   }
-  throw new Error(`waited ${(ms / 1000).toFixed(0)} s for "${want}", the page was at "${last}" (phases on the way: ${seen.join(' > ')})`);
+  const text = await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 260)).catch(() => '');
+  throw new Error(`waited ${(ms / 1000).toFixed(0)} s for "${want}", the page was at "${last}" (phases on the way: ${seen.join(' > ')}); the page said: ${text}`);
 }
 
 const problemsOfLayout = (page: Page): Promise<string[]> => checkPage(page);
+
+/** The camera explainer shows until the browser has the camera allowed (the shell asks the permission API); a flow that goes on with the practice session clicks through it. */
+async function passExplainer(page: Page): Promise<void> {
+  const button = page.locator('[data-action="camera-continue"]');
+  try { await button.waitFor({ state: 'visible', timeout: 4000 }); await button.click(); } catch { /* it did not come up: the permission is granted or the browser cannot tell */ }
+}
+
+/** What the page-side camera did, for the report of a camera flow (how often the page asked, how many are open, the error it hit). */
+async function noteCamera(page: Page, info: TestInfo): Promise<void> {
+  try { info.annotations.push({ type: 'camera', description: JSON.stringify(await cameraState(page)) }); } catch { /* the page is gone */ }
+}
 
 /** Does this engine have a camera API at all? (Playwright's WebKit for Windows has none: no MediaStream, no WebRTC, no Web Audio.) */
 const hasCameraApi = (page: Page): Promise<boolean> => page.evaluate(() => typeof navigator.mediaDevices?.getUserMedia === 'function');
@@ -137,6 +152,8 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await expect(page.locator('.ob-stage')).toHaveClass(/is-fallback/);
     const loop = page.locator('video[data-loop]');
     await expect(loop).toBeVisible();
+    const codecs = await page.evaluate(() => ['video/mp4; codecs="avc1.42E01E"', 'video/webm; codecs="vp8"', 'video/webm; codecs="vp9"'].map((t) => document.createElement('video').canPlayType(t)));
+    test.skip(codecs.every((c) => c === ''), 'this engine build has no video codec at all (Playwright\'s WebKit for Windows), so no loop can play here');
     // a video that plays on this engine: it has a picture and its time moves (Safari plays a muted inline video, and only from a server that answers byte ranges)
     await expect.poll(() => loop.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 20_000, message: 'the loop never got a picture (video.readyState)' }).toBeGreaterThanOrEqual(2);
     const t0 = await loop.evaluate((v: HTMLVideoElement) => v.currentTime);
@@ -173,18 +190,17 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
       expect(await playProblems(page), 'the HUD of the round').toEqual([]);
       const scene = await look(page.locator('[data-scene] canvas').first());
       expect(scene.blank, `nothing is drawn in the game scene (${scene.flatColour} over ${(scene.flatShare * 100).toFixed(1)} %)`).toBe(false);
-      const cam = await cameraState(page);
-      if (test.info().project.name.startsWith('chromium')) info.annotations.push({ type: 'camera', description: 'chromium: the engine\'s own fake device' });
-      else expect(cam, 'the page-side camera is open while the round runs').toMatchObject({ live: 1 });
+      expect(await cameraState(page), 'the page-side camera is open while the round runs').toMatchObject({ installed: true, live: 1 });
       const video = await page.evaluate(() => { const v = document.querySelector('video'); return v ? { w: v.videoWidth, h: v.videoHeight, ready: v.readyState } : null; });
       expect(video, 'the self view has a picture').not.toBeNull();
       expect(video?.w ?? 0).toBeGreaterThan(0);
     } finally {
       info.annotations.push({ type: 'phases', description: seen.join(' > ') });
+      await noteCamera(page, info);
     }
     await leaveRound(page);
     await expect(page).toHaveURL(/\/games\/squat-flap\/$/);
-    if (!test.info().project.name.startsWith('chromium')) await expect.poll(() => cameraState(page), { timeout: 10_000, message: 'the camera is still open on the game page' }).toMatchObject({ live: 0 });
+    await expect.poll(async () => (await cameraState(page)).live, { timeout: 10_000, message: 'the camera is still open on the game page' }).toBe(0);
     expect(w.errors).toEqual([]);
   });
 
@@ -201,6 +217,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
       await shot(page, info, 'first-win-camera-page');
       await page.getByRole('button', { name: 'Continue' }).click();
       await page.waitForURL(/\/play\/squat-flap\//, { timeout: 30_000 });
+      await passExplainer(page);
       await until(page, 'calibrating', 60_000, seen);
       await until(page, 'countdown', 90_000, seen);
       await until(page, 'running', 60_000, seen);
@@ -211,6 +228,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
       await shot(page, info, 'first-win-results');
     } finally {
       info.annotations.push({ type: 'phases', description: seen.join(' > ') });
+      await noteCamera(page, info);
     }
     expect(w.errors).toEqual([]);
   });
@@ -237,11 +255,10 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await page.goto(`${DEMO_URL}/play/squat-flap/?input=keyboard`, { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-hud-root] [data-hud]', { timeout: 60_000 });
     await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal') && !document.querySelector('.ba-loading'), undefined, { timeout: 60_000 });
-    const time = page.locator('[data-ref="timer"]').first();
-    const t0 = await time.textContent();
-    for (const k of ['ArrowUp', 'Space', 'ArrowDown', 'Space']) { await page.keyboard.press(k); await page.waitForTimeout(300); }
-    await page.waitForTimeout(1500);
-    expect(await time.textContent(), 'the timer moves').not.toBe(t0);
+    // Squat Flap holds its clock at the full round until the first squat (its warm-up): the keys squat, and the HUD stays whole.
+    for (const k of ['ArrowDown', 'ArrowUp', 'Space', 'ArrowDown', 'ArrowUp']) { await page.keyboard.press(k); await page.waitForTimeout(400); }
+    await page.waitForTimeout(1200);
+    await expect(page.locator('[data-ref="score"]').first()).toBeVisible();
     expect(await playProblems(page), 'the HUD of the round').toEqual([]);
     const scene = await look(page.locator('[data-scene] canvas').first());
     expect(scene.blank, `nothing is drawn in the game scene (${scene.flatColour})`).toBe(false);
@@ -296,6 +313,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await shot(page, info, 'plans');
     await page.locator('[data-action="plan-start"]').first().click();
     await expect(page).toHaveURL(/\/play\/[a-z-]+\/\?.*plan=1/);
+    await passExplainer(page);
     await expect(page).toHaveURL(/\/results\/$/, { timeout: 60_000 });
     await expect(page.locator('[data-plan-panel="next"]')).toBeVisible();
     await settle(page);
@@ -375,7 +393,11 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await settle(page);
     expect(await problemsOfLayout(page), 'layout of the home page of a child').toEqual([]);
     await shot(page, info, 'family-kid-home');
-    await page.locator('.pf-switch').first().click();
+    if (isPhone(page)) {
+      // a phone has the tab bar and no top bar: the way to the players is the row in the settings
+      await page.goto(`${DEMO_URL}/settings/`, { waitUntil: 'networkidle' });
+      await page.locator('a[href*="/profiles/"]').first().click();
+    } else await page.locator('.pf-switch').first().click();
     await page.waitForURL(/\/profiles\//);
     await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
     const gate = page.locator('dialog.pf-gatebox');
@@ -392,6 +414,111 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await expect(gate).toHaveCount(0);
     await page.waitForURL(`${DEMO_URL}/`);
     await expect(page.locator('.pf-switch').first()).toHaveAttribute('aria-label', 'Playing as Me. Switch player');
+    expect(w.errors).toEqual([]);
+  });
+
+  test('two players on one camera (big screens): both stand in view, the calibration finds both, the round has a plate for each', async ({ page, context }, info) => {
+    test.skip(isPhone(page), 'two players on one camera is offered on big screens only (a phone is not offered the choice: see the next test)');
+    test.setTimeout(240_000);
+    const w = watch(page);
+    await installPersonCamera(context, { file: TWO_FIXTURE });
+    const seen: string[] = [];
+    await page.goto(`${DEMO_URL}/games/squat-flap/`, { waitUntil: 'networkidle' });
+    test.skip(!(await hasCameraApi(page)), 'this engine has no camera API');
+    await expect(page.locator('input[name="players"]')).toHaveCount(2);
+    await page.locator('label:has(input[name="players"][value="2"])').click();
+    await shot(page, info, 'two-setup');
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect(page).toHaveURL(/players=2/);
+    try {
+      await until(page, 'explainer', 30_000, seen);
+      await page.locator('[data-action="camera-continue"]').click();
+      await until(page, 'calibrating', 60_000, seen);
+      await shot(page, info, 'two-calibrating');
+      await until(page, 'countdown', 120_000, seen);
+      await until(page, 'running', 60_000, seen);
+      await page.waitForTimeout(2000);
+      await shot(page, info, 'two-round');
+      for (const slot of ['statusP1', 'statusP2', 'timer']) await expect(page.locator(`[data-hud="${slot}"]`)).toBeVisible();
+      expect(await playProblems(page), 'the HUD of the two player round').toEqual([]);
+      const scene = await look(page.locator('[data-scene] canvas').first());
+      expect(scene.blank, `nothing is drawn in the game scene (${scene.flatColour})`).toBe(false);
+    } finally {
+      info.annotations.push({ type: 'phases', description: seen.join(' > ') });
+    }
+    expect(w.errors).toEqual([]);
+  });
+
+  test('two players: a phone is not offered the choice, and an address that asks for two plays one', async ({ page }, info) => {
+    test.skip(!isPhone(page), 'the choice exists on big screens (see the test above)');
+    const w = watch(page);
+    await withHooks(page, { keyboard: true });
+    await page.goto(`${DEMO_URL}/games/squat-flap/`, { waitUntil: 'networkidle' });
+    await expect(page.locator('input[name="players"]')).toHaveCount(0);
+    await page.goto(`${DEMO_URL}/play/squat-flap/?players=2&input=keyboard`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-hud-root] [data-hud]', { timeout: 60_000 });
+    await expect(page.locator('[data-hud="statusP2"]')).toHaveCount(0);
+    await expect(page.locator('[data-hud="statusLeft"]')).toBeVisible();
+    await shot(page, info, 'two-on-phone');
+    expect(w.errors).toEqual([]);
+  });
+
+  test('turkish: the main pages keep the layout rule (longer words) and say they are Turkish', async ({ page }, info) => {
+    const w = watch(page);
+    await withHooks(page, { ...FAST, plan: 'family', players: [{ name: 'Defne', kid: true, avatar: 'fox' }, { name: 'Mert', avatar: 'robot' }] });
+    const pages: [string, string][] = [['home', '/tr/'], ['game', '/tr/games/squat-flap/'], ['plans', '/tr/plans/'], ['pro', '/tr/pro/'], ['settings', '/tr/settings/'], ['players', '/tr/profiles/'], ['friends', '/tr/friends/?social=1'], ['tour', '/tr/welcome/?step=3']];
+    const found: string[] = [];
+    for (const [id, path] of pages) {
+      await page.goto(`${DEMO_URL}${path}`, { waitUntil: 'networkidle' });
+      await page.waitForSelector('main h1, [data-welcome] h1', { timeout: 30_000 });
+      await settle(page);
+      if ((await page.locator('html').getAttribute('lang')) !== 'tr') found.push(`${id}: html lang is not tr`);
+      for (const p of await problemsOfLayout(page)) found.push(`${id}: ${p}`);
+      await shot(page, info, `tr-${id}`);
+    }
+    expect(found, 'layout problems of the Turkish pages').toEqual([]);
+    expect(w.errors).toEqual([]);
+  });
+
+  test('a round can be paused, resumed and left (Escape, the pause button, a hidden tab, the browser Back button)', async ({ page }, info) => {
+    const w = watch(page);
+    await withHooks(page, { keyboard: true });
+    const inRound = async (): Promise<void> => {
+      await page.waitForSelector('[data-hud-root] [data-hud]', { timeout: 60_000 });
+      await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal') && !document.querySelector('.ba-loading'), undefined, { timeout: 60_000 });
+    };
+    await page.goto(`${DEMO_URL}/play/squat-flap/?input=keyboard`, { waitUntil: 'networkidle' });
+    await inRound();
+    const paused = page.getByRole('dialog', { name: 'Paused' });
+    await page.keyboard.press('Escape');
+    await expect(paused).toBeVisible();
+    await shot(page, info, 'pause', { full: false });
+    await expect(paused.getByRole('button', { name: 'Resume' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(paused).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await paused.getByRole('button', { name: 'Leave round' }).click();
+    const confirm = page.getByRole('dialog', { name: 'Leave this round?' });
+    await expect(confirm).toBeVisible();
+    await page.getByRole('button', { name: 'Keep playing' }).click();
+    await expect(confirm).toBeHidden();
+    await expect(paused).toBeVisible();
+    await paused.getByRole('button', { name: 'Resume' }).click();
+    // the pause button of the HUD, then a hidden tab
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
+    await expect(paused).toContainText('You paused the round.');
+    await page.getByRole('button', { name: 'Resume' }).click();
+    await expect(paused).toHaveCount(0);
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect(paused).toContainText('The tab was hidden, so the round paused.');
+    await page.evaluate(() => { delete (document as unknown as { hidden?: boolean }).hidden; document.dispatchEvent(new Event('visibilitychange')); });
+    // the browser's Back button is a way out that asks first
+    await page.goBack();
+    await expect(page.getByRole('dialog', { name: /Leave this round\?|Paused/ }).first()).toBeVisible();
+    await shot(page, info, 'back-asks', { full: false });
     expect(w.errors).toEqual([]);
   });
 

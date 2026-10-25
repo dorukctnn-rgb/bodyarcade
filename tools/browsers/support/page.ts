@@ -44,16 +44,38 @@ export function watch(page: Page, allow: RegExp[] = []): Watch {
   return w;
 }
 
-/** Saves a picture of the page for the report (qa-out/browsers/shots/<project>/<name>.jpg) and notes it on the test. Returns the path relative to the repository. */
+/** Lazy pictures below the first screen load when the page is scrolled past them; a full-page picture taken before that shows grey boxes. */
+export async function loadPictures(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const step = Math.max(300, Math.round(innerHeight * 0.8));
+    for (let y = 0; y < document.documentElement.scrollHeight; y += step) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 50)); }
+    window.scrollTo(0, 0);
+    await Promise.all([...document.images].map((i) => (i.complete && i.naturalWidth > 0 ? null : new Promise<void>((r) => { i.addEventListener('load', () => r(), { once: true }); i.addEventListener('error', () => r(), { once: true }); setTimeout(r, 4000); }))));
+  });
+}
+
+/**
+ * Saves a picture of the page for the report (qa-out/browsers/shots/<project>/<name>.jpg) and notes it on the test. Returns the path relative to the
+ * repository. A full-page picture is taken with the pictures loaded and with the fixed bars (the tab bar, the action bar) laid in the page, as the
+ * shell's own screenshot tool does: a fixed bar in a full-page capture sits over the middle of the page and hides what is under it.
+ */
 export async function shot(page: Page, info: TestInfo, name: string, o: { full?: boolean; locator?: Locator } = {}): Promise<string | null> {
   const dir = join(OUT, 'shots', info.project.name);
   mkdirSync(dir, { recursive: true });
   const file = join(dir, `${name.replace(/[^a-z0-9._-]+/gi, '-')}.jpg`);
+  const full = !o.locator && o.full !== false;
+  let bars: import('@playwright/test').ElementHandle | null = null;
   try {
+    if (full) {
+      await loadPictures(page).catch(() => undefined);
+      bars = await page.addStyleTag({ content: '.k-actionbar, .ba-tabbar { position: static !important; }' }).catch(() => null);
+    }
     if (o.locator) await o.locator.screenshot({ path: file, type: 'jpeg', quality: 72, scale: 'css', timeout: 15_000 });
-    else await page.screenshot({ path: file, type: 'jpeg', quality: 72, scale: 'css', fullPage: o.full !== false, timeout: 20_000 });
+    else await page.screenshot({ path: file, type: 'jpeg', quality: 72, scale: 'css', fullPage: full, timeout: 20_000 });
   } catch {
     try { await page.screenshot({ path: file, type: 'jpeg', quality: 72, scale: 'css', timeout: 20_000 }); } catch { return null; }
+  } finally {
+    await bars?.evaluate((el) => (el as Element).remove()).catch(() => undefined);
   }
   const rel = relative(ROOT, file).replace(/\\/g, '/');
   info.annotations.push({ type: 'shot', description: rel });
@@ -70,9 +92,12 @@ export async function settle(page: Page): Promise<void> {
   await page.waitForTimeout(150);
 }
 
-/** What a canvas (or any element) shows, from a screenshot of it: how many colours, and how flat. A canvas nobody drew on is one colour. */
+/** What a canvas (or any element) shows, from a screenshot of its rectangle: how many colours, and how flat. A canvas nobody drew on is one colour. */
 export async function look(el: Locator): Promise<SceneReport & { blank: boolean }> {
-  const png = await el.screenshot({ type: 'png', scale: 'css', timeout: 15_000 });
+  const box = await el.boundingBox({ timeout: 15_000 });
+  if (!box) throw new Error('the element has no box to look at');
+  const page = el.page();
+  const png = await page.screenshot({ type: 'png', scale: 'css', timeout: 30_000, clip: { x: Math.max(0, box.x), y: Math.max(0, box.y), width: Math.max(1, box.width), height: Math.max(1, box.height) } });
   const img = decodePng(png);
   const rep = analyseScene(img, { x: 0, y: 0, w: img.width, h: img.height }, []);
   return { ...rep, blank: isBlank(rep) };
