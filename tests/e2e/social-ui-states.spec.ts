@@ -90,7 +90,7 @@ const settle = async (page: Page): Promise<void> => {
 };
 
 async function look(s: State, size: { w: number; h: number }, o: { lang?: 'en' | 'tr'; dark?: boolean } = {}): Promise<string[]> {
-  const p = await player(site, s.id, { w: size.w, h: size.h, phone: size.w < 800, ...(o.lang ? { lang: o.lang } : {}), ...(o.dark !== undefined ? { dark: o.dark } : {}), hooks: { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true, ...s.hooks } });
+  const p = await player(site, s.id, { w: size.w, h: size.h, phone: size.w < 800 || size.h < 500, ...(o.lang ? { lang: o.lang } : {}), ...(o.dark !== undefined ? { dark: o.dark } : {}), hooks: { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true, ...s.hooks } });
   const found: string[] = [];
   try {
     const prefix = o.lang === 'tr' ? '/tr' : '';
@@ -131,5 +131,17 @@ test('the main screens in the dark theme on a phone and on a laptop', async () =
   const found: string[] = [];
   const main = STATES.filter((s) => ['friends-ready', 'friends-fresh', 'profile-ready', 'boards-ready', 'lobbies-ready', 'room-host', 'link-member', 'safety', 'sheet-recovery', 'friends-tray'].includes(s.id));
   for (const size of [SIZES[1], SIZES[4]]) for (const s of main) found.push(...(await look(s, size, { dark: true })));
+  expect(found, found.join('\n')).toEqual([]);
+});
+
+/** Phones held sideways: little height, so the bars and every window matter most (the window must scroll and keep its buttons in reach). */
+const SIDEWAYS = [{ w: 844, h: 390 }, { w: 915, h: 412 }] as const;
+
+test('phones held sideways: the main screens and every window keep the layout rule', async () => {
+  test.setTimeout(900_000);
+  const found: string[] = [];
+  const main = ['friends-ready', 'friends-fresh', 'profile-ready', 'boards-ready', 'lobbies-ready', 'room-host', 'link-member', 'safety'];
+  const picked = STATES.filter((s) => s.window === true || main.includes(s.id));
+  for (const size of SIDEWAYS) for (const s of picked) found.push(...(await look(s, size)));
   expect(found, found.join('\n')).toEqual([]);
 });

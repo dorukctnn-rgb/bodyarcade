@@ -188,8 +188,10 @@ test('download my data: one JSON file with the profile, the friends and the list
   expect(Object.keys(data).sort()).toEqual(['blocks', 'exportedAt', 'friends', 'incoming', 'outgoing', 'profile', 'reportsAgainstYou', 'reportsFiled', 'scores', 'sync']);
   expect(data.profile).toMatchObject({ name: 'Ada', band: 'adult' });
   expect(data.friends.map((f) => f.name)).toEqual(['Bo']);
-  // nothing of the device or the server's private numbers is in it
-  expect(Object.keys(data.profile).filter((k) => /pid|recovery|pub|secret|key/i.test(k))).toEqual([]);
+  // nothing of the device or the server's private numbers is in it: no key, no recovery code, no private id, in any part of the file
+  const text = JSON.stringify(data);
+  expect(text).not.toMatch(/"(pid|pub|pubkey|kid|recovery|recoveryCode|secret|key|salt|hash)"\s*:/i);
+  expect(Object.keys(data.profile).sort()).toEqual(expect.arrayContaining(['band', 'code', 'fid', 'link', 'name']));
   await expect(ada.page.locator('[data-form="me-name"]').first()).toBeVisible();
   await expect(ada.page.locator('main')).toContainText('Your data file was saved');
   // the button is there again, and a second download works

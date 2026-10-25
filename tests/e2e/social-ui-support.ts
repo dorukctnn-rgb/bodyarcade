@@ -242,6 +242,15 @@ export async function crowding(page: Page): Promise<string[]> {
       if (c) boxes.push({ el, r: c, kind: 'picture' });
     }
 
+    // a field whose text is under 16px makes iPhone Safari zoom the page into it when it is touched
+    if (window.innerWidth < 800) {
+      for (const el of document.querySelectorAll('input:not([type=hidden]):not([type=radio]):not([type=checkbox]), select, textarea')) {
+        if (!counts(el) || !shown(el)) continue;
+        const size = parseFloat(getComputedStyle(el).fontSize);
+        if (size < 16) problems.push(`${label(el)} has text of ${size}px: iPhone Safari zooms into a field with text under 16px`);
+      }
+    }
+
     const said = new Set<string>();
     for (let i = 0; i < boxes.length; i++) {
       for (let j = i + 1; j < boxes.length; j++) {

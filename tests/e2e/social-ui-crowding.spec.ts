@@ -34,6 +34,11 @@ test('words over words, a picture over a control and a paragraph in a sliver are
 
   const buttons = await found('<button type="button" style="position:absolute;left:10px;top:10px;width:120px;height:44px">One</button><button type="button" style="position:absolute;left:100px;top:20px;width:120px;height:44px">Two</button>');
   expect(buttons.join('\n')).toMatch(/controls overlap/);
+
+  // iPhone Safari zooms the page into a field whose text is under 16px (and does not zoom out again)
+  const small = await found('<input type="text" aria-label="Friend code" style="font-size:14px;width:200px"><select aria-label="Region" style="font-size:12px"><option>Europe</option></select>');
+  expect(small.join('\n')).toMatch(/has text of 14px[\s\S]*has text of 12px/);
+  expect(await found('<input type="text" aria-label="Friend code" style="font-size:17px;width:200px"><input type="radio" style="font-size:10px">')).toEqual([]);
 });
 
 test('an ordinary page is left alone: wrapped lines, a name that ends in dots, a link in a paragraph, bars fixed to the screen, a window over the page', async () => {
