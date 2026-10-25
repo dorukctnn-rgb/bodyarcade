@@ -11,7 +11,7 @@ import type { ShellGame } from '../../catalogue/types.ts';
 import type { ViewContext } from '../context.ts';
 import { overlayHtml, type CalibCheck, type CalibPart, type DeskCard, type GaugePos, type PlayOverlay, type ScreenFraming } from '../views/play.ts';
 import { framingGuide } from '../views/silhouette.ts';
-import type { SetupState } from '../views/setup.ts';
+import { sessionOptionsOf, type SetupState } from '../views/setup.ts';
 import {
   bandsFor, bothSeen, calibMessage, checksFor, deskCard, DeskOffer, extrasOf, gaugeFor, guideMessage, keepsChecks, needsHeadroom, screenFraming, STUCK_MS,
 } from './calib.ts';
@@ -239,9 +239,7 @@ export class PlayController {
     this.launching = true;
     this.show({ kind: 'loading' });
     try {
-      await s.start(this.game.id, {
-        mode: this.o.race ? 'duel' : this.setup.players === 2 ? 'local2' : 'solo', difficulty: this.setup.difficulty, input: this.setup.input, seated: this.setup.seated,
-      });
+      await s.start(this.game.id, sessionOptionsOf(this.setup, this.o.race ? 'duel' : this.setup.players === 2 ? 'local2' : 'solo'));
     } catch (e) {
       const code = (e as { code?: string }).code ?? 'unknown';
       this.onError(code, e instanceof Error ? e.message : String(e));

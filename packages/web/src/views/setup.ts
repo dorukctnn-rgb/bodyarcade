@@ -2,12 +2,14 @@
 // sit on the game's page (design/ui-kit/game.html) inside a form that goes to the play address, so a round starts the
 // same way with or without scripts. The rules of what is possible live here as pure functions, so the page, the play
 // address and the tests agree.
+import type { SessionOptions } from '../../../core/types/index.ts';
 import { html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import { supportsLocal2 } from '../../catalogue/filter.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import { accessOf, hasPro, titleOf, type ViewContext } from '../context.ts';
 import { segmented, switchRow } from './forms.ts';
+import { defaultWorld, sanitizeWorld, worldLocked, worldPicker } from './worlds.ts';
 
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'normal', 'hard', 'expert'];
@@ -20,6 +22,8 @@ export interface SetupState {
   difficulty: Difficulty;
   seated: boolean;
   quiet: boolean;
+  /** The world of a game that has worlds (Road Run): a theme id the player may play. Left out for a game without worlds. */
+  world?: string;
 }
 
 export const twoPlayersOffered = (ctx: ViewContext): boolean => ctx.caps.local2;
@@ -46,8 +50,26 @@ export function sanitizeSetup(ctx: ViewContext, g: ShellGame, s: SetupState): Se
   // then says it needs the camera and helps with the permission). Anything else the game decides later.
   const input = players === 2 || !noCameraPossible(ctx, g) ? 'camera' : s.input === 'camera' && !camera ? 'keyboard' : s.input;
   const difficulty = PRO_DIFFICULTIES.includes(s.difficulty) && !hasPro(ctx) ? 'normal' : DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'normal';
-  return { players, input, difficulty, seated: s.seated && g.seated, quiet: s.quiet && g.silentSafe };
+  const world = sanitizeWorld(ctx, g, s.world);
+  return { players, input, difficulty, seated: s.seated && g.seated, quiet: s.quiet && g.silentSafe, ...(world !== undefined ? { world } : {}) };
 }
+
+/**
+ * A choice that is part of Pro, asked for by a player who does not have it: a Pro difficulty or a Pro world. The page opens the
+ * offer for it instead of taking it (a state that was read from an address is simply made playable by sanitizeSetup).
+ */
+export function lockedChoice(ctx: ViewContext, g: ShellGame, wanted: SetupState): 'difficulty' | 'world' | null {
+  if (PRO_DIFFICULTIES.includes(wanted.difficulty) && !hasPro(ctx)) return 'difficulty';
+  if (worldLocked(ctx, g, wanted.world)) return 'world';
+  return null;
+}
+
+/** What a round is started with: the setup's own parts, and the world when the game has one. */
+export function sessionOptionsOf(s: SetupState, mode: SessionOptions['mode']): SessionOptions {
+  return { mode, difficulty: s.difficulty, input: s.input, seated: s.seated, ...(s.world ? { world: s.world } : {}) };
+}
+
+const worldOf = (w: string | undefined): { world?: string } => (w !== undefined ? { world: w } : {});
 
 export function defaultSetup(ctx: ViewContext, g: ShellGame): SetupState {
   return sanitizeSetup(ctx, g, {
@@ -57,6 +79,7 @@ export function defaultSetup(ctx: ViewContext, g: ShellGame): SetupState {
     difficulty: 'normal',
     seated: ctx.settings.seated,
     quiet: ctx.settings.quiet,
+    ...worldOf(defaultWorld(ctx, g)),
   });
 }
 
@@ -64,7 +87,7 @@ export function defaultSetup(ctx: ViewContext, g: ShellGame): SetupState {
 export function playHref(ctx: ViewContext, g: ShellGame, s: SetupState, extra: Record<string, string | number> = {}): string {
   return ctx.href('play', {
     params: { slug: g.seo.slug },
-    query: { players: s.players, input: s.input, difficulty: s.difficulty, seated: s.seated ? 1 : 0, quiet: s.quiet ? 1 : 0, ...extra },
+    query: { players: s.players, input: s.input, difficulty: s.difficulty, seated: s.seated ? 1 : 0, quiet: s.quiet ? 1 : 0, ...(s.world ? { world: s.world } : {}), ...extra },
   });
 }
 
@@ -78,6 +101,7 @@ export function setupFromQuery(ctx: ViewContext, g: ShellGame, q: URLSearchParam
     difficulty: (DIFFICULTIES as readonly string[]).includes(diff ?? '') ? (diff as Difficulty) : base.difficulty,
     seated: q.has('seated') ? q.get('seated') === '1' : base.seated,
     quiet: q.has('quiet') ? q.get('quiet') === '1' : base.quiet,
+    ...worldOf(q.get('world') ?? base.world),
   };
   return sanitizeSetup(ctx, g, read);
 }
@@ -95,6 +119,7 @@ export function setupFromForm(ctx: ViewContext, g: ShellGame, f: FormData, previ
     // A checked box sends 1 before the hidden 0 that follows it; an unchecked one sends only the 0.
     seated: pick('seated', previous.seated ? '1' : '0') === '1',
     quiet: pick('quiet', previous.quiet ? '1' : '0') === '1',
+    ...worldOf(pick('world', previous.world ?? '') || undefined),
   };
 }
 
@@ -149,5 +174,5 @@ export function setupFields(ctx: ViewContext, g: ShellGame, s: SetupState): Safe
     </div>
   </details>`;
 
-  return html`${players}${difficulty}${more}`;
+  return html`${worldPicker(ctx, g, s.world)}${players}${difficulty}${more}`;
 }

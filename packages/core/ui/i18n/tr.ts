@@ -196,6 +196,8 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'setup.difficulty.hard': 'Zor',
   'setup.difficulty.expert': 'Uzman',
   'setup.difficulty.hint': 'Normal seviyen için uygundur. Zor ve Uzman Pro içindir.',
+  'setup.world': 'Dünya',
+  'setup.world.hint': '{total} dünyadan {free} tanesi ücretsiz. Diğerleri Pro içindir.',
   'setup.more': 'Daha fazla oynama şekli',
   'setup.variants': 'Oynama biçimleri',
   'setup.seated': 'Oturarak sürümü',

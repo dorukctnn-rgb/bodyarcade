@@ -45,6 +45,8 @@ export interface Settings {
   paywallShownAt: number | null;
   /** Pro games already played once for free, by game id. */
   playedOnce: string[];
+  /** The world last chosen in each game that has worlds (Road Run), by game id: the next round on this device starts there. */
+  worlds: Record<string, string>;
 }
 
 export const REGION_IDS: readonly BodyRegion[] = ['legs', 'arms', 'chest-back', 'core', 'cardio', 'mobility', 'seated'];
@@ -69,8 +71,11 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   onboardingDone: false,
   paywallShownAt: null,
   playedOnce: [],
+  worlds: {},
 };
 
+/** A game id or a world id: lower-case letters, digits and hyphens (what the manifests and themes allow). */
+const ID_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const oneOf = <T extends string>(v: unknown, list: readonly T[], fallback: T): T =>
   (typeof v === 'string' && (list as readonly string[]).includes(v) ? (v as T) : fallback);
 const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
@@ -87,6 +92,13 @@ export function sanitizeSettings(raw: unknown): Settings {
   const played = Array.isArray(playedRaw)
     ? (playedRaw as unknown[]).filter((x): x is string => typeof x === 'string' && x.length <= 64).slice(0, 200)
     : [];
+  const worldsRaw = o['worlds'];
+  const worlds: Record<string, string> = {};
+  if (typeof worldsRaw === 'object' && worldsRaw !== null && !Array.isArray(worldsRaw)) {
+    for (const [game, world] of Object.entries(worldsRaw as Record<string, unknown>).slice(0, 50)) {
+      if (ID_RE.test(game) && typeof world === 'string' && ID_RE.test(world)) worlds[game] = world;
+    }
+  }
   const sa = o['paywallShownAt'];
   const shownAt = typeof sa === 'number' && Number.isFinite(sa) ? sa : null;
   const lang = o['lang'];
@@ -109,6 +121,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     onboardingDone: bool(o['onboardingDone'], d.onboardingDone),
     paywallShownAt: shownAt,
     playedOnce: [...new Set(played)],
+    worlds,
   };
 }
 

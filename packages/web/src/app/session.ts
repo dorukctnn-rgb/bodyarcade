@@ -84,6 +84,15 @@ export interface RealSessionDeps {
   makeScene?: (canvas: HTMLCanvasElement, size: () => { width: number; height: number }, level: 0 | 1 | 2, mobile: boolean, reducedMotion: boolean) => Scene3DKit;
 }
 
+/** The canvas says which world the scene is built for (data-world="storm"): what a test, a tool or a screenshot reads to know where a round is played. */
+function markWorld(kit: Scene3DKit, canvas: HTMLCanvasElement): void {
+  const setTheme = kit.setTheme.bind(kit);
+  kit.setTheme = (t) => {
+    setTheme(t);
+    canvas.dataset['world'] = t.id;
+  };
+}
+
 let sharedAudio: AudioKit | null = null;
 
 /** One sound kit per page: the browser allows only so many audio contexts, and the first player gesture unlocks it. */
@@ -143,6 +152,7 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
             kit3 = deps.makeScene
               ? deps.makeScene(canvas, size, level, mobile, deps.reducedMotion())
               : createScene3D({ canvas, mode: 'auto', level, mobile, reducedMotion: deps.reducedMotion(), size });
+            markWorld(kit3, canvas);
             return { ...base, scene3d: kit3 };
           }
           const seed = (o.seed ?? Math.floor(Math.random() * 0x1_0000_0000)) >>> 0;

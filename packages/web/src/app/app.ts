@@ -34,7 +34,8 @@ import { defaultPaywallState, selectedOffer, type KeyStatus, type PaywallState }
 import { NO_HOME_DATA } from '../views/home.ts';
 import { NO_PLANS_DATA, stepHref, type PlanPanel } from '../views/plans.ts';
 import type { RoundProgress, RoundResult } from '../views/results.ts';
-import { PRO_DIFFICULTIES, defaultSetup, playHref, sanitizeSetup, setupFields, setupFromForm, setupFromQuery, type SetupState } from '../views/setup.ts';
+import { defaultSetup, lockedChoice, playHref, sanitizeSetup, setupFields, setupFromForm, setupFromQuery, type SetupState } from '../views/setup.ts';
+import { worldAllowed } from '../views/worlds.ts';
 import { applyHead, readAssetMap, swap } from './dom.ts';
 import { localEntitlements } from './entitlements.ts';
 import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
@@ -654,8 +655,21 @@ export class App {
   }
 
   private setupFor(g: ShellGame, ctx: ViewContext): SetupState {
-    const s = this.setups.get(g.id) ?? defaultSetup(ctx, g);
+    let s = this.setups.get(g.id);
+    if (!s) {
+      // A link to a game's page may name a world (`?world=storm`, the old shared links too): it starts there when the player may play it.
+      s = defaultSetup(ctx, g);
+      const asked = this.route?.id === 'game' ? this.route.query.get('world') : null;
+      if (asked) s = { ...s, world: asked };
+    }
     return sanitizeSetup(ctx, g, s);
+  }
+
+  /** Keeps the world of a round for the next one on this device. A world this player may not play is never kept. */
+  private rememberWorld(g: ShellGame, world: string | undefined): void {
+    if (world === undefined || this.currentSettings().worlds[g.id] === world) return;
+    if (!(this.entitlements.can?.(`world:${world}`) ?? worldAllowed(this.ctx(), world))) return;
+    this.settings.set({ worlds: { ...this.currentSettings().worlds, [g.id]: world } });
   }
 
   private render(): void {
@@ -773,6 +787,7 @@ export class App {
     const racing = room !== null || (spec !== null && canRace(g));
     const asked = setupFromQuery(ctx, g, route.query);
     const setup: SetupState = racing ? { ...asked, players: 1, input: 'camera' } : asked;
+    this.rememberWorld(g, setup.world);
     this.planRound = route.query.get('plan') === '1' && this.arcade.plans.active()?.current?.game === g.id;
     this.firstRound = route.query.get('first') === '1' && g.id === FIRST_GAME_ID;
     // A Pro game without Pro and without a free round left goes to the offer, not to a round that cannot count. In a room the Room
@@ -1435,9 +1450,10 @@ export class App {
     const ctx = this.ctx();
     const prev = this.setupFor(g, ctx);
     const wanted = setupFromForm(ctx, g, new FormData(form), prev);
-    const locked = PRO_DIFFICULTIES.includes(wanted.difficulty) && !hasPro(ctx);
+    const locked = lockedChoice(ctx, g, wanted) !== null;
     const next = locked ? prev : sanitizeSetup(ctx, g, wanted);
     this.setups.set(g.id, next);
+    this.rememberWorld(g, next.world);
     const fields = form.querySelector<HTMLElement>('[data-setup-fields]');
     if (fields) {
       const open = fields.querySelector<HTMLDetailsElement>('details.k-more')?.open ?? false;
@@ -1453,6 +1469,7 @@ export class App {
     const ctx = this.ctx();
     const next = sanitizeSetup(ctx, g, setupFromForm(ctx, g, new FormData(form), this.setupFor(g, ctx)));
     this.setups.set(g.id, next);
+    this.rememberWorld(g, next.world);
     this.o.onPlayGesture?.();
     this.nav.go(playHref(ctx, g, next));
   }

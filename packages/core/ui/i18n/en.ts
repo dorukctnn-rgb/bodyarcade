@@ -196,6 +196,8 @@ export const en = {
   'setup.difficulty.hard': 'Hard',
   'setup.difficulty.expert': 'Expert',
   'setup.difficulty.hint': 'Normal fits your level. Hard and Expert are part of Pro.',
+  'setup.world': 'World',
+  'setup.world.hint': '{free} of {total} worlds are free. The others are part of Pro.',
   'setup.more': 'More ways to play',
   'setup.variants': 'Ways to play',
   'setup.seated': 'Seated version',
