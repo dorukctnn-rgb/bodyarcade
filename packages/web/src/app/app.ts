@@ -343,7 +343,8 @@ export class App {
   /**
    * What this device offers. A test can say a keyboard is there (a phone-sized window in a test browser has none worth using), and in
    * development and test builds so does an address that asks for the keyboard (`?input=keyboard`): a tool that opens a round at a phone's
-   * size reaches the round and its results without a keyboard to press. A published build ignores both: a phone is asked for its camera.
+   * size reaches the round and its results without a keyboard to press. A published build ignores both: a phone has its touch screen
+   * (swipes, for the games that have them) and no keys.
    */
   private detectCaps(): UiCapabilities {
     const hooks = this.o.demo ? this.win.__BA_TEST__ : undefined;

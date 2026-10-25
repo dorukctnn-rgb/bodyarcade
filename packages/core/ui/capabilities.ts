@@ -33,8 +33,8 @@ export interface UiCapabilities {
   /** A TV platform: the shell turns big text on by default. */
   tv: boolean;
   /**
-   * Keyboard play is offered as a way around the camera (laptops, desktops, TVs with arrow keys). A phone or a tablet has
-   * no keys worth using: a camera game there says it needs the camera and helps with the permission instead.
+   * There are keys to play with (laptops, desktops, TVs with arrow keys). A phone or a tablet has none worth using; its touch
+   * screen is the other way around the camera (`touch`): swipes and taps, for the games that have them (views/setup.ts, noCameraPossible).
    */
   keyboard: boolean;
   /** Offer "2 players, same camera". Both the device rule and the split-HUD width rule must pass. */
