@@ -401,6 +401,60 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     expect(w.errors).toEqual([]);
   });
 
+  test('results: the highlight clip is a real video that plays (what this engine\'s recorder made)', async ({ page }, info) => {
+    const w = watch(page);
+    // a round long enough to keep a clip (the recorder needs three seconds of play; the hooks run the clock forty times faster)
+    await withHooks(page, { timeScale: 40, roundSeconds: 200, forceDemo: true, keyboard: true });
+    await page.goto(`${DEMO_URL}/play/knee-sprint/?input=keyboard`, { waitUntil: 'networkidle' });
+    const recorder = await page.evaluate(() => typeof (window as unknown as { MediaRecorder?: unknown }).MediaRecorder === 'function');
+    test.skip(!recorder, 'this engine has no MediaRecorder (Playwright\'s WebKit for Windows): the results carry no clip here, which the app handles by leaving the card out');
+    await expect(page).toHaveURL(/\/results\/$/, { timeout: 90_000 });
+    await settle(page);
+    const card = page.locator('[data-clip]');
+    if ((await card.count()) === 0) {
+      // the recorder is there but made nothing (an encoder that failed): the app says nothing and the round is not hurt; the table notes it
+      info.annotations.push({ type: 'clip', description: 'the engine has a recorder and the results carry no clip card' });
+      expect(w.errors).toEqual([]);
+      return;
+    }
+    const video = card.locator('video');
+    const read = (): Promise<{ error: number | null; ready: number; w: number; h: number; duration: number; src: string }> =>
+      video.evaluate((v: HTMLVideoElement) => ({ error: v.error?.code ?? null, ready: v.readyState, w: v.videoWidth, h: v.videoHeight, duration: v.duration, src: v.currentSrc.slice(0, 5) }));
+    await expect.poll(async () => { const s = await read(); return s.error !== null || s.ready >= 1; }, { timeout: 15_000, message: 'the clip got no metadata and no error either' }).toBe(true);
+    let state = await read();
+    info.annotations.push({ type: 'clip', description: JSON.stringify(state) });
+    await shot(page, info, 'results-clip', { locator: card });
+    expect(state.error, 'the clip of this engine\'s own recorder cannot be played by the same engine').toBeNull();
+    expect(state.w, 'the clip has a picture size').toBeGreaterThan(0);
+    // 300 by 150 is the size of a canvas nobody has sized yet: a clip that small, shared to a phone's feed, is a blur (the stage canvas was read before its kit gave it its size)
+    expect(`${state.w}x${state.h}`, 'the clip has the size of the game view, not the default size of a canvas').not.toBe('300x150');
+    expect(Math.max(state.w, state.h), 'the long edge of the clip, in pixels').toBeGreaterThanOrEqual(480);
+    // what is in the picture: a frame half a second in, shrunk, and how much of it is black (the game view is a sky, a track, a ball; a clip of nothing but
+    // the score plates over black is a recorder that took a canvas with no picture in it)
+    const blackShare = await video.evaluate(async (v: HTMLVideoElement) => {
+      v.pause();
+      v.currentTime = Math.min(0.5, (Number.isFinite(v.duration) ? v.duration : 1) / 2);
+      await new Promise<void>((res) => { v.addEventListener('seeked', () => res(), { once: true }); window.setTimeout(res, 3000); });
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 36;
+      const g = c.getContext('2d') as CanvasRenderingContext2D;
+      g.drawImage(v, 0, 0, 64, 36);
+      const d = g.getImageData(0, 0, 64, 36).data;
+      let black = 0;
+      for (let i = 0; i < d.length; i += 4) if (Math.max(d[i] as number, d[i + 1] as number, d[i + 2] as number) < 24) black++;
+      return black / (64 * 36);
+    });
+    info.annotations.push({ type: 'clip-black-share', description: blackShare.toFixed(2) });
+    expect(blackShare, 'the clip shows the game view, not black with the score plates over it').toBeLessThan(0.85);
+    // it plays: muted and inline, the time moves (the player taps play)
+    await video.evaluate((v: HTMLVideoElement) => { v.muted = true; return v.play().catch(() => undefined); });
+    await expect.poll(async () => (await video.evaluate((v: HTMLVideoElement) => v.currentTime)), { timeout: 10_000, message: 'the clip does not move when played' }).toBeGreaterThan(0.05);
+    state = await read();
+    expect(state.error, 'the clip failed while playing').toBeNull();
+    expect(w.errors).toEqual([]);
+  });
+
   test('plans: the page of plans and the free desk break from its first game on', async ({ page }, info) => {
     const w = watch(page);
     await withHooks(page, { timeScale: 40, roundSeconds: 120, forceDemo: true, keyboard: true });
