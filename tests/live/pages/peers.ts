@@ -10,6 +10,12 @@ const logEl = document.getElementById('log') as HTMLElement;
 const t0 = performance.now();
 const stamp = (): string => ((performance.now() - t0) / 1000).toFixed(2);
 
+// `?turn=<ip>:<port>` sends everything through that TURN server (relay only), the way two friends behind strict networks connect. The suite uses
+// it for an engine that hides its host addresses behind made-up names (WebKit's mDNS names, which a CI machine may not resolve: with host
+// addresses only no channel ever opens there) and for a row that proves the relay path of this page on any machine.
+const RELAY_AT = new URLSearchParams(location.search).get('turn');
+const ICE: RTCConfiguration = RELAY_AT ? { iceServers: [{ urls: `turn:${RELAY_AT}?transport=udp`, username: 'ba', credential: 'ba-secret' }] } : { iceServers: [] };
+
 interface Side {
   name: string;
   host: PeerHost;
@@ -27,7 +33,7 @@ function makeSide(name: string, me: SeatId, sess: string, stream: MediaStream | 
   const s: Side = {
     name, link: null, states: [], ctrl: [], tracks: [], frames: 0, unmutedAtMs: null, signals: 0,
     host: {
-      me, sess, iceConfig: { iceServers: [] }, forceRelay: false, noP2P: false, stream, videoLimits: DEFAULT_VIDEO_LIMITS, metrics,
+      me, sess, iceConfig: ICE, forceRelay: !!RELAY_AT, noP2P: false, stream, videoLimits: DEFAULT_VIDEO_LIMITS, metrics,
       now: () => performance.now(),
       log: (m) => { const line = `${stamp()} ${name} ${m}`; log.push(line); logEl.textContent += line + '\n'; },
       sendSignal: (_to, d) => { s.signals++; deliver(other(), d); },
@@ -64,6 +70,8 @@ export interface PeersReport {
   /** The engine has RTCPeerConnection, and a canvas that can be captured as a camera (without it the smoke runs on the data channels alone). */
   webrtc: boolean;
   canCapture: boolean;
+  /** Every link went through the TURN relay given in the page's address (`?turn=`). */
+  relay: boolean;
   log: string[];
   dcOpenMs: [number | null, number | null];
   aToB: boolean;
@@ -81,7 +89,7 @@ export interface PeersReport {
 async function run(): Promise<PeersReport> {
   const log: string[] = [];
   const rep: PeersReport = {
-    engine: navigator.userAgent, webrtc: typeof RTCPeerConnection !== 'undefined', canCapture: false, log, dcOpenMs: [null, null], aToB: false, bToA: false, ctrlAB: false, tracks: { a: [], b: [] }, videoFrames: { a: 0, b: 0 },
+    engine: navigator.userAgent, webrtc: typeof RTCPeerConnection !== 'undefined', canCapture: false, relay: !!RELAY_AT, log, dcOpenMs: [null, null], aToB: false, bToA: false, ctrlAB: false, tracks: { a: [], b: [] }, videoFrames: { a: 0, b: 0 },
     unmutedMs: { a: null, b: null }, path: { a: null, b: null }, afterRestart: { dcOpen: false, roundTrip: false, ms: null }, signals: { a: 0, b: 0 }, error: null,
   };
   try {
@@ -91,9 +99,10 @@ async function run(): Promise<PeersReport> {
     let n = 0;
     setInterval(() => { n++; g.fillStyle = `hsl(${(n * 7) % 360} 70% 50%)`; g.fillRect(0, 0, 320, 240); g.fillStyle = '#fff'; g.fillRect((n * 5) % 300, 100, 20, 40); }, 60);
     rep.canCapture = typeof canvas.captureStream === 'function';
-    const captured = rep.canCapture ? canvas.captureStream(15) : null;
-    const streamA = captured;
-    const streamB = captured ? captured.clone() : null;
+    // one capture of the canvas per side, as two cameras would be: WebKit paints no frames from the clone of a capture track (the friend's
+    // picture stayed black on one side), and a real page never clones a camera stream
+    const streamA = rep.canCapture ? canvas.captureStream(15) : null;
+    const streamB = rep.canCapture ? canvas.captureStream(15) : null;
     // A (seat s1, impolite) shapes the first offer; B (s2, polite) answers
     const a: Side = makeSide('A', 's1', 'sess-a', streamA, log, (to, d) => { setTimeout(() => { void to.link?.onSignal(d); }, 3); }, () => b);
     const b: Side = makeSide('B', 's2', 'sess-b', streamB, log, (to, d) => { setTimeout(() => { void to.link?.onSignal(d); }, 3); }, () => a);
