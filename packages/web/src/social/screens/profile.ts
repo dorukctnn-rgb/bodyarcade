@@ -6,7 +6,7 @@ import { icon } from '../../../../core/ui/icons.ts';
 import { levelBand } from '../../../../core/social/levels.ts';
 import { LEVEL_BANDS, REGIONS, type MyProfile } from '../../../../core/social/types.ts';
 import type { ViewContext } from '../../context.ts';
-import { chrome } from '../../views/chrome.ts';
+import { chrome, sitePageHref } from '../../views/chrome.ts';
 import { segmented, switchRow } from '../../views/forms.ts';
 import { pageHead } from '../../views/parts.ts';
 import type { SocialState } from '../port.ts';
@@ -126,6 +126,7 @@ function dataCard(ctx: ViewContext, v: ProfileView): SafeHtml {
     <h2 class="k-h3" id="me-data">${u('me.dataTitle')}</h2>
     <p class="ba-small k-flat">${u('me.dataDownloadHint')}</p>
     <div class="k-rowbtns k-rowbtns--wrap k-mt"><button class="ba-btn ba-btn--secondary" type="button" data-action="me.download"${attr('disabled', busy)}>${icon('download')}${u('me.dataDownload')}</button><button class="ba-btn ba-btn--danger" type="button" data-action="me.delete"${attr('disabled', busy)}>${icon('trash')}${u('me.dataDelete')}</button></div>
+    <p class="ba-small k-flat k-mt"><a class="ba-link" href="${sitePageHref(ctx.lang, 'delete')}" data-native>${u('me.dataDeleteLink')}</a></p>
     ${noteLine(v, 'data')}
   </section>`;
 }

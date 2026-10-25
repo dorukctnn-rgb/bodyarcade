@@ -158,6 +158,8 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(html).toContain('https://bodyarcade.com/f/BA-7K2Q4X');
     expect(html).toMatch(/<svg[^>]+role="img"[^>]+shape-rendering="crispEdges"/);
     for (const action of ['me.renewCode', 'me.renewRecovery', 'me.download', 'me.delete', 'me.ageDown', 'me.ageChild']) expect(html, action).toContain(`data-action="${action}"`);
+    // the data buttons lead to the page that says what is erased and what stays, in the page's language
+    expect(html).toContain(`href="${lang === 'tr' ? '/tr' : ''}/delete-account" data-native>`);
     expect(html).toContain('name="dnd"');
     expect(html).toContain('name="region"');
     expect(html).toContain('name="level"');

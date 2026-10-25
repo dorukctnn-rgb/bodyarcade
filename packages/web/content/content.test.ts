@@ -688,7 +688,9 @@ describe.runIf(process.env['BA_RELEASE'] === '1')('release gate: the pages promi
     // The shell has to pass a world to the game for a player who may use it (StartOptions.world, can('world:<id>')). Today the runner picks a
     // free world by itself and no screen offers a choice, so the seven worlds of Pro cannot be played: build the choice, or take the promise out.
     const files = ['packages/web/src/views/game.ts', 'packages/web/src/app/play.ts', 'packages/web/src/app/session.ts', 'packages/web/src/app/app.ts'];
-    expect(files.map(read).join('\n'), 'no screen of the shell lets a player choose a world').toMatch(/['"`]world:|name="world"/);
+    // a boolean, so a failing run prints one line and not the files that were searched
+    const offersWorlds = /['"`]world:|name="world"/.test(files.map(read).join('\n'));
+    expect(offersWorlds, `no screen of the shell lets a player choose a world (searched ${files.join(', ')} for can('world:...') or a world input)`).toBe(true);
   });
 
   it('the profile screen has the two buttons the privacy policy names', () => {
