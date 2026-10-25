@@ -30,7 +30,8 @@
 .k-addrow .k-nameinput { text-transform: none; letter-spacing: 0; font-weight: 600; }
 .k-codebox { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; }
 .k-codebox .ba-qr { width: 112px; height: 112px; padding: 8px; }
-@media (max-width: 479px) { .k-codebox { grid-template-columns: minmax(0, 1fr); } .k-codebox .ba-qr { justify-self: start; } }
+/* The QR code goes under the buttons where the card is narrow: a phone, and the half-page column of a phone held sideways or a small tablet. */
+@media (max-width: 479px), (min-width: 900px) and (max-width: 1099px) { .k-codebox { grid-template-columns: minmax(0, 1fr); } .k-codebox .ba-qr { justify-self: start; } }
 .k-linkline { margin: 0; font-size: var(--ba-text-sm); color: var(--ba-text-muted); overflow-wrap: anywhere; }
 .k-rowbtns--wrap { flex-wrap: wrap; }
 .k-canlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -151,7 +152,7 @@
 
 /* ---------- what the first screenshots showed (phones) ---------- */
 /* The profile card: the hint beside the QR code and the share button under both (the button is wider than the column beside the code). */
-@media (max-width: 519px) {
+@media (max-width: 519px), (min-width: 900px) and (max-width: 1099px) {
   .k-share { grid-template-columns: minmax(0, 1fr) auto; row-gap: 12px; }
   .k-share > .k-stack { display: contents; }
   .k-share > .k-stack > p { grid-column: 1; grid-row: 1; align-self: center; }

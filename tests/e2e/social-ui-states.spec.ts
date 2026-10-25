@@ -139,7 +139,7 @@ test('the main screens in the dark theme on a phone and on a laptop', async () =
 });
 
 /** Phones held sideways: little height, so the bars and every window matter most (the window must scroll and keep its buttons in reach). */
-const SIDEWAYS = [{ w: 844, h: 390 }, { w: 915, h: 412 }] as const;
+const SIDEWAYS = [{ w: 844, h: 390 }, { w: 915, h: 412 }, { w: 1024, h: 768 }] as const; // the last: a tablet held sideways (the page's two columns are still narrow)
 
 test('phones held sideways: the main screens and every window keep the layout rule', async () => {
   test.setTimeout(900_000);
@@ -147,5 +147,13 @@ test('phones held sideways: the main screens and every window keep the layout ru
   const main = ['friends-ready', 'friends-fresh', 'profile-ready', 'boards-ready', 'lobbies-ready', 'room-host', 'link-member', 'safety'];
   const picked = STATES.filter((s) => s.window === true || main.includes(s.id));
   for (const size of SIDEWAYS) for (const s of picked) found.push(...(await look(s, size)));
+  expect(found, found.join('\n')).toEqual([]);
+});
+
+test('phones held sideways in Turkish: the main screens keep the layout rule (the half-page columns are narrow and the words long)', async () => {
+  test.setTimeout(900_000);
+  const found: string[] = [];
+  const main = ['friends-ready', 'friends-fresh', 'friends-toast', 'profile-ready', 'boards-ready', 'lobbies-ready', 'room-host', 'link-member', 'safety'];
+  for (const size of SIDEWAYS) for (const s of STATES.filter((x) => main.includes(x.id))) found.push(...(await look(s, size, { lang: 'tr' })));
   expect(found, found.join('\n')).toEqual([]);
 });
