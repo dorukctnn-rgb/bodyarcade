@@ -73,7 +73,7 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
   beNice();
   build(args.includes('--rebuild'));
   if (!args.includes('--build')) {
-    const servers = [await startSite(DEMO_DIR, DEMO_PORT, 'spa'), await startSite(RELEASE_DIR, RELEASE_PORT, '404', join(RELEASE_DIR, '_headers'))];
+    const servers = [await startSite(DEMO_DIR, DEMO_PORT, 'spa'), await startSite(RELEASE_DIR, RELEASE_PORT, '404', join(RELEASE_DIR, '_headers'), true)];
     console.log(`[sites] demo http://127.0.0.1:${DEMO_PORT}  release http://127.0.0.1:${RELEASE_PORT}  (ready)`);
     const stop = (): void => { for (const s of servers) { s.closeAllConnections(); s.close(); } process.exit(0); };
     process.on('SIGINT', stop);
