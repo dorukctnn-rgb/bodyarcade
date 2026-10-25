@@ -5,7 +5,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { scan } from '../../packages/web/e2e/support/axe.ts';
-import { BASE, OUT } from './support.ts';
+import { BASE, OUT, legalPages } from './support.ts';
 
 const PAGES: [string, string][] = [
   ['home', '/'], ['home-tr', '/tr/'], ['region', '/workouts/legs/'], ['game', '/games/road-run/'], ['game-tr', '/tr/games/squat-flap/'],
@@ -13,6 +13,7 @@ const PAGES: [string, string][] = [
   ['privacy', '/privacy'], ['terms', '/terms'], ['guide', '/webcam-fitness-games'], ['ringfit', '/ring-fit-adventure-alternative'], ['blog', '/blog/'],
   ['post', '/blog/why-browser-fitness-games-are-the-future'],
 ];
+PAGES.push(...legalPages());
 const SIZES = [{ id: 'phone-390', width: 390, height: 844 }, { id: 'laptop-1280', width: 1280, height: 800 }];
 
 for (const size of SIZES) {

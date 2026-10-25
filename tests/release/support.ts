@@ -66,6 +66,21 @@ export function sitemapUrls(): string[] {
   return [...readFileSync(f, 'utf8').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1] as string).pathname);
 }
 
+/**
+ * The content pages of the legal group that the page lists of the layout and axe checks do not name one by one: the FAQ, the Turkish privacy,
+ * terms and FAQ, and the public delete-account page (EN and TR). Only the ones the build has in its sitemap are checked, so a build from before
+ * a page existed is not failed for its absence (urls.spec judges every sitemap page on its own).
+ */
+export const LEGAL_EXTRA: [string, string][] = [
+  ['faq', '/faq'], ['privacy-tr', '/tr/privacy'], ['terms-tr', '/tr/terms'], ['faq-tr', '/tr/faq'], ['delete-account', '/delete-account'], ['delete-account-tr', '/tr/delete-account'],
+];
+export function legalPages(known: Iterable<string> | null = existsSync(join(ROOT, 'dist', 'sitemap.xml')) ? sitemapUrls() : null): [string, string][] {
+  // no local build to ask (a run against a deployed address from a machine that did not build it): the pages every build since the content pages have
+  if (!known) return LEGAL_EXTRA.filter(([name]) => !name.startsWith('delete-account'));
+  const set = new Set(known);
+  return LEGAL_EXTRA.filter(([, path]) => set.has(path));
+}
+
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** The parts of a Playwright page the error watch needs. */

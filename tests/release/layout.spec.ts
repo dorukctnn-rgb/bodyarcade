@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { BREAKPOINTS } from '../../packages/core/ui/layout.ts';
 import { checkPage } from '../../packages/web/tools/layout-check.ts';
-import { BASE, OUT, watchErrors } from './support.ts';
+import { BASE, OUT, legalPages, watchErrors } from './support.ts';
 
 const PAGES: [string, string][] = [
   ['home', '/'], ['home-tr', '/tr/'], ['region', '/workouts/legs/'], ['game-runner', '/games/road-run/'], ['game-mirror', '/games/star-catch/'],
@@ -15,7 +15,10 @@ const PAGES: [string, string][] = [
   ['ringfit', '/ring-fit-adventure-alternative'], ['blog', '/blog/'], ['post', '/blog/why-browser-fitness-games-are-the-future'],
 ];
 
-const LEGACY = new Set(['privacy', 'terms', 'guide', 'ringfit', 'blog', 'post']);
+// the FAQ, the Turkish legal pages and the delete-account page (when the build has it) are content pages too
+const LEGAL = legalPages();
+PAGES.push(...LEGAL);
+const LEGACY = new Set(['privacy', 'terms', 'guide', 'ringfit', 'blog', 'post', ...LEGAL.map(([name]) => name)]);
 /** The content pages' skip link waits off screen until it gets focus (ba.css .skip / .skip:focus): by design. */
 const byDesign = (name: string, problem: string): boolean => LEGACY.has(name) && /^a\.skip "Skip to content" starts left of the screen$/.test(problem);
 
