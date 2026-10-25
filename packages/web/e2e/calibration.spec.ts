@@ -2,7 +2,7 @@
 // Measured in the page at the ten sizes of the layout rule and at the four tablet sizes of the store pictures (a tablet is held sideways:
 // 960 x 600, 1280 x 800, and the pictures at 1920 x 1080 and 2560 x 1440): the figure stands inside its dashed outline, a little smaller,
 // in the middle of it, and the pictogram of the small self view is not on this screen. It was larger than its outline on a tablet held sideways.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import { BREAKPOINTS } from '../../core/ui/layout.ts';
 import { openScenario, type Scenario } from '../tools/scenarios.ts';
 import { WEB_DEV_URL } from './support/ports.ts';
@@ -12,7 +12,7 @@ const SIZES = [...BREAKPOINTS.map((b) => ({ id: b.id, w: b.w, h: b.h })), { id: 
 interface Box { l: number; t: number; r: number; b: number }
 
 /** The outline (the dashed shapes of the guide) and the made-up person, as boxes in the page, and the pictogram of the self view if it shows. */
-async function measure(page: Page): Promise<{ outline: Box; figure: Box; pictogram: boolean; clipped: boolean; view: { w: number; h: number } }> {
+async function measure(page: Page): Promise<{ outline: Box; figure: Box; pictogram: boolean; clipped: boolean; view: { w: number; h: number } } | null> {
   return page.evaluate(() => {
     const union = (els: Element[]): Box => {
       let u: Box | null = null;
@@ -22,7 +22,9 @@ async function measure(page: Page): Promise<{ outline: Box; figure: Box; pictogr
       }
       return u ?? { l: 0, t: 0, r: 0, b: 0 };
     };
-    const view = document.querySelector('[data-cal-view]') as HTMLElement;
+    const view = document.querySelector<HTMLElement>('[data-cal-view]');
+    // the practice session goes on from the framing screen to the countdown by itself (a little under three seconds): a loaded machine can be late for it
+    if (!view) return null;
     const dashed = [...view.querySelectorAll('[data-cal-guide] svg path, [data-cal-guide] svg ellipse')].filter((e) => e.getAttribute('stroke-dasharray'));
     const figure = [...view.querySelectorAll('[data-standin-body], [data-standin-head]')];
     const pictogram = [...view.querySelectorAll('.ba-demo-self svg')].some((s) => getComputedStyle(s).display !== 'none');
@@ -30,6 +32,20 @@ async function measure(page: Page): Promise<{ outline: Box; figure: Box; pictogr
     const clipped = !!view.querySelector('[data-cal-guide] clipPath');
     return { outline: union(dashed), figure: union(figure), pictogram, clipped, view: { w: view.clientWidth, h: view.clientHeight } };
   });
+}
+
+/** The scenario opened and measured; opened again (up to three times) when a slow machine let the practice session move on before the screen was measured. */
+async function measured(browser: Browser, scenario: Scenario, size: { w: number; h: number }): Promise<{ m: NonNullable<Awaited<ReturnType<typeof measure>>>; errors: string[] }> {
+  for (let attempt = 1; ; attempt++) {
+    const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, scenario, size);
+    try {
+      const m = await measure(page);
+      if (m) return { m, errors };
+      if (attempt >= 3) throw new Error(`${scenario} ${size.w}x${size.h}: the framing screen was gone every time it was measured (${attempt} tries)`);
+    } finally {
+      await context.close();
+    }
+  }
 }
 
 function checkFigure(label: string, m: { outline: Box; figure: Box; pictogram: boolean; clipped: boolean }): string[] {
@@ -54,13 +70,9 @@ test('the made-up person is inside its outline, a little smaller and in the midd
   test.setTimeout(420_000);
   const found: string[] = [];
   for (const s of SIZES) {
-    const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, 'calibrate', { w: s.w, h: s.h });
-    try {
-      found.push(...checkFigure(`${s.id} ${s.w}x${s.h}`, await measure(page)));
-      for (const e of errors) found.push(`${s.id}: console ${e}`);
-    } finally {
-      await context.close();
-    }
+    const { m, errors } = await measured(browser, 'calibrate', { w: s.w, h: s.h });
+    found.push(...checkFigure(`${s.id} ${s.w}x${s.h}`, m));
+    for (const e of errors) found.push(`${s.id}: console ${e}`);
   }
   expect(found, found.join('\n')).toEqual([]);
 });
@@ -70,12 +82,8 @@ test('the same on the screens of a game that lifts the hands, and of a player at
   const found: string[] = [];
   for (const scenario of ['calibrate-headroom', 'calibrate-desk'] as Scenario[]) {
     for (const s of [{ id: 'phone', w: 390, h: 844 }, { id: 'laptop', w: 1280, h: 800 }, { id: 'tv', w: 1920, h: 1080 }]) {
-      const { page, context } = await openScenario(browser, WEB_DEV_URL, scenario, { w: s.w, h: s.h });
-      try {
-        found.push(...checkFigure(`${scenario} ${s.id}`, await measure(page)));
-      } finally {
-        await context.close();
-      }
+      const { m } = await measured(browser, scenario, { w: s.w, h: s.h });
+      found.push(...checkFigure(`${scenario} ${s.id}`, m));
     }
   }
   expect(found, found.join('\n')).toEqual([]);
