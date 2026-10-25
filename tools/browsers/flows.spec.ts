@@ -899,8 +899,8 @@ test.describe('the release build (content pages, service worker)', () => {
   });
 
   for (const [id, path, lang] of [
-    ['privacy-en', '/privacy', 'en'], ['terms-en', '/terms', 'en'], ['faq-en', '/faq', 'en'],
-    ['privacy-tr', '/tr/privacy', 'tr'], ['terms-tr', '/tr/terms', 'tr'], ['faq-tr', '/tr/faq', 'tr'],
+    ['privacy-en', '/privacy', 'en'], ['terms-en', '/terms', 'en'], ['faq-en', '/faq', 'en'], ['delete-account-en', '/delete-account', 'en'],
+    ['privacy-tr', '/tr/privacy', 'tr'], ['terms-tr', '/tr/terms', 'tr'], ['faq-tr', '/tr/faq', 'tr'], ['delete-account-tr', '/tr/delete-account', 'tr'],
   ] as const) {
     test(`legal: ${path}`, async ({ page }, info) => {
       const w = watch(page);
