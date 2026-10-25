@@ -28,6 +28,7 @@ import { analyseScene, decodePng, isBlank, type Rect } from './scene.ts';
 import { beNice } from './nice.ts';
 import { settle } from './settle.ts';
 import { installPersonCamera } from '../browsers/support/camera.ts';
+import { firefoxPrefs } from '../browsers/support/firefox.ts';
 
 beNice();
 
@@ -143,8 +144,10 @@ async function check(browser: Browser, t: Target, size: { id: string; w: number;
     ...(phone ? { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1' } : {}),
     colorScheme: dark ? 'dark' : 'light', locale: lang === 'en' ? 'en-US' : `${lang}-${lang.toUpperCase()}`, reducedMotion: 'no-preference',
   });
-  // Chromium has a fake camera that plays a file (set at launch); the other engines get the same pictures from the page.
-  if (engine !== 'chromium' && personCamera) await installPersonCamera(context, { file: personCamera, portrait: size.w < size.h && size.w < 700 });
+  // Chromium has a fake camera that plays a file (set at launch); the other engines get the same pictures from the page. Firefox has a test picture of
+  // its own without a file; WebKit's headless run only says "not allowed" (the pages with a camera screen all showed "The camera is blocked"), so it gets
+  // the page-side camera too: with the file when there is one, an empty room (Chromium's test pattern shows nobody either) when there is not.
+  if (engine !== 'chromium' && (personCamera || engine === 'webkit')) await installPersonCamera(context, { ...(personCamera ? { file: personCamera } : {}), portrait: size.w < size.h && size.w < 700 });
   const page = await context.newPage();
   const messages: string[] = [];
   const warnings: string[] = [];
@@ -236,7 +239,7 @@ try {
     personCamera = engine === 'chromium' ? null : conv.file;
   }
   const launch = (): Promise<Browser> => engine === 'webkit' ? webkit.launch({ headless: true })
-    : engine === 'firefox' ? firefox.launch({ headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true } })
+    : engine === 'firefox' ? firefox.launch({ headless: true, firefoxUserPrefs: firefoxPrefs() })
       : chromium.launch(cameraFile ? withFakeVideo(cameraFile) : baseLaunchOptions);
   browser = await launch();
   // Start the servers before the workers race for them.

@@ -139,6 +139,8 @@ async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestIn
     } finally {
       info.annotations.push({ type: 'phases', description: seen.join(' > ') });
       await noteCamera(page, info);
+      // what the page said while it ran: a start that stops says nothing about why in its own words ("the camera stopped" can be the model that could not start)
+      if (w.errors.length || w.warnings.length) info.annotations.push({ type: 'console', description: [...w.errors, ...w.warnings].slice(-8).map((m) => m.slice(0, 200)).join(' | ') });
     }
     await leaveRound(page);
     await expect(page).toHaveURL(/\/games\/squat-flap\/$/);

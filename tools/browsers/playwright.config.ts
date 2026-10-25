@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { baseLaunchOptions } from '../../tests/e2e/support/browser.ts';
 import { WEB_DEV_PORT } from '../../packages/web/e2e/support/ports.ts';
 import { DEMO_PORT } from './support/ports.ts';
+import { FIREFOX_PEERS, firefoxPrefs } from './support/firefox.ts';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const set = process.env['BA_BROWSERS_SET'] ?? 'flows';          // flows | ui | peers | all
@@ -26,7 +27,7 @@ type Engine = 'chromium' | 'firefox' | 'webkit';
 /** What an engine is launched with. Chromium: the headless shell and the fake device flags of the platform's e2e; Firefox: its fake camera and no prompt. */
 function launch(engine: Engine): LaunchOptions {
   if (engine === 'chromium') return baseLaunchOptions;
-  if (engine === 'firefox') return { headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true, 'media.peerconnection.ice.obfuscate_host_addresses': false, 'media.peerconnection.ice.loopback': true } };
+  if (engine === 'firefox') return { headless: true, firefoxUserPrefs: firefoxPrefs(FIREFOX_PEERS) };
   return { headless: true };
 }
 
