@@ -21,16 +21,22 @@ async function inRound(page: Page): Promise<void> {
   await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal') && !document.querySelector('.ba-loading'), undefined, { timeout: 30_000 });
 }
 
-/** A finger on the screen, by the browser's own touch events (what a phone sends), from one point to another. */
+/**
+ * A finger on the screen, by the browser's own touch events (what a phone sends), from one point to another, at the pace of a hand
+ * (a swipe sent as one burst of events with no time between them is a fling to the browser, which then takes the next tap of the page
+ * for the touch that stops it: the Pause button got no click after it, whatever the delay).
+ */
 async function swipe(page: Page, from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
   const cdp = await page.context().newCDPSession(page);
   const steps = 8;
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] });
   for (let i = 1; i <= steps; i++) {
+    await page.waitForTimeout(60);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps }] });
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
+  await page.waitForTimeout(400);
 }
 
 test.describe('on a laptop', () => {
