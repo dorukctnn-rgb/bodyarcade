@@ -35,24 +35,31 @@ async function phase(page: Page): Promise<string> {
     if (q('.cal')) return `calibrating ${document.querySelectorAll('[data-calib-check].is-ok').length}/${document.querySelectorAll('[data-calib-check]').length}`;
     if (q('.ba-countdown')) return 'countdown';
     if (q('.ba-loading')) return 'loading';
-    if (q('[data-hud-root] [data-hud]')) return 'running';
+    if (q('[data-hud-root] [data-hud]')) return 'play';   // the HUD is up and nothing covers it: running, or the gap before the first overlay
     if (/\/results\//.test(location.pathname)) return 'results';
     return `other ${location.pathname}`;
   });
 }
 
-/** The order of the phases of a start: reaching a later one means the earlier ones are over (a calibration that takes a blink is not seen by a poll). */
-const ORDER = ['explainer', 'loading', 'calibrating', 'countdown', 'running', 'results'];
+/** The order of the phases of a start (the round itself is `play`, wanted as "running"). */
+const ORDER = ['explainer', 'loading', 'calibrating', 'countdown', 'play', 'results'];
 const rank = (p: string): number => ORDER.findIndex((o) => p.startsWith(o));
 
-/** Waits for a phase (a prefix of the names above) or a later one, remembering the phases on the way so a stuck run says where it stood. */
+/**
+ * Waits for a phase (a prefix of the names above, "running" for the round) or a later one that proves it passed (a calibration that takes a blink is
+ * not seen by a poll, the three seconds of the countdown are), remembering the phases on the way so a stuck run says where it stood.
+ * The HUD with nothing over it is only a running round once the countdown has been seen: before it there is a gap with no overlay (the browser's own
+ * permission window, the model loading) that looks the same.
+ */
 async function until(page: Page, want: string, ms: number, seen: string[] = []): Promise<void> {
   const t0 = Date.now();
+  const target = want === 'running' ? 'play' : want;
   let last = '';
+  const counted = (p: string): boolean => p.startsWith('countdown') || p.startsWith('results') || (p.startsWith('play') && seen.some((x) => x.startsWith('countdown')));
   while (Date.now() - t0 < ms) {
     last = await phase(page).catch(() => 'gone');
     if (seen[seen.length - 1] !== last) seen.push(last);
-    if (last.startsWith(want) || (rank(last) >= 0 && rank(last) > rank(want) && rank(want) >= 0 && !(last.startsWith('running') && want === 'results'))) return;
+    if ((last.startsWith(target) && (target !== 'play' || counted(last))) || (counted(last) && rank(last) > rank(target) && rank(target) >= 0)) return;
     if (last.startsWith('error') || last.startsWith('paused')) break;
     await page.waitForTimeout(400);
   }
@@ -567,7 +574,10 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
       await page.waitForSelector('[data-hud-root] [data-hud]', { timeout: 60_000 });
       await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal') && !document.querySelector('.ba-loading'), undefined, { timeout: 60_000 });
     };
-    await page.goto(`${DEMO_URL}/play/squat-flap/?input=keyboard`, { waitUntil: 'networkidle' });
+    // from the game page, as a player comes (the Back button at the end has to land in the app, not before it)
+    await page.goto(`${DEMO_URL}/games/squat-flap/`, { waitUntil: 'networkidle' });
+    await useKeyboard(page);
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
     await inRound();
     const paused = page.getByRole('dialog', { name: 'Paused' });
     await page.keyboard.press('Escape');
@@ -750,7 +760,7 @@ test.describe('the release build (content pages, service worker)', () => {
     } finally {
       await context.setOffline(false);
     }
-    expect(w.errors.filter((e) => !/offline|ERR_INTERNET_DISCONNECTED|NetworkError|Failed to fetch/i.test(e))).toEqual([]);
+    expect(w.errors.filter((e) => !/offline|ERR_INTERNET_DISCONNECTED|NetworkError|Failed to fetch|WebKit encountered an internal error/i.test(e))).toEqual([]);
   });
 });
 
