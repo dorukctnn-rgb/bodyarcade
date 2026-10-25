@@ -67,3 +67,36 @@ export function sitemapUrls(): string[] {
 }
 
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/** The parts of a Playwright page the error watch needs. */
+interface Watched {
+  on(event: 'pageerror', cb: (e: Error) => void): unknown;
+  on(event: 'console', cb: (m: { type(): string; text(): string }) => void): unknown;
+  on(event: 'response', cb: (r: { status(): number; url(): string; request(): { method(): string } }) => void): unknown;
+}
+
+/**
+ * The errors of a page that are the page's own: uncaught errors and console errors. Two kinds of console line are not:
+ * - "Failed to load resource: ... 404": the page of an unknown address answers 404 by design (the 404 page itself);
+ * - the answer of the friends probe: the shell asks the friends service whether it is there with a GET of /api/social/me that has no
+ *   signature, and the Worker's 401 with a JSON error is the service saying yes (social/services.ts; QA's tools/browsers/support/page.ts
+ *   takes it the same way). Chromium logs that answer as "Failed to load resource: ... 401" without its address, so one such line is
+ *   dropped for each 401 of that probe the page really got; any other 401 still counts.
+ */
+export function watchErrors(page: Watched): { list(): string[] } {
+  const errors: string[] = [];
+  const said401: string[] = [];
+  let probes = 0;
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    const text = m.text();
+    if (/Failed to load resource: the server responded with a status of 404/.test(text)) return;
+    if (/Failed to load resource: the server responded with a status of 401/.test(text)) { said401.push(`console: ${text.slice(0, 200)}`); return; }
+    errors.push(`console: ${text.slice(0, 200)}`);
+  });
+  page.on('response', (r) => {
+    if (r.status() === 401 && r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/social/me') probes++;
+  });
+  return { list: () => [...errors, ...said401.slice(probes)] };
+}
