@@ -29,7 +29,7 @@ import { REPORTER_MIN_AGE_MS } from '../../server/src/social/moderation.ts';
 import { MAX_DEVICES } from '../../server/src/social/recovery.ts';
 import { AUDIT_KEEP_MS, LOBBY_GONE_MS, ORPHAN_REPORT_KEEP_MS, RESOLVED_REPORT_KEEP_MS, UNUSED_PROFILE_DAYS } from '../../server/src/social/sweep.ts';
 import { REPO_ROOT, build, outOfDate, pages } from './build.ts';
-import { renderPage, type PageSpec } from './chrome.ts';
+import { OG_IMAGE, renderPage, type PageSpec } from './chrome.ts';
 import { gameList, snapshotIsCurrent } from './copy/games.ts';
 import * as F from './facts.ts';
 
@@ -60,6 +60,22 @@ describe('the pages are build products', () => {
   it('the release builder takes every page from site/: LEGACY_PAGES (release/assemble.ts) is the list of pages', async () => {
     const { LEGACY_PAGES } = await import('../../../release/assemble.ts');
     expect(LEGACY_PAGES.map((p) => `${p.file} ${p.url}`).sort()).toEqual(pages().map((p) => `${p.file} ${p.url}`).sort());
+  });
+
+  it('the share image is the Play feature graphic of the English set, 1024 by 500, and every page names it with those sizes', () => {
+    const png = (rel: string): Buffer => readFileSync(join(REPO_ROOT, rel));
+    const size = (b: Buffer): { w: number; h: number } => ({ w: b.readUInt32BE(16), h: b.readUInt32BE(20) });
+    const shared = png(`site/assets/brand/${OG_IMAGE.file}`);
+    expect(shared.subarray(1, 4).toString('latin1')).toBe('PNG');
+    expect(size(shared)).toEqual({ w: OG_IMAGE.width, h: OG_IMAGE.height });
+    // the new art (design/store/export/en), not the older one at the top of that folder
+    expect(Buffer.compare(shared, png('design/store/export/en/feature-graphic.png'))).toBe(0);
+    for (const p of pages()) {
+      const html = renderPage(p);
+      expect(html, p.file).toContain(`<meta property="og:image" content="https://bodyarcade.com/assets/brand/${OG_IMAGE.file}">`);
+      expect(html, p.file).toContain(`<meta property="og:image:width" content="${OG_IMAGE.width}">`);
+      expect(html, p.file).toContain(`<meta property="og:image:height" content="${OG_IMAGE.height}">`);
+    }
   });
 
   it('each page has its own file and its own address', () => {
