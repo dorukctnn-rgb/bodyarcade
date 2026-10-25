@@ -18,7 +18,13 @@ import { DEMO_PORT } from './support/ports.ts';
 import { ROOT } from './support/sites.ts';
 
 const TURN_PORT = DEMO_PORT + 20;
-const TURN = { urls: `turn:127.0.0.1:${TURN_PORT}?transport=udp`, username: 'ba', credential: 'ba-secret' };
+/** The TURN server listens on a real interface when the machine has one (Firefox and WebKit leave loopback addresses out of ICE), on loopback otherwise. */
+function lanIp(): string {
+  for (const list of Object.values(os.networkInterfaces())) for (const a of list ?? []) if (a.family === 'IPv4' && !a.internal) return a.address;
+  return '127.0.0.1';
+}
+const TURN_IP = lanIp();
+const TURN = { urls: `turn:${TURN_IP}:${TURN_PORT}?transport=udp`, username: 'ba', credential: 'ba-secret' };
 
 let dir = '';
 let server: http.Server | null = null;
@@ -42,7 +48,7 @@ test.beforeAll(async () => {
   await new Promise<void>((r) => server!.listen(0, '127.0.0.1', () => r()));
   base = `http://127.0.0.1:${(server!.address() as { port: number }).port}`;
   // the local TURN server of the live suite (UDP, long-term credentials ba / ba-secret)
-  turn = spawn(process.execPath, [path.join(ROOT, 'tests/live/support/turn-server.cjs'), '127.0.0.1', String(TURN_PORT), String(TURN_PORT + 1)], { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true });
+  turn = spawn(process.execPath, [path.join(ROOT, 'tests/live/support/turn-server.cjs'), TURN_IP, String(TURN_PORT), String(TURN_PORT + 1)], { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true });
   await new Promise<void>((ok, fail) => {
     const timer = setTimeout(() => fail(new Error('the TURN server did not start')), 15_000);
     turn!.stdout!.on('data', (d: Buffer) => { if (/TURN on/.test(String(d))) { clearTimeout(timer); ok(); } });

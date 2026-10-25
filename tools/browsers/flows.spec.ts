@@ -27,6 +27,10 @@ async function phase(page: Page): Promise<string> {
     const alert = (q('dialog [role=alert], .ba-explain [role=alert]')?.textContent ?? '').trim();
     if (alert && !q('.cal')) return `error: ${alert}`;
     if (q('#ov-title') && /could not start|ba\u015flat\u0131lamad\u0131/i.test(q('#ov-title')?.textContent ?? '')) return `error: ${alert}`;
+    // the pause window (the camera stopped, the tab was hidden, the player paused): a start that ends here has not run
+    const dlg = q('dialog[open], [role=dialog]');
+    const heading = (dlg?.querySelector('h1, h2')?.textContent ?? '').trim();
+    if (dlg && /^(paused|duraklat)/i.test(heading)) return `paused: ${(dlg.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 120)}`;
     if (q('[data-action="camera-continue"]')) return 'explainer';
     if (q('.cal')) return `calibrating ${document.querySelectorAll('[data-calib-check].is-ok').length}/${document.querySelectorAll('[data-calib-check]').length}`;
     if (q('.ba-countdown')) return 'countdown';
@@ -49,7 +53,7 @@ async function until(page: Page, want: string, ms: number, seen: string[] = []):
     last = await phase(page).catch(() => 'gone');
     if (seen[seen.length - 1] !== last) seen.push(last);
     if (last.startsWith(want) || (rank(last) >= 0 && rank(last) > rank(want) && rank(want) >= 0 && !(last.startsWith('running') && want === 'results'))) return;
-    if (last.startsWith('error')) break;
+    if (last.startsWith('error') || last.startsWith('paused')) break;
     await page.waitForTimeout(400);
   }
   const text = await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 260)).catch(() => '');
