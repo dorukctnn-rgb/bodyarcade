@@ -40,6 +40,8 @@ import { localEntitlements } from './entitlements.ts';
 import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
 import { hudModeFor, PlayController, type PlayHost } from './play.ts';
 import { clipAllowed, createClipRecorder, type ClipFile } from './clip.ts';
+import { ReplayRecorder, type ReplayClip } from './replay.ts';
+import { mountReplay, type ReplayPlayer } from './replay-view.ts';
 import { WelcomeController, type WelcomeHost } from './welcome.ts';
 import { askParentGate, ProfilesController, type ProfilesHost } from './profiles.ts';
 import { factsOf, OPEN_RULES, type PlayerFacts } from './profiles-model.ts';
@@ -166,6 +168,14 @@ export class App {
   /** The clip of the last round, as a file (to share) and as an address for the page (to show and to save). One at a time. */
   private clipBlob: Blob | null = null;
   private clipUrl: string | null = null;
+  /**
+   * The skeleton replay of a miss: the recorder that collects the landmarks of a round with the camera (replay.ts), the window it hands over when the
+   * round ends (kept only until the results screen is left), the player that draws it, and whether it has been played for this round.
+   */
+  private replayRec: ReplayRecorder | null = null;
+  private replayClip: ReplayClip | null = null;
+  private replayPlayer: ReplayPlayer | null = null;
+  private replayPlayed = false;
   /** The recordings each player keeps, read once per player and let go when the player changes. */
   private readonly ghostBooks = new Map<string, GhostBook>();
   /** What the race on the stage was asked for (`?ghost=`): "Race again" asks for the same kind of race. */
@@ -654,7 +664,9 @@ export class App {
     this.offRoomWatch = null;
     this.stageWait = null;
     // A clip is the results' own: it goes when the page goes on to anything else.
-    if (route?.id !== 'results') this.dropClip();
+    if (route?.id !== 'results') { this.dropClip(); this.dropReplay(); }
+    this.replayPlayer?.dispose();
+    this.replayPlayer = null;
     this.endPlay();
     this.endTour();
     if (route?.id === 'welcome') this.tour = new WelcomeController(this.welcomeHost(), stepFrom(route.query.get('step')));
@@ -682,7 +694,7 @@ export class App {
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });
     if (route?.id === 'play' && page.status === 200) this.beginPlay(route);
     if (route?.id === 'welcome') void this.tour?.begin();
-    if (route?.id === 'results') { this.startRestTimer(); this.watchRoom(); }
+    if (route?.id === 'results') { this.startRestTimer(); this.watchRoom(); this.mountReplay(); }
   }
 
   // ---- the welcome tour -------------------------------------------------------------------------------------------------
@@ -786,13 +798,14 @@ export class App {
       this.raceParam = ghostParam(spec);
     }
     const factory = this.factory;
+    const replay = this.replayTap(setup, race);
     // A solo round counts for the weekly board when the server saw it start (a race in a room has its own score).
     void this.social?.runBegan(g, setup.players === 1 && !route.query.get('room'));
     this.play = new PlayController({
       host: this.playHost(g), game: g, setup, stage,
       ...(this.o.bodyIsSimulated?.(g.id) ? { simulatedBody: true } : {}),
       makeClip: (canvas) => (this.clipsWanted(g) ? createClipRecorder(this.win, canvas, () => this.clipOverlay()) : null),
-      makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}), ...(race ? { race } : {}) }) ?? null,
+      makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}), ...(race ? { race } : {}), ...(replay ? { replay } : {}) }) ?? null,
       ...(race ? { race } : {}),
       ...(this.o.onRoundEnded ? { release: this.o.onRoundEnded } : {}),
       ...(this.firstRound ? { explained: true } : {}),
@@ -928,6 +941,9 @@ export class App {
   }
 
   private endPlay(): void {
+    // what a round collected for the replay goes with the round (the window that was handed to the results is the app's, kept apart)
+    this.replayRec?.dispose();
+    this.replayRec = null;
     if (!this.play) return;
     this.play.dispose();
     this.play = null;
@@ -1037,6 +1053,54 @@ export class App {
     this.clipBlob = null;
   }
 
+  /**
+   * A round with the camera, one player and no race keeps the skeleton of its misses for the results (replay.ts): only landmarks, in memory. A round with the keyboard or
+   * by touch, two players or a race has no body to show or no log of its own, and records nothing.
+   */
+  private replayTap(setup: SetupState, race: RaceSource | null): ReplayRecorder | null {
+    this.replayRec?.dispose();
+    this.replayRec = null;
+    if (setup.input !== 'camera' || setup.players !== 1 || race) return null;
+    // the practice session of development and test builds runs its clock faster: the second of a replay is a second of the game's own time
+    const scale = this.o.demo ? Math.max(1, this.win.__BA_TEST__?.timeScale ?? 1) : 1;
+    this.replayRec = new ReplayRecorder({ now: () => this.win.performance.now() * scale, reason: (kind) => this.ctx().i18n.has(`miss.${kind}`) });
+    return this.replayRec;
+  }
+
+  /** The window of the most useful miss of the round that has just ended, for the results screen to draw; the recorder is empty after it. */
+  private takeReplay(summary: Parameters<PlayHost['finish']>[2] | null): RoundResult['replay'] {
+    this.dropReplay();
+    const rec = this.replayRec;
+    this.replayRec = null;
+    // (no summary: the round is not one to show, and what was collected is let go of)
+    const clip = summary ? rec?.take(summary) ?? null : (rec?.dispose(), null);
+    if (!clip) return null;
+    this.replayClip = clip;
+    const t = this.ctx().i18n;
+    return { reason: t.has(`miss.${clip.kind}`) ? t.tx(`miss.${clip.kind}`) : t.t('results.why.other'), ms: clip.ms };
+  }
+
+  /** The replay goes when the results screen does: its player, and the landmarks it was drawn from. */
+  private dropReplay(): void {
+    this.replayPlayer?.dispose();
+    this.replayPlayer = null;
+    this.replayClip = null;
+    this.replayPlayed = false;
+  }
+
+  /** The results screen is on the page: the replay is drawn into its slot, and played once (a screen drawn again for another reason shows the last picture). */
+  private mountReplay(): void {
+    const clip = this.replayClip;
+    const view = this.doc.querySelector<HTMLElement>('[data-replay]');
+    if (!clip || !view) return;
+    this.replayPlayer = mountReplay(
+      this.win,
+      { view, button: this.doc.querySelector<HTMLElement>('[data-action="replay"]'), track: this.doc.querySelector<HTMLElement>('[data-replay-track]') },
+      { clip, still: this.reducedMotion(), autoplay: !this.replayPlayed },
+    );
+    this.replayPlayed = true;
+  }
+
   /** The clip of a round that has just ended, made ready for the results page (null when there is none). */
   private takeClip(game: ShellGame, summary: Parameters<PlayHost['finish']>[2], clip: ClipFile | null): RoundResult['clip'] {
     this.dropClip();
@@ -1110,8 +1174,10 @@ export class App {
     const again = room ? playHref(ctx, game, setup, { room }) : this.raceParam ? playHref(ctx, game, setup, { ghost: this.raceParam }) : '';
     const raced = race?.live && room ? { ...race, live: { ...race.live, roomHref: ctx.href('room', { params: { code: room } }) } } : race;
     const clipOf = this.takeClip(game, summary, clip);
+    // a round played with the keyboard or by touch moved no body: there is no skeleton to show, whatever the round began as
+    const replay = practice ? this.takeReplay(null) : this.takeReplay(summary);
     const result: RoundResult = {
-      ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous, practice }), progress, plan, ...(first ? { first: true } : {}),
+      ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous, practice, replay }), progress, plan, ...(first ? { first: true } : {}),
       ...(clipOf ? { clip: clipOf } : {}),
       ...(raced ? { score: raced.you, race: { ...raced, again } } : {}),
     };
@@ -1285,6 +1351,10 @@ export class App {
       case 'clip-share':
         e.preventDefault();
         void this.shareClip();
+        break;
+      case 'replay':
+        e.preventDefault();
+        this.replayPlayer?.play();
         break;
       case 'ghost-send':
         e.preventDefault();
@@ -1542,9 +1612,10 @@ export class App {
   }
 
   /** For tests and tools: where the app is and what it holds. Development and test builds only. */
-  debug(): { route: Matched<RouteId> | null; lang: Lang; plan: Plan; titleOf: (id: string) => string; result: RoundResult | null; playProblems: string[]; moves: number } {
+  debug(): { route: Matched<RouteId> | null; lang: Lang; plan: Plan; titleOf: (id: string) => string; result: RoundResult | null; playProblems: string[]; moves: number; replay: { recording: boolean; kept: number; clipFrames: number; player: string } } {
     return {
       route: this.route, lang: this.lang, plan: this.plan, result: this.state.result, playProblems: this.play?.problems() ?? [], moves: this.moves,
+      replay: { recording: this.replayRec !== null, kept: this.replayRec?.kept ?? 0, clipFrames: this.replayClip?.frames.length ?? 0, player: this.replayPlayer?.current ?? 'none' },
       titleOf: (id) => { const g = gameById(this.games, id); return g ? titleOf(this.ctx(), g) : ''; },
     };
   }

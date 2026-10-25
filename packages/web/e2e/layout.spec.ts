@@ -7,7 +7,9 @@ import { checkPage } from '../tools/layout-check.ts';
 import { openScenario, type Scenario } from '../tools/scenarios.ts';
 import { WEB_DEV_URL } from './support/ports.ts';
 
-const PAGES: Scenario[] = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'race-dialog', 'race-offer', 'explainer', 'camera-error', 'play-nocamera'];
+// BA_PAGES=results-replay,calibrate runs the check on those pages only (a new page is tried alone before the whole run)
+const ONLY = (process.env['BA_PAGES'] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+const PAGES: Scenario[] = (['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'results-replay', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'race-dialog', 'race-offer', 'explainer', 'camera-error', 'play-nocamera'] as Scenario[]).filter((p) => ONLY.length === 0 || ONLY.includes(p));
 
 for (const bp of BREAKPOINTS) {
   test(`${bp.label}: every page keeps the layout rule`, async ({ browser }) => {

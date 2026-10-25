@@ -383,6 +383,14 @@ progress.k-linebar::-moz-progress-bar { background: var(--ba-go-400); border-rad
 .k-clip h2 { margin: 0; }
 .k-clipvideo { display: block; width: 100%; max-height: min(60svh, 520px); border-radius: var(--ba-radius-lg); background: #1A1430; }
 .k-clipactions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* The one second replay of a miss (app/replay-view.ts): a canvas in the picture of the kit, the reason under it, and the track that follows the play. */
+.k-replay h2 { margin: 0; }
+.k-replay .view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.k-replay-reason { margin: 0; font-weight: 750; line-height: 1.3; }
+.k-replay .scrub[hidden] { display: none; }
+.k-replay .scrub .track[data-replay-track] i { width: calc(var(--p, 1) * 100%); }
+.k-replay .scrub .track[data-replay-track] em { left: calc(var(--p, 1) * 100%); }
+.k-replay .scrub .ba-small { font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
 .k-procard { display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .k-score .n { font-variant-numeric: tabular-nums; }
 .k-misses .x { font-variant-numeric: tabular-nums; }

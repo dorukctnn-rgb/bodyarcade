@@ -1,5 +1,5 @@
 // The screen after a round (design/ui-kit/results.html): the score, what you did, why moves missed (with the one second
-// skeleton replay of a miss once the session records one), calories only as an honest estimate, and the way to go again.
+// skeleton replay of a miss, drawn from the landmarks of a round with the camera), calories only as an honest estimate, and the way to go again.
 import { html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import { localized } from '../../../core/ui/i18n/localized.ts';
@@ -64,8 +64,8 @@ export interface RoundResult {
   extras?: ResultExtra[];
   /** Mode local2: each player's own numbers. */
   players?: PlayerResult[];
-  /** There is a one second skeleton replay of a miss. The slot stays out of the page until the session gives frames. */
-  replay?: { reason: string } | null;
+  /** There is a one second skeleton replay of a miss (a round with the camera and a miss with a reason): what it shows in words, and how long it is in milliseconds. The slot stays out of the page without it. */
+  replay?: { reason: string; ms?: number } | null;
   /** What this round did to the record of the player. */
   progress?: RoundProgress | null;
   /** Where the workout plan stands, when this round was one of its games. */
@@ -206,7 +206,10 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
         ${why(ctx, r)}
         ${r.replay ? html`<section class="k-card k-replay" aria-labelledby="replay"><h2 id="replay" class="k-h3">${t.t('results.replay.title')}</h2>
           <div class="view" data-replay role="img" aria-label="${t.t('results.replay.alt', { reason: r.replay.reason })}"></div>
-          <div class="scrub"><button class="ba-icon-btn" type="button" data-action="replay" aria-label="${t.t('results.replay.play')}">${icon('replay')}</button></div>
+          <p class="k-replay-reason" data-replay-reason>${r.replay.reason}</p>
+          <div class="scrub"><button class="ba-icon-btn" type="button" data-action="replay" aria-label="${t.t('results.replay.play')}">${icon('replay')}</button>
+            <span class="track" aria-hidden="true" data-replay-track><i></i><em></em></span>
+            <span class="ba-small" data-replay-length>${t.t('results.replay.length', { n: t.number((r.replay.ms ?? 1000) / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}</span></div>
           <p class="k-fine">${t.t('results.replay.hint')}</p></section>` : ''}
         ${!hasPro(ctx) && proMore > 0 ? html`<div class="k-card k-procard"><p>${t.t('results.proCard', { n: proMore })}</p><a class="ba-link" href="${ctx.href('pro')}">${t.t('results.proLink')}</a></div>` : ''}
       </div>

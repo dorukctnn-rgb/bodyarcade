@@ -427,6 +427,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'results.replay.alt': 'Kaçan bir hareketin iskelet tekrarı: {reason}',
   'results.replay.play': 'Tekrar oynat',
   'results.replay.hint': 'Bunun için yalnızca iskeletin saklanır, görüntü asla saklanmaz.',
+  'results.replay.length': '{n} sn',
   'results.again': 'Tekrar oyna',
   'results.other': 'Başka bir oyun seç',
   'results.proLine': 'Buna benzer {n} oyun daha Pro içinde.',

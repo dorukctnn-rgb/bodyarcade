@@ -49,8 +49,8 @@ export interface BuildInput {
   i18n: I18n;
   /** The best score before this round for this game and difficulty, or null when there was none. */
   previousBest: number | null;
-  /** The one second skeleton replay of a miss, when the session recorded one (it does not yet). */
-  replay?: { reason: string } | null;
+  /** The one second skeleton replay of a miss, when the round with the camera recorded one (app/replay.ts): what it shows in words, and its length. */
+  replay?: RoundResult['replay'];
   /** Practice: nothing of the round is kept. Default: a round without the camera is practice. */
   practice?: boolean;
 }

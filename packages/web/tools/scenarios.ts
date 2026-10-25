@@ -11,7 +11,7 @@ import { createStore, memoryStorage } from '../../core/store/store.ts';
 import { weekdayIndex } from '../src/app/arcade.ts';
 import type { Hooks } from '../e2e/support/helpers.ts';
 
-export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'welcome', 'welcome-2', 'welcome-3', 'welcome-4', 'welcome-5', 'players', 'players-manage', 'players-add', 'players-kid', 'race-dialog', 'race-offer', 'explainer', 'camera-error', 'play-nocamera'] as const;
+export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'results-replay', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'welcome', 'welcome-2', 'welcome-3', 'welcome-4', 'welcome-5', 'players', 'players-manage', 'players-add', 'players-kid', 'race-dialog', 'race-offer', 'explainer', 'camera-error', 'play-nocamera'] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 
 /** A friend's recording of Squat Flap as the short code they would send (made from the practice partner's code, so it is always a real course). */
@@ -24,7 +24,7 @@ export function friendCode(o: { name?: string; seconds?: number; level?: BotLeve
 const PATHS: Record<Scenario, string> = {
   home: '/', 'home-week': '/', region: '/workouts/legs/', game: '/games/squat-flap/', 'game-more': '/games/squat-flap/', 'game-pro': '/games/pad-work/',
   'game-locked': '/games/pad-work/', settings: '/settings/', pro: '/pro/', results: '/play/squat-flap/?input=keyboard', play: '/play/squat-flap/?input=keyboard',
-  calibrate: '/play/squat-flap/?input=camera', 'calibrate-desk': '/play/squat-flap/?input=camera', 'calibrate-headroom': '/play/summit-climb/?input=camera', plans: '/plans/', 'plans-pro': '/plans/', 'results-plan': '/plans/', 'results-progress': '/games/squat-flap/', 'pro-unavailable': '/pro/', 'pro-trial': '/pro/', 'home-trial': '/', notfound: '/nope/', friends: '/friends/?social=1', 'friends-new': '/friends/?social=fresh', 'friends-offline': '/friends/?social=offline', lobbies: '/lobbies/?social=1',
+  calibrate: '/play/squat-flap/?input=camera', 'calibrate-desk': '/play/squat-flap/?input=camera', 'calibrate-headroom': '/play/summit-climb/?input=camera', plans: '/plans/', 'plans-pro': '/plans/', 'results-plan': '/plans/', 'results-progress': '/games/squat-flap/', 'results-replay': '/play/squat-flap/?input=camera', 'pro-unavailable': '/pro/', 'pro-trial': '/pro/', 'home-trial': '/', notfound: '/nope/', friends: '/friends/?social=1', 'friends-new': '/friends/?social=fresh', 'friends-offline': '/friends/?social=offline', lobbies: '/lobbies/?social=1',
   room: '/r/K7Q2MX/?social=1', 'room-host': '/friends/?social=1', safety: '/safety/?social=1', friendlink: '/f/BA-9PXMR3/?social=1',
   players: '/profiles/', 'players-manage': '/profiles/?manage=1', 'players-add': '/profiles/', 'players-kid': '/settings/',
   'race-dialog': '/games/squat-flap/', 'race-offer': `/games/squat-flap/?ghost=${friendCode()}`,
@@ -49,6 +49,8 @@ function hooksOf(name: Scenario): Hooks {
     case 'players': case 'players-manage': case 'players-add': return { ...base, plan: 'family', players: [{ name: 'Defne', kid: true, avatar: 'fox' }, { name: 'Mert', avatar: 'robot' }, { name: 'Elif', avatar: 'rocket' }] };
     case 'players-kid': return { ...base, plan: 'family', players: [{ name: 'Defne', kid: true, avatar: 'fox', active: true }, { name: 'Mert', avatar: 'robot' }] };
     case 'results-plan': return { ...base, roundSeconds: 120 };
+    // a round with the camera in the practice session, long enough to miss three moves (the first at three seconds, the last at eleven): its results have the replay of a miss
+    case 'results-replay': return { ...base, timeScale: 3, roundSeconds: 14 };
     case 'results-progress': return { ...base, roundSeconds: 200 };
     default: return base;
   }
@@ -78,7 +80,7 @@ const SEED = `(() => {
   const name = window.__SEED__;
   const set = (k, d) => localStorage.setItem('ba2.shell.' + k, JSON.stringify({ v: 1, d }));
   if (name === 'game-locked') set('settings', { playedOnce: ['pad-work'] });
-  if (name === 'results-plan') set('cameraExplained', true);
+  if (name === 'results-plan' || name === 'results-replay') set('cameraExplained', true);
   if (name === 'home-week') for (const [k, v] of Object.entries(window.__ARCADE_SEED__ || {})) localStorage.setItem(k, v);
 })();`;
 
@@ -105,7 +107,7 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
   const prefix = lang === 'en' ? '' : `/${lang}`;
   const context = await browser.newContext({
     viewport: { width: o.w, height: o.h }, colorScheme: o.dark ? 'dark' : 'light', locale: lang === 'en' ? 'en-US' : `${lang}-${lang.toUpperCase()}`,
-    deviceScaleFactor: 1, hasTouch: o.w < 1000, ...(name === 'results-plan' ? { permissions: ['camera'] } : {}),
+    deviceScaleFactor: 1, hasTouch: o.w < 1000, ...(name === 'results-plan' || name === 'results-replay' ? { permissions: ['camera'] } : {}),
   });
   const page = await context.newPage();
   const errors: string[] = [];
@@ -142,6 +144,11 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
   }
   if (name.startsWith('friends') || name === 'lobbies' || name.startsWith('room') || name === 'safety' || name === 'friendlink') await page.waitForSelector('main h1', { timeout: 15_000 });
   if (name === 'results') await page.waitForURL(/results/, { timeout: 30_000 });
+  // The round with the camera that missed: its results, with the replay drawn and played to its end.
+  if (name === 'results-replay') {
+    await page.waitForURL(/results/, { timeout: 60_000 });
+    await page.waitForSelector('[data-replay][data-state="done"]', { timeout: 15_000 });
+  }
   // The first game of the desk break played to its end: the panel that goes on to the next game, with the rest counting.
   if (name === 'results-plan') {
     await page.getByRole('button', { name: /^Start /i }).first().click();

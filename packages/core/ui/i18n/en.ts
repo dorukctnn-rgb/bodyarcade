@@ -427,6 +427,7 @@ export const en = {
   'results.replay.alt': 'Skeleton replay of a missed move: {reason}',
   'results.replay.play': 'Replay',
   'results.replay.hint': 'Only your skeleton is kept for this, never the video.',
+  'results.replay.length': '{n} s',
   'results.again': 'Play again',
   'results.other': 'Choose another game',
   'results.proLine': '{n, plural, one {# more game like this is in Pro.} other {# more games like this are in Pro.}}',

@@ -24,6 +24,7 @@ import { FIRST_GAME_ID, FIRST_SECONDS } from './welcome-model.ts';
 import { hudModeFor } from './play.ts';
 import type { SessionFactory, SessionRequest } from './ports.ts';
 import type { RaceSource } from './race.ts';
+import { watchModule } from './replay.ts';
 
 type StringTables = Partial<Record<Lang, Readonly<Record<string, string>>>>;
 /** What a game folder's index.ts may export: the module, and its words (named `strings` or `STRINGS`, or on the module). */
@@ -121,8 +122,12 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
       kit2 = null;
     };
 
+    // A round with the camera keeps the skeleton of its misses for the results (replay.ts): the game's log is read as it grows, and the page's pose frames
+    // (landmarks only) go to the ring while the round runs. Nothing is recorded without the tap, and nothing of it leaves the page.
+    const tap = r.replay ?? null;
+    const watched = (m: Promise<GameModule | null>): Promise<GameModule | null> => (tap ? m.then((x) => (x ? watchModule(x, tap) : x)) : m);
     const session = createBrowserSession({
-      games: (id) => (r.race && id === r.game.id ? loadRace(id, r.race) : r.first === true && id === FIRST_GAME_ID ? loadFirstRound() : loadGame(id)),
+      games: (id) => watched(r.race && id === r.game.id ? loadRace(id, r.race) : r.first === true && id === FIRST_GAME_ID ? loadFirstRound() : loadGame(id)),
       ui: (m, o) => {
         // A round that was left and started again draws into the same canvas, with a new kit.
         dropKit();
@@ -164,6 +169,12 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
     const sendPose = r.race?.sendPose;
     if (sendPose) offPose = browserServices().pose.onFrame((f) => sendPose(f.landmarks));
 
+    let offReplay: Unsubscribe | null = null;
+    const listenReplay = (): void => {
+      if (tap && !offReplay) offReplay = browserServices().pose.onFrame((f) => { if (f.landmarks) tap.frame(f.landmarks, f.aspect); });
+    };
+    if (tap) session.on('state', (st) => tap.running(st === 'running'));
+
     // A mirror game draws the camera's picture itself: it gets the element when the camera runs and loses it when the camera is released.
     if (mode === 'mirror') session.on('video', ({ el }) => { if (kit2) setMirrorVideo(kit2, el); });
 
@@ -171,13 +182,16 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
     const release = (): void => {
       offPose?.();
       offPose = null;
+      offReplay?.();
+      offReplay = null;
+      tap?.reset();
       dropKit();
       canvas.remove();
     };
     return {
       get state() { return session.state; },
       get pauseReason() { return session.pauseReason; },
-      start: (id, o) => session.start(id, o),
+      start: (id, o) => { tap?.reset(); listenReplay(); return session.start(id, o); },
       pause: (reason) => session.pause(reason),
       resume: () => session.resume(),
       recalibrate: () => session.recalibrate(),

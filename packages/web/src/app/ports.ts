@@ -7,6 +7,7 @@ import type { PaywallInfo, PlansConfig } from '../../../core/ui/plans.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import type { SetupState } from '../views/setup.ts';
 import type { RaceSource } from './race.ts';
+import type { ReplayTap } from './replay.ts';
 
 /** Who may use what. The real one is core/entitlements (builder S). */
 export interface EntitlementsPort {
@@ -53,6 +54,8 @@ export interface SessionRequest {
   first?: boolean;
   /** A race: the game plays by this feed (a recording's clock, or the Room's), through the duel wrapper. */
   race?: RaceSource | null;
+  /** A round with the camera and one player: where the session puts what the replay of a miss is made of (pose landmarks while it runs, the game's log). */
+  replay?: ReplayTap | null;
 }
 
 /**

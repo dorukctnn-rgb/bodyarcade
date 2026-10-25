@@ -5,6 +5,7 @@ import type {
   CalibrationCode, CalibrationStatus, PauseReason, PlayerSlot, RunSummary, Session, SessionEvents, SessionState, TwoPlayerCalibrationStatus, Unsubscribe,
 } from '../../../core/types/index.ts';
 import { makeSchedule, scoreOf, specFor, type Obstacle } from '../../../core/net/schedule.ts';
+import { DEFAULT_SHAPE, synthPose } from '../../../core/pose/synth.ts';
 import type { ObstacleResult } from '../../../core/types/net.ts';
 import { glyph } from '../../../core/ui/glyphs.ts';
 import type { PlayHud } from '../../../core/ui/hud/hud.ts';
@@ -23,6 +24,13 @@ export interface DemoOptions {
 
 const COMMANDS = ['squat', 'stand', 'squat', 'stand'] as const;
 
+/** The moves the practice player misses, and when (milliseconds into the round, before the time scale): the same three the summary lists. */
+const MISSES = [{ t: 3000, kind: 'hips_not_low', v: 4 }, { t: 7000, kind: 'hips_not_low', v: 5 }, { t: 11000, kind: 'hips_not_up', v: 2 }] as const;
+/** The practice player squats once in this long. */
+const SQUAT_MS = 2400;
+/** A pose frame of the camera, as often as a camera gives one. */
+const FEED_MS = 33;
+
 type Listener = (e: never) => void;
 
 export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Session & { loseSecondPlayer(): void; returnSecondPlayer(): void } {
@@ -35,6 +43,9 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
   let reason: PauseReason | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let tick: ReturnType<typeof setInterval> | null = null;
+  let feed: ReturnType<typeof setInterval> | null = null;
+  /** Where the replay of a miss is made from (a round with the camera): the practice player's skeleton, and its misses as they happen. */
+  const tap = r.replay ?? null;
   let raf = 0;
   let remaining = roundSeconds;
   let score: [number, number] = [0, 0];
@@ -42,7 +53,7 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
   let raced: number | null = null;
 
   const emit = <K extends keyof SessionEvents>(k: K, e: SessionEvents[K]): void => { listeners.get(k)?.forEach((cb) => (cb as (e: SessionEvents[K]) => void)(e)); };
-  const setState = (s: SessionState): void => { state = s; if (s !== 'paused') reason = null; emit('state', s); };
+  const setState = (s: SessionState): void => { state = s; if (s !== 'paused') reason = null; tap?.running(s === 'running'); emit('state', s); };
   const ms = (n: number): number => Math.max(1, Math.round(n / scale));
   const later = (fn: () => void, n: number): void => { timer = setTimeout(fn, ms(n)); };
   const hud = r.stage.hud;
@@ -76,7 +87,36 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
   const stopTimers = (): void => {
     if (timer) clearTimeout(timer);
     if (tick) clearInterval(tick);
-    timer = tick = null;
+    if (feed) clearInterval(feed);
+    timer = tick = feed = null;
+  };
+
+  /**
+   * A practice player on the camera: a figure that squats now and then, a frame every FEED_MS of the game's own time (the frames that a busy machine's timer
+   * was late for are made up for, with their own times, so a window holds what a camera would have given), and the misses written to the log as their time comes.
+   */
+  const startFeed = (): void => {
+    if (!tap) return;
+    const live: RunSummary['log'] = [];
+    const clock = (): number => (doc.defaultView?.performance.now() ?? Date.now()) * scale;
+    let next = clock();
+    let at = 0;
+    feed = setInterval(() => {
+      if (state !== 'running') { next = clock(); return; }
+      const t = clock();
+      for (let n = 0; next <= t && n < 90; n++, next += FEED_MS) {
+        at += FEED_MS;
+        const depth = 0.5 - 0.5 * Math.cos((2 * Math.PI * at) / SQUAT_MS);
+        tap.frame(synthPose({ ...DEFAULT_SHAPE, aspect: 16 / 9 }, { drop: depth * 0.9 }), 16 / 9, next);
+      }
+      if (next < t) next = t;
+      const played = (roundSeconds - remaining) * 1000;
+      for (let n = live.length; n < MISSES.length && (MISSES[n] as (typeof MISSES)[number]).t <= played; n++) {
+        const m = MISSES[n] as (typeof MISSES)[number];
+        live.push({ t: m.t, kind: m.kind, ok: false, v: m.v });
+        tap.log(live);
+      }
+    }, ms(FEED_MS));
   };
 
   const single = (code: CalibrationCode, progress: number, hz = 24): CalibrationStatus => ({ code, progress, ready: code === 'ok', samples: Math.round(progress * 10), hz });
@@ -161,6 +201,7 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
     hud.set('hint', 'Hips 4 cm above the line');
     hud.set('lives', 3);
     if (r.race) { raceRound(r.race.feed); return; }
+    startFeed();
     let n = 0;
     tick = setInterval(() => {
       if (state !== 'running') return;
@@ -186,6 +227,7 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
     get pauseReason() { return reason; },
     async start(_gameId: string, options: { input: string; seated?: boolean }) {
       seated = options.seated === true;
+      tap?.reset();
       remaining = roundSeconds; score = [0, 0];
       hud.set('score', 0); hud.set('timer', roundSeconds);
       raf = doc.defaultView?.requestAnimationFrame(paint) ?? 0;

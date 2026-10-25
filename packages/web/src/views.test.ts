@@ -341,6 +341,26 @@ describe('results', () => {
     expect(draw('en', '/results/', {}, { ...EMPTY_STATE, result: sample }).html).not.toContain('data-clip');
   });
 
+  it('has the slot of the one second replay only when the round gave one: the picture, the reason in words, the button, the track and the length', () => {
+    const withReplay: RoundResult = { ...sample, replay: { reason: 'Hips not low enough', ms: 933 } };
+    for (const lang of ['en', 'tr'] as const) {
+      const page = draw(lang, lang === 'en' ? '/results/' : '/tr/results/', {}, { ...EMPTY_STATE, result: withReplay }).html;
+      expect(page, lang).toContain('data-replay');
+      expect(page, lang).toMatch(/<div class="view" data-replay role="img" aria-label="[^"]*Hips not low enough[^"]*">/);
+      expect(page, lang).toContain('<p class="k-replay-reason" data-replay-reason>Hips not low enough</p>');
+      expect(page, lang).toContain('data-action="replay"');
+      expect(page, lang).toContain('data-replay-track');
+      expect(textOf(page), lang).toContain(lang === 'en' ? 'One second replay' : 'Bir saniyelik tekrar');
+      expect(textOf(page), lang).toContain(lang === 'en' ? '0.9 s' : '0,9 sn');
+      expect(textOf(page), lang).toContain(lang === 'en' ? 'never the video' : 'görüntü asla saklanmaz');
+    }
+    // no replay, no slot (a round with the keyboard, a round without a miss with a reason)
+    const without = draw('en', '/results/', {}, { ...EMPTY_STATE, result: { ...sample, replay: null } }).html;
+    expect(without).not.toContain('data-replay');
+    expect(without).not.toContain('One second replay');
+    expect(draw('en', '/results/', {}, { ...EMPTY_STATE, result: { ...sample, replay: undefined } }).html).not.toContain('data-replay');
+  });
+
   it('names the winner of a two player round and shows both scores', () => {
     const duo: RoundResult = { ...sample, setup: { ...sample.setup, players: 2 }, players: [{ slot: 1, score: 10 }, { slot: 2, score: 14 }] };
     const t = textOf(draw('en', '/results/', {}, { ...EMPTY_STATE, result: duo }).html);
