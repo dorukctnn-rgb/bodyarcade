@@ -105,9 +105,8 @@ jobs:
     name: browsers (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
-    # Report-only while the bugs these flows found are open (NOTLAR-qa.md has the table and the owners): the job shows red when a flow
-    # fails, the workflow does not. Delete this line when the table is green, and the engines gate every push like the page check does.
-    continue-on-error: true
+    # The engines gate every push like the page check does (25 Oct: the table was green on every engine, NOTLAR-qa.md has it). The steps below go on after a failure
+    # so that the table and the pictures are always kept; the Verdict step at the end turns a failed step into a red job.
     strategy:
       fail-fast: false
       matrix:
