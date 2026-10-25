@@ -210,7 +210,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     expect(w.errors).toEqual([]);
   });
 
-  test('welcome: the pictures that stand in for the 3D stage play (the loop is a video)', async ({ page }, info) => {
+  test('welcome: the pictures that stand in for the 3D stage play (the loop is a video)', async ({ page, browserName }, info) => {
     const w = watch(page);
     await withHooks(page, { keyboard: true, tour: 'fallback' });
     await page.goto(`${DEMO_URL}/welcome/`, { waitUntil: 'networkidle' });
@@ -220,6 +220,8 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await expect(loop).toBeVisible();
     const codecs = await page.evaluate(() => ['video/mp4; codecs="avc1.42E01E"', 'video/webm; codecs="vp8"', 'video/webm; codecs="vp9"'].map((t) => document.createElement('video').canPlayType(t)));
     test.skip(codecs.every((c) => c === ''), 'this engine build has no video codec at all (Playwright\'s WebKit for Windows), so no loop can play here');
+    // the same build may answer "maybe" to a codec it cannot decode (canPlayType is a guess and the video's readyState stays 0): the Safari engine on macOS answers for Safari
+    test.skip(process.platform === 'win32' && browserName === 'webkit', 'Playwright\'s WebKit for Windows lists codecs it cannot decode, the loop gets no picture there; the macOS runner has the real Safari engine');
     // a video that plays on this engine: it has a picture and its time moves (Safari plays a muted inline video, and only from a server that answers byte ranges)
     await expect.poll(() => loop.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 20_000, message: 'the loop never got a picture (video.readyState)' }).toBeGreaterThanOrEqual(2);
     const t0 = await loop.evaluate((v: HTMLVideoElement) => v.currentTime);
@@ -277,8 +279,10 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     const w = watch(page);
     await page.goto(`${DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
     test.skip(await hasCameraApi(page), 'this engine has a camera API: the camera flows run instead');
-    await page.waitForSelector('[data-action="camera-continue"], [data-hud-root] [data-hud]', { timeout: 30_000 });
-    if ((await page.locator('[data-action="camera-continue"]').count()) === 0) {
+    // the explainer, the panel that says the camera cannot be had (a mirror game on a phone with no camera API: nothing else to play it with), or the HUD of a round
+    // that went on with the keyboard; the HUD is looked for where it can be seen (a hidden one behind a panel is not a round)
+    await page.waitForSelector('[data-action="camera-continue"], #ov-title:visible, [data-hud-root] [data-hud]:visible', { timeout: 30_000 });
+    if ((await page.locator('[data-action="camera-continue"]').count()) === 0 && (await page.locator('#ov-title:visible').count()) === 0) {
       // a laptop or a TV has a keyboard: with no camera API the round goes on with it, which is a way on too; a phone has none to fall back on
       info.annotations.push({ type: 'panel', description: 'no camera API: the round went on with the keyboard' });
       await shot(page, info, 'camera-unsupported-keyboard');
@@ -286,7 +290,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
       expect(w.errors).toEqual([]);
       return;
     }
-    await page.locator('[data-action="camera-continue"]').click();
+    if ((await page.locator('[data-action="camera-continue"]').count()) > 0) await page.locator('[data-action="camera-continue"]').click();
     await page.waitForSelector('#ov-title', { timeout: 30_000 });
     await settle(page);
     const panel = await page.evaluate(() => ({ title: document.querySelector('#ov-title')?.textContent?.trim() ?? '', alert: (document.querySelector('.ba-explain [role=alert]')?.textContent ?? '').trim(), buttons: [...document.querySelectorAll('.ba-explain button, .ba-explain a')].map((b) => (b.textContent ?? '').trim()).filter(Boolean) }));

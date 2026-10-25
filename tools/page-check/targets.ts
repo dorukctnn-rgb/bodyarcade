@@ -47,7 +47,7 @@ export interface Target {
 
 // A round with the keyboard: the HUD (or the panel that says the round could not start) shows, the countdown is over.
 // ':visible' matters: a list of selectors waits for the FIRST match in the page to turn visible, and the HUD plates come first.
-const PLAY_WAIT: Step[] = [{ waitFor: '[data-hud="statusLeft"]:visible, [data-hud="statusP1"]:visible, #ov-title:visible' }, { waitGone: '.ba-countdown, [data-cal-view]' }, { wait: 1200 }];
+const PLAY_WAIT: Step[] = [{ waitFor: '[data-hud="statusLeft"]:visible, [data-hud="statusP1"]:visible, #ov-title:visible', timeout: 45000 }, { waitGone: '.ba-countdown, [data-cal-view]' }, { wait: 1200 }];
 // A whole start on the camera: explainer, calibration on the person, countdown, then the game runs for a moment.
 const CAMERA_ROUND: Step[] = [
   { waitFor: '[data-action="camera-continue"]' }, { click: '[data-action="camera-continue"]' },
