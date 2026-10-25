@@ -46,9 +46,12 @@ export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml
     ? `${ctx.i18n.list(s.regions.map((r) => t.tx(`region.${r}`)))}. ${t.tx(`onboarding.level.${s.level}`)}.`
     : t.t('settings.goals.none');
 
+  // Release 1 is English and Turkish. A draft language (its shell words are partly English) is not offered; only the player whose
+  // setting already is one (a development build) still sees it, marked as a draft, so the select never shows a value it has no option for.
+  const offered = LANG_INFO.filter((l) => l.status !== 'draft' || l.code === s.lang);
   const langSelect = html`<select class="k-select" name="lang" id="set-lang" data-key="lang">
     <option value="auto"${attr('selected', s.lang === 'auto')}>${t.t('settings.lang.auto')}</option>
-    ${LANG_INFO.map((l) => html`<option value="${l.code}" lang="${l.tag}"${attr('selected', s.lang === l.code)}>${l.name}${l.status === 'draft' ? ` (${t.t('settings.lang.draftBadge')})` : ''}</option>`)}
+    ${offered.map((l) => html`<option value="${l.code}" lang="${l.tag}"${attr('selected', s.lang === l.code)}>${l.name}${l.status === 'draft' ? ` (${t.t('settings.lang.draftBadge')})` : ''}</option>`)}
   </select>`;
 
   const theme = segmented('theme', t.t('settings.theme'), [

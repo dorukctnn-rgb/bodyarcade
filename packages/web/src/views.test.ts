@@ -422,3 +422,22 @@ describe('the calibration screen', () => {
     }
   });
 });
+
+describe('the language picker of the settings', () => {
+  const options = (html: string): string[] => [...html.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1] as string);
+  const select = (html: string): string => html.slice(html.indexOf('id="set-lang"'), html.indexOf('</select>', html.indexOf('id="set-lang"')));
+
+  it('offers the languages that are finished (English, Turkish) and the one that follows the browser, never a draft', () => {
+    for (const lang of LANGS) {
+      const page = select(draw(lang, lang === 'en' ? '/settings/' : `/${lang}/settings/`).html);
+      expect(options(page), lang).toEqual(['auto', 'en', 'tr']);
+      expect(page, lang).not.toMatch(/Deutsch|Español|Français|draft|taslak/i);
+    }
+  });
+
+  it('keeps showing a draft that is already the setting (a development build), marked as a draft, so the select never holds a value it has no option for', () => {
+    const page = select(draw('en', '/settings/', { settings: { lang: 'de' } }).html);
+    expect(options(page)).toEqual(['auto', 'en', 'tr', 'de']);
+    expect(page).toMatch(/<option value="de"[^>]*selected[^>]*>Deutsch \(/);
+  });
+});
