@@ -158,7 +158,21 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     // a region chip filters without loading the page again
     await page.evaluate(() => { (window as unknown as { __marker: number }).__marker = 1; });
     const chip = page.locator('.ba-filters a.ba-chip').nth(1);
-    await chip.click();
+    try {
+      await chip.click({ timeout: 15_000 });
+    } catch (e) {
+      // a click that waits for "stable" forever: say what the page was doing (frames per second, where the chip was twice, the scroll) so the report can tell a frozen page from a moving chip
+      const diag = await page.evaluate(async (sel) => {
+        const box = (): string => { const r = document.querySelectorAll(sel)[1]?.getBoundingClientRect(); return r ? `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}x${Math.round(r.height)}` : 'none'; };
+        const first = box();
+        let frames = 0;
+        const t0 = performance.now();
+        await new Promise<void>((res) => { const step = (): void => { frames++; if (performance.now() - t0 > 1000) res(); else requestAnimationFrame(step); }; requestAnimationFrame(step); window.setTimeout(res, 2500); });
+        return { first, second: box(), framesInASecond: frames, scrollY: Math.round(window.scrollY), inner: `${innerWidth}x${innerHeight}`, visible: document.visibilityState };
+      }, '.ba-filters a.ba-chip').catch((err: unknown) => ({ failed: String(err) }));
+      info.annotations.push({ type: 'home-chip-diagnosis', description: JSON.stringify(diag) });
+      throw e;
+    }
     await expect(page).toHaveURL(/\/workouts\/[a-z]+\/$/);
     expect(await page.evaluate(() => (window as unknown as { __marker?: number }).__marker), 'the page was not reloaded').toBe(1);
     expect(await page.locator('a.ba-tile').count()).toBeGreaterThan(0);
