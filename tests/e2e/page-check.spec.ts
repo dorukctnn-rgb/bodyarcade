@@ -90,6 +90,20 @@ test.describe('page-check probe', () => {
     expect(good.text).toBe('');
   });
 
+  test('the action bar of one column of a page on a phone held sideways is a bottom bar: the content of the column scrolls under it by design', async ({ page }) => {
+    // 844 x 390: the right column's bar is half the screen wide, touches its right edge and is more than 45 % of the short screen tall; it sticks to the bottom edge.
+    const steps = Array.from({ length: 14 }, (_, i) => `<p style="margin:0 0 70px"><button>Step ${i + 1}</button></p>`).join('');
+    const page2 = `<div style="display:grid;grid-template-columns:1fr 1fr;align-items:start;gap:16px;padding:0 16px"><div><p>Left column</p></div>`
+      + `<div style="display:flex;flex-direction:column"><h1 style="margin:0">Title</h1><div>${steps}</div>`
+      + `<div style="position:sticky;bottom:0;height:208px;margin-right:-16px;padding:14px 16px 14px 0;background:#fff"><button>Play</button><p style="margin:8px 0 0">The note under the button</p></div></div></div>`;
+    const bar = await probe(page, page2, {}, { width: 844, height: 390 });
+    expect(bar.text).toBe('');
+    // the same box as a panel up the right side of the screen, over the same content, is what a side panel is: found.
+    const panel = await probe(page, `<div style="padding:0 16px"><p style="margin:0;width:700px">${'Text that runs under a drawer. '.repeat(30)}</p><p style="height:900px;margin:0"><button style="position:absolute;left:600px;top:200px">Under the drawer</button></p></div>`
+      + '<aside style="position:fixed;top:0;bottom:0;right:0;width:300px;background:#fff;padding:12px"><button>Drawer action</button></aside>', {}, { width: 844, height: 390 });
+    expect(panel.errors.length).toBeGreaterThan(0);
+  });
+
   test('a modal window hides the page under it from the checks', async ({ page }) => {
     const r = await probe(page, '<p style="position:absolute;left:20px;top:100px;margin:0">Page text under the window</p><dialog open style="position:fixed;left:10px;top:60px;width:300px;margin:0"><p style="margin:0">Window text</p><button>Close</button></dialog>');
     expect(r.text).toBe('');
