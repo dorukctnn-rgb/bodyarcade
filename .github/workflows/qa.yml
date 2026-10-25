@@ -9,6 +9,15 @@ on:
     branches: [main, v2]
   pull_request:
   workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Browsers job: only the flows whose title contains this text (for a quick look at one thing)'
+        required: false
+        default: ''
+      page_check:
+        description: 'Run the page-check job too (false: the engines only)'
+        required: false
+        default: 'true'
 
 concurrency:
   group: qa-${{ github.ref }}
@@ -19,6 +28,7 @@ permissions:
 
 jobs:
   page-check:
+    if: github.event_name != 'workflow_dispatch' || inputs.page_check != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -107,18 +117,22 @@ jobs:
       - name: Flows on ${{ matrix.engine }} (phone and desktop)
         id: flows
         continue-on-error: true
-        run: node tools/browsers/run.ts --engines ${{ matrix.engine }}
+        env:
+          GREP: ${{ inputs.grep }}
+        shell: bash
+        run: node tools/browsers/run.ts --engines ${{ matrix.engine }} ${GREP:+--grep "$GREP"}
 
       # The web shell's own end-to-end specs (packages/web/e2e: browse, welcome, play, plans, players, layout, accessibility) on this engine.
       - name: The web shell's own specs on ${{ matrix.engine }}
         id: shellspecs
+        if: github.event_name != 'workflow_dispatch' || inputs.grep == ''
         continue-on-error: true
         run: node tools/browsers/run.ts --set ui --engines ${{ matrix.engine }}
 
       # The ten screen sizes of the layout rule, with the overlap and clipping check, in this engine (the Chromium run is the page-check job).
       - name: Page check on ${{ matrix.engine }} (ten screen sizes)
         id: pagecheck
-        if: matrix.pagecheck
+        if: matrix.pagecheck && (github.event_name != 'workflow_dispatch' || inputs.grep == '')
         continue-on-error: true
         run: node tools/page-check/run.ts --groups web --browser ${{ matrix.engine }} --jobs 2 --out qa-out/page-check-${{ matrix.engine }}
 
@@ -126,6 +140,7 @@ jobs:
       # The live suite is left out of GitHub runs by its own `CI` check; this step lifts that for this one spec only.
       - name: Live play peers on ${{ matrix.engine }}
         id: peers
+        if: github.event_name != 'workflow_dispatch' || inputs.grep == ''
         continue-on-error: true
         env:
           CI: ''
@@ -161,5 +176,4 @@ jobs:
         shell: bash
         run: |
           echo "flows: ${{ steps.flows.outcome }}, shell specs: ${{ steps.shellspecs.outcome }}, page check: ${{ steps.pagecheck.outcome }}, peers: ${{ steps.peers.outcome }}"
-          for o in "${{ steps.flows.outcome }}" "${{ steps.shellspecs.outcome }}" "${{ steps.peers.outcome }}"; do if [ "$o" != "success" ]; then exit 1; fi; done
-          if [ "${{ steps.pagecheck.outcome }}" = "failure" ]; then exit 1; fi
+          for o in "${{ steps.flows.outcome }}" "${{ steps.shellspecs.outcome }}" "${{ steps.peers.outcome }}" "${{ steps.pagecheck.outcome }}"; do if [ "$o" = "failure" ]; then exit 1; fi; done
