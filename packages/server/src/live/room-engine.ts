@@ -14,6 +14,10 @@
 //  - A socket that drops pauses nothing for offlineDebounceMs; hello adopts the pause reasons the client reports now.
 //  - Time-driven changes happen in tick(), which the adapter calls from the alarm and which also runs before every
 //    message, so a late alarm cannot make the room wrong.
+//  - A Pro game (core/net/live-games.ts) starts only while a Pro authorisation stands behind it: `meta.auth`, written when a member
+//    whose signed Pro token the Worker verified (ticket claim `x`, kept per member as `proUntil`) created the room with that game
+//    or picked it. The Room never sees a token and checks no signature (that is async crypto, done by the Worker before the ticket
+//    is signed); it only compares the verified end time with its own clock. Players of the room never need Pro themselves.
 import {
   CLOSE, MAX_SEATS, MIN_SEATS, MIN_DURATION_MS, MAX_DURATION_MS, NET_PROTOCOL,
   type AckRejection, type AgeBand, type ChatMode, type ClientMessage, type MatchInfo, type MatchPhase, type MatchResult,
@@ -23,6 +27,7 @@ import {
 } from '../../../core/types/net.ts';
 import { makeSchedule, scoreOf, specFor, places as placesOf, winnerOf, type Obstacle } from '../../../core/net/schedule.ts';
 import { outcomeString } from '../../../core/net/ghost.ts';
+import { isProGame } from '../../../core/net/live-games.ts';
 import { checkChat, checkName, CHAT_INTERVAL_MS } from '../../../core/net/chat-filter.ts';
 import { MAX_BLOCKS, parseClientMessage } from '../../../core/net/validate.ts';
 import type { RoomReport } from './hooks.ts';
@@ -50,6 +55,8 @@ export interface ConnAtt {
   h: boolean;
   /** When the socket was accepted (epoch ms): the least known about when it last spoke, after a hibernation wake. */
   at?: number;
+  /** Epoch seconds until which this player's signed Pro token was verified (the ticket's `x`); absent for a free player. */
+  x?: number;
 }
 
 export interface EngineConn {
@@ -105,6 +112,8 @@ interface Meta {
   banned: string[];
   matches: number;
   emptySince: number | null;
+  /** The Pro game this room may start and until when (epoch ms): written when a member with a verified Pro token made the room with it or picked it. */
+  auth?: { game: string; until: number } | null;
 }
 
 interface MemberRec {
@@ -127,6 +136,8 @@ interface MemberRec {
   offlineHandled: boolean;
   joinedAt: number;
   mutedUntil: number;
+  /** Epoch ms until which this member's signed Pro token was verified at the door (the largest ticket claim seen); 0 or absent: none. */
+  proUntil?: number;
 }
 
 interface MatchRec {
@@ -165,9 +176,11 @@ export interface InitInput {
   audience: AgeBand | null;
   /** Device id of the creator: the first host. */
   creator: string;
+  /** Epoch ms until which the Worker verified the creator's signed Pro token; a Pro game needs it (absent: the creator is free). */
+  proUntil?: number;
 }
 
-export type InitResult = { ok: true } | { ok: false; error: 'exists' | 'bad_config' | 'bad_size' | 'bad_audience' };
+export type InitResult = { ok: true } | { ok: false; error: 'exists' | 'bad_config' | 'bad_size' | 'bad_audience' | 'pro_required' };
 export type CheckResult = { ok: true; preview: RoomPreview } | { ok: false; error: 'no_room' | 'full' | 'banned' | 'not_allowed' };
 
 /** Token buckets per socket (general, relay, signal), the messages counted in this wall-clock second, bad messages, the second a warning was last sent. */
@@ -202,6 +215,8 @@ export class RoomEngine {
   private heard = new Map<string, number>();
   /** When the silent-socket sweep last ran; null while no socket is open. */
   private lastSweep: number | null = null;
+  /** The Pro block the room last told its members of (game and end of its authorisation), so a ready toggle does not repeat it. */
+  private proBlockNoted: string | null = null;
 
   private constructor(host: EngineHost, timing: Timing, raw: Record<string, unknown>) {
     this.host = host;
@@ -250,10 +265,13 @@ export class RoomEngine {
       || (c.band !== null && !BAND_RE.test(c.band))) return { ok: false, error: 'bad_config' };
     if (input.kind === 'public' && input.audience !== 'teen' && input.audience !== 'adult') return { ok: false, error: 'bad_audience' };
     const now = this.now();
+    const pro = isProGame(c.gameId);
+    const until = typeof input.proUntil === 'number' && Number.isFinite(input.proUntil) ? input.proUntil : 0;
+    if (pro && until <= now) return { ok: false, error: 'pro_required' };
     this.meta = {
       code: input.code, kind: input.kind, size: input.size, config: { gameId: c.gameId, durationMs: c.durationMs, band: input.kind === 'public' ? c.band : null },
       audience: input.kind === 'public' ? input.audience : null, creator: input.creator, host: null, createdAt: now, activityAt: now,
-      nextSeat: 1, banned: [], matches: 0, emptySince: now,
+      nextSeat: 1, banned: [], matches: 0, emptySince: now, auth: pro ? { game: c.gameId, until } : null,
     };
     this.dirty.add('meta');
     this.publish();
@@ -318,7 +336,7 @@ export class RoomEngine {
     const m = this.meta;
     this.heard.set(conn.id, this.now());
     if (!m || m.code !== claims.c) { conn.close(CLOSE.NO_ROOM, 'no room'); return; }
-    conn.att = { c: conn.id, p: claims.p, n: claims.n, a: claims.a, k: claims.k, m: claims.m ?? 0, s: null, t: null, h: false, at: this.now() };
+    conn.att = { c: conn.id, p: claims.p, n: claims.n, a: claims.a, k: claims.k, m: claims.m ?? 0, s: null, t: null, h: false, at: this.now(), ...(claims.x ? { x: claims.x } : {}) };
     if (m.banned.includes(claims.p)) { this.send(conn, { t: 'removed', reason: 'banned' }); conn.close(CLOSE.REMOVED, 'banned'); }
   }
 
@@ -470,9 +488,13 @@ export class RoomEngine {
     mem.conn = conn.id; mem.online = true; mem.offlineAt = null; mem.offlineHandled = false;
     mem.sess = m.sess; mem.video = m.video; mem.blocks = m.blocks.slice(0, MAX_BLOCKS);
     if (att.m > mem.mutedUntil) mem.mutedUntil = att.m;
+    // a Pro proof only ever grows: a ticket without one (the token ran out meanwhile) does not take back what was verified before
+    if (att.x && att.x * 1000 > (mem.proUntil ?? 0)) mem.proUntil = att.x * 1000;
     if (!meta.host) meta.host = mem.seat;
     meta.emptySince = null;
     this.dirty.add('members'); this.dirty.add('meta');
+    // a host who comes back with a fresh Pro token re-opens a Pro game whose authorisation had run out
+    const reopened = this.refreshAuth();
 
     // pause reasons belong to the connection that set them: replace them with what this client says now. The pause
     // state is settled before the welcome is built, so the welcome already shows it; the others are told afterwards.
@@ -491,6 +513,7 @@ export class RoomEngine {
     });
     this.broadcastPresence(mem.seat);
     if (joined) { this.broadcastRoom(); this.hookPlaying(mem, true, false); }
+    else if (reopened) this.broadcastRoom();
     if (announce === 'paused') this.broadcast({ t: 'paused', by: mem.seat, match: this.view() as MatchInfo }, mem.seat);
     this.publish();
     this.maybeStart();
@@ -559,7 +582,17 @@ export class RoomEngine {
     const next: RoomConfig = { ...meta.config };
     if (m.gameId !== undefined) next.gameId = m.gameId;
     if (m.durationMs !== undefined) next.durationMs = m.durationMs;
-    if (next.gameId === meta.config.gameId && next.durationMs === meta.config.durationMs) return;
+    // a Pro game is the host's to pick: their own verified Pro token must stand behind it (the room's older authorisation is for the
+    // game it was given for, and a new host does not inherit it for another game)
+    let authorised = false;
+    if (isProGame(next.gameId) && !this.proAuthorised(next.gameId)) {
+      if (!this.authorise(mem, next.gameId)) { this.host.log({ evt: 'pro_refused', where: 'config', game: next.gameId }); this.err(conn, 'pro_required'); return; }
+      authorised = true;
+    }
+    if (next.gameId === meta.config.gameId && next.durationMs === meta.config.durationMs) {
+      if (authorised) { this.broadcastRoom(); this.publish(); this.maybeStart(); }       // the same Pro game, authorised again by this host: a room that was waiting can go on
+      return;
+    }
     meta.config = next;
     for (const x of Object.values(this.members)) x.ready = false;           // nobody starts a game they did not see
     this.dirty.add('meta'); this.dirty.add('members');
@@ -596,7 +629,7 @@ export class RoomEngine {
         c.close(why ? CLOSE.REMOVED : 1000, why ?? 'bye');
       } catch { /* closing */ }
     }
-    if (meta.host === mem.seat) meta.host = this.nextHost();
+    if (meta.host === mem.seat) { meta.host = this.nextHost(); this.refreshAuth(); }
     if (!Object.keys(this.members).length) meta.emptySince = this.now();
     this.dirty.add('members'); this.dirty.add('meta');
     this.hookPlaying(mem, false, false);
@@ -609,6 +642,45 @@ export class RoomEngine {
     return (all.find((m) => m.online) ?? all[0])?.seat ?? null;
   }
 
+  // ───────── Pro games ─────────
+
+  /** May a match of this game start now? A free game always; a Pro game while its authorisation is for that game and has not run out. */
+  private proAuthorised(game: string): boolean {
+    if (!isProGame(game)) return true;
+    const a = (this.meta as Meta).auth;
+    return !!a && a.game === game && a.until > this.now();
+  }
+
+  /** Writes down that this member's verified Pro token stands behind `game`. False when the member has none that is still good. */
+  private authorise(mem: MemberRec, game: string): boolean {
+    const until = mem.proUntil ?? 0;
+    if (until <= this.now()) return false;
+    (this.meta as Meta).auth = { game, until };
+    this.dirty.add('meta');
+    return true;
+  }
+
+  /**
+   * The room's game is a Pro game that nothing stands behind (the proof ran out, or its giver left) while the host holds a good one:
+   * the host's proof is written down. True when that changed something the members should hear of.
+   */
+  private refreshAuth(): boolean {
+    const meta = this.meta as Meta;
+    if (!meta.host || this.proAuthorised(meta.config.gameId)) return false;
+    const host = this.bySeat(meta.host);
+    return !!host && this.authorise(host, meta.config.gameId);
+  }
+
+  /** Everyone is ready but the Pro game has no good authorisation: say so once (the room info carries `pro.ok: false`) and wait. */
+  private noteProBlocked(): void {
+    const meta = this.meta as Meta;
+    const key = `${meta.config.gameId}:${meta.auth?.until ?? 0}`;
+    if (this.proBlockNoted === key) return;
+    this.proBlockNoted = key;
+    this.host.log({ evt: 'pro_blocked', game: meta.config.gameId });
+    this.broadcastRoom();
+  }
+
   // ───────── starting a match ─────────
 
   private maybeStart(): void {
@@ -616,6 +688,8 @@ export class RoomEngine {
     if (!meta || this.matchActive()) return;
     const all = Object.values(this.members);
     if (all.length < MIN_SEATS || !all.every((m) => m.ready && m.online)) return;
+    if (!this.proAuthorised(meta.config.gameId)) { this.noteProBlocked(); return; }
+    this.proBlockNoted = null;
     const now = this.now();
     all.sort((a, b) => a.joinedAt - b.joinedAt || a.seat.localeCompare(b.seat));
     this.match = {
@@ -1066,7 +1140,9 @@ export class RoomEngine {
 
   private roomInfo(): RoomInfo {
     const meta = this.meta as Meta;
-    return { code: meta.code, kind: meta.kind, size: meta.size, host: meta.host, config: { ...meta.config }, chat: this.chatMode(), video: meta.kind === 'private', phase: this.phase() };
+    const info: RoomInfo = { code: meta.code, kind: meta.kind, size: meta.size, host: meta.host, config: { ...meta.config }, chat: this.chatMode(), video: meta.kind === 'private', phase: this.phase() };
+    if (isProGame(meta.config.gameId)) info.pro = { ok: this.proAuthorised(meta.config.gameId) };
+    return info;
   }
 
   private view(): MatchInfo | null {

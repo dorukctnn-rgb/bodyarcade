@@ -53,6 +53,13 @@ export interface RoomInfo {
   /** Whether video can be switched on in this room at all (private rooms only; per member it also needs 18+). */
   video: boolean;
   phase: 'lobby' | 'playing';
+  /**
+   * Present only while the chosen game is a Pro game (core/net/live-games.ts). `ok`: the Room holds a Pro entitlement that the Worker
+   * verified from its signed token (the host's, when the game was picked), so the match may start. False: it ran out, and the
+   * match waits until the host picks a free game or shows a fresh token (the host's page renews its ticket for that).
+   * Everyone in the room plays a Pro game the host picked, Pro or not; the check is on the host, never on the players.
+   */
+  pro?: { ok: boolean };
 }
 
 export interface MemberInfo {
@@ -170,7 +177,8 @@ export type ClientMessage =
 export type AckRejection = 'bad' | 'early' | 'over' | 'no_match' | 'not_player';
 
 /** Non-fatal errors; the socket stays open. */
-export type RoomErrorCode = 'no_hello' | 'bad' | 'not_host' | 'bad_config' | 'busy' | 'not_allowed' | 'rate' | 'no_seat';
+/** `pro_required`: the host picked a Pro game and the Room holds no verified Pro entitlement of that host (the game stays as it was). */
+export type RoomErrorCode = 'no_hello' | 'bad' | 'not_host' | 'bad_config' | 'busy' | 'not_allowed' | 'rate' | 'no_seat' | 'pro_required';
 
 export type RoomMessage =
   | { t: 'welcome'; v: number; you: SeatId; now: number; room: RoomInfo; members: MemberInfo[]; match: MatchInfo | null; mine: ObstacleResult[]; blocked: SeatId[] }
@@ -249,6 +257,12 @@ export interface TicketClaims {
   e: number;
   /** Free text is muted until this epoch ms (three reports from different players, tech.md 5). */
   m?: number;
+  /**
+   * Pro: epoch seconds until which the Worker verified this player's signed entitlement token (the token's own `exp`) when it signed
+   * this ticket. Absent for a player with no valid Pro token. Never taken from a client message: only the Worker writes it,
+   * after checking the signature with the entitlement public key.
+   */
+  x?: number;
 }
 
 /** Answer of POST /api/rooms and POST /api/rooms/:code/join. */

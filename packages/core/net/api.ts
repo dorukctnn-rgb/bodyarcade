@@ -4,10 +4,13 @@ import type { AgeBand, IceGrant, JoinGrant, RoomPreview } from '../types/net.ts'
 export class LiveApiError extends Error {
   readonly status: number;
   readonly code: string;
-  constructor(status: number, code: string) {
+  /** The rest of the error body, when the Worker sent more than the code: for `pro_required` the `reason` (none, expired or invalid). */
+  readonly info: Readonly<Record<string, unknown>> | undefined;
+  constructor(status: number, code: string, info?: Readonly<Record<string, unknown>>) {
     super(code);
     this.status = status;
     this.code = code;
+    this.info = info;
   }
 }
 
@@ -42,18 +45,27 @@ async function call<T>(origin: string, method: 'GET' | 'POST', path: string, bod
     try { res = await fetcher(origin + path, init); } catch { throw new LiveApiError(0, timedOut() ? 'timeout' : 'network'); }
     let data: unknown = null;
     try { data = await res.json(); } catch { if (timedOut()) throw new LiveApiError(0, 'timeout'); data = null; }
-    if (!res.ok) throw new LiveApiError(res.status, typeof (data as { error?: unknown } | null)?.error === 'string' ? ((data as { error: string }).error) : 'http_' + res.status);
+    if (!res.ok) {
+      const body = typeof data === 'object' && data !== null && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
+      const { error, ...rest } = body ?? {};
+      throw new LiveApiError(res.status, typeof error === 'string' ? error : 'http_' + res.status, Object.keys(rest).length ? rest : undefined);
+    }
     return data as T;
   } finally {
     if (timer) clearTimeout(timer);
   }
 }
 
-export const createRoom = (origin: string, who: Identity, room: NewRoomRequest, fetcher?: typeof fetch): Promise<JoinGrant> =>
-  call<JoinGrant>(origin, 'POST', '/api/rooms', { ...room, ...who }, fetcher);
+/**
+ * `pro`: the player's signed entitlement token (core/entitlements: `entitlements.current().token`), or nothing for a free player. The
+ * Worker checks it with the public key; a Pro game needs it from whoever creates the room (403 `pro_required`), while joining any room
+ * never does. It rides in the body, so the signature of a signed call covers it.
+ */
+export const createRoom = (origin: string, who: Identity, room: NewRoomRequest, fetcher?: typeof fetch, pro?: string | null): Promise<JoinGrant> =>
+  call<JoinGrant>(origin, 'POST', '/api/rooms', { ...room, ...who, ...(pro ? { pro } : {}) }, fetcher);
 
-export const joinRoom = (origin: string, code: string, who: Identity, fetcher?: typeof fetch): Promise<JoinGrant> =>
-  call<JoinGrant>(origin, 'POST', `/api/rooms/${encodeURIComponent(code)}/join`, who, fetcher);
+export const joinRoom = (origin: string, code: string, who: Identity, fetcher?: typeof fetch, pro?: string | null): Promise<JoinGrant> =>
+  call<JoinGrant>(origin, 'POST', `/api/rooms/${encodeURIComponent(code)}/join`, { ...who, ...(pro ? { pro } : {}) }, fetcher);
 
 export const previewRoom = (origin: string, code: string, fetcher?: typeof fetch): Promise<RoomPreview> =>
   call<RoomPreview>(origin, 'GET', `/api/rooms/${encodeURIComponent(code)}`, undefined, fetcher);

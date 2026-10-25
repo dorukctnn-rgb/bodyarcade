@@ -16,6 +16,7 @@ export { createRoom, joinRoom, previewRoom, fetchIce, LiveApiError, type Identit
 export { codeFromInvite, formatRoomCode, inviteLink, isRoomCode, normalizeRoomCode, randomRoomCode, ROOM_CODE_ALPHABET } from './codes.ts';
 export { checkChat, checkName, CHAT_MAX_CHARS, CHAT_INTERVAL_MS, NAME_MAX_CHARS } from './chat-filter.ts';
 export { makeSchedule, scoreOf, decide, places, winnerOf, specFor, SCHEDULE_SPECS, DEFAULT_SPEC, type Obstacle, type ScheduleSpec } from './schedule.ts';
+export { PRO_GAMES, isProGame } from './live-games.ts';
 export { realScheduler, browserSocket, type Scheduler, type SocketFactory, type SocketLike } from './runtime.ts';
 export {
   LiveRace, isRetryable, type HostOptions, type Invite, type JoinOptions, type LobbyView, type RaceCloseReason, type RaceEvents, type RaceOptions, type RaceResult, type RaceState,

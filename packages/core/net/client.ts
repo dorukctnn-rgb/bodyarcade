@@ -9,6 +9,7 @@ import {
   type RoomMessage, type SeatId, type SignalData,
 } from '../types/net.ts';
 import { ClockFilter, type ClockInfo } from './clock.ts';
+import { isProGame } from './live-games.ts';
 import { PeerLink, DEFAULT_VIDEO_LIMITS, type LinkStats, type PeerHost, type PeerMetrics, type VideoLimits } from './peer.ts';
 import { Emitter, WS_CONNECTING, WS_OPEN, browserSocket, randomId, realScheduler, type Scheduler, type SocketFactory, type SocketLike } from './runtime.ts';
 import { parseRoomMessage } from './validate.ts';
@@ -54,6 +55,13 @@ export interface LiveClientOptions {
   origin?: string;
   /** A fresh grant when the Room rejects the ticket (close 4002). Without it a rejected ticket is fatal. */
   refreshTicket?: () => Promise<JoinGrant>;
+  /**
+   * The player's current signed Pro token (core/entitlements: `entitlements.current().token`), or null for a free player: the same
+   * function `refreshTicket` presents it from. With `proSent` (the token the grant in `grant` was made with) it lets `configure` see that
+   * the player bought Pro, or the app renewed an old token, after the Room read the ticket, and renew the ticket before a Pro game is picked.
+   */
+  pro?: () => string | null | undefined;
+  proSent?: string | null;
   /** Block keys this device holds (from earlier `blocked` events), sent with every hello. */
   blocks?: string[];
   /** Offer our camera to the rivals who also opted in (needs `stream`). */
@@ -142,6 +150,9 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
   private readonly socketFactory: SocketFactory;
   private readonly random: () => number;
   private grant: JoinGrant;
+  /** The Pro token the ticket in `grant` carries (null: none), to tell when the player's own is newer than what the Room has read. */
+  private proPresented: string | null;
+  private renewing: Promise<boolean> | null = null;
   private ws: SocketLike | null = null;
   private online = false;
   private attempt = 0;
@@ -176,6 +187,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     super();
     this.opts = opts;
     this.grant = opts.grant;
+    this.proPresented = opts.proSent ?? null;
     this.sched = opts.sched ?? realScheduler;
     this.socketFactory = opts.socket ?? browserSocket;
     this.random = opts.random ?? Math.random;
@@ -368,10 +380,51 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     this.lastRefresh = now;
     try {
       this.grant = await refresh();
+      this.proPresented = this.opts.pro?.() ?? null;
       this.scheduleReconnect(0);
     } catch {
       this.scheduleReconnect();
     }
+  }
+
+  /** Is the player's own Pro token a different one from the one the Room read at the door? (A free player has nothing to present.) */
+  private proIsNewer(): boolean {
+    const tok = this.opts.pro?.() ?? null;
+    return !!tok && tok !== this.proPresented;
+  }
+
+  /**
+   * The player's Pro token changed after the ticket was signed (Pro was bought in this lobby, or the app renewed an old token): asks for a
+   * fresh ticket and reconnects, so the Room reads the new claim when this client says hello again. Only between matches: a running match
+   * is never interrupted for it. Resolves to true when the new ticket is in place (the socket is back within a moment; queued messages go
+   * out with the welcome), false when there is nothing to renew with, a match is on, or the call failed.
+   */
+  renewEntitlement(): Promise<boolean> {
+    if (!this.renewing) this.renewing = this.renew().finally(() => { this.renewing = null; });
+    return this.renewing;
+  }
+
+  /**
+   * The Room says the Pro game it holds has no Pro proof behind it any more (`pro.ok` false: the host's token ran out, or the host
+   * changed) and this client is the host with a token that is not the one the Room read: the ticket is renewed, the next hello shows the
+   * new token and a room that was waiting for it goes on. A token the Room already read and found wanting is not tried again (no loop).
+   */
+  private proWaiting(room: RoomInfo): void {
+    if (room.pro?.ok === false && this.you !== null && room.host === this.you && this.proIsNewer()) void this.renewEntitlement();
+  }
+
+  private async renew(): Promise<boolean> {
+    const refresh = this.opts.refreshTicket;
+    if (!refresh || this.closed || !this.started || this.playing) return false;
+    try {
+      this.grant = await refresh();
+    } catch {
+      return false;
+    }
+    this.proPresented = this.opts.pro?.() ?? null;
+    this.lastRefresh = this.sched.now();
+    if (this.ws && !this.closed) this.dropSocket();
+    return true;
   }
 
   /** Backoff 250 ms, 500 ms, 1 s, 2 s, 4 s, then 5 s, each with +-30% jitter. */
@@ -425,7 +478,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
       case 'welcome': this.onWelcome(msg); break;
       case 'sync': this.onSync(msg.c, msg.s); break;
       case 'presence': this.setMembers(msg.members); break;
-      case 'room': this.room = msg.room; this.emit('room', msg.room); break;
+      case 'room': this.room = msg.room; this.emit('room', msg.room); this.proWaiting(msg.room); break;
       case 'signal': this.peers.get(msg.from)?.onSignal(msg.d).catch(() => { /* logged inside */ }); break;
       case 'relay': this.onStateEnvelope(msg.from, msg.d, 'relay'); break;
       case 'start': this.setMatch(msg.match, 'start'); break;
@@ -475,6 +528,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
       if (m.phase === 'over' && m.result && this.pendingFinal && this.pendingFinal.mid === m.id) this.onResult(m.result);
     }
     this.updateSlew();
+    this.proWaiting(msg.room);
   }
 
   /**
@@ -521,7 +575,17 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     this.wantReady = ready;
     this.send({ t: 'ready', ready });
   }
-  configure(c: { gameId?: string; durationMs?: number }): void { this.send({ t: 'config', ...c }); }
+  /**
+   * Host only. A Pro game needs the host's Pro token behind it in the Room: when the player's own token is newer than the ticket the Room
+   * read (see renewEntitlement), the ticket is renewed first and the choice goes out with the welcome that follows.
+   */
+  configure(c: { gameId?: string; durationMs?: number }): void {
+    if (c.gameId !== undefined && isProGame(c.gameId) && this.proIsNewer()) {
+      void this.renewEntitlement().then(() => { this.send({ t: 'config', ...c }); });
+      return;
+    }
+    this.send({ t: 'config', ...c });
+  }
   kick(seat: SeatId): void { this.send({ t: 'kick', seat }); }
   chat(text: string): void { this.send({ t: 'chat', text }); }
   preset(id: PresetId): void { this.send({ t: 'preset', id }); }

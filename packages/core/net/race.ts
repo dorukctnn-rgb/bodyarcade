@@ -126,6 +126,12 @@ export interface RaceOptions {
   /** Replaces fetch for the HTTP calls; replaces the client's scheduler, sockets and the rest in tests. */
   fetcher?: typeof fetch;
   client?: Partial<LiveClientOptions>;
+  /**
+   * The player's signed entitlement token, asked for at every create, join and ticket renewal (so it is always the current one), or
+   * null for a free player. The Room starts a Pro game (core/net/live-games.ts) only with a Pro host's token behind it; players who join
+   * never need one. Pass `() => entitlements.current().token`.
+   */
+  pro?: () => string | null | undefined;
 }
 
 export interface HostOptions extends RaceOptions {
@@ -181,7 +187,7 @@ export class LiveRace extends Emitter<RaceEvents> {
   private visibilityOff: (() => void) | null = null;
   private closedWhy: RaceCloseReason | null = null;
 
-  private constructor(grant: JoinGrant, opts: RaceOptions) {
+  private constructor(grant: JoinGrant, opts: RaceOptions, proSent: string | null) {
     super();
     this.opts = opts;
     this.who = opts.who;
@@ -196,7 +202,8 @@ export class LiveRace extends Emitter<RaceEvents> {
     this.invite = { code: grant.code, link, qrSvg: (o) => qrToSvg(encodeQr(link, 'M'), o) };
     this.client = new LiveClient({
       grant, origin,
-      refreshTicket: () => joinRoom(origin, grant.code, opts.who, fetcher),
+      refreshTicket: () => joinRoom(origin, grant.code, opts.who, fetcher, opts.pro?.()),
+      ...(opts.pro ? { pro: opts.pro, proSent } : {}),
       ice: () => fetchIce(origin, fetcher),
       blocks: store.load(),
       video: !!opts.video && !!opts.stream,
@@ -212,8 +219,9 @@ export class LiveRace extends Emitter<RaceEvents> {
   /** Creates a room and a seat in it. Rejects with LiveApiError (see isRetryable) when the Worker refuses or cannot be reached. */
   static async host(o: HostOptions): Promise<LiveRace> {
     const origin = o.origin ?? (typeof location !== 'undefined' ? location.origin : '');
-    const grant = await createRoom(origin, o.who, { kind: o.kind ?? 'private', gameId: o.gameId, size: o.size ?? 2, durationMs: o.durationMs, band: o.band ?? null }, o.fetcher);
-    return LiveRace.attach(grant, o);
+    const pro = o.pro?.() ?? null;
+    const grant = await createRoom(origin, o.who, { kind: o.kind ?? 'private', gameId: o.gameId, size: o.size ?? 2, durationMs: o.durationMs, band: o.band ?? null }, o.fetcher, pro);
+    return LiveRace.attach(grant, o, pro);
   }
 
   /** Takes a seat in the room an invite points at. Rejects with LiveApiError: bad_code, no_room, full, not_allowed, banned, rate_limited, network, timeout... */
@@ -221,8 +229,9 @@ export class LiveRace extends Emitter<RaceEvents> {
     const code = codeFromInvite(o.invite);
     if (!code) throw new LiveApiError(400, 'bad_code');
     const origin = o.origin ?? (typeof location !== 'undefined' ? location.origin : '');
-    const grant = await joinRoom(origin, code, o.who, o.fetcher);
-    return LiveRace.attach(grant, o);
+    const pro = o.pro?.() ?? null;
+    const grant = await joinRoom(origin, code, o.who, o.fetcher, pro);
+    return LiveRace.attach(grant, o, pro);
   }
 
   /** What an invite points at (game, seats, whether it is full), before asking the visitor for a name. */
@@ -233,9 +242,9 @@ export class LiveRace extends Emitter<RaceEvents> {
     return previewRoom(origin, code, o.fetcher);
   }
 
-  /** Starts a race session from a grant the caller already holds (tests; a lobby that hands out grants). */
-  static async attach(grant: JoinGrant, o: RaceOptions): Promise<LiveRace> {
-    const r = new LiveRace(grant, o);
+  /** Starts a race session from a grant the caller already holds (tests; a lobby that hands out grants). `proSent`: the Pro token that grant was made with, if any. */
+  static async attach(grant: JoinGrant, o: RaceOptions, proSent: string | null = null): Promise<LiveRace> {
+    const r = new LiveRace(grant, o, proSent);
     await r.client.start();
     return r;
   }
@@ -295,7 +304,10 @@ export class LiveRace extends Emitter<RaceEvents> {
   /** Ready again after a result. */
   rematch(): void { this.ready(true); }
 
-  /** Host only, between matches: the game and the length. Everyone's ready flag is cleared. */
+  /**
+   * Host only, between matches: the game and the length. Everyone's ready flag is cleared. A Pro game needs the host's signed Pro token:
+   * `roomError` says `pro_required` when the Room holds none that is good (a token bought or renewed since the ticket is taken along first).
+   */
   configure(c: { gameId?: string; durationMs?: number }): void { this.client.configure(c); }
 
   /** Host only, private rooms. */

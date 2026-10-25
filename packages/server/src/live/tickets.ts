@@ -54,11 +54,14 @@ export interface TicketInput {
   age: AgeBand;
   /** Free text muted until this epoch ms. */
   mutedUntil?: number;
+  /** Epoch ms until which the Worker verified this player's signed Pro token (pro.ts); absent for a player with none. */
+  proUntil?: number;
 }
 
 export async function signTicket(secret: string, input: TicketInput, nowMs: number, ttlS = TICKET_TTL_S): Promise<{ ticket: string; claims: TicketClaims }> {
   const claims: TicketClaims = { v: 1, c: input.code, p: input.pid, n: input.name, a: input.age, k: await blockKey(secret, input.pid), e: Math.floor(nowMs / 1000) + ttlS };
   if (input.mutedUntil && input.mutedUntil > nowMs) claims.m = Math.floor(input.mutedUntil);
+  if (input.proUntil && input.proUntil > nowMs) claims.x = Math.floor(input.proUntil / 1000);
   const body = b64url(enc.encode(JSON.stringify(claims)));
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', await hmacKey(secret), enc.encode(body)));
   return { ticket: `${body}.${b64url(sig)}`, claims };
@@ -93,7 +96,8 @@ export function isClaims(x: unknown): x is TicketClaims {
   return c.v === 1 && isRoomCode(c.c) && typeof c.p === 'string' && c.p.length >= 8 && c.p.length <= 64 &&
     typeof c.n === 'string' && c.n.length >= 1 && c.n.length <= 40 && AGES.includes(c.a as AgeBand) &&
     typeof c.k === 'string' && /^[A-Za-z0-9_-]{16,40}$/.test(c.k) &&
-    Number.isInteger(c.e) && (c.m === undefined || (typeof c.m === 'number' && Number.isFinite(c.m)));
+    Number.isInteger(c.e) && (c.m === undefined || (typeof c.m === 'number' && Number.isFinite(c.m))) &&
+    (c.x === undefined || (typeof c.x === 'number' && Number.isInteger(c.x) && c.x > 0 && c.x < 4_102_444_800));
 }
 
 /** An opaque, stable key for "this player", safe to give other devices (block lists). 22 characters. */

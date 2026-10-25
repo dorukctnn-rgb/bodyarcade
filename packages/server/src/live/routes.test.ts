@@ -1,10 +1,13 @@
 // The HTTP layer of live play against an in-process "Durable Object namespace" that runs real RoomEngines.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { JoinGrant, RoomPreview, RoomSummary } from '../../../core/types/net.ts';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { NET_PROTOCOL, type JoinGrant, type RoomPreview, type RoomSummary } from '../../../core/types/net.ts';
+import { b64urlEncode } from '../../../core/entitlements/token.ts';
 import type { DurableObjectNamespaceLike, Fetcher } from '../cf.ts';
 import { Router } from '../router.ts';
 import { clearLiveHooks, setLiveHooks } from './hooks.ts';
 import { resetLimits } from './limits.ts';
+import { resetProKeys, verifyProProof } from './pro.ts';
+import { DAY_S, makeProKit, type ProKit } from './prokit.ts';
 import { createRoomFor, issueJoin, registerLiveRoutes, roomSummary } from './routes.ts';
 import { RoomEngine, type InitInput } from './room-engine.ts';
 import { FakeHost, decodeTicketForTest } from './testkit.ts';
@@ -254,5 +257,173 @@ describe('invite links', () => {
     const res = await router.handle(new Request('http://site/r/K7P2QX'), e as unknown as Record<string, unknown>, ctx);
     expect(res?.status).toBe(503);
     expect(res?.headers.get('Location')).toBeNull();
+  });
+});
+
+describe('Pro games: the signed Pro token of the host is checked with the public key before a Pro game can be made or started', () => {
+  // The paywall says "rooms where everyone plays the Pro games the host picks". A page that says "I am Pro" has nothing to show; only a token that
+  // the entitlement service signed (core/entitlements) counts, and the Worker writes what it proves into the ticket, never the page.
+  let kit: ProKit;
+  let other: ProKit;
+  beforeAll(async () => { kit = await makeProKit(); other = await makeProKit(); });
+  beforeEach(() => { resetProKeys(); });
+
+  const proEnv = (): LiveEnv => ({ ...env, ...kit.env });
+  const nowS = (): number => Math.floor(Date.now() / 1000);
+  const createPro = (pro?: unknown, over: Record<string, unknown> = {}, e?: LiveEnv): Promise<Response | null> =>
+    post('/api/rooms', { gameId: 'limbo-bend', ...alice, ...(pro === undefined ? {} : { pro }), ...over }, {}, e ?? proEnv());
+  const said = async (res: Response | null | undefined): Promise<[number | undefined, unknown]> => [res?.status, await res?.json()];
+  const refused = (reason: string): [number, unknown] => [403, { error: 'pro_required', reason }];
+  const hasProof = async (g: JoinGrant): Promise<number | null> => { const c = await decodeTicketForTest(SECRET, g.ticket, g.code); return c.x ?? null; };
+  const bob = { pid: 'bob-device-00002', name: 'Bob', age: 'adult' };
+
+  it('a host with no token is refused a Pro game, with the reason, and no room is made', async () => {
+    expect(await said(await createPro())).toEqual(refused('none'));
+    expect(await said(await createPro(null))).toEqual(refused('none'));
+    expect(await said(await createPro(''))).toEqual(refused('none'));
+    expect(rooms.engines.size).toBe(0);
+  });
+
+  it('every Pro game of the catalogue is covered, and the free ones are not', async () => {
+    for (const gameId of ['limbo-bend', 'pad-work', 'reaction-tag']) expect(await said(await createPro(undefined, { gameId })), gameId).toEqual(refused('none'));
+    for (const gameId of ['squat-flap', 'knee-sprint', 'star-catch', 'jacks', 'road-run']) expect((await createPro(undefined, { gameId }))?.status, gameId).toBe(201);
+  });
+
+  it('a flag, a made-up token, a forged one (another key, or the right name with another key) or one that is not Pro is refused as invalid', async () => {
+    const stranger = await other.mint();
+    const [h, p, s] = stranger.split('.') as [string, string, string];
+    const header = JSON.parse(atob(h.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>;
+    const named = `${b64urlEncode(new TextEncoder().encode(JSON.stringify({ ...header, kid: kit.publicKey.kid })))}.${p}.${s}`;
+    const noPro = await kit.mint({ feat: [] });
+    for (const pro of [true, 1, 'true', 'pro', 'a.b.c', stranger, named, noPro, { pro: true }, ['x']]) {
+      expect(await said(await createPro(pro)), JSON.stringify(pro).slice(0, 24)).toEqual(refused('invalid'));
+    }
+    expect(rooms.engines.size).toBe(0);
+  });
+
+  it('a genuine token that was changed after signing is refused (a longer end date, a better plan, another feature)', async () => {
+    const t = await kit.mint({ plan: 'pro-monthly', iat: nowS() - 60, exp: nowS() + 600 });
+    const [h, p, s] = t.split('.') as [string, string, string];
+    const payload = JSON.parse(atob(p.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>;
+    const reissue = (over: Record<string, unknown>): string => `${h}.${b64urlEncode(new TextEncoder().encode(JSON.stringify({ ...payload, ...over })))}.${s}`;
+    for (const over of [{ exp: nowS() + 6 * DAY_S }, { plan: 'lifetime' }, { feat: ['pro', 'family6'] }]) {
+      expect(await said(await createPro(reissue(over))), JSON.stringify(over)).toEqual(refused('invalid'));
+    }
+    expect((await createPro(t))?.status).toBe(201);
+  });
+
+  it('claims in the body that are not a token are never read: isPro, plan, free and the like leave the host free', async () => {
+    const res = await createPro(undefined, { isPro: true, plan: 'lifetime', feat: ['pro'], proUntil: 4e12, x: 4_000_000_000, free: false, entitlement: { pro: true } });
+    expect(await said(res)).toEqual(refused('none'));
+  });
+
+  it('an expired token is "expired" (the app renews it when it is online), also one that ended a second ago', async () => {
+    const old = await kit.mint({ iat: nowS() - 5 * DAY_S, exp: nowS() - 2 * DAY_S });
+    const justNow = await kit.mint({ iat: nowS() - 3600, exp: nowS() - 1 });
+    for (const pro of [old, justNow]) expect(await said(await createPro(pro))).toEqual(refused('expired'));
+    expect(rooms.engines.size).toBe(0);
+  });
+
+  it('a Worker with no entitlement key believes no token at all', async () => {
+    const t = await kit.mint();
+    expect(await said(await createPro(t, {}, env))).toEqual(refused('invalid'));
+    expect(await said(await createPro(t, {}, { ...env, ENT_PRIV_JWK: 'not a key' }))).toEqual(refused('invalid'));
+    // the older keys of a rotation are enough to verify
+    expect((await createPro(t, {}, { ...env, ENT_PUB_JWKS: JSON.stringify([kit.publicKey]) }))?.status).toBe(201);
+  });
+
+  it('a genuine Pro token opens the Pro game: a room is made, the ticket carries the verified end of the token and the Room holds the authorisation', async () => {
+    const exp = nowS() + 3 * DAY_S;
+    const res = await createPro(await kit.mint({ iat: nowS() - 60, exp }));
+    expect(res?.status).toBe(201);
+    const g = (await res?.json()) as JoinGrant;
+    expect(g.room).toMatchObject({ gameId: 'limbo-bend', phase: 'lobby' });
+    expect(await hasProof(g)).toBe(exp);
+    const engine = await (rooms.engines.get(g.code) as Promise<RoomEngine>);
+    expect(engine.inspect().meta?.auth).toEqual({ game: 'limbo-bend', until: exp * 1000 });
+  });
+
+  it('every plan that is sold or was sold opens it (all of them carry pro)', async () => {
+    for (const [plan, feat] of [['pro-monthly', ['pro']], ['pro-yearly', ['pro']], ['family-yearly', ['pro', 'family6']], ['lifetime', ['pro']], ['legacy-monthly', ['pro']], ['founder', ['pro', 'family6']]] as const) {
+      expect((await createPro(await kit.mint({ plan, feat: [...feat] })))?.status, plan).toBe(201);
+    }
+  });
+
+  it('free games are open to everybody and a bad token is no error there: only a verified token puts a proof in the ticket', async () => {
+    const exp = nowS() + DAY_S;
+    for (const [pro, proof] of [[undefined, null], ['junk', null], [await other.mint(), null], [await kit.mint({ exp: nowS() - 5, iat: nowS() - 600 }), null], [await kit.mint({ exp }), exp]] as const) {
+      const res = await createPro(pro, { gameId: 'squat-flap' });
+      expect(res?.status, String(pro).slice(0, 12)).toBe(201);
+      expect(await hasProof((await res?.json()) as JoinGrant), String(pro).slice(0, 12)).toBe(proof);
+    }
+  });
+
+  it('joining never needs a token: a free player takes a seat in a Pro room, a bad token changes nothing, a good one puts a proof in the ticket', async () => {
+    const g = (await (await createPro(await kit.mint({ exp: nowS() + 3 * DAY_S })))?.json()) as JoinGrant;
+    const join = async (extra: Record<string, unknown>): Promise<JoinGrant> => {
+      const res = await post(`/api/rooms/${g.code}/join`, { ...bob, ...extra }, {}, proEnv());
+      expect(res?.status).toBe(200);
+      return (await res?.json()) as JoinGrant;
+    };
+    expect(await hasProof(await join({}))).toBeNull();
+    expect(await hasProof(await join({ pro: 'junk' }))).toBeNull();
+    expect(await hasProof(await join({ pro: await other.mint() }))).toBeNull();
+    expect(await hasProof(await join({ pro: await kit.mint({ iat: nowS() - 5 * DAY_S, exp: nowS() - DAY_S }) }))).toBeNull();
+    const exp = nowS() + 2 * DAY_S;
+    expect(await hasProof(await join({ pro: await kit.mint({ exp }) }))).toBe(exp);
+  });
+
+  it('a hook cannot vouch for Pro: whatever verifyPlayer puts in `pro` is replaced by what the token proves', async () => {
+    setLiveHooks({ verifyPlayer: async () => ({ pid: alice.pid, name: 'Alice', age: 'adult' as const, pro: { ok: true as const, until: Date.now() + 365 * 86_400_000 } }) });
+    expect(await said(await createPro())).toEqual(refused('none'));
+    expect(await said(await createPro('junk'))).toEqual(refused('invalid'));
+    const exp = nowS() + DAY_S;
+    const ok = await createPro(await kit.mint({ exp }));
+    expect(ok?.status).toBe(201);
+    expect(await hasProof((await ok?.json()) as JoinGrant)).toBe(exp);
+  });
+
+  it('createRoomFor (the matchmaker) needs the verdict of the creator for a Pro game, and takes the one verifyProProof gives', async () => {
+    const player = { pid: 'maker-device-0001', name: 'Maker', age: 'adult' as const };
+    const spec = { kind: 'public' as const, gameId: 'pad-work', size: 3, durationMs: 60_000, band: 'easy' };
+    await expect(createRoomFor(proEnv(), spec, player)).rejects.toMatchObject({ status: 403, code: 'pro_required', extra: { reason: 'none' } });
+    await expect(createRoomFor(proEnv(), spec, { ...player, pro: { ok: false, reason: 'expired' } })).rejects.toMatchObject({ status: 403, extra: { reason: 'expired' } });
+    expect(rooms.engines.size).toBe(0);
+    const pro = await verifyProProof(proEnv(), await kit.mint());
+    const made = await createRoomFor(proEnv(), spec, { ...player, pro });
+    expect(made.preview).toMatchObject({ gameId: 'pad-work', kind: 'public', size: 3 });
+    await expect(createRoomFor(proEnv(), { ...spec, gameId: 'squat-flap' }, player)).resolves.toMatchObject({ preview: { gameId: 'squat-flap' } });
+  });
+
+  it('the ticket of a verified host lets the Room take a Pro game and start it, and the ticket of a free host does not', async () => {
+    const hello = (pid: string): string => JSON.stringify({ t: 'hello', v: NET_PROTOCOL, tab: 't-' + pid, sess: 's-' + pid, video: false, reasons: [], blocks: [] });
+    const play = async (token: string | undefined): Promise<{ engine: RoomEngine; errors: string[] }> => {
+      const g = (await (await post('/api/rooms', { gameId: 'squat-flap', ...alice, ...(token ? { pro: token } : {}) }, {}, proEnv()))?.json()) as JoinGrant;
+      const host = rooms.hosts.get(g.code) as FakeHost;
+      const engine = await (rooms.engines.get(g.code) as Promise<RoomEngine>);
+      const errors: string[] = [];
+      const open = async (ticket: string, pid: string) => {
+        const c = host.newConn();
+        engine.accept(c, await decodeTicketForTest(SECRET, ticket, g.code));
+        engine.message(c, hello(pid));
+        return c;
+      };
+      const a = await open(g.ticket, alice.pid);
+      const j = (await (await post(`/api/rooms/${g.code}/join`, bob, {}, proEnv()))?.json()) as JoinGrant;
+      const b = await open(j.ticket, bob.pid);
+      engine.message(a, JSON.stringify({ t: 'config', gameId: 'limbo-bend' }));
+      for (const c of [a, b]) for (const m of c.inbox) if (m.t === 'error') errors.push(m.code);
+      engine.message(a, JSON.stringify({ t: 'ready', ready: true }));
+      engine.message(b, JSON.stringify({ t: 'ready', ready: true }));
+      return { engine, errors };
+    };
+    const pro = await play(await kit.mint());
+    expect(pro.errors).toEqual([]);
+    expect(pro.engine.inspect().meta?.config.gameId).toBe('limbo-bend');
+    expect(pro.engine.inspect().match?.gameId).toBe('limbo-bend');        // the friend with no token plays the game the Pro host picked
+    const free = await play(undefined);
+    expect(free.errors).toEqual(['pro_required']);
+    expect(free.engine.inspect().meta?.config.gameId).toBe('squat-flap');
+    expect(free.engine.inspect().match?.gameId).toBe('squat-flap');       // everybody was ready: the free game the room had goes on, the Pro one never starts
   });
 });

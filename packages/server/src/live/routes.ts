@@ -10,9 +10,15 @@
 //
 // Builder SO (social) and S (store) do not call these: SO uses the Room through the hooks in hooks.ts and the
 // summary stream they get from publishRoom; creating a room for a matchmade group goes through createRoomFor().
+//
+// Pro games: a body may carry `pro`, the player's signed entitlement token (core/entitlements/token.ts). It is checked here with the
+// entitlement public key (pro.ts) and what it proves goes into the ticket (`x`) and, for a creator, into the room (`proUntil`); the
+// Room trusts those and never a message. A Pro game (core/net/live-games.ts) is refused to a creator without a good token
+// (403 `pro_required`, `reason` none | expired | invalid); joining any room never needs one.
 import { CLOSE, DEFAULT_DURATION_MS, MAX_SEATS, MIN_SEATS, type AgeBand, type JoinGrant, type RoomCode, type RoomPreview, type RoomSummary } from '../../../core/types/net.ts';
 import { inviteLink, normalizeRoomCode, randomRoomCode } from '../../../core/net/codes.ts';
 import { checkName } from '../../../core/net/chat-filter.ts';
+import { isProGame } from '../../../core/net/live-games.ts';
 import type { Fetcher } from '../cf.ts';
 import { workersRuntime } from '../cf.ts';
 import { HttpError, clientIp, fail, isRecord, json, publicOrigin, readJson } from '../http.ts';
@@ -22,6 +28,7 @@ import { LIMITS, allow } from './limits.ts';
 import { CLAIMS_HEADER, encodeClaims } from './room.ts';
 import { blockKey, checkSecret, signTicket, verifyTicket } from './tickets.ts';
 import { liveHooks, type LivePlayer } from './hooks.ts';
+import { verifyProProof } from './pro.ts';
 import type { LiveEnv } from './env.ts';
 import type { CheckResult, InitInput, InitResult } from './room-engine.ts';
 
@@ -66,18 +73,22 @@ function codeParam(raw: string | undefined): RoomCode {
  */
 async function identify(req: Request, env: LiveEnv, body: Record<string, unknown>): Promise<LivePlayer> {
   const hook = liveHooks().verifyPlayer;
+  let player: LivePlayer;
   if (hook) {
     const p = await hook(req, env, body);
     if (!p) throw new HttpError(401, 'auth');
-    return p;
+    player = p;
+  } else {
+    const pid = body.pid;
+    if (typeof pid !== 'string' || !PID_RE.test(pid)) throw new HttpError(400, 'bad_pid');
+    const age = body.age;
+    if (typeof age !== 'string' || !AGES.includes(age as AgeBand)) throw new HttpError(400, 'bad_age');
+    const name = checkName(typeof body.name === 'string' ? body.name : '');
+    if (!name.ok) throw new HttpError(400, 'bad_name', { reason: name.reason });
+    player = { pid, name: name.text, age: age as AgeBand };
   }
-  const pid = body.pid;
-  if (typeof pid !== 'string' || !PID_RE.test(pid)) throw new HttpError(400, 'bad_pid');
-  const age = body.age;
-  if (typeof age !== 'string' || !AGES.includes(age as AgeBand)) throw new HttpError(400, 'bad_age');
-  const name = checkName(typeof body.name === 'string' ? body.name : '');
-  if (!name.ok) throw new HttpError(400, 'bad_name', { reason: name.reason });
-  return { pid, name: name.text, age: age as AgeBand };
+  // The Pro proof is judged here whoever vouched for the identity: what a hook says about it is replaced, never believed.
+  return { ...player, pro: await verifyProProof(env, body.pro) };
 }
 
 async function body(req: Request): Promise<Record<string, unknown>> {
@@ -88,7 +99,11 @@ async function body(req: Request): Promise<Record<string, unknown>> {
 
 async function grant(env: LiveEnv, origin: string, code: RoomCode, player: LivePlayer, room: RoomPreview): Promise<JoinGrant> {
   const secret = checkSecret(env.TICKET_SECRET);
-  const { claims, ticket } = await signTicket(secret, { code, pid: player.pid, name: player.name, age: player.age, ...(player.mutedUntil ? { mutedUntil: player.mutedUntil } : {}) }, Date.now());
+  const { claims, ticket } = await signTicket(secret, {
+    code, pid: player.pid, name: player.name, age: player.age,
+    ...(player.mutedUntil ? { mutedUntil: player.mutedUntil } : {}),
+    ...(player.pro?.ok ? { proUntil: player.pro.until } : {}),
+  }, Date.now());
   return { code, link: inviteLink(origin, code), ticket, exp: claims.e, room };
 }
 
@@ -131,20 +146,31 @@ export interface NewRoom {
  */
 export async function createRoomFor(env: LiveEnv, room: NewRoom, creator: LivePlayer): Promise<{ code: RoomCode; preview: RoomPreview }> {
   if (room.kind === 'public' && creator.age === 'child') throw new HttpError(403, 'age_not_allowed');
+  // A Pro game needs a creator whose signed Pro token checked out: refused here, before any room object exists (the Room asks again).
+  const proUntil = creator.pro?.ok ? creator.pro.until : 0;
+  if (isProGame(room.gameId) && proUntil <= Date.now()) throw proRequired(room.gameId, creator, 'create');
   for (let i = 0; i < 6; i++) {
     const code = randomRoomCode();
     const input: InitInput = {
       code, kind: room.kind, size: room.size, config: { gameId: room.gameId, durationMs: room.durationMs, band: room.band },
-      audience: room.kind === 'public' ? creator.age : null, creator: creator.pid,
+      audience: room.kind === 'public' ? creator.age : null, creator: creator.pid, ...(proUntil ? { proUntil } : {}),
     };
     const r = await roomCall<InitResult>(env, code, '/init', input);
     if (r.data.ok) {
       const pv = await roomCall<RoomPreview>(env, code, '/preview');
       return { code, preview: pv.data };
     }
+    if (r.data.error === 'pro_required') throw proRequired(room.gameId, creator, 'create');
     if (r.data.error !== 'exists') throw new HttpError(400, r.data.error);
   }
   throw new HttpError(503, 'no_code');
+}
+
+/** The answer to a creator who picked a Pro game without a Pro token that checks out: why, so the page can say what to do. */
+function proRequired(gameId: string, creator: LivePlayer, where: string): HttpError {
+  const reason = creator.pro && !creator.pro.ok ? creator.pro.reason : 'none';
+  console.log(JSON.stringify({ evt: 'pro_refused', where, game: gameId, reason }));
+  return new HttpError(403, 'pro_required', { reason });
 }
 
 const createRoom = async (req: Request, rawEnv: Record<string, unknown>): Promise<Response> => {

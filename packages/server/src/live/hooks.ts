@@ -4,6 +4,7 @@
 // logs and carries on, because a social outage must not break a running match.
 import type { AgeBand, ReportReason, RoomCode, RoomSummary, SeatId } from '../../../core/types/net.ts';
 import type { LiveEnv } from './env.ts';
+import type { ProVerdict } from './pro.ts';
 
 /** A verified player: who is asking to create or join a room. `pid` is the device id and is never shown to others. */
 export interface LivePlayer {
@@ -13,6 +14,12 @@ export interface LivePlayer {
   age: AgeBand;
   /** Free text is muted until this epoch ms (reports against the player, kept by SO across rooms). */
   mutedUntil?: number;
+  /**
+   * What the Worker made of the signed Pro token the request carried (pro.ts). Set by the live routes after `verifyPlayer`, never by a
+   * hook: whatever a hook puts here is replaced. A caller that builds a LivePlayer itself (a matchmaker) sets it with `verifyProProof`;
+   * without it the player is free, which only matters for a Pro game.
+   */
+  pro?: ProVerdict;
 }
 
 /** One report as the Room hands it over (the evidence is only what the Room saw: the last chat lines of this room). */

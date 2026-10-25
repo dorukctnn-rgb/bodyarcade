@@ -19,4 +19,11 @@ export interface LiveEnv {
   ICE_LOCAL_PASS?: string;
   /** Tests: raise the per-IP limits so a suite from one address does not hit them. "1" disables them. */
   LIVE_NO_LIMITS?: string;
+  /**
+   * The entitlement service's signing key (the same secret the entitlement routes sign tokens with): live play only needs its public
+   * half, to check the signed Pro token a host presents before a Pro game can start in a room. ENT_PUB_JWKS lists older public keys
+   * that devices still hold. Without either, no Pro token is believed and Pro games cannot start in a room (free games are not affected).
+   */
+  ENT_PRIV_JWK?: string;
+  ENT_PUB_JWKS?: string;
 }
