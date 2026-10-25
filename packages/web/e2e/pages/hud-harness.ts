@@ -3,9 +3,12 @@
 // fit. Nothing here asserts; the spec does.
 import '../../src/styles/app.css';
 import { NAME_MAX_CHARS } from '../../../core/net/chat-filter.ts';
+import { rngStream } from '../../../core/loop/rng.ts';
+import { createScene2D } from '../../../core/render2d/scene2d.ts';
 import { PlayHud } from '../../../core/ui/hud/hud.ts';
 import { createI18n, LANGS, stringTables, type Lang } from '../../../core/ui/i18n/index.ts';
 import type { HudMode, PipPlacement } from '../../../core/ui/layout.ts';
+import { followHud } from '../../src/app/layout-bridge.ts';
 
 type Table = Readonly<Record<string, string>>;
 type Tables = Partial<Record<Lang, Table>>;
@@ -129,6 +132,64 @@ function rivals(c: Case): { who: string; problems: string[] }[] {
   return out;
 }
 
+interface Box { x: number; y: number; w: number; h: number }
+const overlaps = (a: Box, b: Box): boolean => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+
+/**
+ * The scene kit of a game lays the screen out from what the HUD measured (the shell's own bridge, web/app/layout-bridge.ts). The play
+ * area it leaves for the game must be the area the HUD says is the game's, the plate boxes it hands the game (a mirror game places its
+ * targets by them) must be where the plates are, and a scene game's play area must be clear of every plate, with every reason in the
+ * language (a reason that went to the lifted row, above the self view, takes the strip's room out of the play area).
+ */
+function kitAgrees(c: Case): { text: string; problem: string }[] {
+  const h = open(c);
+  const scene = document.querySelector('[data-scene]') as HTMLElement;
+  scene.replaceChildren();
+  const canvas = document.createElement('canvas');
+  scene.append(canvas);
+  const kit = createScene2D({ canvas, size: () => ({ width: scene.clientWidth, height: scene.clientHeight }), devicePixelRatio: () => 1, rng: rngStream(7, 'fx') });
+  kit.resize();
+  const all = commands(c.lang);
+  h.set('prompt', { text: all.find((t) => t.length >= 6 && t.length <= 12) ?? all[0] ?? 'Jack', icon: 'stand' });
+  const found: { text: string; problem: string }[] = [];
+  const origin = scene.getBoundingClientRect();
+  for (const text of ['', ...reasons(c.lang)]) {
+    say(h, c.duo, text);
+    h.problems();
+    const info = h.layoutInfo();
+    if (!info) { found.push({ text, problem: 'the HUD has no layout' }); continue; }
+    followHud(kit, info, c.mode);
+    const play = kit.rects.play;
+    const mine = info.play;
+    const same = (a: number, b: number): boolean => Math.abs(a - b) <= 1;
+    if (!same(play.x, mine.x) || !same(play.y, mine.y) || !same(play.w, mine.w) || !same(play.h, mine.h)) {
+      found.push({ text, problem: `the kit leaves the game ${JSON.stringify(play)} but the HUD says ${JSON.stringify(mine)} (reason row ${info.solo?.rects.reason.row ?? '?'})` });
+    }
+    // The boxes the kit hands a game to keep clear (a mirror game places its targets by them) are the plates where they really are.
+    for (const [name, box] of Object.entries(kit.rects.hud)) {
+      const n = root.querySelector<HTMLElement>(`[data-hud="${name}"]`);
+      if (!n || n.hidden) continue;
+      const r = n.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      const at = { x: r.x - origin.x, y: r.y - origin.y, w: r.width, h: r.height };
+      if (![['x', 2], ['y', 2], ['w', 2], ['h', 2]].every(([k, tol]) => Math.abs((box as unknown as Record<string, number>)[k as string]! - at[k as 'x']) <= (tol as number))) {
+        found.push({ text, problem: `the kit's ${name} box ${JSON.stringify(box)} is not where the plate is ${JSON.stringify(at)}` });
+      }
+    }
+    // In a mirror game the camera picture is the scene and the plates are drawn over it by design; only a scene game keeps clear of them.
+    for (const n of c.mode === 'scene' ? root.querySelectorAll<HTMLElement>('[data-hud]') : []) {
+      const name = n.dataset['hud'] as string;
+      if (n.hidden || name === 'pip') continue;
+      const r = n.getBoundingClientRect();
+      const box = { x: r.x - origin.x, y: r.y - origin.y, w: r.width, h: r.height };
+      if (r.width > 0 && r.height > 0 && overlaps(play, box)) found.push({ text, problem: `the play area ${JSON.stringify(play)} is under the ${name} plate ${JSON.stringify(box)}` });
+    }
+  }
+  kit.dispose();
+  scene.replaceChildren();
+  return found;
+}
+
 /** Leaves one reason (and a command) on the screen, for a picture of it. */
 function show(c: Case, text: string, command = 'Jack'): string[] {
   const h = open(c);
@@ -138,6 +199,6 @@ function show(c: Case, text: string, command = 'Jack'): string[] {
 }
 
 declare global {
-  interface Window { __HUD__: { check(c: Case): Found[]; rivals(c: Case): { who: string; problems: string[] }[]; reasons(lang: Lang): string[]; commands(lang: Lang): string[]; show(c: Case, text: string, command?: string): string[] } }
+  interface Window { __HUD__: { check(c: Case): Found[]; rivals(c: Case): { who: string; problems: string[] }[]; kit(c: Case): { text: string; problem: string }[]; reasons(lang: Lang): string[]; commands(lang: Lang): string[]; show(c: Case, text: string, command?: string): string[] } }
 }
-window.__HUD__ = { check, rivals, reasons, commands, show };
+window.__HUD__ = { check, rivals, kit: kitAgrees, reasons, commands, show };

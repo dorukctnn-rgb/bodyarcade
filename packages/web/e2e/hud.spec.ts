@@ -56,4 +56,18 @@ for (const bp of BREAKPOINTS) {
     }
     expect(found, found.join('\n')).toEqual([]);
   });
+
+  test(`${bp.label}: the scene kit leaves a game the area the HUD reports, its plate boxes are where the plates are, and a scene game is clear of them, with every reason, in every language`, async ({ page }) => {
+    test.setTimeout(300_000);
+    await page.setViewportSize({ width: bp.w, height: bp.h });
+    await page.goto(`${WEB_DEV_URL}/e2e/pages/hud.html`, { waitUntil: 'networkidle' });
+    await page.evaluate(() => document.fonts.ready);
+    const found: string[] = [];
+    for (const lang of LANGS) {
+      for (const c of SOLO) {
+        for (const p of await page.evaluate((x) => window.__HUD__.kit(x), { lang, ...c })) found.push(`${lang} ${c.mode} ${c.corner} "${p.text}": ${p.problem}`);
+      }
+    }
+    expect(found, found.join('\n')).toEqual([]);
+  });
 }

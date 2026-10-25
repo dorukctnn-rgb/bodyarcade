@@ -150,6 +150,8 @@ export interface MeasuredHud {
   statusRight: Size;
   command: Size;
   reason: Size;
+  /** The row the DOM chose for the reason after measuring its lines (the scene kit cannot measure text, so it is told). */
+  reasonRow?: ReasonRow;
 }
 
 export interface PlaceOptions {
@@ -236,7 +238,7 @@ export function placeHud(viewport: Viewport & { metrics?: HudMetrics }, measured
 
   // Reason strip: bottom centre, never over a tile and never cut short.
   const slots = reasonSlots(m, placed, tiles, { left, right, bottom, mode, hudTopBottom });
-  const want = options.reasonRow ?? slots.preferred;
+  const want = options.reasonRow ?? measured.reasonRow ?? slots.preferred;
   const slot = slots[want] ?? slots.bottom;
   const rs = measured.reason;
   let reason: HudRects['reason'];

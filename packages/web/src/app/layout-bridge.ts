@@ -11,7 +11,7 @@ const size = (r: { w: number; h: number }): Size => ({ w: r.w, h: r.h });
 export function measuredHudOf(info: HudLayoutInfo): MeasuredHud | null {
   if (info.duo || !info.solo) return null;
   const r = info.solo.rects;
-  return { statusLeft: size(r.statusLeft), statusRight: size(r.statusRight), command: size(r.command), reason: size(r.reason) };
+  return { statusLeft: size(r.statusLeft), statusRight: size(r.statusRight), command: size(r.command), reason: size(r.reason), reasonRow: r.reason.row };
 }
 
 /** The plates of two players on one camera; null for a one player layout. */
