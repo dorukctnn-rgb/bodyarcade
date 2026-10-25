@@ -519,8 +519,9 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     // the sample windows of a report and a block name nobody (no placeholder dots where a name would stand)
     for (const key of ['ux.safety.reportTitle', 'ux.safety.reportFine', 'ux.safety.blockTitle', 'ux.safety.blockBody']) expect(textOf(html), key).toContain(ctx.i18n.tx(key));
     expect(textOf(html)).not.toContain('...');
-    // the old promise that under 16 plays in private rooms is gone
-    expect(textOf(html)).not.toContain(ctx.i18n.tx('safety.age.child.3'));
+    // the old promise that a child plays in private rooms is gone (the shell's own line for the age group now says the new rule too)
+    expect(textOf(html)).not.toContain(lang === 'en' ? 'Private rooms only' : 'Yalnızca özel odalar');
+    expect(textOf(html)).toContain(ctx.i18n.tx('safety.age.child.3'));
   });
 
   it('the sign-up: the age question has three neutral choices, under 16 says there is no profile, a made-up name for the young, the code for the grown-up', async () => {
