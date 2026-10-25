@@ -141,6 +141,14 @@ jobs:
         continue-on-error: true
         run: node tools/page-check/run.ts --groups web --browser ${{ matrix.engine }} --jobs 2 --out qa-out/page-check-${{ matrix.engine }}
 
+      # The same peer layer in four variants (host candidates or a relay through the local TURN, one canvas cloned or one for each side): where an
+      # engine passes says what its test needs (tools/browsers/peers.spec.ts).
+      - name: Peer layer variants on ${{ matrix.engine }}
+        id: peervariants
+        if: github.event_name != 'workflow_dispatch' || inputs.grep == ''
+        continue-on-error: true
+        run: node tools/browsers/run.ts --set peers --engines ${{ matrix.engine }}
+
       # The peer layer of live play on this engine (builder N's spec: the state channel and the friend camera between two pages).
       # The live suite is left out of GitHub runs by its own `CI` check; this step lifts that for this one spec only.
       - name: Live play peers on ${{ matrix.engine }}
@@ -155,7 +163,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for f in qa-out/browsers/TABLE.md qa-out/browsers/TABLE-ui.md; do if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; echo >> "$GITHUB_STEP_SUMMARY"; fi; done
+          for f in qa-out/browsers/TABLE.md qa-out/browsers/TABLE-ui.md qa-out/browsers/TABLE-peers.md; do if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; echo >> "$GITHUB_STEP_SUMMARY"; fi; done
           if [ -f qa-out/page-check-${{ matrix.engine }}/FINDINGS.md ]; then echo '### Page check on ${{ matrix.engine }}' >> "$GITHUB_STEP_SUMMARY"; head -c 20000 qa-out/page-check-${{ matrix.engine }}/FINDINGS.md >> "$GITHUB_STEP_SUMMARY"; fi
           if [ -f qa-out/browsers/engines.json ]; then echo '```json' >> "$GITHUB_STEP_SUMMARY"; cat qa-out/browsers/engines.json >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"; fi
 
@@ -167,9 +175,11 @@ jobs:
           path: |
             qa-out/browsers/TABLE.md
             qa-out/browsers/TABLE-ui.md
+            qa-out/browsers/TABLE-peers.md
             qa-out/browsers/engines.json
             qa-out/browsers/results.json
             qa-out/browsers/results-ui.json
+            qa-out/browsers/results-peers.json
             qa-out/browsers/shots/
             qa-out/browsers/test-results/
             qa-out/page-check-${{ matrix.engine }}/
