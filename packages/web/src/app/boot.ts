@@ -139,10 +139,6 @@ export async function boot(o: BootOptions): Promise<App> {
     entry: linkEntry,
     kidProfile: () => !book.online(),
   });
-  // A page opened under a child's profile asks the service nothing, not even whether it exists (startSocial answers null at once);
-  // the services start the moment the main player plays (see below).
-  const realSocial = social ? null : startServices();
-  const socialDeadline = realSocial ? new Promise<'late'>((resolve) => { setTimeout(() => resolve('late'), linkEntry ? SOCIAL_ENTRY_WAIT_MS : ENTITLEMENTS_WAIT_MS); }) : null;
   let billing: BillingPort;
   let entitlements: EntitlementsPort | undefined;
   let later: Promise<RealParts | null> | null = null;
@@ -164,6 +160,11 @@ export async function boot(o: BootOptions): Promise<App> {
       if (playing) book.switchTo(playing);
     }
   }
+  // A page opened under a child's profile asks the service nothing, not even whether it exists (startSocial answers null at once);
+  // the services start the moment the main player plays (see below). This comes after the players that a test asks for are added
+  // (a family on a fresh device, a child playing), so the page is started under the profile that plays, as it is on a real device.
+  const realSocial = social ? null : startServices();
+  const socialDeadline = realSocial ? new Promise<'late'>((resolve) => { setTimeout(() => resolve('late'), linkEntry ? SOCIAL_ENTRY_WAIT_MS : ENTITLEMENTS_WAIT_MS); }) : null;
   if (o.demo && hooks.billing) {
     billing = pendingBilling(hooks.billing);
   } else if (o.demo) {
@@ -195,6 +196,9 @@ export async function boot(o: BootOptions): Promise<App> {
     ...(entitlements ? { entitlements } : {}),
     ...(o.sessionFactory ? { sessionFactory: o.sessionFactory } : { makeSessionFactory }),
     social,
+    // Late (the first page did not wait for them) or waiting for the main player (a child plays): the pages wait or say who to ask,
+    // they do not look missing.
+    socialComing: !social && (lateSocial !== null || !book.online()),
     // The documents the arcade keeps in step (streak, daily challenge, plans) go through the friends client, and only for the owner.
     syncPort: () => social?.social.syncPort() ?? lateServices?.social.syncPort() ?? null,
     onPlayGesture: () => { try { pageAudio().unlock(); } catch { /* no Web Audio here: the round plays without sound */ } },
@@ -210,7 +214,7 @@ export async function boot(o: BootOptions): Promise<App> {
       if (!book.online()) return;
       off();
       void startServices().then((svc) => {
-        if (!svc) return;
+        if (!svc) { app.noSocial(); return; }
         lateServices = svc;
         app.attachSocial(svc);
         follow(svc);
@@ -219,7 +223,7 @@ export async function boot(o: BootOptions): Promise<App> {
     });
   }
   if (later) void later.then((r) => app.attach(r ? { entitlements: r.port, billing: r.billing } : { billing: pendingBilling('unavailable') }));
-  if (lateSocial) void lateSocial.then((svc) => { if (svc) { lateServices = svc; app.attachSocial(svc); if (o.demo) o.win.__BA_SOCIAL_PORTS__ = svc; } });
+  if (lateSocial) void lateSocial.then((svc) => { if (svc) { lateServices = svc; app.attachSocial(svc); if (o.demo) o.win.__BA_SOCIAL_PORTS__ = svc; } else app.noSocial(); });
   if (o.demo) {
     o.win.__BA__ = app;
     if (social) o.win.__BA_SOCIAL_PORTS__ = social;

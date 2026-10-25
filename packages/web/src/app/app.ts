@@ -93,6 +93,12 @@ export interface AppOptions {
   syncPort?: () => SyncPort | null;
   /** Friends, lobbies and rooms: the social client and the live client behind the ports. Off (null) until the social server exists. */
   social?: SocialServices | null;
+  /**
+   * The friends services are not there yet but will be: they are being started in the background, or they wait for the main player
+   * (a page opened under a child's profile asks the service nothing). Their pages wait, or say who to ask, instead of looking missing;
+   * attachSocial() and noSocial() end the wait.
+   */
+  socialComing?: boolean;
   /** The player pressed something that starts a round: the place to unlock the sound. */
   onPlayGesture?: () => void;
   /** Called when a round's page goes away, so the session factory can give back what it holds. */
@@ -155,6 +161,8 @@ export class App {
   /** Back during a round: the page goes forward again and asks ('restoring'); a yes goes back for real ('leaving'). */
   private backGuard: 'idle' | 'restoring' | 'leaving' = 'idle';
   private social: SocialController | null;
+  /** The friends services are on their way (see AppOptions.socialComing). */
+  private socialComing: boolean;
   private plan: Plan;
   private capsTimer: ReturnType<typeof setTimeout> | null = null;
   /** The choices on each game's page, kept while the app is open. */
@@ -194,6 +202,7 @@ export class App {
     this.live = createLiveRegion(this.doc as never);
     this.toaster = createToaster(this.doc as never, this.live);
     this.social = o.social ? new SocialController(this.socialHost(), o.social) : null;
+    this.socialComing = !this.social && o.socialComing === true;
     // The games keep their own records in the store of whoever plays: a getter, so a round after a change of player writes to the new one.
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
@@ -343,11 +352,14 @@ export class App {
       // The notice of a trial and its reminder are about buying: a child's screens say nothing of it unless a grown-up has opened them.
       trial: this.trialDismissed || this.rules().purchase !== 'open' ? null : this.billing.trial.notice(), assets: this.assets,
       player: this.playerFacts(),
-      flags: { social: !!this.social && this.rules().online, family: this.o.family === true, socialChild: !!this.social && !this.rules().online, roomsPro: this.o.roomsPro === true }, version: this.o.version, server: false,
+      // The friends pages exist when the services are there or on their way; whether the player may use them is the player's rules.
+      flags: { social: this.hasSocial() && this.rules().online, family: this.o.family === true, socialChild: this.hasSocial() && !this.rules().online, roomsPro: this.o.roomsPro === true }, version: this.o.version, server: false,
     });
   }
 
   private ctx(): ViewContext { return this.context(this.urlNow()); }
+
+  private hasSocial(): boolean { return this.social !== null || this.socialComing; }
 
   private urlNow(): string { return `${this.win.location.pathname}${this.win.location.search}`; }
 
@@ -386,9 +398,17 @@ export class App {
   /** The friends services arrived after the page started (the first page does not wait long for them): the Friends tab appears. */
   attachSocial(svc: SocialServices): void {
     if (this.social) return;
+    this.socialComing = false;
     this.social = new SocialController(this.socialHost(), svc);
     this.social.start();
     this.social.enter(this.route);
+    this.rerender();
+  }
+
+  /** The services will not come (this site has no friends service): their pages are not there, as before. */
+  noSocial(): void {
+    if (this.social || !this.socialComing) return;
+    this.socialComing = false;
     this.rerender();
   }
 

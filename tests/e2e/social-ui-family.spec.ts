@@ -11,7 +11,7 @@ test.beforeAll(async () => { test.setTimeout(300_000); site = await startShellSi
 test.afterAll(async () => { await site?.stop(); });
 
 /** A Family device whose child (Mia) is the player who plays when the page opens. */
-const CHILD = { plan: 'family', players: [{ name: 'Mia', kid: true, active: true }], timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true };
+const CHILD = { plan: 'family' as const, players: [{ name: 'Mia', kid: true, active: true }], timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true };
 
 /** The sum on the parent gate's window, solved and sent. */
 async function solveGate(page: Page): Promise<void> {
@@ -119,6 +119,27 @@ test('the main player takes over through the gate and the friends appear; a chil
   await ready(dev.page);
   await online(dev.page);
   await expect(dev.page.locator('main')).toContainText('Ada');
+  expect(dev.problems).toEqual([]);
+  await dev.close();
+});
+
+test('from the friends page of a child to the main player and back: the page waits for the services, it never says it is not there', async () => {
+  const dev = await player(site, 'family-flow', { w: 390, h: 844, phone: true, hooks: CHILD });
+  await dev.open('/friends/', { plain: true });
+  await expect(dev.page.locator('main')).toContainText('This player is a child');
+  // from here on, count every moment the page on the screen is the one that says "not found"
+  await dev.page.evaluate(() => {
+    const w = window as unknown as { __missing?: number };
+    w.__missing = 0;
+    new MutationObserver(() => { if (document.querySelector('.ba-page--notfound')) w.__missing = (w.__missing ?? 0) + 1; }).observe(document.body, { subtree: true, childList: true, attributes: true });
+  });
+  await dev.page.getByRole('link', { name: 'Switch player', exact: true }).click();
+  await dev.page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await solveGate(dev.page);
+  // the way back leads to the friends page (the address asked for it), which offers the profile once the services have answered
+  await expect(dev.page.locator('[data-action="social.profile"]').first()).toBeVisible({ timeout: 20_000 });
+  expect(new URL(dev.page.url()).pathname).toBe('/friends/');
+  expect(await dev.page.evaluate(() => (window as unknown as { __missing?: number }).__missing)).toBe(0);
   expect(dev.problems).toEqual([]);
   await dev.close();
 });
