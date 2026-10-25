@@ -83,7 +83,7 @@ jobs:
   browsers:
     name: browsers (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 80
+    timeout-minutes: 150
     # Report-only while the bugs these flows found are open (NOTLAR-qa.md has the table and the owners): the job shows red when a flow
     # fails, the workflow does not. Delete this line when the table is green, and the engines gate every push like the page check does.
     continue-on-error: true
@@ -121,6 +121,7 @@ jobs:
       # A flow that fails is a bug in the web app on that engine: the table says which, and the picture is in the artifact.
       - name: Flows on ${{ matrix.engine }} (phone and desktop)
         id: flows
+        timeout-minutes: 30
         continue-on-error: true
         env:
           GREP: ${{ inputs.grep }}
@@ -130,6 +131,7 @@ jobs:
       # The web shell's own end-to-end specs (packages/web/e2e: browse, welcome, play, plans, players, layout, accessibility) on this engine.
       - name: The web shell's own specs on ${{ matrix.engine }}
         id: shellspecs
+        timeout-minutes: 50
         if: github.event_name != 'workflow_dispatch' || inputs.grep == ''
         continue-on-error: true
         run: node tools/browsers/run.ts --set ui --engines ${{ matrix.engine }}
@@ -137,6 +139,7 @@ jobs:
       # The ten screen sizes of the layout rule, with the overlap and clipping check, in this engine (the Chromium run is the page-check job).
       - name: Page check on ${{ matrix.engine }} (ten screen sizes)
         id: pagecheck
+        timeout-minutes: 40
         if: matrix.pagecheck && (github.event_name != 'workflow_dispatch' || inputs.grep == '')
         continue-on-error: true
         run: node tools/page-check/run.ts --groups web --browser ${{ matrix.engine }} --jobs 2 --out qa-out/page-check-${{ matrix.engine }}
@@ -145,6 +148,7 @@ jobs:
       # engine passes says what its test needs (tools/browsers/peers.spec.ts).
       - name: Peer layer variants on ${{ matrix.engine }}
         id: peervariants
+        timeout-minutes: 10
         if: github.event_name != 'workflow_dispatch' || inputs.grep == ''
         continue-on-error: true
         run: node tools/browsers/run.ts --set peers --engines ${{ matrix.engine }}
@@ -153,6 +157,7 @@ jobs:
       # The live suite is left out of GitHub runs by its own `CI` check; this step lifts that for this one spec only.
       - name: Live play peers on ${{ matrix.engine }}
         id: peers
+        timeout-minutes: 10
         if: github.event_name != 'workflow_dispatch' || inputs.grep == ''
         continue-on-error: true
         env:
