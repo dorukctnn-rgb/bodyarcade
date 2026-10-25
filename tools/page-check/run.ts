@@ -253,17 +253,29 @@ try {
   // A screen that never answers (a browser that crashed and does not say so: WebKit for Windows on the home page hung a run for twenty minutes) is a finding of its own, and the browser
   // is started again for the screens after it.
   const SCREEN_LIMIT_MS = 180_000;
+  let restarting: Promise<void> | null = null;
+  // One worker starts the browser again; the others wait for it (a screen that was open in the old browser is lost with it and is reported like any other that gave no answer).
+  const restartBrowser = (old: Browser | null): Promise<void> => {
+    if (!restarting) restarting = (async () => { await old?.close().catch(() => undefined); browser = await launch(); })().finally(() => { restarting = null; });
+    return restarting;
+  };
   const checkWithin = async (target: Target, size: { id: string; w: number; h: number }): Promise<PageResult> => {
+    if (restarting) await restarting;
     const used = browser as Browser;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await Promise.race([
+      const answer = await Promise.race([
         check(used, target, size),
         new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error(`no answer in ${SCREEN_LIMIT_MS / 1000} s`)), SCREEN_LIMIT_MS); }),
       ]);
+      // the screen answered that its browser is gone (a crash under it): the screens after it get a new one
+      if (answer.messages.some((m) => /has been closed|browser has disconnected|Target crashed|Browser closed/i.test(m)) && browser === used) await restartBrowser(used);
+      return answer;
     } catch (e) {
-      if (browser === used) { browser = null; await used.close().catch(() => undefined); browser = await launch(); }
-      return { target: target.id, size: size.id, w: size.w, h: size.h, errors: 1, warnings: 0, findings: [], messages: [`could not check the page: ${(e as Error).message}`], probe: [], probeWarn: [], shot: null, ms: SCREEN_LIMIT_MS, stats: null } as unknown as PageResult;
+      const message = ((e as Error).message.split(/\r?\n/)[0] ?? '').trim();
+      // a browser that is gone (crashed, closed under the screen) or that gave no answer is started again for the screens after it
+      if (/no answer|has been closed|browser has disconnected|Target crashed|Browser closed/i.test(message) && browser === used) await restartBrowser(used);
+      return { target: target.id, size: size.id, w: size.w, h: size.h, errors: 1, warnings: 0, findings: [], messages: [`could not check the page: ${message}`], probe: [], probeWarn: [], shot: null, ms: SCREEN_LIMIT_MS, stats: null } as unknown as PageResult;
     } finally { clearTimeout(timer); }
   };
   let next = 0;
