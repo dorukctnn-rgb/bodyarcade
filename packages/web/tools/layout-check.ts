@@ -9,7 +9,17 @@ export async function checkPage(page: Page): Promise<string[]> {
     const problems: string[] = [];
     const de = document.documentElement;
     if (de.scrollWidth > innerWidth + 1) problems.push(`sideways scroll: page is ${de.scrollWidth}px wide on a ${innerWidth}px screen`);
+    // What a closed <details> holds under its summary is not drawn, but the engines keep its boxes (content-visibility: hidden), lying
+    // over whatever follows: the terms page's folded "On this page" list read as its links over the text under it.
+    const folded = (el: Element): boolean => {
+      for (let d = el.closest('details:not([open])'); d; d = d.parentElement?.closest('details:not([open])') ?? null) {
+        const summary = d.querySelector(':scope > summary');
+        if (!summary || !summary.contains(el)) return true;
+      }
+      return false;
+    };
     const vis = (el: Element): DOMRect | null => {
+      if (folded(el)) return null;
       const r = el.getBoundingClientRect();
       const cs = getComputedStyle(el);
       if (r.width < 1 || r.height < 1 || cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) return null;
@@ -58,7 +68,7 @@ export async function checkPage(page: Page): Promise<string[]> {
     if (bar && getComputedStyle(bar).display !== 'none') {
       window.scrollTo(0, document.documentElement.scrollHeight);
       const bt = bar.getBoundingClientRect();
-      const last = [...document.querySelectorAll('main a[href], main button, footer a[href]')].filter((el) => !el.closest('[hidden]')).map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0);
+      const last = [...document.querySelectorAll('main a[href], main button, footer a[href]')].filter((el) => !el.closest('[hidden]') && !folded(el)).map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0);
       for (const r of last) {
         const sideRail = bt.width < bt.height;
         if (!sideRail && r.bottom > bt.top + 1 && r.top < bt.bottom) problems.push('content stays under the tab bar at the end of the page');
