@@ -1,7 +1,7 @@
 // Live-play smoke test against a Worker that is already running (the preview, later production): the release gate "the
 // live suite passes against the deployed Worker" in a minute and without a browser.
 //   node tests/live/support/smoke-remote.ts https://bodyarcade-v2-preview.railer-iot.workers.dev
-// It asks for ICE servers, makes a room, opens the invite link, joins as a second player, plays one real 15 s match
+// It asks for ICE servers, checks that a Pro game is refused to a host with no Pro token or a made-up one, makes a room, opens the invite link, joins as a second player, plays one real 15 s match
 // between two LiveClients over the Room's relay (no WebRTC), and checks that both got the same result and that each
 // player's own count equals the Room's. Exit code 0 only when every step passed. It uses one room, so the per-IP
 // limits of the Worker are not a concern.
@@ -48,7 +48,20 @@ function side(grant: JoinGrant, who: Identity): Side {
 
 const ice = await step('ICE servers (STUN, and TURN when the key is set)', () => fetchIce(base), (g) => ({ servers: g.iceServers.length, turn: g.turn }));
 if (ice && ice.iceServers.length < 1) steps.push({ step: 'ICE has at least one server', ok: false, ms: 0 });
-const created = await step('create a room', () => createRoom(base, A, { gameId: 'squat-flap', durationMs: 15_000 }), (g) => ({ code: g.code, link: g.link }));
+// The check of the host's signed Pro token is deployed: a Pro game is refused to a host with no token and to one with a made-up token, with the
+// reason, and no room is made. A genuine token cannot be shown from here (it needs the entitlement key): that path is tests/live/pro.spec.ts.
+const askPro = async (pro?: string): Promise<{ status: number; body: Record<string, unknown> }> => {
+  const r = await fetch(`${base}/api/rooms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gameId: 'limbo-bend', durationMs: 15_000, ...A, ...(pro ? { pro } : {}) }) });
+  return { status: r.status, body: (await r.json().catch(() => ({}))) as Record<string, unknown> };
+};
+for (const [name, token, reason] of [['a free host is refused a Pro game (the check of the host\'s Pro token is deployed)', undefined, 'none'], ['a made-up Pro token is refused too', 'a.b.c', 'invalid']] as const) {
+  await step(name, async () => {
+    const r = await askPro(token);
+    if (r.status !== 403 || r.body.error !== 'pro_required' || r.body.reason !== reason) throw new Error(`status ${r.status} ${JSON.stringify(r.body)}: a Pro game must need the signed Pro token of the host (is the Worker older than the Pro check?)`);
+    return { reason: r.body.reason };
+  }, (v) => v);
+}
+const created =await step('create a room', () => createRoom(base, A, { gameId: 'squat-flap', durationMs: 15_000 }), (g) => ({ code: g.code, link: g.link }));
 if (created) {
   await step('the invite link carries the room code', async () => { if (codeFromInvite(created.link) !== created.code) throw new Error('link ' + created.link); return true; });
   await step('preview the room', () => previewRoom(base, created.code), (p) => ({ game: p.gameId, size: p.size, players: p.players, phase: p.phase }));
