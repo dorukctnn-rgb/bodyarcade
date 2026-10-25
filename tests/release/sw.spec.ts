@@ -3,7 +3,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { BASE, OUT } from './support.ts';
+import { BASE, ENGINE, OUT } from './support.ts';
 
 test('installs, precaches the build, deletes the old site\'s caches and opens offline', async ({ browser }) => {
   test.setTimeout(180_000);
@@ -11,6 +11,14 @@ test('installs, precaches the build, deletes the old site\'s caches and opens of
   const page = await context.newPage();
   await page.route(/plausible\.io/, (r) => r.abort());
   const evidence: Record<string, unknown> = {};
+  // Offline. Playwright's Firefox offline mode (context.setOffline) fails every load of the page with NS_ERROR_OFFLINE before its service
+  // worker sees it, even a fetch from the controlled page, which a visitor's Firefox does not do (final test rehearsal, 25 Oct: with the
+  // network cut instead, Firefox's worker answered the visited, the never visited and the home page from its cache). So on Firefox the
+  // network is cut: every request that leaves the browser is refused and the worker has to answer from its cache.
+  let cut = false;
+  if (ENGINE === 'firefox') await context.route('**/*', (r) => (cut ? r.abort('internetdisconnected') : r.fallback()));
+  const offline = async (on: boolean): Promise<void> => { if (ENGINE === 'firefox') cut = on; else await context.setOffline(on); };
+  evidence.offlineBy = ENGINE === 'firefox' ? 'every request refused (context.route)' : 'context.setOffline';
 
   // A cache like the one the live site's worker leaves behind, made before the new worker exists.
   await page.goto(`${BASE}/version.json`);
@@ -42,7 +50,7 @@ test('installs, precaches the build, deletes the old site\'s caches and opens of
   await page.reload();
   await page.goto(`${BASE}/games/road-run/`);
   await expect(page.locator('main')).toBeVisible();
-  await context.setOffline(true);
+  await offline(true);
   await page.reload();
   await expect(page.locator('main')).toBeVisible();
   evidence.offlineVisited = await page.title();
@@ -52,7 +60,7 @@ test('installs, precaches the build, deletes the old site\'s caches and opens of
   evidence.offlineNeverVisited = await page.title();
   await page.goto(`${BASE}/`);
   await expect(page.locator('main')).toBeVisible();
-  await context.setOffline(false);
+  await offline(false);
   writeFileSync(join(OUT, 'sw.json'), JSON.stringify(evidence, null, 1));
   await context.close();
 });
