@@ -148,8 +148,8 @@ export function profileMain(ctx: ViewContext, v: ProfileView): SafeHtml {
   const head = pageHead(ctx, u('me.title'), { back: ctx.href('friends') });
   const banners = stateBanners(ctx, s);
   const p = s.profile;
-  if (s.noOnline === 'young') return html`${head}${youngPanel(ctx)}`;
-  if (s.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
+  if (s.noOnline === 'young') return html`${head}<div class="k-mt">${youngPanel(ctx)}</div>`;
+  if (s.noOnline === 'kid') return html`${head}<div class="k-mt">${kidPanel(ctx)}</div>`;
   if (!p) return html`${head}${banners}<div class="k-mt">${needProfile(ctx, s, { icon: 'friends', title: t.t('social.intro.title'), body: t.t('social.intro.body') })}</div>`;
   // A suspended profile can still be downloaded and deleted, and nothing else.
   if (s.bannedUntil !== null) return html`${head}${banners}<p class="k-sub">${u('me.sub')}</p><div class="k-cols k-cols--even k-mt-lg">${recoveryCard(ctx, v, null)}${dataCard(ctx, v)}</div>`;

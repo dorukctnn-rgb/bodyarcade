@@ -68,7 +68,7 @@
 
 /* ---------- lobbies and quick match ---------- */
 .k-regionpick { display: inline-flex; align-items: center; gap: 8px; }
-.k-regionselect { height: 44px; padding: 0 10px; max-width: 170px; font-size: var(--ba-text-sm); }
+.k-regionselect { height: 44px; padding: 0 10px; max-width: 170px; font-size: var(--ba-text-md); }
 .k-regionpick .ba-icon-btn { width: 44px; height: 44px; }
 .k-searching { display: flex; align-items: center; gap: 12px; }
 .k-searching b { display: block; }

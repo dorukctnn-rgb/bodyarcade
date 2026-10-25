@@ -91,8 +91,8 @@ export function lobbiesMain(ctx: ViewContext, v: LobbiesView): SafeHtml {
   const g = v.game;
   const head = pageHead(ctx, t.t('lobby.title'), { back: ctx.href('friends') });
   if (v.games.length === 0) return html`${head}<p class="ba-lead k-mt">${t.t('lobby.noGames')}</p>`;
-  if (s.noOnline === 'young') return html`${head}${youngPanel(ctx)}`;
-  if (s.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
+  if (s.noOnline === 'young') return html`${head}<div class="k-mt">${youngPanel(ctx)}</div>`;
+  if (s.noOnline === 'kid') return html`${head}<div class="k-mt">${kidPanel(ctx)}</div>`;
   const banners = stateBanners(ctx, s).filter((b) => !b.value.includes('data-banner="suspended"'));
   let body: SafeHtml;
   const p = s.profile;

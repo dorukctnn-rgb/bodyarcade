@@ -133,8 +133,8 @@ export function roomMain(ctx: ViewContext, v: RoomView): SafeHtml {
   const r = v.room;
   const back = ctx.href('friends');
   const leave = html`<button class="ba-btn ba-btn--quiet" type="button" data-action="room.leave">${icon('door')}${t.t('room.leave')}</button>`;
-  if (v.noOnline === 'young') return html`${pageHead(ctx, t.t('room.title'), { back })}${youngPanel(ctx)}`;
-  if (v.noOnline === 'kid') return html`${pageHead(ctx, t.t('room.title'), { back })}${kidPanel(ctx)}`;
+  if (v.noOnline === 'young') return html`${pageHead(ctx, t.t('room.title'), { back })}<div class="k-mt">${youngPanel(ctx)}</div>`;
+  if (v.noOnline === 'kid') return html`${pageHead(ctx, t.t('room.title'), { back })}<div class="k-mt">${kidPanel(ctx)}</div>`;
   if (r.problem || r.phase === 'closed' || r.phase === 'idle') {
     const problem: RoomProblem = r.problem && PROBLEMS.includes(r.problem) ? r.problem : 'no_room';
     return html`${pageHead(ctx, t.t('room.title'), { back })}<div class="ba-panel ba-soon k-mt">${icon('users')}<div><p role="alert">${t.tx(`room.problem.${problem}`)}</p><a class="ba-btn ba-btn--secondary k-mt" href="${back}">${t.t('room.problem.back')}</a></div></div>`;

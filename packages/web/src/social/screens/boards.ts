@@ -64,8 +64,8 @@ export function boardsMain(ctx: ViewContext, v: BoardsView): SafeHtml {
   const u = ux(ctx);
   const s = v.state;
   const head = pageHead(ctx, u('boards.title'), { back: ctx.href('friends') });
-  if (s.noOnline === 'young') return html`${head}${youngPanel(ctx)}`;
-  if (s.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
+  if (s.noOnline === 'young') return html`${head}<div class="k-mt">${youngPanel(ctx)}</div>`;
+  if (s.noOnline === 'kid') return html`${head}<div class="k-mt">${kidPanel(ctx)}</div>`;
   const banners = stateBanners(ctx, s);
   if (!s.profile) return html`${head}${banners}<div class="k-mt">${needProfile(ctx, s, { icon: 'trophy', title: u('boards.title'), body: u('boards.needProfile') })}</div>`;
   if (v.games.length === 0 || !v.game) return html`${head}${banners}<p class="ba-lead k-mt">${u('boards.noGames')}</p>`;

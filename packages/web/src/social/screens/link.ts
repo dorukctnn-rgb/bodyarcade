@@ -35,8 +35,8 @@ export function friendLinkMain(ctx: ViewContext, v: FriendLinkView): SafeHtml {
   const u = ux(ctx);
   const head = pageHead(ctx, u('link.title'), { back: ctx.href('friends') });
   if (v.code === null) return html`${head}<p class="ba-lead k-mt" role="alert">${t.t('friendlink.bad')}</p><div class="ba-actions"><a class="ba-btn ba-btn--secondary" href="${ctx.href('friends')}">${t.t('room.problem.back')}</a></div>`;
-  if (v.noOnline === 'young') return html`${head}${youngPanel(ctx)}`;
-  if (v.noOnline === 'kid') return html`${head}${kidPanel(ctx)}`;
+  if (v.noOnline === 'young') return html`${head}<div class="k-mt">${youngPanel(ctx)}</div>`;
+  if (v.noOnline === 'kid') return html`${head}<div class="k-mt">${kidPanel(ctx)}</div>`;
   if (v.offline && !v.profile) {
     return html`${head}${panel({ icon: 'wifi', title: t.t('social.offline.title'), body: u('link.offline'), actions: html`<button class="ba-btn ba-btn--secondary" type="button" data-action="social.retry">${t.t('social.retry')}</button>` })}`;
   }
