@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { identitiesDir } from './players.ts';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const BASE = (process.env['BA_RELEASE_URL'] ?? 'https://bodyarcade-v2-preview.railer-iot.workers.dev').replace(/\/$/, '');
@@ -48,7 +49,7 @@ export const IS_LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(BASE
 export const LOCAL_ARGS: string[] = IS_LOCAL ? ['--disable-features=LocalNetworkAccessChecks'] : [];
 
 /** Where the saved device keys of the signed players live (private keys of test profiles: under out/, never committed). Null for a local stack: its profiles die with it. */
-export const IDENTITIES: string | null = IS_LOCAL ? null : join(OUT, 'identities', BASE.replace(/^https?:\/\//, '').replace(/[^A-Za-z0-9.-]+/g, '-'));
+export const IDENTITIES: string | null = identitiesDir(BASE, OUT);
 
 /** The test profiles stay on the server after a run (so the next run signs in with them and uses no sign-up of the address' hourly allowance), except on bodyarcade.com, where they are deleted again. */
 export const KEEP_PROFILES = IS_PREVIEW || process.env['BA_RELEASE_KEEP_PROFILES'] === '1';

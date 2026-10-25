@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import type { BrowserContext } from '@playwright/test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_HEADER, importPublicKey, parseAuth, verifyRequest } from '../../packages/core/social/sign.ts';
-import { chooseMode, openPlayers, signRoomCalls, SignedPlayer, type RacePlayer } from '../release/players.ts';
+import { createRoom } from '../../packages/core/net/api.ts';
+import { chooseMode, identitiesDir, openPlayers, signedFetcher, signRoomCalls, SignedPlayer, type RacePlayer } from '../release/players.ts';
 
 const BASE = 'https://deployed.test';
 const MIN = 60_000;
@@ -180,6 +181,46 @@ describe('signed players', () => {
     expect(existsSync(join(dir, 'release-cem.json'))).toBe(true);
     expect(existsSync(join(dir, 'release-ben.json'))).toBe(true);
     void b;
+  });
+});
+
+describe('signedFetcher (the live smoke test of a deployed Worker, tests/live/support/smoke-remote.ts)', () => {
+  it('signs what core/net sends as the player: createRoom with it is accepted by a server that checks every signature', async () => {
+    const server = fakeServer();
+    const [p] = await openPlayers(BASE, ['Smoke A'], { mode: 'signed', fetch: server.fetchFn }) as [SignedPlayer];
+    const grant = await createRoom(BASE, p.identity(), { gameId: 'squat-flap', durationMs: 15_000 }, signedFetcher(p, server.fetchFn));
+    expect(grant).toMatchObject({ code: 'ABC234' });
+    const call = server.calls.at(-1) as Call;
+    expect(call.url).toBe(`${BASE}/api/rooms`);
+    expect(parseAuth(call.auth)?.kid).toBe(p.pid);
+    expect(call.body).toMatchObject({ gameId: 'squat-flap', durationMs: 15_000, pid: p.pid, name: 'Smoke A', age: 'adult' });
+  });
+
+  it('the plain fetch of a guest is refused by the same server (what the old unsigned smoke test got from the preview: 401)', async () => {
+    const server = fakeServer();
+    const [g] = await openPlayers(BASE, ['Smoke A'], { mode: 'guest' }) as [RacePlayer];
+    await expect(createRoom(BASE, g.identity(), { gameId: 'squat-flap' }, signedFetcher(g, server.fetchFn))).rejects.toMatchObject({ status: 401 });
+    expect(server.calls.at(-1)?.auth).toBeNull();
+  });
+
+  it('keeps the headers the caller set and signs the body it sends', async () => {
+    const server = fakeServer();
+    const [p] = await openPlayers(BASE, ['Smoke A'], { mode: 'signed', fetch: server.fetchFn }) as [SignedPlayer];
+    const seen: Headers[] = [];
+    const spy: typeof fetch = async (input, init) => { seen.push(new Headers(init?.headers)); return server.fetchFn(input, init); };
+    const res = await signedFetcher(p, spy)(`${BASE}/api/rooms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gameId: 'knee-sprint', ...p.identity() }) });
+    expect(res.status).toBe(201);
+    expect(seen[0]?.get('content-type')).toBe('application/json');
+    expect(seen[0]?.get(AUTH_HEADER)).toMatch(/\S/);
+  });
+});
+
+describe('identitiesDir', () => {
+  it('keeps the keys of a deployed origin under its host, and none for a local stack', () => {
+    expect(identitiesDir('https://bodyarcade-v2-preview.railer-iot.workers.dev', join('x', 'out'))).toBe(join('x', 'out', 'identities', 'bodyarcade-v2-preview.railer-iot.workers.dev'));
+    expect(identitiesDir('https://bodyarcade.com', 'out')).toBe(join('out', 'identities', 'bodyarcade.com'));
+    expect(identitiesDir('http://127.0.0.1:8787', 'out')).toBeNull();
+    expect(identitiesDir('http://localhost:5173', 'out')).toBeNull();
   });
 });
 

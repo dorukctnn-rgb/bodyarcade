@@ -5,8 +5,14 @@
 // between two LiveClients over the Room's relay (no WebRTC), and checks that both got the same result and that each
 // player's own count equals the Room's. Exit code 0 only when every step passed. It uses one room, so the per-IP
 // limits of the Worker are not a concern.
+// The two players are SIGNED social profiles (tests/release/players.ts), as the shell's players are: a Worker with the social module
+// takes no unsigned room call (401) once the preview bridge SOCIAL_ALLOW_UNSIGNED is gone, and bodyarcade.com never took one. Their keys
+// are kept under tests/release/out/identities/<host>/ (the sign-up limit of an address), and on bodyarcade.com the two profiles are
+// deleted again at the end (BA_RELEASE_KEEP_PROFILES=1 keeps them). BA_RELEASE_SIGNING=signed|guest forces a mode, as in the release checks.
+import { fileURLToPath } from 'node:url';
 import { LiveClient, codeFromInvite, createRoom, fetchIce, joinRoom, makeSchedule, previewRoom, scoreOf, specFor, type Identity } from '../../../packages/core/net/index.ts';
 import type { JoinGrant, MatchInfo, MatchResult, ObstacleResult } from '../../../packages/core/types/net.ts';
+import { chooseMode, identitiesDir, openPlayers, signedFetcher } from '../../release/players.ts';
 
 const arg = process.argv[2];
 if (!arg || !/^https?:\/\//.test(arg)) {
@@ -29,15 +35,23 @@ async function step<T>(name: string, fn: () => Promise<T>, check: (v: T) => unkn
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-const stamp = Date.now().toString(36);
-const A: Identity = { pid: `smoke-a-${stamp}-device`, name: 'SmokeA', age: 'adult' };
-const B: Identity = { pid: `smoke-b-${stamp}-device`, name: 'SmokeB', age: 'adult' };
+const production = /^https:\/\/bodyarcade\.com$/.test(base);
+const verdict = await chooseMode(base, { want: process.env['BA_RELEASE_SIGNING'] ?? 'auto', production });
+console.log(`players: ${verdict.mode} (${verdict.why})`);
+const out = fileURLToPath(new URL('../../release/out', import.meta.url));
+const [pa, pb] = await openPlayers(base, ['Smoke A', 'Smoke B'], { mode: verdict.mode, dir: identitiesDir(base, out) });
+if (!pa || !pb) throw new Error('two players expected');
+const A: Identity = pa.identity();
+const B: Identity = pb.identity();
+const fetchA = signedFetcher(pa);
+const fetchB = signedFetcher(pb);
+const fetcherOf = (who: Identity): typeof fetch => (who === A ? fetchA : fetchB);
 
 interface Side { c: LiveClient; mine: ObstacleResult[]; results: MatchResult[]; match: MatchInfo | null; seat: string; errors: string[] }
 
 function side(grant: JoinGrant, who: Identity): Side {
   const s: Side = { c: null as unknown as LiveClient, mine: [], results: [], match: null, seat: '', errors: [] };
-  s.c = new LiveClient({ grant, origin: base, peers: 'none', refreshTicket: () => joinRoom(base, grant.code, who) });
+  s.c = new LiveClient({ grant, origin: base, peers: 'none', refreshTicket: () => joinRoom(base, grant.code, who, fetcherOf(who)) });
   s.c.on('welcome', (w) => { s.seat = w.you; s.c.setReady(true); });
   s.c.on('match', (d) => { s.match = d.match; });
   s.c.on('result', (r) => { s.results.push(r); });
@@ -51,7 +65,7 @@ if (ice && ice.iceServers.length < 1) steps.push({ step: 'ICE has at least one s
 // The check of the host's signed Pro token is deployed: a Pro game is refused to a host with no token and to one with a made-up token, with the
 // reason, and no room is made. A genuine token cannot be shown from here (it needs the entitlement key): that path is tests/live/pro.spec.ts.
 const askPro = async (pro?: string): Promise<{ status: number; body: Record<string, unknown> }> => {
-  const r = await fetch(`${base}/api/rooms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gameId: 'limbo-bend', durationMs: 15_000, ...A, ...(pro ? { pro } : {}) }) });
+  const r = await pa.post(`${base}/api/rooms`, { gameId: 'limbo-bend', durationMs: 15_000, ...A, ...(pro ? { pro } : {}) });
   return { status: r.status, body: (await r.json().catch(() => ({}))) as Record<string, unknown> };
 };
 for (const [name, token, reason] of [['a free host is refused a Pro game (the check of the host\'s Pro token is deployed)', undefined, 'none'], ['a made-up Pro token is refused too', 'a.b.c', 'invalid']] as const) {
@@ -61,7 +75,7 @@ for (const [name, token, reason] of [['a free host is refused a Pro game (the ch
     return { reason: r.body.reason };
   }, (v) => v);
 }
-const created =await step('create a room', () => createRoom(base, A, { gameId: 'squat-flap', durationMs: 15_000 }), (g) => ({ code: g.code, link: g.link }));
+const created = await step('create a room', () => createRoom(base, A, { gameId: 'squat-flap', durationMs: 15_000 }, fetchA), (g) => ({ code: g.code, link: g.link }));
 if (created) {
   await step('the invite link carries the room code', async () => { if (codeFromInvite(created.link) !== created.code) throw new Error('link ' + created.link); return true; });
   await step('preview the room', () => previewRoom(base, created.code), (p) => ({ game: p.gameId, size: p.size, players: p.players, phase: p.phase }));
@@ -71,7 +85,7 @@ if (created) {
     if (r.status !== 200 || !type.includes('text/html')) throw new Error(`status ${r.status} ${type}: "/r/*" must be in assets.run_worker_first of the wrangler config`);
     return { noindex: r.headers.get('X-Robots-Tag') };
   }, (v) => v);
-  const joined = await step('join as the second player', () => joinRoom(base, created.code, B), (g) => ({ code: g.code }));
+  const joined = await step('join as the second player', () => joinRoom(base, created.code, B, fetchB), (g) => ({ code: g.code }));
   if (joined) {
     const a = side(created, A); const b = side(joined, B);
     await step('both players connect and the match starts', async () => {
@@ -124,6 +138,11 @@ if (created) {
     }
     a.c.stop(); b.c.stop();
   }
+}
+
+// bodyarcade.com keeps no test profiles (the preview keeps them, so the next run signs up nobody)
+if (production && process.env['BA_RELEASE_KEEP_PROFILES'] !== '1') {
+  await step('the two test profiles are deleted again', async () => { await pa.retire(); await pb.retire(); return true; });
 }
 
 const failed = steps.filter((s) => !s.ok);

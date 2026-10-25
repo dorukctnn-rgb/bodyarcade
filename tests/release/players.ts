@@ -182,6 +182,31 @@ export async function openPlayers(base: string, labels: string[], o: { mode: Sig
   return out;
 }
 
+/**
+ * A fetch that signs each call as the player, for code that takes a `fetcher` (core/net createRoom, joinRoom and a LiveClient's ticket
+ * refresh: what the shell gives them as SocialClient.fetcher). The body is signed as the parsed JSON it carries, the way signRoomCalls and
+ * the shell do. A guest's fetcher is the plain one.
+ */
+export function signedFetcher(player: RacePlayer, fetchFn: typeof fetch = fetch): typeof fetch {
+  if (player.mode === 'guest') return fetchFn;
+  return async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const method = (init.method ?? (typeof input === 'object' && 'method' in input ? input.method : 'GET')).toUpperCase();
+    let body: unknown;
+    if (typeof init.body === 'string' && init.body) body = JSON.parse(init.body);
+    const headers = new Headers(init.headers);
+    const auth = await player.authFor(method, url, body);
+    if (auth) headers.set(AUTH_HEADER, auth);
+    return fetchFn(input, { ...init, headers });
+  };
+}
+
+/** Where the keys of a deployed origin's test profiles are kept between runs (under the evidence folder, never committed); null for a local stack, whose profiles die with it. */
+export function identitiesDir(base: string, out: string): string | null {
+  if (/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(base)) return null;
+  return join(out, 'identities', base.replace(/^https?:\/\//, '').replace(/[^A-Za-z0-9.-]+/g, '-'));
+}
+
 /** The room calls of a page: creating a room and taking a seat (joining again for a fresh ticket included). */
 const ROOM_CALL = /^\/api\/rooms(\/[A-Za-z0-9]{1,16}\/join)?$/;
 
