@@ -408,6 +408,8 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
    * The Room says the Pro game it holds has no Pro proof behind it any more (`pro.ok` false: the host's token ran out, or the host
    * changed) and this client is the host with a token that is not the one the Room read: the ticket is renewed, the next hello shows the
    * new token and a room that was waiting for it goes on. A token the Room already read and found wanting is not tried again (no loop).
+   * Called when the Room says so and on every tick while it stays so, because the app renews its token on its own schedule and the Room
+   * says "no proof" only once.
    */
   private proWaiting(room: RoomInfo): void {
     if (room.pro?.ok === false && this.you !== null && room.host === this.you && this.proIsNewer()) void this.renewEntitlement();
@@ -854,6 +856,8 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
       }
     }
     this.updateSlew();
+    // a room that waits for a lapsed Pro proof: the app may have renewed its token since the Room said so (it says it only once)
+    if (this.online && this.room?.pro?.ok === false) this.proWaiting(this.room);
     for (const p of this.peers.values()) p.watch();
     this.probeVideos();
     if (this.pendingFinal && this.online && now - this.finalAt > FINAL_RESEND_MS) { this.finalAt = now; this.sendNow(this.pendingFinal); }

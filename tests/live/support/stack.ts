@@ -13,6 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { SITE_PORT } from '../../e2e/support/ports.ts';
+import { makeProKit, type ProKit } from '../../../packages/server/src/live/prokit.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(here, '../../..');
@@ -132,6 +133,8 @@ export interface Stack {
   shaperB: Shaper;
   turn: boolean;
   turnIp: string | null;
+  /** The entitlement key pair of this run: the Worker holds its private half as ENT_PRIV_JWK (and checks Pro tokens with the public half); `pro.mint()` makes a token the way the entitlement service does. */
+  pro: ProKit;
   workerLog(): string;
   turnControl(path: string): Promise<TurnChaos | null>;
   /** A real deploy: the Worker's code changes, workerd restarts, every socket drops and the Room objects are rebuilt from storage. */
@@ -157,6 +160,7 @@ export async function startStack(): Promise<Stack> {
       root: path.join(ROOT, 'tests/live/pages'), base: './', configFile: false, logLevel: 'warn',
       build: { outDir: pagesDir, emptyOutDir: true, minify: false, target: 'es2022', sourcemap: false, rollupOptions: { input: path.join(ROOT, 'tests/live/pages/duel.html') } },
     });
+    const pro = await makeProKit();
     const turnIp = lanAddress();
     if (turnIp) {
       const turn = spawn(process.execPath, [path.join(here, 'turn-server.cjs'), turnIp, String(PORTS.turn), String(PORTS.turnCtl)], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
@@ -176,7 +180,7 @@ export async function startStack(): Promise<Stack> {
       assets: { directory: pagesDir, binding: 'ASSETS', run_worker_first: ['/api/*'], html_handling: 'auto-trailing-slash' },
       durable_objects: { bindings: [{ name: 'ROOMS', class_name: 'Room' }] }, migrations: [{ tag: 'v1', new_sqlite_classes: ['Room'] }],
       vars: {
-        TICKET_SECRET: 'test-only-ticket-secret-0123456789abcdef', LIVE_NO_LIMITS: '1',
+        TICKET_SECRET: 'test-only-ticket-secret-0123456789abcdef', LIVE_NO_LIMITS: '1', ENT_PRIV_JWK: pro.env.ENT_PRIV_JWK,
         ...(turnIp ? { ICE_LOCAL_TURN: `turn:${turnIp}:${PORTS.turn}?transport=udp`, ICE_LOCAL_USER: 'ba', ICE_LOCAL_PASS: 'ba-secret' } : {}),
       },
     };
@@ -208,7 +212,7 @@ export async function startStack(): Promise<Stack> {
       for (let i = 0; i < 40 && !(await turnControl('/stats')); i++) await sleep(250);
     }
     return {
-      base, baseA: `http://127.0.0.1:${PORTS.shaperA}`, baseB: `http://127.0.0.1:${PORTS.shaperB}`, shaperA, shaperB, turn: !!turnIp, turnIp,
+      base, baseA: `http://127.0.0.1:${PORTS.shaperA}`, baseB: `http://127.0.0.1:${PORTS.shaperB}`, shaperA, shaperB, turn: !!turnIp, turnIp, pro,
       workerLog: () => log.join(''),
       turnControl,
       redeploy: async () => {

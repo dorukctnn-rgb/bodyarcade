@@ -174,6 +174,19 @@ describe('a room that waits for a lapsed proof', () => {
     expect(a.all('match')).toHaveLength(0);
   });
 
+  it('a token the app renews after the Room said so (it says it once) is taken along on the next tick, and the room goes on', async () => {
+    const { net, a, b, r, state } = await lapsed('old-token', true);   // the app holds nothing newer yet
+    await settle(); net.run(3000);
+    expect(r.count()).toBe(0);
+    expect(a.all('match')).toHaveLength(0);
+    state.token = 'renewed-a-moment-later';
+    net.run(500); await settle(); net.run(2500);
+    expect(r.count()).toBe(1);
+    expect(a.all('match')).toHaveLength(1);
+    expect(b.all('match')).toHaveLength(1);
+    expect(a.c.room?.pro).toEqual({ ok: true });
+  });
+
   it('a friend who is not the host never renews anything', async () => {
     const net = await Net.make({ config: FREE });
     const a = client(net, 'alice-device-01', {}, x(net.room.host.now() + 20_000));
