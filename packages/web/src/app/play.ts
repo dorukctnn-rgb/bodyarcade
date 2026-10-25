@@ -445,7 +445,8 @@ export class PlayController {
     const t = this.ctx().i18n;
     const labels: Partial<Record<CalibPart, string>> = {};
     for (const part of this.guide.bands) labels[part] = t.tx(`calib.check.${part}`);
-    target.innerHTML = framingGuide(w, h, { framing: this.framing(), ready: this.guide.ready, missing: this.guide.bands, labels, headroom: needsHeadroom(this.game) });
+    // A round with a made-up body (the practice session) gets a made-up person inside the outline, to the outline's own scale.
+    target.innerHTML = framingGuide(w, h, { framing: this.framing(), ready: this.guide.ready, missing: this.guide.bands, labels, headroom: needsHeadroom(this.game), standIn: this.o.simulatedBody === true });
   }
 
   /**

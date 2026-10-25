@@ -66,7 +66,16 @@ export interface GuideOptions {
   labels: Readonly<Partial<Record<CalibPart, string>>>;
   /** The game lifts the hands above the head: the figure raises its arms and leaves room above the head. */
   headroom?: boolean;
+  /**
+   * A person made up for a picture of the screen (the practice session of development and test builds, and so the store pictures):
+   * a filled copy of the outline, a little smaller, drawn inside it. It is made of the outline's own points, so it fits at every size
+   * and framing by what it is made of, which no pictogram of another proportion would. Never drawn in a published build (the player is in the camera picture).
+   */
+  standIn?: boolean;
 }
+
+/** How big the made-up person is next to the outline: a little smaller, so that the dashes stay around it (about a fortieth of the figure's height on each side). */
+export const STAND_IN_SCALE = 0.94;
 
 export function framingGuide(w: number, h: number, o: GuideOptions): string {
   const shown = SHOWN[o.framing];
@@ -97,7 +106,15 @@ export function framingGuide(w: number, h: number, o: GuideOptions): string {
       + `<text x="${f(cx)}" y="${f(y + bh / 2 + size * 0.36)}" text-anchor="middle" font-weight="800" font-size="${f(size)}" fill="#1C1433">${label}</text>`;
   }).join('');
   const clip = cut === null ? '' : `<clipPath id="ba-guide-clip"><rect x="0" y="0" width="${w}" height="${f(cut)}"/></clipPath>`;
-  const shape = `<g${cut === null ? '' : ' clip-path="url(#ba-guide-clip)"'}><path d="${body}" fill="rgba(244,242,248,0.08)" stroke="${stroke}" stroke-width="3" stroke-dasharray="10 8" stroke-linejoin="round" opacity="0.92"/>`
+  // The made-up person: the outline's points pulled towards the middle of what is shown (so that it keeps the same room above and below), under the dashes.
+  const mid = shown / 2;
+  const kIn = (x: number, v: number): [number, number] => [cx + x * STAND_IN_SCALE * scale, yAt(mid + (v - mid) * STAND_IN_SCALE)];
+  const headIn = kIn(HEAD.cx + (o.framing === 'side' ? 0.8 : 0), HEAD.cy);
+  const person = o.standIn
+    ? `<g data-standin fill="rgba(244,242,248,0.9)"><path data-standin-body d="${outline(o.framing === 'side' ? SIDE : lift ? FRONT_UP : FRONT, o.framing !== 'side', kIn)}"/>`
+      + `<ellipse data-standin-head cx="${f(headIn[0])}" cy="${f(headIn[1])}" rx="${f(HEAD.rx * STAND_IN_SCALE * scale)}" ry="${f(HEAD.ry * STAND_IN_SCALE * scale)}"/></g>`
+    : '';
+  const shape = `<g${cut === null ? '' : ' clip-path="url(#ba-guide-clip)"'}>${person}<path d="${body}" fill="rgba(244,242,248,0.08)" stroke="${stroke}" stroke-width="3" stroke-dasharray="10 8" stroke-linejoin="round" opacity="0.92"/>`
     + `<ellipse cx="${f(headC[0])}" cy="${f(headC[1])}" rx="${f(HEAD.rx * scale)}" ry="${f(HEAD.ry * scale)}" fill="rgba(244,242,248,0.08)" stroke="${stroke}" stroke-width="3" stroke-dasharray="10 8" opacity="0.92"/></g>`;
   const line = cut === null ? '' : `<line x1="${f(cx - 19 * scale)}" y1="${f(cut)}" x2="${f(cx + 19 * scale)}" y2="${f(cut)}" stroke="${stroke}" stroke-width="3" stroke-linecap="round" opacity="0.92"/>`;
   return `<svg viewBox="0 0 ${w} ${h}" aria-hidden="true" focusable="false"><defs>${clip}</defs>${shape}${line}${bands}</svg>`;

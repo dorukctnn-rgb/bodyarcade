@@ -1,7 +1,7 @@
 // The guide over the camera picture: a closed outline of a person at every size and framing, inside the picture, with the
 // words of the missing parts on amber bands that stay inside the picture too.
 import { describe, expect, it } from 'vitest';
-import { framingGuide, outline } from './silhouette.ts';
+import { framingGuide, outline, STAND_IN_SCALE } from './silhouette.ts';
 
 const SIZES: [number, number][] = [[360, 420], [390, 540], [412, 600], [700, 360], [915, 330], [768, 700], [1024, 600], [1440, 780], [1920, 960]];
 const FRAMINGS = ['full', 'upper', 'side', 'desk'] as const;
@@ -108,6 +108,57 @@ describe('the framing guide', () => {
     };
     expect(measure(true).arms, 'arms above the head').toBeGreaterThan(15);
     expect(measure(false).arms, 'no arms above the head').toBeLessThan(8);
+  });
+
+  /** The box round every number of a path (anchors and control points). */
+  const boxOf = (d: string): { l: number; t: number; r: number; b: number } => {
+    const n = [...d.matchAll(/-?[\d.]+/g)].map((m) => Number(m[0]));
+    const xs = n.filter((_, i) => i % 2 === 0);
+    const ys = n.filter((_, i) => i % 2 === 1);
+    return { l: Math.min(...xs), t: Math.min(...ys), r: Math.max(...xs), b: Math.max(...ys) };
+  };
+
+  for (const framing of FRAMINGS) {
+    for (const headroom of [false, true]) {
+      for (const [w, h] of [...SIZES, [960, 600], [1280, 800], [1420, 1080], [2060, 1440]] as [number, number][]) {
+        if (headroom && framing === 'side') continue;
+        it(`a made-up person, ${framing}${headroom ? ' with headroom' : ''} at ${w}x${h}: inside its outline, a little smaller, the same shape`, () => {
+          const svg = framingGuide(w, h, { framing, ready: false, missing: [], labels: LABELS, headroom, standIn: true });
+          expect(svg).not.toMatch(/NaN|Infinity|undefined/);
+          const person = /<path data-standin-body d="([^"]+)"/.exec(svg)?.[1] ?? '';
+          const dashed = /<path d="([^"]+)"/.exec(svg)?.[1] ?? '';
+          expect(person, 'the made-up person is drawn').not.toBe('');
+          const p = boxOf(person);
+          const o = boxOf(dashed);
+          // inside the outline on every side (the numbers of a path are rounded to a tenth of a pixel)
+          expect(p.l).toBeGreaterThanOrEqual(o.l - 0.2);
+          expect(p.r).toBeLessThanOrEqual(o.r + 0.2);
+          expect(p.t).toBeGreaterThanOrEqual(o.t - 0.2);
+          expect(p.b).toBeLessThanOrEqual(o.b + 0.2);
+          // smaller by the scale it says, in both directions: never "larger than its outline"
+          expect((p.r - p.l) / (o.r - o.l)).toBeCloseTo(STAND_IN_SCALE, 1);
+          expect((p.b - p.t) / (o.b - o.t)).toBeCloseTo(STAND_IN_SCALE, 1);
+          // and the head is inside the outline's head
+          const head = /<ellipse data-standin-head cx="([\d.]+)" cy="([\d.]+)" rx="([\d.]+)" ry="([\d.]+)"/.exec(svg);
+          const outer = /<ellipse cx="([\d.]+)" cy="([\d.]+)" rx="([\d.]+)" ry="([\d.]+)"/.exec(svg);
+          expect(Number(head?.[3])).toBeLessThan(Number(outer?.[3]));
+          expect(Number(head?.[4])).toBeLessThan(Number(outer?.[4]));
+        });
+      }
+    }
+  }
+
+  it('draws no made-up person unless it is asked to (the player is in the camera picture)', () => {
+    for (const framing of FRAMINGS) {
+      expect(framingGuide(800, 600, { framing, ready: false, missing: [], labels: LABELS })).not.toContain('data-standin');
+      expect(framingGuide(800, 600, { framing, ready: false, missing: [], labels: LABELS, standIn: false })).not.toContain('data-standin');
+    }
+  });
+
+  it('the made-up person is under the dashes and is clipped at the cut line with the outline', () => {
+    const svg = framingGuide(800, 600, { framing: 'upper', ready: false, missing: [], labels: LABELS, standIn: true });
+    expect(svg.indexOf('data-standin-body')).toBeLessThan(svg.indexOf('stroke-dasharray'));
+    expect(svg.indexOf('clip-path="url(#ba-guide-clip)"')).toBeLessThan(svg.indexOf('data-standin-body'));
   });
 
   it('skips a band for a part below the cut, and a label with a markup character is the caller\'s to escape', () => {
