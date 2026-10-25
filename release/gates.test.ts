@@ -101,6 +101,16 @@ describe('secrets', () => {
     expect(spec('ENT_MAIL_FROM')!.why).toMatch(/ENT_MAIL_TOKEN/);
   });
 
+  it('the entitlement key says it also guards the Pro games of a room (builder N, 25 Oct): optional, not generated here', () => {
+    const s = spec('ENT_PRIV_JWK');
+    expect(s).toBeDefined();
+    expect(s!.required).toBe(false);
+    expect(s!.generate).toBeNull();
+    expect(s!.why).toMatch(/signs Pro tokens \(ES256\)/);
+    expect(s!.why).toMatch(/its public half also checks the host's Pro token before a Pro game starts in a room/);
+    expect(s!.why).toMatch(/without it a room never starts a Pro game, free games are not affected/);
+  });
+
   it('every name is listed once', () => {
     const names = SECRETS.map((s) => s.name);
     expect(new Set(names).size).toBe(names.length);

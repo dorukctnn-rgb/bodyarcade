@@ -33,7 +33,7 @@ export function es256Pair(): { privateJwk: string; publicJwk: string } {
 export const SECRETS: readonly SecretSpec[] = [
   { name: 'TICKET_SECRET', why: 'live play: signs room tickets and block keys (the Worker refuses to make rooms without it)', required: true, generate: () => random(36) },
   { name: 'ADMIN_TOKEN', why: 'social: the moderation API (answers 404 without it)', required: false, generate: () => random(32) },
-  { name: 'ENT_PRIV_JWK', why: 'entitlements: signs Pro tokens (ES256); the public half goes to the client', required: false, generate: null },
+  { name: 'ENT_PRIV_JWK', why: "entitlements: signs Pro tokens (ES256); the public half goes to the client; its public half also checks the host's Pro token before a Pro game starts in a room (without it a room never starts a Pro game, free games are not affected)", required: false, generate: null },
   { name: 'TURN_KEY_ID', why: 'live video between friends behind strict NATs: Cloudflare Realtime TURN key id (STUN only without it)', required: false, generate: null },
   { name: 'TURN_KEY_API_TOKEN', why: 'the API token of that TURN key', required: false, generate: null },
   { name: 'PLAY_SA_JSON', why: 'entitlements: Google Play purchase checks (service account JSON)', required: false, generate: null },
