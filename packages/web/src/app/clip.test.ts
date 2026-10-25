@@ -203,7 +203,7 @@ describe('where no clip can be made', () => {
 });
 
 describe('when a round is kept for a clip', () => {
-  const base = { clips: true, clipCamera: false, share: true, mirror: false };
+  const base = { clips: true, share: true, mirror: false };
 
   it('a game that does not draw the camera is kept when the switch is on and the profile may share', () => {
     expect(clipAllowed(base)).toBe(true);
@@ -211,11 +211,8 @@ describe('when a round is kept for a clip', () => {
     expect(clipAllowed({ ...base, share: false })).toBe(false);
   });
 
-  it('a mirror game draws the camera picture in its game view, so it is kept only when the player allowed that', () => {
+  it('a mirror game draws the camera picture in its game view, and the camera video is never recorded: it makes no clip', () => {
     expect(clipAllowed({ ...base, mirror: true })).toBe(false);
-    expect(clipAllowed({ ...base, mirror: true, clipCamera: true })).toBe(true);
-    expect(clipAllowed({ ...base, mirror: true, clipCamera: true, clips: false })).toBe(false);
-    expect(clipAllowed({ ...base, mirror: true, clipCamera: true, share: false })).toBe(false);
   });
 });
 

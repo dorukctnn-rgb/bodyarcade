@@ -76,7 +76,7 @@ export interface RoundResult {
   /** Played with the keyboard or touch: practice, so no calories, no record and no progress; the page says that instead. */
   practice?: boolean;
   /** The last seconds of the round as a video made on this device (the address is the page's own, a blob), to show, share and save. */
-  clip?: { url: string; name: string; mime: string; seconds: number; /** The video shows the camera picture (a mirror game's game view has it). */ camera: boolean } | null;
+  clip?: { url: string; name: string; mime: string; seconds: number } | null;
 }
 
 export function formatClock(seconds: number): string {
@@ -127,7 +127,7 @@ function clipCard(ctx: ViewContext, r: RoundResult): SafeHtml {
     <video class="k-clipvideo" src="${c.url}" controls playsinline muted loop preload="metadata" aria-label="${t.t('results.clip.alt')}"></video>
     <div class="k-clipactions"><button type="button" class="ba-btn ba-btn--primary" data-action="clip-share">${icon('share')}<span>${t.t('results.clip.share')}</span></button>
       <a class="ba-btn ba-btn--secondary" href="${c.url}" download="${c.name}" data-clip-save>${icon('download')}<span>${t.t('results.clip.save')}</span></a></div>
-    <p class="k-fine">${c.camera ? t.t('results.clip.noteCamera') : t.t('results.clip.note')}</p>
+    <p class="k-fine">${t.t('results.clip.note')}</p>
   </section>`;
 }
 

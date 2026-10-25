@@ -74,7 +74,6 @@ export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml
       ${row({ icon: 'camera', title: t.t('settings.pip'), hint: t.t('settings.pip.hint'), control: pipPicker(ctx), wrap: true })}
       ${row({ icon: 'user', title: t.t('settings.skeleton'), control: toggle('set-skeleton', 'skeleton', s.skeleton), labelFor: 'set-skeleton' })}
       ${row({ icon: 'replay', title: t.t('settings.clips'), hint: t.t('settings.clips.hint'), control: toggle('set-clips', 'clips', s.clips), labelFor: 'set-clips' })}
-      ${row({ icon: 'camera', title: t.t('settings.clipCamera'), hint: t.t('settings.clipCamera.hint'), control: toggle('set-clipcamera', 'clipCamera', s.clipCamera), labelFor: 'set-clipcamera' })}
     </ul></section>
     <section class="k-setgroup" aria-labelledby="s-you"><h2 id="s-you">${t.t('settings.section.body')}</h2><ul class="k-set">
       ${row({ icon: 'trophy', title: t.t('settings.goals'), hint: goals, control: html`<a class="ba-link" href="${ctx.href('welcome')}">${t.t('settings.change')}</a>` })}

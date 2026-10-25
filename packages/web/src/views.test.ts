@@ -308,7 +308,7 @@ describe('results', () => {
   });
 
   it('offers the clip of the round: a video, a way to share it and to save it, what it is made of, and nothing without one', () => {
-    const clip = { url: 'blob:https://example.test/abc', name: 'bodyarcade-squat-flap-42.mp4', mime: 'video/mp4', seconds: 8.4, camera: false };
+    const clip = { url: 'blob:https://example.test/abc', name: 'bodyarcade-squat-flap-42.mp4', mime: 'video/mp4', seconds: 8.4 };
     for (const lang of ['en', 'tr'] as const) {
       const page = draw(lang, lang === 'en' ? '/results/' : '/tr/results/', {}, { ...EMPTY_STATE, result: { ...sample, clip } }).html;
       expect(page, lang).toContain('data-clip');
@@ -317,9 +317,6 @@ describe('results', () => {
       expect(page, lang).toContain('download="bodyarcade-squat-flap-42.mp4"');
       expect(textOf(page), lang).toContain(lang === 'en' ? 'without your camera picture' : 'kamera görüntün olmadan');
       expect(textOf(page), lang).not.toMatch(/undefined|\[object|results\.clip/);
-      // a mirror game's clip has the camera picture in it, and says so
-      const mirror = draw(lang, lang === 'en' ? '/results/' : '/tr/results/', {}, { ...EMPTY_STATE, result: { ...sample, clip: { ...clip, camera: true } } }).html;
-      expect(textOf(mirror), lang).toContain(lang === 'en' ? 'It shows your camera picture' : 'kamera görüntün de içinde');
     }
     expect(draw('en', '/results/', {}, { ...EMPTY_STATE, result: sample }).html).not.toContain('data-clip');
   });
@@ -410,13 +407,13 @@ describe('playing without the camera', () => {
     expect(textOf(overlayHtml(ctxOf(phone, { lang: 'tr' }), mirror, { kind: 'camera-error', code: 'denied' }).value)).toContain('Bu oyun için kamera gerekli');
   });
 
-  it('the clips of the settings are two switches: on to begin with, and the camera picture off', () => {
+  it('the clips of the settings are one switch: on to begin with, and the page says never the camera picture', () => {
     const page = (settings: Partial<ContextInit['settings'] & object>): string => draw('en', '/settings/', { settings }).html;
     expect(page({})).toMatch(/id="set-clips"[^>]*checked/);
-    expect(page({})).not.toMatch(/id="set-clipcamera"[^>]*checked/);
     expect(page({ clips: false })).not.toMatch(/id="set-clips"[^>]*checked/);
-    expect(page({ clipCamera: true })).toMatch(/id="set-clipcamera"[^>]*checked/);
+    expect(page({})).not.toContain('set-clipcamera');
     expect(textOf(page({}))).toContain('Highlight clips');
+    expect(textOf(page({}))).toContain('Never your camera picture');
     expect(textOf(draw('tr', '/tr/settings/').html)).toContain('Öne çıkan an klipleri');
   });
 

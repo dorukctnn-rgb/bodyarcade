@@ -7,8 +7,7 @@
 // than MIN_CLIP_MS. The recording stops while the round is paused.
 //
 // What is recorded is the stage's canvas and nothing else: the self view of the camera is a tile of the page, never in it. A mirror
-// game draws the camera picture on its canvas itself, so its clip has the picture in it: the shell only makes one when the player
-// allowed that (the settings), and says so under the clip.
+// game draws the camera picture on its canvas itself, so it makes no clip at all (clipAllowed): the camera video is never recorded.
 //
 // Everything here is a nicety: a browser without a recorder, an encoder that fails or a canvas that changes its size gives no clip
 // and no error to the round.
@@ -23,11 +22,11 @@ export interface ClipFile {
 }
 
 /**
- * Whether a round's last seconds are kept for a clip: the player's switch, a profile that may share at all (a child's does not),
- * and, for a mirror game, only when the camera picture in its game view is allowed in a clip.
+ * Whether a round's last seconds are kept for a clip: the player's switch, a profile that may share at all (a child's does not), and
+ * never for a mirror game: it draws the camera picture on its own canvas, and the camera video is promised never to be recorded or saved.
  */
-export function clipAllowed(o: { clips: boolean; clipCamera: boolean; share: boolean; mirror: boolean }): boolean {
-  return o.clips && o.share && (!o.mirror || o.clipCamera);
+export function clipAllowed(o: { clips: boolean; share: boolean; mirror: boolean }): boolean {
+  return o.clips && o.share && !o.mirror;
 }
 
 export const SEGMENT_MS = 10_000;

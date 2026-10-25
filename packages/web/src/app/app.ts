@@ -872,10 +872,10 @@ export class App {
    * The round is over: it goes into the record (a plan's game moves the plan on), and the results screen is built from what the
    * record says happened. Two players on one camera add their minutes to the habit and set no personal record.
    */
-  /** Whether this round's last seconds are kept for a clip: the player's setting, and a mirror game only with the camera picture allowed. */
+  /** Whether this round's last seconds are kept for a clip: the player's setting, a profile that may share, and not a mirror game (its canvas has the camera picture). */
   private clipsWanted(g: ShellGame): boolean {
     const s = this.currentSettings();
-    return clipAllowed({ clips: s.clips, clipCamera: s.clipCamera, share: this.rules().share, mirror: hudModeFor(g) === 'mirror' });
+    return clipAllowed({ clips: s.clips, share: this.rules().share, mirror: hudModeFor(g) === 'mirror' });
   }
 
   private dropClip(): void {
@@ -892,8 +892,7 @@ export class App {
       this.clipBlob = clip.blob;
       this.clipUrl = URL.createObjectURL(clip.blob);
     } catch { this.dropClip(); return null; }
-    const mirror = hudModeFor(game) === 'mirror';
-    return { url: this.clipUrl as string, name: `bodyarcade-${game.seo.slug}-${Math.max(0, Math.round(summary.score))}.${clip.ext}`, mime: clip.mime, seconds: clip.seconds, camera: mirror };
+    return { url: this.clipUrl as string, name: `bodyarcade-${game.seo.slug}-${Math.max(0, Math.round(summary.score))}.${clip.ext}`, mime: clip.mime, seconds: clip.seconds };
   }
 
   /** The clip goes to the share sheet as a file where the browser takes one; anywhere else it is saved, which the player is told. */
@@ -1238,7 +1237,6 @@ export class App {
       case 'controls': s.set({ controls: t.value === 'keyboard' ? 'keyboard' : 'camera' }); this.setups.clear(); break;
       case 'skeleton': s.set({ skeleton: checked }); break;
       case 'clips': s.set({ clips: checked }); break;
-      case 'clipCamera': s.set({ clipCamera: checked }); break;
       case 'sound': s.set({ sound: checked }); break;
       case 'bigText': s.set({ bigText: checked }); break;
       case 'motion': s.set({ motion: checked ? 'reduce' : 'full' }); break;
