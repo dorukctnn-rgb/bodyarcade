@@ -22,6 +22,8 @@ export interface PlayHudOptions {
   i18n: I18n;
   mode?: HudMode;
   pipCorner?: PipPlacement;
+  /** False for a round played without the camera (keyboard or touch): there is no picture of the player, so no tile and no button for it. Default true. */
+  selfView?: boolean;
   /** Two players, one camera (only on a screen that allows it). */
   duo?: boolean;
   announce(text: string, o?: { assertive?: boolean }): void;
@@ -72,6 +74,7 @@ export class PlayHud implements Hud {
   private duo: boolean;
   private away: { player: PlayerSlot } | null = null;
   private phase: 'calibrate' | 'play' = 'play';
+  private selfView = true;
   private info: HudLayoutInfo | null = null;
   /** The signature of what the last layout was done for. */
   private laidOut = '';
@@ -86,6 +89,7 @@ export class PlayHud implements Hud {
     this.doc = o.document;
     this.mode = o.mode ?? 'scene';
     this.corner = o.pipCorner ?? 'bottom-right';
+    this.selfView = o.selfView !== false;
     this.duo = !!o.duo;
     this.pipHost = this.doc.createElement('div');
     this.pipHost.className = 'ba-pip-host';
@@ -207,6 +211,10 @@ export class PlayHud implements Hud {
     this.schedule();
   }
   setPipCorner(c: PipPlacement): void { this.corner = c; this.schedule(); }
+  /** The round goes on without the camera (or, with true, with it): the self view tile goes away, and the layout follows. */
+  setSelfView(on: boolean): void { this.selfView = on; this.schedule(); }
+  /** Where the self view is: the corner chosen, or nowhere when the round has no camera picture. */
+  private get shownCorner(): PipPlacement { return this.selfView ? this.corner : 'hidden'; }
   setDuo(on: boolean): void { this.duo = on; this.build(); this.schedule(); }
 
   /** The player who left the frame ("Player 2, step back in") with the seconds before the other may go on; null clears it. */
@@ -383,7 +391,7 @@ export class PlayHud implements Hud {
     const lives = this.el['lives']?.innerHTML.length ?? 0;
     return [
       vp.w, vp.h, vp.insets.top, vp.insets.right, vp.insets.bottom, vp.insets.left,
-      this.mode, this.corner, this.duo, this.phase, this.away?.player ?? 0,
+      this.mode, this.shownCorner, this.selfView, this.duo, this.phase, this.away?.player ?? 0,
       ['command', 'reason', 'reason1', 'reason2', 'combo', 'lives', 'showPip'].map(flag).join(''), lives, this.o.root.textContent,
     ].join('|');
   }
@@ -475,9 +483,9 @@ export class PlayHud implements Hud {
     // Two players always see the shared view; one player can hide theirs, and gets a button to bring it back.
     const calibrating = this.phase === 'calibrate';
     // Two players always see the shared view, except in a mirror game, where the camera picture is the scene itself.
-    pip.hidden = calibrating ? false : this.mode === 'mirror' ? true : duo ? false : this.corner === 'hidden';
+    pip.hidden = calibrating ? false : this.mode === 'mirror' ? true : duo ? false : this.shownCorner === 'hidden';
     const showPip = this.el['showPip'];
-    if (showPip) showPip.hidden = calibrating || !(this.corner === 'hidden' && this.mode !== 'mirror');
+    if (showPip) showPip.hidden = calibrating || !this.selfView || !(this.corner === 'hidden' && this.mode !== 'mirror');
     const play: Rect = { x: 0, y: 0, w: vp.w, h: vp.h };
 
     if (duo) {
@@ -508,12 +516,12 @@ export class PlayHud implements Hud {
         const lane = this.away.player === 1 ? r.playP1 : r.playP2;
         Object.assign(dim.style, { left: `${lane.x}px`, top: '0px', width: `${lane.w}px`, height: `${vp.h}px` });
       }
-      this.info = { metrics, mode: this.mode, pipCorner: this.corner, duo: true, twoPlayers: layout, play: { x: r.playP1.x, y: r.playP1.y, w: r.playP2.x + r.playP2.w - r.playP1.x, h: r.playP1.h } };
+      this.info = { metrics, mode: this.mode, pipCorner: this.shownCorner, duo: true, twoPlayers: layout, play: { x: r.playP1.x, y: r.playP1.y, w: r.playP2.x + r.playP2.w - r.playP1.x, h: r.playP1.h } };
     } else {
       const status = { statusLeft: this.size(this.el['statusLeft'] as HTMLElement), statusRight: this.size(this.el['statusRight'] as HTMLElement) };
       const cmdSize = command.hidden ? { w: 1, h: 1 } : this.size(command);
       const reason = this.el['reason'] as HTMLElement;
-      const options = { mode: this.mode, pipCorner: this.corner };
+      const options = { mode: this.mode, pipCorner: this.shownCorner };
       const slots = hudSlots({ w: vp.w, h: vp.h, metrics }, { ...status, command: cmdSize }, options);
       let reasonRow = slots.reason.preferred;
       if (!reason.hidden) {
@@ -535,7 +543,7 @@ export class PlayHud implements Hud {
       } else if (this.o.cameraHost && this.mode !== 'mirror') {
         this.o.cameraHost.style.display = 'none';
       }
-      this.info = { metrics, mode: this.mode, pipCorner: this.corner, duo: false, solo: layout, play: r.play };
+      this.info = { metrics, mode: this.mode, pipCorner: this.shownCorner, duo: false, solo: layout, play: r.play };
     }
     this.o.onLayout?.(this.info as HudLayoutInfo);
   }

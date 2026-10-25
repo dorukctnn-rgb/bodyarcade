@@ -51,10 +51,14 @@ export interface BuildInput {
   previousBest: number | null;
   /** The one second skeleton replay of a miss, when the session recorded one (it does not yet). */
   replay?: { reason: string } | null;
+  /** Practice: nothing of the round is kept. Default: a round without the camera is practice. */
+  practice?: boolean;
 }
 
 export function buildRoundResult(i: BuildInput): RoundResult {
   const s = i.summary;
+  // A round played with the keyboard or by touch moved no body: no calories, no best (it is not kept), and the page says it is practice.
+  const practice = i.practice ?? i.setup.input !== 'camera';
   const players: PlayerResult[] | undefined = s.players
     ? ([1, 2] as const).flatMap((slot) => {
       const p = s.players?.[slot];
@@ -74,8 +78,9 @@ export function buildRoundResult(i: BuildInput): RoundResult {
     ...(s.cleared !== undefined ? { cleared: s.cleared } : {}),
     ...(s.bestStreak !== undefined ? { bestStreak: s.bestStreak } : {}),
     ...(s.quality !== undefined ? { quality: s.quality } : {}),
-    calories: caloriesFor(s.metSeconds, i.weightKg),
-    personalBest: i.previousBest !== null && s.score > i.previousBest && i.setup.players === 1,
+    calories: practice ? null : caloriesFor(s.metSeconds, i.weightKg),
+    personalBest: !practice && i.previousBest !== null && s.score > i.previousBest && i.setup.players === 1,
+    ...(practice ? { practice: true } : {}),
     reasons: reasonsFrom(s.log, i.i18n),
     ...(extras.length ? { extras } : {}),
     ...(players ? { players } : {}),

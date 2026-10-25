@@ -60,6 +60,8 @@ export interface PlayControllerOptions {
   explained?: boolean;
   /** A race against a recording (or friends in a room): the other side of it. */
   race?: RaceSource | null;
+  /** The body of this round is a stand-in (the practice session of development and test builds): the self view stays whatever the controls are. */
+  simulatedBody?: boolean;
 }
 
 const CAMERA_CODES = new Set(['denied', 'not_found', 'in_use', 'overconstrained', 'no_frames', 'insecure', 'unsupported', 'unknown']);
@@ -132,7 +134,7 @@ export class PlayController {
     const cameraHost = stage.querySelector('[data-camera-host]') as HTMLElement;
     const scene = stage.querySelector('[data-scene]') as HTMLElement;
     const hud = new PlayHud({
-      document: this.doc, root: this.hudEl, cameraHost, i18n: ctx.i18n, mode: hudModeFor(this.game), pipCorner: this.host.pipCorner(), duo: this.setup.players === 2,
+      document: this.doc, root: this.hudEl, cameraHost, i18n: ctx.i18n, mode: hudModeFor(this.game), pipCorner: this.host.pipCorner(), selfView: this.setup.input === 'camera' || this.o.simulatedBody === true, duo: this.setup.players === 2,
       announce: (t, a) => this.host.announce(t, a), toast: (t) => this.host.toast(t),
       onPause: () => this.session?.pause('user'),
       onMovePip: () => hud.setPipCorner(this.host.cyclePip()),
@@ -153,7 +155,7 @@ export class PlayController {
     this.wire(this.session);
     this.joinRace(this.session, hud);
     if (this.setup.input === 'camera' && this.o.explained !== true && !(await this.cameraReady())) {
-      this.show({ kind: 'camera-explainer' });
+      this.show({ kind: 'camera-explainer', two: this.setup.players === 2 });
       return;
     }
     await this.launch();
@@ -419,7 +421,7 @@ export class PlayController {
 
   private onError(code: string, message: string): void {
     if (this.disposed) return;
-    if (CAMERA_CODES.has(code)) this.show({ kind: 'camera-error', code });
+    if (CAMERA_CODES.has(code)) this.show({ kind: 'camera-error', code, two: this.setup.players === 2 });
     else this.show({ kind: 'error', message: this.errorText(code, message) });
     this.host.announce(this.ctx().i18n.t('play.error.title'), { assertive: true });
   }
@@ -443,7 +445,10 @@ export class PlayController {
         void this.restart();
         return true;
       case 'use-keyboard':
+        // No camera from here on: nothing of the player is drawn, so the self view goes (a round of two players becomes one of one).
+        if (this.setup.players === 2) this.hud?.setDuo(false);
         this.setup = { ...this.setup, input: 'keyboard', players: 1 };
+        if (!this.o.simulatedBody) this.hud?.setSelfView(false);
         this.host.setupChanged(this.setup);
         void this.restart();
         return true;

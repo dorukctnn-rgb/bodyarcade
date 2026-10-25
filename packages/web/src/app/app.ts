@@ -79,6 +79,11 @@ export interface AppOptions {
   family?: boolean;
   /** The Room verifies the host's Pro before a Pro game starts: the paywall may say that rooms play the host's Pro games. */
   roomsPro?: boolean;
+  /**
+   * A round on this game is played by a stand-in for a person (the practice session of development and test builds): what it keeps is
+   * kept like a camera round's, so the tests of the record, the habit and the plans do not need a camera. A published build has none.
+   */
+  bodyIsSimulated?: (gameId: string) => boolean;
   entitlements?: EntitlementsPort;
   /** The offers, what the paywall may say where the page runs, and the free trial: from core/entitlements (billing.ts). */
   billing: BillingPort;
@@ -754,6 +759,7 @@ export class App {
     void this.social?.runBegan(g, setup.players === 1 && !route.query.get('room'));
     this.play = new PlayController({
       host: this.playHost(g), game: g, setup, stage,
+      ...(this.o.bodyIsSimulated?.(g.id) ? { simulatedBody: true } : {}),
       makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}), ...(race ? { race } : {}) }) ?? null,
       ...(race ? { race } : {}),
       ...(this.o.onRoundEnded ? { release: this.o.onRoundEnded } : {}),
@@ -866,13 +872,17 @@ export class App {
     const first = this.firstRound;
     this.firstRound = false;
     const input = runInputOf({ game: first ? { durationSec: FIRST_SECONDS } : game, setup, summary, kcal: caloriesFor(summary.metSeconds, weightKg) });
+    // A round with the keyboard or by touch is practice: no body moved, so nothing of it goes into the record, the habit, the plan or the calories.
+    const practice = setup.input !== 'camera' && !this.o.bodyIsSimulated?.(game.id);
     // A race is played for the time, like two players on one camera: its minutes count for the habit, and its score (the Room's sum, not the game's) is no personal best.
     const solo = setup.players === 1 && !race;
     const before = this.arcade.plans.active();
     let report: RunReport | null = null;
     let step: PlanStepReport | null = null;
     let shared: { play: ReturnType<Arcade['habit']['addPlay']>; habit: HabitView } | null = null;
-    if (!solo) {
+    if (practice) {
+      // kept nowhere
+    } else if (!solo) {
       shared = { play: this.arcade.habit.addPlay(summary.seconds), habit: this.arcade.habit.view() };
     } else if (this.planRound && before?.current?.game === game.id) {
       step = this.arcade.finishPlanStep(input);
@@ -880,17 +890,19 @@ export class App {
     } else report = this.arcade.recordRun(game.id, input);
     this.planRound = false;
     const previous = report?.outcome.saved && report.outcome.previousBest > 0 ? report.outcome.previousBest : null;
-    const progress = this.progressOf(report ? { play: report.play, challenge: report.challenge, habit: report.habit, news: report.outcome.news } : { play: shared?.play ?? null, challenge: null, habit: shared?.habit ?? this.arcade.habit.view(), news: [] });
+    const progress = practice ? null : this.progressOf(report ? { play: report.play, challenge: report.challenge, habit: report.habit, news: report.outcome.news } : { play: shared?.play ?? null, challenge: null, habit: shared?.habit ?? this.arcade.habit.view(), news: [] });
     const plan = step?.progress && before ? this.panelOf(step.progress, before.plan, before.total) : null;
     const again = this.raceParam ? playHref(ctx, game, setup, { ghost: this.raceParam }) : '';
     const result: RoundResult = {
-      ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous }), progress, plan, ...(first ? { first: true } : {}),
+      ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous, practice }), progress, plan, ...(first ? { first: true } : {}),
       ...(race ? { score: race.you, race: { ...race, again } } : {}),
     };
     this.state = { ...this.state, result };
-    void this.social?.runEnded(game, summary.score);
-    this.shell.set('rounds', this.rounds() + 1);
-    void this.arcade.sync.sync();
+    if (!practice) {
+      void this.social?.runEnded(game, summary.score);
+      this.shell.set('rounds', this.rounds() + 1);
+      void this.arcade.sync.sync();
+    }
     this.nav.go(ctx.href('results'), { replace: true });
   }
 
@@ -1155,6 +1167,8 @@ export class App {
     switch (t.name) {
       case 'seated': this.saveSeated(checked); break;
       case 'quiet': s.set({ quiet: checked }); break;
+      // What a round starts with: a game's page that was already opened keeps what it had, so the choice is made again from the new default.
+      case 'controls': s.set({ controls: t.value === 'keyboard' ? 'keyboard' : 'camera' }); this.setups.clear(); break;
       case 'skeleton': s.set({ skeleton: checked }); break;
       case 'sound': s.set({ sound: checked }); break;
       case 'bigText': s.set({ bigText: checked }); break;

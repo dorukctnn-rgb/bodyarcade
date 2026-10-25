@@ -68,6 +68,17 @@ describe('building the result', () => {
     expect(buildRoundResult({ game, setup, summary: summary(), weightKg: null, i18n, previousBest: 40 }).personalBest).toBe(false);
     expect(buildRoundResult({ game, setup: { ...setup, players: 2 }, summary: summary(), weightKg: null, i18n, previousBest: 10 }).personalBest).toBe(false);
   });
+  it('calls a round with the keyboard or by touch practice: no calories, no personal best, and the result says so', () => {
+    const r = buildRoundResult({ game, setup: { ...setup, input: 'keyboard' }, summary: summary(), weightKg: 70, i18n, previousBest: 30 });
+    expect(r.practice).toBe(true);
+    expect(r.calories).toBeNull();
+    expect(r.personalBest).toBe(false);
+    expect(r.score).toBe(40);
+    // with the camera nothing of the kind is said
+    const camera = buildRoundResult({ game, setup: { ...setup, input: 'camera' }, summary: summary(), weightKg: 70, i18n, previousBest: 30 });
+    expect('practice' in camera).toBe(false);
+    expect(camera.calories).not.toBeNull();
+  });
   it('splits two players', () => {
     const r = buildRoundResult({
       game, setup: { ...setup, players: 2 },

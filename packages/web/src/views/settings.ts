@@ -54,6 +54,12 @@ export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml
     ${offered.map((l) => html`<option value="${l.code}" lang="${l.tag}"${attr('selected', s.lang === l.code)}>${l.name}${l.status === 'draft' ? ` (${t.t('settings.lang.draftBadge')})` : ''}</option>`)}
   </select>`;
 
+  // What a round starts with: the camera, or no camera (the keyboard on a laptop, swipes and taps on a phone). Each game's page can still choose.
+  const controls = segmented('controls', t.t('settings.controls'), [
+    { value: 'camera', label: t.t('setup.input.camera'), checked: s.controls === 'camera' },
+    { value: 'keyboard', label: t.t('setup.input.keyboard'), checked: s.controls === 'keyboard' },
+  ], { hideLegend: true });
+
   const theme = segmented('theme', t.t('settings.theme'), [
     { value: 'system', label: t.t('settings.theme.system'), checked: s.theme === 'system' },
     { value: 'light', label: t.t('settings.theme.light'), checked: s.theme === 'light' },
@@ -64,6 +70,7 @@ export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml
     <section class="k-setgroup" aria-labelledby="s-play"><h2 id="s-play">${t.t('settings.section.play')}</h2><ul class="k-set">
       ${row({ icon: 'chair', title: t.t('settings.seated'), hint: t.t('settings.seated.hint'), control: toggle('set-seated', 'seated', s.seated), labelFor: 'set-seated' })}
       ${row({ icon: 'quiet', title: t.t('settings.quiet'), hint: t.t('settings.quiet.hint'), control: toggle('set-quiet', 'quiet', s.quiet), labelFor: 'set-quiet' })}
+      ${row({ icon: 'cameraOff', title: t.t('settings.controls'), hint: t.t('settings.controls.hint'), control: controls, wrap: true })}
       ${row({ icon: 'camera', title: t.t('settings.pip'), hint: t.t('settings.pip.hint'), control: pipPicker(ctx), wrap: true })}
       ${row({ icon: 'user', title: t.t('settings.skeleton'), control: toggle('set-skeleton', 'skeleton', s.skeleton), labelFor: 'set-skeleton' })}
     </ul></section>

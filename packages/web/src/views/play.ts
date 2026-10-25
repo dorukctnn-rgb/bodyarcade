@@ -7,6 +7,7 @@ import type { Framing, PauseReason } from '../../../core/types/index.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import { titleOf, type ViewContext } from '../context.ts';
 import { bare } from './chrome.ts';
+import { noCameraPossible } from './setup.ts';
 
 /** The parts of the body the calibration screen checks off. */
 export type CalibPart = 'head' | 'shoulders' | 'hips' | 'knees' | 'feet';
@@ -22,8 +23,8 @@ export type GaugePos = 'close' | 'good' | 'far' | 'none';
 export type DeskCard = 'none' | 'offer' | 'standing-only';
 
 export type PlayOverlay =
-  | { kind: 'camera-explainer' }
-  | { kind: 'camera-error'; code: string }
+  | { kind: 'camera-explainer'; two?: boolean }
+  | { kind: 'camera-error'; code: string; two?: boolean }
   | { kind: 'loading' }
   | {
     kind: 'calibrating'; framing: ScreenFraming; two: boolean; message: string; checks: CalibCheck[]; progress: number; slow: boolean; gauge: GaugePos;
@@ -76,25 +77,38 @@ const CHECK_LABEL = { head: 'calib.check.head', shoulders: 'calib.check.shoulder
 export function overlayHtml(ctx: ViewContext, g: ShellGame, o: PlayOverlay): SafeHtml {
   const t = ctx.i18n;
   switch (o.kind) {
-    case 'camera-explainer':
+    case 'camera-explainer': {
+      const noCam = noCameraPossible(ctx, g) && !o.two;
       return panel(html`<div class="ba-explain">${icon('camera')}<h2 class="ba-h3" id="ov-title">${t.t('play.camera.title')}</h2><p>${t.t('play.camera.body')}</p>
         <div class="ba-actions ba-actions--stack"><button type="button" class="ba-btn ba-btn--primary ba-btn--lg ba-btn--block" data-action="camera-continue" autofocus>${t.t('play.camera.continue')}</button>
-        <a class="ba-btn ba-btn--quiet ba-btn--block" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${t.t('common.back')}</a></div></div>`);
+        ${noCam ? html`<button type="button" class="ba-btn ba-btn--secondary ba-btn--block" data-action="use-keyboard">${t.t('play.camera.noCamera')}</button>` : ''}
+        <a class="ba-btn ba-btn--quiet ba-btn--block" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${t.t('common.back')}</a></div>
+        ${noCam ? html`<p class="ba-small" data-no-camera-note>${t.t('play.camera.noCamera.note')}</p>` : ''}</div>`);
+    }
     case 'camera-error': {
-      // Where a keyboard is a way around the camera it is offered. On a phone the game needs the camera, so the panel says so
-      // and walks through allowing it (a blocked camera is the usual reason) instead of offering a mode nobody can play.
+      // The way around the camera is offered wherever it exists (a keyboard, or a touch screen and a game with swipes). A phone is
+      // also walked through allowing the camera, which is the usual reason it did not start. A mirror game on a phone has no way
+      // around it: the panel says the game needs the camera and helps with the permission.
+      const noCam = noCameraPossible(ctx, g) && !o.two;
+      const fixable = o.code === 'denied' || o.code === 'in_use' || o.code === 'no_frames' || o.code === 'unknown' || o.code === 'overconstrained';
+      const back = html`<a class="ba-btn ba-btn--quiet ba-btn--block" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${t.t('common.back')}</a>`;
+      const steps = fixable ? html`<div class="ba-fix"><b>${t.t('play.needsCamera.fix')}</b><ol><li>${t.t('play.needsCamera.step1')}</li><li>${t.t('play.needsCamera.step2')}</li><li>${t.t('play.needsCamera.step3')}</li></ol></div>` : '';
+      const retry = html`<button type="button" class="ba-btn ba-btn--primary ba-btn--block" data-action="camera-retry" autofocus>${t.t('common.retry')}</button>`;
+      if (noCam) {
+        return panel(html`<div class="ba-explain">${icon('cameraOff')}<h2 class="ba-h3" id="ov-title">${t.t('play.error.title')}</h2><p role="alert">${cameraErrorText(ctx, o.code)}</p>
+          ${ctx.caps.keyboard ? '' : steps}
+          <div class="ba-actions ba-actions--stack">${retry}
+          <button type="button" class="ba-btn ba-btn--secondary ba-btn--block" data-action="use-keyboard">${t.t('play.camera.noCamera')}</button>
+          ${back}</div></div>`);
+      }
       if (ctx.caps.keyboard) {
         return panel(html`<div class="ba-explain">${icon('cameraOff')}<h2 class="ba-h3" id="ov-title">${t.t('play.error.title')}</h2><p role="alert">${cameraErrorText(ctx, o.code)}</p>
-          <div class="ba-actions ba-actions--stack"><button type="button" class="ba-btn ba-btn--primary ba-btn--block" data-action="camera-retry" autofocus>${t.t('common.retry')}</button>
-          <button type="button" class="ba-btn ba-btn--secondary ba-btn--block" data-action="use-keyboard">${t.t('setup.input.keyboard')}</button>
-          <a class="ba-btn ba-btn--quiet ba-btn--block" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${t.t('common.back')}</a></div></div>`);
+          <div class="ba-actions ba-actions--stack">${retry}${back}</div></div>`);
       }
-      const fixable = o.code === 'denied' || o.code === 'in_use' || o.code === 'no_frames' || o.code === 'unknown' || o.code === 'overconstrained';
       return panel(html`<div class="ba-explain">${icon('cameraOff')}<h2 class="ba-h3" id="ov-title">${t.t('play.needsCamera.title')}</h2>
         <p>${t.t('play.needsCamera.body', { game: titleOf(ctx, g) })}</p><p role="alert">${cameraErrorText(ctx, o.code)}</p>
-        ${fixable ? html`<div class="ba-fix"><b>${t.t('play.needsCamera.fix')}</b><ol><li>${t.t('play.needsCamera.step1')}</li><li>${t.t('play.needsCamera.step2')}</li><li>${t.t('play.needsCamera.step3')}</li></ol></div>` : ''}
-        <div class="ba-actions ba-actions--stack"><button type="button" class="ba-btn ba-btn--primary ba-btn--block" data-action="camera-retry" autofocus>${t.t('common.retry')}</button>
-        <a class="ba-btn ba-btn--quiet ba-btn--block" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${t.t('common.back')}</a></div></div>`);
+        ${steps}
+        <div class="ba-actions ba-actions--stack">${retry}${back}</div></div>`);
     }
     case 'loading':
       return html`<div class="ba-loading" role="status"><span class="ba-spinner" aria-hidden="true"></span><span>${t.t('play.loading')}</span></div>`;
@@ -118,14 +132,14 @@ export function overlayHtml(ctx: ViewContext, g: ShellGame, o: PlayOverlay): Saf
           <p class="msg" role="status" data-calib-msg>${o.message}</p>
           ${o.headroom ? html`<p class="headroom" data-calib-headroom>${glyph('jackOpen', { decorative: true, floor: false, size: 30, ink: '#F4F2F8', accent: '#FFC53A', ball: '#F4F2F8' })}<span>${t.t('calib.headroom')}</span></p>` : ''}
           <div class="gauge" data-calib-gauge data-pos="${o.gauge}"${attr('hidden', o.gauge === 'none')} role="img" aria-label="${t.t('calib.gauge.label', { state: o.gauge === 'none' ? '' : gaugeText[o.gauge] })}"><div class="bar"><em></em></div><div class="lbl"><span>${gaugeText.close}</span><span>${gaugeText.good}</span><span>${gaugeText.far}</span></div></div>
-          <div class="slow" data-calib-slow${attr('hidden', !o.slow)}>${ctx.caps.keyboard
+          <div class="slow" data-calib-slow${attr('hidden', !o.slow)}>${noCameraPossible(ctx, g) && !o.two
             ? html`<p class="sub">${t.t('calib.slow.body')}</p><button type="button" class="ba-btn ba-btn--secondary" data-action="use-keyboard">${t.t('calib.slow.cta')}</button>`
             : html`<p class="sub">${t.t('calib.slow.phone')}</p>`}</div>
           <div class="desk" data-calib-desk="offer"${attr('hidden', o.desk !== 'offer')}><p class="sub"><b>${t.t('calib.desk.title')}</b> <span class="more">${t.t('calib.desk.body')}</span></p><button type="button" class="ba-btn ba-btn--primary" data-action="desk-play">${t.t('calib.desk.cta')}</button></div>
           <div class="desk" data-calib-desk="standing-only"${attr('hidden', o.desk !== 'standing-only')}><p class="sub">${t.t('calib.desk.standOnly')}</p><button type="button" class="ba-btn ba-btn--secondary" data-action="desk-games">${t.t('calib.desk.games')}</button></div>
           <div class="skips">
             ${g.seated && !desk ? html`<button class="seated" type="button" data-action="seated-instead" data-calib-skip>${t.t('calib.seatedInstead')}</button>` : ''}
-            ${ctx.caps.keyboard && !o.two ? html`<button class="seated" type="button" data-action="use-keyboard" data-calib-keyboard${attr('hidden', !o.stuck)}>${t.t('calib.keyboardInstead')}</button>` : ''}
+            ${noCameraPossible(ctx, g) && !o.two ? html`<button class="seated" type="button" data-action="use-keyboard" data-calib-keyboard${attr('hidden', !o.stuck)}>${t.t('calib.keyboardInstead')}</button>` : ''}
             ${!g.seated || desk ? html`<a class="seated" href="${ctx.href('home')}">${t.t('calib.leaveGame')}</a>` : ''}
           </div>
         </div>

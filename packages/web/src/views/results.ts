@@ -73,6 +73,8 @@ export interface RoundResult {
   first?: boolean;
   /** This was a race: how it ended, and where "Race again" goes. */
   race?: (RaceOutcome & { again: string }) | null;
+  /** Played with the keyboard or touch: practice, so no calories, no record and no progress; the page says that instead. */
+  practice?: boolean;
 }
 
 export function formatClock(seconds: number): string {
@@ -177,9 +179,9 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
         ${r.setup.players === 2 && r.players ? duo(ctx, r) : html`${score(ctx, r, g)}${counted(ctx, r)}`}
         ${r.race ? raceBlock(ctx, r.race, { again: r.race.again, sendable: rulesOf(ctx.player).share }) : ''}
         ${stats(ctx, r)}
-        ${calories(ctx, r)}
-        ${first ? html`<p class="k-sub" data-first-saved>${t.t('onboarding.s7.saved')}</p>` : ''}
-        ${progressBlock(ctx, r.progress)}
+        ${r.practice ? html`<p class="ba-callout" role="note" data-practice>${icon('info')}<span>${t.t('results.practice.note')}</span></p>` : calories(ctx, r)}
+        ${first && !r.practice ? html`<p class="k-sub" data-first-saved>${t.t('onboarding.s7.saved')}</p>` : ''}
+        ${progressBlock(ctx, r.practice ? null : r.progress)}
       </div>
       <div class="k-stack">
         ${r.plan ? planPanel(ctx, r.plan) : ''}

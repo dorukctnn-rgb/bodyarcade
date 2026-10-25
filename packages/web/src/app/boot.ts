@@ -196,6 +196,8 @@ export async function boot(o: BootOptions): Promise<App> {
 
   const app = new App({
     win: o.win, catalogue: o.catalogue, version: o.version, demo: o.demo, profiles: book, family: FAMILY_ON, roomsPro: ROOM_PRO_ON, billing,
+    // The practice session of development and test builds plays a body that is not there: its rounds are kept like a camera's.
+    bodyIsSimulated: (id) => o.demo && (hooks.forceDemo === true || !playable.has(id)),
     ...(entitlements ? { entitlements } : {}),
     ...(o.sessionFactory ? { sessionFactory: o.sessionFactory } : { makeSessionFactory }),
     social,

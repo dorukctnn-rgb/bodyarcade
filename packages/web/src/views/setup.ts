@@ -26,13 +26,25 @@ export const twoPlayersOffered = (ctx: ViewContext): boolean => ctx.caps.local2;
 export const twoPlayersPossible = (ctx: ViewContext, g: ShellGame): boolean => ctx.caps.local2 && supportsLocal2(g);
 export const cameraUsable = (ctx: ViewContext): boolean => ctx.caps.camera && ctx.caps.secure;
 
+/**
+ * Games with swipes and taps for a touch screen: every game but the mirror games (target, rhythm), whose keys move a cursor over the
+ * camera picture and have no swipes. A test holds this to what each game's own module declares (controls.test.ts).
+ */
+export const touchPlays = (g: Pick<ShellGame, 'template'>): boolean => g.template !== 'target' && g.template !== 'rhythm';
+
+/**
+ * A way to play without the camera on this device: a keyboard, or a touch screen and a game that has swipes. Those rounds are
+ * practice (they are not kept in the record, the habit or the calories: no body moved), so the way is offered, never pushed.
+ */
+export const noCameraPossible = (ctx: ViewContext, g: Pick<ShellGame, 'template'>): boolean => ctx.caps.keyboard || (ctx.caps.touch && touchPlays(g));
+
 /** Forces a state into what is possible for this game on this device. */
 export function sanitizeSetup(ctx: ViewContext, g: ShellGame, s: SetupState): SetupState {
   const players: 1 | 2 = s.players === 2 && twoPlayersPossible(ctx, g) ? 2 : 1;
   const camera = cameraUsable(ctx);
-  // Two players need the camera; so does anything on a phone or a tablet, where the keyboard is no way around it
-  // (the game then says it needs the camera and helps with the permission). Anything else the game decides later.
-  const input = players === 2 || !ctx.caps.keyboard ? 'camera' : s.input === 'camera' && !camera ? 'keyboard' : s.input;
+  // Two players need the camera, and so does a game that has no way around it on this device (a mirror game on a phone: the game
+  // then says it needs the camera and helps with the permission). Anything else the game decides later.
+  const input = players === 2 || !noCameraPossible(ctx, g) ? 'camera' : s.input === 'camera' && !camera ? 'keyboard' : s.input;
   const difficulty = PRO_DIFFICULTIES.includes(s.difficulty) && !hasPro(ctx) ? 'normal' : DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'normal';
   return { players, input, difficulty, seated: s.seated && g.seated, quiet: s.quiet && g.silentSafe };
 }
@@ -40,7 +52,8 @@ export function sanitizeSetup(ctx: ViewContext, g: ShellGame, s: SetupState): Se
 export function defaultSetup(ctx: ViewContext, g: ShellGame): SetupState {
   return sanitizeSetup(ctx, g, {
     players: 1,
-    input: cameraUsable(ctx) || !ctx.caps.keyboard ? 'camera' : 'keyboard',
+    // The camera, unless there is none to use or the player's setting says the rounds begin without it.
+    input: noCameraPossible(ctx, g) && (!cameraUsable(ctx) || ctx.settings.controls === 'keyboard') ? 'keyboard' : 'camera',
     difficulty: 'normal',
     seated: ctx.settings.seated,
     quiet: ctx.settings.quiet,
@@ -120,14 +133,15 @@ export function setupFields(ctx: ViewContext, g: ShellGame, s: SetupState): Safe
     })), { describedBy: 'setup-difficulty-hint', legendClass: 'k-label', className: 'k-block' })}
     ${hasPro(ctx) ? '' : html`<p class="ba-small k-hint" id="setup-difficulty-hint">${t.t('setup.difficulty.hint')}</p>`}`;
 
-  const inputNote = !ctx.caps.camera ? t.t(ctx.caps.keyboard ? 'setup.noCamera' : 'setup.noCamera.phone')
+  const noCam = noCameraPossible(ctx, g);
+  const inputNote = !ctx.caps.camera ? t.t(noCam ? 'setup.noCamera' : 'setup.noCamera.phone')
     : !ctx.caps.secure ? t.t('setup.insecure')
-      : t.t(ctx.caps.keyboard ? 'setup.input.hint' : 'setup.cameraOnly');
+      : t.t(noCam ? 'setup.input.hint' : 'setup.cameraOnly');
   const more = html`<details class="k-more"><summary>${icon('settings')}<span>${t.t('setup.more')}</span></summary>
     <div>
       ${flag({ id: 'setup-seated', name: 'seated', label: t.t('setup.seated'), hint: g.seated ? undefined : t.t('setup.seated.none'), checked: s.seated, disabled: !g.seated })}
       ${flag({ id: 'setup-quiet', name: 'quiet', label: t.t('setup.quiet'), hint: g.silentSafe ? undefined : t.t('setup.quiet.none'), checked: s.quiet, disabled: !g.silentSafe })}
-      ${ctx.caps.keyboard ? segmented('input', t.t('setup.input'), [
+      ${noCam ? segmented('input', t.t('setup.input'), [
         { value: 'camera', label: t.t('setup.input.camera'), checked: s.input === 'camera', disabled: !camera },
         { value: 'keyboard', label: t.t('setup.input.keyboard'), checked: s.input === 'keyboard', disabled: s.players === 2 },
       ], { describedBy: 'setup-input-hint', legendClass: 'k-label' }) : html`<input type="hidden" name="input" value="camera">`}

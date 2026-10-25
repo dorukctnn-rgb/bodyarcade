@@ -12,7 +12,7 @@ import { EMPTY_STATE, renderPage, snippet, type Rendered } from './pages.ts';
 import { REGION_ORDER, router, type RouteId } from './routes.ts';
 import type { RoundResult } from './views/results.ts';
 import { overlayHtml } from './views/play.ts';
-import { defaultSetup, setupFromQuery } from './views/setup.ts';
+import { defaultSetup, sanitizeSetup, setupFromQuery } from './views/setup.ts';
 
 const games = loadCatalogue({ fixtures: 'only', requiredLangs: ['en', 'tr'] }).catalogue.games;
 const LANGS: Lang[] = ['en', 'tr'];
@@ -293,6 +293,20 @@ describe('results', () => {
     expect(t).toContain('An estimate from your weight');
   });
 
+  it('says a round with the keyboard or touch is practice, and shows no calories and no progress for it', () => {
+    const practice: RoundResult = { ...sample, practice: true, calories: null, personalBest: false, progress: { activeDay: true, weekGoalReached: false, weekDays: 1, weekStreak: 0, challengeDone: false, challengeBonus: false, achievements: [] } };
+    for (const lang of ['en', 'tr'] as const) {
+      const page = draw(lang, lang === 'en' ? '/results/' : '/tr/results/', {}, { ...EMPTY_STATE, result: practice }).html;
+      expect(page, lang).toContain('data-practice');
+      expect(textOf(page), lang).toContain(lang === 'en' ? 'it is practice' : 'yani antrenman');
+      expect(page, lang).not.toContain('k-kcal');
+      expect(page, lang).not.toContain('data-progress');
+      expect(page, lang).not.toContain('data-first-saved');
+    }
+    // the same round with the camera has no such note
+    expect(draw('en', '/results/', {}, { ...EMPTY_STATE, result: sample }).html).not.toContain('data-practice');
+  });
+
   it('names the winner of a two player round and shows both scores', () => {
     const duo: RoundResult = { ...sample, setup: { ...sample.setup, players: 2 }, players: [{ slot: 1, score: 10 }, { slot: 2, score: 14 }] };
     const t = textOf(draw('en', '/results/', {}, { ...EMPTY_STATE, result: duo }).html);
@@ -302,44 +316,89 @@ describe('results', () => {
   });
 });
 
-describe('a phone has no keyboard way around the camera', () => {
+describe('playing without the camera', () => {
   const phone: UiCapabilities = { device: 'phone', platform: 'web', deviceClass: 'phone', landscape: false, touch: true, camera: true, secure: true, tv: false, keyboard: false, local2: false, local2Reason: 'phone' };
+  const squat = games.find((x) => x.id === 'squat-flap') as ShellGame;
+  const mirror = games.find((x) => x.template === 'target') as ShellGame;
+  const ctxOf = (caps: UiCapabilities, extra: Partial<ContextInit> = {}): ReturnType<typeof makeContext> => makeContext({ lang: 'en', games, url: '/', caps, ...extra });
 
-  it('the game page keeps the controls to the camera and says so', () => {
+  it('a phone is offered swipes and taps for a game that has them: the controls are on the game page, with what such a round is', () => {
     const { html } = draw('en', '/games/squat-flap/', { caps: phone });
+    expect(html).toContain('value="keyboard"');
+    expect(html).not.toContain('<input type="hidden" name="input" value="camera">');
+    expect(textOf(html)).toContain('Keyboard or touch');
+    expect(textOf(html)).toContain('Those rounds are practice');
+    expect(html).toMatch(/name="input" value="camera"[^>]*checked/);
+  });
+
+  it('a mirror game on a phone has no way around the camera, and the page says so', () => {
+    const { html } = draw('en', `/games/${mirror.seo.slug}/`, { caps: phone });
     expect(html).not.toContain('value="keyboard"');
     expect(html).toContain('<input type="hidden" name="input" value="camera">');
     expect(textOf(html)).toContain('plays with the camera');
-    const laptop = draw('en', '/games/squat-flap/', { caps: bigScreen }).html;
-    expect(laptop).toContain('value="keyboard"');
+    // on a laptop the keys move the cursor over the picture
+    expect(draw('en', `/games/${mirror.seo.slug}/`, { caps: bigScreen }).html).toContain('value="keyboard"');
   });
 
-  it('a round on a phone is camera play even when the address asks for the keyboard', () => {
-    const g = games.find((x) => x.id === 'squat-flap') as ShellGame;
-    const ctx = makeContext({ lang: 'en', games, url: '/', caps: phone });
-    expect(setupFromQuery(ctx, g, new URLSearchParams('input=keyboard')).input).toBe('camera');
-    expect(defaultSetup(makeContext({ lang: 'en', games, url: '/', caps: { ...phone, camera: false } }), g).input).toBe('camera');
-    const laptopCtx = makeContext({ lang: 'en', games, url: '/', caps: bigScreen });
-    expect(setupFromQuery(laptopCtx, g, new URLSearchParams('input=keyboard')).input).toBe('keyboard');
+  it('what a round starts with: the camera, unless there is none to use or the setting says otherwise, and only where there is a way', () => {
+    expect(defaultSetup(ctxOf(phone), squat).input).toBe('camera');
+    expect(defaultSetup(ctxOf(phone, { settings: { controls: 'keyboard' } }), squat).input).toBe('keyboard');
+    expect(defaultSetup(ctxOf({ ...phone, camera: false }), squat).input).toBe('keyboard');
+    expect(defaultSetup(ctxOf(bigScreen, { settings: { controls: 'keyboard' } }), squat).input).toBe('keyboard');
+    // a mirror game on a phone has none: the setting and a missing camera change nothing
+    expect(defaultSetup(ctxOf(phone, { settings: { controls: 'keyboard' } }), mirror).input).toBe('camera');
+    expect(defaultSetup(ctxOf({ ...phone, camera: false }), mirror).input).toBe('camera');
+    // two players need the camera
+    expect(sanitizeSetup(ctxOf(bigScreen), squat, { ...defaultSetup(ctxOf(bigScreen), squat), players: 2, input: 'keyboard' }).input).toBe('camera');
   });
 
-  it('a blocked camera gets the "needs the camera" panel with the steps to allow it, and no keyboard button', () => {
-    const g = games.find((x) => x.id === 'squat-flap') as ShellGame;
-    const onPhone = overlayHtml(makeContext({ lang: 'en', games, url: '/', caps: phone }), g, { kind: 'camera-error', code: 'denied' }).value;
-    expect(textOf(onPhone)).toContain('This game needs the camera');
+  it('an address that asks for swipes and taps gets them on a phone for a game that has them, and the camera for one that has not', () => {
+    expect(setupFromQuery(ctxOf(phone), squat, new URLSearchParams('input=keyboard')).input).toBe('keyboard');
+    expect(setupFromQuery(ctxOf(phone), mirror, new URLSearchParams('input=keyboard')).input).toBe('camera');
+    expect(setupFromQuery(ctxOf(bigScreen), squat, new URLSearchParams('input=keyboard')).input).toBe('keyboard');
+  });
+
+  it('the camera explainer offers the way around it, on a phone too, and never to two players or for a game with no way', () => {
+    const explainer = (c: ReturnType<typeof makeContext>, g: ShellGame, two = false): string => overlayHtml(c, g, { kind: 'camera-explainer', two }).value;
+    const onPhone = explainer(ctxOf(phone), squat);
+    expect(onPhone).toContain('data-action="use-keyboard"');
+    expect(textOf(onPhone)).toContain('Play without the camera');
+    expect(textOf(onPhone)).toContain('is practice');
+    expect(onPhone).toContain('data-action="camera-continue"');
+    expect(explainer(ctxOf(bigScreen), squat)).toContain('data-action="use-keyboard"');
+    expect(explainer(ctxOf(phone), mirror)).not.toContain('data-action="use-keyboard"');
+    expect(explainer(ctxOf(bigScreen), squat, true)).not.toContain('data-action="use-keyboard"');
+    expect(textOf(overlayHtml(ctxOf(phone, { lang: 'tr' }), squat, { kind: 'camera-explainer' }).value)).toContain('Kamerasız oyna');
+  });
+
+  it('a camera that did not start: steps to allow it on a phone, and the way around it wherever there is one', () => {
+    const panel = (c: ReturnType<typeof makeContext>, g: ShellGame, two = false): string => overlayHtml(c, g, { kind: 'camera-error', code: 'denied', two }).value;
+    const onPhone = panel(ctxOf(phone), squat);
     expect(textOf(onPhone)).toContain('To allow the camera');
+    expect(textOf(onPhone)).not.toContain('This game needs the camera');
     expect(onPhone).toContain('data-action="camera-retry"');
-    expect(onPhone).not.toContain('data-action="use-keyboard"');
-    const onLaptop = overlayHtml(makeContext({ lang: 'en', games, url: '/', caps: bigScreen }), g, { kind: 'camera-error', code: 'denied' }).value;
+    expect(onPhone).toContain('data-action="use-keyboard"');
+    // a mirror game on a phone says it needs the camera and offers no other way
+    const needs = panel(ctxOf(phone), mirror);
+    expect(textOf(needs)).toContain('This game needs the camera');
+    expect(textOf(needs)).toContain('To allow the camera');
+    expect(needs).toContain('data-action="camera-retry"');
+    expect(needs).not.toContain('data-action="use-keyboard"');
+    // a laptop has no steps (it is a matter of the address bar) and has the way around
+    const onLaptop = panel(ctxOf(bigScreen), squat);
     expect(onLaptop).toContain('data-action="use-keyboard"');
-    expect(textOf(onLaptop)).not.toContain('This game needs the camera');
+    expect(textOf(onLaptop)).not.toContain('To allow the camera');
+    // two players are not offered it
+    expect(panel(ctxOf(bigScreen), squat, true)).not.toContain('data-action="use-keyboard"');
+    expect(textOf(overlayHtml(ctxOf(phone, { lang: 'tr' }), mirror, { kind: 'camera-error', code: 'denied' }).value)).toContain('Bu oyun için kamera gerekli');
   });
 
-  it('speaks Turkish when asked', () => {
-    const g = games.find((x) => x.id === 'squat-flap') as ShellGame;
-    const tr = overlayHtml(makeContext({ lang: 'tr', games, url: '/tr/', caps: phone }), g, { kind: 'camera-error', code: 'denied' }).value;
-    expect(textOf(tr)).toContain('Bu oyun için kamera gerekli');
-    expect(textOf(tr)).toContain('Kameraya izin vermek için');
+  it('the controls of the settings are the camera and the keyboard or touch, the one chosen marked', () => {
+    const page = (controls: 'camera' | 'keyboard'): string => draw('en', '/settings/', { settings: { controls } }).html;
+    expect(page('camera')).toMatch(/name="controls" value="camera"[^>]*checked/);
+    expect(page('keyboard')).toMatch(/name="controls" value="keyboard"[^>]*checked/);
+    expect(textOf(page('camera'))).toContain('What a round starts with');
+    expect(textOf(draw('tr', '/tr/settings/').html)).toContain('Bir turun neyle başlayacağı');
   });
 });
 
@@ -371,8 +430,14 @@ describe('the calibration screen', () => {
     expect(draw2('en', squat, { stuck: false })).toMatch(/data-calib-keyboard hidden/);
     expect(draw2('en', squat, { stuck: true })).not.toMatch(/data-calib-keyboard hidden/);
     expect(textOf(draw2('tr', squat, { stuck: true }))).toContain('Atla, klavyeyle oyna');
-    // a phone has no keyboard to offer, and two players on one camera cannot use one
-    expect(draw2('en', squat, { stuck: true }, phone)).not.toContain('data-calib-keyboard');
+    // a phone has swipes for this game, so the way around the camera is there (waiting for the same moment); a mirror game has none on a phone
+    expect(draw2('en', squat, { stuck: false }, phone)).toMatch(/data-calib-keyboard hidden/);
+    expect(draw2('en', squat, { stuck: true }, phone)).not.toMatch(/data-calib-keyboard hidden/);
+    expect(draw2('en', squat, { stuck: true }, phone)).toContain('data-calib-keyboard');
+    const target = games.find((x) => x.template === 'target') as ShellGame;
+    expect(draw2('en', target, { stuck: true }, phone)).not.toContain('data-calib-keyboard');
+    expect(draw2('en', target, { stuck: true }, phone)).not.toContain('data-action="use-keyboard"');
+    // two players on one camera cannot use it
     expect(draw2('en', squat, { stuck: true, two: true })).not.toContain('data-calib-keyboard');
   });
 
