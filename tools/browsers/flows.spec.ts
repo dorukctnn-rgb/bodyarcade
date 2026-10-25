@@ -268,7 +268,15 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     const w = watch(page);
     await page.goto(`${DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
     test.skip(await hasCameraApi(page), 'this engine has a camera API: the camera flows run instead');
-    await until(page, 'explainer', 30_000);
+    await page.waitForSelector('[data-action="camera-continue"], [data-hud-root] [data-hud]', { timeout: 30_000 });
+    if ((await page.locator('[data-action="camera-continue"]').count()) === 0) {
+      // a laptop or a TV has a keyboard: with no camera API the round goes on with it, which is a way on too; a phone has none to fall back on
+      info.annotations.push({ type: 'panel', description: 'no camera API: the round went on with the keyboard' });
+      await shot(page, info, 'camera-unsupported-keyboard');
+      expect(isPhone(page), 'a phone has no keyboard to fall back on: it has to say so in words').toBe(false);
+      expect(w.errors).toEqual([]);
+      return;
+    }
     await page.locator('[data-action="camera-continue"]').click();
     await page.waitForSelector('#ov-title', { timeout: 30_000 });
     await settle(page);
