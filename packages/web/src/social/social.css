@@ -101,6 +101,19 @@
 .k-invitecard .ba-list > li { min-height: 56px; }
 .k-invitecard .ba-btn { min-height: 40px; padding: 0 14px; font-size: var(--ba-text-sm); }
 
+/* ---------- a Pro game in a room: the host's refusal, the line under the game, the tag in the picker, the window ---------- */
+.k-pronote__head { display: flex; align-items: center; gap: 10px; }
+.k-pronote__head svg { width: 24px; height: 24px; flex: none; color: var(--ba-reward-text); }
+.k-pronote__head h2 { margin: 0; }
+.k-pronote p { margin: 8px 0 0; }
+.k-protag { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; color: var(--ba-reward-text); font-weight: 700; line-height: 1.35; }
+.k-protag svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.k-gamepick small.k-protag { display: flex; }
+.k-protag--pill { display: inline-flex; align-items: center; margin: 0 0 0 auto; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ba-sun-400) 22%, var(--ba-surface)); font-size: var(--ba-text-xs); font-weight: 800; letter-spacing: 0.02em; }
+.k-progame { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.k-progame img { width: 48px; height: 36px; flex: none; border-radius: 8px; object-fit: cover; background: var(--ba-surface-sunken); }
+.k-progame b { font-weight: 800; }
+
 /* ---------- the safety page ---------- */
 .k-prose { max-width: 46em; margin: 0 0 14px; color: var(--ba-text-muted); line-height: 1.55; }
 .k-factcards { display: grid; gap: 12px; }

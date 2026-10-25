@@ -3,11 +3,12 @@
 // function of its own small state; the controller keeps the state and opens the dialog.
 import { attr, html, type SafeHtml } from '../../../../core/ui/html.ts';
 import { icon } from '../../../../core/ui/icons.ts';
+import { isProGame } from '../../../../core/net/live-games.ts';
 import { REPORT_REASONS, type PresetId } from '../../../../core/types/net.ts';
 import type { AgeBand, FriendEntry, ReportReason } from '../../../../core/social/types.ts';
 import type { ShellGame } from '../../../catalogue/types.ts';
 import { titleOf, type ViewContext } from '../../context.ts';
-import type { PendingInvite } from '../port.ts';
+import type { PendingInvite, ProNeeded } from '../port.ts';
 import { qrSvg } from '../qr.ts';
 import { ux } from '../strings.ts';
 import { avatar } from '../ui.ts';
@@ -136,11 +137,24 @@ export function blockSheet(ctx: ViewContext, who: { fid: string; name: string })
     <div class="btns"><button class="ba-btn ba-btn--danger ba-btn--lg" type="button" data-dialog-close="yes">${icon('block')}${t.t('safety.block.cta')}</button><button class="ba-btn ba-btn--secondary ba-btn--lg" type="button" data-dialog-close="no" autofocus>${t.t('common.cancel')}</button></div></div>`;
 }
 
+/** The host picks the game of the room. A Pro game carries its tag: the Room starts it only while the host's Pro stands behind it. */
 export function gameSheet(ctx: ViewContext, games: readonly ShellGame[], current: string): SafeHtml {
   const t = ctx.i18n;
   return html`<div class="k-sheet k-sheet--bare"><h2 id="sheet-h">${t.t('room.game.label')}</h2>
-    <div class="k-radios">${games.map((g) => html`<button class="k-radio k-radio--btn" type="button" data-dialog-close="${g.id}"${attr('aria-current', g.id === current && 'true')}><img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="48" height="36">${titleOf(ctx, g)}</button>`)}</div>
+    <div class="k-radios">${games.map((g) => html`<button class="k-radio k-radio--btn" type="button" data-dialog-close="${g.id}"${attr('aria-current', g.id === current && 'true')}><img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="48" height="36">${titleOf(ctx, g)}${isProGame(g.id) ? html`<span class="k-protag k-protag--pill">${t.t('common.pro')}</span>` : ''}</button>`)}</div>
     <div class="btns"><button class="ba-btn ba-btn--quiet" type="button" data-dialog-close="cancel">${t.t('common.cancel')}</button></div></div>`;
+}
+
+/**
+ * A Pro game was refused to the host (or the page knows the host has no Pro): why, and the way to Pro. The other way, a free game, is the
+ * picker the player already has. Closes with 'see' (to the Pro page) or 'later'.
+ */
+export function proSheet(ctx: ViewContext, o: { game: ShellGame | null; reason: ProNeeded['reason'] }): SafeHtml {
+  const u = ux(ctx);
+  return html`<div class="k-sheet k-sheet--bare"><div class="who">${icon('sparkle')}<h2 id="sheet-h">${u('pro.title')}</h2></div>
+    ${o.game ? html`<p class="k-progame"><img src="${ctx.assets.tile(o.game.catalogue.tile, 400)}" alt="" width="48" height="36"><b>${titleOf(ctx, o.game)}</b></p>` : ''}
+    <p class="ba-small k-flat" id="sheet-d">${u(`pro.${o.reason}`)}</p>
+    <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-dialog-close="see">${u('pro.see')}</button><button class="ba-btn ba-btn--secondary ba-btn--lg" type="button" data-dialog-close="later" autofocus>${u('pro.later')}</button></div></div>`;
 }
 
 export function qrSheet(ctx: ViewContext, link: string): SafeHtml {

@@ -1,6 +1,6 @@
 // The real services of the shell: when the page asks the service at all, what it does when the service is not there, and
 // that the room calls of a signed-in player carry the signature of their profile (the preview's SOCIAL_ALLOW_UNSIGNED bridge
-// goes away because of this).
+// is gone because of this) and the player's signed Pro token.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POLICY } from '../../../core/social/age.ts';
 import { MemoryKeyStore, type KeyStore } from '../../../core/social/keystore.ts';
@@ -185,6 +185,71 @@ describe('starting the services', () => {
     expect(roomCalls[1]?.path).toBe('/api/rooms/K7Q2MX/join');
     expect(roomCalls[1]?.auth).toMatch(/^v1\./);
     expect(roomCalls[1]?.body).toMatchObject({ name: 'Mia', age: 'adult' });
+  });
+
+  it('the room calls carry the signed Pro token of the player, asked at every call so it is always the current one; a free player sends none', async () => {
+    const roomCalls: { path: string; body: Record<string, unknown> }[] = [];
+    const pending: Promise<unknown>[] = [];
+    const ctx: ExecutionContextLike = { waitUntil: (p) => { pending.push(p); } };
+    const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const full = url.startsWith('http') ? url : `${TEST_ORIGIN}${url}`;
+      const req = new Request(full, init);
+      req.headers.set('CF-Connecting-IP', '10.80.0.3');
+      const path = new URL(full).pathname;
+      if (path.startsWith('/api/rooms')) {
+        roomCalls.push({ path, body: init?.body ? JSON.parse(String(init.body)) : {} });
+        return json(403, { error: 'pro_required', reason: 'expired' });
+      }
+      const res = await app.router.handle(req, app.env, ctx);
+      while (pending.length > 0) await Promise.allSettled(pending.splice(0));
+      return res ?? json(404, { error: 'no_route' });
+    }) as typeof fetch;
+    let token: string | null = 'token.one';
+    const s = await startSocial({ win: WIN, store: store(), fetch: fetchFn, keys: new MemoryKeyStore(), pro: () => token });
+    expect(s).not.toBeNull();
+    if (!s) return;
+    await s.social.open();
+    expect((await s.social.createProfile({ band: 'adult', name: 'Mia' })).ok).toBe(true);
+
+    await s.rooms.create({ game: 'squat-flap', kind: 'private', size: 2, band: null });
+    expect(roomCalls[0]?.body['pro']).toBe('token.one');
+    // the Worker said a Pro game needs a proof that renews: the port keeps the reason for the room page
+    expect(s.rooms.proNeeded?.()).toMatchObject({ game: 'squat-flap', reason: 'expired' });
+    s.rooms.dismissProNeeded?.();
+    expect(s.rooms.proNeeded?.()).toBeNull();
+
+    token = 'token.two';
+    await s.rooms.join('K7Q2MX');
+    expect(roomCalls[1]?.path).toBe('/api/rooms/K7Q2MX/join');
+    expect(roomCalls[1]?.body['pro']).toBe('token.two');
+
+    token = null;
+    await s.rooms.create({ game: 'squat-flap', kind: 'private', size: 2, band: null });
+    expect(Object.keys(roomCalls[2]?.body ?? {})).not.toContain('pro');
+  });
+
+  it('a page that hands over no Pro token sends none (a free player, or a build that keeps the plan in memory)', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const pending: Promise<unknown>[] = [];
+    const ctx: ExecutionContextLike = { waitUntil: (p) => { pending.push(p); } };
+    const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const full = url.startsWith('http') ? url : `${TEST_ORIGIN}${url}`;
+      const req = new Request(full, init);
+      req.headers.set('CF-Connecting-IP', '10.80.0.4');
+      if (new URL(full).pathname.startsWith('/api/rooms')) { bodies.push(init?.body ? JSON.parse(String(init.body)) : {}); return json(404, { error: 'no_room' }); }
+      const res = await app.router.handle(req, app.env, ctx);
+      while (pending.length > 0) await Promise.allSettled(pending.splice(0));
+      return res ?? json(404, { error: 'no_route' });
+    }) as typeof fetch;
+    const s = await startSocial({ win: WIN, store: store(), fetch: fetchFn, keys: new MemoryKeyStore() });
+    if (!s) throw new Error('no services');
+    await s.social.open();
+    await s.social.createProfile({ band: 'adult', name: 'Mia' });
+    await s.rooms.create({ game: 'squat-flap', kind: 'private', size: 2, band: null });
+    expect(bodies).toHaveLength(1);
+    expect(Object.keys(bodies[0] ?? {})).not.toContain('pro');
   });
 
   it('the room port carries what the room page needs besides rooms: the live client of the open room, report and block by seat', async () => {

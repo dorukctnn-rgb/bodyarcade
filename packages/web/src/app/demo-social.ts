@@ -8,6 +8,7 @@
 // build `window.__BA_SOCIAL__` holds the control of the practice port: a test makes a friend send an invitation, a request
 // arrive, a friend come online, or the connection change.
 import { inviteLink, randomRoomCode } from '../../../core/net/codes.ts';
+import { isProGame } from '../../../core/net/live-games.ts';
 import { policyFor } from '../../../core/social/age.ts';
 import { friendLink, formatRecoveryCode, parseFriendCode, parseRecoveryCode } from '../../../core/social/codes.ts';
 import { randomPresetName } from '../../../core/social/presets.ts';
@@ -17,8 +18,8 @@ import type {
 } from '../../../core/social/types.ts';
 import type { MemberInfo, RoomInfo } from '../../../core/types/net.ts';
 import {
-  NO_ROOM_STATE, NO_SOCIAL_STATE, type Done, type FeedItem, type PendingInvite, type RoomDone, type RoomPort, type RoomState, type SocialNotice, type SocialPort, type SocialServices,
-  type SocialState,
+  NO_ROOM_STATE, NO_SOCIAL_STATE, type Done, type FeedItem, type PendingInvite, type ProNeeded, type RoomDone, type RoomPort, type RoomState, type SocialNotice, type SocialPort,
+  type SocialServices, type SocialState,
 } from '../social/port.ts';
 
 export type DemoSocialMode =
@@ -67,6 +68,12 @@ export interface DemoSocialControl {
   hub(status: SocialState['hub']): void;
   /** The service stops or starts answering. */
   offline(on: boolean): void;
+  /** The host's Pro game was refused (the page shows why and where to go); a game that is not named is the first Pro game. */
+  pro(reason: ProNeeded['reason'], game?: string): void;
+  /** The host's proof ran out while the room waits (true), or came back (false): the room says so. */
+  proWaiting(on: boolean): void;
+  /** Every room the page tries to make is refused for want of a Pro proof of the host, with this reason (null: rooms open again). */
+  refuseCreate(reason: ProNeeded['reason'] | null): void;
   /** The practice calls the page made, in order (`name` and the arguments as JSON). */
   calls(): string[];
 }
@@ -369,11 +376,20 @@ export function createDemoSocial(o: DemoSocialOptions): SocialServices {
     code, kind, size: 4, host, config: { gameId: game, durationMs: 90_000, band }, chat: kind === 'private' && bandOf() === 'adult' ? 'text' : 'preset', video: kind === 'private' && bandOf() === 'adult', phase: 'lobby',
   });
 
+  // A Pro game starts in a room only with a proof of the host's Pro behind it; this practice player has none (the control can say otherwise).
+  let needed: ProNeeded | null = null;
+  let refuse: ProNeeded['reason'] | null = null;
+  const setNeeded = (v: ProNeeded | null): void => { needed = v; roomListeners.fire(); };
+
   const rooms: RoomPort = {
     state: () => room,
     subscribe: (cb) => roomListeners.add(cb),
+    proNeeded: () => needed,
+    dismissProNeeded() { if (needed) setNeeded(null); },
     async create({ game, kind, band }) {
       note('rooms.create', game, kind);
+      if (isProGame(game) || refuse) { setNeeded({ game, reason: refuse ?? 'none', at: Date.now() }); return { ok: false, code: 'not_allowed' }; }
+      if (needed) needed = null;
       const code = o.roomCode ?? randomRoomCode();
       const me = member(meSeat, state.profile?.name ?? 'You', { host: true, ready: true });
       room = {
@@ -401,9 +417,15 @@ export function createDemoSocial(o: DemoSocialOptions): SocialServices {
       // The Room starts the match by itself when every member is ready and online.
       if (ready && room.members.length >= 2 && room.members.every((m) => m.ready && m.online)) setTimeout(() => { if (room.info) setRoom({ phase: 'playing', info: { ...room.info, phase: 'playing' } }); }, 600);
     },
-    chooseGame(game) { if (room.info) setRoom({ info: { ...room.info, config: { ...room.info.config, gameId: game } } }); },
+    chooseGame(game) {
+      if (!room.info) return;
+      if (isProGame(game)) { setNeeded({ game, reason: 'refused', at: Date.now() }); return; }
+      const { pro: _gone, ...rest } = room.info;
+      setRoom({ info: { ...rest, config: { ...room.info.config, gameId: game } } });
+      if (needed) setNeeded(null);
+    },
     start() { /* the Room starts the match by itself */ },
-    leave() { if (room.phase !== 'idle') { room = NO_ROOM_STATE; roomListeners.fire(); } },
+    leave() { if (room.phase !== 'idle') { room = NO_ROOM_STATE; needed = null; roomListeners.fire(); } },
     say(id) { setRoom({ feed: [...room.feed, feed({ seat: meSeat, say: id })] }); },
     react(id) { setRoom({ feed: [...room.feed, feed({ seat: meSeat, react: id })] }); },
     sendText(text) { setRoom({ feed: [...room.feed, feed({ seat: meSeat, text })] }); return { ok: true }; },
@@ -428,6 +450,13 @@ export function createDemoSocial(o: DemoSocialOptions): SocialServices {
     presence(name, presence) { set({ friends: state.friends.map((f) => (f.name === name ? { ...f, presence } : f)) }); },
     hub(status) { set({ hub: status }); },
     offline(on) { down = on; set({ status: on ? 'offline' : 'ready' }); },
+    pro(reason, game = 'pad-work') { setNeeded({ game, reason, at: Date.now() }); },
+    refuseCreate(reason) { refuse = reason; },
+    proWaiting(on) {
+      if (!room.info) return;
+      const { pro: _gone, ...rest } = room.info;
+      setRoom({ info: on ? { ...rest, pro: { ok: false } } : rest });
+    },
     calls: () => [...log],
   };
   if (typeof window !== 'undefined') window.__BA_SOCIAL__ = control;

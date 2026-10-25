@@ -138,6 +138,9 @@ export async function boot(o: BootOptions): Promise<App> {
     store: createStore({ ...(o.profiles?.storage !== undefined ? { storage: o.profiles.storage } : {}) }),
     entry: linkEntry,
     kidProfile: () => !book.online(),
+    // A Pro game starts in a room only with the host's signed Pro token behind it: the page hands over the current one (none while the
+    // entitlements are not read yet, and none in a build that keeps the plan in memory).
+    pro: () => ent?.service.current().token ?? null,
   });
   let billing: BillingPort;
   let entitlements: EntitlementsPort | undefined;

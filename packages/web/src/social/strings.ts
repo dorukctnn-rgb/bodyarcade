@@ -227,6 +227,18 @@ export const en = {
   'room.seatTitle': 'Report or block {name}',
   'room.blocked': '{name} is blocked for this device',
 
+  // ---- a Pro game in a room: it starts only while the host's Pro stands behind it, and everyone in the room plays it ----
+  'pro.title': 'This game needs Pro',
+  'pro.none': 'A room starts a Pro game when its host has Pro. Everyone in the room then plays it, with or without Pro.',
+  'pro.expired': 'Your Pro could not be confirmed, because it renews online. Open BodyArcade with a connection for a moment, then pick the game again.',
+  'pro.invalid': 'Your Pro could not be checked on this device. Restore it in Settings, or pick a free game.',
+  'pro.refused': 'The room did not take this game. A Pro game needs the host to have Pro. Pick a free game, or get Pro.',
+  'pro.see': 'See Pro',
+  'pro.free': 'Pick a free game',
+  'pro.later': 'Not now',
+  'pro.waiting': 'The host’s Pro is being confirmed again. The match starts when it is, or when the host picks a free game.',
+  'pro.gameLine': 'A Pro game: the host’s Pro opens it for everyone in the room',
+
   // ---- the friend link ----
   'link.title': 'Add a friend',
   'link.body': 'This link holds the friend code {code}. The app cannot look up who it belongs to, so there is no name here. They get a request, and you become friends when they accept.',
@@ -529,6 +541,18 @@ export const tr: Words = {
   'room.seatMore': '{name} için diğer işlemler: bildir ya da engelle',
   'room.seatTitle': '{name} kişisini bildir ya da engelle',
   'room.blocked': '{name} bu cihaz için engellendi',
+
+  // ---- odada Pro oyun: ev sahibinin Pro üyeliği arkasında durduğu sürece başlar, odadaki herkes oynar ----
+  'pro.title': 'Bu oyun için Pro gerekir',
+  'pro.none': 'Pro oyunu bir odada başlatmak için ev sahibinde Pro üyeliği olmalı. Oyun, Pro olsun olmasın odadaki herkes için açılır.',
+  'pro.expired': 'Pro üyeliğin doğrulanamadı, çünkü çevrimiçi yenileniyor. Uygulamayı bir an internete bağlıyken aç, sonra oyunu yeniden seç.',
+  'pro.invalid': 'Pro üyeliğin bu cihazda denetlenemedi. Ayarlar sayfasından geri yükle ya da ücretsiz bir oyun seç.',
+  'pro.refused': 'Oda bu oyunu kabul etmedi. Pro oyun için ev sahibinde Pro üyeliği olmalı. Ücretsiz bir oyun seç ya da Pro üyeliği al.',
+  'pro.see': 'Pro üyeliğini gör',
+  'pro.free': 'Ücretsiz oyun seç',
+  'pro.later': 'Şimdi değil',
+  'pro.waiting': 'Ev sahibinin Pro üyeliği yeniden doğrulanıyor. Doğrulanınca ya da ev sahibi ücretsiz bir oyun seçince maç başlar.',
+  'pro.gameLine': 'Pro oyun: ev sahibinin Pro üyeliği odadaki herkes için açar',
 
   // ---- arkadaş bağlantısı ----
   'link.title': 'Arkadaş ekle',

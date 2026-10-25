@@ -12,9 +12,10 @@ import { makeContext } from './make-context.ts';
 import { EMPTY_STATE, renderPage } from './pages.ts';
 import { router } from './routes.ts';
 import { NO_ROOM_STATE, type PendingInvite, type RoomState, type SocialState } from './social/port.ts';
+import { ux } from './social/strings.ts';
 import {
   avatarLook, blockSheet, boardsMain, boardsPage, clockText, friendLinkPage, friendMenuSheet, friendsMain, friendsPage, gameSheet, IDLE_QUICK, inviteTray, lobbiesPage, NEW_PROFILE_SHEET,
-  NO_LINK_VIEW, NO_PROFILE_VIEW, NO_ROOM_VIEW, onlineGames, profileMain, profilePage, profileSheet, qrSheet, recoverySheet, reportSheet, roomPage, safetyPage, seatMenuSheet, socialPage,
+  NO_LINK_VIEW, NO_PROFILE_VIEW, NO_ROOM_VIEW, onlineGames, proSheet, profileMain, profilePage, profileSheet, qrSheet, recoverySheet, reportSheet, roomPage, safetyPage, seatMenuSheet, socialPage,
   type BoardsView, type FriendLinkView, type LobbiesView, type ProfileSheet, type ProfileView, type RoomView,
 } from './views/social.ts';
 
@@ -333,6 +334,76 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(guestHtml).toContain('data-ready="1"');
 
     for (const id of ids(waiting)) expect(ids(waiting).filter((x) => x === id).length, id).toBe(1);
+  });
+
+  it('a room says why a Pro game was refused to the host and where to go, tells everybody when the Pro of the host ran out, and marks a Pro game', async () => {
+    const { ctx, missing } = ctxOf(lang, '/r/K7Q2MX/');
+    const u = ux(ctx);
+    const { state, svc } = await ready();
+    await svc.rooms.create({ game: 'squat-flap', kind: 'private', size: 4, band: null });
+    const room = svc.rooms.state();
+    const game = games.find((g) => g.id === 'squat-flap') ?? null;
+    const view = (over: Partial<RoomView> = {}): RoomView => ({ ...NO_ROOM_VIEW, room, game, profile: state().profile, games: onlineGames(ctx), friends: state().friends, ...over });
+
+    // nothing to say while there was no refusal and the room's game is a free one
+    const quiet = roomPage(ctx, view()).value;
+    for (const marker of ['data-pro', 'pro-waiting', 'room.proDismiss']) expect(quiet, marker).not.toContain(marker);
+
+    // the host's refusals: each reason in its own words, the Pro page of the game, a way to a free game, and a way to dismiss it
+    const said = new Set<string>();
+    for (const reason of ['none', 'expired', 'invalid', 'refused'] as const) {
+      const html = roomPage(ctx, view({ pro: { game: 'pad-work', reason, at: 1 } })).value;
+      expect(html).toContain(`data-pro="${reason}"`);
+      expect(textOf(html)).toContain(u(`pro.${reason}`));
+      expect(textOf(html)).toContain(u('pro.title'));
+      expect(html).toContain(`href="${ctx.href('pro', { query: { game: 'pad-work' } })}"`);
+      expect(html).toContain('data-action="room.proDismiss"');
+      expect(html.match(/data-action="room.game"/g)?.length, 'the host can pick a free game from the note and from the game card').toBe(2);
+      expect(html).toContain('role="alert"');
+      said.add(u(`pro.${reason}`));
+    }
+    expect(said.size).toBe(4);
+    // a guest cannot pick the game, so the note offers no free game
+    const guest = { ...room, members: room.members.map((m) => ({ ...m, host: false })) };
+    expect(roomPage(ctx, view({ room: guest, pro: { game: 'pad-work', reason: 'none', at: 1 } })).value.match(/data-action="room.game"/g) ?? []).toHaveLength(0);
+    // a game this build does not know: the Pro page without a game
+    expect(roomPage(ctx, view({ pro: { game: 'no-such-game', reason: 'refused', at: 1 } })).value).toContain(`href="${ctx.href('pro')}"`);
+
+    // the proof of the host ran out while the room waits: everybody is told, and the match starts again when it is renewed or a free game is picked
+    if (!room.info) throw new Error('no room');
+    const waiting = roomPage(ctx, view({ room: { ...room, info: { ...room.info, pro: { ok: false } } } })).value;
+    expect(waiting).toContain('data-banner="pro-waiting"');
+    expect(textOf(waiting)).toContain(u('pro.waiting'));
+    // a Pro game with its proof in place: the line under the game says whose Pro opens it, and no warning
+    const proGame = roomPage(ctx, view({ room: { ...room, info: { ...room.info, pro: { ok: true } } } })).value;
+    expect(proGame).toContain('data-pro-game');
+    expect(textOf(proGame)).toContain(u('pro.gameLine'));
+    expect(proGame).not.toContain('pro-waiting');
+    expect(missing).toEqual([]);
+    for (const html of [waiting, proGame]) expect(textOf(html)).not.toMatch(NO_LEAK);
+  });
+
+  it('the game picker tags the Pro games, and the Pro window says why and offers the Pro page or a way back', () => {
+    const { ctx, missing } = ctxOf(lang, '/r/K7Q2MX/');
+    const u = ux(ctx);
+    const padWork = games.find((g) => g.id === 'pad-work');
+    if (!padWork) throw new Error('no pad-work fixture');
+    const picker = gameSheet(ctx, [...onlineGames(ctx), padWork], 'squat-flap').value;
+    expect(picker.match(/k-protag--pill/g)).toHaveLength(1);                       // only the Pro game carries the tag
+    expect(textOf(picker)).toContain(ctx.i18n.t('common.pro'));
+    expect(gameSheet(ctx, onlineGames(ctx), 'squat-flap').value).not.toContain('k-protag');
+    for (const reason of ['none', 'expired', 'invalid', 'refused'] as const) {
+      const html = proSheet(ctx, { game: padWork, reason }).value;
+      expect(textOf(html)).toContain(u('pro.title'));
+      expect(textOf(html)).toContain(u(`pro.${reason}`));
+      expect(textOf(html)).toContain(titleOf(ctx, padWork));
+      expect(html).toContain('data-dialog-close="see"');
+      expect(html).toContain('data-dialog-close="later"');
+      expect(html).toContain('aria-labelledby'.slice(0, 0) + 'id="sheet-h"');
+      expect(html).toContain('id="sheet-d"');
+    }
+    expect(proSheet(ctx, { game: null, reason: 'none' }).value).not.toContain('k-progame');
+    expect(missing).toEqual([]);
   });
 
   it('a private room lists the friends to ask in (online ones get a button, offline ones are marked), and every other player has a menu to report or block', async () => {

@@ -5,6 +5,7 @@
 import { openDialog, type DialogHandle } from '../../../core/ui/dialog.ts';
 import type { Matched } from '../../../core/ui/router.ts';
 import { codeFromInvite, isRoomCode } from '../../../core/net/codes.ts';
+import { isProGame } from '../../../core/net/live-games.ts';
 import { checkChat, checkName } from '../../../core/net/chat-filter.ts';
 import { formatFriendCode, formatRecoveryCode, parseFriendCode, parseFriendLink } from '../../../core/social/codes.ts';
 import { GHOST_OFFER_AFTER_MS, levelBand } from '../../../core/social/levels.ts';
@@ -12,15 +13,15 @@ import { isPresetMessage, isReaction, randomPresetName } from '../../../core/soc
 import { isBoardGame } from '../../../core/social/scores.ts';
 import type { AgeBand, BoardScope, BoardView, LevelBand, LobbyEntry, Region, ReportReason, RunTicket } from '../../../core/social/types.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
-import { titleOf, type ViewContext } from '../context.ts';
+import { hasPro, titleOf, type ViewContext } from '../context.ts';
 import type { RouteId } from '../routes.ts';
 import { failText } from '../social/messages.ts';
-import type { Failed, MatchDriver, MatchProgress, SocialNotice, SocialServices } from '../social/port.ts';
+import type { Failed, MatchDriver, MatchProgress, ProNeeded, SocialNotice, SocialServices } from '../social/port.ts';
 import { ux } from '../social/strings.ts';
 import { IDLE_QUICK, type QuickView } from '../social/screens/lobbies.ts';
 import '../social/social.css';
 import {
-  blockSheet, boardGames, friendMenuSheet, friendsPartOf, gameSheet, inviteTray, NEW_PROFILE_SHEET, onlineGames, profileSheet, qrSheet, recoverySheet, reportSheet, seatMenuSheet,
+  blockSheet, boardGames, friendMenuSheet, friendsPartOf, gameSheet, inviteTray, NEW_PROFILE_SHEET, onlineGames, proSheet, profileSheet, qrSheet, recoverySheet, reportSheet, seatMenuSheet,
   type FriendsPart, type ProfileSheet, type ReportSheet, type SocialPageState,
 } from '../views/social.ts';
 import { confirmHtml, type ConfirmOptions } from '../views/misc.ts';
@@ -225,7 +226,7 @@ export class SocialController {
       profile: { state, name: this.me.draft ?? profile?.name ?? '', notes: this.me.notes, busy: this.me.busy },
       boards: { state, games: bgames, game: bgame, scope: this.boards.scope, week: this.boards.week, board: this.boards.board, loading: this.boards.loading, failed: this.boards.failed },
       lobbies: { state, games, game, band: l.band ?? (profile ? levelBand(profile.level) : 'medium'), region: l.region ?? profile?.region ?? 'eu', list: l.list, failed: l.failed, quick: l.quick },
-      room: { room, game: info ? (ctx.games.find((g) => g.id === info.config.gameId) ?? null) : null, profile, games, draft: this.room.draft, chatNote: this.room.chatNote, friends: state.friends, invited: this.room.invited, noOnline: state.noOnline },
+      room: { room, game: info ? (ctx.games.find((g) => g.id === info.config.gameId) ?? null) : null, profile, games, draft: this.room.draft, chatNote: this.room.chatNote, friends: state.friends, invited: this.room.invited, noOnline: state.noOnline, pro: this.svc.rooms.proNeeded?.() ?? null },
       friendLink: {
         code: formatted, profile: !!profile, own: !!formatted && profile?.code === formatted, busy: this.link.busy, done: this.link.done, note: this.link.note, noOnline: state.noOnline,
         offline: state.status === 'offline',
@@ -350,6 +351,7 @@ export class SocialController {
       case 'room.say': if (isPresetMessage(d['id'])) this.svc.rooms.say(d['id']); return true;
       case 'room.react': if (isReaction(d['id'])) this.svc.rooms.react(d['id']); return true;
       case 'room.game': void this.chooseGame(); return true;
+      case 'room.proDismiss': this.svc.rooms.dismissProNeeded?.(); this.changed(); return true;
       case 'room.seat': void this.seatMenu(d['seat'] ?? ''); return true;
       case 'room.video.retry': this.svc.rooms.retryVideo?.(); this.host.announce(this.host.context().i18n.t('room.video.connecting')); return true;
       case 'sheet.age.next': this.sheetAgeNext(); return true;
@@ -895,8 +897,11 @@ export class SocialController {
     const t = this.host.context().i18n;
     if (!r.ok) {
       if (hosted.code) rooms.leave();
-      this.lobby = { ...this.lobby, quick: { ...IDLE_QUICK, note: this.text(r) } };
+      // The search could not open a room because the game is a Pro game and the host has no proof: the window says so, not a line.
+      const pro = rooms.proNeeded?.() ?? null;
+      this.lobby = { ...this.lobby, quick: pro ? IDLE_QUICK : { ...IDLE_QUICK, note: this.text(r) } };
       this.host.rerender();
+      if (pro) void this.openProSheet(pro);
       return;
     }
     const out = r.value;
@@ -985,7 +990,7 @@ export class SocialController {
     if (!(await this.ensureProfile())) return null;
     const profile = this.svc.social.state().profile;
     const r = await this.svc.rooms.create({ game: game.id, kind, size: 4, band: kind === 'public' ? (band ?? this.lobby.band ?? (profile ? levelBand(profile.level) : 'medium')) : null });
-    if (!r.ok) { this.host.toast(this.roomProblem(r.code), 'warn'); return null; }
+    if (!r.ok) { this.roomFailed(r.code); return null; }
     this.room.joining = r.value;
     this.room.invited = [];
     this.host.go(this.host.context().href('room', { params: { code: r.value } }));
@@ -1047,7 +1052,26 @@ export class SocialController {
     const games = onlineGames(ctx);
     const d = openDialog({ document: this.host.document, html: gameSheet(ctx, games, room.info?.config.gameId ?? ''), labelledBy: 'sheet-h', className: 'ba-modal--sheet' });
     const pick = await d.closed;
-    if (typeof pick === 'string' && games.some((g) => g.id === pick)) this.svc.rooms.chooseGame(pick);
+    if (typeof pick !== 'string' || !games.some((g) => g.id === pick)) return;
+    // A player without Pro cannot start a Pro game in a room (the Room would refuse it too): the window says so without asking it.
+    if (isProGame(pick) && !hasPro(ctx)) { void this.openProSheet({ game: pick, reason: 'none', at: Date.now() }); return; }
+    this.svc.rooms.chooseGame(pick);
+  }
+
+  /** A room could not be made: a Pro game that the host has no proof for gets its window, anything else a line. */
+  private roomFailed(code: string): void {
+    const pro = this.svc.rooms.proNeeded?.() ?? null;
+    if (pro) void this.openProSheet(pro); else this.host.toast(this.roomProblem(code), 'warn');
+  }
+
+  /** A Pro game was refused to the host: the window says why and offers the Pro page. The refusal is spent once it has been said. */
+  private async openProSheet(p: ProNeeded): Promise<void> {
+    const ctx = this.host.context();
+    const game = ctx.games.find((g) => g.id === p.game) ?? null;
+    const d = openDialog({ document: this.host.document, html: proSheet(ctx, { game, reason: p.reason }), labelledBy: 'sheet-h', describedBy: 'sheet-d', className: 'ba-modal--sheet' });
+    const pick = await d.closed;
+    this.svc.rooms.dismissProNeeded?.();
+    if (pick === 'see') this.host.go(ctx.href('pro', game ? { query: { game: game.id } } : {}));
   }
 
   /** The menu of a player in a seat: report them (the Room files what it saw) or block them for this device. */
@@ -1086,7 +1110,7 @@ export class SocialController {
     if (!g || !g.modes.includes('duel')) return;
     if (!(await this.ensureProfile())) return;
     const r = await this.svc.rooms.create({ game: g.id, kind: 'private', size: 2, band: null, durationMs: raceMs(g) });
-    if (!r.ok) { this.host.toast(this.roomProblem(r.code), 'warn'); return; }
+    if (!r.ok) { this.roomFailed(r.code); return; }
     this.room.joining = r.value;
     this.room.invited = [];
     this.host.announce(t.t('room.created'));

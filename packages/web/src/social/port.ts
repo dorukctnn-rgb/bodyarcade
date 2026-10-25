@@ -197,6 +197,17 @@ export interface RoomState {
   videos?: readonly VideoStatus[];
 }
 
+/**
+ * The host tried to make a room with a Pro game, or to pick one in a room, and the Worker or the Room found no Pro proof of the host that
+ * checks out (app/live-room.ts). reason: none (no Pro to show), expired (the proof has to renew online), invalid (it does not check
+ * out), refused (the Room said so and the page cannot tell why). Players who join a room never need Pro: the check is on the host.
+ */
+export interface ProNeeded {
+  game: string;
+  reason: 'none' | 'expired' | 'invalid' | 'refused';
+  at: number;
+}
+
 export const NO_ROOM_STATE: RoomState = { phase: 'idle', info: null, members: [], me: null, feed: [], problem: null, shareVideo: false, link: '' };
 
 export interface RoomPort {
@@ -226,6 +237,12 @@ export interface RoomPort {
   reportSeat?(seat: SeatId, reason: ReportReason, alsoBlock: boolean): void;
   /** Blocks the player in a seat for this device: the Room keeps them apart from now on. Optional. */
   blockSeat?(seat: SeatId): void;
+  /**
+   * The last Pro refusal of a game the host asked for, or null (cleared by the next try to make or join a room, by leaving the room and by
+   * dismissProNeeded; the listeners of subscribe are called when it changes). Optional: a port that has no Pro games may not have it.
+   */
+  proNeeded?(): ProNeeded | null;
+  dismissProNeeded?(): void;
 }
 
 /** Both ports, or null while this build has no social server (the Friends tab then stays hidden). */

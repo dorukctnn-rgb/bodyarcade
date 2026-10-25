@@ -11,9 +11,9 @@ import { titleOf, type ViewContext } from '../../context.ts';
 import { chrome } from '../../views/chrome.ts';
 import { switchRow } from '../../views/forms.ts';
 import { pageHead } from '../../views/parts.ts';
-import type { FeedItem, NoOnline, RoomProblem, RoomState } from '../port.ts';
+import type { FeedItem, NoOnline, ProNeeded, RoomProblem, RoomState } from '../port.ts';
 import { ux } from '../strings.ts';
-import { avatar, DOT_OF, presenceText } from '../ui.ts';
+import { avatar, banner, DOT_OF, presenceText } from '../ui.ts';
 import { kidPanel, youngPanel } from './friends.ts';
 
 export interface RoomView {
@@ -31,9 +31,11 @@ export interface RoomView {
   /** The friends who were asked into this room just now. */
   invited: readonly string[];
   noOnline: NoOnline | null;
+  /** The host's last Pro refusal (a Pro game the Worker or the Room would not take), or null. */
+  pro: ProNeeded | null;
 }
 
-export const NO_ROOM_VIEW: RoomView = { room: { phase: 'idle', info: null, members: [], me: null, feed: [], problem: null, shareVideo: false, link: '' }, game: null, profile: null, games: [], draft: '', chatNote: '', friends: [], invited: [], noOnline: null };
+export const NO_ROOM_VIEW: RoomView = { room: { phase: 'idle', info: null, members: [], me: null, feed: [], problem: null, shareVideo: false, link: '' }, game: null, profile: null, games: [], draft: '', chatNote: '', friends: [], invited: [], noOnline: null, pro: null };
 
 const secondsLabel = (ctx: ViewContext, ms: number): string => {
   const s = Math.round(ms / 1000);
@@ -78,6 +80,26 @@ function videoLinks(ctx: ViewContext, r: RoomState): SafeHtml {
   const failed = down.some((v) => v.state === 'failed');
   const retry = down.some((v) => v.state === 'failed' && v.retryable);
   return html`<div class="k-videolink" data-state="${failed ? 'failed' : 'connecting'}"><p class="k-fine" role="status">${t.t(failed ? 'room.video.failed' : 'room.video.connecting')}</p>${retry ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="room.video.retry">${t.t('common.retry')}</button>` : ''}</div>`;
+}
+
+/**
+ * What the room says about Pro: to the host whose Pro game was refused, why and where to go (the Pro page, or a free game); to
+ * everybody, when the host's proof ran out while the room waits (the match starts again when it is renewed or a free game is picked).
+ */
+function proNote(ctx: ViewContext, v: RoomView): SafeHtml {
+  const u = ux(ctx);
+  const p = v.pro;
+  if (p) {
+    const known = ctx.games.some((g) => g.id === p.game);
+    const pick = v.room.members.find((m) => m.seat === v.room.me)?.host === true && v.games.length > 1;
+    return html`<section class="k-card k-pronote k-mt" role="alert" aria-labelledby="pro-h" data-pro="${p.reason}">
+      <div class="k-pronote__head">${icon('sparkle')}<h2 class="k-h3" id="pro-h">${u('pro.title')}</h2></div>
+      <p class="ba-small k-flat">${u(`pro.${p.reason}`)}</p>
+      <div class="k-rowbtns k-rowbtns--wrap k-mt"><a class="ba-btn ba-btn--primary" href="${ctx.href('pro', known ? { query: { game: p.game } } : {})}">${u('pro.see')}</a>${pick ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="room.game">${u('pro.free')}</button>` : ''}<button class="ba-btn ba-btn--quiet" type="button" data-action="room.proDismiss">${u('pro.later')}</button></div>
+    </section>`;
+  }
+  if (v.room.info?.pro?.ok === false) return html`<div class="k-mt">${banner({ kind: 'warn', icon: 'sparkle', id: 'pro-waiting', text: u('pro.waiting') })}</div>`;
+  return html``;
 }
 
 const PROBLEMS: readonly RoomProblem[] = ['full', 'no_room', 'removed', 'replaced', 'version', 'not_allowed', 'ticket', 'offline'];
@@ -130,6 +152,7 @@ function inviteCard(ctx: ViewContext, v: RoomView): SafeHtml {
 
 export function roomMain(ctx: ViewContext, v: RoomView): SafeHtml {
   const t = ctx.i18n;
+  const u = ux(ctx);
   const r = v.room;
   const back = ctx.href('friends');
   const leave = html`<button class="ba-btn ba-btn--quiet" type="button" data-action="room.leave">${icon('door')}${t.t('room.leave')}</button>`;
@@ -156,9 +179,10 @@ export function roomMain(ctx: ViewContext, v: RoomView): SafeHtml {
       <button class="ba-btn ba-btn--secondary" type="button" data-action="room.copy" data-what="link">${icon('link')}${t.t('room.link')}</button>
       <button class="ba-btn ba-btn--secondary" type="button" data-action="room.qr">${icon('qr')}${t.t('room.qr')}</button>
     </div>
+    ${proNote(ctx, v)}
     <div class="k-cols k-mt-lg">
       <div class="k-stack">
-        <section class="k-card" aria-labelledby="rg"><div class="k-gamepick">${g ? html`<img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="400" height="300">` : ''}<div><span class="k-label k-flat" id="rg">${t.t('room.game.label')}</span><b>${g ? titleOf(ctx, g) : info.config.gameId}</b><small>${t.t('room.game.line', { duration: secondsLabel(ctx, info.config.durationMs) })}</small>${me?.host && v.games.length > 1 ? html`<br><button class="ba-link k-mt" type="button" data-action="room.game">${t.t('room.game.change')}</button>` : ''}</div></div></section>
+        <section class="k-card" aria-labelledby="rg"><div class="k-gamepick">${g ? html`<img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="400" height="300">` : ''}<div><span class="k-label k-flat" id="rg">${t.t('room.game.label')}</span><b>${g ? titleOf(ctx, g) : info.config.gameId}</b><small>${t.t('room.game.line', { duration: secondsLabel(ctx, info.config.durationMs) })}</small>${info.pro ? html`<small class="k-protag" data-pro-game>${icon('sparkle')}${u('pro.gameLine')}</small>` : ''}${me?.host && v.games.length > 1 ? html`<br><button class="ba-link k-mt" type="button" data-action="room.game">${t.t('room.game.change')}</button>` : ''}</div></div></section>
         <section aria-labelledby="rp"><span class="k-label" id="rp">${t.t('room.players', { n: r.members.length, size: info.size })}</span><div class="k-seats">${seats}</div></section>
         ${info.kind === 'private' ? inviteCard(ctx, v) : ''}
       </div>

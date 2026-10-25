@@ -8,6 +8,7 @@
 //
 // Room calls are signed: `createLiveRoomPort` gets the client's own `fetcher` and `roomIdentity()`, so the Worker knows which
 // profile opens and joins a room (age band, name and the blocks of that profile) and never takes it from the page's say-so.
+// They carry the player's signed Pro token too (`pro`): a Pro game starts in a room only while the host's token stands behind it.
 import { SocialClient } from '../../../core/social/client.ts';
 import { openKeyStore, type KeyStore } from '../../../core/social/keystore.ts';
 import type { BodyArcadeStore } from '../../../core/store/store.ts';
@@ -89,6 +90,8 @@ export interface StartSocialOptions {
   keys?: KeyStore;
   /** The profile in use is a kid profile of the Family plan (it never goes online). */
   kidProfile?: () => boolean;
+  /** The player's signed Pro token as it is now (the entitlements' current().token), or null for a free player: asked at every room call. */
+  pro?: () => string | null | undefined;
 }
 
 export interface RealSocial extends SocialServices {
@@ -131,6 +134,7 @@ export async function startSocial(o: StartSocialOptions): Promise<RealSocial | n
         try { return client.roomIdentity(); } catch { return null; }
       },
       fetcher: client.fetcher,
+      pro: () => (kid() ? null : o.pro?.() ?? null),
       blocks: { load: () => ns.get('roomBlocks', KEYS, []), save: (list) => ns.set('roomBlocks', list.slice(-200), KEYS) },
     });
     const rooms: RoomPort = {

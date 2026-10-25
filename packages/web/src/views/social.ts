@@ -25,7 +25,7 @@ export { IDLE_QUICK, lobbiesMain, lobbiesPage, type LobbiesView, type QuickView 
 export { NO_ROOM_VIEW, roomMain, roomPage, type RoomView } from '../social/screens/room.ts';
 export { friendLinkMain, friendLinkPage, NO_LINK_VIEW, safetyMain, safetyPage, type FriendLinkView } from '../social/screens/link.ts';
 export {
-  blockSheet, clockText, friendMenuSheet, gameSheet, inviteTray, NEW_PROFILE_SHEET, profileSheet, qrSheet, recoveryBody, recoverySheet, reportSheet, seatMenuSheet,
+  blockSheet, clockText, friendMenuSheet, gameSheet, inviteTray, NEW_PROFILE_SHEET, proSheet, profileSheet, qrSheet, recoveryBody, recoverySheet, reportSheet, seatMenuSheet,
   type ProfileSheet, type ReportSheet,
 } from '../social/screens/sheets.ts';
 

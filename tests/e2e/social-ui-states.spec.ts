@@ -80,6 +80,10 @@ const STATES: State[] = [
   { id: 'sheet-block', path: '/friends/?social=ready', window: true, prepare: async (p) => { await p.locator('[data-action="social.menu"]').first().click(); await p.locator('dialog [data-dialog-close="block"]').click(); await p.waitForSelector('dialog .ba-btn--danger'); } },
   { id: 'sheet-recovery-again', path: '/friends/?social=recovery', window: true, prepare: click('[data-action="recovery.show"]') },
   { id: 'sheet-qr', path: '/r/K7Q2MX/?social=ready', window: true, prepare: click('[data-action="room.qr"]') },
+  // a Pro game in a room: the window when a room cannot be made for want of Pro, the note to the host, the line when the proof ran out
+  { id: 'sheet-pro', path: '/friends/?social=ready', window: true, prepare: async (p) => { await control(p, "c.refuseCreate('expired');"); await p.locator('[data-action="room.new"]').click(); await p.waitForSelector('dialog[open]'); } },
+  { id: 'room-pro', path: '/friends/?social=ready', prepare: async (p) => { await p.locator('[data-action="room.new"]').click(); await p.waitForURL('**/r/*'); await p.waitForSelector('.k-seat'); await control(p, "c.pro('none', 'pad-work');"); await p.waitForSelector('.k-pronote'); } },
+  { id: 'room-pro-waiting', path: '/friends/?social=ready', prepare: async (p) => { await p.locator('[data-action="room.new"]').click(); await p.waitForURL('**/r/*'); await p.waitForSelector('.k-seat'); await control(p, 'c.proWaiting(true);'); await p.waitForSelector('[data-banner="pro-waiting"]'); } },
 ];
 
 const settle = async (page: Page): Promise<void> => {
