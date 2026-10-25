@@ -26,6 +26,7 @@ import { layoutProbe, type Finding, type ProbeResult } from './probe.ts';
 import { mergeReports, type Report } from './summarize.ts';
 import { analyseScene, decodePng, isBlank, type Rect } from './scene.ts';
 import { beNice } from './nice.ts';
+import { settle } from './settle.ts';
 import { installPersonCamera } from '../browsers/support/camera.ts';
 
 beNice();
@@ -117,16 +118,6 @@ async function serverFor(kind: Target['server']): Promise<string> {
 }
 
 const slug = (s: string): string => s.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
-
-async function settle(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    await Promise.all([...document.images].filter((i) => !i.complete).map((i) => i.decode().catch(() => undefined)));
-    const finite = document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity);
-    await Promise.race([Promise.all(finite.map((a) => a.finished.catch(() => undefined))), new Promise((r) => setTimeout(r, 2500))]);
-  });
-  await page.waitForTimeout(120);
-}
 
 async function runStep(page: Page, s: Step): Promise<void> {
   if ('click' in s) await page.locator(s.click).first().click({ timeout: 8000 });

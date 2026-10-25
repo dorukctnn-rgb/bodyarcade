@@ -2,6 +2,7 @@
 // Each fixture is a small page with exactly one defect (or none); the expected kinds are exact.
 import { expect, test, type Page } from '@playwright/test';
 import { DEFAULT_PROBE, layoutProbe, type FindingKind, type ProbeOptions } from '../../tools/page-check/probe.ts';
+import { settle } from '../../tools/page-check/settle.ts';
 
 const CSS = '*{box-sizing:border-box}body{margin:0;font:16px/1.4 Arial,Helvetica,sans-serif}button,a.btn{font:inherit;padding:12px 20px;border:1px solid #333;background:#eee;display:inline-block}';
 const PIC = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='100'><rect width='200' height='100' fill='%23468'/></svg>";
@@ -113,5 +114,18 @@ test.describe('page-check probe', () => {
     expect(touch.errors).toEqual([]);
     const desktop = await probe(page, html, { touch: false });
     expect(desktop.kinds).toEqual([]);
+  });
+
+  // WebKit never loads a lazy picture that is far under the first screen, and the decode() of that picture never answers: the page check of the home page
+  // waited 180 s there on the Safari engine (home and the trial notice, every size). The screens of every engine must settle, with the lazy picture loaded.
+  test('settling a page does not wait for a lazy picture far under the first screen: it is loaded on purpose', async ({ page }) => {
+    const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    await page.route('http://qa.test/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: PNG }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setContent(`<!doctype html><html><head><meta name="viewport" content="width=device-width"><style>${CSS}</style></head><body><p>Top</p><div style="height:6000px"></div><img alt="" loading="lazy" src="http://qa.test/far.png" width="120" height="60"></body></html>`);
+    const t0 = Date.now();
+    await settle(page);
+    expect(Date.now() - t0, 'the wait is bounded and short').toBeLessThan(9000);
+    expect(await page.evaluate(() => [...document.images].every((i) => i.complete && i.naturalWidth > 0))).toBe(true);
   });
 });
