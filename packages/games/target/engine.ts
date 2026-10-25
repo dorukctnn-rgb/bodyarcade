@@ -10,6 +10,7 @@
 import type { BodyProfile, GameEvent, InputFrame, PlayerSlot, RunSummary } from '../../core/types/index.ts';
 import type { HitJudgement } from '../../core/moves/handHit.ts';
 import type { Miss } from '../../core/moves/kit.ts';
+import type { Call } from './coach.ts';
 import { cursorChannels, newCursor, stepCursor } from './cursor.ts';
 import { envelopeOf, nominalProfile, type Envelope } from './envelope.ts';
 import { Judge } from './judge.ts';
@@ -54,6 +55,8 @@ interface Snapshot {
   steps: number;
   next: number;
   frozen: number;
+  /** How many of the coach's calls have been made (a snapshot from before the coach lacks it: it is worked out from the time). */
+  callI?: number;
   plan: BaseSpec[];
   lanes: LaneState[];
   log: LogEntry[];
@@ -65,6 +68,8 @@ export class TargetEngine<S extends BaseSpec> {
   readonly config: EngineConfig;
   readonly timeline: Timeline;
   plan: S[] = [];
+  /** The coach's calls (coach.ts), in order of time, made with the plan; none for a game without a coach. */
+  calls: Call[] = [];
   level: Level = 'normal';
   seated = false;
   quiet = false;
@@ -75,6 +80,7 @@ export class TargetEngine<S extends BaseSpec> {
 
   private lanes: Lane[] = [];
   private next = 0;
+  private callI = 0;
   private frozen = 0;
   private segIndex = -1;
   private events: GameEvent[] = [];
@@ -101,6 +107,7 @@ export class TargetEngine<S extends BaseSpec> {
     this.keyboard = si.profiles[0] === null;
     this.steps = 0;
     this.next = 0;
+    this.callI = 0;
     this.frozen = 0;
     this.segIndex = -1;
     this.phase = 'running';
@@ -120,6 +127,7 @@ export class TargetEngine<S extends BaseSpec> {
       level: si.level, timeline: this.timeline, seated: si.seated, quiet: si.quiet, feet, keyboard: this.keyboard,
       players: this.players, hz: Math.min(...this.lanes.map((l) => l.state.profile.hz || 30)),
     });
+    this.calls = this.rules.calls?.(this.plan, this.timeline) ?? [];
   }
 
   private laneState(slot: PlayerSlot, profile: BodyProfile, env: Envelope): LaneState {
@@ -160,6 +168,13 @@ export class TargetEngine<S extends BaseSpec> {
         const live = this.rules.open(spec, this.api(l), this.out(l));
         if (live) l.state.live.push(live);
       }
+    }
+
+    // The coach: each call is due at a time on the game clock, so it is made by the first step at or after that time, however long the
+    // round has been going; the picture draws its caption and the game plays its voice from this event (game.ts).
+    while (this.callI < this.calls.length && (this.calls[this.callI] as Call).t <= t) {
+      const c = this.calls[this.callI++] as Call;
+      this.events.push({ type: 'call', t, id: c.id, at: c.t, ...(c.plan !== undefined ? { plan: c.plan } : {}) });
     }
 
     for (const l of this.lanes) this.stepLane(l, input, t, play);
@@ -363,7 +378,7 @@ export class TargetEngine<S extends BaseSpec> {
   snapshot(): Snapshot {
     return JSON.parse(JSON.stringify({
       v: 1, rules: this.rules.id, level: this.level, seated: this.seated, quiet: this.quiet, keyboard: this.keyboard,
-      steps: this.steps, next: this.next, frozen: this.frozen, plan: this.plan, log: this.log, phase: this.phase,
+      steps: this.steps, next: this.next, callI: this.callI, frozen: this.frozen, plan: this.plan, log: this.log, phase: this.phase,
       lanes: this.lanes.map((l) => ({ ...l.state, judge: l.judge.dump() })),
     })) as Snapshot;
   }
@@ -380,6 +395,9 @@ export class TargetEngine<S extends BaseSpec> {
     this.next = copy.next;
     this.frozen = copy.frozen;
     this.plan = copy.plan as S[];
+    this.calls = this.rules.calls?.(this.plan, this.timeline) ?? [];
+    const made = this.steps > 0 ? this.t : -1;
+    this.callI = typeof copy.callI === 'number' ? Math.min(copy.callI, this.calls.length) : this.calls.filter((c) => c.t <= made).length;
     this.log = copy.log;
     this.phase = copy.phase;
     this.events = [];

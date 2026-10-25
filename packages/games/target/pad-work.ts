@@ -12,8 +12,9 @@ import type { Rng, Side } from '../../core/types/index.ts';
 import { padAt, type HitJudgement } from '../../core/moves/handHit.ts';
 import type { Miss } from '../../core/moves/kit.ts';
 import { gradeOffset, BEAT_WINDOWS } from '../../core/moves/rhythm.ts';
+import { DEFENCE_LEAD_MS, DEFENCE_SPAN_MS, NUMBER_LEAD_BEATS, NUMBER_SPAN_MS, inTheWay, numberId, warningHole, withRoundCalls, type Call } from './coach.ts';
 import { fit, SEATED_SCALE, spot } from './envelope.ts';
-import { intensityAt } from './timeline.ts';
+import { intensityAt, type Timeline } from './timeline.ts';
 import type { BaseSpec, LaneApi, Live, Out, PlanInput, Prompt, Rules } from './types.ts';
 import { clamp, lerp, missCode, ms, slowFactor } from './util.ts';
 
@@ -37,6 +38,8 @@ export interface PadSpec extends BaseSpec {
   kind: 'pad' | 'bag';
   /** The moment of the beat the punch (or the bag's swing) belongs to, ms from the first step, and the window that is judged. */
   beat: number;
+  /** The time between beats at the tempo of the round (ms): the coach calls a punch this long before its beat. */
+  per: number;
   from: number;
   until: number;
   /** The combination this pad belongs to, its place in it (0-based) and its length. */
@@ -106,17 +109,20 @@ export function planPads(rng: Rng, p: PlanInput): PadSpec[] {
     const per = 60000 / bpm;
     let beat = seg.start + 2600;
     let lastBag = true;
+    // The coach says "ten seconds" this long before the end of the round: nothing is called in the stretch it takes, so it is said on time.
+    const hole = warningHole(seg);
     for (;;) {
       const rBag = rng(), rMirror = rng(), rPick = rng(), rSide = rng();
       const inten = intensityAt(tl, beat);
       if (cfg.bag > 0 && !p.keyboard && !lastBag && rBag < cfg.bag) {
+        if (hole && inTheWay(hole, beat - DEFENCE_LEAD_MS, beat - DEFENCE_LEAD_MS + DEFENCE_SPAN_MS)) beat = hole.to + DEFENCE_LEAD_MS;
         if (beat + BAG_WINDOW.post * f > seg.end - 300) break;
         const duck = !p.seated && rPick < 0.4;
         const swing: Side = rSide < 0.5 ? 'L' : 'R';
         const need: BagNeed = duck ? 'duck' : swing === 'L' ? 'slipR' : 'slipL';
         const from = ms(beat - BAG_WINDOW.pre * f), until = ms(beat + BAG_WINDOW.post * f);
         const at = ms(beat - 2 * per);
-        specs.push({ id: specs.length, at, life: until - at, kind: 'bag', beat: ms(beat), from, until, combo, k: 0, size: 1, rA: 0, ax: swing === 'L' ? -0.9 : 0.9, ay: 0.35, need, swing });
+        specs.push({ id: specs.length, at, life: until - at, kind: 'bag', beat: ms(beat), per: ms(per), from, until, combo, k: 0, size: 1, rA: 0, ax: swing === 'L' ? -0.9 : 0.9, ay: 0.35, need, swing });
         combo++;
         beat += 3 * per;
         lastBag = true;
@@ -129,6 +135,8 @@ export function planPads(rng: Rng, p: PlanInput): PadSpec[] {
       const moves = base[Math.min(base.length - 1, Math.floor(rPick * base.length))] as MoveId[];
       const mirror = rMirror < 0.5;
       const size = moves.length;
+      // the numbers of a combination are called from a beat before its first beat to a beat before its last
+      if (hole && inTheWay(hole, beat - NUMBER_LEAD_BEATS * per, beat + (size - 1 - NUMBER_LEAD_BEATS) * per + NUMBER_SPAN_MS)) beat = hole.to + NUMBER_LEAD_BEATS * per;
       const last = beat + (size - 1) * per;
       if (last + PAD_WINDOW.post * f > seg.end - 300) break;
       const at = ms(beat - LEAD_BEATS * per);
@@ -137,7 +145,7 @@ export function planPads(rng: Rng, p: PlanInput): PadSpec[] {
         const d = MOVES[m];
         const b = beat + k * per;
         const from = ms(b - PAD_WINDOW.pre * f), until = ms(b + PAD_WINDOW.post * f);
-        specs.push({ id: specs.length, at, life: until - at, kind: 'pad', beat: ms(b), from, until, combo, k, size, rA: cfg.radius, move: m, hand: d.hand, ax: d.ax, ay: d.ay });
+        specs.push({ id: specs.length, at, life: until - at, kind: 'pad', beat: ms(b), per: ms(per), from, until, combo, k, size, rA: cfg.radius, move: m, hand: d.hand, ax: d.ax, ay: d.ay });
       });
       combo++;
       beat = last + (cfg.gap + 1) * per;
@@ -145,6 +153,24 @@ export function planPads(rng: Rng, p: PlanInput): PadSpec[] {
     }
   }
   return specs;
+}
+
+/**
+ * What the coach calls (coach.ts): each pad's number one beat before its beat, each bag's slip or duck a good second before it
+ * swings in, then the rounds' own calls. Numbers are what the pads show (1-2-3), so a player who cannot hear the coach, or does
+ * not look at the pads, is told the same thing.
+ */
+export function padCalls(plan: readonly PadSpec[], tl: Timeline): Call[] {
+  const own: Call[] = [];
+  for (const s of plan) {
+    if (s.kind === 'pad') {
+      const id = numberId(s.k);
+      if (id) own.push({ id, t: ms(s.beat - NUMBER_LEAD_BEATS * s.per), plan: s.id });
+    } else if (s.need) {
+      own.push({ id: s.need, t: s.beat - DEFENCE_LEAD_MS, plan: s.id });
+    }
+  }
+  return withRoundCalls(own, tl);
 }
 
 const key = (c: number, what: 'g' | 'r'): string => `${what}${c}`;
@@ -163,6 +189,7 @@ export const padWorkRules: Rules<PadSpec> = {
   clears: true,
 
   plan: planPads,
+  calls: padCalls,
 
   open(spec: PadSpec, lane: LaneApi): Live {
     if (spec.kind === 'bag') {

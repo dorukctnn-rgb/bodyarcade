@@ -5,6 +5,7 @@
 import type { BodyProfile, GameEvent, InputFrame, PlayerSlot, Rng, RunSummary, Side } from '../../core/types/index.ts';
 import type { HitJudgement, HitTarget } from '../../core/moves/handHit.ts';
 import type { Miss } from '../../core/moves/kit.ts';
+import type { Call } from './coach.ts';
 import type { Envelope } from './envelope.ts';
 import type { Timeline } from './timeline.ts';
 
@@ -169,6 +170,8 @@ export interface Rules<S extends BaseSpec> {
   readonly clears?: boolean;
   /** Builds the whole plan once, from the course stream; ids are the indexes. Entries are in order of `at`. */
   plan(rng: Rng, p: PlanInput): S[];
+  /** The coach's calls, in order of time, made with the plan from the same data (coach.ts). Games without a coach leave it out. */
+  calls?(plan: readonly S[], tl: Timeline): Call[];
   /** A plan entry appears for a lane: where it is and what the judge asks. null: this lane does not get it. */
   open(spec: S, lane: LaneApi, out: Out): Live | null;
   /** Called each step before judging: pads follow the shoulders, drifting stars move. */

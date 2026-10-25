@@ -13,14 +13,15 @@ import { BREAKPOINTS, hudMetrics, hudSlots, type MeasuredHud } from '../../core/
 import { profileOf, SHAPE_FULL, SHAPE_UPPER } from '../../core/moves/testing/rig.ts';
 import type { BodyProfile, GameEvent, PoseFrame } from '../../core/types/index.ts';
 import { synthPose, DEFAULT_SHAPE } from '../../core/pose/synth.ts';
+import { CALL_IDS, CAPTION_MS, callKind } from './coach.ts';
 import type { TargetView, ViewFrame } from './game.ts';
-import { english, TARGET_STRINGS } from './strings.ts';
+import { callText, english, TARGET_STRINGS } from './strings.ts';
 import { padWorkRules, type PadSpec } from './pad-work.ts';
 import { reactionTagRules } from './reaction-tag.ts';
 import { starCatchRules } from './star-catch.ts';
 import { PadChaser, type PadSeen } from './testing/bots.ts';
 import { setup, tick, type Run, type SetupOptions, type Steer } from './testing/play.ts';
-import { createMirrorView } from './view.ts';
+import { CAPTION_EM, captionLayout, createMirrorView } from './view.ts';
 import type { BaseSpec, Rules, ViewLane } from './types.ts';
 
 interface Texts { words: { text: string; x: number; y: number; font: string }[] }
@@ -174,6 +175,106 @@ describe('what each game draws', () => {
     expect(st.ctx.count('quadraticCurveTo')).toBeGreaterThan(8);
     expect(st.ctx.count('ellipse')).toBeGreaterThan(3);
     expect((st.ctx as unknown as Texts).words.some((t) => /^\d+ ms$/.test(t.text))).toBe(true);
+  });
+});
+
+describe('the caption of the coach', () => {
+  const call = (id: string, t = 1000): GameEvent => ({ type: 'call', t, id, at: t });
+  const frame = (st: Stage, view: TargetView, events: GameEvent[], dtMs = 33, sayWith: ViewFrame['say'] = say): void => {
+    const run = setup(padWorkRules, { duration: 20, rounds: 1, bots: 'idle' });
+    view.begin({ game: 'pad-work', players: 1, keyboard: false, seated: false, profiles: run.engine.view().lanes.map((l) => l.profile) });
+    void st;
+    view.draw(run.engine.view(), { events, alpha: 1, dtMs, pose: null, reducedMotion: false, say: sayWith });
+  };
+  const words = (st: Stage): string[] => (st.ctx as unknown as Texts).words.map((w) => w.text);
+
+  it('draws the words of each call high on the picture, centred, in the language it is given', () => {
+    const st = stage(1280, 800);
+    const view = createMirrorView(st.kit);
+    frame(st, view, [call('n2')]);
+    const w = (st.ctx as unknown as Texts).words.find((x) => x.text === 'Two')!;
+    const m = st.kit.rects.mirror;
+    expect(w).toBeDefined();
+    expect(w.x).toBeCloseTo(m.x + m.w / 2, 3);
+    expect(w.y).toBeCloseTo(m.y + m.h * 0.22, 3);
+    const tr = stage(1280, 800);
+    frame(tr, createMirrorView(tr.kit), [call('n2')], 33, (k, v) => callText('tr', k.replace('call.', '')) ?? english(k, v) ?? k);
+    expect(words(tr)).toContain('İki');
+  });
+
+  it('keeps it for as long as the kind of call says, then lets it go; a newer call takes its place', () => {
+    const st = stage(1280, 800);
+    const view = createMirrorView(st.kit);
+    const run = setup(padWorkRules, { duration: 20, rounds: 1, bots: 'idle' });
+    view.begin({ game: 'pad-work', players: 1, keyboard: false, seated: false, profiles: run.engine.view().lanes.map((l) => l.profile) });
+    const draw = (events: GameEvent[], dtMs: number): void => view.draw(run.engine.view(), { events, alpha: 1, dtMs, pose: null, reducedMotion: false, say });
+    const seen = (text: string): number => words(st).filter((t) => t === text).length;
+    draw([call('n1')], 33);
+    expect(seen('One')).toBe(1);
+    draw([], 250);
+    expect(seen('One')).toBe(2);
+    draw([call('n2')], 33);
+    draw([], 33);
+    expect(seen('One')).toBe(2);                          // replaced
+    expect(seen('Two')).toBe(2);
+    draw([], CAPTION_MS.number);
+    const before = words(st).length;
+    draw([], 33);
+    draw([], 33);
+    expect(words(st).length).toBe(before);                // gone: nothing about the call is drawn any more
+    draw([call('rest')], 33);
+    draw([], CAPTION_MS.number + 100);
+    expect(seen('Time, take a rest')).toBe(2);            // a rest is kept longer than a number
+  });
+
+  it('shows a call for a player with sound off just the same, and every call of the game has words to show', () => {
+    for (const id of CALL_IDS) {
+      const st = stage(1280, 800);
+      frame(st, createMirrorView(st.kit), [call(id)]);
+      expect(words(st), id).toContain(callText('en', id));
+    }
+  });
+
+  it('is clear of every plate and inside the mirror on every screen, for the longest words of every language, at the largest size', () => {
+    for (const b of BREAKPOINTS) {
+      for (const aspect of b.h > b.w ? [3 / 4, 16 / 9] : [16 / 9, 4 / 3]) {
+        const st = stage(b.w, b.h);
+        const run = setup(padWorkRules, { duration: 20, rounds: 1, bots: 'idle', profiles: [profileOf({ ...SHAPE_UPPER, aspect }, 'upper')] });
+        createMirrorView(st.kit).begin({ game: 'pad-work', players: 1, keyboard: false, seated: false, profiles: run.engine.view().lanes.map((l) => l.profile) });
+        const m = st.kit.rects.mirror;
+        const plates = Object.entries(st.kit.rects.hud).filter(([k]) => !['pip', 'own', 'friend'].includes(k));
+        for (const id of CALL_IDS) {
+          const kind = callKind(id);
+          for (const lang of ['en', 'tr', 'de', 'es', 'fr'] as const) {
+            const text = callText(lang, id)!;
+            const at = captionLayout(m, kind, text);
+            const w = text.length * at.size * CAPTION_EM, h = at.size * 1.1;
+            const box = { x: at.x - w / 2, y: at.y - h / 2, w, h };
+            const where = `${b.label} ${aspect.toFixed(2)} ${lang} ${id}`;
+            expect(box.x, where).toBeGreaterThanOrEqual(m.x - 0.5);
+            expect(box.x + box.w, where).toBeLessThanOrEqual(m.x + m.w + 0.5);
+            expect(box.y, where).toBeGreaterThanOrEqual(m.y - 0.5);
+            expect(box.y + box.h, where).toBeLessThanOrEqual(m.y + m.h + 0.5);
+            for (const [name, p] of plates) {
+              const hit = box.x + box.w > p.x && box.x < p.x + p.w && box.y + box.h > p.y && box.y < p.y + p.h;
+              expect(hit, `${where} under ${name}`).toBe(false);
+            }
+          }
+        }
+        st.kit.dispose();
+      }
+    }
+  });
+
+  it('a view that has not got to draw yet, or that is begun again, has no caption left over', () => {
+    const st = stage(1280, 800);
+    const view = createMirrorView(st.kit);
+    frame(st, view, [call('n3')]);
+    const n = words(st).filter((t) => t === 'Three').length;
+    const run = setup(padWorkRules, { duration: 20, rounds: 1, bots: 'idle' });
+    view.begin({ game: 'pad-work', players: 1, keyboard: false, seated: false, profiles: run.engine.view().lanes.map((l) => l.profile) });
+    view.draw(run.engine.view(), { events: [], alpha: 1, dtMs: 33, pose: null, reducedMotion: false, say });
+    expect(words(st).filter((t) => t === 'Three').length).toBe(n);
   });
 });
 

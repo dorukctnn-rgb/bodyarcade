@@ -16,6 +16,7 @@ import { createI18n, type I18n, type Lang } from '../../../packages/core/ui/i18n
 import type { MeasuredDuo, MeasuredHud } from '../../../packages/core/ui/layout.ts';
 import { FIXED_DT, LANDMARK_COUNT, LM } from '../../../packages/core/types/index.ts';
 import type { BodyProfile, Game, GameContext, GameModule, InputFrame, Landmark, PoseFrame, Rng, Vec2 } from '../../../packages/core/types/index.ts';
+import { CALL_IDS } from '../../../packages/games/target/coach.ts';
 import { padWorkModule } from '../../../packages/games/pad-work/index.ts';
 import { reactionTagModule } from '../../../packages/games/reaction-tag/index.ts';
 import { starCatchModule } from '../../../packages/games/star-catch/index.ts';
@@ -48,6 +49,9 @@ export interface StartArgs {
   /** Mirror games play with the picture; false leaves it out (the stage and the hands only). */
   picture?: boolean;
   reducedMotion?: boolean;
+  /** The app's sound switch (off: the audio kit is muted, as the shell does at the start of a round) and quiet mode (the game's flags.silent). */
+  muted?: boolean;
+  quiet?: boolean;
   /** Simulation seconds per real second (default 1, at most 8), so a long run is a short test. */
   speed?: number;
 }
@@ -81,6 +85,8 @@ interface Running {
   aspect: number;
   speed: number;
   geo: { checked: number; violations: string[] };
+  /** What the coach did: every clip the game asked the kit to play (and whether it played), and every text drawn on the picture. */
+  voice: { lang: string; plays: { name: string; ok: boolean; gain: number | undefined; t: number }[]; texts: string[] };
 }
 
 let run: Running | null = null;
@@ -307,6 +313,7 @@ export async function start(a: StartArgs): Promise<void> {
 
   const audio = createAudio();
   audio.unlock();
+  if (a.muted) audio.setMuted(true);
   const announced: string[] = [], toasts: string[] = [];
   const cam = document.createElement('canvas');
   cam.width = Math.round(480 * aspect); cam.height = 480;
@@ -317,7 +324,18 @@ export async function start(a: StartArgs): Promise<void> {
   const bodies = profiles.map((p, i) => new VirtualBody({ profile: p, clockOffset: 5000 + 2000 * i }));
   const bots = bodies.map((_, i) => steerOf(a.game, args.bot, seed + i));
 
-  const r = { args, kit, audio, i18n, canvas, cam, bodies, bots, hub: null, offKeys: null, frames: [], raf: 0, last: performance.now(), acc: 0, k: 0, rendered: 0, phase: 'running', announced, toasts, layouts: 0, errors, observer, cues: {}, geo: { checked: 0, violations: [] }, aspect, speed: Math.min(8, Math.max(0.25, a.speed ?? 1)) } as unknown as Running;
+  const voice: Running['voice'] = { lang, plays: [], texts: [] };
+  const r = { args, kit, audio, i18n, canvas, cam, bodies, bots, hub: null, offKeys: null, frames: [], raf: 0, last: performance.now(), acc: 0, k: 0, rendered: 0, phase: 'running', announced, toasts, layouts: 0, errors, observer, cues: {}, geo: { checked: 0, violations: [] }, aspect, speed: Math.min(8, Math.max(0.25, a.speed ?? 1)), voice } as unknown as Running;
+  // what the coach plays and what it writes on the picture, written down as it happens
+  const realClip = audio.playClip.bind(audio);
+  audio.playClip = (name, o) => {
+    const ok = realClip(name, o);
+    voice.plays.push({ name, ok, gain: o?.gain, t: r.game?.engine?.view().t ?? 0 });
+    return ok;
+  };
+  const c2d = kit.ctx as CanvasRenderingContext2D;
+  const realFill = c2d.fillText.bind(c2d);
+  c2d.fillText = (text: string, x: number, y: number, max?: number) => { if (!voice.texts.includes(text)) voice.texts.push(text); if (max === undefined) realFill(text, x, y); else realFill(text, x, y, max); };
   // count what the game asks the sound kit to play, and let the kit do it
   const realPlay = audio.play.bind(audio);
   (audio as { play: (n: string) => void }).play = (n: string) => { r.cues[n] = (r.cues[n] ?? 0) + 1; realPlay(n); };
@@ -343,7 +361,7 @@ export async function start(a: StartArgs): Promise<void> {
     store: { get: <T>(_k: string, _s: unknown, f: T) => f, set() {}, remove() {} } as unknown as GameContext['store'],
     scene2d: kit,
     rng: ((streams: Map<string, Rng>) => (name: 'course' | 'fx') => { let s = streams.get(name); if (!s) { s = rngStream(seed, name); streams.set(name, s); } return s; })(new Map()),
-    flags: { reducedMotion: a.reducedMotion ?? false, silent: false, seated: args.seated },
+    flags: { reducedMotion: a.reducedMotion ?? false, silent: a.quiet ?? false, seated: args.seated },
     t: i18n.scoped(`game.${a.game}`),
   };
   const game = mod.create() as Running['game'];
@@ -407,6 +425,15 @@ export interface HarnessState {
   summary: { score: number; hits?: number; metSeconds: number } | null;
   hasPicture: boolean;
   geometry: { checked: number; violations: string[] };
+  voice: {
+    lang: string;
+    plays: { name: string; ok: boolean; gain: number | undefined; t: number }[];
+    /** Clip name to its decoded length in seconds, for every call of the language the audio kit holds. */
+    clips: Record<string, number>;
+    texts: string[];
+    calls: { id: string; t: number }[];
+    muted: boolean;
+  };
 }
 
 export function state(): HarnessState | null {
@@ -453,6 +480,14 @@ export function state(): HarnessState | null {
     summary: r.phase !== 'running' ? (() => { const s = r.game.summary(); return { score: s.score, ...(s.hits !== undefined ? { hits: s.hits } : {}), metSeconds: s.metSeconds }; })() : null,
     hasPicture: !r.args.keyboard,
     geometry: { checked: r.geo.checked, violations: [...r.geo.violations] },
+    voice: {
+      lang: r.voice.lang,
+      plays: r.voice.plays.map((p) => ({ ...p })),
+      clips: Object.fromEntries(['en', 'tr'].flatMap((l) => CALL_IDS.map((id) => `coach/${l}/${id}`)).filter((n) => r.audio.hasClip(n)).map((n) => [n, r.audio.clipDuration(n)])),
+      texts: [...r.voice.texts],
+      calls: e ? e.calls.filter((c) => c.t <= (v?.t ?? 0)).map((c) => ({ id: c.id, t: c.t })) : [],
+      muted: r.audio.muted,
+    },
   };
 }
 

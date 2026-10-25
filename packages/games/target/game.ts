@@ -12,9 +12,11 @@
 import type {
   BodyProfile, Game, GameContext, GameEvent, GameManifest, Hud, InputFrame, PlayerSlot, PoseFrame, PoseService, RunSummary, StartOptions, StepResult,
 } from '../../core/types/index.ts';
+import type { CallId } from './coach.ts';
+import { browserSpeech, createCoachVoice, pickVoiceLang, type CoachVoice, type SpeechLike, type VoiceAudio, type VoicePack } from './coach-voice.ts';
 import { TargetEngine, type EngineConfig } from './engine.ts';
 import { nominalProfile } from './envelope.ts';
-import { english, TARGET_NAMESPACE } from './strings.ts';
+import { callText, english, TARGET_NAMESPACE, type Lang } from './strings.ts';
 import { levelOf, type BaseSpec, type Hint, type Prompt, type Rules, type StartInput, type ViewState } from './types.ts';
 
 /** What the mirror view is told when a run starts. */
@@ -54,6 +56,13 @@ export interface TargetGameOptions {
   latencyMs?: number;
   /** Builds the view from the context (the games' index.ts give the mirror view on a Scene2D kit); none: the game runs without a picture. */
   view?: (ctx: GameContext, say: ViewFrame['say']) => TargetView | null;
+  /**
+   * The clips of the coach's voice, for a game whose rules make calls (coach.ts). The calls are shown as captions whatever this is; without
+   * a pack, or when the clips cannot be had, they are spoken by the browser's own voice if it has one in the language, or not at all.
+   */
+  voice?: VoicePack;
+  /** Tools and tests: another way to get the bytes of a clip, and another fallback voice (null: none; left out: the browser's). */
+  voiceIo?: { fetchBytes?: (url: string) => Promise<ArrayBuffer>; speech?: SpeechLike | null };
 }
 
 /** The Game plus a read-only look at the engine, for tools and tests. */
@@ -71,6 +80,7 @@ export function createTargetGame<S extends BaseSpec>(manifest: GameManifest, rul
   let ctx: GameContext | null = null;
   let engine: TargetEngine<S> | null = null;
   let view: TargetView | null = null;
+  let coach: CoachVoice | null = null;
   let opts: StartOptions | null = null;
   let pending: GameEvent[] = [];
   let pose: PoseFrame | null = null;
@@ -127,6 +137,20 @@ export function createTargetGame<S extends BaseSpec>(manifest: GameManifest, rul
     async init(c: GameContext): Promise<void> {
       ctx = c;
       view = o.view?.(c, say) ?? null;
+      if (o.voice && rules.calls) {
+        // The language of the voice is what the game's words say it is (voice.lang): the app's language where the pack has a voice in it,
+        // English otherwise. The clips are fetched now, while the player is being calibrated, and not before the game is chosen.
+        const pack = o.voice;
+        const lang = pickVoiceLang(pack, say('voice.lang'));
+        coach = createCoachVoice({
+          audio: c.audio as unknown as VoiceAudio, pack, lang, quiet: c.flags.silent,
+          text: (l, id) => callText(l as Lang, id) ?? '',
+          ...(o.voiceIo?.fetchBytes ? { fetchBytes: o.voiceIo.fetchBytes } : {}),
+          speech: o.voiceIo && 'speech' in o.voiceIo ? (o.voiceIo.speech ?? null) : browserSpeech(),
+          onError: () => { /* a clip that did not load: the call falls back to the browser's voice */ },
+        });
+        void coach.preload().catch(() => undefined);
+      }
       const p = c.pose as Partial<PoseService>;
       if (typeof p.onFrame === 'function') offPose = p.onFrame((f) => { pose = f; });
     },
@@ -135,6 +159,7 @@ export function createTargetGame<S extends BaseSpec>(manifest: GameManifest, rul
       const c = ctx;
       if (!c) throw new Error('Call init() before start().');
       opts = { ...s };
+      coach?.setQuiet(c.flags.silent);
       const two = s.mode === 'local2';
       const seated = s.seated || c.flags.seated;
       const p1 = two ? (s.profiles?.[1] ?? s.profile ?? nominalProfile({ seated })) : s.profile;
@@ -170,6 +195,10 @@ export function createTargetGame<S extends BaseSpec>(manifest: GameManifest, rul
       for (const ev of pending) {
         if (ev.type === 'round') c.hud.announce(say('announce_round', { n: ev.n as number, of: ev.of as number }));
         else if (ev.type === 'rest') c.hud.announce(say('announce_rest'));
+        // the coach's calls: spoken now (a call that is far too late is dropped, never queued), and drawn as a caption by the view
+        else if (ev.type === 'call' && coach) {
+          try { coach.say(ev.id as CallId, { lateMs: v.t - (ev.at as number) }); } catch { /* a voice that fails must never stop a round */ }
+        }
       }
 
       // the HUD
@@ -240,6 +269,8 @@ export function createTargetGame<S extends BaseSpec>(manifest: GameManifest, rul
     dispose(): void {
       offPose?.();
       offPose = null;
+      coach?.dispose();
+      coach = null;
       view?.dispose();
       view = null;
       engine = null;

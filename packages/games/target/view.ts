@@ -12,6 +12,7 @@ import type { BodyProfile, GameEvent, Landmark, PlayerSlot, PoseFrame, Side, Vec
 import type { Scene2DKit } from '../../core/render2d/scene2d.ts';
 import type { SpriteStyle } from '../../core/render2d/sprites.ts';
 import { makeProjector, type Projector, type Rect } from '../../core/render2d/view.ts';
+import { CAPTION_MS, callKind, type CallId, type CallKind } from './coach.ts';
 import type { TargetView, ViewBegin, ViewFrame } from './game.ts';
 import { STEP_MS } from './engine.ts';
 import { readyVideo, videoSizeOf } from './video.ts';
@@ -40,8 +41,23 @@ export interface MirrorViewOptions {
 }
 
 interface Floater { x: number; y: number; lane: number; text: string; color: string; age: number; life: number; big: boolean }
+/** The words of the call being made, over the picture while it is spoken (and for players who play without sound). */
+interface Caption { text: string; kind: CallKind; age: number; life: number }
 interface Flash { x: number; y: number; lane: number; color: string; age: number; life: number; r: number }
 interface Pt { x: number; y: number }
+
+/** What a letter of the caption takes of its type size, at most (the face is a heavy proportional one): the width of a caption before it is drawn. */
+export const CAPTION_EM = 0.62;
+
+/**
+ * Where the coach's caption goes on the mirror: its centre and its type size (px). High on the picture, under the command plate; large
+ * for a number, a little smaller for words, and smaller still for words that would not fit across the picture at that size.
+ */
+export function captionLayout(rect: Rect, kind: CallKind, text = ''): { x: number; y: number; size: number } {
+  const base = Math.max(22, Math.min(rect.h * (kind === 'number' ? 0.07 : 0.062), 64));
+  const fit = text.length > 0 ? (rect.w * 0.92) / (text.length * CAPTION_EM) : base;
+  return { x: rect.x + rect.w / 2, y: rect.y + rect.h * 0.22, size: Math.max(14, Math.min(base, fit)) };
+}
 
 const MAX_FLOATERS = 18;
 const MAX_FLASHES = 18;
@@ -56,6 +72,7 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
   let flashes: Flash[] = [];
   let trails: Map<number, Pt[]>[] = [new Map(), new Map()];
   let lit: { lane: number; group: number; until: number }[] = [];
+  let caption: Caption | null = null;
   let clock = 0;
   const tmp: Vec2 = { x: 0, y: 0 };
 
@@ -413,6 +430,12 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
           addFloater({ x: p.x, y: p.y, lane: li, text: `+${e['pts'] as number}`, color: COLORS.sun, age: 0, life: 1100, big: true });
           break;
         }
+        case 'call': {
+          const id = e['id'] as CallId;
+          const kind = callKind(id);
+          caption = { text: f.say(`call.${id}`), kind, age: 0, life: CAPTION_MS[kind] };
+          break;
+        }
         case 'combo': {
           kit.particles.confetti(rect.x + rect.w * 0.2, rect.y + rect.h * 0.3, rect.w * 0.6, reduced ? 6 : 22, { colors: [COLORS.sun, COLORS.sky, COLORS.go, COLORS.flush] });
           // the bonus of a clean combination is points like any other: say so, above the head where the eyes are
@@ -443,6 +466,18 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
     }
   }
 
+  /** The coach's caption: one line, high on the picture and clear of the command plate, in the colour of what it asks (sun for a slip or a duck). */
+  function drawCaption(rect: Rect, dtMs: number, reduced: boolean): void {
+    if (!caption) return;
+    caption.age += dtMs;
+    if (caption.age >= caption.life) { caption = null; return; }
+    const u = caption.age / caption.life;
+    const alpha = Math.min(1, caption.age / 90) * (u > 0.72 ? 1 - (u - 0.72) / 0.28 : 1);
+    const at = captionLayout(rect, caption.kind, caption.text);
+    const grow = reduced ? 1 : 0.88 + 0.12 * Math.min(1, caption.age / 110);
+    label(caption.text, at.x, at.y, at.size * grow, caption.kind === 'defence' ? COLORS.sun : COLORS.chalk, alpha);
+  }
+
   // ───────── the view ─────────
 
   return {
@@ -455,6 +490,7 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
       flashes = [];
       trails = [new Map(), new Map()];
       lit = [];
+      caption = null;
       clock = 0;
       kit.particles.clear();
       // a mirror game has no self view window: when nobody set up the mirror layout, do it (never over a two-player layout)
@@ -516,10 +552,11 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
       kit.particles.update(Math.max(0, f.dtMs) / 1000);
       kit.particles.draw(ctx);
       drawEffects(f.dtMs, f.reducedMotion);
+      drawCaption(rect, f.dtMs, f.reducedMotion);
     },
 
     dispose(): void {
-      floaters = []; flashes = []; lit = []; trails = [new Map(), new Map()];
+      floaters = []; flashes = []; lit = []; caption = null; trails = [new Map(), new Map()];
       projectors = []; projKey = '';
       kit.particles.clear();
     },
