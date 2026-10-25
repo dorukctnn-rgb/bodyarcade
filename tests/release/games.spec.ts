@@ -5,6 +5,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { analyseScene, decodePng, isBlank } from '../../tools/page-check/scene.ts';
 import { BASE, OUT, sitemapUrls } from './support.ts';
 
 const slugs = [...new Set(sitemapUrls().map((p) => /^\/games\/([a-z0-9-]+)\/$/.exec(p)?.[1]).filter((s): s is string => !!s))].sort();
@@ -40,11 +41,15 @@ for (const slug of slugs) {
       if (await error.isVisible().catch(() => false)) message = await error.innerText();
     }
     await page.screenshot({ path: join(OUT, 'games', `${slug}.png`) });
-    // Is the game's scene drawn? The middle of the stage (clear of the HUD bars and the camera view) as a JPEG: a flat
-    // background compresses to about 3 KB, a drawn scene to 15 KB and more (measured 24 Oct: Road Run 20 KB, blank 2.9 KB).
-    const sceneBytes = (await page.screenshot({ type: 'jpeg', quality: 50, clip: { x: 64, y: 144, width: 896, height: 416 } })).length;
-    const sceneDrawn = sceneBytes > 8000;
-    writeFileSync(join(OUT, 'games', `${slug}.json`), JSON.stringify({ slug, started, sceneDrawn, sceneBytes, error: message, pageErrors, seconds: Math.round((Date.now() - t0) / 1000) }, null, 1));
+    // Is the game's scene drawn? The middle of the stage (clear of the HUD bars and the camera view), looked at pixel by pixel with the
+    // QA page check's own rule (tools/page-check/scene.ts isBlank): a scene is blank when one colour covers it all. The size of a JPEG
+    // of it (the rule until 25 Oct: blank 2.9 KB, Road Run 20 KB, drawn above 8 KB) called the line art of Pad Work, Reaction Tag and
+    // Firework Jacks blank (6.2 to 7.8 KB) while their figure and targets were on the screen; it stays in the evidence.
+    const clip = { x: 64, y: 144, width: 896, height: 416 };
+    const sceneBytes = (await page.screenshot({ type: 'jpeg', quality: 50, clip })).length;
+    const scene = analyseScene(decodePng(await page.screenshot({ type: 'png', clip })), { x: 0, y: 0, w: clip.width, h: clip.height }, []);
+    const sceneDrawn = !isBlank(scene);
+    writeFileSync(join(OUT, 'games', `${slug}.json`), JSON.stringify({ slug, started, sceneDrawn, scene, sceneBytes, error: message, pageErrors, seconds: Math.round((Date.now() - t0) / 1000) }, null, 1));
     await context.close();
     expect({ started, sceneDrawn, message, pageErrors }).toEqual({ started: true, sceneDrawn: true, message: null, pageErrors: [] });
   });
