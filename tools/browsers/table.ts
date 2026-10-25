@@ -28,9 +28,10 @@ export const clean = (s: string): string => s.replace(ANSI, '').replace(/\r/g, '
 
 /**
  * Failures that are the test tool's limit on an engine and say nothing about the app: Playwright cannot grant the camera permission in
- * Firefox ("Unknown permission: camera"), so a spec written for Chromium that begins by granting it stops there.
+ * Firefox ("Unknown permission: camera") nor the clipboard permissions in WebKit ("Unknown permission: clipboard-write"), so a spec
+ * written for Chromium that begins by granting them stops there.
  */
-const NOT_APPLICABLE: RegExp[] = [/Unknown permission: camera/];
+const NOT_APPLICABLE: RegExp[] = [/Unknown permission: camera/, /Unknown permission: clipboard-(?:write|read)/];
 
 function outcomeOf(t: JsonTest): Outcome {
   if (t.status === 'skipped') return 'skip';
@@ -41,9 +42,12 @@ function outcomeOf(t: JsonTest): Outcome {
   return NOT_APPLICABLE.some((x) => x.test(text)) ? 'n/a' : 'FAIL';
 }
 
-/** The message of the last result, without colour codes and without the call log, shortened. */
+/**
+ * The message of the last result (of a flaky test: of the first one that failed, the one that passed has none), without colour codes
+ * and without the call log, shortened.
+ */
 export function messageOf(t: JsonTest, max = 420): string {
-  const r = t.results[t.results.length - 1];
+  const r = t.status === 'flaky' ? t.results.find((x) => x.status !== 'passed' && x.status !== 'skipped') ?? t.results[0] : t.results[t.results.length - 1];
   const raw = r?.error?.message ?? r?.errors?.[0]?.message ?? '';
   const lines = clean(raw).split('\n').map((l) => l.trim()).filter(Boolean);
   const cut = lines.findIndex((l) => /^(Call log|at |Error Context)/.test(l));

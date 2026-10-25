@@ -23,10 +23,15 @@ export interface PersonCameraOptions {
   portrait?: boolean;
 }
 
-/** The address the fixture is served at, inside the page's own origin (a route answers it; nothing else is asked for). */
-export const CAMERA_PATH = '/__fake-camera.mjpeg';
+/**
+ * The name of the function the context gives every page (context.exposeFunction): it answers with the fixture, base64. The bytes do not travel
+ * over the network on purpose: the release build has a service worker, and a request that goes through it is made by the worker, which Playwright
+ * routes in Chromium only (the fixture asked for by name was answered by the real server's "not found" page in WebKit and Firefox, and the page
+ * had no picture: "TypeError: Type error" on the release build of the camera flow).
+ */
+export const CAMERA_BINDING = '__baFakeCameraBytes';
 
-interface ShimConfig { url: string; fps: number; portrait: boolean }
+interface ShimConfig { binding: string; fps: number; portrait: boolean }
 
 /** What the page-side camera tells about itself (window.__fakeCamera). */
 export interface CameraInfo { installed: boolean; asked: number; live: number; drawn: number; error: string | null }
@@ -40,7 +45,9 @@ function shim(cfg: ShimConfig): void {
   let blobs: Blob[] | null = null;
   const load = async (): Promise<Blob[]> => {
     if (blobs) return blobs;
-    const bytes = new Uint8Array(await (await fetch(cfg.url, { cache: 'no-store' })).arrayBuffer());
+    const bin = atob(await (window as unknown as Record<string, () => Promise<string>>)[cfg.binding]!());
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     const out: Blob[] = [];
     let start = -1;
     for (let i = 0; i + 2 < bytes.length; i++) {
@@ -108,9 +115,9 @@ function shim(cfg: ShimConfig): void {
 
 /** Gives every page of the context a camera that shows the person of the file. Call before the first page is opened. */
 export async function installPersonCamera(context: BrowserContext, o: PersonCameraOptions): Promise<void> {
-  const body = readFileSync(resolve(o.file));
-  await context.route((u) => u.pathname === CAMERA_PATH, (route) => route.fulfill({ status: 200, body, contentType: 'video/x-motion-jpeg', headers: { 'cache-control': 'no-store' } }));
-  await context.addInitScript(shim, { url: CAMERA_PATH, fps: o.fps ?? 15, portrait: o.portrait === true });
+  const b64 = readFileSync(resolve(o.file)).toString('base64');
+  await context.exposeFunction(CAMERA_BINDING, () => b64);
+  await context.addInitScript(shim, { binding: CAMERA_BINDING, fps: o.fps ?? 15, portrait: o.portrait === true });
 }
 
 /** What the page-side camera did: how often the page asked for it, how many are open, how many pictures were drawn, and the error it hit (null when none). installed false: the engine cannot make a camera from a canvas. */

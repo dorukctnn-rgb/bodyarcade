@@ -41,6 +41,21 @@ describe('browser table', () => {
     expect(md).not.toContain('#### Failures');
   });
 
+  it('does not count the clipboard permissions that WebKit cannot be given either', () => {
+    const rep: JsonReport = { suites: [{ title: 'x.spec.ts', file: 'x.spec.ts', specs: [{ title: 'race', ok: false, tests: [test('webkit-ui', 'unexpected', 'browserContext.newPage: Unknown permission: clipboard-write')] }] }] };
+    expect(tableMarkdown(rowsOf(rep))).toContain('| race | n/a |');
+  });
+
+  it('tells what the first try of a flaky test said (the one that passed has no message)', () => {
+    const flaky: JsonTest = { projectName: 'webkit-phone', status: 'flaky', annotations: [], results: [
+      { status: 'failed', duration: 900, retry: 0, error: { message: 'Error: the camera stopped' } },
+      { status: 'passed', duration: 1100, retry: 1 },
+    ] };
+    expect(messageOf(flaky)).toBe('Error: the camera stopped');
+    const rep: JsonReport = { suites: [{ title: 'x.spec.ts', file: 'x.spec.ts', specs: [{ title: 'camera', ok: true, tests: [flaky] }] }] };
+    expect(tableMarkdown(rowsOf(rep))).toContain('  - Error: the camera stopped');
+  });
+
   it('orders the columns WebKit, Firefox, Chromium and phone before desktop, and writes the table and the failures', () => {
     const rows = rowsOf(report);
     expect(projectsOf(rows)).toEqual(['webkit-phone', 'webkit-desktop', 'firefox-desktop']);
@@ -62,5 +77,14 @@ describe('merge of several runs', () => {
     expect(md).toContain('| flow | win-webkit-phone | mac-webkit-phone |');
     expect(md).toContain('| home | ok | ok |');
     expect(md).toContain('| camera | skip | FAIL |');
+  });
+
+  it('can fold the phone and the desktop of one environment and engine into one cell', async () => {
+    const { compactMarkdown, mergeRows } = await import('./merge.ts');
+    const a: JsonReport = { suites: [{ title: 'f.spec.ts', file: 'f.spec.ts', specs: [{ title: 'home', ok: true, tests: [test('webkit-phone', 'expected'), test('webkit-desktop', 'unexpected', 'x')] }] }] };
+    const b: JsonReport = { suites: [{ title: 'f.spec.ts', file: 'f.spec.ts', specs: [{ title: 'home', ok: true, tests: [test('firefox-phone', 'skipped'), test('firefox-desktop', 'expected')] }] }] };
+    const md = compactMarkdown(mergeRows([{ label: 'mac', report: a }, { label: 'linux', report: b }]));
+    expect(md).toContain('| flow | mac-webkit | linux-firefox |');
+    expect(md).toContain('| home | ok / FAIL | skip / ok |');
   });
 });
