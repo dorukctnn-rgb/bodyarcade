@@ -267,6 +267,37 @@ describe('the moderator API', () => {
     expect((await app.admin('GET', '/api/admin/social/reports?status=nope')).status).toBe(400);
   });
 
+  it("erases a profile by its friend code, as the player's own button does, for a request made by e-mail", async () => {
+    const [a, b, t] = await reporters(3) as [TestPlayer, TestPlayer, TestPlayer];
+    await a.post('/api/social/friends/request', { code: t.me.code });
+    await t.post('/api/social/friends/respond', { fid: a.me.fid, accept: true });
+    await report(b, t, 'abuse');
+    const tPid = t.pid();
+    app.hubs.connect(a.pid());
+    app.hubs.connect(tPid);
+    expect((await app.admin('POST', '/api/admin/social/profiles/delete', { code: t.me.code }, null)).status).toBe(401);
+    expect((await app.admin('POST', '/api/admin/social/profiles/delete', { code: 'nonsense' })).status).toBe(400);
+    expect((await app.admin('POST', '/api/admin/social/profiles/delete', { code: 'BA-222222' })).status).toBe(404);
+    const r = await app.admin('POST', '/api/admin/social/profiles/delete', { code: t.me.code, note: 'asked by e-mail 25 Oct' });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ ok: true, deleted: true });
+    for (const tbl of ['soc_profiles', 'soc_devices']) expect((app.db.raw.prepare(`SELECT COUNT(*) AS n FROM ${tbl} WHERE pid = ?`).get(tPid) as { n: number }).n).toBe(0);
+    expect((app.db.raw.prepare('SELECT COUNT(*) AS n FROM soc_friends WHERE pid = ?1 OR friend = ?1').get(tPid) as { n: number }).n).toBe(0);
+    expect(app.hubs.events(a.pid())).toContainEqual({ t: 'friend_removed', fid: t.me.fid });
+    expect(app.hubs.closes).toContainEqual({ pid: tPid, reason: 'deleted' });
+    expect((await t.get('/api/social/me')).status).toBe(401);
+    // the report about the player stays without the name; the safety log keeps the act and the note, and nothing that names the player
+    expect(app.db.raw.prepare('SELECT target_name, note FROM soc_reports').get()).toEqual({ target_name: '', note: null });
+    const audit = app.db.raw.prepare("SELECT actor, action, target, detail FROM soc_audit WHERE action = 'delete_profile'").all() as { actor: string; action: string; target: string | null; detail: string }[];
+    expect(audit).toEqual([{ actor: 'admin', action: 'delete_profile', target: null, detail: JSON.stringify({ note: 'asked by e-mail 25 Oct' }) }]);
+    expect(JSON.stringify(audit)).not.toContain(t.me.name);
+    // a second request for the same code finds nothing
+    expect((await app.admin('POST', '/api/admin/social/profiles/delete', { code: t.me.code })).status).toBe(404);
+    // and the route does not exist where no token is configured
+    const bare = createTestApp({ env: { ADMIN_TOKEN: undefined } });
+    expect((await bare.admin('POST', '/api/admin/social/profiles/delete', { code: a.me.code })).status).toBe(404);
+  });
+
   it('dismiss and warn settle one report and change nothing about the player', async () => {
     const [a, b, target] = await reporters(3) as [TestPlayer, TestPlayer, TestPlayer];
     await report(a, target, 'spam');

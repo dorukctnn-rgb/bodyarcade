@@ -35,6 +35,7 @@
 //   GET  /f/:code                        the app's start page under a friend link (the page reads the code from its address)
 //   GET  /api/admin/social/reports       ?status=open&limit=50      (Authorization: Bearer ADMIN_TOKEN; 404 without the token)
 //   POST /api/admin/social/reports/:id   {action: dismiss|warn|mute|suspend|ban|clear, days?, note?}
+//   POST /api/admin/social/profiles/delete {code, note?}   erase the profile with this friend code (a request made by e-mail)
 //   GET  /api/admin/social/stats
 //
 // Every route except register and the admin routes needs a signed request (core/social/sign.ts: X-BA-Auth). Every answer
@@ -48,7 +49,7 @@ import { directoryOf } from './env.ts';
 import { closedSocket } from './hub.ts';
 import { cancel, addBlock, listBlocks, listFriends, listRequests, removeBlock, removeFriend, respond, sendRequest } from './friends.ts';
 import { declineInvite, invite, listLobbies, quickMatch } from './lobbies.ts';
-import { adminAct, adminReports, adminStats, report } from './moderation.ts';
+import { adminAct, adminDeleteProfile, adminReports, adminStats, report } from './moderation.ts';
 import { deleteMe, exportMe, getMe, recover, register, renewCode, renewRecovery, updateMe } from './profile.ts';
 import { finishRun, leaderboard, startRun } from './scores.ts';
 import { getSync, putSync } from './sync.ts';
@@ -191,6 +192,7 @@ const TABLE: readonly (readonly [Method, string, (d: Deps) => Handler])[] = [
   ['GET', '/api/social/hub', (d) => d.connectHub],
   ['GET', '/api/admin/social/reports', () => adminReports],
   ['POST', '/api/admin/social/reports/:id', () => adminAct],
+  ['POST', '/api/admin/social/profiles/delete', () => adminDeleteProfile],
   ['GET', '/api/admin/social/stats', () => adminStats],
 ];
 

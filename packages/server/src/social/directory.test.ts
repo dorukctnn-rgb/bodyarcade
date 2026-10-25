@@ -108,6 +108,16 @@ describe('starting up', () => {
     expect(() => migrate(storage)).toThrow(new RegExp(`newer version \\(${SCHEMA_VERSION + 1}, this code knows ${SCHEMA_VERSION}\\)`));
   });
 
+  it('brings a database that holds version 1 profiles up to date without losing them: the terms columns are empty for them', () => {
+    const storage = fakeDoStorage();
+    for (const s of VERSIONS[0]?.statements ?? []) storage.sql.exec(s);
+    storage.sql.exec('CREATE TABLE IF NOT EXISTS soc_meta (k TEXT PRIMARY KEY, v TEXT NOT NULL) STRICT, WITHOUT ROWID');
+    storage.sql.exec("INSERT INTO soc_meta (k, v) VALUES ('schema', '1')");
+    storage.sql.exec("INSERT INTO soc_profiles (pid, fid, code, name, band, region, created_at) VALUES ('p1', 'FID0000001', 'ABCDEF', 'Old Hand', 'adult', 'eu', 1)");
+    expect(migrate(storage)).toEqual({ from: 1, to: SCHEMA_VERSION });
+    expect(storage.raw.prepare("SELECT name, terms, terms_at FROM soc_profiles WHERE pid = 'p1'").get()).toEqual({ name: 'Old Hand', terms: '', terms_at: 0 });
+  });
+
   it('applies the versions it has not seen, in order, each in one transaction (and a failing one leaves the tables as they were)', () => {
     const storage = fakeDoStorage();
     expect(migrate(storage)).toEqual({ from: 0, to: SCHEMA_VERSION });

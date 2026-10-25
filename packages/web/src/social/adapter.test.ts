@@ -248,6 +248,15 @@ describe('the profile', () => {
     expect(port.state().recovery).toBeNull();
   });
 
+  it('a sign-up carries the version of the terms the player agreed to, and none when the request has none', async () => {
+    const { client, port } = make();
+    await port.createProfile({ band: 'adult', name: 'Mia', terms: '2026-10-25' });
+    expect(client.calls.find((c) => c.startsWith('signUp'))).toBe('signUp [{"band":"adult","name":"Mia","terms":"2026-10-25","lang":"tr"}]');
+    const bare = make();
+    await bare.port.createProfile({ band: 'adult', name: 'Mia' });
+    expect(bare.client.calls.find((c) => c.startsWith('signUp'))).toBe('signUp [{"band":"adult","name":"Mia","lang":"tr"}]');
+  });
+
   it('a sign-up without a typed name sends none (the server makes one)', async () => {
     const { client, port } = make();
     await port.createProfile({ band: 'adult', name: null });

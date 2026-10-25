@@ -101,6 +101,7 @@ test('a room link opened by somebody with no profile asks the age first, then th
   await newcomer.page.locator('label:has(input[name="age"][value="adult"])').click();
   await newcomer.page.locator('[data-action="sheet.age.next"]').click();
   await newcomer.page.locator('#profile-name').fill('Newcomer');
+  await newcomer.page.locator('#profile-terms').check();
   await newcomer.page.locator('[data-action="sheet.name.create"]').click();
   await newcomer.page.locator('[data-action="sheet.recovery.saved"]').click();
   await expect(newcomer.page.locator('.k-seat[data-seat]')).toHaveCount(2, { timeout: 30_000 });

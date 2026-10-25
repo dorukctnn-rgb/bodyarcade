@@ -92,6 +92,12 @@
 .k-sheet .k-fine { display: flex; gap: 6px; align-items: flex-start; }
 .k-sheet .k-fine svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
 .k-sheet .ba-callout { margin: 0; }
+/* The agreement of the sign-up: the box beside a sentence of its own, at least as big as a thumb, with the links in it. */
+.k-check--agree { align-items: flex-start; font-weight: 500; line-height: 1.45; padding: 4px 0; }
+.k-check--agree input { flex: none; margin-top: 0; }
+.k-check--agree input[aria-invalid="true"] { outline: 2px solid var(--ba-flush-700); outline-offset: 2px; }
+[data-theme="dark"] .k-check--agree input[aria-invalid="true"] { outline-color: var(--ba-flush-500); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .k-check--agree input[aria-invalid="true"] { outline-color: var(--ba-flush-500); } }
 
 /* ---------- the friend link ---------- */
 .k-linkcard { max-width: 640px; }

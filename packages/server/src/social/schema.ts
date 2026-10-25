@@ -212,6 +212,15 @@ export const VERSIONS: readonly SchemaVersion[] = [
       ) STRICT, WITHOUT ROWID`,
     ],
   },
+  {
+    version: 2,
+    statements: [
+      // The terms the player agreed to in the sign-up (core/social/rules.ts TERMS_VERSION, an ISO day) and when (epoch ms). '' and 0 =
+      // not recorded: a profile made before this version, or by a client that did not send it. Both go with the profile when it is erased.
+      `ALTER TABLE soc_profiles ADD COLUMN terms TEXT NOT NULL DEFAULT ''`,
+      `ALTER TABLE soc_profiles ADD COLUMN terms_at INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 /** The newest schema version this code knows. */

@@ -11,9 +11,11 @@ import type { SocketLike } from '../../../core/net/runtime.ts';
 import { POLICY } from '../../../core/social/age.ts';
 import { SocialApiError, SocialClient, type SignUp } from '../../../core/social/client.ts';
 import { MemoryKeyStore } from '../../../core/social/keystore.ts';
+import { TERMS_VERSION } from '../../../core/social/rules.ts';
 import { generateDeviceKey, signRequest } from '../../../core/social/sign.ts';
 import { HUB_CLOSE, type FriendEntry, type HubEvent } from '../../../core/social/types.ts';
 import type { JoinGrant } from '../../../core/types/net.ts';
+import { SCHEMA_VERSION } from './schema.ts';
 import { STACK_ADMIN_TOKEN, startStack, type Stack } from './stack.ts';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
@@ -102,9 +104,12 @@ describe('the Worker in workerd', () => {
       const first = await startStack({ persistTo: dir });
       try {
         const client = new SocialClient({ origin: first.origin, keys: store });
-        fid = (await client.signUp({ band: 'adult', name: 'Mia' })).fid;
-        expect((await first.db.prepare("SELECT v FROM soc_meta WHERE k = 'schema'").first<{ v: string }>())?.v).toBe('1');
-        expect(first.events('social_schema')).toEqual([{ evt: 'social_schema', from: 0, to: 1 }]);
+        fid = (await client.signUp({ band: 'adult', name: 'Mia', terms: TERMS_VERSION })).fid;
+        expect((await first.db.prepare("SELECT v FROM soc_meta WHERE k = 'schema'").first<{ v: string }>())?.v).toBe(String(SCHEMA_VERSION));
+        expect(first.events('social_schema')).toEqual([{ evt: 'social_schema', from: 0, to: SCHEMA_VERSION }]);
+        // the terms the sign-up named are kept with the profile, and the data file says so
+        expect((await first.db.prepare('SELECT terms FROM soc_profiles').first<{ terms: string }>())?.terms).toBe(TERMS_VERSION);
+        expect((await client.exportData()).termsAccepted?.version).toBe(TERMS_VERSION);
       } finally {
         await first.stop();
       }

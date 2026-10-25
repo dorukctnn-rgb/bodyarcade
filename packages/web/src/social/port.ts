@@ -89,6 +89,8 @@ export interface ProfileRequest {
    * shown first and sent as it was shown; null lets the server make one.
    */
   name: string | null;
+  /** The version of the terms the player agreed to in the sign-up (core/social/rules.ts TERMS_VERSION); the server keeps it with the profile. */
+  terms?: string;
 }
 
 export interface QuickMatchRequest {

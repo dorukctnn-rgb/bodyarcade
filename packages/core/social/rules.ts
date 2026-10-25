@@ -201,6 +201,17 @@ export function escalate(f: EscalationFacts): Escalation {
   return { muteMs, suspendMs, urgent: f.urgentReporters24h >= 1 || suspendMs > 0 };
 }
 
+// ───────── the terms a player agrees to ─────────
+/**
+ * The version of the terms of use and the community rules that the sign-up asks a player to agree to before an online profile is made:
+ * the day (ISO) they were last changed in substance. packages/web/content/facts.ts UPDATED is the date the pages show and
+ * content.test.ts keeps the two equal, so a changed text cannot go out under the old version. The server keeps what the sign-up sent.
+ */
+export const TERMS_VERSION = '2026-10-25';
+
+/** A terms version as it is written: an ISO day. */
+export const isTermsVersion = (x: unknown): x is string => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && Number.isFinite(Date.parse(x));
+
 // ───────── small validators shared by client and server ─────────
 const GAME_ID = /^[a-z0-9][a-z0-9_-]{0,39}$/i;
 const LANG = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/;

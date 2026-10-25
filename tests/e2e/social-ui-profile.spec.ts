@@ -5,6 +5,7 @@
 // service that does not answer, a profile deleted on another device.
 //   node C:/Users/doruk/apps/_tools/e2e-slot.mjs run -- npm run test:social -- --workers=1 tests/e2e/social-ui-profile.spec.ts
 import { expect, test } from '@playwright/test';
+import { TERMS_VERSION } from '../../packages/core/social/rules.ts';
 import { befriend, inspect, online, ownCode, player, ready, shot, signUp, startShellSite, type Codes, type Player, type Site } from './social-ui-support.ts';
 
 let site: Site;
@@ -224,6 +225,73 @@ test('deleting the profile erases it on the server and here, and the friends are
   expect(again.friend).not.toBe(ada.code);
 });
 
+// ───────── the agreement of the sign-up ─────────
+
+/** The sign-up window of a page on the Friends screen, as far as the name step. */
+async function toNameStep(page: import('@playwright/test').Page, name: string): Promise<void> {
+  await page.locator('[data-action="social.profile"]').first().click();
+  await page.locator('label:has(input[name="age"][value="adult"])').click();
+  await page.locator('[data-action="sheet.age.next"]').click();
+  await page.locator('#profile-name').fill(name);
+}
+
+test('the sign-up asks for the agreement before it makes anything: the box, the three links, the reason, the keyboard, and the version kept on the server', async () => {
+  test.setTimeout(120_000);
+  const eve = await who('Eve', { phone: true });
+  await eve.open('/friends/');
+  await ready(eve.page);
+  const page = eve.page;
+  await toNameStep(page, 'Eve');
+  const box = page.locator('#profile-terms');
+  await expect(box).not.toBeChecked();
+  // the box has the sentence as its name, and the sentence holds three links that leave the window where it is
+  await expect(page.getByRole('checkbox', { name: /I agree to the terms of use and the community rules/ })).toBeVisible();
+  const links = page.locator('dialog a[target="_blank"]');
+  await expect(links).toHaveCount(3);
+  expect(await links.evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).getAttribute('href')))).toEqual(['/terms', '/terms#conduct', '/privacy']);
+  expect(await links.evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).rel))).toEqual(['noopener', 'noopener', 'noopener']);
+  await shot(page, 'signup-terms-phone-en', { full: false });
+  // Create with the box empty: nothing is made, the box is marked, the focus goes to it, the line says why
+  await page.locator('[data-action="sheet.name.create"]').click();
+  await expect(page.locator('#profile-note')).toHaveText('Tick the box to agree before your profile is made.');
+  await expect(box).toHaveAttribute('aria-invalid', 'true');
+  await expect(box).toBeFocused();
+  expect(await profileOf(eve)).toBeNull();
+  expect(await site.stack.db.prepare("SELECT COUNT(*) AS n FROM soc_profiles WHERE name = 'Eve'").first<{ n: number }>()).toEqual({ n: 0 });
+  await shot(page, 'signup-terms-error-phone-en', { full: false });
+  // the keyboard: Space ticks the box, the reminder goes with it, Enter on Create makes the profile
+  await page.keyboard.press('Space');
+  await expect(box).toBeChecked();
+  await expect(box).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#profile-note')).toHaveText('');
+  await page.locator('[data-action="sheet.name.create"]').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-recovery-code]')).toBeVisible({ timeout: 20_000 });
+  await page.locator('[data-action="sheet.recovery.saved"]').click();
+  // the server kept which version the player agreed to and when, and the data file says so
+  const fid = (await profileOf(eve))?.fid ?? '';
+  const row = await site.stack.db.prepare('SELECT terms, terms_at, created_at FROM soc_profiles WHERE fid = ?1').bind(fid).first<{ terms: string; terms_at: number; created_at: number }>();
+  expect(row).toEqual({ terms: TERMS_VERSION, terms_at: row?.created_at, created_at: row?.created_at });
+  const exported = await page.evaluate(async () => (await window.__BA_SOCIAL_PORTS__?.social.exportData()) as { ok: boolean; value?: { termsAccepted: { version: string; at: number } | null } });
+  expect(exported.value?.termsAccepted?.version).toBe(TERMS_VERSION);
+});
+
+test('the sign-up in Turkish on a laptop: the same box and links on the Turkish pages, unticked, and the reason in Turkish', async () => {
+  test.setTimeout(120_000);
+  const ece = await who('Ece', { lang: 'tr' });
+  await ece.open('/tr/friends/');
+  await ready(ece.page);
+  const page = ece.page;
+  await toNameStep(page, 'Ece');
+  await expect(page.locator('#profile-terms')).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: /Kullanım koşullarını ve topluluk kurallarını kabul ediyorum/ })).toBeVisible();
+  expect(await page.locator('dialog a[target="_blank"]').evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).getAttribute('href')))).toEqual(['/tr/terms', '/tr/terms#davranis', '/tr/privacy']);
+  await page.locator('[data-action="sheet.name.create"]').click();
+  await expect(page.locator('#profile-note')).toHaveText('Profilin oluşturulmadan önce kutuyu işaretleyip kabul etmelisin.');
+  await shot(page, 'signup-terms-error-laptop-tr', { full: false });
+  expect(await profileOf(ece)).toBeNull();
+});
+
 // ───────── the friend link ─────────
 
 test('a friend link opened by somebody with no profile: the code, never a name; one press asks the age, makes the profile and sends the request', async () => {
@@ -238,6 +306,7 @@ test('a friend link opened by somebody with no profile: the code, never a name; 
   await newcomer.page.locator('label:has(input[name="age"][value="adult"])').click();
   await newcomer.page.locator('[data-action="sheet.age.next"]').click();
   await newcomer.page.locator('#profile-name').fill('Newcomer');
+  await newcomer.page.locator('#profile-terms').check();
   await newcomer.page.locator('[data-action="sheet.name.create"]').click();
   await newcomer.page.locator('[data-action="sheet.recovery.saved"]').click();
   await expect(newcomer.page.locator('.k-linkcard .k-note-line')).toContainText('Request sent');
@@ -381,6 +450,7 @@ test('the screens speak Turkish with Turkish letters, from the age question to t
   await ada.page.locator('label:has(input[name="age"][value="adult"])').click();
   await ada.page.locator('[data-action="sheet.age.next"]').click();
   await ada.page.locator('#profile-name').fill('Ayşe');
+  await ada.page.locator('#profile-terms').check();
   await ada.page.locator('[data-action="sheet.name.create"]').click();
   await expect(ada.page.locator('dialog h2')).toHaveText('Kurtarma kodunu kaydet');
   await shot(ada.page, 'recovery-tr-360', { full: false });

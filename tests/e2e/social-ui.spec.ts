@@ -103,6 +103,7 @@ test('a 16 to 17 player is given a made-up name, never types one, and has no way
   expect(generated).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+ \d\d$/);
   await teen.page.locator('[data-action="sheet.name.shuffle"]').click();
   const another = (await teen.page.locator('[data-generated-name]').textContent())?.trim() ?? '';
+  await teen.page.locator('#profile-terms').check();
   await teen.page.locator('[data-action="sheet.name.create"]').click();
   await teen.page.locator('[data-action="sheet.recovery.saved"]').click();
   await expect(teen.page.locator('.k-profile .name')).toHaveText(another);

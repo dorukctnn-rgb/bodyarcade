@@ -8,6 +8,7 @@ import { REPORT_REASONS, type PresetId } from '../../../../core/types/net.ts';
 import type { AgeBand, FriendEntry, ReportReason } from '../../../../core/social/types.ts';
 import type { ShellGame } from '../../../catalogue/types.ts';
 import { titleOf, type ViewContext } from '../../context.ts';
+import { COMMUNITY_RULES_ANCHOR, sitePageHref } from '../../views/chrome.ts';
 import type { PendingInvite, ProNeeded } from '../port.ts';
 import { qrSvg } from '../qr.ts';
 import { ux } from '../strings.ts';
@@ -27,6 +28,10 @@ export interface ProfileSheet {
   busy: boolean;
   /** False when the profile will not survive closing the page (no IndexedDB). */
   persistent: boolean;
+  /** The name step: the box that says the player agrees to the terms and the community rules is ticked. Nothing is made until it is. */
+  terms: boolean;
+  /** The player pressed Create with the box empty: the box is marked and the error line says why. */
+  termsError: boolean;
   /** The recovery step: the friend code and the code to keep. */
   recovery: { friend: string; code: string } | null;
   /** The recover step. */
@@ -36,7 +41,7 @@ export interface ProfileSheet {
 }
 
 export const NEW_PROFILE_SHEET: ProfileSheet = {
-  step: 'age', band: null, name: '', error: null, busy: false, persistent: true, recovery: null, recoverCode: '', recoverRecovery: '', recoverField: null,
+  step: 'age', band: null, name: '', error: null, busy: false, persistent: true, terms: false, termsError: false, recovery: null, recoverCode: '', recoverRecovery: '', recoverField: null,
 };
 
 function ageCard(ctx: ViewContext, band: AgeBand, checked: boolean): SafeHtml {
@@ -62,6 +67,26 @@ export function recoveryBody(ctx: ViewContext, o: { friend: string; code: string
 
 export function recoverySheet(ctx: ViewContext, o: { friend: string; code: string; persistent?: boolean }): SafeHtml {
   return html`<div class="k-sheet k-sheet--bare">${recoveryBody(ctx, o)}</div>`;
+}
+
+/**
+ * "I agree to the terms of use and the community rules. See also the privacy policy." The sentence is the language's own, with the three
+ * links where its grammar wants them (the Turkish ones carry their case endings), so the words come as one message with three marks that
+ * are swapped for links. The pages open in a new tab, so the sheet and what was typed stay where they are.
+ */
+export function termsLine(ctx: ViewContext): SafeHtml {
+  const t = ctx.i18n;
+  const lang = ctx.lang;
+  const targets = {
+    terms: sitePageHref(lang, 'terms'),
+    rules: `${sitePageHref(lang, 'terms')}#${COMMUNITY_RULES_ANCHOR[lang === 'tr' ? 'tr' : 'en']}`,
+    privacy: sitePageHref(lang, 'privacy'),
+  } as const;
+  const parts = t.t('safety.terms.agree', { terms: '[[terms]]', rules: '[[rules]]', privacy: '[[privacy]]' }).split(/\[\[(terms|rules|privacy)\]\]/);
+  // split() with a group alternates text and the group: even places are words, odd ones name a link
+  return html`${parts.map((p, i) => (i % 2 === 0
+    ? html`${p}`
+    : html`<a class="ba-link" href="${targets[p as keyof typeof targets]}" target="_blank" rel="noopener" data-native>${t.tx(`safety.terms.${p}`)}<span class="ba-visually-hidden"> (${t.t('safety.terms.newTab')})</span></a>`))}`;
 }
 
 export function profileSheet(ctx: ViewContext, s: ProfileSheet): SafeHtml {
@@ -94,6 +119,7 @@ export function profileSheet(ctx: ViewContext, s: ProfileSheet): SafeHtml {
       ? html`<div class="ba-field"><label for="profile-name">${t.t('safety.name.label')}</label><input class="ba-input" id="profile-name" name="name" type="text" autocomplete="nickname" maxlength="20" spellcheck="false" data-key="profile-name" value="${s.name}" aria-describedby="profile-hint profile-note"><small class="ba-small" id="profile-hint">${u('name.hintAdult')}</small></div>`
       : html`<div class="k-namepick"><span class="k-namepick__name" data-generated-name>${s.name}</span><button class="ba-btn ba-btn--quiet" type="button" data-action="sheet.name.shuffle">${t.t('safety.name.another')}</button></div>`}
     ${s.persistent ? '' : html`<p class="ba-callout">${icon('info')}<span>${u('name.persistent')}</span></p>`}
+    <label class="k-check k-check--agree"><input type="checkbox" id="profile-terms" name="terms" value="1" data-key="profile-terms" aria-required="true" aria-describedby="profile-note"${attr('checked', s.terms)}${attr('aria-invalid', s.termsError ? 'true' : false)}><span>${termsLine(ctx)}</span></label>
     <p class="ba-small k-note-line is-error" id="profile-note" role="alert">${s.error ?? ''}</p>
     <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="sheet.name.create"${attr('disabled', s.busy)}>${t.t('safety.name.create')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="sheet.name.back">${t.t('common.back')}</button></div></div>`;
 }

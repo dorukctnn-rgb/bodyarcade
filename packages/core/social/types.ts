@@ -177,6 +177,8 @@ export interface DataExport {
   sync: Record<string, SyncDoc>;
   reportsFiled: number;
   reportsAgainstYou: number;
+  /** The terms the player agreed to when making the profile: the version (a day, core/social/rules.ts TERMS_VERSION) and when; null for a profile made before the sign-up recorded it. */
+  termsAccepted: { version: string; at: number } | null;
 }
 
 export type SocialErrorCode =

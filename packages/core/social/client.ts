@@ -62,6 +62,8 @@ export interface SignUp {
   region?: string;
   lang?: string;
   level?: number;
+  /** The version of the terms the player agreed to in the sign-up (core/social/rules.ts TERMS_VERSION); the server keeps it with the profile. */
+  terms?: string;
 }
 
 export interface ProfileChange {
@@ -274,6 +276,7 @@ export class SocialClient {
     if (input.region !== undefined) body.region = input.region;
     if (input.lang !== undefined) body.lang = input.lang;
     if (input.level !== undefined) body.level = input.level;
+    if (input.terms !== undefined) body.terms = input.terms;
     const out = await this.call<{ me: MyProfile; recovery?: string }>('POST', '/api/social/register', body);
     this.identity = { keys, registered: true, me: out.me };
     await this.store.save(this.identity);

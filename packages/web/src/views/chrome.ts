@@ -47,10 +47,13 @@ function languageLinks(ctx: ViewContext): SafeHtml {
  * Every other language of the app reads the English ones, as the site has no others.
  */
 const SITE_PAGES = {
-  en: { privacy: '/privacy', terms: '/terms', faq: '/faq' },
-  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq' },
+  en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account' },
+  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account' },
 } as const;
-export const sitePageHref = (lang: Lang, page: 'privacy' | 'terms' | 'faq'): string => SITE_PAGES[lang === 'tr' ? 'tr' : 'en'][page];
+export const sitePageHref = (lang: Lang, page: 'privacy' | 'terms' | 'faq' | 'delete'): string => SITE_PAGES[lang === 'tr' ? 'tr' : 'en'][page];
+
+/** The id of the community rules (conduct and fair play) on the terms page of each language; content.test.ts checks that the page has it. */
+export const COMMUNITY_RULES_ANCHOR = { en: 'conduct', tr: 'davranis' } as const;
 
 function footer(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
@@ -61,6 +64,7 @@ function footer(ctx: ViewContext): SafeHtml {
         <li><a href="${sitePageHref(ctx.lang, 'privacy')}" data-native>${t.t('footer.privacy')}</a></li>
         <li><a href="${sitePageHref(ctx.lang, 'terms')}" data-native>${t.t('footer.terms')}</a></li>
         <li><a href="${sitePageHref(ctx.lang, 'faq')}" data-native>${t.t('footer.faq')}</a></li>
+        <li><a href="${sitePageHref(ctx.lang, 'delete')}" data-native>${t.t('footer.delete')}</a></li>
         <li><a href="mailto:info@peakappsstudio.com">${t.t('footer.contact')}</a></li>
       </ul>
       ${languageLinks(ctx)}

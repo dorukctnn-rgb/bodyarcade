@@ -5,7 +5,7 @@ import { icon, type IconName } from '../../../core/ui/icons.ts';
 import { LANG_INFO } from '../../../core/ui/i18n/index.ts';
 import { rulesOf } from '../app/profiles-model.ts';
 import { hasPro, type ViewContext } from '../context.ts';
-import { chrome } from './chrome.ts';
+import { chrome, sitePageHref } from './chrome.ts';
 import { segmented } from './forms.ts';
 
 export interface SettingsViewOptions {
@@ -99,6 +99,7 @@ export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml
     </ul></section>
     <section class="k-setgroup" aria-labelledby="s-data"><h2 id="s-data">${t.t('settings.section.data')}</h2><ul class="k-set">
       ${row({ icon: 'lock', title: t.t('settings.section.data'), hint: t.t('settings.data.body'), wrap: true, control: html`<button class="ba-btn ba-btn--quiet k-danger" type="button" data-action="clear-data">${icon('trash')}${t.t('settings.data.clear')}</button>` })}
+      ${ctx.flags.social ? html`<li class="is-link"><a href="${sitePageHref(ctx.lang, 'delete')}" data-native><span class="ico">${icon('trash')}</span><div class="grow"><b>${t.t('settings.delete.title')}</b><small>${t.t('settings.delete.hint')}</small></div><span class="chev">${icon('chevron')}</span></a></li>` : ''}
       ${ctx.flags.social ? link('shield', t.t('settings.safety'), t.t('settings.safety.hint'), ctx.href('safety')) : ''}
       ${link('play', t.t('settings.tour'), t.t('settings.version', { v: ctx.version }), ctx.href('welcome'))}
     </ul></section>

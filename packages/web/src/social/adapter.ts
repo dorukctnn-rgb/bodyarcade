@@ -233,6 +233,7 @@ export function createSocialPort(deps: SocialPortDeps): SocialPortHandle {
       if (!canGoOnline(r.band) || kid()) return { ok: false, code: 'child_no_online' };
       const input: SignUp = { band: r.band };
       if (r.name) input.name = r.name;
+      if (r.terms) input.terms = r.terms;
       const lang = deps.lang?.();
       if (lang) input.lang = lang;
       const out = await wrap(() => client.signUp(input));

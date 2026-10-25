@@ -572,6 +572,35 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     expect(missing).toEqual([]);
   });
 
+  it('the name step asks for the agreement: an empty box with links to the terms, the community rules and the privacy policy in the page\'s language, and a reason when it was left empty', () => {
+    const { ctx, missing } = ctxOf(lang);
+    const root = lang === 'tr' ? '/tr' : '';
+    const rules = lang === 'tr' ? 'davranis' : 'conduct';
+    for (const band of ['adult', 'teen'] as const) {
+      const name = profileSheet(ctx, sheet({ step: 'name', band, name: band === 'adult' ? 'Ada' : 'Swift Falcon 42' })).value;
+      expect(name, band).toMatch(/<input type="checkbox" id="profile-terms" name="terms" value="1" data-key="profile-terms" aria-required="true" aria-describedby="profile-note">/);
+      expect(name, band).not.toMatch(/name="terms"[^>]*(checked|aria-invalid)/);
+      // the box is a label of its own sentence, and the three links open in a new tab so the window and what was typed stay
+      expect(name, band).toMatch(/<label class="k-check k-check--agree"><input type="checkbox" id="profile-terms"[^>]*><span>[^]*<\/span><\/label>/);
+      for (const href of [`${root}/terms`, `${root}/terms#${rules}`, `${root}/privacy`]) expect(name, href).toContain(`href="${href}" target="_blank" rel="noopener"`);
+      for (const key of ['safety.terms.terms', 'safety.terms.rules', 'safety.terms.privacy']) expect(textOf(name), key).toContain(ctx.i18n.tx(key));
+      expect(textOf(name), band).not.toMatch(NO_LEAK);
+      expect(name, band).not.toContain('[[');
+      // Create is a button that can be pressed: the answer to an empty box is a sentence, not a button that does nothing
+      expect(name, band).not.toMatch(/data-action="sheet.name.create"[^>]*disabled/);
+    }
+    expect(profileSheet(ctx, sheet({ step: 'name', band: 'adult', terms: true })).value).toMatch(/name="terms"[^>]*checked/);
+    const refused = profileSheet(ctx, sheet({ step: 'name', band: 'adult', termsError: true, error: ctx.i18n.t('safety.terms.required') })).value;
+    expect(refused).toMatch(/name="terms"[^>]*aria-invalid="true"/);
+    expect(refused).toMatch(/id="profile-note" role="alert">[^<]*\S/);
+    expect(textOf(refused)).toContain(ctx.i18n.tx('safety.terms.required'));
+    // no other step carries the box
+    for (const other of [sheet(), sheet({ step: 'recovery', band: 'adult', recovery: { friend: 'BA-7K2Q4X', code: '7K2Q-4XMV-ABCD-EFGH' } }), sheet({ step: 'recover' }), sheet({ step: 'young', band: 'child' })]) {
+      expect(profileSheet(ctx, other).value).not.toContain('name="terms"');
+    }
+    expect(missing).toEqual([]);
+  });
+
   it('the other sheets are named dialogs with their buttons; a young player\'s report has no typed note', async () => {
     const { ctx, missing } = ctxOf(lang);
     const { state } = await ready();

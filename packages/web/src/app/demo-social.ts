@@ -181,8 +181,8 @@ export function createDemoSocial(o: DemoSocialOptions): SocialServices {
     dismissRecovery() { set({ recovery: null }); },
     recheck() { /* the practice port has one profile */ },
 
-    async createProfile({ band, name }) {
-      note('createProfile', band, name);
+    async createProfile({ band, name, terms }) {
+      note('createProfile', band, name, terms ?? null);
       if (down) return { ok: false, code: 'network' };
       if (band === 'child') return { ok: false, code: 'child_no_online' };
       const profile = profileFor(band, name ?? randomPresetName(), { counts: { friends: 0, incoming: 0, outgoing: 0, blocks: 0 } });
@@ -255,7 +255,7 @@ export function createDemoSocial(o: DemoSocialOptions): SocialServices {
       const p = state.profile;
       if (!p) return { ok: false, code: 'unauthorized' };
       const { counts: _counts, can: _can, ...profile } = p;
-      return { ok: true, value: { exportedAt: Date.now(), profile, friends: state.friends.map((f) => ({ fid: f.fid, name: f.name, since: f.since })), incoming: [...state.requests.incoming], outgoing: [...state.requests.outgoing], blocks: [...state.blocks], scores: [], sync: {}, reportsFiled: 0, reportsAgainstYou: 0 } };
+      return { ok: true, value: { exportedAt: Date.now(), profile, friends: state.friends.map((f) => ({ fid: f.fid, name: f.name, since: f.since })), incoming: [...state.requests.incoming], outgoing: [...state.requests.outgoing], blocks: [...state.blocks], scores: [], sync: {}, reportsFiled: 0, reportsAgainstYou: 0, termsAccepted: null } };
     },
     async deleteProfile() {
       note('deleteProfile');

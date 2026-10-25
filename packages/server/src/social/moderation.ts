@@ -8,13 +8,13 @@
 // at least an hour old, so a script that makes accounts cannot silence a player. A moderator ends or extends any of it.
 import { policyFor } from '../../../core/social/age.ts';
 import { DAY, HOUR, LIMITS, MOD, STATS_COUNT_CAP, escalate, isUrgentReason, type Escalation } from '../../../core/social/rules.ts';
-import { isFid } from '../../../core/social/codes.ts';
+import { isFid, parseFriendCode } from '../../../core/social/codes.ts';
 import { REPORT_REASONS, type ReportReason } from '../../../core/social/types.ts';
 import { HttpError } from '../http.ts';
-import { one, rows, stmt } from './db.ts';
+import { one, rows, run, stmt } from './db.ts';
 import type { SqlLike } from './db.ts';
 import { used, bump, enforce } from './limits.ts';
-import { blockPlayer, byFid, byPid } from './people.ts';
+import { blockPlayer, byCode, byFid, byPid, eraseProfile } from './people.ts';
 import { hubClose, hubSend } from './presence.ts';
 import { open, sha256Bytes, type Ctx, type SocialHandler } from './util.ts';
 import type { SocialEnv } from './env.ts';
@@ -203,6 +203,27 @@ export const adminAct = open(async (c: Omit<Ctx, 'me'>) => {
   if (a === 'ban') c.wait(hubClose(c.env, rep.target, 'banned'));
   const row = await one<ReportRow>(c.db, `${REPORT_SELECT} WHERE r.id = ?1`, id);
   return { ok: true, report: row ? reportView(row) : null };
+});
+
+/**
+ * POST /api/admin/social/profiles/delete {code, note?}: erases the profile that has this friend code, exactly as the player's own Delete
+ * button does (the friends are told, the connections closed). It is for the person who lost the device and the recovery code and asked
+ * by e-mail on the page /delete-account: the operator first makes sure that the request is the owner's. The safety log keeps that it
+ * happened and the operator's note, and nothing that names the player (not the name, not the code).
+ */
+export const adminDeleteProfile = open(async (c: Omit<Ctx, 'me'>) => {
+  await adminCheck(c.env, c.req);
+  const chars = parseFriendCode(c.body.code);
+  if (!chars) throw new HttpError(400, 'bad_request', { field: 'code' });
+  const who = await byCode(c.db, chars);
+  if (!who) throw new HttpError(404, 'not_found');
+  const { friends } = await eraseProfile(c.db, who.pid);
+  await run(c.db, "INSERT INTO soc_audit (at, actor, action, target, detail) VALUES (?1, 'admin', 'delete_profile', NULL, ?2)", c.now, JSON.stringify({ note: cleanNote(c.body.note, 300) }));
+  c.wait((async () => {
+    await hubClose(c.env, who.pid, 'deleted');
+    await Promise.all(friends.map((f) => hubSend(c.env, f, { t: 'friend_removed', fid: who.fid })));
+  })());
+  return { ok: true, deleted: true };
 });
 
 /**

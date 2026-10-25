@@ -1,6 +1,7 @@
 // Profile rules: passwordless sign-up with a device key, the age gate on names, the limits, export and deletion.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POLICY } from '../../../core/social/age.ts';
+import { TERMS_VERSION } from '../../../core/social/rules.ts';
 import { generateDeviceKey, signRequest } from '../../../core/social/sign.ts';
 import { isPresetName } from '../../../core/social/presets.ts';
 import { createTestApp, TEST_ORIGIN, type TestApp } from './testkit.ts';
@@ -31,6 +32,41 @@ describe('register', () => {
     expect(p.me.level).toBe(1);
     expect(p.me.mutedUntil).toBe(0);
     expect(p.me.fid).toMatch(/^[2-9A-HJ-NP-Z]{10}$/);
+  });
+
+  it('keeps the version of the terms the sign-up sent, and the time it was sent, with the profile', async () => {
+    const p = await app.signup('adult', { terms: TERMS_VERSION });
+    const row = app.db.raw.prepare('SELECT terms, terms_at, created_at FROM soc_profiles WHERE fid = ?').get(p.me.fid) as { terms: string; terms_at: number; created_at: number };
+    expect(row).toEqual({ terms: TERMS_VERSION, terms_at: T0, created_at: T0 });
+    const x = (await p.get('/api/social/me/export')).body.export;
+    expect(x.termsAccepted).toEqual({ version: TERMS_VERSION, at: T0 });
+    expect(JSON.stringify((await p.get('/api/social/me')).body)).not.toContain(TERMS_VERSION);   // the profile view does not carry it, only the data file
+  });
+
+  it('does not require the terms version: a sign-up without it is recorded as not recorded', async () => {
+    const p = await app.signup('adult');
+    expect(app.db.raw.prepare('SELECT terms, terms_at FROM soc_profiles WHERE fid = ?').get(p.me.fid)).toEqual({ terms: '', terms_at: 0 });
+    expect((await p.get('/api/social/me/export')).body.export.termsAccepted).toBeNull();
+  });
+
+  it('refuses a terms version that is not a day, and stores nothing for it', async () => {
+    for (const terms of ['', 'yes', true, 20261025, '2026-13-45', '2026-10-25T10:00:00Z']) {
+      const dev = await app.newDevice();
+      const r = await app.call('POST', '/api/social/register', { dev, body: { pub: dev.keys.publicRaw, band: 'adult', terms } });
+      expect(r.status, JSON.stringify(terms)).toBe(400);
+      expect(r.body).toMatchObject({ error: 'bad_request', field: 'terms' });
+    }
+    expect((app.db.raw.prepare('SELECT COUNT(*) AS n FROM soc_profiles').get() as { n: number }).n).toBe(0);
+  });
+
+  it('a second sign-up with the same key keeps the first record', async () => {
+    const dev = await app.newDevice();
+    const first = await app.call<{ created: boolean }>('POST', '/api/social/register', { dev, body: { pub: dev.keys.publicRaw, band: 'adult', terms: TERMS_VERSION } });
+    expect(first.body.created).toBe(true);
+    vi.setSystemTime(T0 + 60_000);
+    const again = await app.call<{ created: boolean }>('POST', '/api/social/register', { dev, body: { pub: dev.keys.publicRaw, band: 'adult', terms: '2026-11-01' } });
+    expect(again.body.created).toBe(false);
+    expect(app.db.raw.prepare('SELECT terms, terms_at FROM soc_profiles').get()).toEqual({ terms: TERMS_VERSION, terms_at: T0 });
   });
 
   it('never sends the secret profile id and answers with the server time', async () => {
@@ -318,6 +354,12 @@ describe('export and deletion', () => {
     expect(x.incoming).toHaveLength(1);
     expect(x.reportsFiled).toBe(0);
     expect(JSON.stringify(r.body)).not.toContain(a.pid());
+  });
+
+  it('deleting the profile takes the terms record with it', async () => {
+    const a = await app.signup('adult', { terms: TERMS_VERSION });
+    expect((await a.post('/api/social/me/delete', { confirm: 'delete' })).status).toBe(200);
+    expect((app.db.raw.prepare('SELECT COUNT(*) AS n FROM soc_profiles').get() as { n: number }).n).toBe(0);
   });
 
   it('deletes everything: devices, friendships, requests, blocks, presence; the friends are told', async () => {

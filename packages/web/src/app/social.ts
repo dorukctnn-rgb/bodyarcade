@@ -10,6 +10,7 @@ import { checkChat, checkName } from '../../../core/net/chat-filter.ts';
 import { formatFriendCode, formatRecoveryCode, parseFriendCode, parseFriendLink } from '../../../core/social/codes.ts';
 import { GHOST_OFFER_AFTER_MS, levelBand } from '../../../core/social/levels.ts';
 import { isPresetMessage, isReaction, randomPresetName } from '../../../core/social/presets.ts';
+import { TERMS_VERSION } from '../../../core/social/rules.ts';
 import { isBoardGame } from '../../../core/social/scores.ts';
 import type { AgeBand, BoardScope, BoardView, LevelBand, LobbyEntry, Region, ReportReason, RunTicket } from '../../../core/social/types.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
@@ -563,6 +564,16 @@ export class SocialController {
       s.handle.setHtml(profileSheet(this.host.context(), s.sheet));
       return true;
     }
+    if (s.kind === 'profile' && t.name === 'terms') {
+      // The agreement of the name step: ticking it takes the reminder away; the error line says nothing else while the box stays empty.
+      s.sheet.terms = (t as HTMLInputElement).checked;
+      if (s.sheet.terms && s.sheet.termsError) {
+        s.sheet.termsError = false;
+        s.sheet.error = null;
+        s.handle.setHtml(profileSheet(this.host.context(), s.sheet));
+      }
+      return true;
+    }
     if (s.kind === 'report') {
       if (t.name === 'reason') s.state.reason = t.value as ReportReason;
       else if (t.name === 'alsoBlock') s.state.alsoBlock = (t as HTMLInputElement).checked;
@@ -617,6 +628,9 @@ export class SocialController {
     } else {
       a.sheet.step = 'name';
       a.sheet.name = a.sheet.band === 'adult' ? '' : randomPresetName();
+      // The agreement is given at the step that makes the profile, every time that step opens.
+      a.sheet.terms = false;
+      a.sheet.termsError = false;
     }
     a.sheet.error = null;
     this.draw();
@@ -634,6 +648,14 @@ export class SocialController {
     if (a?.kind !== 'profile' || !a.sheet.band || a.sheet.busy) return;
     const p = a.sheet;
     const ctx = this.host.context();
+    // Nothing is made until the player has agreed to the terms and the community rules: the box is marked, the line says why, and the focus goes to it.
+    if (!p.terms) {
+      p.termsError = true;
+      p.error = ctx.i18n.t('safety.terms.required');
+      this.draw();
+      this.host.document.querySelector<HTMLElement>('dialog [name="terms"]')?.focus();
+      return;
+    }
     const adult = p.band === 'adult';
     if (adult) {
       const n = checkName(p.name);
@@ -643,7 +665,7 @@ export class SocialController {
     p.busy = true;
     p.error = null;
     this.draw();
-    const r = await this.svc.social.createProfile({ band: p.band as AgeBand, name: p.name });
+    const r = await this.svc.social.createProfile({ band: p.band as AgeBand, name: p.name, terms: TERMS_VERSION });
     p.busy = false;
     if (!r.ok) { p.error = this.text(r); this.draw(); return; }
     // The hyphen of the code does not break the line (a toast on a small phone would cut BA- from the rest).

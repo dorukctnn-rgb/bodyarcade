@@ -143,6 +143,7 @@ export async function signUp(page: Page, o: { band: 'adult' | 'teen'; name?: str
   await page.locator(`label:has(input[name="age"][value="${o.band}"])`).click();
   await page.locator('[data-action="sheet.age.next"]').click();
   if (o.band === 'adult') await page.locator('#profile-name').fill(o.name ?? 'Player');
+  await page.locator('#profile-terms').check();
   await page.locator('[data-action="sheet.name.create"]').click();
   const recovery = (await page.locator('[data-recovery-code]').textContent({ timeout: 20_000 }))?.trim() ?? '';
   const friend = (await page.locator('[data-friend-code]').textContent())?.trim() ?? '';

@@ -5,7 +5,7 @@ import { clampLevel } from '../../../core/social/levels.ts';
 import { friendLink, formatFriendCode, parseFriendCode, parseRecoveryCode, randomFid, randomFriendChars } from '../../../core/social/codes.ts';
 import { nameAfterBandChange, resolveName } from '../../../core/social/names.ts';
 import { randomPresetName } from '../../../core/social/presets.ts';
-import { DAY, LIMITS, REQUEST_TTL_MS, isLang, isRegion, regionFromContinent } from '../../../core/social/rules.ts';
+import { DAY, LIMITS, REQUEST_TTL_MS, isLang, isRegion, isTermsVersion, regionFromContinent } from '../../../core/social/rules.ts';
 import type { AgeBand, BlockEntry, DataExport, IncomingRequest, MyProfile, OutgoingRequest, Region } from '../../../core/social/types.ts';
 import { HttpError } from '../http.ts';
 import { continentOf } from './geo.ts';
@@ -70,8 +70,10 @@ function fresh(): NewProfile {
 }
 
 /**
- * POST /api/social/register {pub, band, name?, region?, lang?, level?}. The request is signed with the key in `pub`, which
- * proves the sender holds the private half. Idempotent: registering the same key again returns the same profile.
+ * POST /api/social/register {pub, band, name?, region?, lang?, level?, terms?}. The request is signed with the key in `pub`, which
+ * proves the sender holds the private half. Idempotent: registering the same key again returns the same profile. `terms` is the
+ * version (an ISO day) of the terms the sign-up showed and the player agreed to; it is kept with the profile and its date is now.
+ * It is not required: the sign-up of the app always sends it, and a client that does not leaves it unrecorded.
  */
 export const register = async (c: Omit<Ctx, 'me'>): Promise<Record<string, unknown> | Response> => {
   const b = c.body;
@@ -88,6 +90,8 @@ export const register = async (c: Omit<Ctx, 'me'>): Promise<Record<string, unkno
   if (!nm.ok) throw new HttpError(400, 'name_rejected', { reason: nm.reason });
   if (b.region !== undefined && !isRegion(b.region)) throw new HttpError(400, 'bad_request', { field: 'region' });
   if (b.lang !== undefined && !isLang(b.lang)) throw new HttpError(400, 'bad_request', { field: 'lang' });
+  if (b.terms !== undefined && !isTermsVersion(b.terms)) throw new HttpError(400, 'bad_request', { field: 'terms' });
+  const terms = isTermsVersion(b.terms) ? b.terms : '';
   const region: Region = isRegion(b.region) ? b.region : regionFromContinent(continentOf(c.req)) ?? 'eu';
   const lang = isLang(b.lang) ? b.lang : 'en';
   const level = clampLevel(b.level);
@@ -105,8 +109,8 @@ export const register = async (c: Omit<Ctx, 'me'>): Promise<Record<string, unkno
     const rec = await newRecovery(np.pid);
     try {
       await c.db.batch([
-        stmt(c.db, 'INSERT INTO soc_profiles (pid, fid, code, name, band, level, region, lang, dnd, created_at, seen_day, recovery) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9, ?10, ?11)',
-          np.pid, np.fid, np.code, nm.name, band, level, region, lang, c.now, Math.floor(c.now / DAY), rec.hash),
+        stmt(c.db, 'INSERT INTO soc_profiles (pid, fid, code, name, band, level, region, lang, dnd, created_at, seen_day, recovery, terms, terms_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9, ?10, ?11, ?12, ?13)',
+          np.pid, np.fid, np.code, nm.name, band, level, region, lang, c.now, Math.floor(c.now / DAY), rec.hash, terms, terms === '' ? 0 : c.now),
         stmt(c.db, 'INSERT INTO soc_devices (kid, pid, pub, created_at) VALUES (?1, ?2, ?3, ?4)', kid, np.pid, pub, c.now),
         bumpStmt(c.db, 'all', specAll, c.now),
         ...(addr ? [bumpStmt(c.db, addr, LIMITS.registerHour, c.now), bumpStmt(c.db, addr, LIMITS.registerDay, c.now)] : []),
@@ -284,6 +288,7 @@ export const exportMe: SocialHandler = async (c) => {
   const blocks = await rows<BlockEntry>(db, 'SELECT p.fid, p.name, b.at FROM soc_blocks b JOIN soc_profiles p ON p.pid = b.target WHERE b.pid = ?1 ORDER BY b.at', me.pid);
   const counts = await one<{ filed: number; against: number }>(db, 'SELECT (SELECT COUNT(*) FROM soc_reports WHERE reporter = ?1) AS filed, (SELECT COUNT(*) FROM soc_reports WHERE target = ?1) AS against', me.pid);
   const { counts: _counts, can: _can, ...bare } = profile;
+  const accepted = await one<{ terms: string; terms_at: number }>(db, 'SELECT terms, terms_at FROM soc_profiles WHERE pid = ?1', me.pid);
   const data: DataExport = {
     exportedAt: now,
     profile: bare,
@@ -295,6 +300,7 @@ export const exportMe: SocialHandler = async (c) => {
     sync: await syncDocs(db, me.pid),
     reportsFiled: counts?.filed ?? 0,
     reportsAgainstYou: counts?.against ?? 0,
+    termsAccepted: accepted && accepted.terms !== '' ? { version: accepted.terms, at: accepted.terms_at } : null,
   };
   return { export: data };
 };
