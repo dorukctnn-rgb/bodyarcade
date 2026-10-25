@@ -185,6 +185,9 @@ test.describe('on a phone', () => {
 
   test('the camera explainer offers touch on a phone for a game with swipes, and a mirror game says it needs the camera and offers nothing else', async ({ page }) => {
     await blockCamera(page);
+    // a phone has no keys: a development build takes an address with input=keyboard as a keyboard being there (a test on a laptop's headless
+    // browser asks for one that way), so this phone says it has none
+    await withHooks(page, { keyboard: false });
     await page.goto(`${WEB_DEV_URL}/play/squat-flap/`);
     const panel = page.getByRole('dialog', { name: 'Let the camera see your moves' });
     await expect(panel.getByRole('button', { name: 'Play without the camera' })).toBeVisible();

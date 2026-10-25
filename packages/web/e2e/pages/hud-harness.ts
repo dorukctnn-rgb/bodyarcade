@@ -190,22 +190,28 @@ function kitAgrees(c: Case): { text: string; problem: string }[] {
   return found;
 }
 
-/** A round without the camera: no self view tile and no button to bring one back, and at least the room for the game that it had with one. */
-function withoutSelfView(c: Case): { tileShown: boolean; buttonShown: boolean; problems: string[]; corner: string; playWith: Box; playWithout: Box } {
+/**
+ * A round without the camera: no self view tile and no button to bring one back, and at least the room for the game that it had with one.
+ * `topWith` and `topWithout` are the height of the status plates in each case: the button that brings the view back takes room on the
+ * right of the top row, so without it the numerals may be a little larger, and that is the only thing the game may give up room for.
+ */
+function withoutSelfView(c: Case): { tileShown: boolean; buttonShown: boolean; problems: string[]; corner: string; playWith: Box; playWithout: Box; topWith: number; topWithout: number } {
   // both with the same words on the plates, so that only the self view differs
   const a = open(c);
   a.set('prompt', { text: 'Jack', icon: 'stand' });
   say(a, c.duo, longest(reasons(c.lang)));
   a.problems();
-  const playWith = (a.layoutInfo() as { play: Box }).play;
+  const infoWith = a.layoutInfo() as { play: Box; solo?: { rects: { statusLeft: Box; statusRight: Box } } };
+  const playWith = infoWith.play;
+  const topOf = (i: { solo?: { rects: { statusLeft: Box; statusRight: Box } } }): number => Math.max(i.solo?.rects.statusLeft.h ?? 0, i.solo?.rects.statusRight.h ?? 0);
   const b = open(c, { selfView: false });
   b.set('prompt', { text: 'Jack', icon: 'stand' });
   say(b, c.duo, longest(reasons(c.lang)));
   const problems = b.problems();
-  const info = b.layoutInfo() as { play: Box; pipCorner: string };
+  const info = b.layoutInfo() as { play: Box; pipCorner: string; solo?: { rects: { statusLeft: Box; statusRight: Box } } };
   const tile = root.querySelector<HTMLElement>('[data-hud="pip"]');
   const button = root.querySelector<HTMLElement>('[data-ref="showPip"]');
-  return { tileShown: !!tile && !tile.hidden, buttonShown: !!button && !button.hidden, problems, corner: info.pipCorner, playWith, playWithout: info.play };
+  return { tileShown: !!tile && !tile.hidden, buttonShown: !!button && !button.hidden, problems, corner: info.pipCorner, playWith, playWithout: info.play, topWith: topOf(infoWith), topWithout: topOf(info) };
 }
 
 /** Leaves one reason (and a command) on the screen, for a picture of it. */

@@ -71,7 +71,8 @@ for (const bp of BREAKPOINTS) {
         if (r.buttonShown) found.push(`${label}: the button that brings a self view back is on the screen`);
         if (r.corner !== 'hidden') found.push(`${label}: the HUD says the self view is in ${r.corner}`);
         if (r.problems.length > 0) found.push(`${label}: ${r.problems.join('; ')}`);
-        if (r.playWithout.w * r.playWithout.h < r.playWith.w * r.playWith.h - 1) found.push(`${label}: the game has less room without the self view (${JSON.stringify(r.playWithout)}) than with it (${JSON.stringify(r.playWith)})`);
+        // (larger numerals on the top row, now that the button for the view is not there, may take the room they grew by)
+        if (r.playWithout.w * (r.playWithout.h + Math.max(0, r.topWithout - r.topWith)) < r.playWith.w * r.playWith.h - 1) found.push(`${label}: the game has less room without the self view (${JSON.stringify(r.playWithout)}) than with it (${JSON.stringify(r.playWith)})`);
       }
     }
     expect(found, found.join('\n')).toEqual([]);
