@@ -58,6 +58,9 @@ test('a round ends with a clip of its last seconds: a video from the game view, 
   // the video decodes: it has a size and a first frame
   await expect.poll(async () => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
   expect(await video.evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(100);
+  // BA_CLIP_SHOTS=<folder> keeps a picture of the first frame, to look at (the score, the time and the name of the site are on it)
+  const shots = process.env['BA_CLIP_SHOTS'];
+  if (shots) await video.screenshot({ path: `${shots}/clip-frame.png` });
 
   // saving: a file with the name of the game and the score
   const download = page.waitForEvent('download');

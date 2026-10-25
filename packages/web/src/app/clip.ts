@@ -36,6 +36,45 @@ export const CLIP_FPS = 24;
 /** The long edge of the clip in pixels: a phone screen at full resolution would cost the encoders more than a clip is worth. */
 export const CLIP_MAX_EDGE = 960;
 export const CLIP_BITS = 2_000_000;
+/** The name of the site, in a corner of the picture of every clip. */
+export const CLIP_BRAND = 'bodyarcade.com';
+
+/** What the HUD shows at this moment, to be put on the picture of the clip: the score and the time, as the plates say them. */
+export interface ClipOverlay { score: string; time: string }
+
+/** The two minimal parts of a 2D context that the overlay is drawn with (tests give a stand-in). */
+type Pen = Pick<CanvasRenderingContext2D, 'save' | 'restore' | 'measureText' | 'fillText' | 'beginPath' | 'fill'> & { roundRect?: CanvasRenderingContext2D['roundRect']; rect: CanvasRenderingContext2D['rect']; fillStyle: unknown; font: string; textBaseline: unknown; textAlign: unknown };
+
+/** Draws the score at the top left, the time at the top right and the site's name at the bottom, on plates the colour of the HUD's. */
+export function paintOverlay(c: Pen, w: number, h: number, o: ClipOverlay | null): void {
+  const pad = Math.round(w * 0.04);
+  const stack = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  const plate = (text: string, px: number, anchor: 'left' | 'right' | 'center', y: number): void => {
+    if (!text) return;
+    c.font = `800 ${px}px ${stack}`;
+    const textW = c.measureText(text).width;
+    const padX = px * 0.5;
+    const boxW = textW + padX * 2;
+    const boxH = px * 1.5;
+    const x = anchor === 'left' ? pad : anchor === 'right' ? w - pad - boxW : (w - boxW) / 2;
+    c.beginPath();
+    if (c.roundRect) c.roundRect(x, y, boxW, boxH, boxH * 0.3); else c.rect(x, y, boxW, boxH);
+    c.fillStyle = 'rgba(28, 20, 51, 0.72)';
+    c.fill();
+    c.fillStyle = '#F4F2F8';
+    c.textBaseline = 'middle';
+    c.textAlign = 'left';
+    c.fillText(text, x + padX, y + boxH / 2 + px * 0.04);
+  };
+  c.save();
+  if (o) {
+    const numeral = Math.max(14, w * 0.075);
+    plate(o.score, numeral, 'left', pad);
+    plate(o.time, numeral, 'right', pad);
+  }
+  plate(CLIP_BRAND, Math.max(11, w * 0.036), 'center', h - pad - Math.max(11, w * 0.036) * 1.5);
+  c.restore();
+}
 
 /** What the browser can record, best first: MP4 is what the apps that take a shared clip like best. */
 const KINDS: readonly { mime: string; ext: 'mp4' | 'webm' }[] = [
@@ -89,7 +128,7 @@ export function clipKind(win: Window & typeof globalThis): { mime: string; ext: 
 }
 
 /** The browser's own parts of a recorder: its MediaRecorder, its clock and timers, and a small copy of the canvas to record. */
-export function browserDeps(win: Window & typeof globalThis): ClipDeps | null {
+export function browserDeps(win: Window & typeof globalThis, overlay?: () => ClipOverlay | null): ClipDeps | null {
   const Recorder = (win as unknown as { MediaRecorder?: RecorderCtor }).MediaRecorder;
   if (!Recorder) return null;
   const every = (fn: () => void, ms: number): (() => void) => { const id = win.setInterval(fn, ms); return () => win.clearInterval(id); };
@@ -115,7 +154,12 @@ export function browserDeps(win: Window & typeof globalThis): ClipDeps | null {
         out.height = Math.max(2, Math.round((canvas.height * scale) / 2) * 2);
         const c = out.getContext('2d');
         if (!c) return null;
-        const draw = (): void => { try { c.drawImage(canvas, 0, 0, out.width, out.height); } catch { /* a frame that could not be copied is skipped */ } };
+        const draw = (): void => {
+          try {
+            c.drawImage(canvas, 0, 0, out.width, out.height);
+            paintOverlay(c, out.width, out.height, overlay?.() ?? null);
+          } catch { /* a frame that could not be copied is skipped */ }
+        };
         draw();
         const stop = every(draw, 1000 / CLIP_FPS);
         const stream = out.captureStream(CLIP_FPS);
@@ -278,9 +322,9 @@ export class ClipRecorder {
 }
 
 /** A recorder for this canvas, or null where the browser makes no clips. */
-export function createClipRecorder(win: Window & typeof globalThis, canvas: HTMLCanvasElement): ClipRecorder | null {
+export function createClipRecorder(win: Window & typeof globalThis, canvas: HTMLCanvasElement, overlay?: () => ClipOverlay | null): ClipRecorder | null {
   const kind = clipKind(win);
-  const deps = browserDeps(win);
+  const deps = browserDeps(win, overlay);
   if (!kind || !deps) return null;
   return new ClipRecorder(canvas, deps, kind);
 }

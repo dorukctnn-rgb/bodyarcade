@@ -1,7 +1,7 @@
 // The highlight clip: two recorders that take turns so that the last seconds of a round are always in one of them, a clip only when
 // there are seconds worth keeping, nothing while the round is paused, and no clip and no error where the browser cannot make one.
 import { describe, expect, it } from 'vitest';
-import { clipAllowed, clipKind, ClipRecorder, MIN_CLIP_MS, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
+import { CLIP_BRAND, clipAllowed, clipKind, ClipRecorder, paintOverlay, MIN_CLIP_MS, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
 
 class Fake implements RecorderLike {
   static made: Fake[] = [];
@@ -213,6 +213,60 @@ describe('when a round is kept for a clip', () => {
 
   it('a mirror game draws the camera picture in its game view, and the camera video is never recorded: it makes no clip', () => {
     expect(clipAllowed({ ...base, mirror: true })).toBe(false);
+  });
+});
+
+describe('what the picture of the clip carries', () => {
+  /** A pen that notes what is written and where, with a text as wide as its letters. */
+  function pen(): { c: Parameters<typeof paintOverlay>[0]; texts: { text: string; x: number; y: number; font: string }[]; plates: { x: number; y: number; w: number; h: number }[] } {
+    const texts: { text: string; x: number; y: number; font: string }[] = [];
+    const plates: { x: number; y: number; w: number; h: number }[] = [];
+    const c = {
+      font: '', fillStyle: '', textBaseline: '', textAlign: '',
+      save: () => undefined, restore: () => undefined, beginPath: () => undefined, fill: () => undefined,
+      measureText: (t: string) => ({ width: t.length * 10 }) as TextMetrics,
+      rect: (x: number, y: number, w: number, h: number) => { plates.push({ x, y, w, h }); },
+      roundRect: (x: number, y: number, w: number, h: number) => { plates.push({ x, y, w, h }); },
+      fillText: (text: string, x: number, y: number) => { texts.push({ text, x, y, font: c.font }); },
+    } as unknown as Parameters<typeof paintOverlay>[0];
+    return { c, texts, plates };
+  }
+
+  it('is the score at the top left, the time at the top right and the name of the site at the bottom, all inside the picture', () => {
+    const { c, texts, plates } = pen();
+    paintOverlay(c, 540, 960, { score: '12 840', time: '0:51' });
+    expect(texts.map((t) => t.text)).toEqual(['12 840', '0:51', CLIP_BRAND]);
+    const [score, time, brand] = texts;
+    expect(score!.x).toBeLessThan(540 / 2);
+    expect(time!.x).toBeGreaterThan(540 / 2);
+    expect(score!.y).toBeLessThan(960 / 4);
+    expect(brand!.y).toBeGreaterThan((960 * 3) / 4);
+    for (const p of plates) {
+      expect(p.x).toBeGreaterThanOrEqual(0);
+      expect(p.y).toBeGreaterThanOrEqual(0);
+      expect(p.x + p.w).toBeLessThanOrEqual(540);
+      expect(p.y + p.h).toBeLessThanOrEqual(960);
+    }
+    expect(texts.every((t) => /system-ui/.test(t.font))).toBe(true);
+  });
+
+  it('is only the name of the site when the HUD shows nothing, and a small picture still gets legible sizes', () => {
+    const none = pen();
+    paintOverlay(none.c, 540, 960, null);
+    expect(none.texts.map((t) => t.text)).toEqual([CLIP_BRAND]);
+    const half = pen();
+    paintOverlay(half.c, 540, 960, { score: '', time: '1:02' });
+    expect(half.texts.map((t) => t.text)).toEqual(['1:02', CLIP_BRAND]);
+    const small = pen();
+    paintOverlay(small.c, 120, 200, { score: '7', time: '0:09' });
+    for (const t of small.texts) expect(Number(/(\d+)px/.exec(t.font)?.[1])).toBeGreaterThanOrEqual(11);
+  });
+
+  it('works where a context has no rounded rectangle', () => {
+    const { c, plates } = pen();
+    (c as unknown as { roundRect?: unknown }).roundRect = undefined;
+    paintOverlay(c, 540, 960, { score: '5', time: '0:05' });
+    expect(plates.length).toBe(3);
   });
 });
 

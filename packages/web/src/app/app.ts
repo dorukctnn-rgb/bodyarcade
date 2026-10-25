@@ -766,7 +766,7 @@ export class App {
     this.play = new PlayController({
       host: this.playHost(g), game: g, setup, stage,
       ...(this.o.bodyIsSimulated?.(g.id) ? { simulatedBody: true } : {}),
-      makeClip: (canvas) => (this.clipsWanted(g) ? createClipRecorder(this.win, canvas) : null),
+      makeClip: (canvas) => (this.clipsWanted(g) ? createClipRecorder(this.win, canvas, () => this.clipOverlay()) : null),
       makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}), ...(race ? { race } : {}) }) ?? null,
       ...(race ? { race } : {}),
       ...(this.o.onRoundEnded ? { release: this.o.onRoundEnded } : {}),
@@ -876,6 +876,14 @@ export class App {
   private clipsWanted(g: ShellGame): boolean {
     const s = this.currentSettings();
     return clipAllowed({ clips: s.clips, share: this.rules().share, mirror: hudModeFor(g) === 'mirror' });
+  }
+
+  /** What the HUD shows now (the score and the time), for the picture of the clip; null when it shows none (two players have two scores). */
+  private clipOverlay(): { score: string; time: string } | null {
+    const root = this.doc.querySelector('[data-hud-root]');
+    const score = root?.querySelector('[data-ref="score"]')?.textContent?.trim() ?? '';
+    const time = root?.querySelector('[data-ref="timer"]')?.textContent?.trim() ?? '';
+    return score || time ? { score, time } : null;
   }
 
   private dropClip(): void {
