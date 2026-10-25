@@ -31,6 +31,8 @@ export function watch(page: Page, allow: RegExp[] = []): Watch {
   page.on('pageerror', (e) => { const m = `pageerror: ${e.message.split('\n')[0]}`; if (!skip(m)) w.errors.push(m); });
   page.on('console', (m) => {
     const text = m.text().split('\n')[0] ?? '';
+    // a Content-Security-Policy that the page breaks is named on the console as an error or as a warning, depending on the engine (the release build's is report-only)
+    if (/Content[- ]Security[- ]Policy|\[Report Only\]|Refused to (load|apply|execute|connect|create)/i.test(text) && !skip(text)) { w.errors.push(`csp: ${text}`); return; }
     if (m.type() === 'error') { if (NOISE.some((r) => r.test(text)) || skip(text)) w.noise.push(text); else w.errors.push(`console: ${text}`); }
     else if (m.type() === 'warning') w.warnings.push(text);
   });
