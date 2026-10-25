@@ -19,6 +19,7 @@
     "qa:simbot": "node tools/simbot/run.ts",
     "qa:leak": "node tools/perf/leak.ts",
     "qa:perf": "node tools/perf/budget.ts",
+    "qa:browsers": "node tools/browsers/run.ts",
     "check": "npm run typecheck && npm test && npm run test:e2e",
     "web:dev": "vite --config packages/web/vite.config.ts",
     "web:build": "node packages/web/tools/build.ts",
