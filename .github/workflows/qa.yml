@@ -34,6 +34,10 @@ on:
         description: 'With only: the language of the pages (en or tr)'
         required: false
         default: 'en'
+      repeat:
+        description: 'Browsers job: every flow this many times (how steady is it?), meant for a grep'
+        required: false
+        default: ''
 
 concurrency:
   group: qa-${{ github.ref }}
@@ -142,8 +146,9 @@ jobs:
         continue-on-error: true
         env:
           GREP: ${{ inputs.grep }}
+          REPEAT: ${{ inputs.repeat }}
         shell: bash
-        run: node tools/browsers/run.ts --engines ${{ matrix.engine }} ${GREP:+--grep "$GREP" --allow-empty}
+        run: node tools/browsers/run.ts --engines ${{ matrix.engine }} ${GREP:+--grep "$GREP" --allow-empty} ${REPEAT:+--repeat-each "$REPEAT"}
 
       # The web shell's own end-to-end specs (packages/web/e2e: browse, welcome, play, plans, players, layout, accessibility) on this engine.
       - name: The web shell's own specs on ${{ matrix.engine }}

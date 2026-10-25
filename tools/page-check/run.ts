@@ -215,7 +215,7 @@ async function check(browser: Browser, t: Target, size: { id: string; w: number;
   // No WebGL in this engine here: a console error that says so, and a round that cannot start (the pose model and the 3D scene both need a GL context), are the engine's, not the page's.
   const noGl = (m: string): boolean => /WebGL context could not be created|Error creating WebGL context|WebGL creation failed/i.test(m);
   if (!engineWebgl) {
-    for (let i = messages.length - 1; i >= 0; i--) if (noGl(messages[i] as string)) warnings.push(`no WebGL here: ${(messages.splice(i, 1)[0] as string)}`);
+    for (let i = messages.length - 1; i >= 0; i--) if (noGl(messages[i] as string)) warnings.push(`console.warn: no WebGL in this engine here: ${(messages.splice(i, 1)[0] as string).replace(/^console.error: /, '')}`);
     for (let i = probeLines.length - 1; i >= 0; i--) if (/^the round did not start/.test(probeLines[i] as string)) probeLines[i] = `warn:no WebGL in this engine here, ${probeLines[i]}`;
   }
   const findings = [...(probe?.findings ?? []), ...(sceneFinding ? [sceneFinding] : [])];

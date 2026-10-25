@@ -64,7 +64,7 @@ async function until(page: Page, want: string, ms: number, seen: string[] = []):
     await page.waitForTimeout(400);
   }
   const text = await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 260)).catch(() => '');
-  throw new Error(`waited ${(ms / 1000).toFixed(0)} s for "${want}", the page was at "${last}" (phases on the way: ${seen.join(' > ')}); the page said: ${text}`);
+  throw new Error(`waited ${((Date.now() - t0) / 1000).toFixed(0)} s (of ${(ms / 1000).toFixed(0)}) for "${want}", the page was at "${last}" (phases on the way: ${seen.join(' > ')}); the page said: ${text}`);
 }
 
 const problemsOfLayout = (page: Page): Promise<string[]> => checkPage(page);
@@ -93,6 +93,47 @@ const hasWebgl = (page: Page): Promise<boolean> => page.evaluate(() => { const c
 
 /** Does this engine have a camera API at all? (Playwright's WebKit for Windows has none: no MediaStream, no WebRTC, no Web Audio.) */
 const hasCameraApi = (page: Page): Promise<boolean> => page.evaluate(() => typeof navigator.mediaDevices?.getUserMedia === 'function');
+
+/**
+ * Keeps what the pose worker says to the page (its message types, the delegate it loaded with, the text of its errors) in window.__poseLog, from the first
+ * moment of the page: a start that stops with "the camera stopped" says nothing about the model, and the question that matters is whether the worker loaded,
+ * answered at all, or answered with errors. Call before the page is opened.
+ */
+async function logPoseWorker(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    type Entry = [number, string, string?];
+    const log: Entry[] = [];
+    (window as unknown as { __poseLog: Entry[] }).__poseLog = log;
+    const Base = window.Worker;
+    const note = (kind: string, text?: string): void => { log.push(text === undefined ? [Math.round(performance.now()), kind] : [Math.round(performance.now()), kind, text.slice(0, 160)]); };
+    window.Worker = class extends Base {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        note('worker-created', String(url).split('/').pop() ?? '');
+        this.addEventListener('message', (e: MessageEvent) => {
+          const d = e.data as { type?: unknown; message?: unknown; delegate?: unknown } | null;
+          if (!d || typeof d.type !== 'string') return;
+          if (d.type === 'error') note('error', String(d.message));
+          else if (d.type === 'loaded') note('loaded', String(d.delegate));
+          else if (d.type !== 'result' || log.filter((x) => x[1] === 'result').length < 3) note(d.type);
+          else log.push([Math.round(performance.now()), 'result']);
+        });
+        this.addEventListener('error', (e: ErrorEvent) => note('worker-error', e.message));
+      }
+    } as typeof Worker;
+  });
+}
+
+/** What logPoseWorker saw, as one line for the report: the first entries, then how many answers and errors came. */
+async function notePoseWorker(page: Page, info: TestInfo): Promise<void> {
+  try {
+    const log = await page.evaluate(() => (window as unknown as { __poseLog?: [number, string, string?][] }).__poseLog ?? []);
+    const count = (k: string): number => log.filter((x) => x[1] === k).length;
+    const first = log.filter((x) => x[1] !== 'result' && x[1] !== 'progress').slice(0, 6).map((x) => `${x[1]}${x[2] ? `(${x[2]})` : ''}@${x[0]}`).join(' ');
+    const firstResult = log.find((x) => x[1] === 'result');
+    info.annotations.push({ type: 'pose-worker', description: `${first || 'no message from a worker'}; results ${count('result')}${firstResult ? ` (first @${firstResult[0]})` : ''}, errors ${count('error')}, worker errors ${count('worker-error')}` });
+  } catch { /* the page is gone */ }
+}
 
 /** What the HUD says is wrong with the round on screen (the shell's own check). */
 const playProblems = (page: Page): Promise<string[]> => page.evaluate(() => window.__BA__?.debug().playProblems ?? ['the test hook window.__BA__ is missing']);
@@ -123,6 +164,7 @@ async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestIn
       });
     }
     const seen: string[] = [];
+    await logPoseWorker(page);
     await page.goto(`${o.base ?? DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
     test.skip(!(await cameraUsable(page)), 'this engine has no camera API, cannot play a stream made from a canvas (the page-side camera), or has no WebGL here (the pose model needs it): see the tests "camera: where the engine has no camera API" and the engine probe');
     try {
@@ -147,6 +189,7 @@ async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestIn
     } finally {
       info.annotations.push({ type: 'phases', description: seen.join(' > ') });
       await noteCamera(page, info);
+      await notePoseWorker(page, info);
       // what the page said while it ran: a start that stops says nothing about why in its own words ("the camera stopped" can be the model that could not start)
       if (w.errors.length || w.warnings.length) info.annotations.push({ type: 'console', description: [...w.errors, ...w.warnings].slice(-8).map((m) => m.slice(0, 200)).join(' | ') });
     }
