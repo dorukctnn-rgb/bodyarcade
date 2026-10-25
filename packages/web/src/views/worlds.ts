@@ -54,7 +54,7 @@ export const worldTagline = (ctx: Pick<ViewContext, 'lang'>, w: WorldCard): stri
 
 function tile(ctx: ViewContext, w: WorldCard, checked: boolean): SafeHtml {
   const locked = !worldAllowed(ctx, w.id);
-  return html`<label class="k-world${locked ? ' is-locked' : ''}"><input type="radio" name="world" value="${w.id}" data-key="world-${w.id}"${attr('checked', checked)}><span class="art">${worldArt(w.look)}${locked ? html`<span class="lock">${icon('lock')}</span>` : ''}</span><span class="nm">${worldName(ctx, w)}${locked ? html`<span class="ba-visually-hidden"> (${ctx.i18n.t('common.pro')})</span>` : ''}</span></label>`;
+  return html`<label class="k-world${locked ? ' is-locked' : ''}"><input type="radio" name="world" value="${w.id}" data-key="world-${w.id}"${attr('checked', checked)}><span class="wpic">${worldArt(w.look)}${locked ? html`<span class="wlock">${icon('lock')}</span>` : ''}</span><span class="wname">${worldName(ctx, w)}${locked ? html`<span class="ba-visually-hidden"> (${ctx.i18n.t('common.pro')})</span>` : ''}</span></label>`;
 }
 
 /** The picker: the ten tiles and, under them, the chosen world in a line (and for a player without Pro, how many are free). */
