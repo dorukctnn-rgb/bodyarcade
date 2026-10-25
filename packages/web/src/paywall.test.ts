@@ -315,9 +315,11 @@ describe('the free trial of an active membership, and the one reminder e-mail', 
 });
 
 describe("the paywall's line about rooms is a promise the Room keeps", () => {
-  const withFlags = (lang: Lang, flags: { social: boolean; roomsPro?: boolean }): string => {
+  // A room holds the games that have the duel mode. The catalogue as it is has none among its Pro games; this one gives Pad Work the mode.
+  const proInRooms = games.map((g) => (g.id === 'pad-work' ? { ...g, modes: [...g.modes, 'duel' as const] } : g));
+  const withFlags = (lang: Lang, flags: { social: boolean; roomsPro?: boolean }, catalogue = proInRooms): string => {
     const m = web();
-    const ctx = makeContext({ lang, games, url: lang === 'en' ? '/pro/' : `/${lang}/pro/`, plans: m.plans, paywall: infoOf(m), flags });
+    const ctx = makeContext({ lang, games: catalogue, url: lang === 'en' ? '/pro/' : `/${lang}/pro/`, plans: m.plans, paywall: infoOf(m), flags });
     return paywallPage(ctx, defaultPaywallState(ctx)).value;
   };
 
@@ -330,12 +332,20 @@ describe("the paywall's line about rooms is a promise the Room keeps", () => {
     }
   });
 
-  it('is there once the check is on and the friends side is, and only then', () => {
+  it('is there once the check is on, the friends side is, and a Pro game can be in a room, and only then', () => {
     for (const lang of LANGS) {
       const said = lang === 'en' ? /Rooms where everyone plays the Pro games the host picks/ : /Ev sahibinin seçtiği Pro oyunların/;
       expect(textOf(withFlags(lang, { social: true, roomsPro: true })), lang).toMatch(said);
       // no friends side, no rooms to promise
       expect(textOf(withFlags(lang, { social: false, roomsPro: true })), lang).not.toMatch(said);
+    }
+  });
+
+  it('is not there while no Pro game has the duel mode: a room could not pick one, so the line would promise nothing', () => {
+    expect(games.filter((g) => !g.free && g.modes.includes('duel')), 'the fixtures: no Pro game can be in a room').toEqual([]);
+    for (const lang of LANGS) {
+      const said = lang === 'en' ? /Rooms where everyone plays the Pro games the host picks/ : /Ev sahibinin seçtiği Pro oyunların/;
+      expect(textOf(withFlags(lang, { social: true, roomsPro: true }, games)), lang).not.toMatch(said);
     }
   });
 });

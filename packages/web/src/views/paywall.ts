@@ -7,6 +7,7 @@ import { attr, html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import { describeOffer, yearlySavingsPercent, type PlanId, type PlanOffer } from '../../../core/ui/plans.ts';
 import { proGames } from '../../catalogue/filter.ts';
+import { canRace } from '../app/duel.ts';
 import { hasPro, titleOf, type ViewContext } from '../context.ts';
 
 export type KeyStatus = 'idle' | 'busy' | 'ok' | 'not_found' | 'refunded' | 'ended' | 'limit' | 'network' | 'server';
@@ -44,8 +45,9 @@ function benefits(ctx: ViewContext): SafeHtml {
   const items: SafeHtml[] = [];
   if (pro.length > 0) items.push(html`<li>${icon('arcade')}<span>${t.t('paywall.benefit.gamesList', { n: pro.length, names: t.list(pro.map((g) => titleOf(ctx, g))) })}</span></li>`);
   items.push(html`<li>${icon('trophy')}<span>${t.t('paywall.benefit.levels')}</span></li>`);
-  // Only a promise the Room keeps: it must verify the host's Pro before a Pro game starts (ROOM_PRO_ON in app/boot.ts).
-  if (ctx.flags.social && ctx.flags.roomsPro) items.push(html`<li>${icon('friends')}<span>${t.t('paywall.benefit.rooms')}</span></li>`);
+  // Only a promise the Room keeps: the server verifies the host's Pro before a Pro game starts (ROOM_PRO_ON in app/boot.ts), and a room
+  // holds only the games that have the duel mode, so some Pro game must have it. The line waits for the first one, by itself.
+  if (ctx.flags.social && ctx.flags.roomsPro && ctx.games.some((g) => !g.free && canRace(g))) items.push(html`<li>${icon('friends')}<span>${t.t('paywall.benefit.rooms')}</span></li>`);
   return html`<ul class="k-benefits">${items}</ul>`;
 }
 
