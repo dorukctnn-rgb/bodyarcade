@@ -121,7 +121,32 @@ for (const size of SIZES) {
 test.describe('a phone whose camera is blocked', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
-  for (const g of games.filter((x) => ['star-catch', 'road-run'].includes(x.id))) {
+  // Road Run has swipes, so a phone may play it without the camera: the panel shows how to allow the camera and the way around it.
+  for (const g of games.filter((x) => x.id === 'road-run')) {
+    test(`${g.id}: shows how to allow the camera and offers a round without it, by touch`, async ({ page }) => {
+      const errors = collectErrors(page);
+      await page.addInitScript(() => {
+        const md = navigator.mediaDevices;
+        if (md) md.getUserMedia = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+      });
+      await page.goto(`${WEB_REAL_URL}/games/${g.id}/`);
+      await page.locator('details.k-more summary').click();
+      await expect(page.locator('input[name="input"][value="keyboard"]')).toHaveCount(1);
+      await page.locator('button[data-key="play"]').click();
+      await page.getByRole('button', { name: 'Continue' }).click();
+      const panel = page.getByRole('dialog', { name: 'The round could not start' });
+      await expect(panel).toBeVisible({ timeout: 30_000 });
+      await expect(panel).toContainText('To allow the camera');
+      await expect(panel.getByRole('button', { name: 'Try again' })).toBeVisible();
+      await panel.getByRole('button', { name: 'Play without the camera' }).click();
+      await inRound(page);
+      await expect(page.locator('[data-hud="pip"]')).toBeHidden();
+      expect(errors.filter((e) => !/NotAllowedError|Permission denied|getUserMedia/i.test(e))).toEqual([]);
+    });
+  }
+
+  // A mirror game has no swipes: on a phone it needs the camera and offers nothing else.
+  for (const g of games.filter((x) => x.id === 'star-catch')) {
     test(`${g.id}: says the game needs the camera, shows how to allow it and offers no keyboard`, async ({ page }) => {
       const errors = collectErrors(page);
       await page.addInitScript(() => {
