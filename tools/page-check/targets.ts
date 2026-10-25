@@ -56,6 +56,13 @@ const CAMERA_ROUND: Step[] = [
 // The camera flow: the explainer, then (after "Continue") whatever follows with a camera that shows no person: the calibration of a real game, the countdown of the practice session.
 const CAMERA_CONTINUE: Step[] = [{ waitFor: '[data-action="camera-continue"]' }, { click: '[data-action="camera-continue"]' }, { waitFor: '[data-cal-view]:visible, .ba-countdown:visible, #ov-title:visible' }, { wait: 1500 }];
 
+// The practice build as the shell's own end-to-end specs open it: a keyboard is there at every size, the practice session runs fast.
+const PRACTICE: Record<string, unknown> = { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true };
+/** Players added to a fresh device that has the Family plan (a child, two more); `active` is the one that plays. */
+const FAMILY_PLAYERS = [{ name: 'Defne', kid: true, avatar: 'fox' }, { name: 'Mert', avatar: 'robot' }, { name: 'Elif', avatar: 'rocket' }];
+const TOUR_READY: Step = { waitFor: '[data-welcome][data-ready="1"]', timeout: 40000 };
+const MAIN_READY: Step = { waitFor: 'main h1', timeout: 20000 };
+
 /** The sizes of the rounds that run on a camera picture (each takes a calibration and a countdown, so not all ten). */
 const CAMERA_SIZES = ['phone-390', 'phone-land-844', 'tablet-768', 'laptop-1280'];
 
@@ -95,9 +102,43 @@ export function webTargets(prefix: string): Target[] {
     { id: 'web:settings', server: 'web', path: `${prefix}/settings/` },
     { id: 'web:pro', server: 'web', path: `${prefix}/pro/` },
     { id: 'web:friends', server: 'web', path: `${prefix}/friends/` },
-    { id: 'web:welcome', server: 'web', path: `${prefix}/welcome/` },
     { id: 'web:notfound', server: 'web', path: `${prefix}/nope/` },
   ];
+  // The welcome tour, every page of it (the stage drawn once and held still, so the picture is the same on every run).
+  for (const n of [1, 2, 3, 4, 5]) out.push({ id: `web:welcome:${n}`, server: 'web', path: `${prefix}/welcome/${n === 1 ? '' : `?step=${n}`}`, hooks: { ...PRACTICE, tour: 'static' }, steps: [TOUR_READY], note: `welcome tour, page ${n}` });
+  // Workout plans (the page and a Pro player's page), the paywall in its other states.
+  out.push(
+    { id: 'web:plans', server: 'web', path: `${prefix}/plans/`, hooks: PRACTICE, note: 'workout plans, free player' },
+    { id: 'web:plans:pro', server: 'web', path: `${prefix}/plans/`, hooks: { ...PRACTICE, plan: 'pro' }, note: 'workout plans, Pro player' },
+    { id: 'web:pro:trial', server: 'web', path: `${prefix}/pro/`, hooks: { ...PRACTICE, plan: 'pro', trial: { endsInHours: 30 } }, note: 'the paywall for a player in the last days of the trial' },
+    { id: 'web:pro:unavailable', server: 'web', path: `${prefix}/pro/`, hooks: { ...PRACTICE, billing: 'unavailable' }, note: 'a build where nothing can be bought' },
+    { id: 'web:home:trial', server: 'web', path: `${prefix}/`, hooks: { ...PRACTICE, trial: { endsInHours: 30 } }, note: 'the notice of the last days of a trial' },
+  );
+  // The players of the Family plan: the list, the manage state, the form, a child's settings, and the parent gate.
+  const family = { ...PRACTICE, plan: 'family', players: FAMILY_PLAYERS };
+  const kid = { ...PRACTICE, plan: 'family', players: [{ name: 'Defne', kid: true, avatar: 'fox', active: true }, { name: 'Mert', avatar: 'robot' }] };
+  out.push(
+    { id: 'web:profiles', server: 'web', path: `${prefix}/profiles/`, hooks: family, steps: [MAIN_READY], note: 'players of the Family plan' },
+    { id: 'web:profiles:manage', server: 'web', path: `${prefix}/profiles/?manage=1`, hooks: family, steps: [MAIN_READY], note: 'players, manage state' },
+    { id: 'web:profiles:add', server: 'web', path: `${prefix}/profiles/`, hooks: family, steps: [MAIN_READY, { click: '[data-action="profile-add"]' }, { waitFor: 'form[data-form="profile"]' }, { wait: 300 }], note: 'the form that adds a player' },
+    { id: 'web:profiles:kid', server: 'web', path: `${prefix}/settings/`, hooks: kid, steps: [MAIN_READY], note: 'the settings of a child profile' },
+    { id: 'web:profiles:gate', server: 'web', path: `${prefix}/profiles/`, hooks: kid, steps: [MAIN_READY, { click: 'role=button[name="Play as Me"]' }, { waitFor: 'dialog.pf-gatebox[open]' }, { wait: 300 }], note: 'the parent gate (a sum) that a child needs to go back to the main player' },
+  );
+  // The friends side in the practice build (`?social=...`): the screens, the sign-up window, a room just made.
+  const social = (id: string, path: string, note: string, steps: Step[] = []): Target => ({ id: `web:${id}`, server: 'web', path: `${prefix}${path}`, hooks: PRACTICE, steps: [MAIN_READY, ...steps], note });
+  out.push(
+    social('friends:demo', '/friends/?social=1', 'friends, a player with a profile'),
+    social('friends:new', '/friends/?social=fresh', 'friends, a player with no profile yet'),
+    social('friends:offline', '/friends/?social=offline', 'friends, the service cannot be reached'),
+    social('friends:profile', '/friends/?view=profile&social=1', 'my profile'),
+    social('friends:boards', '/friends/?view=boards&social=1', 'the boards'),
+    social('friends:sheet', '/friends/?social=fresh', 'the sign-up window', [{ click: '[data-action="social.profile"]' }, { waitFor: 'dialog[open]' }, { wait: 300 }]),
+    social('lobbies', '/lobbies/?social=1', 'public lobbies'),
+    social('room', '/r/K7Q2MX/?social=1', 'an invitation to a room'),
+    social('room:host', '/friends/?social=1', 'a room just made, seen by the host', [{ click: '[data-action="room.new"]' }, { waitUrl: '/r/' }, { waitFor: 'main h1' }, { wait: 300 }]),
+    social('friendlink', '/f/BA-9PXMR3/?social=1', 'a friend link'),
+    social('safety', '/safety/?social=1', 'the safety page'),
+  );
   // Every game of the catalogue gets its page (the setup form is part of it), the page with two players chosen, its play
   // screen (the real game when its code exists, the practice session otherwise), the seated and the two-player versions
   // where the manifest offers them, and its results.

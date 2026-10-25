@@ -8,12 +8,14 @@
 //   npm run qa:pages -- --url http://127.0.0.1:5173/x.html [--click "#start"] [--wait-for ".ready"] [--hook '{"timeScale":5}']
 //   npm run qa:pages -- --list                        what would be checked
 //   options: --lang tr --dark --plan pro --out qa-out/page-check --png --no-shots --warn-as-error --jobs 1 --camera tests/e2e/fixtures/standing-640x360.mjpeg --base qa-out/older/report.json
+//            --browser chromium|webkit|firefox (default chromium; the other two run the same checks in WebKit, the engine under Safari and every browser on an iPhone, and in Firefox;
+//            a camera for them is the page-side person camera of tools/browsers/support/camera.ts)
 //            --groups web,site   --fixtures fill|only|none   --allow-external   --ignore ".selector,.other"
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { chromium, firefox, webkit, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { baseLaunchOptions, withFakeVideo } from '../../tests/e2e/support/browser.ts';
 import { convertVideo, probeSeconds } from '../fake-camera/convert.ts';
 import { BREAKPOINTS } from '../../packages/core/ui/layout.ts';
@@ -23,6 +25,7 @@ import { layoutProbe, type Finding, type ProbeResult } from './probe.ts';
 import { mergeReports, type Report } from './summarize.ts';
 import { analyseScene, decodePng, isBlank, type Rect } from './scene.ts';
 import { beNice } from './nice.ts';
+import { installPersonCamera } from '../browsers/support/camera.ts';
 
 beNice();
 
@@ -43,6 +46,8 @@ const flag = (k: string): string | undefined => flags.get(k)?.[flags.get(k)!.len
 const has = (k: string): boolean => flags.has(k) && flag(k) !== 'false';
 const list = (k: string): string[] => (flags.get(k) ?? []).flatMap((v) => v.split(',')).map((s) => s.trim()).filter(Boolean);
 
+const engine = (flag('browser') ?? 'chromium') as 'chromium' | 'webkit' | 'firefox';
+if (!['chromium', 'webkit', 'firefox'].includes(engine)) throw new Error(`--browser ${engine}: use chromium, webkit or firefox`);
 const lang = flag('lang') ?? 'en';
 const plan = flag('plan') ?? 'free';
 const dark = has('dark');
@@ -136,16 +141,21 @@ async function check(browser: Browser, t: Target, size: { id: string; w: number;
   const url = t.server === 'external' ? t.path : `${base}${t.path}`;
   const origin = new URL(url).origin;
   const touch = size.w < 1000;
+  // WebKit has phones (isMobile, an iPhone's user agent); Firefox only a touch screen of that size; Chromium is checked as a desktop browser at every size.
+  const phone = engine === 'webkit' && size.w < 700;
   const context: BrowserContext = await browser.newContext({
-    viewport: { width: size.w, height: size.h }, deviceScaleFactor: 1, hasTouch: touch, isMobile: false,
+    viewport: { width: size.w, height: size.h }, deviceScaleFactor: 1, hasTouch: touch, isMobile: phone,
+    ...(phone ? { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1' } : {}),
     colorScheme: dark ? 'dark' : 'light', locale: lang === 'en' ? 'en-US' : `${lang}-${lang.toUpperCase()}`, reducedMotion: 'no-preference',
   });
+  // Chromium has a fake camera that plays a file (set at launch); the other engines get the same pictures from the page.
+  if (engine !== 'chromium' && personCamera) await installPersonCamera(context, { file: personCamera, portrait: size.w < size.h && size.w < 700 });
   const page = await context.newPage();
   const messages: string[] = [];
   const warnings: string[] = [];
   const blocked = new Set<string>();
   // Messages of the software GL driver of the headless browser are not the page's.
-  const allowed = ['GPU stall due to ReadPixels', 'Autofocus processing was blocked', 'OpenGL error checking is disabled', 'inference_feedback_manager', 'XNNPACK', ...(t.allowMessages ?? []), ...list('allow')];
+  const allowed = ['GPU stall due to ReadPixels', 'Autofocus processing was blocked', 'OpenGL error checking is disabled', 'inference_feedback_manager', 'XNNPACK', 'Created TensorFlow Lite', ...(t.allowMessages ?? []), ...list('allow')];
   const isAllowed = (s: string): boolean => allowed.some((a) => s.includes(a));
   if (!has('allow-external')) {
     await context.route((u) => u.origin !== origin && !['data:', 'blob:', 'about:'].includes(u.protocol), (route) => { blocked.add(route.request().url()); return route.abort(); });
@@ -214,6 +224,7 @@ async function check(browser: Browser, t: Target, size: { id: string; w: number;
 const jobs = targets.flatMap((t) => sizes.filter((s) => !t.sizes || t.sizes.includes(s.id)).map((s) => ({ t, s })));
 const results: PageResult[] = [];
 let browser: Browser | null = null;
+let personCamera: string | null = null;
 const t00 = Date.now();
 try {
   // --camera <video>: the fake camera shows this video instead of Chromium's test picture (a person to calibrate on). A raw .mjpeg
@@ -222,10 +233,14 @@ try {
   if (flag('camera')) {
     const src = resolve(flag('camera') as string);
     const clip = (await probeSeconds(src)) || 6;
-    const conv = await convertVideo({ input: src, out: join(out, 'camera', 'camera.mjpeg'), repeat: Math.ceil(150 / clip), ...(src.endsWith('.mjpeg') ? { inputFps: Number(flag('camera-input-fps') ?? 15) } : {}) });
+    // Chromium plays the file from its start with a sync leader in front; the page-side camera of the other engines loops the pictures, leader or not.
+    const conv = await convertVideo({ input: src, out: join(out, 'camera', engine === 'chromium' ? 'camera.mjpeg' : `camera-${engine}.mjpeg`), repeat: Math.ceil(150 / clip), ...(engine === 'chromium' ? {} : { leader: false }), ...(src.endsWith('.mjpeg') ? { inputFps: Number(flag('camera-input-fps') ?? 15) } : {}) });
     cameraFile = conv.file;
+    personCamera = engine === 'chromium' ? null : conv.file;
   }
-  browser = await chromium.launch(cameraFile ? withFakeVideo(cameraFile) : baseLaunchOptions);
+  browser = engine === 'webkit' ? await webkit.launch({ headless: true })
+    : engine === 'firefox' ? await firefox.launch({ headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true } })
+      : await chromium.launch(cameraFile ? withFakeVideo(cameraFile) : baseLaunchOptions);
   // Start the servers before the workers race for them.
   for (const k of new Set(targets.map((t) => t.server))) await serverFor(k);
   let next = 0;
@@ -262,7 +277,7 @@ if (flag('base')) {
 }
 const failing = results.filter((r) => r.errors > 0 || (warnAsError && r.warnings > 0));
 const warnOnly = results.filter((r) => r.errors === 0 && r.warnings > 0);
-writeFileSync(join(out, 'report.json'), JSON.stringify({ generated: new Date().toISOString(), lang, dark, sizes: reportSizes, carried, checked: results.length, failing: failing.length, results }, null, 1));
+writeFileSync(join(out, 'report.json'), JSON.stringify({ generated: new Date().toISOString(), browser: engine, lang, dark, sizes: reportSizes, carried, checked: results.length, failing: failing.length, results }, null, 1));
 // The list a builder works through (FINDINGS.md next to the report): one line per page and problem, with the sizes and the element.
 try { execFileSync(process.execPath, [fileURLToPath(new URL('./summarize.ts', import.meta.url)), join(out, 'report.json'), '--md', join(out, 'FINDINGS.md'), '--warnings'], { stdio: 'ignore' }); } catch { /* exit code 1 only says that errors are listed */ }
 const kinds = new Map<string, number>();
