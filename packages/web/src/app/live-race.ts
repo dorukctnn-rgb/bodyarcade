@@ -44,7 +44,8 @@ export function countOf(m: Pick<MatchInfo, 'phase' | 'startAt' | 'pauseTotal' | 
   if (!m || m.phase !== 'running') return 0;
   const zero = m.startAt + m.pauseTotal;
   const left = serverNow < zero ? zero - serverNow : m.resumeAt !== null && serverNow < m.resumeAt ? m.resumeAt - serverNow : 0;
-  return left > 0 ? Math.ceil(left / 1000) : 0;
+  // the Room's start count is a little longer than three seconds (its time to reach every page): the screen says 3, 2, 1
+  return left > 0 ? Math.min(3, Math.ceil(left / 1000)) : 0;
 }
 
 /** One friend on the stage: the tile's model (friend-tile.ts) with the points, the skeleton and the camera picture when it flows. */
@@ -157,9 +158,11 @@ export function liveOutcome(result: MatchResult, seats: readonly LiveSeat[], roo
   const you = me?.score ?? 0;
   const won = !!me && result.winner === me.seat;
   const draw = result.winner === null && result.reason === 'complete' && !!me && !me.forfeited;
+  // a race that ended too early to count (no_contest), or that nobody finished (abandoned), is lost by nobody
+  const counted = result.reason === 'complete' || result.reason === 'forfeit';
   const live: LiveRaceDetails = { reason: result.reason, seats: [...seats], room };
   return {
-    kind: 'live', you, won, draw, lost: !won && !draw,
+    kind: 'live', you, won, draw, lost: counted && !won && !draw,
     rivals: others.map((s) => ({ name: s.name, score: s.score, label: null })),
     margin: you - (top?.score ?? 0), best, code: null, live,
   };

@@ -134,7 +134,7 @@ export function liveRaceBlock(ctx: ViewContext, r: RaceOutcome, o: { keep: boole
   const left = others.filter((s) => s.forfeited);
   const winner = live.seats.find((s) => s.place === 1 && !s.forfeited && !s.you);
   const verdict = live.reason === 'abandoned' ? lr('result.abandoned')
-    : live.reason === 'no_contest' ? lr('result.noContest')
+    : live.reason === 'no_contest' ? (left.length === 1 ? lr('result.early', { name: left[0]?.name ?? '' }) : lr('result.noContest'))
       : live.reason === 'forfeit' && r.won && left.length > 0 ? (left.length === 1 ? lr('result.left.one', { name: left[0]?.name ?? '' }) : lr('result.left.many'))
         : r.won ? t.t('race.result.won', { n: Math.abs(r.margin) })
           : r.draw ? t.t('race.result.draw')
