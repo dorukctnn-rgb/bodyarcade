@@ -11,6 +11,8 @@ const NOISE: RegExp[] = [
   /GPU stall due to ReadPixels/, /Autofocus processing was blocked/, /OpenGL error checking is disabled/, /inference_feedback_manager/, /XNNPACK/,
   /Created TensorFlow Lite/, /Failed to load resource/,   // a failed request is reported with its address by the response listener below
   /WEBGL_debug_renderer_info/, /GL_INVALID_FRAMEBUFFER_OPERATION/,
+  // WebKit's own media controls say so on the console when a video it was given cannot be shown (the clip of the results on a machine with no media engine); the clip flow gives the verdict
+  /Button failed to load, iconName = /,
   // a machine with no WebGL (headless Firefox on a Linux runner): three.js says so on the console and the app steps down to its pictures or says it in words
   /A WebGL context could not be created/, /Error creating WebGL context/, /WebGL creation failed/,
 ];
