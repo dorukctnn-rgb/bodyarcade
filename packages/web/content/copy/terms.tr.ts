@@ -10,6 +10,7 @@ export function termsTr(): PageSpec {
   const free = titlesOf((g) => g.free, 'tr');
   const pro = titlesOf((g) => !g.free, 'tr');
   const $ = (n: number): string => F.usd(n, 'tr');
+  const memberships = F.FAMILY_PLAN ? 'Pro aylık, Pro yıllık ve Aile yıllık' : 'Pro aylık ve Pro yıllık';
   return {
     file: 'tr/terms.html',
     url: '/tr/terms',
@@ -26,7 +27,7 @@ export function termsTr(): PageSpec {
         `<strong>Oynaması ücretsiz.</strong> ${c.total} oyunun ${c.free} tanesi, oturarak ve sessiz sürümleriyle birlikte ücretsizdir ve reklam yoktur. Her Pro oyunu bir kez ücretsiz oynayabilirsin.`,
         '<strong>Kendi temponda egzersiz yap.</strong> Çevrene yer aç, ısın ve bir yerin ağrırsa dur. Aşağıdaki güvenlik uyarısını oku.',
         '<strong>Nazik ol ve adil oyna.</strong> Diğer oyuncuları rahatsız eden ya da hile yapan profilleri susturabilir, askıya alabilir ya da yasaklayabiliriz.',
-        '<strong>Pro’nun ödemesi web’de Gumroad, Android uygulamasında Google Play üzerinden yapılır.</strong> Ödemeyi onlar alır, vergiyi onlar halleder, iadeleri kendi kurallarına göre onlar yapar.',
+        `<strong>Pro’nun ödemesi web’de Gumroad, Android uygulamasında Google Play üzerinden yapılır.</strong> Ödemeyi onlar alır, vergiyi onlar halleder. Web’den alınan bir plan ${F.REFUND_DAYS} gün içinde iade edilebilir.`,
         `<strong>Eski alıcılar ödedikleri fiyatı korur.</strong> ${$(F.PRICE.legacyMonthly)} aylık üyeler ${$(F.PRICE.legacyMonthly)} öder, ${$(F.PRICE.founder)} Ömür boyu alıcıları Kurucu olur.`,
       ],
     },
@@ -35,15 +36,15 @@ export function termsTr(): PageSpec {
       {
         id: 'kim',
         title: 'Biz kimiz',
-        html: `<p>BodyArcade (bodyarcade.com ve BodyArcade Android uygulaması) ${F.COMPANY} tarafından yapılır. Bize ${mail()} adresinden ulaşabilirsin.</p>`,
+        html: `<p>BodyArcade (bodyarcade.com ve BodyArcade Android uygulaması), ${F.COUNTRY}’de ${F.STUDIO} adıyla çalışan gerçek kişi ${F.OWNER} tarafından yapılır. Bu koşullarda “biz” derken onu kastediyoruz. Bize ${mail()} adresinden ulaşabilirsin.</p>`,
       },
       {
         id: 'ne',
         title: 'BodyArcade nedir',
         html: `<p>BodyArcade, bedeninle oynadığın ${c.total} kısa oyundan oluşur. Bir kamera, yani web kameran ya da telefonunun ön kamerası, hareketlerini cihazında okur. Tarayıcında ya da Android uygulamasında oynayabilirsin. Hareketleri yapamıyorsan ya da kameran yoksa, izin veren oyunlarda klavye ya da dokunmatik kontroller vardır.</p>
 <p><strong>Ücretsiz plan</strong> ${c.free} oyun (${free}), bunların oturarak ve sessiz sürümleri, Kolay ve Normal zorluk seviyeleri ve reklamsızlık içerir. Her Pro oyunu (${pro}) bir kez ücretsiz oynayabilirsin.</p>
-<p><strong>Pro</strong>, aşağıdaki planlarla Pro oyunları, Zor ve Uzman zorluk seviyelerini ve daha sonra eklediğimiz her oyunu ekler.</p>
-<p>BodyArcade’ı çalışır tutuyor ve geliştiriyoruz; bu yüzden oyun ve özellik ekleyebilir, değiştirebilir ya da kaldırabiliriz. Ödediğin bir planın parçası olan bir şeyi kaldırırsak onu yenisiyle değiştiririz ya da sürenin kullanılmayan kısmını iade ederiz. Çevrimiçi özellikler ağ bağlantısı gerektirir ve başka şirketlerin (Cloudflare, Gumroad, Google) hizmetlerine bağlıdır; bu yüzden her zaman erişilebilir olacaklarını vaat edemeyiz.</p>`,
+<p><strong>Pro</strong>, aşağıdaki planlarla Pro oyunları, Zor ve Uzman zorluk seviyelerini ve daha sonra eklediğimiz oyunları ekler. Daha sonra eklenen oyunlar, ${memberships} üyeliklerinden biri etkin olduğu sürece ve Ömür boyu planda dahildir.</p>
+<p>BodyArcade’ı çalışır tutuyor ve geliştiriyoruz; bu yüzden oyun ve özellik ekleyebilir, değiştirebilir ya da kaldırabiliriz. Ödediğin bir planın ana parçası olan bir şeyi kaldırırsak onu benzer değerde bir şeyle değiştirmeye çalışırız. Yasadan doğan tüketici haklarına bu durum dokunmaz. Çevrimiçi özellikler ağ bağlantısı gerektirir ve başka şirketlerin (Cloudflare, Gumroad, Google) hizmetlerine bağlıdır; bu yüzden her zaman erişilebilir olacaklarını vaat edemeyiz.</p>`,
       },
       {
         id: 'guvenlik',
@@ -61,7 +62,7 @@ ${note('Tıbbi tavsiye değildir', 'BodyArcade kalp atış hızını ölçmez ve
       {
         id: 'yas',
         title: 'BodyArcade’ı kimler kullanabilir',
-        html: `<p>Herkes kendi cihazında oynayabilir. Çevrimiçi özellikler (arkadaşlar, odalar, herkese açık lobiler ve haftalık sıralamalar) ${F.AGE.online} yaş ve üzeri kişiler içindir. ${F.AGE.video} yaşından küçükse lütfen BodyArcade’ı bir ebeveynin ya da vasinin bilgisi dahilinde kullan ve bir şey satın almadan önce ona sor.</p>
+        html: `<p>Herkes kendi cihazında oynayabilir. Çevrimiçi özellikler (arkadaşlar, odalar, herkese açık lobiler ve haftalık sıralamalar) ${F.AGE.online} yaş ve üzeri kişiler içindir. ${F.AGE.online} yaşından küçüklerin çevrimiçi profili hiç olmaz: oyunlar cihazda çalışır ve uygulama oyuncu hakkında arkadaş hizmetine hiçbir şey göndermez. ${F.AGE.online} ile 17 yaş arasında profil, üretilmiş bir ad ve hazır mesajlarla sınırlıdır; görüntü ve yazılı metin yoktur. ${F.AGE.video} yaşından küçükse lütfen BodyArcade’ı bir ebeveynin ya da vasinin bilgisi dahilinde kullan ve bir şey satın almadan önce ona sor.</p>
 <p>Uygulama, çevrimiçi profil oluşturmadan önce yaş grubunu bir kez sorar. Lütfen gerçek olanı ver: neleri kimlerle paylaşabileceğini bu belirler ve daha küçük oyuncuları korur. Yetişkinlere ayrılmış özellikleri almak için gerçekte olduğundan büyük olduğunu söylemek bu koşulları ihlal eder.</p>`,
       },
       {
@@ -69,7 +70,7 @@ ${note('Tıbbi tavsiye değildir', 'BodyArcade kalp atış hızını ölçmez ve
         title: 'Başkalarıyla oynamak',
         html: `<p>Çevrimiçi profil isteğe bağlıdır ve parolası yoktur. Kurtarma kodunu güvende tut: arkadaş kodunla birlikte profilini geri getirir ve ikisine de sahip olan herkes profili ele geçirebilir.</p>
 ${ul([
-  `<strong>Adlar.</strong> ${F.AGE.video} yaş ve üzeri oyuncular en çok ${F.NAME_MAX_CHARS} karakterlik bir görünen ad seçer. Daha küçük oyunculara üretilmiş bir ad verilir. Ad, başkası gibi davranmamalı, kişisel bilgi taşımamalı ve kaba olmamalıdır.`,
+  `<strong>Adlar.</strong> ${F.AGE.video} yaş ve üzeri oyuncular en çok ${F.NAME_MAX_CHARS} karakterlik bir görünen ad seçer. ${F.AGE.online} ile 17 yaş arasındaki oyunculara üretilmiş bir ad verilir. Ad, başkası gibi davranmamalı, kişisel bilgi taşımamalı ve kaba olmamalıdır.`,
   '<strong>Arkadaş kodları ve bağlantıları.</strong> Onları yalnızca haber almak istediğin kişilerle paylaş. Bir arkadaşlık isteği, karşı taraf kabul edene kadar arkadaşlık sayılmaz.',
   `<strong>Odalar.</strong> Bir odada ${F.SEATS.min} ile ${F.SEATS.max} oyuncu bulunur. Oyunu ev sahibi seçer; özel bir odada ev sahibi bir oyuncuyu odadan da çıkarabilir.`,
   '<strong>Herkese açık lobiler.</strong> Kendi yaş grubundaki oyuncularla karşılaşırsın. Onlar görünen adını ve renginde bir iskelet görür, sana hazır mesajlar ve tepkiler gönderebilir. Tanımadığın hiç kimse senden yazılı metin ya da görüntü almaz.',
@@ -103,11 +104,12 @@ ${ul([
         title: 'Planlar ve fiyatlar',
         html: `${table(null, ['Plan', 'Web’deki fiyat', 'Ne alırsın'], [
   ['Ücretsiz', 'Ücret yok', `${c.free} oyun, bunların oturarak ve sessiz sürümleri, Kolay ve Normal zorluk, reklam yok; her Pro oyun bir kez.`],
-  ['Pro aylık', `<span class="nw">ayda ${$(F.PRICE.proMonthly)}</span>`, `${c.total} oyunun hepsi ve her zorluk seviyesi. Sen iptal edene kadar her ay yenilenir. En çok ${F.DEVICES.pro} cihaz.`],
+  ['Pro aylık', `<span class="nw">ayda ${$(F.PRICE.proMonthly)}</span>`, `${c.total} oyunun hepsi, daha sonra eklediğimiz oyunlar ve her zorluk seviyesi. Sen iptal edene kadar her ay yenilenir. En çok ${F.DEVICES.pro} cihaz.`],
   ['Pro yıllık', `<span class="nw">yılda ${$(F.PRICE.proYearly)}</span>`, `Pro aylık ile aynı, ${F.TRIAL_DAYS} günlük ücretsiz denemeyle. Sen iptal edene kadar her yıl yenilenir.`],
   ...(F.FAMILY_PLAN ? [['Aile yıllık', `<span class="nw">yılda ${$(F.PRICE.familyYearly)}</span>`, `Pro ile aynı; en çok ${F.DEVICES.family} cihazın her birinde en çok ${F.FAMILY_PROFILES} profil, böylece evdeki herkes kendi sonuçlarını tutar.`]] : []),
-  ['Ömür boyu', `<span class="nw">tek sefer ${$(F.PRICE.lifetime)}</span>`, `Yenileme olmadan Pro; BodyArcade sunulduğu sürece. En çok ${F.DEVICES.pro} cihaz.`],
+  ['Ömür boyu', `<span class="nw">tek sefer ${$(F.PRICE.lifetime)}</span>`, `Yenileme olmadan Pro; BodyArcade sunulduğu sürece, daha sonra eklediğimiz oyunlarla birlikte. En çok ${F.DEVICES.pro} cihaz.`],
 ])}
+<p><strong>Ömür boyu ne demek.</strong> Bir kez ödersin ve Pro, BodyArcade sunulduğu sürece yenileme olmadan sürer. BodyArcade’ı sonsuza kadar sunacağımız anlamına gelmez. Bir gün kapatırsak Ömür boyu plan ve diğer planlar onunla birlikte biter; elimizden geldiğince önceden haber veririz ve yenileme ödemelerini durdururuz. Yasadan doğan tüketici haklarına bu durum dokunmaz.</p>
 <p><strong>Eski planlar.</strong> Yukarıdaki planlar satışa çıkmadan önce Pro aylığı ayda ${$(F.PRICE.legacyMonthly)} fiyatıyla aldıysan, o üyelik kesintisiz sürdüğü sürece Pro’yu ayda ${$(F.PRICE.legacyMonthly)} ile korursun. O tarihten önce Ömür boyu planını ${$(F.PRICE.founder)} karşılığında aldıysan Kurucu’sun: BodyArcade sunulduğu sürece Pro, daha sonra eklenen her oyun, ${F.FAMILY_PROFILES} profil ve en çok ${F.DEVICES.founder} cihaz.</p>
 <p><strong>Android uygulaması.</strong> Orada fiyatları, para birimlerini ve ücretsiz denemeyi Google Play belirler; ülkeye göre değişebilir. Yukarıdaki fiyatlar web’deki liste fiyatlarıdır, ABD doları cinsindendir. Vergiler, satıcının gerektirdiği biçimde fiyata dahil edilir ya da ödemede eklenir.</p>
 <p>Yeni alıcılar için plan fiyatlarını değiştirebiliriz. Süren bir üyeliğin fiyatını, Gumroad ya da Google Play’in gerektirdiği bildirim ve onay olmadan artırmayız.</p>`,
@@ -124,7 +126,7 @@ ${ul([
         id: 'iade',
         title: 'İadeler',
         html: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır.</p>
-<p>Web’de iadeyi Gumroad yapar. Bir ürünün iade süresi Gumroad sayfasında ve makbuzunda yazar. İade istemek için makbuzundaki bağlantıyı kullan ya da ${mail()} adresine yaz; politika izin verdiğinde Gumroad’dan iade etmesini isteriz. İade edilen bir satın alma, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>
+<p>Web’de her plan, satın alındığı günden başlayarak ${F.REFUND_DAYS} gün içinde iade edilebilir. İadeyi Gumroad yapar; iade süresi ürünün Gumroad sayfasında ve makbuzunda da yazar. İade istemek için makbuzundaki bağlantıyı kullan ya da ${mail()} adresine yaz; Gumroad’dan iade etmesini isteriz. İade edilen bir satın alma, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>
 <p>Android uygulamasında Google Play’in iade kuralları geçerlidir ve kararı Google verir. Yardım gerekirse bize yaz.</p>
 <p>Bu koşullardaki hiçbir şey, ülkenin hukukunun sana tüketici olarak verdiği iade ya da cayma hakkını ortadan kaldırmaz.</p>`,
       },
@@ -148,7 +150,7 @@ ${ul([
       {
         id: 'mulkiyet',
         title: 'Mülkiyet ve atıflar',
-        html: `<p>BodyArcade’ın kendisi, oyunları, görselleri, metinleri ve kodu ${F.COMPANY}’a aittir. Bu koşullar çerçevesinde onları kullanman için kişisel ve devredilemez bir hak alırsın. Senin olan sana ait kalır: adın ve sonuçların.</p>
+        html: `<p>BodyArcade’ın kendisi, oyunları, görselleri, metinleri ve kodu, ${F.STUDIO} adıyla çalışan ${F.OWNER}’e aittir. Bu koşullar çerçevesinde onları kullanman için kişisel ve devredilemez bir hak alırsın. Senin olan sana ait kalır: adın ve sonuçların.</p>
 <p>BodyArcade açık kaynaklı yazılımlarla yapılmıştır: Google’ın MediaPipe’ı ve poz modeli Apache Lisansı 2.0 ile; three.js ve qrcode-generator MIT Lisansı ile. Onlara kendi lisansları uygulanır.</p>`,
       },
       {
@@ -164,7 +166,7 @@ ${ul([
       {
         id: 'bitirme',
         title: 'Kullanımı bitirmek',
-        html: `<p>BodyArcade’ı istediğin an kullanmayı bırakabilir ve çevrimiçi profilini uygulamadan silebilirsin. Bu koşulları ihlal edersen çevrimiçi özelliklere erişimini askıya alabilir ya da bitirebiliriz. BodyArcade’ı kapatırsak ya da ücretli bir planı senin kusurun olmadan bitirirsek sana haber veririz ve ödediğin tutarın kullanılmayan kısmını iade ederiz (Ömür boyu plan için fiyatın makul bir payı).</p>`,
+        html: `<p>BodyArcade’ı istediğin an kullanmayı bırakabilir ve çevrimiçi profilini uygulamadan silebilirsin. Bu koşulları ihlal edersen çevrimiçi özelliklere erişimini askıya alabilir ya da bitirebiliriz. BodyArcade’ı bir gün kapatırsak, planlar bölümünde yazdığı gibi, elimizden geldiğince önceden haber veririz. Yasadan doğan tüketici haklarına bu durum dokunmaz.</p>`,
       },
       {
         id: 'hukuk',

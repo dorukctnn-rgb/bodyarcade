@@ -22,12 +22,12 @@ export function privacyEn(): PageSpec {
     description: 'What BodyArcade keeps about you, where and for how long: camera video stays on your device, what online play holds, payments, children and your rights.',
     h1: 'Privacy policy',
     when: `Last updated ${date}`,
-    lead: `BodyArcade is made by ${F.COMPANY}. This page says in plain words what BodyArcade keeps about you, where it keeps it and for how long. It covers bodyarcade.com and the BodyArcade Android app. Questions and requests: ${mail()}.`,
+    lead: `BodyArcade is made by ${F.OWNER}, trading as ${F.STUDIO}. This page says in plain words what BodyArcade keeps about you, where it keeps it and for how long. It covers bodyarcade.com and the BodyArcade Android app. Questions and requests: ${mail()}.`,
     brief: {
       title: 'In short',
       items: [
         '<strong>Your camera video stays on your device.</strong> It is turned into body points there. It is not uploaded, recorded or stored. The one exception is optional: a live picture between two friends who are both 18 or older, in a private room, when both of them switch it on.',
-        '<strong>You can play without a profile.</strong> A profile is needed only for friends, rooms with other people, public lobbies and weekly boards. It has no password and no e-mail address. Players under 13 do not get an online profile.',
+        `<strong>You can play without a profile.</strong> A profile is needed only for friends, rooms with other people, public lobbies and weekly boards. It has no password and no e-mail address. Players under ${F.AGE.online} do not get an online profile.`,
         `<strong>Live rooms clear themselves.</strong> A room is deleted ${F.ROOM_EMPTY_MINUTES} minutes after the last player leaves, and in any case ${F.ROOM_IDLE_HOURS} hours after its last activity, together with its chat and results.`,
         '<strong>No ads, no advertising trackers, no sale of data.</strong> Payments go through Gumroad on the web and Google Play in the Android app, so we never see card details.',
         '<strong>Your data is yours to take or erase.</strong> The profile screen of the app downloads your profile data as one file and deletes your account.',
@@ -38,7 +38,8 @@ export function privacyEn(): PageSpec {
       {
         id: 'who',
         title: 'Who is responsible',
-        html: `<p>${F.COMPANY} runs BodyArcade and decides what is done with the data described here. In data protection law that makes it the controller: the &ldquo;data controller&rdquo; of the GDPR and the &ldquo;veri sorumlusu&rdquo; of the Turkish Personal Data Protection Law (KVKK, law no. 6698). You can reach us at ${mail()}.</p>`,
+        html: `<p>BodyArcade is run by ${F.OWNER}, an individual who trades as ${F.STUDIO} in ${F.COUNTRY}. On this page &ldquo;we&rdquo; means him. We decide what is done with the data described here. In data protection law that makes us the controller: the &ldquo;data controller&rdquo; of the GDPR and the &ldquo;veri sorumlusu&rdquo; of the Turkish Personal Data Protection Law (KVKK, law no. 6698).</p>
+<p>You can reach us at ${mail()}. That is also where requests about your data go. We do not publish a street address.</p>`,
       },
       {
         id: 'device',
@@ -213,7 +214,7 @@ ${F.FAMILY_PLAN ? `<p>The Family plan lets up to ${F.FAMILY_PROFILES} people on 
         id: 'changes',
         title: 'Changes and contact',
         html: `<p>When the way BodyArcade handles data changes, we change this page and the date at the top. See also the <a href="/terms">terms of use</a> and the <a href="/faq">FAQ</a>.</p>
-<p>${F.COMPANY}, ${mail()}.</p>`,
+<p>${F.OWNER}, trading as ${F.STUDIO}, ${F.COUNTRY}. ${mail()}.</p>`,
       },
     ],
   };

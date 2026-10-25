@@ -21,12 +21,12 @@ export function privacyTr(): PageSpec {
     description: 'BodyArcade senin hakkında neyi, nerede ve ne kadar süre saklar: kamera görüntüsü cihazında kalır; çevrimiçi oyunun tuttukları, ödemeler, çocuklar ve haklarının.',
     h1: 'Gizlilik politikası',
     when: `Son güncelleme: ${date}`,
-    lead: `BodyArcade, ${F.COMPANY} tarafından yapılır. Bu sayfa, BodyArcade’ın senin hakkında neyi, nerede ve ne kadar süre sakladığını açık bir dille anlatır. bodyarcade.com’u ve BodyArcade Android uygulamasını kapsar. Sorular ve talepler için: ${mail()}.`,
+    lead: `BodyArcade, ${F.STUDIO} adıyla çalışan ${F.OWNER} tarafından yapılır. Bu sayfa, BodyArcade’ın senin hakkında neyi, nerede ve ne kadar süre sakladığını açık bir dille anlatır. bodyarcade.com’u ve BodyArcade Android uygulamasını kapsar. Sorular ve talepler için: ${mail()}.`,
     brief: {
       title: 'Kısaca',
       items: [
         '<strong>Kamera görüntün cihazında kalır.</strong> Görüntü orada vücut noktalarına dönüştürülür; yüklenmez, kaydedilmez, saklanmaz. Tek istisna isteğe bağlıdır: özel bir odada, ikisi de 18 yaşında ya da daha büyük iki arkadaş ikisi de açarsa aralarında canlı görüntü.',
-        '<strong>Profil olmadan oynayabilirsin.</strong> Profil yalnızca arkadaşlar, başkalarıyla odalar, herkese açık lobiler ve haftalık sıralamalar için gerekir. Parola ve e-posta adresi yoktur; 13 yaşından küçük oyuncuların çevrimiçi profili olmaz.',
+        `<strong>Profil olmadan oynayabilirsin.</strong> Profil yalnızca arkadaşlar, başkalarıyla odalar, herkese açık lobiler ve haftalık sıralamalar için gerekir. Parola ve e-posta adresi yoktur; ${F.AGE.online} yaşından küçük oyuncuların çevrimiçi profili olmaz.`,
         `<strong>Canlı odalar kendiliğinden temizlenir.</strong> Bir oda, son oyuncu ayrıldıktan ${F.ROOM_EMPTY_MINUTES} dakika sonra, her durumda da son hareketinden ${F.ROOM_IDLE_HOURS} saat sonra; sohbeti ve sonuçlarıyla birlikte silinir.`,
         '<strong>Reklam yok, reklam izleyicisi yok, veri satışı yok.</strong> Ödemeler web’de Gumroad, Android uygulamasında Google Play üzerinden yapılır; kart bilgilerini biz hiç görmeyiz.',
         '<strong>Verin senin: indirebilir ya da silebilirsin.</strong> Uygulamadaki profil ekranı profil verini tek dosya olarak indirir ve hesabını siler.',
@@ -37,7 +37,8 @@ export function privacyTr(): PageSpec {
       {
         id: 'sorumlu',
         title: 'Veri sorumlusu kim',
-        html: `<p>${F.COMPANY}, BodyArcade’ı işletir ve burada anlatılan verilerle ne yapılacağına karar verir. Veri koruma hukukunda bu onu veri sorumlusu yapar: GDPR’daki “data controller” ve 6698 sayılı Kişisel Verilerin Korunması Kanunu’ndaki (KVKK) “veri sorumlusu”. Bize ${mail()} adresinden ulaşabilirsin.</p>`,
+        html: `<p>BodyArcade’ı ${F.COUNTRY}’de ${F.STUDIO} adıyla çalışan gerçek kişi ${F.OWNER} işletir. Bu sayfada “biz” derken onu kastediyoruz. Burada anlatılan verilerle ne yapılacağına biz karar veririz. Veri koruma hukukunda bu bizi veri sorumlusu yapar: GDPR’daki “data controller” ve 6698 sayılı Kişisel Verilerin Korunması Kanunu’ndaki (KVKK) “veri sorumlusu”.</p>
+<p>Bize ${mail()} adresinden ulaşabilirsin. Verilerinle ilgili talepler de bu adrese gelir. Posta adresi yayımlamıyoruz.</p>`,
       },
       {
         id: 'cihaz',
@@ -222,7 +223,7 @@ ${F.FAMILY_PLAN ? `<p>Aile planı, bir cihazı paylaşan ${F.FAMILY_PROFILES} ki
         id: 'degisiklik',
         title: 'Değişiklikler ve iletişim',
         html: `<p>BodyArcade’ın verileri ele alış biçimi değiştiğinde bu sayfayı ve üstündeki tarihi değiştiririz. Ayrıca <a href="/tr/terms">kullanım koşullarına</a> ve <a href="/tr/faq">sık sorulan sorulara</a> bak.</p>
-<p>${F.COMPANY}, ${mail()}.</p>`,
+<p>${F.OWNER}, ${F.STUDIO} adıyla, ${F.COUNTRY}. ${mail()}.</p>`,
       },
     ],
   };

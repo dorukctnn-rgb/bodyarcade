@@ -12,6 +12,7 @@ export function faqEn(): PageSpec {
   const proTitles = titlesOf((g) => !g.free, 'en');
   const liveTitles = titlesOf((g) => g.live, 'en');
   const $ = (n: number): string => F.usd(n, 'en');
+  const memberships = F.FAMILY_PLAN ? 'a Pro monthly, Pro yearly or Family yearly' : 'a Pro monthly or Pro yearly';
   const app = F.ANDROID_APP_LIVE
     ? '<p>There is an Android app on Google Play. It plays the same games and takes payments through Google Play. On an iPhone, use BodyArcade in Safari.</p>'
     : '<p>BodyArcade runs in the browser of every device, so there is nothing to install. An Android app on Google Play follows the web release. The paid plans are meant to work in both.</p>';
@@ -117,11 +118,15 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'What does Pro add?',
-          a: `<p>The Pro games (${proTitles}), the Hard and Expert difficulties, and the games we add later. See the <a href="/pro/">Pro page</a> for the plans.</p>`,
+          a: `<p>The Pro games (${proTitles}), the Hard and Expert difficulties, and the games we add later. The later games are included while ${memberships} membership is active, and on the Lifetime plan. See the <a href="/pro/">Pro page</a> for the plans.</p>`,
         },
         {
           q: 'How much do the plans cost?',
           a: `<p>On the web: Pro monthly ${$(F.PRICE.proMonthly)} a month, Pro yearly ${$(F.PRICE.proYearly)} a year with a ${F.TRIAL_DAYS}-day free trial, ${F.FAMILY_PLAN ? `Family yearly ${$(F.PRICE.familyYearly)} a year, ` : ''}and Lifetime ${$(F.PRICE.lifetime)} once. In the Android app, Google Play sets the price and the currency for your country. The details are in the <a href="/terms">terms</a>.</p>`,
+        },
+        {
+          q: 'What does Lifetime mean?',
+          a: '<p>You pay once and Pro has no renewals for as long as BodyArcade is offered. It includes the games we add later. It is not a promise to offer BodyArcade for ever: if we ever close it, we will tell you ahead of time where we can, and your rights as a consumer under the law are not affected.</p>',
         },
         {
           q: 'How does the free trial work?',
@@ -133,7 +138,7 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'How do I get a refund?',
-          a: `<p>Refunds follow the rules of the store that sold the plan. On the web, Gumroad refunds you; the refund period is on the product page and your receipt, and you can write to ${mail()} for help. On Google Play, Google&rsquo;s rules apply. A refunded plan ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>`,
+          a: `<p>Refunds follow the rules of the store that sold the plan. On the web, every plan can be refunded within ${F.REFUND_DAYS} days of buying it. Gumroad makes the refund; the refund period is also on the product page and your receipt, and you can write to ${mail()} for help. On Google Play, Google&rsquo;s rules apply. A refunded plan ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>`,
         },
         {
           q: 'How do I turn Pro on with my license key?',
@@ -197,7 +202,7 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'Who makes BodyArcade, and how do I reach you?',
-          a: `<p>${F.COMPANY} makes BodyArcade. Write to ${mail()}.</p>`,
+          a: `<p>${F.OWNER}, an individual who trades as ${F.STUDIO} in ${F.COUNTRY}, makes BodyArcade. Write to ${mail()}.</p>`,
         },
       ],
     },

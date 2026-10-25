@@ -426,6 +426,72 @@ describe('English and Turkish say the same numbers', () => {
   }
 });
 
+// What Doruk decided on 25 Oct 2026 (NOTLAR-content.md, "DORUK CEVAPLARI"): the pages must keep saying it.
+describe('the owner\'s decisions of 25 October are on the pages', () => {
+  const textOf = (file: string): string => visible(renderPage(byFile.get(file) as PageSpec));
+  const legal = ['privacy.html', 'tr/privacy.html', 'terms.html', 'tr/terms.html', 'faq.html', 'tr/faq.html'];
+
+  it('the maker is a person who trades under a name, not a company, and no street address is published', () => {
+    for (const f of legal) {
+      const t = textOf(f);
+      expect(t, f).toContain(F.OWNER);
+      expect(t, f).toContain(F.STUDIO);
+    }
+    for (const p of all) {
+      const t = textOf(p.file);
+      expect(t, p.file).not.toMatch(/Peak Apps Studio[^.]{0,60}\b(company|Ltd|Inc|LLC|Limited|corporation)\b/i);
+      expect(t, p.file).not.toMatch(/Peak Apps Studio[^.]{0,60}(şirket|A\.Ş|Ltd\. ?Şti)/i);
+      expect(t, p.file).not.toMatch(/\b(Mah\.|Mahallesi|Sok\.|Sokak|Cad\.|Caddesi|No:)\s/);
+    }
+    expect(textOf('privacy.html')).toContain('an individual who trades as');
+    expect(textOf('tr/privacy.html')).toContain('gerçek kişi');
+    expect(textOf('terms.html')).toContain('an individual who trades as');
+    expect(textOf('tr/terms.html')).toContain('gerçek kişi');
+  });
+
+  it('Lifetime lasts as long as BodyArcade is offered, promises no refund if the service closes, and leaves statutory rights alone', () => {
+    for (const f of ['terms.html', 'faq.html']) {
+      expect(textOf(f), f).toContain('for as long as BodyArcade is offered');
+      expect(textOf(f), f).toContain('rights as a consumer under the law are not affected');
+    }
+    for (const f of ['tr/terms.html', 'tr/faq.html']) {
+      expect(textOf(f), f).toContain('BodyArcade sunulduğu sürece');
+      expect(textOf(f), f).toContain('tüketici haklarına bu durum dokunmaz');
+    }
+    for (const p of all) expect(textOf(p.file), p.file).not.toMatch(/refund the unused part|fair share of the price|kullanılmayan kısmını iade|fiyatın makul bir payı/i);
+  });
+
+  it('Pro includes the games added later, while a membership is active and on the Lifetime plan', () => {
+    for (const f of ['terms.html', 'faq.html']) expect(textOf(f), f).toMatch(/(games we add later|later games) are included while .{0,70}membership is active, and on the Lifetime plan/);
+    for (const f of ['tr/terms.html', 'tr/faq.html']) expect(textOf(f), f).toMatch(/Daha sonra eklenen oyunlar, .{0,70} üyeliklerinden biri etkin olduğu sürece ve Ömür boyu planda dahildir/);
+  });
+
+  it('nobody under 16 has an online identity, and 13 is nowhere an age in the pages', () => {
+    expect(F.AGE.online).toBe(16);
+    expect(POLICY.child.online).toBe(false);
+    for (const p of all) {
+      expect(textOf(p.file), p.file).not.toMatch(/\b(under|below|younger than|aged?|over|older than) 13\b|\b13 (and|or) (older|over|up)|\b13\+|\b13-17|\b13 to 17|\b13 ile 17|\b13 yaş|\b13 altı/i);
+    }
+    expect(textOf('privacy.html')).toContain(`Players under ${F.AGE.online} do not get an online profile`);
+    expect(textOf('tr/privacy.html')).toContain(`${F.AGE.online} yaşından küçük oyuncuların çevrimiçi profili olmaz`);
+  });
+
+  it('the plans bought on the web have a 14 day refund period, in both languages, and the app says no other one', () => {
+    expect(F.REFUND_DAYS).toBe(14);
+    for (const f of ['terms.html', 'faq.html']) expect(textOf(f), f).toContain(`refunded within ${F.REFUND_DAYS} days of buying it`);
+    for (const f of ['tr/terms.html', 'tr/faq.html']) expect(textOf(f), f).toContain(`${F.REFUND_DAYS} gün içinde iade edilebilir`);
+    for (const rel of ['packages/core/ui/i18n/en.ts', 'packages/core/ui/i18n/tr.ts']) {
+      for (const m of read(rel).matchAll(/(\d+)[- ]?(?:day|gün)[^'\n]{0,30}(?:refund|money.?back|iade)|(?:refund|iade)[^'\n]{0,40}?(\d+)[- ]?(?:day|gün)/gi)) {
+        expect(Number(m[1] ?? m[2]), `${rel}: ${m[0]}`).toBe(F.REFUND_DAYS);
+      }
+    }
+  });
+
+  it('no page claims that a lawyer looked at it', () => {
+    for (const p of all) expect(textOf(p.file), p.file).not.toMatch(/\b(lawyer|attorney|legal review|avukat|hukuki inceleme)\b/i);
+  });
+});
+
 describe('the stylesheet uses the design tokens', () => {
   const hexes = (block: string): Map<string, string> => new Map([...block.matchAll(/(--ba-[a-z-]+):\s*(#[0-9A-Fa-f]{6})\b/g)].map((m) => [m[1] as string, (m[2] as string).toUpperCase()]));
   const tokens = read('design/tokens/tokens.css');

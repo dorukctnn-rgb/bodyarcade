@@ -10,6 +10,7 @@ export function termsEn(): PageSpec {
   const free = titlesOf((g) => g.free, 'en');
   const pro = titlesOf((g) => !g.free, 'en');
   const $ = (n: number): string => F.usd(n, 'en');
+  const memberships = F.FAMILY_PLAN ? 'a Pro monthly, Pro yearly or Family yearly' : 'a Pro monthly or Pro yearly';
   return {
     file: 'terms.html',
     url: '/terms',
@@ -26,7 +27,7 @@ export function termsEn(): PageSpec {
         `<strong>Free to play.</strong> ${c.free} of ${c.total} games are free, with their seated and quiet versions, and there are no ads. You can play each Pro game once for free.`,
         '<strong>Exercise at your own pace.</strong> Clear some space, warm up, and stop if something hurts. Read the safety notice below.',
         '<strong>Be kind and play fair.</strong> We can mute, suspend or ban profiles that harass other players or cheat.',
-        '<strong>Pro is paid for through Gumroad on the web and Google Play in the Android app.</strong> They take the payment, handle tax and make refunds under their rules.',
+        `<strong>Pro is paid for through Gumroad on the web and Google Play in the Android app.</strong> They take the payment and handle tax. A plan bought on the web can be refunded within ${F.REFUND_DAYS} days.`,
         `<strong>Earlier buyers keep what they paid.</strong> ${$(F.PRICE.legacyMonthly)} monthly members stay at ${$(F.PRICE.legacyMonthly)}, and ${$(F.PRICE.founder)} Lifetime buyers are Founders.`,
       ],
     },
@@ -35,15 +36,15 @@ export function termsEn(): PageSpec {
       {
         id: 'who',
         title: 'Who we are',
-        html: `<p>BodyArcade (bodyarcade.com and the BodyArcade Android app) is made by ${F.COMPANY}. You can reach us at ${mail()}.</p>`,
+        html: `<p>BodyArcade (bodyarcade.com and the BodyArcade Android app) is made by ${F.OWNER}, an individual who trades as ${F.STUDIO} in ${F.COUNTRY}. In these terms &ldquo;we&rdquo; means him. You can reach us at ${mail()}.</p>`,
       },
       {
         id: 'what',
         title: 'What BodyArcade is',
         html: `<p>BodyArcade is a set of ${c.total} short games that you play with your body. A camera, your webcam or the front camera of your phone, reads your moves on your device. You can play in your browser or in the Android app. Keyboard or touch controls are there for games that allow them, if you cannot do the movements or have no camera.</p>
 <p><strong>The free plan</strong> has ${c.free} games (${free}), their seated and quiet versions, the Easy and Normal difficulties, and no ads. You can play each Pro game (${pro}) once for free.</p>
-<p><strong>Pro</strong> adds the Pro games, the Hard and Expert difficulties and every game we add later, with the plans below.</p>
-<p>We keep BodyArcade running and improve it, so we may add, change or remove games and features. If we remove something that is part of a plan you paid for, we will replace it or refund the unused part of the period. Online features need a network connection and depend on services of other companies (Cloudflare, Gumroad, Google), so we cannot promise that they are always available.</p>`,
+<p><strong>Pro</strong> adds the Pro games, the Hard and Expert difficulties and the games we add later, with the plans below. The games we add later are included while ${memberships} membership is active, and on the Lifetime plan.</p>
+<p>We keep BodyArcade running and improve it, so we may add, change or remove games and features. If we remove something that is a main part of a plan you paid for, we will try to replace it with something of similar value. Your rights as a consumer under the law are not affected. Online features need a network connection and depend on services of other companies (Cloudflare, Gumroad, Google), so we cannot promise that they are always available.</p>`,
       },
       {
         id: 'safety',
@@ -61,7 +62,7 @@ ${note('Not medical advice', 'BodyArcade does not measure your heart rate and gi
       {
         id: 'age',
         title: 'Who may use BodyArcade',
-        html: `<p>Anyone can play on their own device. The online features (friends, rooms, public lobbies and weekly boards) are for people aged ${F.AGE.online} and older. If you are under 18, please use BodyArcade with the knowledge of a parent or guardian, and ask them before you buy anything.</p>
+        html: `<p>Anyone can play on their own device. The online features (friends, rooms, public lobbies and weekly boards) are for people aged ${F.AGE.online} and older. Under ${F.AGE.online} there is no online profile at all: the games work on the device, and the app sends nothing about the player to the friends service. From ${F.AGE.online} to 17 the profile is limited to a generated name and preset messages, with no video and no typed text. If you are under 18, please use BodyArcade with the knowledge of a parent or guardian, and ask them before you buy anything.</p>
 <p>The app asks your age group once, before you make an online profile. Please give the true one: it decides what you may share and with whom, and it protects younger players. Saying you are older than you are, to get features meant for adults, breaks these terms.</p>`,
       },
       {
@@ -69,7 +70,7 @@ ${note('Not medical advice', 'BodyArcade does not measure your heart rate and gi
         title: 'Playing with others',
         html: `<p>An online profile is optional and has no password. Keep your recovery code safe: with your friend code it brings your profile back, and anyone who has both can take the profile over.</p>
 ${ul([
-  `<strong>Names.</strong> Players aged ${F.AGE.video} and older choose a display name of up to ${F.NAME_MAX_CHARS} characters. Younger players get a generated name. A name must not pretend to be someone else, carry personal details or be rude.`,
+  `<strong>Names.</strong> Players aged ${F.AGE.video} and older choose a display name of up to ${F.NAME_MAX_CHARS} characters. Players aged ${F.AGE.online} to 17 get a generated name. A name must not pretend to be someone else, carry personal details or be rude.`,
   '<strong>Friend codes and links.</strong> Share them only with people you want to hear from. A friend request needs the other person to accept it.',
   `<strong>Rooms.</strong> A room holds ${F.SEATS.min} to ${F.SEATS.max} players. The host picks the game, and in a private room the host can remove a player.`,
   `<strong>Public lobbies.</strong> You meet players of your own age group. They see your display name and a skeleton in your colour, and can send preset messages and reactions. Nobody you do not know receives typed text or video from you.`,
@@ -103,11 +104,12 @@ ${ul([
         title: 'Plans and prices',
         html: `${table(null, ['Plan', 'Price on the web', 'What you get'], [
   ['Free', 'No charge', `${c.free} games, their seated and quiet versions, the Easy and Normal difficulties, no ads; each Pro game once.`],
-  ['Pro monthly', `<span class="nw">${$(F.PRICE.proMonthly)} a month</span>`, `All ${c.total} games and every difficulty. Renews every month until you cancel. Up to ${F.DEVICES.pro} devices.`],
+  ['Pro monthly', `<span class="nw">${$(F.PRICE.proMonthly)} a month</span>`, `All ${c.total} games, the games we add later and every difficulty. Renews every month until you cancel. Up to ${F.DEVICES.pro} devices.`],
   ['Pro yearly', `<span class="nw">${$(F.PRICE.proYearly)} a year</span>`, `The same as Pro monthly, with a ${F.TRIAL_DAYS}-day free trial. Renews every year until you cancel.`],
   ...(F.FAMILY_PLAN ? [['Family yearly', `<span class="nw">${$(F.PRICE.familyYearly)} a year</span>`, `The same as Pro, with up to ${F.FAMILY_PROFILES} profiles on each of up to ${F.DEVICES.family} devices, so everyone at home keeps their own results.`]] : []),
-  ['Lifetime', `<span class="nw">${$(F.PRICE.lifetime)} once</span>`, `Pro with no renewals, for as long as BodyArcade is offered. Up to ${F.DEVICES.pro} devices.`],
+  ['Lifetime', `<span class="nw">${$(F.PRICE.lifetime)} once</span>`, `Pro with no renewals, for as long as BodyArcade is offered, with the games we add later. Up to ${F.DEVICES.pro} devices.`],
 ])}
+<p><strong>What Lifetime means.</strong> You pay once and Pro has no renewals for as long as BodyArcade is offered. It is not a promise to offer BodyArcade for ever. If we ever close it, Lifetime and the other plans end with it, we will tell you ahead of time where we can, and we will stop any renewal payments. Your rights as a consumer under the law are not affected.</p>
 <p><strong>Earlier plans.</strong> If you bought Pro monthly at ${$(F.PRICE.legacyMonthly)} a month before the plans above went on sale, you keep Pro at ${$(F.PRICE.legacyMonthly)} a month for as long as that membership runs without a break. If you bought Lifetime for ${$(F.PRICE.founder)} before then, you are a Founder: Pro for as long as BodyArcade is offered, every game added later, ${F.FAMILY_PROFILES} profiles and up to ${F.DEVICES.founder} devices.</p>
 <p><strong>The Android app.</strong> Prices, currencies and the free trial there are set by Google Play and can differ by country. The prices above are the list prices on the web, in US dollars. Taxes are included or added at checkout as the seller requires.</p>
 <p>We may change the prices of plans for new buyers. We will not raise the price of a membership that is running without the notice and consent that Gumroad or Google Play require.</p>`,
@@ -124,7 +126,7 @@ ${ul([
         id: 'refunds',
         title: 'Refunds',
         html: `<p>Refunds follow the rules of the store that sold the plan.</p>
-<p>On the web, Gumroad makes the refund. The refund period of a product is shown on its Gumroad page and on your receipt. To ask for a refund, use the link in your receipt, or write to ${mail()} and we will ask Gumroad to refund when the policy allows. A refunded purchase ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>
+<p>On the web, every plan can be refunded within ${F.REFUND_DAYS} days of buying it. Gumroad makes the refund, and the refund period is also shown on the product&rsquo;s Gumroad page and on your receipt. To ask for a refund, use the link in your receipt, or write to ${mail()} and we will ask Gumroad to refund it. A refunded purchase ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>
 <p>In the Android app, Google Play&rsquo;s refund rules apply and Google decides. Write to us if you need help.</p>
 <p>Nothing in these terms takes away a right to a refund or to cancel that the law of your country gives you as a consumer.</p>`,
       },
@@ -148,7 +150,7 @@ ${ul([
       {
         id: 'ip',
         title: 'Ownership and credits',
-        html: `<p>BodyArcade, its games, artwork, texts and code belong to ${F.COMPANY}. You get a personal, non-transferable right to use them under these terms. What is yours stays yours: your name and your results.</p>
+        html: `<p>BodyArcade, its games, artwork, texts and code belong to ${F.OWNER}, who trades as ${F.STUDIO}. You get a personal, non-transferable right to use them under these terms. What is yours stays yours: your name and your results.</p>
 <p>BodyArcade is built with open-source software: Google&rsquo;s MediaPipe, with its pose model, under the Apache License 2.0; three.js and qrcode-generator under the MIT License. Their licenses apply to them.</p>`,
       },
       {
@@ -164,7 +166,7 @@ ${ul([
       {
         id: 'ending',
         title: 'Ending your use',
-        html: `<p>You can stop using BodyArcade at any time and delete your online profile in the app. We may suspend or end your access to the online features if you break these terms. If we ever close BodyArcade or end a paid plan without fault on your side, we will tell you and refund the unused part of what you paid (for a Lifetime plan, a fair share of the price).</p>`,
+        html: `<p>You can stop using BodyArcade at any time and delete your online profile in the app. We may suspend or end your access to the online features if you break these terms. If we ever close BodyArcade, we will tell you ahead of time where we can, as the plans section says. Your rights as a consumer under the law are not affected.</p>`,
       },
       {
         id: 'law',

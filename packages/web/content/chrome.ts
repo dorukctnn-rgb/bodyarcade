@@ -4,7 +4,7 @@
 //
 // The page texts are written as HTML in copy/*.ts (trusted source in this repository); only what a page puts into an attribute
 // goes through esc().
-import { COMPANY, EMAIL, SITE, type Lang } from './facts.ts';
+import { EMAIL, OWNER, SITE, STUDIO, type Lang } from './facts.ts';
 
 export interface Crumb { name: string; url: string }
 export interface Section { id: string; title: string; html: string }
@@ -72,17 +72,17 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     html: 'en', skip: 'Skip to content', navLabel: 'Main navigation',
     nav: { games: ['Games', '/'], pro: ['Pro', '/pro/'], faq: ['FAQ', '/faq'], blog: ['Blog', '/blog/'] },
     play: 'Play a game', toc: 'On this page', crumbs: 'Breadcrumb',
-    made: `BodyArcade is made by ${COMPANY}.`, camera: 'Camera video is read on your device and never recorded.',
+    made: `BodyArcade is made by ${STUDIO}.`, camera: 'Camera video is read on your device and never recorded.',
     privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
-    studio: COMPANY,
+    studio: STUDIO,
   },
   tr: {
     html: 'tr', skip: 'İçeriğe geç', navLabel: 'Ana gezinme',
     nav: { games: ['Oyunlar', '/tr/'], pro: ['Pro', '/tr/pro/'], faq: ['SSS', '/tr/faq'], blog: null },
     play: 'Bir oyun oyna', toc: 'Bu sayfada', crumbs: 'Sayfa yolu',
-    made: `BodyArcade, ${COMPANY} tarafından yapılır.`, camera: 'Kamera görüntüsü cihazında okunur, hiçbir zaman kaydedilmez.',
+    made: `BodyArcade, ${STUDIO} tarafından yapılır.`, camera: 'Kamera görüntüsü cihazında okunur, hiçbir zaman kaydedilmez.',
     privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
-    studio: COMPANY,
+    studio: STUDIO,
   },
 };
 
@@ -267,8 +267,8 @@ export function articleLd(o: { headline: string; description: string; url: strin
     mainEntityOfPage: `${SITE}${o.url}`,
     datePublished: o.published,
     dateModified: o.modified,
-    author: { '@type': 'Organization', name: COMPANY },
-    publisher: { '@type': 'Organization', name: COMPANY },
+    author: { '@type': 'Person', name: OWNER, alternateName: STUDIO },
+    publisher: { '@type': 'Person', name: OWNER, alternateName: STUDIO },
     image: `${SITE}/assets/brand/${OG_IMAGE.file}`,
   };
 }

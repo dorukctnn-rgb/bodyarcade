@@ -9,10 +9,18 @@
 /** The one origin the pages name (canonical links, hreflang, the sitemap). */
 export const SITE = 'https://bodyarcade.com';
 export const EMAIL = 'info@peakappsstudio.com';
-export const COMPANY = 'Peak Apps Studio';
+
+/**
+ * Who makes BodyArcade and is the data controller (Doruk's decision of 25 Oct 2026): a private person, no company. "Peak Apps Studio" is the
+ * name he trades under (the brand on the store pages), not a legal entity, so no page calls it a company. No street address is published;
+ * the e-mail address is the way to reach him, data requests included.
+ */
+export const OWNER = 'Doruk Çetin';
+export const STUDIO = 'Peak Apps Studio';
+export const COUNTRY = 'Türkiye';
 
 /** When the privacy policy and the terms were last changed in substance (ISO day). Change it with the text. */
-export const UPDATED = '2026-10-24';
+export const UPDATED = '2026-10-25';
 
 /** Web list prices in US dollars (core/entitlements/plans.ts). On Google Play the price and the currency are Google Play's. */
 export const PRICE = {
@@ -26,6 +34,8 @@ export const PRICE = {
   founder: 99,
 } as const;
 
+/** The refund period of the plans sold on the web, in days (Gumroad's refund policy of each of the four products must say the same). */
+export const REFUND_DAYS = 14;
 export const TRIAL_DAYS = 7;
 /** The reminder before a trial ends, in days. */
 export const REMINDER_DAYS = 2;
@@ -136,7 +146,7 @@ export const PROFILE_DEVICES = 5;
 export const MAX_FRIENDS = { teen: 50, adult: 100 } as const;
 /**
  * The age lines: no online identity below `online` (decided 24 Oct 23:00, raised from 13: GDPR art. 8 allows up to 16 and KVKK needs a
- * guardian for minors; reversible after a lawyer check), preset names and messages from there to 17, text and video from `video`.
+ * guardian for minors; Doruk confirmed it on 25 Oct), preset names and messages from there to 17, text and video from `video`.
  * The shell's words (core/ui/i18n: safety.age.*) and the friends screens say the same numbers; content.test.ts keeps them together.
  */
 export const AGE = { online: 16, video: 18 } as const;

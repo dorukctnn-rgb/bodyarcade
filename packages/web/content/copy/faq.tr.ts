@@ -12,6 +12,7 @@ export function faqTr(): PageSpec {
   const proTitles = titlesOf((g) => !g.free, 'tr');
   const liveTitles = titlesOf((g) => g.live, 'tr');
   const $ = (n: number): string => F.usd(n, 'tr');
+  const memberships = F.FAMILY_PLAN ? 'Pro aylık, Pro yıllık ve Aile yıllık' : 'Pro aylık ve Pro yıllık';
   const app = F.ANDROID_APP_LIVE
     ? '<p>Google Play’de bir Android uygulaması var. Aynı oyunları oynatır ve ödemeleri Google Play üzerinden alır. iPhone’da BodyArcade’ı Safari’de kullan.</p>'
     : '<p>BodyArcade her cihazın tarayıcısında çalışır, bu yüzden kurulacak bir şey yoktur. Google Play’deki Android uygulaması web sürümünün ardından gelir. Ücretli planların her iki yerde de geçerli olması amaçlanır.</p>';
@@ -117,11 +118,15 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Pro ne ekler?',
-          a: `<p>Pro oyunlar (${proTitles}), Zor ve Uzman zorluk seviyeleri ve daha sonra eklediğimiz oyunlar. Planlar için <a href="/tr/pro/">Pro sayfasına</a> bak.</p>`,
+          a: `<p>Pro oyunlar (${proTitles}), Zor ve Uzman zorluk seviyeleri ve daha sonra eklediğimiz oyunlar. Daha sonra eklenen oyunlar, ${memberships} üyeliklerinden biri etkin olduğu sürece ve Ömür boyu planda dahildir. Planlar için <a href="/tr/pro/">Pro sayfasına</a> bak.</p>`,
         },
         {
           q: 'Planların fiyatı ne kadar?',
           a: `<p>Web’de: Pro aylık ayda ${$(F.PRICE.proMonthly)}, Pro yıllık yılda ${$(F.PRICE.proYearly)} (${F.TRIAL_DAYS} günlük ücretsiz denemeyle), ${F.FAMILY_PLAN ? `Aile yıllık yılda ${$(F.PRICE.familyYearly)}, ` : ''}Ömür boyu tek sefer ${$(F.PRICE.lifetime)}. Android uygulamasında fiyatı ve para birimini ülken için Google Play belirler. Ayrıntılar <a href="/tr/terms">koşullarda</a>.</p>`,
+        },
+        {
+          q: 'Ömür boyu ne demek?',
+          a: '<p>Bir kez ödersin ve Pro, BodyArcade sunulduğu sürece yenileme olmadan sürer. Daha sonra eklediğimiz oyunları da içerir. BodyArcade’ı sonsuza kadar sunacağımız anlamına gelmez: bir gün kapatırsak elimizden geldiğince önceden haber veririz; yasadan doğan tüketici haklarına bu durum dokunmaz.</p>',
         },
         {
           q: 'Ücretsiz deneme nasıl çalışır?',
@@ -133,7 +138,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Nasıl iade alırım?',
-          a: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır. Web’de iadeyi Gumroad yapar; iade süresi ürün sayfasında ve makbuzunda yazar, yardım için ${mail()} adresine yazabilirsin. Google Play’de Google’ın kuralları geçerlidir. İade edilen bir plan, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>`,
+          a: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır. Web’de her plan, satın alındığı günden başlayarak ${F.REFUND_DAYS} gün içinde iade edilebilir. İadeyi Gumroad yapar; iade süresi ürün sayfasında ve makbuzunda da yazar, yardım için ${mail()} adresine yazabilirsin. Google Play’de Google’ın kuralları geçerlidir. İade edilen bir plan, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>`,
         },
         {
           q: 'Pro’yu lisans anahtarımla nasıl açarım?',
@@ -197,7 +202,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'BodyArcade’ı kim yapıyor, size nasıl ulaşırım?',
-          a: `<p>BodyArcade’ı ${F.COMPANY} yapıyor. ${mail()} adresine yaz.</p>`,
+          a: `<p>BodyArcade’ı ${F.COUNTRY}’de ${F.STUDIO} adıyla çalışan gerçek kişi ${F.OWNER} yapıyor. ${mail()} adresine yaz.</p>`,
         },
       ],
     },
