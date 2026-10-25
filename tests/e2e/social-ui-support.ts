@@ -97,6 +97,9 @@ export async function player(site: Site, label: string, o: PlayerOptions = {}): 
   });
   const problems: string[] = [];
   const watch = (page: Page): Page => {
+    // a wrong selector fails in half a minute with its name; it does not wait for the end of a test of twenty minutes
+    page.setDefaultTimeout(30_000);
+    page.setDefaultNavigationTimeout(60_000);
     page.on('pageerror', (e) => problems.push(`${label} pageerror: ${e.message}`));
     page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) problems.push(`${label} console: ${m.text()}`); });
     return page;
@@ -240,6 +243,14 @@ export async function crowding(page: Page): Promise<string[]> {
       const r = el.getBoundingClientRect();
       const c = r.width >= 1 && r.height >= 1 ? clip(r, el, false) : null;
       if (c) boxes.push({ el, r: c, kind: 'picture' });
+    }
+
+    // an icon drawn without a size fills the box it is put in (a star as big as the window was found by opening a screenshot): no icon is
+    // larger than 96px both ways (the QR code and the figures of the players are pictures, and the logo is wide but low)
+    for (const el of document.querySelectorAll('svg')) {
+      if (!counts(el) || !shown(el) || el.closest('.ba-qr, .ba-avatar, [data-allow-big]')) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width > 96 && r.height > 96) problems.push(`${label(el)} is a picture of ${Math.round(r.width)} by ${Math.round(r.height)} where an icon should be`);
     }
 
     // a field whose text is under 16px makes iPhone Safari zoom the page into it when it is touched

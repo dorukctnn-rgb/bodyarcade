@@ -151,7 +151,7 @@ export function gameSheet(ctx: ViewContext, games: readonly ShellGame[], current
  */
 export function proSheet(ctx: ViewContext, o: { game: ShellGame | null; reason: ProNeeded['reason'] }): SafeHtml {
   const u = ux(ctx);
-  return html`<div class="k-sheet k-sheet--bare"><div class="who">${icon('sparkle')}<h2 id="sheet-h">${u('pro.title')}</h2></div>
+  return html`<div class="k-sheet k-sheet--bare"><div class="who">${icon('sparkle', { size: 28 })}<h2 id="sheet-h">${u('pro.title')}</h2></div>
     ${o.game ? html`<p class="k-progame"><img src="${ctx.assets.tile(o.game.catalogue.tile, 400)}" alt="" width="48" height="36"><b>${titleOf(ctx, o.game)}</b></p>` : ''}
     <p class="ba-small k-flat" id="sheet-d">${u(`pro.${o.reason}`)}</p>
     <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-dialog-close="see">${u('pro.see')}</button><button class="ba-btn ba-btn--secondary ba-btn--lg" type="button" data-dialog-close="later" autofocus>${u('pro.later')}</button></div></div>`;

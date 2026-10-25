@@ -110,6 +110,7 @@
 .k-protag svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 .k-gamepick small.k-protag { display: flex; }
 .k-protag--pill { display: inline-flex; align-items: center; margin: 0 0 0 auto; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ba-sun-400) 22%, var(--ba-surface)); font-size: var(--ba-text-xs); font-weight: 800; letter-spacing: 0.02em; }
+.k-sheet .who > svg { width: 28px; height: 28px; flex: none; color: var(--ba-reward-text); }
 .k-progame { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
 .k-progame img { width: 48px; height: 36px; flex: none; border-radius: 8px; object-fit: cover; background: var(--ba-surface-sunken); }
 .k-progame b { font-weight: 800; }

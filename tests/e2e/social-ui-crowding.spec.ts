@@ -35,6 +35,11 @@ test('words over words, a picture over a control and a paragraph in a sliver are
   const buttons = await found('<button type="button" style="position:absolute;left:10px;top:10px;width:120px;height:44px">One</button><button type="button" style="position:absolute;left:100px;top:20px;width:120px;height:44px">Two</button>');
   expect(buttons.join('\n')).toMatch(/controls overlap/);
 
+  // an icon with no size fills its box: a star as big as the window; the QR code and the figures of the players are pictures of their own
+  const big = await found('<div style="display:flex;width:300px"><svg viewBox="0 0 24 24" style="flex:1"><path d="M12 0l4 12-4 12-4-12z"/></svg><h2 style="margin:0">Title</h2></div>');
+  expect(big.join('\n')).toMatch(/is a picture of \d+ by \d+ where an icon should be/);
+  expect(await found('<span class="ba-qr" style="display:block;width:200px"><svg viewBox="0 0 24 24" style="width:200px;height:200px"><path d="M0 0h24v24z"/></svg></span><span class="ba-avatar" style="display:block;width:120px"><svg viewBox="0 0 24 24" style="width:120px;height:120px"><path d="M0 0h24v24z"/></svg></span><svg viewBox="0 0 24 24" style="width:24px;height:24px"><path d="M0 0h24v24z"/></svg>')).toEqual([]);
+
   // iPhone Safari zooms the page into a field whose text is under 16px (and does not zoom out again)
   const small = await found('<input type="text" aria-label="Friend code" style="font-size:14px;width:200px"><select aria-label="Region" style="font-size:12px"><option>Europe</option></select>');
   expect(small.join('\n')).toMatch(/has text of 14px[\s\S]*has text of 12px/);
