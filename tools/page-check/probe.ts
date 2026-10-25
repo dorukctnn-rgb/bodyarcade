@@ -312,8 +312,11 @@ export function layoutProbe(opts: ProbeOptions): ProbeResult {
   const anchorOf = (r: R): Anchor => {
     const w = r[2] - r[0]; const h = r[3] - r[1];
     if (w * h > 0.8 * W * H) return 'full';
-    if (w < W * 0.6 && h > H * 0.45 && (r[0] <= 2 || r[2] >= W - 2)) return 'side';
+    // A bar that sits on the bottom edge is a bottom bar however wide it is: the action bar of one column of a two-column page on a phone held sideways
+    // is half as wide as the screen, touches its right edge and (the screen being short) is half as tall as it, and is still a bottom bar. Only a panel
+    // that reaches up to the upper part of the screen is a side panel.
     if (r[3] >= H - 2 && r[1] > H * 0.35) return 'bottom';
+    if (w < W * 0.6 && h > H * 0.45 && (r[0] <= 2 || r[2] >= W - 2)) return 'side';
     if (r[1] <= 2) return 'top';
     return 'float';
   };
