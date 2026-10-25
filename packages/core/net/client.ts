@@ -182,6 +182,8 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
   private readonly lastStateAt = new Map<SeatId, number>();
   /** The friends' video tracks (negotiated; they carry a picture once unmuted) and the state of each camera link. */
   private readonly remoteVideo = new Map<SeatId, MediaStreamTrack>();
+  /** The stream each friend's video track came in: the picture a page draws (videoStream), whenever it starts to look. */
+  private readonly trackStreams = new WeakMap<MediaStreamTrack, MediaStream>();
   private readonly videos = new VideoTracker(() => this.sched.now(), (s) => { this.emit('video', s); });
 
   constructor(opts: LiveClientOptions) {
@@ -220,6 +222,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
   onTrack(from: SeatId, stream: MediaStream, track: MediaStreamTrack): void {
     if (track.kind === 'video') {
       this.remoteVideo.set(from, track);
+      this.trackStreams.set(track, stream);
       const again = (): void => { if (this.remoteVideo.get(from) === track) this.probeVideo(from); };
       for (const ev of ['unmute', 'mute', 'ended']) track.addEventListener?.(ev, again);
       this.probeVideo(from);
@@ -743,6 +746,15 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
 
   /** Every friend whose camera is wanted or was: the ones to draw a note and a retry button for. */
   videoStatuses(): VideoStatus[] { return this.videos.all(); }
+
+  /**
+   * The picture of a friend's camera as it came in (the stream of their video track), null while there is none. A page that starts
+   * to draw after the track arrived (the stage of a race, opened from the room's page) takes it from here, not from the 'track' event.
+   */
+  videoStream(seat: SeatId): MediaStream | null {
+    const track = this.remoteVideo.get(seat);
+    return track ? (this.trackStreams.get(track) ?? null) : null;
+  }
 
   /**
    * "Try again": a brand new attempt at the camera links (fresh servers, new epoch on both sides) for the friend given, or for

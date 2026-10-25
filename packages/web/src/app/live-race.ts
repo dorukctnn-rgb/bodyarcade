@@ -306,7 +306,7 @@ export function liveSource(c: LiveClient, o: LiveSourceOptions): LiveSource {
       ? Object.entries(m.reasons).filter(([seat]) => seat !== you).map(([seat, reason]) => ({ name: names.get(seat) ?? '', reason }))
       : [];
     const tiles: LiveTile[] = friendTiles(c.members, you, c.videoStatuses()).map((t) => ({
-      ...t, score: scores.get(t.seat) ?? 0, pose: board.pose(t.seat), stream: t.show === 'video' ? (streams.get(t.seat) ?? null) : null, out: forfeited.has(t.seat),
+      ...t, score: scores.get(t.seat) ?? 0, pose: board.pose(t.seat), stream: t.show === 'video' ? (c.videoStream(t.seat) ?? streams.get(t.seat) ?? null) : null, out: forfeited.has(t.seat),
     }));
     return {
       phase, count: phase === 'count' ? countOf(m, serverNow) : 0,

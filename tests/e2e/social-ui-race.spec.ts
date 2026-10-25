@@ -90,6 +90,17 @@ async function onStage(p: Person, code: string): Promise<void> {
   await expect(layer).toHaveAttribute('data-room', code, { timeout: 30_000 });
 }
 
+/** A test that failed (or found problems) keeps what each page showed and the Worker's last lines. */
+async function keepEvidence(people: readonly Person[], problems: readonly string[]): Promise<void> {
+  if (problems.length === 0 && test.info().status === 'passed') return;
+  console.log('WORKER LOG', stack.logs.slice(-15).join(' | '));
+  const name = test.info().title.split(':')[0] ?? 'race';
+  for (const p of people) {
+    console.log(`${p.label} was at ${p.page.url()}`);
+    await shot(p.page, `fail-${name}-${p.label}`, { full: false }).catch(() => undefined);
+  }
+}
+
 /** What a stage says about the race now. */
 async function stageOf(p: Person): Promise<{ phase: string; match: string; seed: string; status: string }> {
   const layer = p.page.locator('[data-live-race]');
@@ -270,7 +281,7 @@ for (const e of ENGINES) {
       await expect(ada.page.locator('.k-actionbar .k-note')).toHaveText('Waiting for a second player. Share the code or the link.');
     } finally {
       const problems = people.flatMap((p) => p.problems);
-      if (problems.length > 0 || test.info().status !== 'passed') console.log('WORKER LOG', stack.logs.slice(-15).join(' | '));
+      await keepEvidence(people, problems);
       await browser.close().catch(() => undefined);
       expect(problems).toEqual([]);
     }
@@ -318,7 +329,7 @@ test('chromium: a stage that reloads in the middle of a race joins the room agai
     for (const row of ra) expect(pointsOf(row)).toBeGreaterThan(0);
   } finally {
     const problems = people.flatMap((p) => p.problems);
-    if (problems.length > 0 || test.info().status !== 'passed') console.log('WORKER LOG', stack.logs.slice(-15).join(' | '));
+    await keepEvidence(people, problems);
     await browser.close().catch(() => undefined);
     expect(problems).toEqual([]);
   }
@@ -375,7 +386,7 @@ test('chromium: two adults in a private room who both share their camera see eac
     expect(ra).toEqual(rb);
   } finally {
     const problems = people.flatMap((p) => p.problems);
-    if (problems.length > 0 || test.info().status !== 'passed') console.log('WORKER LOG', stack.logs.slice(-15).join(' | '));
+    await keepEvidence(people, problems);
     await browser.close().catch(() => undefined);
     expect(problems).toEqual([]);
   }

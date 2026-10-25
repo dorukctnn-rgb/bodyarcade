@@ -189,10 +189,24 @@ export class SocialController {
 
   /** Asks the age and the name when this player has no profile yet; true once there is one. */
   async ensureProfile(): Promise<boolean> {
+    // a press that comes before the profile of this device is read (a page just opened) waits for it, it does not ask the age again
+    await this.profileRead();
     const s = this.svc.social.state();
     if (s.profile) return true;
     if (s.noOnline) { this.host.toast(ux(this.host.context())('err.child_no_online'), 'warn'); return false; }
     return this.openProfileSheet();
+  }
+
+  /** Until this device's profile is read (the services say 'loading' before that), ten seconds at most. */
+  private profileRead(): Promise<void> {
+    const social = this.svc.social;
+    const known = (): boolean => social.state().status !== 'loading' || !!social.state().profile;
+    if (known()) return Promise.resolve();
+    return new Promise((done) => {
+      let off: () => void = () => undefined;
+      const timer = setTimeout(() => { off(); done(); }, 10_000);
+      off = social.subscribe(() => { if (known()) { clearTimeout(timer); off(); done(); } });
+    });
   }
 
   private async enterRoom(raw: string): Promise<void> {
