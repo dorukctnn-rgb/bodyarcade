@@ -20,7 +20,7 @@ permissions:
 jobs:
   page-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
 
@@ -39,9 +39,15 @@ jobs:
       - name: Page check, web shell (ten screen sizes)
         run: npm run qa:pages -- --groups web --jobs 3 --out qa-out/page-check
 
-      # The live site (site/) belongs to the fixes on main; its problems are reported but do not fail this job.
-      - name: Page check, live site (report only)
+      # The legal and help pages of the release (privacy, terms, FAQ, English and Turkish) are part of what v2 ships: they fail the job too.
+      - name: Page check, legal pages (ten screen sizes)
+        run: npm run qa:pages -- --groups site --only site:privacy,site:terms,site:faq,site:tr/privacy,site:tr/terms,site:tr/faq --jobs 3 --out qa-out/page-check-legal
+
+      # The other pages of the live site (site/) belong to the fixes on main; their problems are reported but do not fail this job.
+      # Bounded: on 25 Oct the whole group ran past the job's limit and the run ended as cancelled.
+      - name: Page check, the rest of the live site (report only)
         continue-on-error: true
+        timeout-minutes: 10
         run: npm run qa:pages -- --groups site --jobs 3 --out qa-out/page-check-site
 
       - name: Keep the pictures and the report
@@ -51,5 +57,6 @@ jobs:
           name: page-check
           path: |
             qa-out/page-check/
+            qa-out/page-check-legal/
             qa-out/page-check-site/
           retention-days: 7
