@@ -279,25 +279,28 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     const w = watch(page);
     await page.goto(`${DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
     test.skip(await hasCameraApi(page), 'this engine has a camera API: the camera flows run instead');
-    // the explainer, the panel that says the camera cannot be had (a mirror game on a phone with no camera API: nothing else to play it with), or the HUD of a round
-    // that went on with the keyboard; the HUD is looked for where it can be seen (a hidden one behind a panel is not a round)
-    await page.waitForSelector('[data-action="camera-continue"], #ov-title:visible, [data-hud-root] [data-hud]:visible', { timeout: 30_000 });
-    if ((await page.locator('[data-action="camera-continue"]').count()) === 0 && (await page.locator('#ov-title:visible').count()) === 0) {
-      // a laptop or a TV has a keyboard: with no camera API the round goes on with it, which is a way on too; a phone has none to fall back on
-      info.annotations.push({ type: 'panel', description: 'no camera API: the round went on with the keyboard' });
-      await shot(page, info, 'camera-unsupported-keyboard');
-      expect(isPhone(page), 'a phone has no keyboard to fall back on: it has to say so in words').toBe(false);
-      expect(w.errors).toEqual([]);
-      return;
+    // Two kinds of game. Squat Flap has other ways to play (keys on a laptop, touch on a phone: a round without the camera is practice): the round may
+    // go on at once, or the explainer / the panel says so. Star Catch is a mirror game: on a phone it has nothing else to be played with, so it has to say
+    // in words that the camera cannot be had and leave a way out (Back, Try again).
+    for (const [slug, mirror] of [['squat-flap', false], ['star-catch', true]] as const) {
+      if (slug !== 'squat-flap') await page.goto(`${DEMO_URL}/play/${slug}/?input=camera`, { waitUntil: 'networkidle' });
+      // the HUD is looked for where it can be seen (a hidden one behind a panel is not a round)
+      await page.waitForSelector('[data-action="camera-continue"], #ov-title:visible, [data-hud-root] [data-hud]:visible', { timeout: 30_000 });
+      if ((await page.locator('[data-action="camera-continue"]').count()) === 0 && (await page.locator('#ov-title:visible').count()) === 0) {
+        info.annotations.push({ type: 'panel', description: `${slug}: no camera API, the round went on without the camera` });
+        await shot(page, info, `camera-unsupported-${slug}-round`);
+        expect(mirror && isPhone(page), `${slug} is a mirror game: a phone has nothing but the camera to play it with, so it has to say so in words`).toBe(false);
+        continue;
+      }
+      if ((await page.locator('[data-action="camera-continue"]').count()) > 0) await page.locator('[data-action="camera-continue"]').click();
+      await page.waitForSelector('#ov-title', { timeout: 30_000 });
+      await settle(page);
+      const panel = await page.evaluate(() => ({ title: document.querySelector('#ov-title')?.textContent?.trim() ?? '', alert: (document.querySelector('.ba-explain [role=alert]')?.textContent ?? '').trim(), buttons: [...document.querySelectorAll('.ba-explain button, .ba-explain a')].map((b) => (b.textContent ?? '').trim()).filter(Boolean) }));
+      info.annotations.push({ type: 'panel', description: `${slug}: ${panel.title} | ${panel.alert} | ${panel.buttons.join(' / ')}` });
+      await shot(page, info, `camera-unsupported-${slug}`);
+      expect(panel.alert.length, `${slug}: the panel says why in words`).toBeGreaterThan(10);
+      expect(panel.buttons.length, `${slug}: the panel has a way out`).toBeGreaterThan(0);
     }
-    if ((await page.locator('[data-action="camera-continue"]').count()) > 0) await page.locator('[data-action="camera-continue"]').click();
-    await page.waitForSelector('#ov-title', { timeout: 30_000 });
-    await settle(page);
-    const panel = await page.evaluate(() => ({ title: document.querySelector('#ov-title')?.textContent?.trim() ?? '', alert: (document.querySelector('.ba-explain [role=alert]')?.textContent ?? '').trim(), buttons: [...document.querySelectorAll('.ba-explain button, .ba-explain a')].map((b) => (b.textContent ?? '').trim()).filter(Boolean) }));
-    info.annotations.push({ type: 'panel', description: `${panel.title} | ${panel.alert} | ${panel.buttons.join(' / ')}` });
-    await shot(page, info, 'camera-unsupported');
-    expect(panel.alert.length, 'the panel says why in words').toBeGreaterThan(10);
-    expect(panel.buttons.length, 'the panel has a way out').toBeGreaterThan(0);
     expect(w.errors).toEqual([]);
   });
 
