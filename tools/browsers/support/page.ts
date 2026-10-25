@@ -135,3 +135,27 @@ export async function canvasStreamPlays(page: Page): Promise<boolean> {
 
 /** True on a phone-sized viewport (the layouts and the capabilities differ there). */
 export const isPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 1280) < 700;
+
+/**
+ * Can this machine start an audio context at all? A bare context made and resumed inside a tap: on a runner with no sound device (Firefox on
+ * GitHub's Linux) it stays suspended whatever the page does, and a flow that asks for "running" would fail for the machine, not the app.
+ * Call it on a page where a tap is possible (the Playwright click gives the page the user activation the browsers ask for).
+ */
+export async function audioStarts(page: Page): Promise<boolean> {
+  try {
+    await page.evaluate(() => {
+      const w = window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext; __bareAudio?: AudioContext };
+      const Ctx = w.AudioContext ?? w.webkitAudioContext;
+      if (!Ctx) return;
+      w.__bareAudio = new Ctx();
+      document.addEventListener('pointerdown', () => { void w.__bareAudio?.resume(); }, { once: true });
+    });
+    await page.mouse.click(2, 2);
+    for (let i = 0; i < 10; i++) {
+      await page.waitForTimeout(250);
+      const state = await page.evaluate(() => (window as unknown as { __bareAudio?: AudioContext }).__bareAudio?.state ?? 'none');
+      if (state === 'running') { await page.evaluate(() => { void (window as unknown as { __bareAudio?: AudioContext }).__bareAudio?.close(); }); return true; }
+    }
+    return false;
+  } catch { return false; }
+}

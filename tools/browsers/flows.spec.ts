@@ -10,7 +10,7 @@ import { expect, test, type BrowserContext, type Page, type TestInfo } from '@pl
 import { checkPage } from '../../packages/web/tools/layout-check.ts';
 import { useKeyboard, withHooks, type Hooks } from '../../packages/web/e2e/support/helpers.ts';
 import { cameraState, installPersonCamera } from './support/camera.ts';
-import { canvasStreamPlays, isPhone, look, settle, shot, watch } from './support/page.ts';
+import { audioStarts, canvasStreamPlays, isPhone, look, settle, shot, watch } from './support/page.ts';
 import { DEMO_URL, RELEASE_URL } from './support/ports.ts';
 import { ROOT } from './support/sites.ts';
 
@@ -333,6 +333,11 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await page.goto(`${DEMO_URL}/games/squat-flap/`, { waitUntil: 'networkidle' });
     const hasAudio = await page.evaluate(() => typeof AudioContext !== 'undefined' || typeof (window as unknown as { webkitAudioContext?: unknown }).webkitAudioContext !== 'undefined');
     test.skip(!hasAudio, 'this engine has no Web Audio at all (the WebKit build of Playwright for Windows): the page plays without sound, which the round flows check');
+    // a machine with no sound device keeps even a bare audio context suspended (Firefox on GitHub's Linux runner: the same tap runs it on macOS)
+    const probe = await page.context().newPage();
+    const machineHasAudio = await audioStarts(probe).finally(() => probe.close());
+    info.annotations.push({ type: 'audio-device', description: String(machineHasAudio) });
+    test.skip(!machineHasAudio, 'this machine cannot start an audio context at all (no sound device): the tool cannot tell whether the app unlocks its sound here');
     await useKeyboard(page);
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await page.waitForSelector('[data-hud-root] [data-hud]', { timeout: 60_000 });
