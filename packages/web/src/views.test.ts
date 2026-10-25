@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { textOf } from '../../core/ui/html.ts';
 import type { Lang } from '../../core/ui/i18n/index.ts';
-import type { UiCapabilities } from '../../core/ui/capabilities.ts';
+import { SERVER_CAPABILITIES, type UiCapabilities } from '../../core/ui/capabilities.ts';
 import { loadCatalogue } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import { copyProblems } from '../catalogue/copy.ts';
@@ -184,7 +184,7 @@ describe('home and region pages', () => {
 describe('game pages', () => {
   it('carry the facts of the manifest and nothing else', () => {
     for (const g of games) {
-      const { html, r } = draw('en', `/games/${g.seo.slug}/`);
+      const { html, r } = draw('en', `/games/${g.seo.slug}/`, { caps: bigScreen });
       const text = textOf(html.match(/<ul class="k-facts"[\s\S]*?<\/ul>/)?.[0] ?? '');
       expect(r.title).toBe(`${typeof g.title === 'string' ? g.title : g.title['en']}: camera workout game`);
       expect(html.match(/<ol class="k-how">[\s\S]*?<\/ol>/)?.[0].match(/<li>/g)?.length, g.id).toBe(g.catalogue.how.length);
@@ -194,6 +194,26 @@ describe('game pages', () => {
       expect(text.includes('Low impact'), `${g.id} low impact`).toBe(g.lowImpact);
       expect(r.description.length, g.id).toBeLessThanOrEqual(160);
       expect(r.noindex).toBe(false);
+    }
+  });
+
+  it('says "2 players" only where two players on one camera are offered: not on a phone, not in the Android app, not in the page made for a crawler', () => {
+    const androidApp: UiCapabilities = { device: 'android_app', platform: 'android-app', deviceClass: 'large', landscape: true, touch: true, camera: true, secure: true, tv: false, keyboard: false, local2: false, local2Reason: 'android_app' };
+    const phone: UiCapabilities = { device: 'phone', platform: 'web', deviceClass: 'phone', landscape: false, touch: true, camera: true, secure: true, tv: false, keyboard: false, local2: false, local2Reason: 'phone' };
+    const narrow: UiCapabilities = { ...bigScreen, local2: false, local2Reason: 'narrow' };
+    const facts = (html: string): string => textOf(html.match(/<ul class="k-facts"[\s\S]*?<\/ul>/)?.[0] ?? '');
+    const duo = games.filter((g) => g.modes.includes('local2'));
+    expect(duo.length, 'the catalogue has games for two players').toBeGreaterThan(0);
+    for (const g of duo) {
+      const url = `/games/${g.seo.slug}/`;
+      expect(facts(draw('en', url, { caps: bigScreen }).html), `${g.id} on a big screen`).toContain('2 players');
+      expect(facts(draw('tr', `/tr${url}`, { caps: bigScreen }).html), `${g.id} on a big screen, Turkish`).toContain('2 oyuncu');
+      for (const [name, caps] of [['the Android app', androidApp], ['a phone', phone], ['a window too narrow for the split HUD', narrow], ['the page of a crawler', SERVER_CAPABILITIES]] as const) {
+        const html = draw('en', url, { caps }).html;
+        expect(facts(html), `${g.id} on ${name}`).not.toContain('2 players');
+        expect(html, `${g.id} on ${name}: the setup does not offer it either`).not.toContain('name="players" value="2"');
+        expect(facts(html), `${g.id} on ${name}: the other facts stay`).toContain('round');
+      }
     }
   });
 

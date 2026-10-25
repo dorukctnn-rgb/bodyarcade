@@ -7,7 +7,7 @@ import { glyph, type PoseName } from '../../../core/ui/glyphs.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import { localized } from '../../../core/ui/i18n/localized.ts';
 import type { Framing } from '../../../core/types/index.ts';
-import { proGames, relatedGames, supportsLocal2 } from '../../catalogue/filter.ts';
+import { proGames, relatedGames } from '../../catalogue/filter.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import { accessOf, aboutOf, durationLabel, regionLabel, taglineOf, titleOf, type Access, type ViewContext } from '../context.ts';
 import type { FamilyEntry } from '../../../core/store/index.ts';
@@ -17,7 +17,7 @@ import type { GhostRun } from '../../../core/net/ghost.ts';
 import { canRace } from '../app/duel.ts';
 import { familyTable } from './profiles.ts';
 import { ghostOffer } from './race.ts';
-import { defaultSetup, setupFields, startLabel, type SetupState } from './setup.ts';
+import { defaultSetup, setupFields, startLabel, twoPlayersPossible, type SetupState } from './setup.ts';
 import { gameGrid } from './tiles.ts';
 
 const FRAMING_POSE: Readonly<Record<Framing, PoseName>> = { full: 'stand', upper: 'seated', side: 'squat' };
@@ -56,7 +56,7 @@ function facts(ctx: ViewContext, g: ShellGame): SafeHtml {
     ${g.seated ? html`<li>${icon('chair')}${t.t('game.badge.seated')}</li>` : ''}
     ${g.silentSafe ? html`<li>${icon('quiet')}${t.t('game.badge.quiet')}</li>` : ''}
     ${g.lowImpact ? html`<li>${icon('check')}${t.t('game.badge.lowImpact')}</li>` : ''}
-    ${supportsLocal2(g) ? html`<li>${icon('users')}${t.t('game.badge.local2')}</li>` : ''}
+    ${twoPlayersPossible(ctx, g) ? html`<li>${icon('users')}${t.t('game.badge.local2')}</li>` : ''}
   </ul>`;
 }
 
