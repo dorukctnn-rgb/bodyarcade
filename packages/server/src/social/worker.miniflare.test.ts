@@ -18,7 +18,7 @@ import { STACK_ADMIN_TOKEN, startStack, type Stack } from './stack.ts';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 
-// Under 13 has no online identity in production (POLICY.child.online); the Worker of this stack has the switch on (stack-entry.ts), and so
+// Under 16 has no online identity in production (POLICY.child.online); the Worker of this stack has the switch on (stack-entry.ts), and so
 // has the client in this process, because the cases below exercise every band the day it is turned on.
 POLICY.child.online = true;
 

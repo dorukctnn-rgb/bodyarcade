@@ -172,6 +172,32 @@ test('stepping down an age group takes the typed name and the typed chat away; u
   expect(requests).toEqual([]);
 });
 
+test('download my data: one JSON file with the profile, the friends and the lists, no secret in it, and a line that says it was saved', async () => {
+  test.setTimeout(120_000);
+  const ada = await member('Ada', 'Ada', { phone: true });
+  const bo = await member('Bo', 'Bo');
+  await befriend(ada.page, bo.page, bo.code);
+  await ada.open('/friends/?view=profile');
+  await expect(ada.page.locator('[data-action="me.download"]')).toContainText('Download my data');
+  const download = ada.page.waitForEvent('download');
+  await ada.page.locator('[data-action="me.download"]').click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('bodyarcade-data.json');
+  const { readFileSync } = await import('node:fs');
+  const data = JSON.parse(readFileSync((await file.path()) as string, 'utf8')) as Record<string, unknown> & { profile: Record<string, unknown>; friends: { name: string }[] };
+  expect(Object.keys(data).sort()).toEqual(['blocks', 'exportedAt', 'friends', 'incoming', 'outgoing', 'profile', 'reportsAgainstYou', 'reportsFiled', 'scores', 'sync']);
+  expect(data.profile).toMatchObject({ name: 'Ada', band: 'adult' });
+  expect(data.friends.map((f) => f.name)).toEqual(['Bo']);
+  // nothing of the device or the server's private numbers is in it
+  expect(Object.keys(data.profile).filter((k) => /pid|recovery|pub|secret|key/i.test(k))).toEqual([]);
+  await expect(ada.page.locator('[data-form="me-name"]').first()).toBeVisible();
+  await expect(ada.page.locator('main')).toContainText('Your data file was saved');
+  // the button is there again, and a second download works
+  const again = ada.page.waitForEvent('download');
+  await ada.page.locator('[data-action="me.download"]').click();
+  expect((await again).suggestedFilename()).toBe('bodyarcade-data.json');
+});
+
 test('deleting the profile erases it on the server and here, and the friends are told', async () => {
   test.setTimeout(120_000);
   const ada = await member('Ada', 'Ada', { phone: true });
@@ -188,6 +214,12 @@ test('deleting the profile erases it on the server and here, and the friends are
   const left = await site.stack.db.prepare('SELECT COUNT(*) AS n FROM soc_profiles WHERE fid = ?1').bind(fid).first<{ n: number }>();
   expect(left?.n).toBe(0);
   await expect(bo.page.locator('[data-list="friends"]')).toHaveCount(0, { timeout: 30_000 });
+  // here too: after a reload the device has no profile and no key (the account is gone, and a new one can be made)
+  await ada.open('/friends/');
+  await expect(ada.page.locator('[data-action="social.profile"]')).toBeVisible();
+  expect(await profileOf(ada)).toBeNull();
+  const again = await signUp(ada.page, { band: 'adult', name: 'Ada' });
+  expect(again.friend).not.toBe(ada.code);
 });
 
 // ───────── the friend link ─────────

@@ -136,7 +136,7 @@ test('a teen and a child never type a name, and what the band allows is told to 
   expect(await teen.try((ba) => ba.social.signUp({ band: 'adult' }), undefined)).toMatchObject({ ok: false, status: 409 });
 });
 
-test('under 13 has no online identity in production: the page makes no key and the Worker stores nothing', async () => {
+test('under 16 has no online identity in production: the page makes no key and the Worker stores nothing', async () => {
   const kid = await who('Kid');
   const other = await who('Other');
   const count = async (): Promise<number> => (await site.stack.db.prepare('SELECT COUNT(*) AS n FROM soc_profiles WHERE band = ?1').bind('child').first<{ n: number }>())?.n ?? -1;

@@ -9,7 +9,7 @@ import { parseFriendLink } from '../../../packages/core/social/codes.ts';
 import { openKeyStore } from '../../../packages/core/social/keystore.ts';
 import type { JoinGrant } from '../../../packages/core/types/net.ts';
 
-// This suite exercises every age band, the under-13 one included (what it would be allowed the day the switch is turned on), so the
+// This suite exercises every age band, the under-16 one included (what it would be allowed the day the switch is turned on), so the
 // page's copy of the switch is on, as it is in the Worker of the stack. ba.setOnline turns it off to see the production rule.
 POLICY.child.online = true;
 

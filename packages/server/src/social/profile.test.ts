@@ -401,9 +401,9 @@ describe('key handling', () => {
   });
 });
 
-// The production setting of the under-13 rule: the test kit turns POLICY.child.online on so the suites can exercise every band;
+// The production setting of the under-16 rule: the test kit turns POLICY.child.online on so the suites can exercise every band;
 // these cases turn it off again, as it is in the real Worker (core/social/age.ts).
-describe('under 13 has no online identity (the production setting)', () => {
+describe('under 16 has no online identity (the production setting)', () => {
   beforeEach(() => { POLICY.child.online = false; });
   afterEach(() => { POLICY.child.online = true; });
 

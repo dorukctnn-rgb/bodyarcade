@@ -19,7 +19,7 @@ import { SocialDirectory } from './directory.ts';
 import { runOp } from './ops.ts';
 import { ALL_STATEMENTS } from './schema.ts';
 
-// Under 13 has no online identity in production (POLICY.child.online is false: the Worker refuses the registration). These tests
+// Under 16 has no online identity in production (POLICY.child.online is false: the Worker refuses the registration). These tests
 // exercise the rules of every band, that one included (what it would be allowed the day the switch is turned on), so the kit
 // turns the switch on for the test process. profile.test.ts turns it off again to test the production rule.
 POLICY.child.online = true;

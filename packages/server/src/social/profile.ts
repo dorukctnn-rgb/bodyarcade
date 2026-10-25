@@ -82,7 +82,7 @@ export const register = async (c: Omit<Ctx, 'me'>): Promise<Record<string, unkno
 
   if (!isAgeBand(b.band)) throw new HttpError(400, 'bad_request', { field: 'band' });
   const band: AgeBand = b.band;
-  // Under 13 has no online identity (POLICY in core/social/age.ts): nothing is stored, not even a rate-limit count.
+  // Under 16 has no online identity (POLICY in core/social/age.ts): nothing is stored, not even a rate-limit count.
   if (!canGoOnline(band)) throw new HttpError(403, 'child_no_online');
   const nm = resolveName(band, b.name);
   if (!nm.ok) throw new HttpError(400, 'name_rejected', { reason: nm.reason });

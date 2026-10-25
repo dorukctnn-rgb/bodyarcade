@@ -21,8 +21,8 @@ import { directoryOf } from './env.ts';
 export * from '../index.ts';
 export default worker;
 
-// Test bundle only: the suites of this module exercise every age band, the under-13 one included, so the switch that production
-// keeps off (POLICY.child.online, no online identity under 13) is on in this Worker. A test that needs the production rule turns it
+// Test bundle only: the suites of this module exercise every age band, the under-16 one included, so the switch that production
+// keeps off (POLICY.child.online, no online identity under 16) is on in this Worker. A test that needs the production rule turns it
 // off with POST /api/__test/online (stack.setOnline('child', false)).
 POLICY.child.online = true;
 
@@ -84,7 +84,7 @@ router.add('POST', '/api/__test/sql', async (req, env) => {
   return directoryOf(env).fetch(new Request('https://test.internal/sql', { method: 'POST', body: JSON.stringify(body) }));
 });
 
-/** POST /api/__test/online {band, online} -> {band, online}: turns a band's online identity on or off in this Worker (the under-13 switch); only where TEST_CLOCK is "1". */
+/** POST /api/__test/online {band, online} -> {band, online}: turns a band's online identity on or off in this Worker (the under-16 switch); only where TEST_CLOCK is "1". */
 router.add('POST', '/api/__test/online', async (req, env) => {
   if (env.TEST_CLOCK !== '1') throw new HttpError(404, 'not_found');
   const body = await readJson(req);

@@ -23,6 +23,8 @@ import {
 
 export type DemoSocialMode =
   | 'ready' | 'fresh' | 'offline'
+  /** A player with no profile whose browser keeps nothing for the site (a private window): the sign-up says the profile goes with the page. */
+  | 'private'
   /** A profile of a 16 to 17 player. */
   | 'teen'
   /** The player said they are under 16, or the profile in use is a kid profile of the Family plan: no online identity. */
@@ -39,7 +41,7 @@ export type DemoSocialMode =
   | 'reconnecting';
 
 export const DEMO_SOCIAL_MODES: readonly DemoSocialMode[] = [
-  'ready', 'fresh', 'offline', 'teen', 'young', 'kid', 'banned', 'replaced', 'deleted', 'unknown', 'recovery', 'suspended', 'muted', 'alone', 'reconnecting',
+  'ready', 'fresh', 'offline', 'private', 'teen', 'young', 'kid', 'banned', 'replaced', 'deleted', 'unknown', 'recovery', 'suspended', 'muted', 'alone', 'reconnecting',
 ];
 
 export interface DemoSocialOptions {
@@ -137,6 +139,7 @@ export function createDemoSocial(o: DemoSocialOptions): SocialServices {
     : {
       ...NO_SOCIAL_STATE,
       noOnline: o.mode === 'young' ? 'young' : o.mode === 'kid' ? 'kid' : null,
+      persistent: o.mode !== 'private',
       signedOut: o.mode === 'deleted' ? 'deleted' : o.mode === 'unknown' ? 'unknown_device' : null,
     };
   state = { ...state, status: 'loading' };

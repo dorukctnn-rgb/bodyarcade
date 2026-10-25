@@ -52,7 +52,7 @@ export interface Stack {
   logs: string[];
   /** The directory's tables: tests read and write them directly (each call is one request to the object that holds them). */
   db: SqlLike;
-  /** Turns a band's online identity on or off in the Worker (it is on for every band here; production has the under-13 band off, core/social/age.ts). */
+  /** Turns a band's online identity on or off in the Worker (it is on for every band here; production has the under-16 band off, core/social/age.ts). */
   setOnline(band: 'child' | 'teen' | 'adult', online: boolean): Promise<void>;
   mf: Miniflare;
   /** The logged events with this `evt` name. */
