@@ -135,6 +135,8 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
       if (!m) return;
       if (m.seed !== seed) { seed = m.seed; schedule = makeSchedule(m.seed, m.durationMs, specFor(m.gameId)); }
       const t = feed.time();
+      // the judge ended the race first (the time ran out on its clock, or everybody else left): what was done is final
+      if (feed.phase() === 'over') { raced = Math.round(Math.min(t, m.durationMs) / 1000); feed.finish(mine); finish(); return; }
       if (feed.phase() !== 'run') return;
       for (const ob of schedule) {
         if (ob.t > t || done.has(ob.id)) continue;
