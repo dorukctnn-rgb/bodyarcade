@@ -155,11 +155,14 @@
   .k-share > .ba-qr { grid-column: 2; grid-row: 1; }
   .k-share > .k-stack > .ba-btn { grid-column: 1 / -1; grid-row: 2; }
 }
-/* A request: the words get the width, the two answers sit under them. */
+/* A request: the words get the width; when the row is too narrow for the words and both answers (a phone, or the right-hand column
+   of a phone held sideways) the two answers sit under them. */
+.k-req { flex-wrap: wrap; }
+.ba-list > li.k-req .grow { flex: 1 1 11em; }
+.k-req .k-rowbtns { margin-left: auto; }
 @media (max-width: 479px) {
-  .k-req { flex-wrap: wrap; }
-  .k-req .grow { flex: 1 1 8em; }
-  .k-req .k-rowbtns { flex: 1 1 100%; }
+  .ba-list > li.k-req .grow { flex: 1 1 8em; }
+  .k-req .k-rowbtns { flex: 1 1 100%; margin-left: 0; }
   .k-req .k-rowbtns .ba-btn { flex: 1 1 0; }
 }
 /* A section head wraps instead of squeezing the control beside its title; the region picker takes the right side of its own line. */
