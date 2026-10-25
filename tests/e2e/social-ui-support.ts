@@ -246,9 +246,10 @@ export async function crowding(page: Page): Promise<string[]> {
     }
 
     // an icon drawn without a size fills the box it is put in (a star as big as the window was found by opening a screenshot): no icon is
-    // larger than 96px both ways (the QR code and the figures of the players are pictures, and the logo is wide but low)
+    // larger than 96px both ways unless it was given a size of its own (a drawing of a pose has width and height; an icon is sized by the
+    // style around it, or by `size`). The QR code and the figures of the players are pictures, and the logo is wide but low.
     for (const el of document.querySelectorAll('svg')) {
-      if (!counts(el) || !shown(el) || el.closest('.ba-qr, .ba-avatar, [data-allow-big]')) continue;
+      if (!counts(el) || !shown(el) || el.hasAttribute('width') || el.closest('.ba-qr, .ba-avatar, [data-allow-big]')) continue;
       const r = el.getBoundingClientRect();
       if (r.width > 96 && r.height > 96) problems.push(`${label(el)} is a picture of ${Math.round(r.width)} by ${Math.round(r.height)} where an icon should be`);
     }

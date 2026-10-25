@@ -87,7 +87,7 @@ test('the main player takes over through the gate and the friends appear; a chil
   expect(seen.calls).toEqual([]);
 
   // the main player, through the gate: now the service is asked, the Friends tab shows, and a profile can be made
-  await dev.page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await dev.page.getByRole('button', { name: /^Me\b/ }).click();
   await solveGate(dev.page);
   await expect(dev.page.locator('.pf-switch').first()).toHaveAttribute('aria-label', 'Playing as Me. Switch player');
   await expect(bar(dev.page).getByText('Friends')).toHaveCount(1, { timeout: 20_000 });
@@ -100,7 +100,7 @@ test('the main player takes over through the gate and the friends appear; a chil
 
   // a child plays again: the connection is closed, nothing signed leaves the page, and the friends pages say who to ask
   await dev.page.locator('.pf-switch').first().click();
-  await dev.page.getByRole('button', { name: 'Play as Mia', exact: true }).click();
+  await dev.page.getByRole('button', { name: /^Mia\b/ }).click();
   await expect(dev.page.locator('.pf-switch').first()).toHaveAttribute('aria-label', 'Playing as Mia. Switch player');
   await Promise.race([Promise.all(seen.closed), new Promise((r) => setTimeout(r, 15_000))]);
   const before = seen.signed.length;
@@ -113,7 +113,7 @@ test('the main player takes over through the gate and the friends appear; a chil
 
   // and the main player again: the connection comes back with the same profile
   await dev.page.locator('.pf-switch').first().click();
-  await dev.page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await dev.page.getByRole('button', { name: /^Me\b/ }).click();
   await solveGate(dev.page);
   await dev.page.goto(`${site.origin}/friends/`);
   await ready(dev.page);
@@ -134,7 +134,7 @@ test('from the friends page of a child to the main player and back: the page wai
     new MutationObserver(() => { if (document.querySelector('.ba-page--notfound')) w.__missing = (w.__missing ?? 0) + 1; }).observe(document.body, { subtree: true, childList: true, attributes: true });
   });
   await dev.page.getByRole('link', { name: 'Switch player', exact: true }).click();
-  await dev.page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await dev.page.getByRole('button', { name: /^Me\b/ }).click();
   await solveGate(dev.page);
   // the way back leads to the friends page (the address asked for it), which offers the profile once the services have answered
   await expect(dev.page.locator('[data-action="social.profile"]').first()).toBeVisible({ timeout: 20_000 });
