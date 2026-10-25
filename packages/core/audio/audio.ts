@@ -21,6 +21,8 @@ export interface AudioContextLike extends GraphContext {
   readonly baseLatency?: number;
   readonly outputLatency?: number;
   createDynamicsCompressor(): CompressorLike;
+  /** Turns the bytes of an encoded file (mp3, wav, ...) into an audio buffer; the real context has it, a stand-in may not. */
+  decodeAudioData?(data: ArrayBuffer): Promise<unknown>;
   resume(): Promise<void>;
   suspend(): Promise<void>;
   close(): Promise<void>;
@@ -63,11 +65,26 @@ export interface AudioStats {
   contextsCreated: number;
 }
 
+export interface ClipPlayOptions { when?: number; gain?: number }
+
 export interface AudioKit extends AudioApi {
   readonly state: AudioState;
   readonly context: AudioContextLike | null;
   /** Plays a sound at an audio-clock time (seconds), sample-accurately. Returns false when it was not played. */
   playAt(name: string, when: number): boolean;
+  /**
+   * Recorded sounds, such as a coach's voice: `addClip` decodes the bytes of an encoded file once and keeps the result under
+   * `name` (false when it cannot be decoded, or there is no Web Audio); `playClip` plays it through the same master gain
+   * (volume, mute) and limiter as every other sound, at `when` (audio-clock seconds, default now) and at `gain` (0 to 1, default
+   * 1), and says why when it did not (stats().skipped). Clips are not subject to the library's cooldowns.
+   */
+  addClip(name: string, data: ArrayBuffer): Promise<boolean>;
+  hasClip(name: string): boolean;
+  /** Length of a clip in seconds, 0 for an unknown one. */
+  clipDuration(name: string): number;
+  playClip(name: string, o?: ClipPlayOptions): boolean;
+  /** Forgets the clips whose names start with `prefix` (all of them without one). */
+  removeClips(prefix?: string): void;
   /** The clock, backed by the lazily created context (before unlock it reports 0 and holds callbacks). */
   clock(): AudioClockKit;
   /**
@@ -141,6 +158,7 @@ export function createAudio(o: AudioOptions = {}): AudioKit {
   let heldBySystem = false;
   let disposed = false;
   const voices: Voice[] = [];
+  const clips = new Map<string, { buffer: unknown; seconds: number }>();
   const lastPlayed = new Map<string, number>();
   const stateListeners = new Set<(s: AudioState) => void>();
   const stats: AudioStats = { state: 'none', played: 0, skipped: { locked: 0, muted: 0, cooldown: 0, unknown: 0, notRunning: 0 }, stolen: 0, voices: 0, peakVoices: 0, contextsCreated: 0 };
@@ -199,6 +217,61 @@ export function createAudio(o: AudioOptions = {}): AudioKit {
     for (let i = voices.length - 1; i >= 0; i--) if (voices[i]!.end <= c.currentTime) voices.splice(i, 1);
   }
 
+  /** Frees a place for a sound of this priority: the least important, oldest sound is cut; false when everything playing matters more. */
+  function makeRoom(c: AudioContextLike, priority: number): boolean {
+    prune(c);
+    if (voices.length >= maxVoices) {
+      let victim = 0;
+      for (let i = 1; i < voices.length; i++) {
+        const a = voices[i]!, b = voices[victim]!;
+        if (a.priority < b.priority || (a.priority === b.priority && a.started < b.started)) victim = i;
+      }
+      if (voices[victim]!.priority > priority) { stats.skipped.cooldown++; return false; }   // everything playing matters more
+      voices[victim]!.handle.stop(c.currentTime);
+      voices.splice(victim, 1);
+      stats.stolen++;
+    }
+    return true;
+  }
+
+  function startClip(name: string, o: ClipPlayOptions): boolean {
+    const clip = clips.get(name);
+    if (!clip) { stats.skipped.unknown++; return false; }
+    const c = ctx;
+    if (!c || !master) { stats.skipped.locked++; return false; }
+    if (muted || volume <= 0) { stats.skipped.muted++; return false; }
+    if (c.state !== 'running' && !(c.state === 'suspended' && resumePending)) { stats.skipped.notRunning++; return false; }
+    if (!makeRoom(c, 2)) return false;
+    const at = Math.max(o.when ?? c.currentTime, c.currentTime);
+    const level = Math.min(1, Math.max(0, o.gain ?? 1));
+    const src = c.createBufferSource();
+    src.buffer = clip.buffer;
+    src.loop = false;
+    const g = c.createGain();
+    g.gain.setValueAtTime(level, at);
+    src.connect(g);
+    g.connect(master);
+    const voice: Voice = { name, priority: 2, started: at, end: at + clip.seconds + 0.03, handle: null as unknown as SfxVoice };
+    voice.handle = {
+      end: voice.end,
+      stop(when) {
+        try { g.gain.cancelScheduledValues(when); g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), when); g.gain.linearRampToValueAtTime(0, when + 0.008); src.stop(when + 0.012); } catch { /* it ends by itself */ }
+      },
+    };
+    src.onended = (): void => {
+      try { src.disconnect(); g.disconnect(); } catch { /* already gone */ }
+      const i = voices.indexOf(voice);
+      if (i >= 0) voices.splice(i, 1);
+      stats.voices = voices.length;
+    };
+    src.start(at);
+    voices.push(voice);
+    stats.played++;
+    stats.voices = voices.length;
+    if (voices.length > stats.peakVoices) stats.peakVoices = voices.length;
+    return true;
+  }
+
   function start(name: string, when: number | null): boolean {
     const d = library[name];
     if (!d) { stats.skipped.unknown++; return false; }
@@ -212,19 +285,7 @@ export function createAudio(o: AudioOptions = {}): AudioKit {
       if (last !== undefined && t - last < d.cooldown) { stats.skipped.cooldown++; return false; }
       lastPlayed.set(name, t);
     }
-    prune(c);
-    if (voices.length >= maxVoices) {
-      // cut the least important sound, the oldest first
-      let victim = 0;
-      for (let i = 1; i < voices.length; i++) {
-        const a = voices[i]!, b = voices[victim]!;
-        if (a.priority < b.priority || (a.priority === b.priority && a.started < b.started)) victim = i;
-      }
-      if (voices[victim]!.priority > d.priority) { stats.skipped.cooldown++; return false; }   // everything playing matters more
-      voices[victim]!.handle.stop(c.currentTime);
-      voices.splice(victim, 1);
-      stats.stolen++;
-    }
+    if (!makeRoom(c, d.priority)) return false;
     const at = Math.max(when ?? c.currentTime, c.currentTime);
     const voice: Voice = { name, priority: d.priority, started: at, end: at + sfxDuration(d) + 0.03, handle: null as unknown as SfxVoice };
     voice.handle = buildSfx(c, d, at, master!, noise, () => {
@@ -269,6 +330,22 @@ export function createAudio(o: AudioOptions = {}): AudioKit {
     },
     play(name) { start(name, null); },
     playAt(name, when) { return start(name, when); },
+    async addClip(name, data) {
+      const c = ensure();
+      if (!c || typeof c.decodeAudioData !== 'function') return false;
+      try {
+        // the decoder takes the bytes it is given; the caller keeps its own
+        const buffer = await c.decodeAudioData(data.slice(0));
+        if (disposed) return false;
+        const seconds = (buffer as { duration?: number } | null)?.duration;
+        clips.set(name, { buffer, seconds: typeof seconds === 'number' && Number.isFinite(seconds) ? seconds : 0 });
+        return true;
+      } catch (e) { o.onError?.(e); return false; }
+    },
+    hasClip: (name) => clips.has(name),
+    clipDuration: (name) => clips.get(name)?.seconds ?? 0,
+    playClip(name, opts = {}) { return startClip(name, opts); },
+    removeClips(prefix = '') { for (const k of [...clips.keys()]) if (k.startsWith(prefix)) clips.delete(k); },
     clock() { return clock; },
     has: (name) => name in library,
     ready(timeoutMs = 3000) {
@@ -308,6 +385,7 @@ export function createAudio(o: AudioOptions = {}): AudioKit {
         try { await c.close(); } catch (e) { o.onError?.(e); }
       }
       stateListeners.clear();
+      clips.clear();
       ctx = null; master = null; noise = null;
     },
   };

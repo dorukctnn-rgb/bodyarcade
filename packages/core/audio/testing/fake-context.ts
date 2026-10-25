@@ -86,6 +86,8 @@ export class FakeContext implements AudioContextLike {
   readonly buffers: { channels: number; length: number; data: Float32Array }[] = [];
   perf = 1000;
   resumes = 0; suspends = 0; closes = 0;
+  /** The files handed to decodeAudioData, in order. A file whose first byte is 0xFF cannot be decoded (a test of a corrupt file). */
+  decoded: ArrayBuffer[] = [];
   private readonly listeners = new Set<() => void>();
   private readonly resumeMode: 'ok' | 'reject' | 'never';
 
@@ -107,6 +109,13 @@ export class FakeContext implements AudioContextLike {
     const data = new Float32Array(length);
     this.buffers.push({ channels, length, data });
     return { getChannelData: () => data };
+  }
+  /** One byte of the file is a hundredth of a second of sound; a stand-in for the decoder, which this is not. */
+  async decodeAudioData(data: ArrayBuffer): Promise<{ duration: number; length: number; sampleRate: number }> {
+    this.decoded.push(data);
+    await Promise.resolve();
+    if (data.byteLength === 0 || new Uint8Array(data)[0] === 0xff) throw new Error('EncodingError: unable to decode audio data');
+    return { duration: data.byteLength / 100, length: Math.round(this.sampleRate * data.byteLength / 100), sampleRate: this.sampleRate };
   }
   getOutputTimestamp(): { contextTime: number; performanceTime: number } { return { contextTime: this.currentTime, performanceTime: this.perf }; }
 

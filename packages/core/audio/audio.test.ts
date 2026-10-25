@@ -176,6 +176,107 @@ describe('playing', () => {
   });
 });
 
+describe('clips (recorded sounds such as a coach voice)', () => {
+  const file = (seconds: number): ArrayBuffer => new Uint8Array(Math.round(seconds * 100)).fill(7).buffer;
+  const ready = async (o: Parameters<typeof setup>[0] = {}): Promise<ReturnType<typeof setup>> => { const s = setup(o); s.audio.unlock(); await flush(); return s; };
+  const started = (c: FakeContext): { t: number }[] => c.sources().slice(1).filter((x) => x.started).map((x) => x.started!);   // the first source is the unlock's empty buffer
+
+  it('decodes a file once, keeps its length, and the caller keeps its bytes', async () => {
+    const { audio, made } = await ready();
+    const bytes = file(0.31);
+    expect(await audio.addClip('en/n1', bytes)).toBe(true);
+    expect(audio.hasClip('en/n1')).toBe(true);
+    expect(audio.hasClip('en/n2')).toBe(false);
+    expect(audio.clipDuration('en/n1')).toBeCloseTo(0.31, 5);
+    expect(audio.clipDuration('nope')).toBe(0);
+    expect(made[0]!.decoded.length).toBe(1);
+    expect(made[0]!.decoded[0]).not.toBe(bytes);      // a copy went to the decoder
+    expect(bytes.byteLength).toBe(31);
+  });
+
+  it('a file that cannot be decoded, or a context that cannot decode, is false and reported, not thrown', async () => {
+    const { audio, errors } = await ready();
+    expect(await audio.addClip('bad', new Uint8Array([0xff, 1, 2]).buffer)).toBe(false);
+    expect(audio.hasClip('bad')).toBe(false);
+    expect(errors.length).toBe(1);
+    const none = setup({ fail: true });
+    expect(await none.audio.addClip('x', file(0.2))).toBe(false);
+  });
+
+  it('plays through the same master gain and limiter as every sound, at the time and gain asked for', async () => {
+    const { audio, made } = await ready();
+    await audio.addClip('en/n2', file(0.3));
+    made[0]!.currentTime = 4;
+    expect(audio.playClip('en/n2', { when: 4.25, gain: 0.5 })).toBe(true);
+    expect(audio.playClip('en/n2', { when: 1 })).toBe(true);          // never in the past
+    expect(started(made[0]!).map((s) => s.t)).toEqual([4.25, 4]);
+    const master = made[0]!.nodes.find((n) => n instanceof FakeGain) as FakeGain;
+    const src = made[0]!.sources().filter((x) => x.kind === 'buffer-source').slice(1)[0]!;
+    const gain = src.out[0] as FakeGain;
+    expect(gain.gain.events[0]).toMatchObject({ type: 'set', value: 0.5, time: 4.25 });
+    expect(gain.out).toEqual([master]);
+    expect(audio.stats()).toMatchObject({ played: 2, voices: 2 });
+    made[0]!.advance(1);
+    expect(audio.stats().voices).toBe(0);
+  });
+
+  it('a clip is not held back by the cooldown of a sound with the same name, and two of them can overlap', async () => {
+    const { audio } = await ready();
+    await audio.addClip('en/n1', file(0.3));
+    for (let i = 0; i < 4; i++) expect(audio.playClip('en/n1')).toBe(true);
+    expect(audio.stats().played).toBe(4);
+  });
+
+  it('muted, at volume 0, locked, or with the context suspended: nothing plays and the reason is counted', async () => {
+    const { audio } = await ready();
+    await audio.addClip('en/n1', file(0.3));
+    audio.setMuted(true);
+    expect(audio.playClip('en/n1')).toBe(false);
+    audio.setMuted(false);
+    audio.setVolume(0);
+    expect(audio.playClip('en/n1')).toBe(false);
+    audio.setVolume(0.8);
+    expect(audio.playClip('unknown')).toBe(false);
+    await audio.suspend();
+    expect(audio.playClip('en/n1')).toBe(false);
+    expect(audio.stats().skipped).toMatchObject({ muted: 2, unknown: 1, notRunning: 1 });
+    const locked = setup();
+    expect(locked.audio.playClip('x')).toBe(false);
+  });
+
+  it('shares the voice limit with the sounds: it cuts a less important sound, and is dropped when everything matters more', async () => {
+    const s = setup({ maxVoices: 2 });
+    s.audio.unlock();
+    await flush();
+    await s.audio.addClip('en/n1', file(0.3));
+    s.audio.play('late');          // priority 0
+    s.audio.play('coin');          // 1
+    expect(s.audio.playClip('en/n1')).toBe(true);
+    expect(s.audio.stats().stolen).toBe(1);
+    s.audio.play('go');            // 2 takes the coin's place
+    expect(s.audio.playClip('en/n1')).toBe(true);      // both priority 2 now: the older one is cut
+    const full = setup({ maxVoices: 1 });
+    full.audio.unlock();
+    await flush();
+    await full.audio.addClip('en/n1', file(0.3));
+    full.audio.play('go');
+    expect(full.audio.playClip('en/n1')).toBe(true);   // equal priority: the oldest goes
+    expect(full.audio.stats().stolen).toBe(1);
+  });
+
+  it('can be forgotten by prefix, and dispose forgets them all', async () => {
+    const { audio } = await ready();
+    await audio.addClip('en/n1', file(0.3));
+    await audio.addClip('tr/n1', file(0.3));
+    audio.removeClips('en/');
+    expect(audio.hasClip('en/n1')).toBe(false);
+    expect(audio.hasClip('tr/n1')).toBe(true);
+    await audio.dispose();
+    expect(audio.hasClip('tr/n1')).toBe(false);
+    expect(audio.playClip('tr/n1')).toBe(false);
+  });
+});
+
 describe('ready', () => {
   it('resolves true once the context runs and its clock has moved, false when it never does', async () => {
     const s = setup();
