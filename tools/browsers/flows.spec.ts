@@ -10,7 +10,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { checkPage } from '../../packages/web/tools/layout-check.ts';
 import { withHooks, type Hooks } from '../../packages/web/e2e/support/helpers.ts';
 import { cameraState, installPersonCamera } from './support/camera.ts';
-import { isPhone, look, settle, shot, watch } from './support/page.ts';
+import { canvasStreamPlays, isPhone, look, settle, shot, watch } from './support/page.ts';
 import { DEMO_URL, RELEASE_URL } from './support/ports.ts';
 import { ROOT } from './support/sites.ts';
 
@@ -37,14 +37,18 @@ async function phase(page: Page): Promise<string> {
   });
 }
 
-/** Waits for a phase (a prefix of the names above), remembering the phases on the way so a stuck run says where it stood. */
+/** The order of the phases of a start: reaching a later one means the earlier ones are over (a calibration that takes a blink is not seen by a poll). */
+const ORDER = ['explainer', 'loading', 'calibrating', 'countdown', 'running', 'results'];
+const rank = (p: string): number => ORDER.findIndex((o) => p.startsWith(o));
+
+/** Waits for a phase (a prefix of the names above) or a later one, remembering the phases on the way so a stuck run says where it stood. */
 async function until(page: Page, want: string, ms: number, seen: string[] = []): Promise<void> {
   const t0 = Date.now();
   let last = '';
   while (Date.now() - t0 < ms) {
     last = await phase(page).catch(() => 'gone');
     if (seen[seen.length - 1] !== last) seen.push(last);
-    if (last.startsWith(want)) return;
+    if (last.startsWith(want) || (rank(last) >= 0 && rank(last) > rank(want) && rank(want) >= 0 && !(last.startsWith('running') && want === 'results'))) return;
     if (last.startsWith('error')) break;
     await page.waitForTimeout(400);
   }
@@ -64,6 +68,9 @@ async function passExplainer(page: Page): Promise<void> {
 async function noteCamera(page: Page, info: TestInfo): Promise<void> {
   try { info.annotations.push({ type: 'camera', description: JSON.stringify(await cameraState(page)) }); } catch { /* the page is gone */ }
 }
+
+/** The camera flows run where the page-side camera can: the engine has the camera API and plays a stream made from a canvas. */
+const cameraUsable = async (page: Page): Promise<boolean> => (await hasCameraApi(page)) && (await canvasStreamPlays(page));
 
 /** Does this engine have a camera API at all? (Playwright's WebKit for Windows has none: no MediaStream, no WebRTC, no Web Audio.) */
 const hasCameraApi = (page: Page): Promise<boolean> => page.evaluate(() => typeof navigator.mediaDevices?.getUserMedia === 'function');
@@ -174,7 +181,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await installPersonCamera(context, { file: FIXTURE, portrait: isPhone(page) });
     const seen: string[] = [];
     await page.goto(`${DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
-    test.skip(!(await hasCameraApi(page)), 'this engine has no camera API (see the test "camera: where the engine has no camera API")');
+    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, or cannot play a stream made from a canvas (the page-side camera): see the tests "camera: where the engine has no camera API" and the engine probe');
     try {
       await until(page, 'explainer', 30_000, seen);
       await expect(page.getByRole('dialog').first()).toContainText(/never uploaded or saved|asla/i);
@@ -212,7 +219,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     const seen: string[] = [];
     await page.goto(`${DEMO_URL}/welcome/?step=5`, { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-welcome][data-ready="1"]', { timeout: 45_000 });
-    test.skip(!(await hasCameraApi(page)), 'this engine has no camera API (see the test "camera: where the engine has no camera API")');
+    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, or cannot play a stream made from a canvas (the page-side camera): see the tests "camera: where the engine has no camera API" and the engine probe');
     try {
       await shot(page, info, 'first-win-camera-page');
       await page.getByRole('button', { name: 'Continue' }).click();
@@ -273,6 +280,18 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     const w = watch(page);
     await withHooks(page, { keyboard: true });
     await page.goto(`${DEMO_URL}/play/road-run/?input=keyboard`, { waitUntil: 'networkidle' });
+    const webgl = await page.evaluate(() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } });
+    info.annotations.push({ type: 'webgl2', description: String(webgl) });
+    if (!webgl) {
+      // a machine that cannot draw 3D (a headless Firefox on Linux without a software GL): the game says so in words and leaves a way out
+      await page.waitForSelector('#ov-title', { timeout: 60_000 });
+      const panel = await page.evaluate(() => ({ alert: (document.querySelector('.ba-explain [role=alert], dialog [role=alert]')?.textContent ?? '').trim(), buttons: [...document.querySelectorAll('.ba-explain button, .ba-explain a')].map((b) => (b.textContent ?? '').trim()).filter(Boolean) }));
+      info.annotations.push({ type: 'panel', description: `${panel.alert} | ${panel.buttons.join(' / ')}` });
+      await shot(page, info, 'round-3d-no-webgl');
+      expect(panel.alert.length, 'the panel says why in words').toBeGreaterThan(10);
+      expect(panel.buttons.length, 'the panel has a way out').toBeGreaterThan(0);
+      return;
+    }
     await page.waitForSelector('[data-hud-root] [data-hud]', { timeout: 90_000 });
     await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal') && !document.querySelector('.ba-loading'), undefined, { timeout: 60_000 });
     for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']) { await page.keyboard.press(k); await page.waitForTimeout(250); }
@@ -387,7 +406,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await withHooks(page, hooks);
     await page.goto(`${DEMO_URL}/profiles/`, { waitUntil: 'networkidle' });
     await page.waitForSelector('main h1', { timeout: 15_000 });
-    await page.getByRole('button', { name: 'Play as Defne', exact: true }).click();
+    await page.getByRole('button', { name: /^Defne\b/ }).click();
     await page.waitForURL(`${DEMO_URL}/`);
     await expect(page.locator('.pf-switch').first()).toHaveAttribute('aria-label', 'Playing as Defne. Switch player');
     await settle(page);
@@ -399,7 +418,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
       await page.locator('a[href*="/profiles/"]').first().click();
     } else await page.locator('.pf-switch').first().click();
     await page.waitForURL(/\/profiles\//);
-    await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+    await page.getByRole('button', { name: /^Me\b/ }).click();
     const gate = page.locator('dialog.pf-gatebox');
     await expect(gate).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('#gate-answer')).toBeFocused();
@@ -424,7 +443,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await installPersonCamera(context, { file: TWO_FIXTURE });
     const seen: string[] = [];
     await page.goto(`${DEMO_URL}/games/squat-flap/`, { waitUntil: 'networkidle' });
-    test.skip(!(await hasCameraApi(page)), 'this engine has no camera API');
+    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, or cannot play a stream made from a canvas');
     await expect(page.locator('input[name="players"]')).toHaveCount(2);
     await page.locator('label:has(input[name="players"][value="2"])').click();
     await shot(page, info, 'two-setup');

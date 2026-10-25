@@ -248,7 +248,9 @@ try {
     for (;;) {
       const j = jobs[next++];
       if (!j) return;
-      const r = await check(browser as Browser, j.t, j.s);
+      let r = await check(browser as Browser, j.t, j.s);
+      // A dev server that resets one connection on a loaded machine is not a finding: a screen whose only problem is that is looked at once more.
+      if (r.errors > 0 && r.findings.length === 0 && r.probe.length === 0 && r.messages.filter((m) => !m.startsWith('console.warn')).every((m) => /ERR_CONNECTION_(RESET|REFUSED|CLOSED)|ECONNRESET/.test(m))) r = await check(browser as Browser, j.t, j.s);
       results.push(r);
       const bad = r.errors > 0 || (warnAsError && r.warnings > 0);
       if (bad) {
