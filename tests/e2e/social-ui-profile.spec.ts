@@ -114,9 +114,11 @@ test('a new friend code makes the old link stale; a new recovery code replaces t
   await ready(late.page);
   await signUp(late.page, { band: 'adult', name: 'Late' });
   await late.open(`/f/${oldCode}`);
+  await ready(late.page);
   await late.page.locator('[data-action="friendlink.send"]').click();
   await expect(late.page.locator('.k-linkcard .k-note-line')).toContainText('No one has this code now');
   await late.open(`/f/${newCode}`);
+  await ready(late.page);
   await late.page.locator('[data-action="friendlink.send"]').click();
   await expect(late.page.locator('.k-linkcard .k-note-line')).toContainText('Request sent');
 

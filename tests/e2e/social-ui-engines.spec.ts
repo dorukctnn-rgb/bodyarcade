@@ -80,7 +80,7 @@ for (const e of ENGINES) {
           await s.page.locator('[data-action="sheet.age.next"]').click();
           await s.page.locator('#profile-name').fill('Ada');
           await s.page.locator('#profile-terms').check();
-  await s.page.locator('[data-action="sheet.name.create"]').click();
+          await s.page.locator('[data-action="sheet.name.create"]').click();
           await s.page.waitForSelector('[data-recovery-code]', { timeout: 20_000 });
           for (const x of await inspect(s.page, { axe: false })) found.push(`${e.id} ${size.w} sheet-recovery: ${x}`);
           await shot(s.page, `engines-${e.id}-sheet-recovery-${size.w}`, { full: false });
