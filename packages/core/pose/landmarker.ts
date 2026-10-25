@@ -78,12 +78,26 @@ export async function createLandmarker(o: CreateLandmarkerOptions): Promise<{ la
     minTrackingConfidence: 0.5,
     outputSegmentationMasks: false,
   }));
-  // A software WebGL renderer (SwiftShader, llvmpipe: no GPU, blocked driver, some VMs) runs the GPU delegate about
-  // 7x slower than the CPU path: 4 Hz instead of 20+ Hz here. That was B7's slow calibration. Use the CPU there.
-  if (o.prefer === 'GPU' && (o.allowSoftwareGpu || webglRenderer().kind === 'hardware')) {
+  if (o.prefer === 'GPU' && (o.allowSoftwareGpu || gpuDelegateWorthTrying(webglRenderer().kind, userAgent()))) {
     try { return { landmarker: await make('GPU'), delegate: 'GPU' }; } catch { /* no usable WebGL2 here: use the CPU */ }
   }
   return { landmarker: await make('CPU'), delegate: 'CPU' };
+}
+
+const userAgent = (): string => (typeof navigator !== 'undefined' && typeof navigator.userAgent === 'string' ? navigator.userAgent : '');
+
+/**
+ * Whether the GPU delegate is tried at all (the CPU path is the fallback and the answer when it is not).
+ * - A software WebGL renderer (SwiftShader, llvmpipe: no GPU, blocked driver, some VMs) runs the GPU delegate about 7x slower than
+ *   the CPU path: 4 Hz instead of 20+ Hz here. That was B7's slow calibration.
+ * - Firefox masks the renderer (a generic "..., or similar" name), so a software or virtual GPU cannot be told from a real one, and
+ *   its GPU delegate in the pose worker gave the first pose after about 12 s and then too few for the watchdog: the round stopped
+ *   with "the camera stopped" while the camera was fine (QA 25 Oct, Firefox 157 on Windows, macOS and Linux). The same page on the
+ *   CPU delegate calibrated in 1.4 s and played 33 s without a stall. Firefox on iOS is WebKit and says FxiOS, not Firefox/.
+ */
+export function gpuDelegateWorthTrying(renderer: 'hardware' | 'software' | 'none', ua: string): boolean {
+  if (renderer !== 'hardware') return false;
+  return !/\bFirefox\/\d/.test(ua);
 }
 
 /** What WebGL2 runs on in this realm (window or worker): real GPU, software rasteriser, or nothing. */
