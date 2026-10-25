@@ -86,7 +86,7 @@ export function termsLine(ctx: ViewContext): SafeHtml {
   // split() with a group alternates text and the group: even places are words, odd ones name a link
   return html`${parts.map((p, i) => (i % 2 === 0
     ? html`${p}`
-    : html`<a class="ba-link" href="${targets[p as keyof typeof targets]}" target="_blank" rel="noopener" data-native>${t.tx(`safety.terms.${p}`)}<span class="ba-visually-hidden"> (${t.t('safety.terms.newTab')})</span></a>`))}`;
+    : html`<a class="ba-link" href="${targets[p as keyof typeof targets]}" target="_blank" rel="noopener" data-native>${t.tx(`safety.terms.${p}`)}</a>`))}`;
 }
 
 export function profileSheet(ctx: ViewContext, s: ProfileSheet): SafeHtml {
@@ -119,7 +119,8 @@ export function profileSheet(ctx: ViewContext, s: ProfileSheet): SafeHtml {
       ? html`<div class="ba-field"><label for="profile-name">${t.t('safety.name.label')}</label><input class="ba-input" id="profile-name" name="name" type="text" autocomplete="nickname" maxlength="20" spellcheck="false" data-key="profile-name" value="${s.name}" aria-describedby="profile-hint profile-note"><small class="ba-small" id="profile-hint">${u('name.hintAdult')}</small></div>`
       : html`<div class="k-namepick"><span class="k-namepick__name" data-generated-name>${s.name}</span><button class="ba-btn ba-btn--quiet" type="button" data-action="sheet.name.shuffle">${t.t('safety.name.another')}</button></div>`}
     ${s.persistent ? '' : html`<p class="ba-callout">${icon('info')}<span>${u('name.persistent')}</span></p>`}
-    <label class="k-check k-check--agree"><input type="checkbox" id="profile-terms" name="terms" value="1" data-key="profile-terms" aria-required="true" aria-describedby="profile-note"${attr('checked', s.terms)}${attr('aria-invalid', s.termsError ? 'true' : false)}><span>${termsLine(ctx)}</span></label>
+    <label class="k-check k-check--agree"><input type="checkbox" id="profile-terms" name="terms" value="1" data-key="profile-terms" aria-required="true" aria-describedby="profile-terms-links profile-note"${attr('checked', s.terms)}${attr('aria-invalid', s.termsError ? 'true' : false)}><span>${termsLine(ctx)}</span></label>
+    <span class="ba-visually-hidden" id="profile-terms-links">${t.t('safety.terms.newTab')}</span>
     <p class="ba-small k-note-line is-error" id="profile-note" role="alert">${s.error ?? ''}</p>
     <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="sheet.name.create"${attr('disabled', s.busy)}>${t.t('safety.name.create')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="sheet.name.back">${t.t('common.back')}</button></div></div>`;
 }

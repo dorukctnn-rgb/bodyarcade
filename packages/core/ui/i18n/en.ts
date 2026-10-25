@@ -966,7 +966,7 @@ export const en = {
   'safety.terms.terms': 'terms of use',
   'safety.terms.rules': 'community rules',
   'safety.terms.privacy': 'privacy policy',
-  'safety.terms.newTab': 'opens in a new tab',
+  'safety.terms.newTab': 'The links open in a new tab.',
   'safety.terms.required': 'Tick the box to agree before your profile is made.',
   'safety.report.title': 'Report {name}',
   'safety.report.reason': 'Reason',

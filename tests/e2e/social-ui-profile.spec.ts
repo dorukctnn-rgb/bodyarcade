@@ -186,7 +186,9 @@ test('download my data: one JSON file with the profile, the friends and the list
   expect(file.suggestedFilename()).toBe('bodyarcade-data.json');
   const { readFileSync } = await import('node:fs');
   const data = JSON.parse(readFileSync((await file.path()) as string, 'utf8')) as Record<string, unknown> & { profile: Record<string, unknown>; friends: { name: string }[] };
-  expect(Object.keys(data).sort()).toEqual(['blocks', 'exportedAt', 'friends', 'incoming', 'outgoing', 'profile', 'reportsAgainstYou', 'reportsFiled', 'scores', 'sync']);
+  expect(Object.keys(data).sort()).toEqual(['blocks', 'exportedAt', 'friends', 'incoming', 'outgoing', 'profile', 'reportsAgainstYou', 'reportsFiled', 'scores', 'sync', 'termsAccepted']);
+  // the terms the sign-up named are in the file, with the day they were made and the time of the agreement
+  expect(data['termsAccepted']).toMatchObject({ version: TERMS_VERSION });
   expect(data.profile).toMatchObject({ name: 'Ada', band: 'adult' });
   expect(data.friends.map((f) => f.name)).toEqual(['Bo']);
   // nothing of the device or the server's private numbers is in it: no key, no recovery code, no private id, in any part of the file
@@ -276,9 +278,9 @@ test('the sign-up asks for the agreement before it makes anything: the box, the 
   expect(exported.value?.termsAccepted?.version).toBe(TERMS_VERSION);
 });
 
-test('the sign-up in Turkish on a laptop: the same box and links on the Turkish pages, unticked, and the reason in Turkish', async () => {
+test('the sign-up in Turkish on a 1440 screen: the same box and links on the Turkish pages, unticked, and the reason in Turkish', async () => {
   test.setTimeout(120_000);
-  const ece = await who('Ece', { lang: 'tr' });
+  const ece = await who('Ece', { lang: 'tr', w: 1440, h: 900 });
   await ece.open('/tr/friends/');
   await ready(ece.page);
   const page = ece.page;
@@ -288,7 +290,7 @@ test('the sign-up in Turkish on a laptop: the same box and links on the Turkish 
   expect(await page.locator('dialog a[target="_blank"]').evaluateAll((els) => els.map((a) => (a as HTMLAnchorElement).getAttribute('href')))).toEqual(['/tr/terms', '/tr/terms#davranis', '/tr/privacy']);
   await page.locator('[data-action="sheet.name.create"]').click();
   await expect(page.locator('#profile-note')).toHaveText('Profilin oluşturulmadan önce kutuyu işaretleyip kabul etmelisin.');
-  await shot(page, 'signup-terms-error-laptop-tr', { full: false });
+  await shot(page, 'signup-terms-error-1440-tr', { full: false });
   expect(await profileOf(ece)).toBeNull();
 });
 

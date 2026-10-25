@@ -966,7 +966,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'safety.terms.terms': 'Kullanım koşullarını',
   'safety.terms.rules': 'topluluk kurallarını',
   'safety.terms.privacy': 'gizlilik politikası',
-  'safety.terms.newTab': 'yeni sekmede açılır',
+  'safety.terms.newTab': 'Bağlantılar yeni sekmede açılır.',
   'safety.terms.required': 'Profilin oluşturulmadan önce kutuyu işaretleyip kabul etmelisin.',
   'safety.report.title': '{name} kişisini bildir',
   'safety.report.reason': 'Neden',

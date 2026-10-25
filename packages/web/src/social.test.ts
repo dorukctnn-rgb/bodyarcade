@@ -578,7 +578,9 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     const rules = lang === 'tr' ? 'davranis' : 'conduct';
     for (const band of ['adult', 'teen'] as const) {
       const name = profileSheet(ctx, sheet({ step: 'name', band, name: band === 'adult' ? 'Ada' : 'Swift Falcon 42' })).value;
-      expect(name, band).toMatch(/<input type="checkbox" id="profile-terms" name="terms" value="1" data-key="profile-terms" aria-required="true" aria-describedby="profile-note">/);
+      expect(name, band).toMatch(/<input type="checkbox" id="profile-terms" name="terms" value="1" data-key="profile-terms" aria-required="true" aria-describedby="profile-terms-links profile-note">/);
+      // what the links do is said once, to a screen reader, as the description of the box (its name stays the sentence)
+      expect(name, band).toContain(`id="profile-terms-links">${ctx.i18n.tx('safety.terms.newTab')}</span>`);
       expect(name, band).not.toMatch(/name="terms"[^>]*(checked|aria-invalid)/);
       // the box is a label of its own sentence, and the three links open in a new tab so the window and what was typed stay
       expect(name, band).toMatch(/<label class="k-check k-check--agree"><input type="checkbox" id="profile-terms"[^>]*><span>[^]*<\/span><\/label>/);

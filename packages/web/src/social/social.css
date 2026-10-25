@@ -95,6 +95,9 @@
 /* The agreement of the sign-up: the box beside a sentence of its own, at least as big as a thumb, with the links in it. */
 .k-check--agree { align-items: flex-start; font-weight: 500; line-height: 1.45; padding: 4px 0; }
 .k-check--agree input { flex: none; margin-top: 0; }
+/* Links inside a sentence that wraps: no padding, and a link is never cut in two (the box of a link that wraps covers both of its lines and
+   would lie over its neighbours); inline links are exempt from the touch size. */
+.k-check--agree .ba-link { padding-block: 0; white-space: nowrap; }
 .k-check--agree input[aria-invalid="true"] { outline: 2px solid var(--ba-flush-700); outline-offset: 2px; }
 [data-theme="dark"] .k-check--agree input[aria-invalid="true"] { outline-color: var(--ba-flush-500); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .k-check--agree input[aria-invalid="true"] { outline-color: var(--ba-flush-500); } }
