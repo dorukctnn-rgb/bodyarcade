@@ -563,6 +563,30 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     expect(w.errors).toEqual([]);
   });
 
+  test('paywall: on a phone held sideways no plan card sits under the action bar', async ({ page }, info) => {
+    const w = watch(page);
+    // 915 by 412: two columns (900 px and wider) on a screen that is short. A sticky bar of the right column escapes its grid cell in Firefox and WebKit and lies on the plans.
+    await page.setViewportSize({ width: 915, height: 412 });
+    await page.goto(`${DEMO_URL}/pro/`, { waitUntil: 'networkidle' });
+    await settle(page);
+    await shot(page, info, 'paywall-sideways');
+    const hidden = await page.evaluate(() => {
+      const bar = document.querySelector('.k-actionbar');
+      if (!bar) return ['no action bar'];
+      const b = bar.getBoundingClientRect();
+      const out: string[] = [];
+      for (const plan of document.querySelectorAll('.k-plan')) {
+        const r = plan.getBoundingClientRect();
+        const w2 = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+        const h2 = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
+        if (w2 > 4 && h2 > 4) out.push(`${(plan.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 30)}: ${Math.round(w2)}x${Math.round(h2)} px under the bar`);
+      }
+      return out;
+    });
+    expect(hidden, 'plan cards under the action bar').toEqual([]);
+    expect(w.errors).toEqual([]);
+  });
+
   test('family: the players screen, a player added, a child chosen and the parent gate', async ({ page }, info) => {
     const w = watch(page);
     const hooks: Hooks = { ...FAST, plan: 'family', players: [{ name: 'Defne', kid: true, avatar: 'fox' }, { name: 'Mert', avatar: 'robot' }, { name: 'Elif', avatar: 'rocket' }] };
