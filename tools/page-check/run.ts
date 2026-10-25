@@ -27,6 +27,7 @@ import { mergeReports, type Report } from './summarize.ts';
 import { analyseScene, decodePng, isBlank, type Rect } from './scene.ts';
 import { beNice } from './nice.ts';
 import { settle } from './settle.ts';
+import { afterCrash, crashed } from './crash.ts';
 import { installPersonCamera } from '../browsers/support/camera.ts';
 import { firefoxPrefs } from '../browsers/support/firefox.ts';
 
@@ -292,6 +293,8 @@ try {
       const j = jobs[next++];
       if (!j) return;
       let r = await checkWithin(j.t, j.s);
+      // The engine's page process died under the screen (WebKit on a macOS runner did it once in 874 screens): looked at once more in a new context (crash.ts).
+      if (crashed(r)) { console.log(`CRASH ${r.target} ${r.size}: the page crashed, looking at it once more`); r = afterCrash(r, await checkWithin(j.t, j.s)); }
       // A dev server that resets one connection on a loaded machine is not a finding: a screen whose only problem is that is looked at once more.
       if (r.errors > 0 && r.findings.length === 0 && r.probe.length === 0 && r.messages.filter((m) => !m.startsWith('console.warn')).every((m) => /ERR_CONNECTION_(RESET|REFUSED|CLOSED)|ECONNRESET/.test(m))) r = await check(browser as Browser, j.t, j.s);
       results.push(r);
