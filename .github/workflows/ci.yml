@@ -46,14 +46,49 @@ jobs:
       - name: Install headless Chromium
         run: npx playwright install --with-deps --only-shell chromium
 
+      # The Friends screens' specs (tests/e2e/social-ui*.spec.ts: about 20 minutes, each builds the shell and starts the Worker) run in the next job, in
+      # parallel with this one, so a push is not 35 minutes of one line. The two other engines' spec among them (social-ui-engines.spec.ts: WebKit and
+      # Firefox, which this job does not install) runs in the QA workflow's browsers job on every engine (qa.yml).
       - name: End-to-end tests (headless)
-        run: npm run test:e2e
+        run: npm run test:e2e -- --grep-invert social-ui
 
       - name: Keep the e2e report when something fails
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # The Friends screens in Chromium: the specs of tests/e2e/social-ui*.spec.ts through the real web shell on the production Worker in Miniflare.
+  # The one spec that launches WebKit and Firefox itself (social-ui-engines.spec.ts) is left out: the QA workflow's browsers job runs it where those engines are installed.
+  social-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install headless Chromium
+        run: npx playwright install --with-deps --only-shell chromium
+
+      - name: Friends screens end-to-end (headless Chromium)
+        run: npx playwright test tests/e2e/social-ui --grep-invert social-ui-engines
+
+      - name: Keep the report when something fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-social-ui
           path: |
             playwright-report/
             test-results/
