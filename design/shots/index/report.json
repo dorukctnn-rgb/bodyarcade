@@ -2,7 +2,7 @@
  {
   "page": "design-index",
   "breakpoint": "phone-390",
-  "ms": 1168,
+  "ms": 1029,
   "problems": [],
   "stats": null,
   "shot": "design/shots/index/design-index-phone-390.webp"
@@ -10,7 +10,7 @@
  {
   "page": "design-index",
   "breakpoint": "laptop-1440",
-  "ms": 1266,
+  "ms": 1025,
   "problems": [],
   "stats": null,
   "shot": "design/shots/index/design-index-laptop-1440.webp"

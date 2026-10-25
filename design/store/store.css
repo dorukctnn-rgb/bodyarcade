@@ -1,0 +1,10 @@
+/* Shared by the Google Play image pages (shot.html, tablet.html, feature.html). Colours and type are the tokens of
+   design/tokens/tokens.css through the kit; nothing here is loaded from the network. */
+@import url("../ui-kit/kit.css");
+
+html, body { margin: 0; overflow: hidden; background: var(--ba-bg); }
+.cap h1 { margin: 0; font-family: var(--ba-font-display); font-weight: 900; line-height: 0.98; letter-spacing: -0.022em; color: var(--ba-text); text-wrap: balance; }
+.cap p { margin: 0; font-weight: 650; line-height: 1.32; color: var(--ba-text-muted); text-wrap: pretty; }
+/* The flush underline of the key words; it follows the words over a line break. */
+.ln { background: linear-gradient(color-mix(in srgb, var(--ba-accent) 58%, transparent), color-mix(in srgb, var(--ba-accent) 58%, transparent)) no-repeat 0 94% / 100% 0.27em;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone; color: inherit; }
