@@ -6,8 +6,13 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { rngStream } from '../../../core/loop/rng.ts';
 import { CALL_IDS, MAX_CLIP_MS, callKind, type CallId } from '../../target/coach.ts';
+import { padCalls, planPads } from '../../target/pad-work.ts';
 import { callText } from '../../target/strings.ts';
+import { buildTimeline } from '../../target/timeline.ts';
+import type { Level } from '../../target/types.ts';
+import manifest from '../manifest.json' with { type: 'json' };
 import { CLIPS, CLIP_URLS, COACH_PACK } from './pack.ts';
 
 const dir = dirname(fileURLToPath(import.meta.url));
@@ -124,11 +129,58 @@ describe('the words', () => {
   });
 });
 
+describe('what the coach reads aloud', () => {
+  const NUMBERS: Record<(typeof LANGS)[number], string[]> = { en: ['One', 'Two', 'Three', 'Four', 'Five', 'Six'], tr: ['Bir', 'İki', 'Üç', 'Dört', 'Beş', 'Altı'] };
+  const BAG: Record<string, Record<(typeof LANGS)[number], string>> = {
+    slipL: { en: 'Slip left', tr: 'Sola kaç' }, slipR: { en: 'Slip right', tr: 'Sağa kaç' }, duck: { en: 'Duck', tr: 'Eğil' },
+  };
+  const tl = buildTimeline(420, 3, 30);
+
+  it.each(['easy', 'normal', 'hard', 'expert'] as Level[])('%s: every combination is called one-two-three in order, in both languages, and every bag in the words of its prompt', (level) => {
+    for (const seed of [1, 2, 3]) {
+      const plan = planPads(rngStream(seed, 'course'), { level, timeline: tl, seated: false, quiet: false, feet: false, keyboard: false, players: 1, hz: 30 });
+      const calls = padCalls(plan, tl);
+      const spoken = (lang: (typeof LANGS)[number], c: { id: CallId }): string => CLIPS.clips[lang]![c.id]!.text;
+      const sizes = new Set<number>();
+      let combos = 0, bags = 0;
+      const byCombo = new Map<number, typeof calls>();
+      for (const c of calls) {
+        const spec = c.plan === undefined ? undefined : plan[c.plan];
+        if (!spec) continue;
+        if (spec.kind === 'bag') {
+          bags++;
+          for (const lang of LANGS) expect(spoken(lang, c), `${level} ${seed} ${lang} bag`).toBe(BAG[spec.need as string]![lang]);
+        } else {
+          byCombo.set(spec.combo, [...(byCombo.get(spec.combo) ?? []), c]);
+        }
+      }
+      for (const group of byCombo.values()) {
+        combos++;
+        sizes.add(group.length);
+        for (const lang of LANGS) expect(group.map((c) => spoken(lang, c)).join(', '), `${level} ${seed} ${lang}`).toBe(NUMBERS[lang].slice(0, group.length).join(', '));
+        for (let i = 1; i < group.length; i++) expect(group[i]!.t).toBeGreaterThan(group[i - 1]!.t);
+      }
+      expect(combos, `${level} ${seed}`).toBeGreaterThan(40);
+      expect(Math.max(...sizes), level).toBeLessThanOrEqual(6);
+      if (level === 'easy') expect(bags, 'no bags on easy').toBe(0); else expect(bags, level).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('the licence', () => {
-  it('is written down: the model, its licence, that the voice is synthetic and no real person\'s, and the fallback', () => {
+  it('is written down: the model, its revision and licence, that the voice is synthetic and no real person\'s, and the fallback', () => {
     expect(existsSync(join(dir, 'CREDITS.md'))).toBe(true);
     const text = readFileSync(join(dir, 'CREDITS.md'), 'utf8');
-    for (const must of ['Supertonic 3', 'OpenRAIL-M', 'synthetic', 'not the voice of any real person', 'speech synthesis', script.voice]) expect(text, must).toContain(must);
+    for (const must of [
+      'Supertonic 3', 'OpenRAIL-M', 'synthetic', 'not the voice of any real person', 'speech synthesis', script.voice,
+      'https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE', 'Section 6', 'Attachment A (e)', 'Commercial use is allowed', '724fb5abbf5502583fb520898d45929e62f02c0b',
+    ]) expect(text, must).toContain(must);
     expect(statSync(join(dir, 'render-voice.py')).size).toBeGreaterThan(1000);
+  });
+
+  it('the game page says that the coach is a synthetic voice, in both languages (Attachment A (e): machine generated content is said to be)', () => {
+    const about = (manifest as { catalogue: { about: Record<string, string> } }).catalogue.about;
+    expect(about.en).toMatch(/synthetic voice/);
+    expect(about.tr).toMatch(/yapay bir sesle/);
   });
 });
