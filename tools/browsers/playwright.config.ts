@@ -57,6 +57,9 @@ for (const engine of engines) {
     projects.push({ name: `${engine}-peers`, testDir: '.', testMatch: 'peers.spec.ts', use: { browserName: engine, locale: 'en-US', launchOptions: launch(engine) } });
   }
   if (set === 'ui' || set === 'all') {
+    // the layout probe of tools/page-check is judged on small fixed pages (tests/e2e/page-check.spec.ts): the same verdicts on every engine are what
+    // makes its findings on that engine worth reading
+    projects.push({ name: `${engine}-probe`, testDir: '../../tests/e2e', testMatch: 'page-check.spec.ts', use: { browserName: engine, locale: 'en-US', launchOptions: launch(engine) } });
     projects.push({
       name: `${engine}-ui`,
       testDir: '../../packages/web/e2e',
