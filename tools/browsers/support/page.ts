@@ -11,6 +11,8 @@ const NOISE: RegExp[] = [
   /GPU stall due to ReadPixels/, /Autofocus processing was blocked/, /OpenGL error checking is disabled/, /inference_feedback_manager/, /XNNPACK/,
   /Created TensorFlow Lite/, /Failed to load resource/,   // a failed request is reported with its address by the response listener below
   /WEBGL_debug_renderer_info/, /GL_INVALID_FRAMEBUFFER_OPERATION/,
+  // a machine with no WebGL (headless Firefox on a Linux runner): three.js says so on the console and the app steps down to its pictures or says it in words
+  /A WebGL context could not be created/, /Error creating WebGL context/, /WebGL creation failed/,
 ];
 
 export interface Watch {
@@ -101,6 +103,32 @@ export async function look(el: Locator): Promise<SceneReport & { blank: boolean 
   const img = decodePng(png);
   const rep = analyseScene(img, { x: 0, y: 0, w: img.width, h: img.height }, []);
   return { ...rep, blank: isBlank(rep) };
+}
+
+/**
+ * Can this engine play a stream made from a canvas in a video element (a picture arrives within 4 s)? The page-side camera is exactly that.
+ * Playwright's WebKit for Linux has the API and no pictures: the camera flows are the tool's to skip there, not the app's to fail.
+ */
+export async function canvasStreamPlays(page: Page): Promise<boolean> {
+  return page.evaluate(async () => {
+    try {
+      if (typeof HTMLCanvasElement.prototype.captureStream !== 'function') return false;
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 48;
+      const g = c.getContext('2d') as CanvasRenderingContext2D;
+      let n = 0;
+      const timer = window.setInterval(() => { g.fillStyle = `hsl(${(n++ * 20) % 360} 80% 50%)`; g.fillRect(0, 0, 64, 48); }, 50);
+      const v = document.createElement('video');
+      v.muted = true;
+      v.playsInline = true;
+      v.srcObject = c.captureStream(15);
+      const ok = await new Promise<boolean>((res) => { v.addEventListener('loadeddata', () => res(true), { once: true }); window.setTimeout(() => res(false), 4000); void v.play().catch(() => undefined); });
+      window.clearInterval(timer);
+      v.srcObject = null;
+      return ok;
+    } catch { return false; }
+  });
 }
 
 /** True on a phone-sized viewport (the layouts and the capabilities differ there). */
