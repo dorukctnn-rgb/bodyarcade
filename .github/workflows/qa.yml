@@ -60,3 +60,87 @@ jobs:
             qa-out/page-check-legal/
             qa-out/page-check-site/
           retention-days: 7
+
+  # The other engines (BUILD-PLAN "Browsers"): WebKit is the engine under Safari and under every browser on an iPhone, Firefox is Firefox.
+  # The macOS runner has Safari's WebKit (camera, WebRTC, Web Audio); the Linux runner has Playwright's WebKitGTK build. Playwright's WebKit
+  # for Windows has no camera, no WebRTC and no Web Audio at all, which is why these flows run here and not on a Windows laptop.
+  # tools/browsers: the main flows of a visitor (home, tour, camera and calibration on a person, rounds, results, plans, paywall,
+  # Family, social in the practice build, legal pages in English and Turkish, service worker offline) on a phone (390x844) and a
+  # desktop (1440x900), the table of browser x flow in the job summary, the pictures in the artifact.
+  browsers:
+    name: browsers (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    # Report-only while the bugs these flows found are open (NOTLAR-qa.md has the table and the owners): the job shows red when a flow
+    # fails, the workflow does not. Delete this line when the table is green, and the engines gate every push like the page check does.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, engine: webkit, label: 'Safari engine, macOS' }
+          - { os: ubuntu-latest, engine: webkit, label: 'WebKit, Linux' }
+          - { os: ubuntu-latest, engine: firefox, label: 'Firefox, Linux' }
+          - { os: macos-latest, engine: firefox, label: 'Firefox, macOS' }
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install the engine
+        run: npx playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }} ${{ matrix.engine }}
+
+      - name: What this engine can do here (camera, WebRTC, Web Audio, WebGL, workers)
+        run: node tools/browsers/run.ts --probe --engines ${{ matrix.engine }}
+
+      - name: Build the practice site and the release site
+        run: node tools/browsers/support/sites.ts --build
+
+      # A flow that fails is a bug in the web app on that engine: the table says which, and the picture is in the artifact.
+      - name: Flows on ${{ matrix.engine }} (phone and desktop)
+        id: flows
+        continue-on-error: true
+        run: node tools/browsers/run.ts --engines ${{ matrix.engine }}
+
+      # The peer layer of live play on this engine (builder N's spec: the state channel and the friend camera between two pages).
+      # The live suite is left out of GitHub runs by its own `CI` check; this step lifts that for this one spec only.
+      - name: Live play peers on ${{ matrix.engine }}
+        id: peers
+        continue-on-error: true
+        env:
+          CI: ''
+        run: node node_modules/@playwright/test/cli.js test -c tests/live/playwright.config.ts --workers=1 tests/live/engines.spec.ts -g "peer layer on ${{ matrix.engine }}"
+
+      - name: Table in the summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f qa-out/browsers/TABLE.md ]; then cat qa-out/browsers/TABLE.md >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f qa-out/browsers/engines.json ]; then echo '```json' >> "$GITHUB_STEP_SUMMARY"; cat qa-out/browsers/engines.json >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Keep the pictures, the table and the traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browsers-${{ matrix.os }}-${{ matrix.engine }}
+          path: |
+            qa-out/browsers/TABLE.md
+            qa-out/browsers/engines.json
+            qa-out/browsers/results.json
+            qa-out/browsers/shots/
+            qa-out/browsers/test-results/
+          retention-days: 7
+
+      # The job reports the engines' state; it is red when a flow failed or the peers could not talk, so the workflow shows it.
+      - name: Verdict
+        if: always()
+        shell: bash
+        run: |
+          echo "flows: ${{ steps.flows.outcome }}, peers: ${{ steps.peers.outcome }}"
+          if [ "${{ steps.flows.outcome }}" != "success" ] || [ "${{ steps.peers.outcome }}" != "success" ]; then exit 1; fi
