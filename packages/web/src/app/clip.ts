@@ -85,6 +85,15 @@ const KINDS: readonly { mime: string; ext: 'mp4' | 'webm' }[] = [
   { mime: 'video/webm', ext: 'webm' },
 ];
 
+/**
+ * The same for a canvas that is recorded as it is and may change its size during a round: a WebGL stage (it is not copied smaller onto a
+ * canvas of a fixed size, see browserDeps) whose kit changes its drawing buffer when its quality steps (Road Run on a phone does so in its
+ * first seconds). As avc1, H.264 keeps one description of the picture for the whole file: Chromium says on the console that it must not
+ * change, and the frames after the change no longer fit it. As avc3 the description travels with the frames, so the size may change.
+ * Where avc3 is not recorded the list goes on as for any canvas.
+ */
+const RESIZABLE_KINDS: readonly { mime: string; ext: 'mp4' | 'webm' }[] = [{ mime: 'video/mp4;codecs=avc3', ext: 'mp4' }, ...KINDS];
+
 /** The shape of the browser's MediaRecorder that is used here (tests give a stand-in). */
 export interface RecorderLike {
   readonly state: 'inactive' | 'recording' | 'paused';
@@ -116,12 +125,15 @@ export interface ClipSource {
   close(): void;
 }
 
-/** The kind of file this browser makes, or null when it makes none (no recorder, or no way to take a picture of a canvas). */
-export function clipKind(win: Window & typeof globalThis): { mime: string; ext: 'mp4' | 'webm' } | null {
+/**
+ * The kind of file this browser makes, or null when it makes none (no recorder, or no way to take a picture of a canvas). `resizable`: the
+ * canvas is recorded as it is and its size may change during the round (RESIZABLE_KINDS).
+ */
+export function clipKind(win: Window & typeof globalThis, o: { resizable?: boolean } = {}): { mime: string; ext: 'mp4' | 'webm' } | null {
   const R = (win as unknown as { MediaRecorder?: RecorderCtor }).MediaRecorder;
   if (typeof R !== 'function' || typeof R.isTypeSupported !== 'function') return null;
   if (typeof (win.HTMLCanvasElement?.prototype as { captureStream?: unknown } | undefined)?.captureStream !== 'function') return null;
-  for (const k of KINDS) {
+  for (const k of o.resizable === true ? RESIZABLE_KINDS : KINDS) {
     try { if (R.isTypeSupported(k.mime)) return k; } catch { /* a type this browser cannot even judge */ }
   }
   return null;
@@ -340,8 +352,17 @@ export class ClipRecorder {
 
 /** A recorder for this canvas, or null where the browser makes no clips. */
 export function createClipRecorder(win: Window & typeof globalThis, canvas: HTMLCanvasElement, overlay?: () => ClipOverlay | null): ClipRecorder | null {
-  const kind = clipKind(win);
+  const kind = clipKind(win, { resizable: recordedAsItIs(canvas) });
   const deps = browserDeps(win, overlay);
   if (!kind || !deps) return null;
   return new ClipRecorder(canvas, deps, kind);
+}
+
+/**
+ * Whether the recorders take this canvas as it is: a canvas with no 2D context (a WebGL stage) cannot be copied between its frames, so
+ * browserDeps records its own stream, at whatever size its kit gives it. The stage already has its context when a round starts, and
+ * browserDeps asks for the same 2D context then (`getContext('2d')` makes none on a canvas that has another kind).
+ */
+export function recordedAsItIs(canvas: Pick<HTMLCanvasElement, 'getContext'>): boolean {
+  try { return canvas.getContext('2d') === null; } catch { return false; }
 }

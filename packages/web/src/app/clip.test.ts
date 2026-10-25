@@ -1,7 +1,7 @@
 // The highlight clip: two recorders that take turns so that the last seconds of a round are always in one of them, a clip only when
 // there are seconds worth keeping, nothing while the round is paused, and no clip and no error where the browser cannot make one.
 import { describe, expect, it } from 'vitest';
-import { CLIP_BRAND, CLIP_MAX_EDGE, clipAllowed, clipKind, ClipRecorder, clipSize, paintOverlay, MIN_CLIP_MS, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
+import { CLIP_BRAND, CLIP_MAX_EDGE, clipAllowed, clipKind, ClipRecorder, clipSize, paintOverlay, MIN_CLIP_MS, recordedAsItIs, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
 
 class Fake implements RecorderLike {
   static made: Fake[] = [];
@@ -280,6 +280,21 @@ describe('what this browser can record', () => {
     expect(clipKind(winWith(['video/mp4', 'video/webm']))).toMatchObject({ ext: 'mp4' });
     expect(clipKind(winWith(['video/webm']))).toMatchObject({ ext: 'webm' });
     expect(clipKind(winWith(['video/webm;codecs=vp8']))?.mime).toBe('video/webm;codecs=vp8');
+  });
+
+  it('records a canvas taken as it is (a WebGL stage, whose size changes when its quality steps) as avc3 where the browser can, else as any canvas', () => {
+    expect(clipKind(winWith(['video/mp4']), { resizable: true })?.mime).toBe('video/mp4;codecs=avc3');
+    // a browser that records avc1 and not avc3, and one that records no MP4
+    expect(clipKind(winWith(['video/mp4;codecs=avc1', 'video/webm']), { resizable: true })?.mime).toBe('video/mp4;codecs=avc1');
+    expect(clipKind(winWith(['video/webm']), { resizable: true })).toMatchObject({ ext: 'webm' });
+    // a 2D stage is copied onto a canvas of a fixed size: avc1, the description every player knows
+    expect(clipKind(winWith(['video/mp4']))?.mime).toBe('video/mp4;codecs=avc1');
+  });
+
+  it('takes a canvas with no 2D context (a WebGL stage) as it is, and a 2D one, or one that cannot say, as a copy', () => {
+    expect(recordedAsItIs({ getContext: () => null } as unknown as HTMLCanvasElement)).toBe(true);
+    expect(recordedAsItIs({ getContext: () => ({}) } as unknown as HTMLCanvasElement)).toBe(false);
+    expect(recordedAsItIs({ getContext: () => { throw new Error('no context'); } } as unknown as HTMLCanvasElement)).toBe(false);
   });
 
   it('is nothing without a recorder, without a way to take a picture of a canvas, or with no kind it knows', () => {
