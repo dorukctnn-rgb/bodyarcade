@@ -8,6 +8,8 @@ export type ThemePref = 'system' | 'light' | 'dark';
 export type MotionPref = 'system' | 'reduce' | 'full';
 export type Level = 'gentle' | 'steady' | 'strong';
 export type SetupDevice = 'phone' | 'phoneLand' | 'laptop';
+/** What a round is played with when nothing else is asked: the camera, or the keyboard (and swipes on a touch screen). */
+export type ControlsPref = 'camera' | 'keyboard';
 
 export interface Settings {
   /** 'auto' follows the browser's language list. */
@@ -17,6 +19,11 @@ export interface Settings {
   seated: boolean;
   /** No jumping or stamping (game-design 0.1 item 6). */
   quiet: boolean;
+  /**
+   * Play without the camera: rounds begin with the keyboard (and swipes on a touch screen) instead of the camera. A way for anyone who
+   * cannot or does not want to use the camera; two-player rounds and races always use it.
+   */
+  controls: ControlsPref;
   /** Where your own camera view sits during scene games, or hidden (LAYOUT.md section 4). */
   pipCorner: PipPlacement;
   /** Draw the tracked skeleton on the self view. */
@@ -46,6 +53,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   theme: 'system',
   seated: false,
   quiet: false,
+  controls: 'camera',
   pipCorner: 'bottom-right',
   skeleton: true,
   motion: 'system',
@@ -84,6 +92,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     theme: oneOf(o['theme'], ['system', 'light', 'dark'], d.theme),
     seated: bool(o['seated'], d.seated),
     quiet: bool(o['quiet'], d.quiet),
+    controls: oneOf(o['controls'], ['camera', 'keyboard'], d.controls),
     pipCorner: oneOf(o['pipCorner'], PIP_PLACEMENTS, d.pipCorner),
     skeleton: bool(o['skeleton'], d.skeleton),
     motion: oneOf(o['motion'], ['system', 'reduce', 'full'], d.motion),

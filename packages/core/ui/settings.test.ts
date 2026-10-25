@@ -27,6 +27,18 @@ describe('settings', () => {
     expect(s.playedOnce).toEqual(['a']);
   });
 
+  it('the way to play without the camera is a setting: off to begin with, kept when it is on, and a damaged value is the camera', () => {
+    expect(DEFAULT_SETTINGS.controls).toBe('camera');
+    expect(sanitizeSettings({ controls: 'keyboard' }).controls).toBe('keyboard');
+    for (const bad of ['mouse', 1, null, true, {}]) expect(sanitizeSettings({ controls: bad }).controls).toBe('camera');
+    const ns = memoryNamespace();
+    const store = createSettingsStore(ns);
+    store.set({ controls: 'keyboard' });
+    expect(createSettingsStore(ns).get().controls).toBe('keyboard');
+    store.reset();
+    expect(store.get().controls).toBe('camera');
+  });
+
   it('a value that is not an object resets the key, nothing else', () => {
     expect(SETTINGS_SCHEMA.parse('oops')).toBeNull();
     expect(SETTINGS_SCHEMA.parse([])).toBeNull();
