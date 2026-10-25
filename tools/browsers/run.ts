@@ -1,6 +1,7 @@
 // The browser matrix: builds the two sites, starts them, runs the flows on the engines, and writes the table (browser x flow).
 //   node C:/Users/doruk/apps/_tools/e2e-slot.mjs run -- node tools/browsers/run.ts --engines webkit,firefox
 //   options: --engines webkit,firefox,chromium   --sizes phone,desktop   --set flows|ui|all   --grep "camera"   --grep-invert "legal"
+//            (--set peers: the peer layer of live play in four variants, to see what an engine needs)
 //            --out qa-out/browsers   --rebuild (build the sites again)   --table <results.json> (only print the table of an earlier run)
 //            --probe (what each engine can do on this machine, then stop)
 // Result: qa-out/browsers/results.json (Playwright's), TABLE.md, shots/<project>/<name>.jpg. Exit code 1 when a flow failed.
@@ -32,7 +33,7 @@ const setName = flag('set') ?? 'flows';
 
 function table(file: string, name = setName): string {
   const rows = rowsOf(JSON.parse(readFileSync(file, 'utf8')) as JsonReport);
-  const what = name === 'ui' ? 'the web shell specs' : name === 'all' ? 'flows and the web shell specs' : 'flows';
+  const what = name === 'ui' ? 'the web shell specs' : name === 'peers' ? 'the peer layer of live play, four variants' : name === 'all' ? 'flows, the web shell specs and the peer layer' : 'flows';
   const md = tableMarkdown(rows, `Browser matrix, ${what} (${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC)`);
   writeFileSync(join(out, name === 'flows' ? 'TABLE.md' : `TABLE-${name}.md`), md);
   return md;

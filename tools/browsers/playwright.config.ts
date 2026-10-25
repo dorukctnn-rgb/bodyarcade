@@ -12,7 +12,7 @@ import { WEB_DEV_PORT } from '../../packages/web/e2e/support/ports.ts';
 import { DEMO_PORT } from './support/ports.ts';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
-const set = process.env['BA_BROWSERS_SET'] ?? 'flows';          // flows | ui | all
+const set = process.env['BA_BROWSERS_SET'] ?? 'flows';          // flows | ui | peers | all
 const engines = (process.env['BA_BROWSERS'] ?? 'webkit,firefox').split(',').map((s) => s.trim()).filter(Boolean) as ('chromium' | 'firefox' | 'webkit')[];
 const sizes = (process.env['BA_BROWSERS_SIZES'] ?? 'phone,desktop').split(',').map((s) => s.trim()).filter(Boolean);
 const CI = !!process.env['CI'];
@@ -52,6 +52,9 @@ for (const engine of engines) {
         use: { browserName: engine, locale: 'en-US', launchOptions: launch(engine), ...viewportUse(engine, size) },
       });
     }
+  }
+  if (set === 'peers' || set === 'all') {
+    projects.push({ name: `${engine}-peers`, testDir: '.', testMatch: 'peers.spec.ts', use: { browserName: engine, locale: 'en-US', launchOptions: launch(engine) } });
   }
   if (set === 'ui' || set === 'all') {
     projects.push({

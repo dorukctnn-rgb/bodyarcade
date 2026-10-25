@@ -6,9 +6,9 @@
 //
 // The camera: on every engine a person stands in front of it. Chromium plays a file as its fake camera; Firefox and WebKit get the same
 // pictures through a page-side camera (support/camera.ts), so the app's camera code, the pose model and the games run on them for real.
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { checkPage } from '../../packages/web/tools/layout-check.ts';
-import { withHooks, type Hooks } from '../../packages/web/e2e/support/helpers.ts';
+import { useKeyboard, withHooks, type Hooks } from '../../packages/web/e2e/support/helpers.ts';
 import { cameraState, installPersonCamera } from './support/camera.ts';
 import { canvasStreamPlays, isPhone, look, settle, shot, watch } from './support/page.ts';
 import { DEMO_URL, RELEASE_URL } from './support/ports.ts';
@@ -87,6 +87,52 @@ async function leaveRound(page: Page): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
+/**
+ * The whole start of a round on the camera: the explainer, the calibration on a person, the countdown, a running round, and the camera let go
+ * when the player leaves. `cpuPose` makes the pose service use the CPU delegate (the built script is patched on its way to the page): what the
+ * platform's default (GPU) gives on Firefox stalls, the CPU delegate runs (NOTLAR-platform.md, Q -> P, 25 Oct).
+ */
+async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestInfo, o: { cpuPose?: boolean } = {}): Promise<void> {
+    const w = watch(page);
+    await installPersonCamera(context, { file: FIXTURE, portrait: isPhone(page) });
+    if (o.cpuPose) {
+      await context.route('**/static/main-*.js', async (route) => {
+        const r = await route.fetch();
+        await route.fulfill({ response: r, body: (await r.text()).replace(/prefer:(\w+)\.prefer\?\?`GPU`/, 'prefer:$1.prefer??`CPU`') });
+      });
+    }
+    const seen: string[] = [];
+    await page.goto(`${DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
+    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, or cannot play a stream made from a canvas (the page-side camera): see the tests "camera: where the engine has no camera API" and the engine probe');
+    try {
+      await until(page, 'explainer', 30_000, seen);
+      await expect(page.getByRole('dialog').first()).toContainText(/never uploaded or saved|asla/i);
+      await shot(page, info, 'camera-explainer');
+      await page.locator('[data-action="camera-continue"]').click();
+      await until(page, 'calibrating', 60_000, seen);
+      await shot(page, info, 'camera-calibrating');
+      expect(await problemsOfLayout(page), 'layout of the calibration screen').toEqual([]);
+      await until(page, 'countdown', 90_000, seen);
+      await until(page, 'running', 60_000, seen);
+      await page.waitForTimeout(2500);
+      await shot(page, info, 'camera-round');
+      expect(await playProblems(page), 'the HUD of the round').toEqual([]);
+      const scene = await look(page.locator('[data-scene] canvas').first());
+      expect(scene.blank, `nothing is drawn in the game scene (${scene.flatColour} over ${(scene.flatShare * 100).toFixed(1)} %)`).toBe(false);
+      expect(await cameraState(page), 'the page-side camera is open while the round runs').toMatchObject({ installed: true, live: 1 });
+      const video = await page.evaluate(() => { const v = document.querySelector('video'); return v ? { w: v.videoWidth, h: v.videoHeight, ready: v.readyState } : null; });
+      expect(video, 'the self view has a picture').not.toBeNull();
+      expect(video?.w ?? 0).toBeGreaterThan(0);
+    } finally {
+      info.annotations.push({ type: 'phases', description: seen.join(' > ') });
+      await noteCamera(page, info);
+    }
+    await leaveRound(page);
+    await expect(page).toHaveURL(/\/games\/squat-flap\/$/);
+    await expect.poll(async () => (await cameraState(page)).live, { timeout: 10_000, message: 'the camera is still open on the game page' }).toBe(0);
+    expect(w.errors).toEqual([]);
+}
+
 test.describe('the practice build (hooks, practice session, demo social)', () => {
   test('home: the tiles, a region chip, a game page', async ({ page }, info) => {
     const w = watch(page);
@@ -177,38 +223,12 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
   });
 
   test('camera: the explainer, the calibration on a person, the countdown and a running round, then the camera is let go', async ({ page, context }, info) => {
-    const w = watch(page);
-    await installPersonCamera(context, { file: FIXTURE, portrait: isPhone(page) });
-    const seen: string[] = [];
-    await page.goto(`${DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
-    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, or cannot play a stream made from a canvas (the page-side camera): see the tests "camera: where the engine has no camera API" and the engine probe');
-    try {
-      await until(page, 'explainer', 30_000, seen);
-      await expect(page.getByRole('dialog').first()).toContainText(/never uploaded or saved|asla/i);
-      await shot(page, info, 'camera-explainer');
-      await page.locator('[data-action="camera-continue"]').click();
-      await until(page, 'calibrating', 60_000, seen);
-      await shot(page, info, 'camera-calibrating');
-      expect(await problemsOfLayout(page), 'layout of the calibration screen').toEqual([]);
-      await until(page, 'countdown', 90_000, seen);
-      await until(page, 'running', 60_000, seen);
-      await page.waitForTimeout(2500);
-      await shot(page, info, 'camera-round');
-      expect(await playProblems(page), 'the HUD of the round').toEqual([]);
-      const scene = await look(page.locator('[data-scene] canvas').first());
-      expect(scene.blank, `nothing is drawn in the game scene (${scene.flatColour} over ${(scene.flatShare * 100).toFixed(1)} %)`).toBe(false);
-      expect(await cameraState(page), 'the page-side camera is open while the round runs').toMatchObject({ installed: true, live: 1 });
-      const video = await page.evaluate(() => { const v = document.querySelector('video'); return v ? { w: v.videoWidth, h: v.videoHeight, ready: v.readyState } : null; });
-      expect(video, 'the self view has a picture').not.toBeNull();
-      expect(video?.w ?? 0).toBeGreaterThan(0);
-    } finally {
-      info.annotations.push({ type: 'phases', description: seen.join(' > ') });
-      await noteCamera(page, info);
-    }
-    await leaveRound(page);
-    await expect(page).toHaveURL(/\/games\/squat-flap\/$/);
-    await expect.poll(async () => (await cameraState(page)).live, { timeout: 10_000, message: 'the camera is still open on the game page' }).toBe(0);
-    expect(w.errors).toEqual([]);
+    await cameraRoundFlow(page, context, info);
+  });
+
+  test('camera: the same round with the pose service on the CPU delegate (what a fix for Firefox would give)', async ({ page, context, browserName }, info) => {
+    test.skip(browserName !== 'firefox', 'only Firefox has the problem this variant answers (the GPU delegate stalls there)');
+    await cameraRoundFlow(page, context, info, { cpuPose: true });
   });
 
   test('camera: the tour\'s last page hands over to the real first game (the first win)', async ({ page, context }, info) => {
@@ -273,6 +293,33 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await leaveRound(page);
     await expect(page).toHaveURL(/\/games\/squat-flap\/$/);
     expect(await page.locator('canvas').count(), 'the scene is released').toBe(0);
+    expect(w.errors).toEqual([]);
+  });
+
+  test('sound: the tap on Play unlocks the audio of the page and it runs (Safari starts every audio context suspended)', async ({ page }, info) => {
+    const w = watch(page);
+    await withHooks(page, { keyboard: true });
+    // every audio context the page makes is remembered, so the test can look at what state it ends up in
+    await page.addInitScript(() => {
+      const made: AudioContext[] = [];
+      (window as unknown as { __audioContexts: AudioContext[] }).__audioContexts = made;
+      for (const key of ['AudioContext', 'webkitAudioContext'] as const) {
+        const Base = (window as unknown as Record<string, new (...a: unknown[]) => AudioContext>)[key];
+        if (!Base) continue;
+        (window as unknown as Record<string, unknown>)[key] = class extends Base { constructor(...a: unknown[]) { super(...a); made.push(this as unknown as AudioContext); } };
+      }
+    });
+    await page.goto(`${DEMO_URL}/games/squat-flap/`, { waitUntil: 'networkidle' });
+    const hasAudio = await page.evaluate(() => typeof AudioContext !== 'undefined' || typeof (window as unknown as { webkitAudioContext?: unknown }).webkitAudioContext !== 'undefined');
+    test.skip(!hasAudio, 'this engine has no Web Audio at all (the WebKit build of Playwright for Windows): the page plays without sound, which the round flows check');
+    await useKeyboard(page);
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await page.waitForSelector('[data-hud-root] [data-hud]', { timeout: 60_000 });
+    await page.waitForTimeout(1500);
+    const states = await page.evaluate(() => (window as unknown as { __audioContexts: AudioContext[] }).__audioContexts.map((c) => c.state));
+    info.annotations.push({ type: 'audio', description: `contexts: ${states.join(', ') || 'none'}` });
+    expect(states.length, 'the page made an audio context for its sound').toBeGreaterThan(0);
+    expect(states, 'the tap on Play unlocked it').toContain('running');
     expect(w.errors).toEqual([]);
   });
 
@@ -415,7 +462,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     if (isPhone(page)) {
       // a phone has the tab bar and no top bar: the way to the players is the row in the settings
       await page.goto(`${DEMO_URL}/settings/`, { waitUntil: 'networkidle' });
-      await page.locator('a[href*="/profiles/"]').first().click();
+      await page.locator('main a[href*="/profiles/"]').first().click();
     } else await page.locator('.pf-switch').first().click();
     await page.waitForURL(/\/profiles\//);
     await page.getByRole('button', { name: /^Me\b/ }).click();
