@@ -33,6 +33,14 @@ describe('browser table', () => {
     expect(rows[1]!.cells.map((c) => c.outcome)).toEqual(['FAIL', 'skip', 'flaky']);
   });
 
+  it('does not count a failure that is the limit of the test tool on an engine', () => {
+    const rep: JsonReport = { suites: [{ title: 'x.spec.ts', file: 'x.spec.ts', specs: [{ title: 'plan', ok: false, tests: [test('firefox-ui', 'unexpected', 'browserContext.grantPermissions: Unknown permission: camera')] }] }] };
+    const md = tableMarkdown(rowsOf(rep));
+    expect(md).toContain('| plan | n/a |');
+    expect(md).toContain('1 not applicable');
+    expect(md).not.toContain('#### Failures');
+  });
+
   it('orders the columns WebKit, Firefox, Chromium and phone before desktop, and writes the table and the failures', () => {
     const rows = rowsOf(report);
     expect(projectsOf(rows)).toEqual(['webkit-phone', 'webkit-desktop', 'firefox-desktop']);

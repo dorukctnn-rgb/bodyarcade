@@ -44,7 +44,7 @@ jobs:
         run: npm run qa:pages -- --groups site --only site:privacy,site:terms,site:faq,site:tr/privacy,site:tr/terms,site:tr/faq --jobs 3 --out qa-out/page-check-legal
 
       # The other pages of the live site (site/) belong to the fixes on main; their problems are reported but do not fail this job.
-      # Bounded: on 25 Oct the whole group ran past the job's limit and the run ended as cancelled.
+      # Bounded: a page that never goes quiet must not eat the job's time.
       - name: Page check, the rest of the live site (report only)
         continue-on-error: true
         timeout-minutes: 10
@@ -70,7 +70,7 @@ jobs:
   browsers:
     name: browsers (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 50
+    timeout-minutes: 80
     # Report-only while the bugs these flows found are open (NOTLAR-qa.md has the table and the owners): the job shows red when a flow
     # fails, the workflow does not. Delete this line when the table is green, and the engines gate every push like the page check does.
     continue-on-error: true
@@ -78,10 +78,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-latest, engine: webkit, label: 'Safari engine, macOS' }
-          - { os: ubuntu-latest, engine: webkit, label: 'WebKit, Linux' }
-          - { os: ubuntu-latest, engine: firefox, label: 'Firefox, Linux' }
-          - { os: macos-latest, engine: firefox, label: 'Firefox, macOS' }
+          # pagecheck: the ten-size layout check of the web shell on this engine too (one runner per engine is enough)
+          - { os: macos-latest, engine: webkit, label: 'Safari engine, macOS', pagecheck: true }
+          - { os: ubuntu-latest, engine: webkit, label: 'WebKit, Linux', pagecheck: false }
+          - { os: ubuntu-latest, engine: firefox, label: 'Firefox, Linux', pagecheck: true }
+          - { os: macos-latest, engine: firefox, label: 'Firefox, macOS', pagecheck: false }
     steps:
       - uses: actions/checkout@v7
 
@@ -108,6 +109,19 @@ jobs:
         continue-on-error: true
         run: node tools/browsers/run.ts --engines ${{ matrix.engine }}
 
+      # The web shell's own end-to-end specs (packages/web/e2e: browse, welcome, play, plans, players, layout, accessibility) on this engine.
+      - name: The web shell's own specs on ${{ matrix.engine }}
+        id: shellspecs
+        continue-on-error: true
+        run: node tools/browsers/run.ts --set ui --engines ${{ matrix.engine }}
+
+      # The ten screen sizes of the layout rule, with the overlap and clipping check, in this engine (the Chromium run is the page-check job).
+      - name: Page check on ${{ matrix.engine }} (ten screen sizes)
+        id: pagecheck
+        if: matrix.pagecheck
+        continue-on-error: true
+        run: node tools/page-check/run.ts --groups web --browser ${{ matrix.engine }} --jobs 2 --out qa-out/page-check-${{ matrix.engine }}
+
       # The peer layer of live play on this engine (builder N's spec: the state channel and the friend camera between two pages).
       # The live suite is left out of GitHub runs by its own `CI` check; this step lifts that for this one spec only.
       - name: Live play peers on ${{ matrix.engine }}
@@ -121,7 +135,8 @@ jobs:
         if: always()
         shell: bash
         run: |
-          if [ -f qa-out/browsers/TABLE.md ]; then cat qa-out/browsers/TABLE.md >> "$GITHUB_STEP_SUMMARY"; fi
+          for f in qa-out/browsers/TABLE.md qa-out/browsers/TABLE-ui.md; do if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; echo >> "$GITHUB_STEP_SUMMARY"; fi; done
+          if [ -f qa-out/page-check-${{ matrix.engine }}/FINDINGS.md ]; then echo '### Page check on ${{ matrix.engine }}' >> "$GITHUB_STEP_SUMMARY"; head -c 20000 qa-out/page-check-${{ matrix.engine }}/FINDINGS.md >> "$GITHUB_STEP_SUMMARY"; fi
           if [ -f qa-out/browsers/engines.json ]; then echo '```json' >> "$GITHUB_STEP_SUMMARY"; cat qa-out/browsers/engines.json >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"; fi
 
       - name: Keep the pictures, the table and the traces
@@ -131,10 +146,13 @@ jobs:
           name: browsers-${{ matrix.os }}-${{ matrix.engine }}
           path: |
             qa-out/browsers/TABLE.md
+            qa-out/browsers/TABLE-ui.md
             qa-out/browsers/engines.json
             qa-out/browsers/results.json
+            qa-out/browsers/results-ui.json
             qa-out/browsers/shots/
             qa-out/browsers/test-results/
+            qa-out/page-check-${{ matrix.engine }}/
           retention-days: 7
 
       # The job reports the engines' state; it is red when a flow failed or the peers could not talk, so the workflow shows it.
@@ -142,5 +160,6 @@ jobs:
         if: always()
         shell: bash
         run: |
-          echo "flows: ${{ steps.flows.outcome }}, peers: ${{ steps.peers.outcome }}"
-          if [ "${{ steps.flows.outcome }}" != "success" ] || [ "${{ steps.peers.outcome }}" != "success" ]; then exit 1; fi
+          echo "flows: ${{ steps.flows.outcome }}, shell specs: ${{ steps.shellspecs.outcome }}, page check: ${{ steps.pagecheck.outcome }}, peers: ${{ steps.peers.outcome }}"
+          for o in "${{ steps.flows.outcome }}" "${{ steps.shellspecs.outcome }}" "${{ steps.peers.outcome }}"; do if [ "$o" != "success" ]; then exit 1; fi; done
+          if [ "${{ steps.pagecheck.outcome }}" = "failure" ]; then exit 1; fi
