@@ -170,8 +170,10 @@ async function check(browser: Browser, t: Target, size: { id: string; w: number;
     if (m.type() === 'error') { if (!blocked.has(m.location().url) && !isAllowed(text) && !isAllowed(m.location().url)) messages.push(`console.error: ${text.split('\n')[0]}`); }
     else if (m.type() === 'warning' && !isAllowed(text)) warnings.push(`console.warn: ${text.split('\n')[0]}`);
   });
-  page.on('response', (r) => { if (r.status() >= 400 && r.url().startsWith(origin) && !isAllowed(r.url())) messages.push(`HTTP ${r.status()}: ${r.url().slice(origin.length)}`); });
-  page.on('requestfailed', (r) => { if (r.url().startsWith(origin) && !isAllowed(r.url()) && !/ERR_ABORTED/.test(r.failure()?.errorText ?? '')) messages.push(`request failed: ${r.url().slice(origin.length)} (${r.failure()?.errorText})`); });
+  // Firefox and WebKit ask for the page's declared icon like any file (Chromium's headless shell does not); the page-check server has no copy of it where the release build has the hashed one
+  const isIcon = (u: string): boolean => /\/favicon\.(svg|ico)$/.test(u);
+  page.on('response', (r) => { if (r.status() >= 400 && r.url().startsWith(origin) && !isAllowed(r.url()) && !isIcon(r.url())) messages.push(`HTTP ${r.status()}: ${r.url().slice(origin.length)}`); });
+  page.on('requestfailed', (r) => { if (r.url().startsWith(origin) && !isAllowed(r.url()) && !/ERR_ABORTED|NS_BINDING_ABORTED|cancelled/i.test(r.failure()?.errorText ?? '')) messages.push(`request failed: ${r.url().slice(origin.length)} (${r.failure()?.errorText})`); });
 
   const hooks = { ...(t.hooks ?? { timeScale: 40, roundSeconds: 6 }) };
   await page.addInitScript((h) => { (window as unknown as { __BA_TEST__: unknown }).__BA_TEST__ = h; }, hooks);
