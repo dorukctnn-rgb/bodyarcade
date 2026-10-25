@@ -49,8 +49,10 @@ const meets = (a: Box, b: Box): boolean => a.left < b.right && b.left < a.right 
  */
 export function clearOf(box: Box, parts: readonly Box[], dir: 'down' | 'up'): number {
   let dy = 0;
+  // each side read by name: a DOMRect's sides are getters of its prototype, which a spread would leave behind
+  const { left, right } = box;
   for (let i = 0; i < 6; i++) {
-    const at = { ...box, top: box.top + dy, bottom: box.bottom + dy };
+    const at = { left, right, top: box.top + dy, bottom: box.bottom + dy };
     const hit = parts.find((p) => meets(at, p));
     if (!hit) return dy;
     dy += dir === 'down' ? hit.bottom + GAP - at.top : hit.top - GAP - at.bottom;

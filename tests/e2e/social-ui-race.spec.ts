@@ -90,9 +90,12 @@ async function onStage(p: Person, code: string): Promise<void> {
   await expect(layer).toHaveAttribute('data-room', code, { timeout: 30_000 });
 }
 
-/** A test that failed (or found problems) keeps what each page showed and the Worker's last lines. */
-async function keepEvidence(people: readonly Person[], problems: readonly string[]): Promise<void> {
-  if (problems.length === 0 && test.info().status === 'passed') return;
+/**
+ * A test that failed (or found problems) keeps what each page showed and the Worker's last lines. `ended`: every step of the test ran
+ * (inside its finally a failed step has not reached test.info() yet: its status still says passed).
+ */
+async function keepEvidence(people: readonly Person[], problems: readonly string[], ended: boolean): Promise<void> {
+  if (problems.length === 0 && ended) return;
   console.log('WORKER LOG', stack.logs.slice(-15).join(' | '));
   const name = test.info().title.split(':')[0] ?? 'race';
   for (const p of people) {
@@ -178,6 +181,7 @@ for (const e of ENGINES) {
     await stack.db.prepare('DELETE FROM soc_lobbies').run();
     const browser = await e.type.launch(e.launch);
     const people: Person[] = [];
+    let ended = false;
     try {
       const ada = await person(browser, e, 'Ada');
       const bo = await person(browser, e, 'Bo', { phone: true });
@@ -279,9 +283,10 @@ for (const e of ENGINES) {
       await ada.page.locator('[data-room-back]').click();
       await expect(ada.page.locator('.k-seat[data-seat]')).toHaveCount(1, { timeout: 20_000 });
       await expect(ada.page.locator('.k-actionbar .k-note')).toHaveText('Waiting for a second player. Share the code or the link.');
+      ended = true;
     } finally {
       const problems = people.flatMap((p) => p.problems);
-      await keepEvidence(people, problems);
+      await keepEvidence(people, problems, ended);
       await browser.close().catch(() => undefined);
       expect(problems).toEqual([]);
     }
@@ -294,6 +299,7 @@ test('chromium: a stage that reloads in the middle of a race joins the room agai
   const e = ENGINES[0] as Engine;
   const browser = await e.type.launch(e.launch);
   const people: Person[] = [];
+  let ended = false;
   try {
     const ada = await person(browser, e, 'Ada');
     const bo = await person(browser, e, 'Bo');
@@ -327,9 +333,10 @@ test('chromium: a stage that reloads in the middle of a race joins the room agai
     const [ra, rb] = await Promise.all([results(ada, code), results(bo, code)]);
     expect(ra).toEqual(rb);
     for (const row of ra) expect(pointsOf(row)).toBeGreaterThan(0);
+    ended = true;
   } finally {
     const problems = people.flatMap((p) => p.problems);
-    await keepEvidence(people, problems);
+    await keepEvidence(people, problems, ended);
     await browser.close().catch(() => undefined);
     expect(problems).toEqual([]);
   }
@@ -341,6 +348,7 @@ test('chromium: two adults in a private room who both share their camera see eac
   const e = ENGINES[0] as Engine;
   const browser = await e.type.launch(e.launch);
   const people: Person[] = [];
+  let ended = false;
   try {
     const ada = await person(browser, e, 'Ada');
     const bo = await person(browser, e, 'Bo');
@@ -384,9 +392,10 @@ test('chromium: two adults in a private room who both share their camera see eac
     // (the camera is the room's choice: the stage has no switch of its own) the race ends and both have their results
     const [ra, rb] = await Promise.all([results(ada, code), results(bo, code)]);
     expect(ra).toEqual(rb);
+    ended = true;
   } finally {
     const problems = people.flatMap((p) => p.problems);
-    await keepEvidence(people, problems);
+    await keepEvidence(people, problems, ended);
     await browser.close().catch(() => undefined);
     expect(problems).toEqual([]);
   }

@@ -376,5 +376,21 @@ describe('the stage of a race in a room', () => {
     // nothing in the way: nothing moves
     expect(clearOf(row, [box(0, 0, 100, 100)], 'up')).toBe(0);
     expect(clearOf(line, [], 'down')).toBe(0);
+    // what a browser measures: a DOMRect, whose sides are getters of its prototype (none of them its own)
+    class Rect {
+      readonly #b: readonly [number, number, number, number];
+      constructor(x: number, y: number, w: number, h: number) { this.#b = [x, y, w, h]; }
+      get x(): number { return this.#b[0]; }
+      get y(): number { return this.#b[1]; }
+      get w(): number { return this.#b[2]; }
+      get h(): number { return this.#b[3]; }
+      get left(): number { return this.x; }
+      get top(): number { return this.y; }
+      get right(): number { return this.x + this.w; }
+      get bottom(): number { return this.y + this.h; }
+    }
+    expect(Object.keys(new Rect(1, 2, 3, 4))).not.toContain('left');
+    expect(clearOf(new Rect(500, 84, 280, 40), [new Rect(490, 24, 300, 88)], 'down')).toBe(112 + 8 - 84);
+    expect(clearOf(new Rect(485, 726, 310, 56), [new Rect(336, 723, 340, 52)], 'up')).toBe(723 - 8 - 782);
   });
 });
