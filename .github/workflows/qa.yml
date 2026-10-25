@@ -22,6 +22,18 @@ on:
         description: 'Browsers job: also the web shell specs and the page check on each engine (about 60 more minutes per engine; a push runs the smoke only)'
         required: false
         default: 'false'
+      only:
+        description: 'Browsers job: the page check on the Safari engine and Firefox for these targets only (for example web:home:trial,web:plans,web:pro), a few minutes; works with a grep that matches no flow to skip the flows'
+        required: false
+        default: ''
+      sizes:
+        description: 'With only: the sizes (breakpoint ids or WIDTHxHEIGHT, for example phone-land-915,phone-390)'
+        required: false
+        default: ''
+      lang:
+        description: 'With only: the language of the pages (en or tr)'
+        required: false
+        default: 'en'
 
 concurrency:
   group: qa-${{ github.ref }}
@@ -145,9 +157,14 @@ jobs:
       - name: Page check on ${{ matrix.engine }} (ten screen sizes)
         id: pagecheck
         timeout-minutes: 40
-        if: matrix.pagecheck && github.event_name == 'workflow_dispatch' && inputs.full == 'true' && inputs.grep == ''
+        if: matrix.pagecheck && github.event_name == 'workflow_dispatch' && ((inputs.full == 'true' && inputs.grep == '') || inputs.only != '')
         continue-on-error: true
-        run: node tools/page-check/run.ts --groups web --browser ${{ matrix.engine }} --jobs 2 --out qa-out/page-check-${{ matrix.engine }}
+        env:
+          ONLY: ${{ inputs.only }}
+          SIZES: ${{ inputs.sizes }}
+          LANG_CHECK: ${{ inputs.lang }}
+        shell: bash
+        run: node tools/page-check/run.ts --groups web --browser ${{ matrix.engine }} --jobs 2 ${ONLY:+--only "$ONLY"} ${SIZES:+--sizes "$SIZES"} ${LANG_CHECK:+--lang "$LANG_CHECK"} --out qa-out/page-check-${{ matrix.engine }}
 
       # The Friends screens in this engine (builder SO's tests/e2e/social-ui-engines.spec.ts: layout of the main screens and windows, a real profile with the
       # device key kept across a reload, a friend request over the socket; the production Worker in Miniflare). The spec launches WebKit and Firefox itself,
