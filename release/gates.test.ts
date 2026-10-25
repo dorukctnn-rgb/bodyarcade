@@ -111,6 +111,18 @@ describe('secrets', () => {
     expect(s!.why).toMatch(/without it a room never starts a Pro game, free games are not affected/);
   });
 
+  it('the moderation key is required, and one a person never has to make: without it no report can be read and the privacy promise breaks (25 Oct)', () => {
+    const s = spec('ADMIN_TOKEN');
+    expect(s).toBeDefined();
+    expect(s!.required).toBe(true);
+    expect(s!.generate).not.toBeNull();
+    expect(s!.generate!().length).toBeGreaterThanOrEqual(32);
+    expect(s!.why).toMatch(/every report is read/);
+    // a deploy that lacks it is stopped (release/deploy.ts lists the required names that are missing)
+    expect(SECRETS.filter((x) => x.required && !{ TICKET_SECRET: 'x' }[x.name as 'TICKET_SECRET']).map((x) => x.name)).toContain('ADMIN_TOKEN');
+    expect(text('release/deploy.ts')).toMatch(/s\.required && !secrets\[s\.name\]/);
+  });
+
   it('every name is listed once', () => {
     const names = SECRETS.map((s) => s.name);
     expect(new Set(names).size).toBe(names.length);
