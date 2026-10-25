@@ -223,8 +223,23 @@ for (const e of ENGINES) {
       await expect(ada.page.locator('.k-feed')).toContainText('Hello', { timeout: 20_000 });
 
       // ── Ada is ready first: her stage says who the start waits for, and Bo's room page shows her ready ──
+      // She copies the link once more just before (the toast is on the room's page): the stage opens without it, so it never lies
+      // over the hint plate. The page notes how many toasts were still showing at the moment the stage's layer arrived.
+      await ada.page.evaluate(() => {
+        const w = window as unknown as { __toastsAtStage?: number };
+        const seen = new MutationObserver(() => {
+          if (!document.querySelector('[data-live-race]')) return;
+          w.__toastsAtStage = document.querySelectorAll('[data-toasts] .ba-toast:not(.is-leaving)').length;
+          seen.disconnect();
+        });
+        seen.observe(document.body, { childList: true, subtree: true });
+      });
+      await ada.page.locator('.k-invite [data-action="room.copy"][data-what="link"]').click();
+      await expect(ada.page.locator('[data-toasts] .ba-toast:not(.is-leaving)')).toHaveText('Invite link copied');
       await ada.page.locator('[data-action="room.ready"][data-ready="1"]').click();
       await onStage(ada, code);
+      expect(await ada.page.evaluate(() => (window as unknown as { __toastsAtStage?: number }).__toastsAtStage)).toBe(0);
+      await expect(ada.page.locator('[data-toasts] .ba-toast')).toHaveCount(0, { timeout: 2_000 });
       await expect(ada.page.locator('[data-lr-status]')).toHaveText('Waiting for Bo to get ready', { timeout: 30_000 });
       await expect(bo.page.locator('.k-seat[data-seat]', { hasText: 'Ada' }).locator('.k-state.ready')).toBeVisible({ timeout: 20_000 });
       // the others are on the stage before the race too: Bo's tile, and what he says from the room's page lands on it

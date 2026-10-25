@@ -850,7 +850,9 @@ export class App {
       return null;
     }
     const src = liveSource(client, { room: code, name: this.liveName(), book: this.ghostBook(), standIn: this.o.bodyIsSimulated?.(g.id) === true });
-    return Object.assign(src, { mount: (m: RaceStageMount) => mountLiveStage(m, src) });
+    // The stage opens clean: a toast of the room's page ("Invite link copied", pressed just before Ready) would lie over the hint
+    // plate for its last seconds. Its words were already spoken through the live region.
+    return Object.assign(src, { mount: (m: RaceStageMount) => { this.toaster.dismissAll(); return mountLiveStage(m, src); } });
   }
 
   /** The name the player has in rooms (their own run of a race carries it). */
