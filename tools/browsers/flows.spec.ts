@@ -50,6 +50,9 @@ async function until(page: Page, want: string, ms: number, seen: string[] = []):
 
 const problemsOfLayout = (page: Page): Promise<string[]> => checkPage(page);
 
+/** Does this engine have a camera API at all? (Playwright's WebKit for Windows has none: no MediaStream, no WebRTC, no Web Audio.) */
+const hasCameraApi = (page: Page): Promise<boolean> => page.evaluate(() => typeof navigator.mediaDevices?.getUserMedia === 'function');
+
 /** What the HUD says is wrong with the round on screen (the shell's own check). */
 const playProblems = (page: Page): Promise<string[]> => page.evaluate(() => window.__BA__?.debug().playProblems ?? ['the test hook window.__BA__ is missing']);
 
@@ -154,6 +157,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await installPersonCamera(context, { file: FIXTURE, portrait: isPhone(page) });
     const seen: string[] = [];
     await page.goto(`${DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
+    test.skip(!(await hasCameraApi(page)), 'this engine has no camera API (see the test "camera: where the engine has no camera API")');
     try {
       await until(page, 'explainer', 30_000, seen);
       await expect(page.getByRole('dialog').first()).toContainText(/never uploaded or saved|asla/i);
@@ -192,6 +196,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     const seen: string[] = [];
     await page.goto(`${DEMO_URL}/welcome/?step=5`, { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-welcome][data-ready="1"]', { timeout: 45_000 });
+    test.skip(!(await hasCameraApi(page)), 'this engine has no camera API (see the test "camera: where the engine has no camera API")');
     try {
       await shot(page, info, 'first-win-camera-page');
       await page.getByRole('button', { name: 'Continue' }).click();
@@ -207,6 +212,22 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     } finally {
       info.annotations.push({ type: 'phases', description: seen.join(' > ') });
     }
+    expect(w.errors).toEqual([]);
+  });
+
+  test('camera: where the engine has no camera API the app says so in words and leaves a way out', async ({ page }, info) => {
+    const w = watch(page);
+    await page.goto(`${DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
+    test.skip(await hasCameraApi(page), 'this engine has a camera API: the camera flows run instead');
+    await until(page, 'explainer', 30_000);
+    await page.locator('[data-action="camera-continue"]').click();
+    await page.waitForSelector('#ov-title', { timeout: 30_000 });
+    await settle(page);
+    const panel = await page.evaluate(() => ({ title: document.querySelector('#ov-title')?.textContent?.trim() ?? '', alert: (document.querySelector('.ba-explain [role=alert]')?.textContent ?? '').trim(), buttons: [...document.querySelectorAll('.ba-explain button, .ba-explain a')].map((b) => (b.textContent ?? '').trim()).filter(Boolean) }));
+    info.annotations.push({ type: 'panel', description: `${panel.title} | ${panel.alert} | ${panel.buttons.join(' / ')}` });
+    await shot(page, info, 'camera-unsupported');
+    expect(panel.alert.length, 'the panel says why in words').toBeGreaterThan(10);
+    expect(panel.buttons.length, 'the panel has a way out').toBeGreaterThan(0);
     expect(w.errors).toEqual([]);
   });
 

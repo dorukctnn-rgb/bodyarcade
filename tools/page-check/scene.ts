@@ -72,8 +72,11 @@ export interface SceneReport {
   flatColour: string;
 }
 
-/** Looks at the scene rectangle on a grid of `step` pixels, skipping every rectangle of `covered`. */
-export function analyseScene(img: Raster, scene: Rect, covered: readonly Rect[], step = 4): SceneReport {
+/**
+ * Looks at the scene rectangle on a grid of `step` pixels, skipping every rectangle of `covered`. The grid is 2 px: the line art of
+ * a mirror game (a 3 px silhouette on a phone held sideways) falls between the points of a 4 px grid and the scene looked empty.
+ */
+export function analyseScene(img: Raster, scene: Rect, covered: readonly Rect[], step = 2): SceneReport {
   const counts = new Map<number, number>();
   let looked = 0;
   const x0 = Math.max(0, Math.floor(scene.x));

@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { beNice } from '../../page-check/nice.ts';
 import { DEMO_PORT, RELEASE_PORT } from './ports.ts';
 import { startSite } from './serve.ts';
 
@@ -60,6 +61,7 @@ export function build(force = false): void {
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   const args = process.argv.slice(2);
+  beNice();
   build(args.includes('--rebuild'));
   if (!args.includes('--build')) {
     const servers = [await startSite(DEMO_DIR, DEMO_PORT, 'spa'), await startSite(RELEASE_DIR, RELEASE_PORT, '404')];

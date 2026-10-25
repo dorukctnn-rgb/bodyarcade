@@ -85,6 +85,13 @@ describe('scene', () => {
     expect(r.flatShare).toBeLessThan(0.9995);
     expect(isBlank(r)).toBe(false);
   });
+  it('sees line art three pixels wide: it falls between the points of a coarse grid', () => {
+    // a 3 px silhouette at every 9th line of an 844x390 landscape phone, as Star Catch draws it before a target comes
+    const art = fill(844, 390, [24, 24, 56], (x, y) => (Math.abs(x - 421) <= 1 || Math.abs(y - 187) <= 1 ? [106, 106, 122] : null));
+    const sc = { x: 0, y: 0, w: 844, h: 390 };
+    expect(isBlank(analyseScene(art, sc, []))).toBe(false);
+    expect(analyseScene(art, sc, []).colours).toBeGreaterThan(1);
+  });
   it('does not judge a scene it can hardly see', () => {
     expect(isBlank(analyseScene(fill(200, 120, [0, 0, 0]), { x: 0, y: 0, w: 20, h: 20 }, []))).toBe(false);
   });
