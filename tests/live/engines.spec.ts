@@ -18,6 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { baseLaunchOptions } from '../e2e/support/browser.ts';
+import { canvasStreamPlays } from '../../tools/browsers/support/page.ts';
 import { ROOT, lanAddress } from './support/stack.ts';
 import type { PeersReport } from './pages/peers.ts';
 
@@ -125,7 +126,11 @@ for (const [name, spec] of Object.entries(ROWS)) {
       // what the friend camera needs (when the engine can make a camera from a canvas at all)
       if (rep.canCapture) {
         expect(rep.tracks.a.some((t) => t.kind === 'video') && rep.tracks.b.some((t) => t.kind === 'video'), 'both sides get a video track').toBe(true);
-        expect(Math.min(rep.videoFrames.a, rep.videoFrames.b), 'the picture is painted').toBeGreaterThan(8);
+        // The test's camera is a canvas. A WebKit build with no GPU (WebKitGTK on a GitHub Linux runner) shows no picture from a captured canvas even in ONE
+        // page, with no link at all (the browser matrix skips its camera flows for the same reason): there the pictures over the link cannot be judged, and
+        // the channel, the tracks and the ICE restart still are.
+        if (await canvasStreamPlays(page)) expect(Math.min(rep.videoFrames.a, rep.videoFrames.b), 'the picture is painted').toBeGreaterThan(8);
+        else console.log(JSON.stringify({ engine: name, note: 'a canvas camera shows no picture even in one page on this machine: the pictures over the link are not judged here' }));
       }
       // what a flaky link needs
       expect(rep.afterRestart.dcOpen && rep.afterRestart.roundTrip, 'an ICE restart keeps the channel').toBe(true);

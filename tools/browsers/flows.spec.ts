@@ -100,8 +100,8 @@ async function leaveRound(page: Page): Promise<void> {
 // ---------------------------------------------------------------------------------------------------------------------------------
 /**
  * The whole start of a round on the camera: the explainer, the calibration on a person, the countdown, a running round, and the camera let go
- * when the player leaves. `cpuPose` makes the pose service use the CPU delegate (the built script is patched on its way to the page): what the
- * platform's default (GPU) gives on Firefox stalls, the CPU delegate runs (NOTLAR-platform.md, Q -> P, 25 Oct). `base` runs the same start on another
+ * when the player leaves. `cpuPose` makes the pose service use the CPU delegate (the built script is patched on its way to the page): Firefox's GPU delegate
+ * stalls and the CPU delegate runs, so Firefox starts on the CPU by itself now (landmarker.ts gpuDelegateAdvised); this variant isolates the delegate when a round on an engine fails. `base` runs the same start on another
  * address: the release build, which has no test hooks and the headers of production (its Content-Security-Policy is report-only: an engine that does
  * not allow what the page does says so on its console, and the flow fails on a console error).
  */
@@ -257,8 +257,8 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await cameraRoundFlow(page, context, info);
   });
 
-  test('camera: the same round with the pose service on the CPU delegate (what a fix for Firefox would give)', async ({ page, context, browserName }, info) => {
-    test.skip(browserName !== 'firefox', 'only Firefox has the problem this variant answers (the GPU delegate stalls there)');
+  test('camera: the same round with the pose service forced onto the CPU delegate (what Firefox runs by itself)', async ({ page, context, browserName }, info) => {
+    test.skip(browserName !== 'firefox', 'only Firefox has the problem this variant isolates (its GPU delegate stalls); Chromium and Safari run the GPU on a real GPU');
     await cameraRoundFlow(page, context, info, { cpuPose: true });
   });
 
