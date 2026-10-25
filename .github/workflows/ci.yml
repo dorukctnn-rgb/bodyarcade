@@ -63,7 +63,8 @@ jobs:
           retention-days: 7
 
   # The Friends screens in Chromium: the specs of tests/e2e/social-ui*.spec.ts through the real web shell on the production Worker in Miniflare.
-  # The one spec that launches WebKit and Firefox itself (social-ui-engines.spec.ts) is left out: the QA workflow's browsers job runs it where those engines are installed.
+  # The one spec that launches WebKit and Firefox itself (social-ui-engines.spec.ts) is left out, and so are the Firefox and WebKit rows of the room race
+  # (social-ui-race.spec.ts launches each engine itself; only Chromium is installed here): the QA workflow's browsers job runs them where those engines are installed.
   social-ui:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -82,7 +83,7 @@ jobs:
         run: npx playwright install --with-deps --only-shell chromium
 
       - name: Friends screens end-to-end (headless Chromium)
-        run: npx playwright test tests/e2e/social-ui --grep-invert social-ui-engines
+        run: 'npx playwright test tests/e2e/social-ui --grep-invert "social-ui-engines|social-ui-race.*(firefox|webkit): "'
 
       - name: Keep the report when something fails
         if: failure()

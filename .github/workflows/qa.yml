@@ -173,12 +173,14 @@ jobs:
       # The Friends screens in this engine (builder SO's tests/e2e/social-ui-engines.spec.ts: layout of the main screens and windows, a real profile with the
       # device key kept across a reload, a friend request over the socket; the production Worker in Miniflare). The spec launches WebKit and Firefox itself,
       # which the CI workflow does not install, so it runs here, where the engine is: the tests whose title starts with the engine's name.
+      # The room race of two friends (builder N's tests/e2e/social-ui-race.spec.ts) has its Firefox row here for the same reason (its WebKit row is skipped
+      # unless BA_RACE_WEBKIT=1; the CI workflow runs its Chromium rows).
       - name: Friends screens on ${{ matrix.engine }}
         id: socialengine
         timeout-minutes: 25
         if: matrix.engine != 'chromium' && (github.event_name != 'workflow_dispatch' || inputs.grep == '')
         continue-on-error: true
-        run: node node_modules/@playwright/test/cli.js test -c tests/social/playwright.config.ts --workers=1 tests/e2e/social-ui-engines.spec.ts -g "${{ matrix.engine }}:"
+        run: node node_modules/@playwright/test/cli.js test -c tests/social/playwright.config.ts --workers=1 tests/e2e/social-ui-engines.spec.ts tests/e2e/social-ui-race.spec.ts -g "${{ matrix.engine }}:"
 
       # The same peer layer in four variants (host candidates or a relay through the local TURN, one canvas cloned or one for each side): where an
       # engine passes says what its test needs (tools/browsers/peers.spec.ts).
