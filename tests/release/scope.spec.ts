@@ -6,7 +6,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, expect, test } from '@playwright/test';
 import { withFakeVideo } from '../e2e/support/browser.ts';
-import { BASE, OUT, ROOT, sitemapUrls } from './support.ts';
+import { BASE, ENGINE, OUT, ROOT, sitemapUrls } from './support.ts';
 
 // Each check writes its own evidence file (scope-<name>.json): a failed test restarts the worker.
 const seen: Record<string, unknown> = {};
@@ -18,7 +18,8 @@ test('two players: offered on a laptop, not on a phone', async ({ browser }) => 
   await lp.goto(`${BASE}/games/squat-flap/`);
   const two = lp.locator('input[name="players"][value="2"]');
   note('twoOnLaptop', await two.count());
-  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+  // Firefox has no isMobile (Playwright refuses it there): a touch screen of a phone's size, as tools/browsers does
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, ...(ENGINE === 'firefox' ? {} : { isMobile: true }), hasTouch: true, serviceWorkers: 'block' });
   const pp = await phone.newPage();
   await pp.goto(`${BASE}/games/squat-flap/`);
   note('twoOnPhone', await pp.locator('input[name="players"][value="2"]').count());
@@ -28,6 +29,7 @@ test('two players: offered on a laptop, not on a phone', async ({ browser }) => 
 });
 
 test('two players, one camera: two people calibrate and the round starts', async () => {
+  test.skip(ENGINE !== 'chromium', "Chromium's fake camera plays the two people (the other engines' camera flows are tools/browsers)");
   test.setTimeout(300_000);
   const browser = await chromium.launch(withFakeVideo(join(ROOT, 'tests/e2e/fixtures/two-standing-640x360.mjpeg')));
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, permissions: ['camera'], serviceWorkers: 'block' });

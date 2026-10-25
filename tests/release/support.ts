@@ -6,8 +6,27 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const BASE = (process.env['BA_RELEASE_URL'] ?? 'https://bodyarcade-v2-preview.railer-iot.workers.dev').replace(/\/$/, '');
 export const IS_PREVIEW = !/^https:\/\/bodyarcade\.com$/.test(BASE);
-/** The evidence folder. BA_RELEASE_OUT moves it (a rehearsal against a local stack keeps its evidence apart from the deployed build's). */
-export const OUT = process.env['BA_RELEASE_OUT'] ? resolve(process.env['BA_RELEASE_OUT']) : join(ROOT, 'tests', 'release', 'out');
+
+export type Engine = 'chromium' | 'webkit' | 'firefox';
+/**
+ * The browser engine of this run (BUILD-PLAN: the final test runs Chromium, WebKit and Firefox at phone and desktop sizes).
+ * BA_RELEASE_ENGINE=chromium (default) runs every check; webkit and firefox run the checks a page's engine can change (layout at the
+ * ten sizes, the keyboard round of every game, axe on a phone and a laptop, the scope items, the service worker); the HTTP checks
+ * (urls), the CSP round and the live races are Chromium's (the first two do not depend on the engine, the races have their own engine
+ * spec: tests/live/engines.spec.ts). The camera flows of the other engines are tools/browsers (QA).
+ */
+export const ENGINE: Engine = (() => {
+  const e = (process.env['BA_RELEASE_ENGINE'] ?? 'chromium').trim().toLowerCase();
+  if (e !== 'chromium' && e !== 'webkit' && e !== 'firefox') throw new Error(`BA_RELEASE_ENGINE must be chromium, webkit or firefox, not "${e}"`);
+  return e;
+})();
+
+/**
+ * The evidence folder: tests/release/out for Chromium, tests/release/out/<engine> for the others (so one engine's evidence never
+ * overwrites another's). BA_RELEASE_OUT moves it (a rehearsal against a local stack keeps its evidence apart from the deployed build's).
+ */
+export const OUT = process.env['BA_RELEASE_OUT'] ? resolve(process.env['BA_RELEASE_OUT'])
+  : join(ROOT, 'tests', 'release', 'out', ...(ENGINE === 'chromium' ? [] : [ENGINE]));
 mkdirSync(OUT, { recursive: true });
 
 /**

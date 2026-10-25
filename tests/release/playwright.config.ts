@@ -7,18 +7,28 @@
 // that is how production takes players. BA_RELEASE_SIGNING=auto (default) | signed | guest; auto plays guests only on a
 // deployed build from before the social module. Their keys are kept in tests/release/out/identities/<host>/ (never committed).
 //   node tests/release/local-stack.ts -- <command>          the production Worker in Miniflare, to rehearse the live races locally
-// Headless Chromium only. Evidence (screenshots, logs) goes to tests/release/out/ (not committed).
-import { defineConfig } from '@playwright/test';
+// Engines (BUILD-PLAN: Chromium, WebKit and Firefox at phone and desktop sizes): BA_RELEASE_ENGINE=chromium (default, every check) |
+// webkit | firefox (the checks a page's engine can change: layout at the ten sizes, games, axe, scope, service worker; support.ts ENGINE).
+//   BA_RELEASE_ENGINE=webkit npm run test:release    evidence in tests/release/out/webkit/
+// Headless only. Evidence (screenshots, logs) goes to tests/release/out/ (not committed).
+import { defineConfig, type LaunchOptions } from '@playwright/test';
 import { baseLaunchOptions } from '../e2e/support/browser.ts';
+import { ENGINE } from './support.ts';
+
+/** Checks that do not depend on the page's engine (HTTP answers, the CSP round on Chromium's fake camera) or have their own engine spec (the live races). */
+const CHROMIUM_ONLY = ['urls.spec.ts', 'csp.spec.ts', 'live.spec.ts'];
+
+const launchOptions: LaunchOptions = ENGINE === 'chromium' ? baseLaunchOptions : { headless: true };
 
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.ts',
+  testIgnore: ENGINE === 'chromium' ? [] : CHROMIUM_ONLY.map((f) => `**/${f}`),
   fullyParallel: false,
   workers: 1,
   retries: 0,
   timeout: 120_000,
   reporter: [['list']],
-  outputDir: 'out/test-results',
-  use: { headless: true, launchOptions: baseLaunchOptions, ignoreHTTPSErrors: false },
+  outputDir: ENGINE === 'chromium' ? 'out/test-results' : `out/${ENGINE}/test-results`,
+  use: { browserName: ENGINE, headless: true, launchOptions, ignoreHTTPSErrors: false },
 });
