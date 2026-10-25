@@ -73,7 +73,8 @@ export default defineConfig({
   retries: CI ? 1 : 0,
   timeout: 120_000,
   expect: { timeout: 12_000 },
-  reporter: [['list'], ['json', { outputFile: fileURLToPath(new URL('../../qa-out/browsers/results.json', import.meta.url)) }]],
+  // run.ts names the file after the set it runs (results-flows.json, results-ui.json), so one run does not overwrite the other.
+  reporter: [['list'], ['json', { outputFile: process.env['BA_BROWSERS_RESULTS'] ?? fileURLToPath(new URL('../../qa-out/browsers/results.json', import.meta.url)) }]],
   outputDir: fileURLToPath(new URL('../../qa-out/browsers/test-results', import.meta.url)),
   use: { headless: true, screenshot: 'only-on-failure', trace: CI ? 'retain-on-failure' : 'off', actionTimeout: 15_000, navigationTimeout: 45_000 },
   projects,
