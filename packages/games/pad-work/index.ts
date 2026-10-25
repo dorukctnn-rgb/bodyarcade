@@ -5,12 +5,17 @@ import type { GameManifest } from '../../core/types/index.ts';
 import { padWorkRules } from '../target/pad-work.ts';
 import { targetModule, type TargetGameModule, type TargetModuleOptions } from '../target/module.ts';
 import manifestJson from './manifest.json' with { type: 'json' };
+import { COACH_PACK } from './voice/pack.ts';
 
 export const manifest = manifestJson as GameManifest;
 
-/** Pad Work with another manifest or a shorter run (tools and the end-to-end tests); the game itself is the same. */
+/**
+ * Pad Work with another manifest or a shorter run (tools and the end-to-end tests); the game itself is the same. It has a coach: the calls
+ * are drawn as captions and spoken from the clips of ./voice (en and tr; the voice of any other language is the English one), fetched when
+ * the game starts.
+ */
 export function padWorkModule(m: GameManifest = manifest, o: TargetModuleOptions = {}): TargetGameModule {
-  return targetModule(m, padWorkRules, o);
+  return targetModule(m, padWorkRules, { voice: COACH_PACK, ...o });
 }
 
 const padWork = padWorkModule();
