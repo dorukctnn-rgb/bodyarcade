@@ -3,7 +3,7 @@
 // an address nobody made either the app's own index.html with a 200 (mode 'spa': the single page application fallback of the
 // practice build) or the site's 404 page with a 404 (mode '404': the release build).
 //   node tools/browsers/support/serve.ts <dir> <port> [spa|404]
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,10 +18,46 @@ const TYPES: Record<string, string> = {
 
 export type Fallback = 'spa' | '404';
 
+/** The rules of a Cloudflare `_headers` file: a path pattern (`*` matches anything, slashes too) and the header lines indented under it. */
+export interface HeaderRule { pattern: RegExp; headers: Record<string, string> }
+
+export function parseHeaders(text: string): HeaderRule[] {
+  const rules: HeaderRule[] = [];
+  let cur: HeaderRule | null = null;
+  for (const raw of text.split(/\r?\n/)) {
+    if (!raw.trim() || raw.trim().startsWith('#')) continue;
+    if (/^\S/.test(raw)) {
+      // a glob: every character that means something in a regular expression is escaped, then `*` is anything
+      const glob = raw.trim().replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+      cur = { pattern: new RegExp(`^${glob}$`), headers: {} };
+      rules.push(cur);
+    } else if (cur) {
+      const i = raw.indexOf(':');
+      if (i > 0) cur.headers[raw.slice(0, i).trim()] = raw.slice(i + 1).trim();
+    }
+  }
+  return rules;
+}
+
+/** The headers the rules give a path, the later rules over the earlier ones (a header of the same name is replaced). */
+export function headersFor(rules: readonly HeaderRule[], path: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const r of rules) if (r.pattern.test(path)) Object.assign(out, r.headers);
+  return out;
+}
+
+const lowerCase = (h: Record<string, string>): Record<string, string> => Object.fromEntries(Object.entries(h).map(([k, v]) => [k.toLowerCase(), v]));
+const requestPath = (req: import('node:http').IncomingMessage): string => { try { return decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/'); } catch { return '/'; } };
+
 const isFile = (p: string): boolean => { try { return statSync(p).isFile(); } catch { return false; } };
 const isDir = (p: string): boolean => { try { return statSync(p).isDirectory(); } catch { return false; } };
 
-export function startSite(dirArg: string, port: number, fallback: Fallback): Promise<Server> {
+/**
+ * `headersFile`: the site's `_headers` file, applied to every response the way the host does it (the release build's Content-Security-Policy-Report-Only
+ * among them: an engine that does not allow what the page does, a worker from a blob or an inline style, says so on its console).
+ */
+export function startSite(dirArg: string, port: number, fallback: Fallback, headersFile?: string): Promise<Server> {
+  const rules = headersFile && existsSync(headersFile) ? parseHeaders(readFileSync(headersFile, 'utf8')) : [];
   const root = resolve(dirArg);
   if (!existsSync(root)) throw new Error(`no folder ${root}`);
   const inside = (abs: string): boolean => abs === root || abs.startsWith(root + sep);
@@ -29,7 +65,7 @@ export function startSite(dirArg: string, port: number, fallback: Fallback): Pro
     const size = statSync(file).size;
     const type = TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
     const range = status === 200 ? /^bytes=(\d*)-(\d*)$/.exec(String(req.headers['range'] ?? '')) : null;
-    const base = { 'content-type': type, 'cache-control': 'no-cache', 'accept-ranges': 'bytes' };
+    const base: Record<string, string> = { 'content-type': type, 'cache-control': 'no-cache', 'accept-ranges': 'bytes', ...lowerCase(headersFor(rules, requestPath(req))) };
     if (range && (range[1] !== '' || range[2] !== '')) {
       const start = range[1] === '' ? Math.max(0, size - Number(range[2])) : Number(range[1]);
       const end = range[1] === '' || range[2] === '' ? size - 1 : Math.min(size - 1, Number(range[2]));

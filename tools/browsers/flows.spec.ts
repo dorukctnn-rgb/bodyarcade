@@ -94,9 +94,11 @@ async function leaveRound(page: Page): Promise<void> {
 /**
  * The whole start of a round on the camera: the explainer, the calibration on a person, the countdown, a running round, and the camera let go
  * when the player leaves. `cpuPose` makes the pose service use the CPU delegate (the built script is patched on its way to the page): what the
- * platform's default (GPU) gives on Firefox stalls, the CPU delegate runs (NOTLAR-platform.md, Q -> P, 25 Oct).
+ * platform's default (GPU) gives on Firefox stalls, the CPU delegate runs (NOTLAR-platform.md, Q -> P, 25 Oct). `base` runs the same start on another
+ * address: the release build, which has no test hooks and the headers of production (its Content-Security-Policy is report-only: an engine that does
+ * not allow what the page does says so on its console, and the flow fails on a console error).
  */
-async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestInfo, o: { cpuPose?: boolean } = {}): Promise<void> {
+async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestInfo, o: { cpuPose?: boolean; base?: string } = {}): Promise<void> {
     const w = watch(page);
     await installPersonCamera(context, { file: FIXTURE, portrait: isPhone(page) });
     if (o.cpuPose) {
@@ -106,7 +108,7 @@ async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestIn
       });
     }
     const seen: string[] = [];
-    await page.goto(`${DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
+    await page.goto(`${o.base ?? DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
     test.skip(!(await cameraUsable(page)), 'this engine has no camera API, or cannot play a stream made from a canvas (the page-side camera): see the tests "camera: where the engine has no camera API" and the engine probe');
     try {
       await until(page, 'explainer', 30_000, seen);
@@ -120,7 +122,7 @@ async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestIn
       await until(page, 'running', 60_000, seen);
       await page.waitForTimeout(2500);
       await shot(page, info, 'camera-round');
-      expect(await playProblems(page), 'the HUD of the round').toEqual([]);
+      if (!o.base) expect(await playProblems(page), 'the HUD of the round').toEqual([]);   // the release build has no test hooks to ask
       const scene = await look(page.locator('[data-scene] canvas').first());
       expect(scene.blank, `nothing is drawn in the game scene (${scene.flatColour} over ${(scene.flatShare * 100).toFixed(1)} %)`).toBe(false);
       expect(await cameraState(page), 'the page-side camera is open while the round runs').toMatchObject({ installed: true, live: 1 });
@@ -678,6 +680,10 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 test.describe('the release build (content pages, service worker)', () => {
+  test('release build with its production headers: a round on the camera (no test hooks, Content-Security-Policy as shipped)', async ({ page, context }, info) => {
+    await cameraRoundFlow(page, context, info, { base: RELEASE_URL });
+  });
+
   for (const [id, path, lang] of [
     ['privacy-en', '/privacy', 'en'], ['terms-en', '/terms', 'en'], ['faq-en', '/faq', 'en'],
     ['privacy-tr', '/tr/privacy', 'tr'], ['terms-tr', '/tr/terms', 'tr'], ['faq-tr', '/tr/faq', 'tr'],
