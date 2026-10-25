@@ -18,6 +18,10 @@ on:
         description: 'Run the page-check job too (false: the engines only)'
         required: false
         default: 'true'
+      full:
+        description: 'Browsers job: also the web shell specs and the page check on each engine (about 60 more minutes per engine; a push runs the smoke only)'
+        required: false
+        default: 'false'
 
 concurrency:
   group: qa-${{ github.ref }}
@@ -77,13 +81,15 @@ jobs:
   # The other engines (BUILD-PLAN "Browsers"): WebKit is the engine under Safari and under every browser on an iPhone, Firefox is Firefox.
   # The macOS runner has Safari's WebKit (camera, WebRTC, Web Audio); the Linux runner has Playwright's WebKitGTK build. Playwright's WebKit
   # for Windows has no camera, no WebRTC and no Web Audio at all, which is why these flows run here and not on a Windows laptop.
+  # A push runs the SMOKE (about 15 minutes per engine, in parallel with the page check): the probe, the flows, the peer layer. `full` (workflow_dispatch)
+  # adds the web shell's own specs and the ten-size page check on each engine.
   # tools/browsers: the main flows of a visitor (home, tour, camera and calibration on a person, rounds, results, plans, paywall,
   # Family, social in the practice build, legal pages in English and Turkish, service worker offline) on a phone (390x844) and a
   # desktop (1440x900), the table of browser x flow in the job summary, the pictures in the artifact.
   browsers:
     name: browsers (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 150
+    timeout-minutes: 90
     # Report-only while the bugs these flows found are open (NOTLAR-qa.md has the table and the owners): the job shows red when a flow
     # fails, the workflow does not. Delete this line when the table is green, and the engines gate every push like the page check does.
     continue-on-error: true
@@ -132,7 +138,7 @@ jobs:
       - name: The web shell's own specs on ${{ matrix.engine }}
         id: shellspecs
         timeout-minutes: 50
-        if: github.event_name != 'workflow_dispatch' || inputs.grep == ''
+        if: github.event_name == 'workflow_dispatch' && inputs.full == 'true' && inputs.grep == ''
         continue-on-error: true
         run: node tools/browsers/run.ts --set ui --engines ${{ matrix.engine }}
 
@@ -140,7 +146,7 @@ jobs:
       - name: Page check on ${{ matrix.engine }} (ten screen sizes)
         id: pagecheck
         timeout-minutes: 40
-        if: matrix.pagecheck && (github.event_name != 'workflow_dispatch' || inputs.grep == '')
+        if: matrix.pagecheck && github.event_name == 'workflow_dispatch' && inputs.full == 'true' && inputs.grep == ''
         continue-on-error: true
         run: node tools/page-check/run.ts --groups web --browser ${{ matrix.engine }} --jobs 2 --out qa-out/page-check-${{ matrix.engine }}
 
