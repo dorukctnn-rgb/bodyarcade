@@ -46,7 +46,11 @@ function languageLinks(ctx: ViewContext): SafeHtml {
  * The pages that belong to the site and not to the app (their sources are in content/): English at the root, Turkish under /tr/.
  * Every other language of the app reads the English ones, as the site has no others.
  */
-export const sitePageHref = (lang: Lang, page: 'privacy' | 'terms' | 'faq'): string => `${lang === 'tr' ? '/tr' : ''}/${page}`;
+const SITE_PAGES = {
+  en: { privacy: '/privacy', terms: '/terms', faq: '/faq' },
+  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq' },
+} as const;
+export const sitePageHref = (lang: Lang, page: 'privacy' | 'terms' | 'faq'): string => SITE_PAGES[lang === 'tr' ? 'tr' : 'en'][page];
 
 function footer(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;

@@ -19,6 +19,8 @@ body { overflow-x: hidden; }
 .ba-app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; }
 .ba-app > main { flex: 1 0 auto; width: 100%; }
 .ba-trialnote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px max(16px, env(safe-area-inset-left, 0px)); background: var(--ba-surface-sunken, var(--ba-surface)); color: var(--ba-text); box-shadow: inset 0 -1.5px 0 var(--ba-border); font-size: 0.9375rem; }
+/* A phone on its side has the navigation as a rail on the left (76 px, fixed): the notice starts to the right of it, as the page and the footer do. */
+@media (max-height: 500px) and (orientation: landscape) { .ba-trialnote { padding-left: calc(76px + max(16px, env(safe-area-inset-left, 0px))); } }
 .ba-trialnote p { margin: 0; flex: 1 1 22em; }
 .ba-trialnote-actions { display: flex; gap: 16px; align-items: center; }
 .ba-trialnote .ba-link { min-height: 44px; display: inline-flex; align-items: center; background: none; border: 0; padding: 0 2px; font: inherit; font-weight: 700; cursor: pointer; }
@@ -40,8 +42,11 @@ body { overflow-x: hidden; }
 .k-challengechip { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 6px 12px; border-radius: 999px; background: var(--ba-accent-tint); color: var(--ba-accent-text); font-weight: 750; font-size: var(--ba-text-sm); }
 .k-challengechip svg { width: 18px; height: 18px; }
 .k-plans-grid { display: grid; gap: clamp(14px, 2vw, 22px); grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); margin-top: 18px; align-items: start; }
-.k-plancard { display: grid; gap: 10px; align-content: start; scroll-margin-top: 90px; }
+/* The one column of a card is as wide as the card and no wider: a long name (Turkish, on a narrow phone) wraps inside it, and the badge stays in the card. */
+.k-plancard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; scroll-margin-top: 90px; }
 .k-plancard > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.k-plancard > header h2 { min-width: 0; overflow-wrap: break-word; }
+.k-plancard > header .ba-badge { flex: none; }
 .k-plancard h2, .k-plancard p { margin: 0; }
 .k-planmeta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ba-text-muted); font-size: var(--ba-text-sm); font-weight: 650; }
 .k-steps { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 10px; }
@@ -118,6 +123,10 @@ main:focus, main:focus-visible, [data-main-heading]:focus, [data-main-heading]:f
 
 /* ---------- Common ---------- */
 .ba-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 20px; }
+/* A button whose words are longer than the line (a plan's name in Turkish, on a phone 390 px wide, where the engines measure the words a few pixels apart) wraps inside itself and never leaves its box. */
+.ba-actions > .ba-btn { max-width: 100%; white-space: normal; text-align: center; line-height: 1.2; padding-block: 8px; }
+/* A link that stands alone ("All plans", "Change") is at least 24 px tall to touch, the words in the middle; in a sentence the padding adds nothing to the line. */
+.ba-link { padding-block: 3px; }
 .ba-actions--stack { flex-direction: column; align-items: stretch; }
 .ba-actions--end { justify-content: flex-end; }
 .ba-btn--danger { background: var(--ba-surface); color: var(--ba-accent-text); box-shadow: inset 0 0 0 2px var(--ba-accent-text); }
@@ -186,6 +195,16 @@ ul.ba-grid { list-style: none; margin: 0; padding: 0; }
 .k-today .art .cap { position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: 2px; padding: 48px 18px 14px; background: linear-gradient(to top, rgba(20, 15, 39, 0.82), rgba(20, 15, 39, 0)); color: #F4F2F8; text-decoration: none; }
 .k-today .art .cap b { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(1.1rem, 1rem + 0.5vw, 1.4rem); }
 .k-today .art .cap span { font-size: var(--ba-text-sm); opacity: 0.92; }
+/* A phone on its side is 390 to 430 px tall: the hero is a short band so that its button is on the first screen. The line about the camera video repeats the end of the lead, so it goes. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .k-today .art { min-height: 0; }
+  .k-today .body { gap: 8px; padding: 12px 16px; }
+  .k-today h1 { font-size: clamp(1.2rem, 4.4vh, 1.55rem); }
+  .k-today .lead { font-size: var(--ba-text-sm); line-height: 1.4; }
+  .k-today .k-actions { gap: 8px; }
+  .k-today .ba-btn--lg { min-height: 48px; }
+  .k-today .ba-assure { display: none; }
+}
 .k-bars i.later { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ba-border); }
 .k-bars i.h1 { height: 5%; }
 .k-bars i.h2 { height: 10%; }

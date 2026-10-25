@@ -7,7 +7,7 @@ import { checkPage } from '../tools/layout-check.ts';
 import { openScenario, type Scenario } from '../tools/scenarios.ts';
 import { WEB_DEV_URL } from './support/ports.ts';
 
-const PAGES: Scenario[] = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'home-week', 'notfound', 'friends', 'friends-new', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'race-dialog', 'race-offer', 'explainer', 'camera-error', 'play-nocamera'];
+const PAGES: Scenario[] = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'race-dialog', 'race-offer', 'explainer', 'camera-error', 'play-nocamera'];
 
 for (const bp of BREAKPOINTS) {
   test(`${bp.label}: every page keeps the layout rule`, async ({ browser }) => {
@@ -35,6 +35,27 @@ test('the Turkish pages keep the layout rule on a narrow phone and a laptop (lon
       const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, name, { w, h, lang: 'tr' });
       try {
         for (const p of [...(await checkPage(page)), ...errors.map((e) => `console: ${e}`)]) found.push(`tr ${name} ${w}: ${p}`);
+      } finally {
+        await context.close();
+      }
+    }
+  }
+  expect(found, found.join('\n')).toEqual([]);
+});
+
+test('the Turkish plans keep the layout rule on the narrowest phones (the engines measure words a few pixels apart, so no button may sit at the edge of its card)', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const found: string[] = [];
+  for (const w of [320, 340, 375]) {
+    for (const name of ['plans', 'plans-pro'] as const) {
+      const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, name, { w, h: 700, lang: 'tr' });
+      try {
+        // every button and every badge is inside the card it belongs to
+        const outside = await page.evaluate(() => [...document.querySelectorAll('.k-plancard')].flatMap((card) => {
+          const c = card.getBoundingClientRect();
+          return [...card.querySelectorAll('.ba-btn, .ba-badge')].filter((el) => el.getBoundingClientRect().right > c.right + 1).map((el) => `${el.className.split(' ')[0]} "${(el.textContent ?? '').trim().slice(0, 30)}" leaves its card`);
+        }));
+        for (const p of [...(await checkPage(page)), ...outside, ...errors.map((e) => `console: ${e}`)]) found.push(`tr ${name} ${w}: ${p}`);
       } finally {
         await context.close();
       }

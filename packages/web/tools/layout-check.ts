@@ -64,6 +64,23 @@ export async function checkPage(page: Page): Promise<string[]> {
         if (!sideRail && r.bottom > bt.top + 1 && r.top < bt.bottom) problems.push('content stays under the tab bar at the end of the page');
         if (sideRail && r.left < bt.right - 1 && r.right > bt.left) problems.push('content stays under the side rail');
       }
+      // A phone on its side has the navigation as a rail down the left of the screen: no words may start under it, wherever on the
+      // page they are (the notice of a trial, above the page, was drawn from the edge of the screen and its first words were hidden).
+      if (bt.width < bt.height) {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        const under = new Set<Element>();
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const el = node.parentElement;
+          if (!el || under.has(el) || !(node.textContent ?? '').trim()) continue;
+          if (el.closest('.ba-tabbar, .ba-skip, dialog, [hidden], [inert], .ba-visually-hidden, script, style, noscript, template') || !vis(el)) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of range.getClientRects()) {
+            if (r.width < 1 || r.height < 1) continue;
+            if (r.left < bt.right - 1 && r.right > bt.left + 1) { under.add(el); problems.push(`${label(el)} starts under the side rail`); break; }
+          }
+        }
+      }
       window.scrollTo(0, 0);
     }
     return problems;
