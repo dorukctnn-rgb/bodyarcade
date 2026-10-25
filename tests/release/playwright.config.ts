@@ -30,5 +30,7 @@ export default defineConfig({
   timeout: 120_000,
   reporter: [['list']],
   outputDir: ENGINE === 'chromium' ? 'out/test-results' : `out/${ENGINE}/test-results`,
-  use: { browserName: ENGINE, headless: true, launchOptions, ignoreHTTPSErrors: false },
+  // English, whatever the machine's language: the app moves an English address to the visitor's language (a Turkish Windows gets the
+  // Turkish pages and "$39,99"), and the checks read English words and prices. The Turkish pages have their own addresses (/tr/...).
+  use: { browserName: ENGINE, headless: true, launchOptions, ignoreHTTPSErrors: false, locale: 'en-US' },
 });

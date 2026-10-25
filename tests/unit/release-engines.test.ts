@@ -48,6 +48,13 @@ describe('release checks, engines', () => {
     expect(support.OUT).toBe(join(process.cwd(), 'tests', 'release', 'out', 'local-webkit'));
   });
 
+  it('every engine reads the pages in English, whatever the language of the machine (the app moves an English address to it)', async () => {
+    for (const engine of ['chromium', 'webkit', 'firefox'] as const) {
+      const { config } = await load({ BA_RELEASE_ENGINE: engine });
+      expect(config.use?.locale, engine).toBe('en-US');
+    }
+  });
+
   it('a misspelt engine stops the run instead of quietly testing Chromium', async () => {
     await expect(load({ BA_RELEASE_ENGINE: 'safari' })).rejects.toThrow(/chromium, webkit or firefox/);
   });

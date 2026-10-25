@@ -4,7 +4,8 @@
 // tests/release/out/scope.json; a check fails when the item is not in the build yet.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium, expect, test } from '@playwright/test';
+import { chromium, expect, test, type Page } from '@playwright/test';
+import { GUMROAD_CHECKOUT } from '../../packages/core/entitlements/catalog.ts';
 import { withFakeVideo } from '../e2e/support/browser.ts';
 import { BASE, ENGINE, OUT, ROOT, sitemapUrls } from './support.ts';
 
@@ -12,16 +13,24 @@ import { BASE, ENGINE, OUT, ROOT, sitemapUrls } from './support.ts';
 const seen: Record<string, unknown> = {};
 const note = (name: string, value: unknown): void => { seen[name] = value; writeFileSync(join(OUT, `scope-${name}.json`), JSON.stringify(value, null, 1)); };
 
+/**
+ * The app has drawn the page: the server's page comes first (with the server's guess of the device), then the app draws it again for
+ * this device and marks the root element with its settings (data-lang). Counting before that counts the server's guess.
+ */
+const drawn = (page: Page): Promise<unknown> => page.locator('html[data-lang]').waitFor({ state: 'attached', timeout: 30_000 });
+
 test('two players: offered on a laptop, not on a phone', async ({ browser }) => {
   const laptop = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
   const lp = await laptop.newPage();
   await lp.goto(`${BASE}/games/squat-flap/`);
+  await drawn(lp);
   const two = lp.locator('input[name="players"][value="2"]');
   note('twoOnLaptop', await two.count());
   // Firefox has no isMobile (Playwright refuses it there): a touch screen of a phone's size, as tools/browsers does
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, ...(ENGINE === 'firefox' ? {} : { isMobile: true }), hasTouch: true, serviceWorkers: 'block' });
   const pp = await phone.newPage();
   await pp.goto(`${BASE}/games/squat-flap/`);
+  await drawn(pp);
   note('twoOnPhone', await pp.locator('input[name="players"][value="2"]').count());
   await laptop.close();
   await phone.close();
@@ -38,7 +47,8 @@ test('two players, one camera: two people calibrate and the round starts', async
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
   await page.goto(`${BASE}/play/squat-flap/?players=2&input=camera`);
   const cont = page.locator('[data-action="camera-continue"]');
-  if (await cont.isVisible({ timeout: 20_000 }).catch(() => false)) await cont.click();
+  // the explainer is drawn by the app after the page loaded: wait for it (isVisible() answers at once and never waits)
+  if (await cont.waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false)) await cont.click();
   const started = await page.locator('.ba-countdown').waitFor({ state: 'visible', timeout: 150_000 }).then(() => true, () => false);
   await page.screenshot({ path: join(OUT, 'two-players.png') });
   const alertBox = page.locator('.ba-explain [role="alert"]');
@@ -67,17 +77,38 @@ test('English and Turkish: every game page exists in both', () => {
   expect(tr).toBe(en);
 });
 
-test('the paywall shows the release 1 prices', async ({ browser }) => {
+test('the paywall shows the release 1 prices, and the buy button of each plan opens its Gumroad checkout', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
   const page = await context.newPage();
+  // The buy button opens the plan's Gumroad page in a new tab (app.ts buy): the address is kept here and no tab opens (nothing is bought).
+  await page.addInitScript(() => {
+    const w = window as unknown as { __opened: string[] };
+    w.__opened = [];
+    window.open = (url?: string | URL) => { w.__opened.push(String(url)); return null; };
+  });
   await page.goto(`${BASE}/pro/`);
+  await drawn(page);
+  const buy = page.locator('[data-action="buy"]');
+  await buy.waitFor({ state: 'visible', timeout: 30_000 });
   const text = await page.locator('main').innerText();
   const prices = ['7.99', '39.99', '119.99'].map((p) => [p, text.includes(p)] as const);
-  note('paywall', { prices, family: text.includes('59.99'), buyLinks: await page.locator('a[href*="gumroad.com"]').count() });
+  const plans = await page.locator('input[name="plan"]').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+  const checkout: Record<string, string | null> = {};
+  for (const plan of plans) {
+    await page.locator('label.k-plan').filter({ has: page.locator(`input[name="plan"][value="${plan}"]`) }).click();
+    await expect(buy).toHaveAttribute('data-plan', plan);
+    const before = await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened.length);
+    await buy.click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __opened: string[] }).__opened.length)).toBeGreaterThan(before);
+    checkout[plan] = await page.evaluate(() => { const o = (window as unknown as { __opened: string[] }).__opened; return o[o.length - 1] ?? null; });
+  }
+  note('paywall', { prices, family: text.includes('59.99'), plans, checkout });
   await page.screenshot({ path: join(OUT, 'paywall.png'), fullPage: true });
   await context.close();
   expect(prices.every(([, ok]) => ok)).toBe(true);
-  expect((seen.paywall as { buyLinks: number }).buyLinks).toBeGreaterThan(0);
+  // Pro yearly, Pro monthly and Lifetime are always sold on the web; Family joins them with the family switch (boot.ts FAMILY_ON).
+  expect(plans).toEqual(expect.arrayContaining(['pro-yearly', 'pro-monthly', 'lifetime']));
+  for (const plan of plans) expect(checkout[plan], plan).toBe(GUMROAD_CHECKOUT[plan as keyof typeof GUMROAD_CHECKOUT]);
 });
 
 test('a live race with a friend can be started from a game page (invite link)', async ({ browser }) => {
@@ -90,10 +121,27 @@ test('a live race with a friend can be started from a game page (invite link)', 
   expect((seen.inviteControls as string[]).length).toBeGreaterThan(0);
 });
 
-test('friends, presence and lobbies have their page', async ({ request }) => {
-  const res = await request.get(`${BASE}/friends/`, { maxRedirects: 0 });
-  note('friendsStatus', res.status());
+test('friends, presence and lobbies have their page', async ({ browser, request }) => {
+  // The server has no friends pages: the address answers with the 404 page, and the app draws the page the address names (pages.ts:
+  // only the browser knows whether the friends service is there). The status is kept as evidence; what is judged is what a player sees.
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  const page = await context.newPage();
+  const pages: Record<string, { status: number | null; heading: string | null }> = {};
+  for (const path of ['/friends/', '/lobbies/', '/safety/']) {
+    const res = await page.goto(`${BASE}${path}`);
+    await drawn(page);
+    const h1 = page.locator('main h1').first();
+    const heading = await h1.waitFor({ state: 'visible', timeout: 15_000 }).then(() => h1.innerText(), () => null);
+    pages[path] = { status: res ? res.status() : null, heading };
+  }
+  note('friendsPages', pages);
+  await context.close();
   const social = await request.get(`${BASE}/api/social/me`, { maxRedirects: 0 }).catch(() => null);
   note('socialApi', social ? social.status() : null);
-  expect(res.status()).toBe(200);
+  expect(pages).toEqual({
+    '/friends/': expect.objectContaining({ heading: 'Friends' }),
+    '/lobbies/': expect.objectContaining({ heading: 'Public lobbies' }),
+    '/safety/': expect.objectContaining({ heading: 'Safety' }),
+  });
+  expect(seen.socialApi, 'GET /api/social/me with no signature: 401 is the friends service refusing it').toBe(401);
 });

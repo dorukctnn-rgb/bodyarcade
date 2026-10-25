@@ -36,7 +36,8 @@ test('no page and no camera round breaks the policy', async () => {
   // A camera round: the explainer, the camera, the pose model in its worker, calibration.
   await page.goto(`${BASE}/play/road-run/`, { waitUntil: 'load' });
   const cont = page.locator('[data-action="camera-continue"]');
-  if (await cont.isVisible({ timeout: 15_000 }).catch(() => false)) await cont.click();
+  // the explainer is drawn by the app after the page loaded: wait for it (isVisible() answers at once and never waits)
+  if (await cont.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true, () => false)) await cont.click();
   await expect.poll(() => pose.filter((p) => p.url.endsWith('.task') || p.url.endsWith('.wasm')).length, { timeout: 90_000 }).toBeGreaterThanOrEqual(2);
   await page.waitForTimeout(8000);
   dom.push(...(await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp)).map((d) => `/play/road-run/: ${d}`));
