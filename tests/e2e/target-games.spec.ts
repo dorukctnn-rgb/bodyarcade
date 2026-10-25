@@ -46,6 +46,24 @@ const state = async (page: Page): Promise<State> => {
   return s as State;
 };
 
+type RGB = { r: number; g: number; b: number };
+
+/**
+ * Two pixels of the picture, read in one animation frame together with the mirror rect that frame was drawn with: one inside the mirror
+ * (near its bottom-left corner) and one 3 px left of it, half way down (null when the mirror leaves no room there). The mirror is fitted
+ * inside the play area, so it moves when the command plate or the reason strip comes or goes (Pad Work's coach calls a command every beat
+ * or two: at 1280 x 800 the mirror is 885 x 664 at x 197 without one and 859 x 644 at x 211 with one); a rect read in an earlier call can be
+ * a command old, and 3 px left of the smaller mirror is then inside the larger one.
+ */
+async function mirrorPixels(page: Page): Promise<{ inside: RGB | null; beside: RGB | null }> {
+  return page.evaluate(() => new Promise((done) => requestAnimationFrame(() => {
+    const tg = (window as unknown as { tg: { state(): { mirror: { x: number; y: number; w: number; h: number } } | null; pixel(x: number, y: number): RGB | null } }).tg;
+    const m = tg.state()?.mirror;
+    if (!m) { done({ inside: null, beside: null }); return; }
+    done({ inside: tg.pixel(m.x + m.w * 0.04, m.y + m.h * 0.96), beside: m.x > 6 ? tg.pixel(m.x - 3, m.y + m.h / 2) : null });
+  })));
+}
+
 /** Waits until the game has simulated at least `ms` of play (its own clock), or has ended. */
 async function playFor(page: Page, ms: number, timeout = 45_000): Promise<State> {
   await page.waitForFunction((t) => {
@@ -91,14 +109,10 @@ for (const game of GAMES) {
       expect(s.hudText['statusLeft'] ?? s.hudText['score'] ?? '', 'score plate').toMatch(/\d/);
       expect(s.hudText['statusRight'] ?? '', 'timer plate').toMatch(/\d/);
       // the picture: the stage colour around the mirror when there is room, the camera inside it
-      const m = s.mirror;
-      const c = await call(page, 'pixel', m.x + m.w * 0.04, m.y + m.h * 0.96);
+      const { inside: c, beside: o } = await mirrorPixels(page);
       expect(c, 'a pixel inside the mirror').not.toBeNull();
-      expect(Math.abs((c as { r: number }).r - STAGE.r) + Math.abs((c as { g: number }).g - STAGE.g) + Math.abs((c as { b: number }).b - STAGE.b), `${name} the camera picture is drawn inside the mirror`).toBeGreaterThan(20);
-      if (m.x > 6) {
-        const o = await call(page, 'pixel', m.x - 3, m.y + m.h / 2);
-        expect(Math.abs((o as { r: number }).r - STAGE.r) + Math.abs((o as { g: number }).g - STAGE.g), `${name} stage colour beside the mirror`).toBeLessThan(10);
-      }
+      expect(Math.abs(c!.r - STAGE.r) + Math.abs(c!.g - STAGE.g) + Math.abs(c!.b - STAGE.b), `${name} the camera picture is drawn inside the mirror`).toBeGreaterThan(20);
+      if (o) expect(Math.abs(o.r - STAGE.r) + Math.abs(o.g - STAGE.g), `${name} stage colour beside the mirror`).toBeLessThan(10);
       // sound: every cue the game asked for exists in the sound kit
       expect(s.audio.unknown, 'sounds the kit does not know').toBe(0);
       expect(Object.keys(s.cues).length, 'the game played sounds').toBeGreaterThan(0);
