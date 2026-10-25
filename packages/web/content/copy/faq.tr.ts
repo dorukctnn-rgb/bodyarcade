@@ -9,6 +9,7 @@ interface Group { id: string; title: string; items: Item[] }
 
 export function faqTr(): PageSpec {
   const c = gameCounts();
+  const W = F.ROAD_RUN_WORLDS;
   const proTitles = titlesOf((g) => !g.free, 'tr');
   const liveTitles = titlesOf((g) => g.live, 'tr');
   const $ = (n: number): string => F.usd(n, 'tr');
@@ -66,7 +67,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Verilerimi nasıl silerim?',
-          a: `<p>Cihazında: Ayarlar, sonra Bu cihazdaki verileri sil. Çevrimiçi profil için profil ekranında Verilerimi indir ve Profilimi sil düğmeleri var. Başka her şey için ${mail()} adresine yaz.</p>`,
+          a: `<p>Cihazında: Ayarlar, sonra Bu cihazdaki verileri sil. Çevrimiçi profil için profil ekranında Verilerimi indir ve Profilimi sil düğmeleri var. <a href="/tr/delete-account">Hesabını ve verilerini sil</a> sayfası adımları anlatır, neyin kaldığını söyler ve cihazı kaybettiysen ne yapacağını gösterir. Başka her şey için ${mail()} adresine yaz.</p>`,
         },
         {
           q: 'Çocuklar için güvenli mi?',
@@ -114,11 +115,11 @@ export function faqTr(): PageSpec {
       items: [
         {
           q: 'Neler ücretsiz?',
-          a: `<p>${c.total} oyunun ${c.free} tanesi, oturarak ve sessiz sürümleriyle, Kolay ve Normal zorluk seviyeleriyle ve reklamsız. Her Pro oyunu ayrıca bir kez ücretsiz oynayabilirsin.</p>`,
+          a: `<p>${c.total} oyunun ${c.free} tanesi, oturarak ve sessiz sürümleriyle, Kolay ve Normal zorluk seviyeleriyle ve reklamsız. Road Run’ın ${W.total} dünyası vardır ve ${W.free} tanesi ücretsizdir. Her Pro oyunu ayrıca bir kez ücretsiz oynayabilirsin.</p>`,
         },
         {
           q: 'Pro ne ekler?',
-          a: `<p>Pro oyunlar (${proTitles}), Zor ve Uzman zorluk seviyeleri ve daha sonra eklediğimiz oyunlar. Daha sonra eklenen oyunlar, ${memberships} üyeliklerinden biri etkin olduğu sürece ve Ömür boyu planda dahildir. Planlar için <a href="/tr/pro/">Pro sayfasına</a> bak.</p>`,
+          a: `<p>Pro oyunlar (${proTitles}), Road Run’ın diğer ${W.total - W.free} dünyası, Zor ve Uzman zorluk seviyeleri ve daha sonra eklediğimiz oyunlar. Daha sonra eklenen oyunlar, ${memberships} üyeliklerinden biri etkin olduğu sürece ve Ömür boyu planda dahildir. Planlar için <a href="/tr/pro/">Pro sayfasına</a> bak.</p>`,
         },
         {
           q: 'Planların fiyatı ne kadar?',

@@ -161,6 +161,28 @@ describe('Google Play policy: nothing in the app names another way to pay', () =
   });
 });
 
+describe("Road Run's worlds: three of ten are free, and Pro is the other seven", () => {
+  const withRoadRun = (lang: Lang): string => {
+    const m = web();
+    const url = lang === 'en' ? '/pro/' : `/${lang}/pro/`;
+    const ctx = makeContext({ lang, games, url, plans: m.plans, paywall: infoOf(m) });
+    return paywallPage(ctx, defaultPaywallState(ctx)).value;
+  };
+
+  it.each(LANGS)('the free line and one line of what Pro adds name the worlds in %s, with the numbers of the code', (lang) => {
+    const text = textOf(withRoadRun(lang));
+    expect(text).toContain(lang === 'en' ? 'Road Run: 3 of 10 worlds.' : 'Road Run: 10 dünyadan 3 tanesi.');
+    expect(text).toContain(lang === 'en' ? 'The other 7 Road Run worlds' : 'Road Run’ın diğer 7 dünyası');
+  });
+
+  it.each(LANGS)('says nothing of the worlds where the catalogue has no Road Run (%s)', (lang) => {
+    const m = web();
+    const url = lang === 'en' ? '/pro/' : `/${lang}/pro/`;
+    const ctx = makeContext({ lang, games: games.filter((g) => g.id !== 'road-run'), url, plans: m.plans, paywall: infoOf(m) });
+    expect(textOf(paywallPage(ctx, defaultPaywallState(ctx)).value)).not.toMatch(/Road Run[:’' ]+(.{0,8})(dünya|world)|(dünya|worlds)./);
+  });
+});
+
 describe('the free trial is promised where there is one', () => {
   /** Words of a trial, a reminder or a day count: none of them may stand near a plan that has no trial. */
   const TRIALISH = /\d+ days? free|Try \d+ days?|remind|\d+ gün ücretsiz|\d+ gün dene|hatırlat/i;

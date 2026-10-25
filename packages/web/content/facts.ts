@@ -58,6 +58,13 @@ export const RELAY_ON = false;
 export const FAMILY_PLAN = true;
 
 /**
+ * Road Run runs in this many worlds, and `free` of them (Alps, Desert and Forest) are free; the others are part of Pro. The numbers are
+ * core/render3d/themes/classic-worlds.json (every world has a `free` flag) and core/entitlements/features.ts DEFAULT_FREE_FEATURES
+ * (world:alps, world:desert, world:forest); content.test.ts compares all three.
+ */
+export const ROAD_RUN_WORLDS = { total: 10, free: 3 } as const;
+
+/**
  * Is the BodyArcade Android app on Google Play? False until the Play listing is public (the web release comes first). The pages that
  * mention the app say "planned" while this is false and "available" when it is true; set it in the release that goes with the listing.
  */

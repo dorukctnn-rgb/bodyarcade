@@ -31,6 +31,8 @@ export const LEGACY_PAGES: readonly { file: string; url: string }[] = [
   { file: 'tr/terms.html', url: '/tr/terms' },
   { file: 'faq.html', url: '/faq' },
   { file: 'tr/faq.html', url: '/tr/faq' },
+  { file: 'delete-account.html', url: '/delete-account' },
+  { file: 'tr/delete-account.html', url: '/tr/delete-account' },
 ];
 
 /** Other files of the live site that keep their addresses: the content pages' styles, fonts and pictures, the IndexNow key. */

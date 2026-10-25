@@ -7,6 +7,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_FREE_FEATURES, ROAD_RUN_WORLDS } from '../../core/entitlements/features.ts';
 import { PLANS } from '../../core/entitlements/plans.ts';
 import { GUMROAD_CATALOG } from '../../core/entitlements/catalog.ts';
 import { DAY_MS, DIRECT_GRACE_MS, REFRESH_AFTER_MS } from '../../core/entitlements/state.ts';
@@ -18,8 +19,9 @@ import { POSE_MODEL } from '../../core/pose/assets.ts';
 import { POLICY, canSendFriendRequest, roomChatMode, roomVideoAllowed } from '../../core/social/age.ts';
 import { FRIEND_CODE_LEN, RECOVERY_LEN } from '../../core/social/codes.ts';
 import { MAX_LEVEL } from '../../core/social/levels.ts';
-import { DAY, DECLINE_COOLDOWN_MS, HOUR, LIMITS, MOD, PRESENCE, REQUEST_TTL_MS } from '../../core/social/rules.ts';
+import { DAY, DECLINE_COOLDOWN_MS, HOUR, LIMITS, MOD, PRESENCE, REQUEST_TTL_MS, TERMS_VERSION, isTermsVersion } from '../../core/social/rules.ts';
 import { KEEP_WEEKS } from '../../core/social/scores.ts';
+import { createI18n } from '../../core/ui/i18n/index.ts';
 import { MAX_SEATS, MIN_SEATS } from '../../core/types/net.ts';
 import { LANDMARK_COUNT } from '../../core/types/index.ts';
 import { DAY_S, FORGET_AFTER_S, REMINDER_LEAD_S, SEAT_IDLE_S } from '../../server/src/entitlements/rules.ts';
@@ -27,6 +29,8 @@ import { CHAT_LOG_LINES, DEFAULT_TIMING, MUTE_MS, REPORTS_TO_MUTE } from '../../
 import { LOBBY_STALE_MS } from '../../server/src/social/lobbies.ts';
 import { REPORTER_MIN_AGE_MS } from '../../server/src/social/moderation.ts';
 import { MAX_DEVICES } from '../../server/src/social/recovery.ts';
+import { uxTables } from '../src/social/strings.ts';
+import { COMMUNITY_RULES_ANCHOR, sitePageHref } from '../src/views/chrome.ts';
 import { AUDIT_KEEP_MS, LOBBY_GONE_MS, ORPHAN_REPORT_KEEP_MS, RESOLVED_REPORT_KEEP_MS, UNUSED_PROFILE_DAYS } from '../../server/src/social/sweep.ts';
 import { REPO_ROOT, build, outOfDate, pages } from './build.ts';
 import { OG_IMAGE, renderPage, type PageSpec } from './chrome.ts';
@@ -279,7 +283,7 @@ describe('the online profile is the code', () => {
 
   it('the data export holds what the privacy policy says it holds', () => {
     const profile = read('packages/server/src/social/profile.ts');
-    for (const key of ['profile: bare', 'friends,', 'incoming,', 'outgoing,', 'blocks,', 'scores: await scoresOf', 'sync: await syncDocs', 'reportsFiled', 'reportsAgainstYou']) expect(profile, key).toContain(key);
+    for (const key of ['profile: bare', 'friends,', 'incoming,', 'outgoing,', 'blocks,', 'scores: await scoresOf', 'sync: await syncDocs', 'reportsFiled', 'reportsAgainstYou', 'termsAccepted']) expect(profile, key).toContain(key);
     expect(profile).not.toMatch(/export:[^;]*soc_devices/);
   });
 
@@ -435,7 +439,7 @@ describe('English and Turkish say the same numbers', () => {
       .replace(/(\d),(\d)/g, '$1.$2');
     return [...new Set(t.match(/\d+(?:\.\d+)?/g) ?? [])].sort((a, b) => Number(a) - Number(b));
   };
-  for (const [en, tr] of [['privacy.html', 'tr/privacy.html'], ['terms.html', 'tr/terms.html'], ['faq.html', 'tr/faq.html']] as const) {
+  for (const [en, tr] of [['privacy.html', 'tr/privacy.html'], ['terms.html', 'tr/terms.html'], ['faq.html', 'tr/faq.html'], ['delete-account.html', 'tr/delete-account.html']] as const) {
     it(`${en} and ${tr}`, () => {
       expect(numbers(byFile.get(tr) as PageSpec)).toEqual(numbers(byFile.get(en) as PageSpec));
     });
@@ -508,6 +512,144 @@ describe('the owner\'s decisions of 25 October are on the pages', () => {
   });
 });
 
+// The sign-up of an online profile asks for the terms, and the pages and the server keep to that.
+describe('the sign-up asks for the terms and the community rules', () => {
+  const html = (file: string): string => renderPage(byFile.get(file) as PageSpec);
+
+  it('the version the sign-up sends is the date of the terms and of the privacy policy, and is a day', () => {
+    expect(TERMS_VERSION).toBe(F.UPDATED);
+    expect(isTermsVersion(TERMS_VERSION)).toBe(true);
+    for (const bad of ['', 'yes', 20261025, '2026-13-45', '2026-10-25T10:00:00Z', null, undefined]) expect(isTermsVersion(bad), String(bad)).toBe(false);
+  });
+
+  it('the links of the sign-up lead to the terms, to the community rules and to the privacy policy, which are on the site in the same language', () => {
+    for (const [lang, terms, privacy] of [['en', 'terms.html', 'privacy.html'], ['tr', 'tr/terms.html', 'tr/privacy.html']] as const) {
+      expect(sitePageHref(lang, 'terms')).toBe((byFile.get(terms) as PageSpec).url);
+      expect(sitePageHref(lang, 'privacy')).toBe((byFile.get(privacy) as PageSpec).url);
+      const id = COMMUNITY_RULES_ANCHOR[lang];
+      expect(html(terms), `${terms} #${id}`).toContain(`<section id="${id}" aria-labelledby="${id}-h"><h2 id="${id}-h">`);
+      // the heading the link lands on is called what the sign-up calls it
+      expect(visible(html(terms)), terms).toContain(lang === 'en' ? 'Community rules' : 'Topluluk kuralları');
+    }
+  });
+
+  it('the terms say that the app asks for the agreement and keeps the version, in both languages', () => {
+    expect(visible(html('terms.html'))).toContain('asks you to tick a box that says you agree to these terms and to the community rules below, and it keeps the version of the terms you agreed to with the profile');
+    expect(visible(html('tr/terms.html'))).toContain('kabul ettiğin koşulların sürümünü profille birlikte saklar');
+  });
+
+  it('the server keeps the version with the profile and the delete takes it away; nothing requires it', () => {
+    const profile = read('packages/server/src/social/profile.ts');
+    expect(profile).toContain("b.terms !== undefined && !isTermsVersion(b.terms)");
+    expect(profile).toContain('terms, terms_at) VALUES');
+    expect(read('packages/server/src/social/schema.ts')).toContain('ALTER TABLE soc_profiles ADD COLUMN terms TEXT');
+    expect(read('packages/server/src/social/people.ts')).toContain('DELETE FROM soc_profiles WHERE pid = ?1');
+  });
+});
+
+// The page that Google Play's data safety form names for deleting the account: what it says is what the app and the server do.
+describe('the page on deleting the account is what the app and the server do', () => {
+  const textOf = (file: string): string => visible(renderPage(byFile.get(file) as PageSpec));
+  const html2 = (file: string): string => renderPage(byFile.get(file) as PageSpec);
+  const pages2 = [['en', 'delete-account.html'], ['tr', 'tr/delete-account.html']] as const;
+
+  it('names the screens and the buttons exactly as the app writes them', () => {
+    for (const [lang, file] of pages2) {
+      const text = textOf(file);
+      const ux = uxTables[lang];
+      const shell = createI18n(lang);
+      const labels = [ux['me.dataDownload'], ux['me.dataDelete'], ux['me.dataDeleteTitle'], ux['friends.profile'], ux['age.have'], ux['me.dataTitle'], shell.tx('nav.friends'), shell.tx('social.intro.cta'), shell.tx('settings.data.clear')];
+      for (const label of labels) {
+        expect(label, `${lang} label`).toBeTruthy();
+        expect(text, `${file}: ${label}`).toContain(label as string);
+      }
+    }
+  });
+
+  it('says the numbers the code keeps: reports, the safety log, rooms, the room list, unused profiles, the licence service', () => {
+    for (const [, file] of pages2) {
+      const text = textOf(file);
+      for (const n of [F.RESOLVED_REPORT_DAYS, F.ORPHAN_REPORT_DAYS, F.AUDIT_DAYS, F.UNUSED_PROFILE_DAYS, F.SEAT_IDLE_DAYS, F.FORGET_PURCHASE_DAYS, F.ROOM_EMPTY_MINUTES, F.ROOM_IDLE_HOURS, F.LOBBY_HIDE_MINUTES, F.LOBBY_GONE_HOURS]) expect(text, `${file}: ${n}`).toContain(String(n));
+    }
+    expect(RESOLVED_REPORT_KEEP_MS / DAY).toBe(F.RESOLVED_REPORT_DAYS);
+    expect(UNUSED_PROFILE_DAYS).toBe(F.UNUSED_PROFILE_DAYS);
+  });
+
+  it('the app and the e-mail request erase with the same function; a suspended profile can still download and delete', () => {
+    const profile = read('packages/server/src/social/profile.ts');
+    const moderation = read('packages/server/src/social/moderation.ts');
+    expect(profile).toContain('await eraseProfile(c.db, c.me.pid)');
+    expect(moderation).toContain('await eraseProfile(c.db, who.pid)');
+    const routes = read('packages/server/src/social/routes.ts');
+    expect(routes).toContain("['POST', '/api/admin/social/profiles/delete', () => adminDeleteProfile]");
+    expect(routes).toContain("['GET', '/api/social/me/export', () => authed(exportMe, { allowBanned: true })]");
+    expect(routes).toContain("['POST', '/api/social/me/delete', () => authed(deleteMe, { allowBanned: true })]");
+    // the client forgets the key and the saved profile on the device, and the games and results stay
+    expect(read('packages/core/social/client.ts')).toContain("await this.call('POST', '/api/social/me/delete', { confirm: 'delete' });\n    await this.forget('deleted');");
+    expect(uxTables.en['me.dataDeleteBody']).toContain('Your games and records on this device stay.');
+  });
+
+  it('a Pro licence is not tied to the profile: nothing in the erase touches the licence service', () => {
+    expect(read('packages/server/src/social/people.ts')).not.toMatch(/entitlements|licen[cs]e|seats|reminders/i);
+  });
+
+  it('is linked from every page of the site, from the privacy policy and the FAQ, from the app footer and from the settings', () => {
+    for (const p of all) expect(renderPage(p), p.file).toContain(`<a href="${p.lang === 'tr' ? '/tr/delete-account' : '/delete-account'}">`);
+    for (const [file, href] of [['privacy.html', '/delete-account'], ['tr/privacy.html', '/tr/delete-account'], ['faq.html', '/delete-account'], ['tr/faq.html', '/tr/delete-account']] as const) {
+      expect(html2(file), file).toContain(`<a href="${href}">`);
+    }
+    expect(sitePageHref('en', 'delete')).toBe('/delete-account');
+    expect(sitePageHref('tr', 'delete')).toBe('/tr/delete-account');
+    expect(read('packages/web/src/views/chrome.ts')).toContain("sitePageHref(ctx.lang, 'delete')");
+    expect(read('packages/web/src/views/settings.ts')).toContain("sitePageHref(ctx.lang, 'delete')");
+  });
+
+  it('has an address that the Play form can name: English at /delete-account, Turkish at /tr/delete-account, both public', () => {
+    expect((byFile.get('delete-account.html') as PageSpec).url).toBe('/delete-account');
+    expect((byFile.get('tr/delete-account.html') as PageSpec).url).toBe('/tr/delete-account');
+    expect(read('release/site.ts')).not.toMatch(/Disallow: \/delete-account/);
+  });
+});
+
+// Road Run has ten worlds; three are free. The pages and the paywall say it.
+describe('Road Run: three of its ten worlds are free', () => {
+  const textOf = (file: string): string => visible(renderPage(byFile.get(file) as PageSpec));
+
+  it('the world list, the free features and the numbers of the pages agree', () => {
+    const worlds = JSON.parse(read('packages/core/render3d/themes/classic-worlds.json')) as { id: string; free?: boolean }[];
+    expect(worlds.length).toBe(F.ROAD_RUN_WORLDS.total);
+    expect(worlds.filter((w) => w.free === true).map((w) => w.id).sort()).toEqual(['alps', 'desert', 'forest']);
+    expect(worlds.filter((w) => w.free === true).length).toBe(F.ROAD_RUN_WORLDS.free);
+    expect([...DEFAULT_FREE_FEATURES].filter((f) => f.startsWith('world:')).sort()).toEqual(['world:alps', 'world:desert', 'world:forest']);
+    expect(ROAD_RUN_WORLDS).toEqual(F.ROAD_RUN_WORLDS);
+  });
+
+  it('the terms and the FAQ say it where they say what is free and what Pro adds, in English and Turkish', () => {
+    const { total, free } = F.ROAD_RUN_WORLDS;
+    for (const f of ['terms.html', 'faq.html']) {
+      expect(textOf(f), f).toContain(`Road Run has ${total} worlds, and ${free} of them are free`);
+      expect(textOf(f), f).toMatch(new RegExp(`the other ${total - free} Road Run worlds`));
+    }
+    expect(textOf('terms.html')).toContain(`${free} of the ${total} Road Run worlds; each Pro game once`);
+    expect(textOf('terms.html')).toContain(`all ${total} Road Run worlds`);
+    for (const f of ['tr/terms.html', 'tr/faq.html']) {
+      expect(textOf(f), f).toContain(`Road Run’ın ${total} dünyası vardır ve ${free} tanesi ücretsizdir`);
+      expect(textOf(f), f).toContain(`Road Run’ın diğer ${total - free} dünya`);
+    }
+    expect(textOf('tr/terms.html')).toContain(`Road Run’ın ${total} dünyasından ${free} tanesi; her Pro oyun bir kez`);
+    expect(textOf('ring-fit-adventure-alternative.html')).toContain(`Free, ${free} of ${total} worlds`);
+    expect(textOf('tr/ring-fit-adventure-alternatifi.html')).toContain(`Ücretsiz, ${total} dünyadan ${free} tanesi`);
+  });
+
+  it('the paywall says it in both languages (the free line and one line of what Pro adds)', () => {
+    for (const lang of ['en', 'tr'] as const) {
+      const t = createI18n(lang);
+      expect(t.t('paywall.free.worlds', { free: ROAD_RUN_WORLDS.free, total: ROAD_RUN_WORLDS.total })).toContain(String(ROAD_RUN_WORLDS.free));
+      expect(t.t('paywall.benefit.worlds', { n: ROAD_RUN_WORLDS.total - ROAD_RUN_WORLDS.free })).toContain('7');
+    }
+  });
+});
+
 describe('the stylesheet uses the design tokens', () => {
   const hexes = (block: string): Map<string, string> => new Map([...block.matchAll(/(--ba-[a-z-]+):\s*(#[0-9A-Fa-f]{6})\b/g)].map((m) => [m[1] as string, (m[2] as string).toUpperCase()]));
   const tokens = read('design/tokens/tokens.css');
@@ -540,6 +682,13 @@ describe('the stylesheet uses the design tokens', () => {
 describe.runIf(process.env['BA_RELEASE'] === '1')('release gate: the pages promise only what the product has', () => {
   it('the Family plan is on the paywall (boot.ts FAMILY_ON)', () => {
     expect(read('packages/web/src/app/boot.ts')).toMatch(/export const FAMILY_ON = true;/);
+  });
+
+  it('a Pro player can reach the other seven Road Run worlds (the terms, the FAQ, the paywall and the store listing say Pro adds them)', () => {
+    // The shell has to pass a world to the game for a player who may use it (StartOptions.world, can('world:<id>')). Today the runner picks a
+    // free world by itself and no screen offers a choice, so the seven worlds of Pro cannot be played: build the choice, or take the promise out.
+    const files = ['packages/web/src/views/game.ts', 'packages/web/src/app/play.ts', 'packages/web/src/app/session.ts', 'packages/web/src/app/app.ts'];
+    expect(files.map(read).join('\n'), 'no screen of the shell lets a player choose a world').toMatch(/['"`]world:|name="world"/);
   });
 
   it('the profile screen has the two buttons the privacy policy names', () => {

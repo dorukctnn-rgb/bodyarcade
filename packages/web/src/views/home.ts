@@ -10,6 +10,7 @@ import { ACTIVE_DAY_SECONDS, CHART_TOP_MINUTES, type RecentBest, type WeekStats 
 import type { ChallengeToday } from '../../../core/store/daily-challenge.ts';
 import { hasPro, regionLabel, taglineOf, titleOf, type ViewContext } from '../context.ts';
 import { chrome } from './chrome.ts';
+import { freeLine } from './paywall.ts';
 import { NO_PLANS_DATA, planStrip, type PlansData } from './plans.ts';
 import { gameGrid, regionChips } from './tiles.ts';
 import { weekdayNames } from './parts.ts';
@@ -134,7 +135,7 @@ function proTeaser(ctx: ViewContext): SafeHtml {
   return html`<section class="k-card ba-teaser" aria-labelledby="teaser-h">
     <div>
       <h2 class="k-h3" id="teaser-h">${t.t('paywall.title')}</h2>
-      <p>${t.t('paywall.free', { n: ctx.games.length - pro.length })}</p>
+      <p>${freeLine(ctx, ctx.games.length - pro.length)}</p>
     </div>
     <a class="ba-btn ba-btn--secondary" href="${ctx.href('pro')}">${t.t('settings.pro.see')}</a>
   </section>`;

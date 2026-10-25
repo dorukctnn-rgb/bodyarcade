@@ -9,6 +9,7 @@ interface Group { id: string; title: string; items: Item[] }
 
 export function faqEn(): PageSpec {
   const c = gameCounts();
+  const W = F.ROAD_RUN_WORLDS;
   const proTitles = titlesOf((g) => !g.free, 'en');
   const liveTitles = titlesOf((g) => g.live, 'en');
   const $ = (n: number): string => F.usd(n, 'en');
@@ -66,7 +67,7 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'How do I delete my data?',
-          a: `<p>On your device: Settings, then Clear data on this device. For an online profile, the profile screen has Download my data and Delete my profile. For anything else, write to ${mail()}.</p>`,
+          a: `<p>On your device: Settings, then Clear data on this device. For an online profile, the profile screen has Download my data and Delete my profile. The page <a href="/delete-account">Delete your account and data</a> has the steps and says what stays, and what to do if you have lost the device. For anything else, write to ${mail()}.</p>`,
         },
         {
           q: 'Is it safe for children?',
@@ -114,11 +115,11 @@ export function faqEn(): PageSpec {
       items: [
         {
           q: 'What is free?',
-          a: `<p>${c.free} of ${c.total} games, with their seated and quiet versions, the Easy and Normal difficulties, and no ads. You can also play each Pro game once for free.</p>`,
+          a: `<p>${c.free} of ${c.total} games, with their seated and quiet versions, the Easy and Normal difficulties, and no ads. Road Run has ${W.total} worlds, and ${W.free} of them are free. You can also play each Pro game once for free.</p>`,
         },
         {
           q: 'What does Pro add?',
-          a: `<p>The Pro games (${proTitles}), the Hard and Expert difficulties, and the games we add later. The later games are included while ${memberships} membership is active, and on the Lifetime plan. See the <a href="/pro/">Pro page</a> for the plans.</p>`,
+          a: `<p>The Pro games (${proTitles}), the other ${W.total - W.free} Road Run worlds, the Hard and Expert difficulties, and the games we add later. The later games are included while ${memberships} membership is active, and on the Lifetime plan. See the <a href="/pro/">Pro page</a> for the plans.</p>`,
         },
         {
           q: 'How much do the plans cost?',

@@ -2,6 +2,7 @@
 // benefit list holds only things that exist, "7 days free" appears only when the trial really applies to this player,
 // the yearly saving is computed from the real prices, and every button does something: a plan with no real checkout
 // address is not on the page, and where nothing can be bought the page says so and offers the licence key and the way back.
+import { ROAD_RUN_WORLDS } from '../../../core/entitlements/features.ts';
 import type { TrialView } from '../../../core/entitlements/trial.ts';
 import { attr, html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon } from '../../../core/ui/icons.ts';
@@ -39,12 +40,23 @@ export const defaultPaywallState = (ctx: ViewContext, gameId?: string): PaywallS
 
 export const selectedOffer = (ctx: ViewContext, id: PlanId): PlanOffer | undefined => ctx.plans.offers.find((o) => o.id === id) ?? ctx.plans.offers[0];
 
+const hasRoadRun = (ctx: ViewContext): boolean => ctx.games.some((g) => g.id === 'road-run');
+
+/** What stays free, in one line: the games, the seated and quiet versions, no ads, and (while Road Run is in the catalogue) how many of its worlds. */
+export function freeLine(ctx: ViewContext, freeGames: number): string {
+  const t = ctx.i18n;
+  const base = t.t('paywall.free', { n: freeGames });
+  return hasRoadRun(ctx) ? `${base} ${t.t('paywall.free.worlds', { free: ROAD_RUN_WORLDS.free, total: ROAD_RUN_WORLDS.total })}` : base;
+}
+
 function benefits(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
   const pro = proGames(ctx.games);
   const items: SafeHtml[] = [];
   if (pro.length > 0) items.push(html`<li>${icon('arcade')}<span>${t.t('paywall.benefit.gamesList', { n: pro.length, names: t.list(pro.map((g) => titleOf(ctx, g))) })}</span></li>`);
   items.push(html`<li>${icon('trophy')}<span>${t.t('paywall.benefit.levels')}</span></li>`);
+  // Road Run has ten worlds and three are free: Pro is the other seven (the same numbers as the terms and the FAQ).
+  if (hasRoadRun(ctx)) items.push(html`<li>${icon('sparkle')}<span>${t.t('paywall.benefit.worlds', { n: ROAD_RUN_WORLDS.total - ROAD_RUN_WORLDS.free })}</span></li>`);
   // Only a promise the Room keeps: the server verifies the host's Pro before a Pro game starts (ROOM_PRO_ON in app/boot.ts), and a room
   // holds only the games that have the duel mode, so some Pro game must have it. The line waits for the first one, by itself.
   if (ctx.flags.social && ctx.flags.roomsPro && ctx.games.some((g) => !g.free && canRace(g))) items.push(html`<li>${icon('friends')}<span>${t.t('paywall.benefit.rooms')}</span></li>`);
@@ -172,7 +184,7 @@ export function paywallPage(ctx: ViewContext, st: PaywallState): SafeHtml {
           <h1 data-main-heading>${t.t('paywall.title')}</h1>
           <p class="lead">${game ? t.t('paywall.locked', { game: titleOf(ctx, game) }) : t.t('paywall.lead')}</p>
           ${benefits(ctx)}
-          <p class="free">${icon('check')}<span>${t.t('paywall.free', { n: freeCount })}</span></p>
+          <p class="free">${icon('check')}<span>${freeLine(ctx, freeCount)}</span></p>
         </div>
         ${offers}
         ${inPlay ? html`<div class="k-links"><button class="ba-link" type="button" data-action="restore">${t.t('paywall.restore')}</button>${info.manageUrl ? html` <a class="ba-link" href="${info.manageUrl}" target="_blank" rel="noopener noreferrer">${t.t('paywall.manage')}</a>` : ''}</div>` : ''}

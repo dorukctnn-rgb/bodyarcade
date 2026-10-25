@@ -51,6 +51,14 @@ describe('assemble', { timeout: 60_000 }, () => {
     for (const p of LEGACY_PAGES) expect(read(p.file), p.file).toContain('BodyArcade');
   });
 
+  it('lists the page on deleting the account, in both languages, in the sitemap and in the folder', () => {
+    const sitemap = read('sitemap.xml');
+    for (const url of ['/delete-account', '/tr/delete-account']) {
+      expect(sitemap, url).toContain(`<loc>https://bodyarcade.com${url}</loc>`);
+      expect(existsSync(join(out, `${url.replace(/^\//, '')}.html`)), url).toBe(true);
+    }
+  });
+
   it('leaves out the source maps, the Vite manifest and the app\'s own robots and header rules', () => {
     expect(existsSync(join(out, 'static/main-a1.js.map'))).toBe(false);
     expect(existsSync(join(out, '.vite'))).toBe(false);

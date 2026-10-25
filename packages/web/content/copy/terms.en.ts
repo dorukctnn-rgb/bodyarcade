@@ -7,6 +7,7 @@ import { gameCounts, titlesOf } from './games.ts';
 export function termsEn(): PageSpec {
   const date = F.longDate(F.UPDATED, 'en');
   const c = gameCounts();
+  const W = F.ROAD_RUN_WORLDS;
   const free = titlesOf((g) => g.free, 'en');
   const pro = titlesOf((g) => !g.free, 'en');
   const $ = (n: number): string => F.usd(n, 'en');
@@ -24,7 +25,7 @@ export function termsEn(): PageSpec {
     brief: {
       title: 'In short',
       items: [
-        `<strong>Free to play.</strong> ${c.free} of ${c.total} games are free, with their seated and quiet versions, and there are no ads. You can play each Pro game once for free.`,
+        `<strong>Free to play.</strong> ${c.free} of ${c.total} games are free, with their seated and quiet versions, and there are no ads. In Road Run, ${W.free} of its ${W.total} worlds are free. You can play each Pro game once for free.`,
         '<strong>Exercise at your own pace.</strong> Clear some space, warm up, and stop if something hurts. Read the safety notice below.',
         '<strong>Be kind and play fair.</strong> We can mute, suspend or ban profiles that harass other players or cheat.',
         `<strong>Pro is paid for through Gumroad on the web and Google Play in the Android app.</strong> They take the payment and handle tax. A plan bought on the web can be refunded within ${F.REFUND_DAYS} days.`,
@@ -42,8 +43,8 @@ export function termsEn(): PageSpec {
         id: 'what',
         title: 'What BodyArcade is',
         html: `<p>BodyArcade is a set of ${c.total} short games that you play with your body. A camera, your webcam or the front camera of your phone, reads your moves on your device. You can play in your browser or in the Android app. Keyboard or touch controls are there for games that allow them, if you cannot do the movements or have no camera.</p>
-<p><strong>The free plan</strong> has ${c.free} games (${free}), their seated and quiet versions, the Easy and Normal difficulties, and no ads. You can play each Pro game (${pro}) once for free.</p>
-<p><strong>Pro</strong> adds the Pro games, the Hard and Expert difficulties and the games we add later, with the plans below. The games we add later are included while ${memberships} membership is active, and on the Lifetime plan.</p>
+<p><strong>The free plan</strong> has ${c.free} games (${free}), their seated and quiet versions, the Easy and Normal difficulties, and no ads. Road Run has ${W.total} worlds, and ${W.free} of them are free. You can play each Pro game (${pro}) once for free.</p>
+<p><strong>Pro</strong> adds the Pro games, the other ${W.total - W.free} Road Run worlds, the Hard and Expert difficulties and the games we add later, with the plans below. The games we add later are included while ${memberships} membership is active, and on the Lifetime plan.</p>
 <p>We keep BodyArcade running and improve it, so we may add, change or remove games and features. If we remove something that is a main part of a plan you paid for, we will try to replace it with something of similar value. Your rights as a consumer under the law are not affected. Online features need a network connection and depend on services of other companies (Cloudflare, Gumroad, Google), so we cannot promise that they are always available.</p>`,
       },
       {
@@ -68,7 +69,7 @@ ${note('Not medical advice', 'BodyArcade does not measure your heart rate and gi
       {
         id: 'online',
         title: 'Playing with others',
-        html: `<p>An online profile is optional and has no password. Keep your recovery code safe: with your friend code it brings your profile back, and anyone who has both can take the profile over.</p>
+        html: `<p>An online profile is optional and has no password. Before the app makes one it asks you to tick a box that says you agree to these terms and to the community rules below, and it keeps the version of the terms you agreed to with the profile. Keep your recovery code safe: with your friend code it brings your profile back, and anyone who has both can take the profile over.</p>
 ${ul([
   `<strong>Names.</strong> Players aged ${F.AGE.video} and older choose a display name of up to ${F.NAME_MAX_CHARS} characters. Players aged ${F.AGE.online} to 17 get a generated name. A name must not pretend to be someone else, carry personal details or be rude.`,
   '<strong>Friend codes and links.</strong> Share them only with people you want to hear from. A friend request needs the other person to accept it.',
@@ -81,7 +82,7 @@ ${ul([
       },
       {
         id: 'conduct',
-        title: 'Conduct, fair play and the boards',
+        title: 'Community rules: conduct, fair play and the boards',
         html: `<p>Please do not:</p>
 ${ul([
   'harass, threaten, bully or discriminate against anyone, or post sexual, hateful or violent content;',
@@ -103,8 +104,8 @@ ${ul([
         id: 'plans',
         title: 'Plans and prices',
         html: `${table(null, ['Plan', 'Price on the web', 'What you get'], [
-  ['Free', 'No charge', `${c.free} games, their seated and quiet versions, the Easy and Normal difficulties, no ads; each Pro game once.`],
-  ['Pro monthly', `<span class="nw">${$(F.PRICE.proMonthly)} a month</span>`, `All ${c.total} games, the games we add later and every difficulty. Renews every month until you cancel. Up to ${F.DEVICES.pro} devices.`],
+  ['Free', 'No charge', `${c.free} games, their seated and quiet versions, the Easy and Normal difficulties, no ads, ${W.free} of the ${W.total} Road Run worlds; each Pro game once.`],
+  ['Pro monthly', `<span class="nw">${$(F.PRICE.proMonthly)} a month</span>`, `All ${c.total} games, all ${W.total} Road Run worlds, the games we add later and every difficulty. Renews every month until you cancel. Up to ${F.DEVICES.pro} devices.`],
   ['Pro yearly', `<span class="nw">${$(F.PRICE.proYearly)} a year</span>`, `The same as Pro monthly, with a ${F.TRIAL_DAYS}-day free trial. Renews every year until you cancel.`],
   ...(F.FAMILY_PLAN ? [['Family yearly', `<span class="nw">${$(F.PRICE.familyYearly)} a year</span>`, `The same as Pro, with up to ${F.FAMILY_PROFILES} profiles on each of up to ${F.DEVICES.family} devices, so everyone at home keeps their own results.`]] : []),
   ['Lifetime', `<span class="nw">${$(F.PRICE.lifetime)} once</span>`, `Pro with no renewals, for as long as BodyArcade is offered, with the games we add later. Up to ${F.DEVICES.pro} devices.`],

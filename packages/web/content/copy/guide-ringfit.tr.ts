@@ -59,7 +59,7 @@ export function guideRingfitTr(): PageSpec {
       id: 'oyunlar',
       title: 'BodyArcade bedeninden ne ister',
       html: `<p>${c.total} oyun, her birinin kendi hareketiyle. ${c.free} tanesi ücretsiz; diğerleri Pro’nun parçasıdır ve her birini bir kez ücretsiz oynayabilirsin.</p>
-${table(null, ['Oyun', 'Ne yaparsın', 'Tur', 'Plan'], gameList('tr').map((g) => [g.title, g.tagline, roundLength(g.seconds, 'tr'), g.free ? 'Ücretsiz' : 'Pro']))}`,
+${table(null, ['Oyun', 'Ne yaparsın', 'Tur', 'Plan'], gameList('tr').map((g) => [g.title, g.tagline, roundLength(g.seconds, 'tr'), g.free ? (g.id === 'road-run' ? `Ücretsiz, ${F.ROAD_RUN_WORLDS.total} dünyadan ${F.ROAD_RUN_WORLDS.free} tanesi` : 'Ücretsiz') : 'Pro']))}`,
     },
     {
       id: 'kurulum',

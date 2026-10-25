@@ -7,6 +7,7 @@ import { gameCounts, titlesOf } from './games.ts';
 export function termsTr(): PageSpec {
   const date = F.longDate(F.UPDATED, 'tr');
   const c = gameCounts();
+  const W = F.ROAD_RUN_WORLDS;
   const free = titlesOf((g) => g.free, 'tr');
   const pro = titlesOf((g) => !g.free, 'tr');
   const $ = (n: number): string => F.usd(n, 'tr');
@@ -24,7 +25,7 @@ export function termsTr(): PageSpec {
     brief: {
       title: 'Kısaca',
       items: [
-        `<strong>Oynaması ücretsiz.</strong> ${c.total} oyunun ${c.free} tanesi, oturarak ve sessiz sürümleriyle birlikte ücretsizdir ve reklam yoktur. Her Pro oyunu bir kez ücretsiz oynayabilirsin.`,
+        `<strong>Oynaması ücretsiz.</strong> ${c.total} oyunun ${c.free} tanesi, oturarak ve sessiz sürümleriyle birlikte ücretsizdir ve reklam yoktur. Road Run’ın ${W.total} dünyasından ${W.free} tanesi ücretsizdir. Her Pro oyunu bir kez ücretsiz oynayabilirsin.`,
         '<strong>Kendi temponda egzersiz yap.</strong> Çevrene yer aç, ısın ve bir yerin ağrırsa dur. Aşağıdaki güvenlik uyarısını oku.',
         '<strong>Nazik ol ve adil oyna.</strong> Diğer oyuncuları rahatsız eden ya da hile yapan profilleri susturabilir, askıya alabilir ya da yasaklayabiliriz.',
         `<strong>Pro’nun ödemesi web’de Gumroad, Android uygulamasında Google Play üzerinden yapılır.</strong> Ödemeyi onlar alır, vergiyi onlar halleder. Web’den alınan bir plan ${F.REFUND_DAYS} gün içinde iade edilebilir.`,
@@ -42,8 +43,8 @@ export function termsTr(): PageSpec {
         id: 'ne',
         title: 'BodyArcade nedir',
         html: `<p>BodyArcade, bedeninle oynadığın ${c.total} kısa oyundan oluşur. Bir kamera, yani web kameran ya da telefonunun ön kamerası, hareketlerini cihazında okur. Tarayıcında ya da Android uygulamasında oynayabilirsin. Hareketleri yapamıyorsan ya da kameran yoksa, izin veren oyunlarda klavye ya da dokunmatik kontroller vardır.</p>
-<p><strong>Ücretsiz plan</strong> ${c.free} oyun (${free}), bunların oturarak ve sessiz sürümleri, Kolay ve Normal zorluk seviyeleri ve reklamsızlık içerir. Her Pro oyunu (${pro}) bir kez ücretsiz oynayabilirsin.</p>
-<p><strong>Pro</strong>, aşağıdaki planlarla Pro oyunları, Zor ve Uzman zorluk seviyelerini ve daha sonra eklediğimiz oyunları ekler. Daha sonra eklenen oyunlar, ${memberships} üyeliklerinden biri etkin olduğu sürece ve Ömür boyu planda dahildir.</p>
+<p><strong>Ücretsiz plan</strong> ${c.free} oyun (${free}), bunların oturarak ve sessiz sürümleri, Kolay ve Normal zorluk seviyeleri ve reklamsızlık içerir. Road Run’ın ${W.total} dünyası vardır ve ${W.free} tanesi ücretsizdir. Her Pro oyunu (${pro}) bir kez ücretsiz oynayabilirsin.</p>
+<p><strong>Pro</strong>, aşağıdaki planlarla Pro oyunları, Road Run’ın diğer ${W.total - W.free} dünyasını, Zor ve Uzman zorluk seviyelerini ve daha sonra eklediğimiz oyunları ekler. Daha sonra eklenen oyunlar, ${memberships} üyeliklerinden biri etkin olduğu sürece ve Ömür boyu planda dahildir.</p>
 <p>BodyArcade’ı çalışır tutuyor ve geliştiriyoruz; bu yüzden oyun ve özellik ekleyebilir, değiştirebilir ya da kaldırabiliriz. Ödediğin bir planın ana parçası olan bir şeyi kaldırırsak onu benzer değerde bir şeyle değiştirmeye çalışırız. Yasadan doğan tüketici haklarına bu durum dokunmaz. Çevrimiçi özellikler ağ bağlantısı gerektirir ve başka şirketlerin (Cloudflare, Gumroad, Google) hizmetlerine bağlıdır; bu yüzden her zaman erişilebilir olacaklarını vaat edemeyiz.</p>`,
       },
       {
@@ -68,7 +69,7 @@ ${note('Tıbbi tavsiye değildir', 'BodyArcade kalp atış hızını ölçmez ve
       {
         id: 'cevrimici',
         title: 'Başkalarıyla oynamak',
-        html: `<p>Çevrimiçi profil isteğe bağlıdır ve parolası yoktur. Kurtarma kodunu güvende tut: arkadaş kodunla birlikte profilini geri getirir ve ikisine de sahip olan herkes profili ele geçirebilir.</p>
+        html: `<p>Çevrimiçi profil isteğe bağlıdır ve parolası yoktur. Uygulama profili yapmadan önce bu koşulları ve aşağıdaki topluluk kurallarını kabul ettiğini söyleyen bir kutuyu işaretlemeni ister ve kabul ettiğin koşulların sürümünü profille birlikte saklar. Kurtarma kodunu güvende tut: arkadaş kodunla birlikte profilini geri getirir ve ikisine de sahip olan herkes profili ele geçirebilir.</p>
 ${ul([
   `<strong>Adlar.</strong> ${F.AGE.video} yaş ve üzeri oyuncular en çok ${F.NAME_MAX_CHARS} karakterlik bir görünen ad seçer. ${F.AGE.online} ile 17 yaş arasındaki oyunculara üretilmiş bir ad verilir. Ad, başkası gibi davranmamalı, kişisel bilgi taşımamalı ve kaba olmamalıdır.`,
   '<strong>Arkadaş kodları ve bağlantıları.</strong> Onları yalnızca haber almak istediğin kişilerle paylaş. Bir arkadaşlık isteği, karşı taraf kabul edene kadar arkadaşlık sayılmaz.',
@@ -81,7 +82,7 @@ ${ul([
       },
       {
         id: 'davranis',
-        title: 'Davranış, adil oyun ve sıralamalar',
+        title: 'Topluluk kuralları: davranış, adil oyun ve sıralamalar',
         html: `<p>Lütfen şunları yapma:</p>
 ${ul([
   'kimseyi rahatsız etme, tehdit etme, zorbalık yapma ya da ayrımcılık yapma; cinsel, nefret içerikli ya da şiddet içeren içerik paylaşma;',
@@ -103,8 +104,8 @@ ${ul([
         id: 'planlar',
         title: 'Planlar ve fiyatlar',
         html: `${table(null, ['Plan', 'Web’deki fiyat', 'Ne alırsın'], [
-  ['Ücretsiz', 'Ücret yok', `${c.free} oyun, bunların oturarak ve sessiz sürümleri, Kolay ve Normal zorluk, reklam yok; her Pro oyun bir kez.`],
-  ['Pro aylık', `<span class="nw">ayda ${$(F.PRICE.proMonthly)}</span>`, `${c.total} oyunun hepsi, daha sonra eklediğimiz oyunlar ve her zorluk seviyesi. Sen iptal edene kadar her ay yenilenir. En çok ${F.DEVICES.pro} cihaz.`],
+  ['Ücretsiz', 'Ücret yok', `${c.free} oyun, bunların oturarak ve sessiz sürümleri, Kolay ve Normal zorluk, reklam yok, Road Run’ın ${W.total} dünyasından ${W.free} tanesi; her Pro oyun bir kez.`],
+  ['Pro aylık', `<span class="nw">ayda ${$(F.PRICE.proMonthly)}</span>`, `${c.total} oyunun hepsi, Road Run’ın ${W.total} dünyasının hepsi, daha sonra eklediğimiz oyunlar ve her zorluk seviyesi. Sen iptal edene kadar her ay yenilenir. En çok ${F.DEVICES.pro} cihaz.`],
   ['Pro yıllık', `<span class="nw">yılda ${$(F.PRICE.proYearly)}</span>`, `Pro aylık ile aynı, ${F.TRIAL_DAYS} günlük ücretsiz denemeyle. Sen iptal edene kadar her yıl yenilenir.`],
   ...(F.FAMILY_PLAN ? [['Aile yıllık', `<span class="nw">yılda ${$(F.PRICE.familyYearly)}</span>`, `Pro ile aynı; en çok ${F.DEVICES.family} cihazın her birinde en çok ${F.FAMILY_PROFILES} profil, böylece evdeki herkes kendi sonuçlarını tutar.`]] : []),
   ['Ömür boyu', `<span class="nw">tek sefer ${$(F.PRICE.lifetime)}</span>`, `Yenileme olmadan Pro; BodyArcade sunulduğu sürece, daha sonra eklediğimiz oyunlarla birlikte. En çok ${F.DEVICES.pro} cihaz.`],

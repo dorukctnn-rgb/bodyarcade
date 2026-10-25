@@ -59,6 +59,7 @@ interface Words {
   privacy: string;
   terms: string;
   faq: string;
+  delete: string;
   contact: string;
   language: string;
   otherName: string;
@@ -73,7 +74,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Games', '/'], pro: ['Pro', '/pro/'], faq: ['FAQ', '/faq'], blog: ['Blog', '/blog/'] },
     play: 'Play a game', toc: 'On this page', crumbs: 'Breadcrumb',
     made: `BodyArcade is made by ${STUDIO}.`, camera: 'Camera video is read on your device and never recorded.',
-    privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
+    privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', delete: 'Delete account', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
     studio: STUDIO,
   },
   tr: {
@@ -81,14 +82,14 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Oyunlar', '/tr/'], pro: ['Pro', '/tr/pro/'], faq: ['SSS', '/tr/faq'], blog: null },
     play: 'Bir oyun oyna', toc: 'Bu sayfada', crumbs: 'Sayfa yolu',
     made: `BodyArcade, ${STUDIO} tarafından yapılır.`, camera: 'Kamera görüntüsü cihazında okunur, hiçbir zaman kaydedilmez.',
-    privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
+    privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', delete: 'Hesabı sil', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
     studio: STUDIO,
   },
 };
 
-const PAGES: Readonly<Record<Lang, { privacy: string; terms: string; faq: string }>> = {
-  en: { privacy: '/privacy', terms: '/terms', faq: '/faq' },
-  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq' },
+const PAGES: Readonly<Record<Lang, { privacy: string; terms: string; faq: string; delete: string }>> = {
+  en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account' },
+  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account' },
 };
 
 /** The picture every content page shows when a link to it is shared (the Play feature graphic: 1024 by 500). */
@@ -118,7 +119,7 @@ function footer(spec: PageSpec, w: Words): string {
   const langs = o
     ? `<ul aria-label="${esc(w.language)}"><li><a href="${spec.lang === 'en' ? spec.url : o.url}" hreflang="en" lang="en"${spec.lang === 'en' ? ' aria-current="true"' : ''}>English</a></li><li><a href="${spec.lang === 'tr' ? spec.url : o.url}" hreflang="tr" lang="tr"${spec.lang === 'tr' ? ' aria-current="true"' : ''}>Türkçe</a></li></ul>`
     : '';
-  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p><ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
+  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p><ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="${p.delete}">${esc(w.delete)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
 }
 
 function crumbs(spec: PageSpec, w: Words): string {

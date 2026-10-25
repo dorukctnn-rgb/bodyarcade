@@ -60,7 +60,7 @@ export function guideRingfitEn(): PageSpec {
       id: 'games',
       title: 'What BodyArcade asks your body to do',
       html: `<p>${c.total} games, each with its own move. ${c.free} are free; the others are part of Pro, and you can play each of them once for free.</p>
-${table(null, ['Game', 'What you do', 'Round', 'Plan'], gameList('en').map((g) => [g.title, g.tagline, roundLength(g.seconds, 'en'), g.free ? 'Free' : 'Pro']))}`,
+${table(null, ['Game', 'What you do', 'Round', 'Plan'], gameList('en').map((g) => [g.title, g.tagline, roundLength(g.seconds, 'en'), g.free ? (g.id === 'road-run' ? `Free, ${F.ROAD_RUN_WORLDS.free} of ${F.ROAD_RUN_WORLDS.total} worlds` : 'Free') : 'Pro']))}`,
     },
     {
       id: 'setup',
