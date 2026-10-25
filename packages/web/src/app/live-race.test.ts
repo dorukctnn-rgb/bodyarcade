@@ -23,7 +23,7 @@ const memory = (): KeyValueStore => { const m = new Map<string, string>(); retur
 
 /** A game that keeps the duel promises (duel.ts): it settles each obstacle of the course when its time comes, and completes at the end. */
 function courseGame(pass: (ob: number) => boolean): Game {
-  let course: Obstacle[] = [];
+  let course: readonly Obstacle[] = [];
   let t = 0;
   let dur = 0;
   const done = new Set<number>();
@@ -99,7 +99,7 @@ async function stage(net: Net, c: LiveClient, pid: string, o: { pass?: (ob: numb
 function frame(net: Net, pages: readonly Page[], camera: readonly Page[] = []): void {
   net.run(1000 * FIXED_DT);
   for (const p of pages) p.game.step(FIXED_DT, { t: 0, k: 0, channels: {}, events: [] } as never);
-  for (const p of camera) p.src.sendPose(body(net.sched.now()));
+  for (const p of camera) p.src.sendPose?.(body(net.sched.now()));
 }
 
 function until(net: Net, pages: readonly Page[], what: () => boolean, maxMs = 60_000, camera: readonly Page[] = []): void {
