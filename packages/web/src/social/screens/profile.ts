@@ -126,7 +126,7 @@ function dataCard(ctx: ViewContext, v: ProfileView): SafeHtml {
     <h2 class="k-h3" id="me-data">${u('me.dataTitle')}</h2>
     <p class="ba-small k-flat">${u('me.dataDownloadHint')}</p>
     <div class="k-rowbtns k-rowbtns--wrap k-mt"><button class="ba-btn ba-btn--secondary" type="button" data-action="me.download"${attr('disabled', busy)}>${icon('download')}${u('me.dataDownload')}</button><button class="ba-btn ba-btn--danger" type="button" data-action="me.delete"${attr('disabled', busy)}>${icon('trash')}${u('me.dataDelete')}</button></div>
-    <p class="ba-small k-flat k-mt"><a class="ba-link" href="${sitePageHref(ctx.lang, 'delete')}" data-native>${u('me.dataDeleteLink')}</a></p>
+    <p class="ba-small k-datalink"><a class="ba-link" href="${sitePageHref(ctx.lang, 'delete')}" data-native>${u('me.dataDeleteLink')}</a></p>
     ${noteLine(v, 'data')}
   </section>`;
 }
