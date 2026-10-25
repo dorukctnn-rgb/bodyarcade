@@ -36,6 +36,39 @@ export function statusOf(v: LiveView, i18n: Pick<I18n, 'tx'>): string {
   }
 }
 
+/** What the HUD shows on the stage (the plates, the command, the self view): the line and the reactions keep clear of it. */
+const HUD_PARTS = '.ba-hud .hud-plate:not([hidden]), .ba-hud .hud-command:not([hidden]), .ba-hud .tile';
+const GAP = 8;
+
+interface Box { top: number; bottom: number; left: number; right: number }
+const meets = (a: Box, b: Box): boolean => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+/**
+ * Where a box that may move only up or down goes so that it overlaps none of `parts`: from where its style put it, it steps past
+ * each part it meets (below it, or above it), a few times at most. Pure: the offset in pixels (0 when nothing is in the way).
+ */
+export function clearOf(box: Box, parts: readonly Box[], dir: 'down' | 'up'): number {
+  let dy = 0;
+  for (let i = 0; i < 6; i++) {
+    const at = { ...box, top: box.top + dy, bottom: box.bottom + dy };
+    const hit = parts.find((p) => meets(at, p));
+    if (!hit) return dy;
+    dy += dir === 'down' ? hit.bottom + GAP - at.top : hit.top - GAP - at.bottom;
+  }
+  return dy;
+}
+
+/** Moves an element of the layer up or down out of the way of the HUD (a browser only; nothing to do where there is no layout). */
+function keepClear(stage: HTMLElement, el: HTMLElement, dir: 'down' | 'up'): void {
+  if (el.hidden || typeof stage.querySelectorAll !== 'function' || typeof el.getBoundingClientRect !== 'function') return;
+  el.style.translate = '';
+  const r = el.getBoundingClientRect();
+  if (r.width === 0 && r.height === 0) return;
+  const parts = [...stage.querySelectorAll<HTMLElement>(HUD_PARTS)].map((x) => x.getBoundingClientRect()).filter((b) => b.width > 0 && b.height > 0);
+  const dy = clearOf(r, parts, dir);
+  if (dy !== 0) el.style.translate = `0 ${Math.round(dy)}px`;
+}
+
 const TILE_W = 120;
 const TILE_H = 90;
 const BUBBLE_MS = 3200;
@@ -191,6 +224,9 @@ export function mountLiveStage(m: RaceStageMount, src: LiveSource, o: LiveStageO
     count.hidden = busy || n === '';
     reacts.hidden = busy || v.phase === 'run' || v.alone;
     tiles.hidden = busy || v.tiles.length === 0;
+    // the line goes below the command and the plates at the top, the reactions above the hint and the self view at the bottom
+    keepClear(m.stage, status, 'down');
+    keepClear(m.stage, reacts, 'up');
     const seen = new Set<string>();
     for (const tile of v.tiles) {
       seen.add(tile.seat);

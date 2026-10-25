@@ -9,7 +9,7 @@ import type { Landmark } from '../../../core/types/index.ts';
 import type { ReactionId, SeatId } from '../../../core/types/net.ts';
 import { createI18n, type I18n } from '../../../core/ui/i18n/index.ts';
 import { standInBody, type LiveMessage, type LiveSource, type LiveTile, type LiveView } from './live-race.ts';
-import { mountLiveStage } from './live-stage.ts';
+import { clearOf, mountLiveStage } from './live-stage.ts';
 import type { RaceStageMount } from './race.ts';
 
 // ---- a fake document: just what the layer uses ----------------------------------------------------------------------------
@@ -362,5 +362,19 @@ describe('the stage of a race in a room', () => {
     w.tick(5000);
     expect(w.race.views()).toBe(seen);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps the line and the reactions clear of the HUD: past the command at the top, above the hint and the self view at the bottom', () => {
+    const box = (left: number, top: number, w: number, h: number) => ({ left, top, right: left + w, bottom: top + h });
+    // the line under the command it would cover, then under a plate that the first step ran into
+    const line = box(500, 84, 280, 40);
+    expect(clearOf(line, [box(490, 24, 300, 88)], 'down')).toBe(112 + 8 - 84);
+    expect(clearOf(line, [box(490, 24, 300, 88), box(600, 118, 60, 60)], 'down')).toBe(178 + 8 - 84);
+    // the reactions above the hint they would cover; a self view beside them is not in the way
+    const row = box(485, 726, 310, 56);
+    expect(clearOf(row, [box(336, 723, 340, 52), box(997, 582, 260, 196)], 'up')).toBe(723 - 8 - 782);
+    // nothing in the way: nothing moves
+    expect(clearOf(row, [box(0, 0, 100, 100)], 'up')).toBe(0);
+    expect(clearOf(line, [], 'down')).toBe(0);
   });
 });

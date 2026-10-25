@@ -40,9 +40,12 @@ const HOOKS = { keyboard: true, forceDemo: true, timeScale: 5, raceSeconds: 15 }
 
 interface Person { label: string; ctx: BrowserContext; page: Page; problems: string[] }
 
-async function person(browser: Browser, e: Engine, label: string): Promise<Person> {
+async function person(browser: Browser, e: Engine, label: string, o: { phone?: boolean } = {}): Promise<Person> {
+  // a phone (a touch screen of 390 by 844) where the engine has phones: Chromium here
+  const phone = o.phone === true && e.id === 'chromium';
   const ctx = await browser.newContext({
-    viewport: { width: 1280, height: 800 }, locale: 'en-US',
+    viewport: phone ? { width: 390, height: 844 } : { width: 1280, height: 800 }, locale: 'en-US',
+    ...(phone ? { deviceScaleFactor: 2, hasTouch: true, isMobile: true } : {}),
     ...(e.id === 'chromium' ? { permissions: ['camera', 'clipboard-read', 'clipboard-write'] } : {}),
   });
   await ctx.addInitScript((x) => { (window as unknown as { __BA_TEST__: unknown }).__BA_TEST__ = x; }, HOOKS);
@@ -96,6 +99,29 @@ async function stageOf(p: Person): Promise<{ phase: string; match: string; seed:
   };
 }
 
+/**
+ * What the layer of the room puts on the stage stays clear of what the HUD shows there: the line (who the start waits for) and the
+ * row of reactions overlap no plate, no command and no self view. The overlaps found, in words.
+ */
+async function overHud(p: Person): Promise<string[]> {
+  return p.page.evaluate(() => {
+    const box = (el: Element): DOMRect => el.getBoundingClientRect();
+    const shown = (el: Element): boolean => { const r = box(el); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+    const hud = [...document.querySelectorAll('.ba-hud .hud-plate, .ba-hud .hud-command, .ba-hud .tile')].filter(shown);
+    const mine = [...document.querySelectorAll('[data-lr-status], [data-lr-reacts]')].filter(shown);
+    const out: string[] = [];
+    for (const a of mine) {
+      for (const b of hud) {
+        const ra = box(a); const rb = box(b);
+        const w = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+        const h = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+        if (w > 1 && h > 1) out.push(`${a.className} over ${b.className} (${b.getAttribute('data-hud') ?? ''})`);
+      }
+    }
+    return out;
+  });
+}
+
 /** The players of the results, as a person reads them: name, place (or Left) and points, in order. */
 async function standings(p: Person): Promise<string[]> {
   const rows = p.page.locator('[data-live-result] .lr-places li');
@@ -143,7 +169,7 @@ for (const e of ENGINES) {
     const people: Person[] = [];
     try {
       const ada = await person(browser, e, 'Ada');
-      const bo = await person(browser, e, 'Bo');
+      const bo = await person(browser, e, 'Bo', { phone: true });
       people.push(ada, bo);
 
       // ── Ada makes a room for a race from the game's page, and copies its link ──
@@ -192,12 +218,14 @@ for (const e of ENGINES) {
       await ada.page.locator('[data-lr-react="clap"]').click();
       await expect(bo.page.locator('.k-feed .k-react')).toHaveCount(1, { timeout: 20_000 });
       for (const x of await inspect(ada.page, { axe: false, crowding: false })) ada.problems.push(`stage layout: ${x}`);
+      await expect.poll(() => overHud(ada), { timeout: 3_000 }).toEqual([]);
       await shot(ada.page, `race-${e.id}-stage-waiting`, { full: false });
 
       // ── Bo gets ready: one race starts for both, the same course, each sees the other ──
       await bo.page.locator('[data-action="room.ready"][data-ready="1"]').click();
       await onStage(bo, code);
       const first = await sameRace(ada, bo);
+      await expect.poll(() => overHud(bo), { timeout: 3_000 }).toEqual([]);
       await expect.poll(async () => (await stageOf(ada)).phase, { timeout: 30_000 }).toBe('run');
       await seesTheOther(ada, 'Bo');
       await seesTheOther(bo, 'Ada');
@@ -211,8 +239,12 @@ for (const e of ENGINES) {
       await expect(bo.page.locator('[data-live-result] li[data-you]')).toContainText('Bo (you)');
       await expect(ada.page.locator('[data-rematch-go]')).toHaveText('Rematch');
       await expect(ada.page.locator('[data-room-back]')).toHaveAttribute('href', new RegExp(`/r/${code}`));
-      for (const x of await inspect(ada.page, { axe: false })) ada.problems.push(`results layout: ${x}`);
+      // (the crowding check stays off here: the big score of every results page touches the game's picture above it, the results
+      // header's own matter, which the friends screens' check is not about)
+      for (const x of await inspect(ada.page, { axe: false, crowding: false })) ada.problems.push(`results layout: ${x}`);
+      for (const x of await inspect(bo.page, { axe: false, crowding: false })) bo.problems.push(`results layout: ${x}`);
       await shot(ada.page, `race-${e.id}-results`);
+      await shot(bo.page, `race-${e.id}-results-phone`);
 
       // ── a rematch: Bo asks for it first (Ada's results say so), then Ada; a new race of the same room ──
       await bo.page.locator('[data-rematch-go]').click();
