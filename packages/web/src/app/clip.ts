@@ -127,6 +127,24 @@ export function clipKind(win: Window & typeof globalThis): { mime: string; ext: 
   return null;
 }
 
+/** What is needed of a canvas to size the picture of a clip made from it. */
+export interface CanvasSize { width: number; height: number; clientWidth: number; clientHeight: number }
+
+/**
+ * The size of the clip's picture: the size the stage has on the screen (times the screen's pixel ratio, at most 2), the long edge at most CLIP_MAX_EDGE,
+ * both sides even. The canvas's own width and height are not the answer when the recorder starts: the kit gives a stage canvas its size on its first
+ * resize, and Chromium starts the round before that (the canvas still has the 300 by 150 of a canvas nobody has sized: a clip of 300 by 150).
+ * A canvas with no box on the screen (not laid out) is sized by its own width and height.
+ */
+export function clipSize(c: CanvasSize, pixelRatio = 1): { width: number; height: number } {
+  const laidOut = c.clientWidth >= 2 && c.clientHeight >= 2;
+  const ratio = laidOut ? Math.min(2, Math.max(1, pixelRatio)) : 1;
+  const w = (laidOut ? c.clientWidth : c.width) * ratio;
+  const h = (laidOut ? c.clientHeight : c.height) * ratio;
+  const scale = Math.min(1, CLIP_MAX_EDGE / Math.max(w, h));
+  return { width: Math.max(2, Math.round((w * scale) / 2) * 2), height: Math.max(2, Math.round((h * scale) / 2) * 2) };
+}
+
 /** The browser's own parts of a recorder: its MediaRecorder, its clock and timers, and a small copy of the canvas to record. */
 export function browserDeps(win: Window & typeof globalThis, overlay?: () => ClipOverlay | null): ClipDeps | null {
   const Recorder = (win as unknown as { MediaRecorder?: RecorderCtor }).MediaRecorder;
@@ -139,8 +157,8 @@ export function browserDeps(win: Window & typeof globalThis, overlay?: () => Cli
     source: (canvas) => {
       try {
         const doc = canvas.ownerDocument;
-        const edge = Math.max(canvas.width, canvas.height);
-        if (edge < 2) return null;
+        const size = clipSize(canvas, win.devicePixelRatio || 1);
+        if (Math.max(canvas.width, canvas.height, canvas.clientWidth) < 2) return null;
         // A 2D canvas is copied smaller onto a canvas of its own several times a second (and `getContext('2d')` hands back the same
         // context it already has). A WebGL canvas gives none (null), and is recorded as it is: its own picture is already sized by its kit.
         const flat = canvas.getContext('2d');
@@ -148,10 +166,9 @@ export function browserDeps(win: Window & typeof globalThis, overlay?: () => Cli
           const stream = canvas.captureStream(CLIP_FPS);
           return { stream, close: () => stream.getTracks().forEach((t) => t.stop()) };
         }
-        const scale = Math.min(1, CLIP_MAX_EDGE / edge);
         const out = doc.createElement('canvas');
-        out.width = Math.max(2, Math.round((canvas.width * scale) / 2) * 2);
-        out.height = Math.max(2, Math.round((canvas.height * scale) / 2) * 2);
+        out.width = size.width;
+        out.height = size.height;
         const c = out.getContext('2d');
         if (!c) return null;
         const draw = (): void => {

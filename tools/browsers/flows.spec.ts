@@ -419,6 +419,13 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     const w = watch(page);
     // a round long enough to keep a clip (the recorder needs three seconds of play; the hooks run the clock forty times faster)
     await withHooks(page, { timeScale: 40, roundSeconds: 200, forceDemo: true, keyboard: true });
+    // what the page hands to the share sheet (the sheet itself is the platform's: here it answers at once)
+    await page.addInitScript(() => {
+      const shared: { files: number; type: string }[] = [];
+      (window as unknown as { __shared: typeof shared }).__shared = shared;
+      const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
+      if (typeof nav.share === 'function') nav.share = (d: ShareData): Promise<void> => { shared.push({ files: d.files?.length ?? 0, type: d.files?.[0]?.type ?? '' }); return Promise.resolve(); };
+    });
     await page.goto(`${DEMO_URL}/play/knee-sprint/?input=keyboard`, { waitUntil: 'networkidle' });
     const recorder = await page.evaluate(() => typeof (window as unknown as { MediaRecorder?: unknown }).MediaRecorder === 'function');
     test.skip(!recorder, 'this engine has no MediaRecorder (Playwright\'s WebKit for Windows): the results carry no clip here, which the app handles by leaving the card out');
@@ -466,6 +473,29 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await expect.poll(async () => (await video.evaluate((v: HTMLVideoElement) => v.currentTime)), { timeout: 10_000, message: 'the clip does not move when played' }).toBeGreaterThan(0.05);
     state = await read();
     expect(state.error, 'the clip failed while playing').toBeNull();
+    // Share: the share sheet takes the file where the browser has one for files, anywhere else the clip is saved and the player is told (never silence)
+    const downloaded = page.waitForEvent('download', { timeout: 6000 }).then(() => true, () => false);
+    await card.locator('[data-action="clip-share"]').click();
+    const saved = await downloaded;
+    const sheet = await page.evaluate(() => (window as unknown as { __shared?: { files: number; type: string }[] }).__shared ?? []);
+    info.annotations.push({ type: 'clip-share', description: saved ? 'saved as a download' : sheet.length > 0 ? `handed to the share sheet: ${JSON.stringify(sheet[0])}` : 'nothing happened' });
+    expect(saved || sheet.length > 0, 'Share does something: the share sheet or a saved file').toBe(true);
+    if (saved) await expect(page.getByText(/saved to your downloads|indirilenlere kaydedildi/i).last(), 'the player is told it was saved (the toast, after the hidden live region that reads it out)').toBeVisible();
+    else expect(sheet[0]?.files, 'the share sheet got the clip as a file').toBe(1);
+    expect(w.errors).toEqual([]);
+  });
+
+  test('results: a mirror game makes no clip (the camera picture is drawn in its game view and is never recorded)', async ({ page }, info) => {
+    const w = watch(page);
+    await withHooks(page, { timeScale: 40, roundSeconds: 200, forceDemo: true, keyboard: true });
+    await page.goto(`${DEMO_URL}/play/star-catch/?input=keyboard`, { waitUntil: 'networkidle' });
+    const recorder = await page.evaluate(() => typeof (window as unknown as { MediaRecorder?: unknown }).MediaRecorder === 'function');
+    test.skip(!recorder, 'this engine has no MediaRecorder: no game makes a clip here');
+    await expect(page).toHaveURL(/\/results\/$/, { timeout: 90_000 });
+    await settle(page);
+    info.annotations.push({ type: 'clip-cards', description: String(await page.locator('[data-clip]').count()) });
+    await expect(page.locator('[data-clip]'), 'a mirror game has no clip card').toHaveCount(0);
+    expect(await page.locator('video').count(), 'no video on the results of a mirror game').toBe(0);
     expect(w.errors).toEqual([]);
   });
 

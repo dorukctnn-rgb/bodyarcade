@@ -1,7 +1,7 @@
 // The highlight clip: two recorders that take turns so that the last seconds of a round are always in one of them, a clip only when
 // there are seconds worth keeping, nothing while the round is paused, and no clip and no error where the browser cannot make one.
 import { describe, expect, it } from 'vitest';
-import { CLIP_BRAND, clipAllowed, clipKind, ClipRecorder, paintOverlay, MIN_CLIP_MS, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
+import { CLIP_BRAND, CLIP_MAX_EDGE, clipAllowed, clipKind, ClipRecorder, clipSize, paintOverlay, MIN_CLIP_MS, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
 
 class Fake implements RecorderLike {
   static made: Fake[] = [];
@@ -286,5 +286,22 @@ describe('what this browser can record', () => {
     expect(clipKind(winWith(['video/mp4'], true, false))).toBeNull();
     expect(clipKind(winWith(['video/mp4'], false))).toBeNull();
     expect(clipKind(winWith(['audio/ogg']))).toBeNull();
+  });
+});
+
+describe('the size of the clip', () => {
+  it('follows the stage on the screen, not the 300 by 150 of a canvas the kit has not sized yet (Chromium starts the round before that)', () => {
+    expect(clipSize({ width: 300, height: 150, clientWidth: 390, clientHeight: 844 })).toEqual({ width: 390, height: 844 });
+    expect(clipSize({ width: 300, height: 150, clientWidth: 1280, clientHeight: 800 })).toEqual({ width: CLIP_MAX_EDGE, height: 600 });
+  });
+  it('is the same once the canvas is sized, and keeps both sides even', () => {
+    expect(clipSize({ width: 780, height: 1688, clientWidth: 390, clientHeight: 844 }, 2)).toEqual({ width: 444, height: 960 });
+    const odd = clipSize({ width: 300, height: 150, clientWidth: 391, clientHeight: 701 });
+    expect(odd.width % 2).toBe(0);
+    expect(odd.height % 2).toBe(0);
+  });
+  it('uses the canvas own size where it has no box on the screen, and never gets below 2', () => {
+    expect(clipSize({ width: 640, height: 360, clientWidth: 0, clientHeight: 0 })).toEqual({ width: 640, height: 360 });
+    expect(clipSize({ width: 1, height: 1, clientWidth: 0, clientHeight: 0 })).toEqual({ width: 2, height: 2 });
   });
 });
