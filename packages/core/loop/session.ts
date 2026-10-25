@@ -18,7 +18,8 @@
 // - Determinism: the game only sees FIXED_DT steps, and InputHub frames stamped with simulation time.
 // - A camera that stops delivering pictures without ending (iPhone: the track is muted by a call or another app; a
 //   stuck pose worker) is caught by a watchdog: no pose frame for stallMs (2.5 s) while calibrating, counting down or
-//   playing pauses with 'camera_ended' and gives the lease back, so resume() asks for the camera again.
+//   playing pauses with 'camera_ended' and gives the lease back, so resume() asks for the camera again. A new camera's
+//   first frame, and the first frame after the model switched its number of poses, get FIRST_FRAME_MS (12 s) instead.
 // - The screen stays on (Wake Lock) while calibrating, counting down, playing and waiting for a lost player: a camera
 //   player never touches the phone, which would otherwise dim and lock mid-run. A pause by hand, the results and
 //   errors let the screen sleep again.
@@ -115,6 +116,8 @@ interface Run {
   lastFrameAt: number;
   /** Pose frames since the lease was attached: the first one may take long (a cold GPU model, tech.md 3.1). */
   leaseFrames: number;
+  /** Switches of the model's number of poses in flight: the model rebuilds and sends nothing meanwhile (see watchCrowd). */
+  posesSwitching: number;
   players: 1 | 2;
   manifest: GameManifest | null;
   game: Game | null;
@@ -370,7 +373,19 @@ export function createSession(deps: SessionDeps): Session {
   function watchCrowd(r: Run, on: boolean): void {
     if (r.players !== 1 || !deps.pose || r.crowd === on) return;
     r.crowd = on;
-    deps.pose.setNumPoses(on ? 2 : 1).catch(() => {});
+    // The switch rebuilds the model's graph, and no pose comes out meanwhile: seconds on a GPU delegate (WebKit on a phone went
+    // quiet right after the calibration and the watchdog called it a stopped camera, QA 25 Oct). Until the switch is done and a
+    // frame came after it, the watchdog waits as long as for a new camera's first frame (FIRST_FRAME_MS), never forever.
+    r.posesSwitching++;
+    r.lastFrameAt = Math.max(r.lastFrameAt, now());
+    r.leaseFrames = 0;
+    const done = (): void => {
+      r.posesSwitching = Math.max(0, r.posesSwitching - 1);
+      if (!live(r)) return;
+      r.lastFrameAt = Math.max(r.lastFrameAt, now());
+      r.leaseFrames = 0;
+    };
+    deps.pose.setNumPoses(on ? 2 : 1).then(done, done);
   }
 
   /**
@@ -412,7 +427,7 @@ export function createSession(deps: SessionDeps): Session {
   function onPoseFrame(r: Run, f: PoseFrame): void {
     if (!live(r) || !r.feed) return;
     r.lastFrameAt = now();
-    r.leaseFrames++;
+    if (r.posesSwitching === 0) r.leaseFrames++;   // a frame made before a switch finished does not end its grace
     if (state === 'calibrating') {
       const frames = r.feed.push(f, { engines: false });
       let status: CalibrationStatus | TwoPlayerCalibrationStatus;
@@ -605,7 +620,7 @@ export function createSession(deps: SessionDeps): Session {
       const players: 1 | 2 = o.mode === 'local2' ? 2 : 1;
       const hub = (deps.hub ?? createInputHub)({ players, now: () => r.clock.simMs });
       const r: Run = {
-        options: { ...o }, module: null, offControls: [], videoShown: false, lastFrameAt: 0, leaseFrames: 0, players, manifest: null, game: null, flags: null, crowd: false, started: false, hub, feed: null, lease: null, offLease: null,
+        options: { ...o }, module: null, offControls: [], videoShown: false, lastFrameAt: 0, leaseFrames: 0, posesSwitching: 0, players, manifest: null, game: null, flags: null, crowd: false, started: false, hub, feed: null, lease: null, offLease: null,
         offPose: null, offPresence: null, abort: new AbortController(), calibrator: null, calibrator2: null,
         clock: createFixedStepClock(), rafId: null, alpha: 0, countdownEnd: 0, countdownShown: -1, fpsFrames: 0, fpsSince: 0,
         seed: (o.seed ?? deps.seed?.() ?? randomSeed()) >>> 0,

@@ -77,12 +77,22 @@ function fakePose() {
     detach() { p.attached = null; },
     onFrame(cb: (f: PoseFrame) => void) { cbs.add(cb); return () => { cbs.delete(cb); }; },
     setMaxHz() {},
-    async setNumPoses(n: 1 | 2) { p.numPoses.push(n); },
+    async setNumPoses(n: 1 | 2) {
+      p.numPoses.push(n);
+      if (!p.holdSwitch) return;
+      // the model rebuilds for the new number of poses: no frame comes out until it is done (WebKit, a GPU delegate)
+      p.switching = true;
+      await new Promise<void>((resolve) => { p.finishSwitch = () => { p.switching = false; p.finishSwitch = () => {}; resolve(); }; });
+    },
+    /** setNumPoses() holds until finishSwitch() is called, and no frame comes out meanwhile. */
+    holdSwitch: false,
+    switching: false,
+    finishSwitch: () => {},
     stats: { hz: 0, p50: 0, p95: 0, dropped: 0, frames: 0 },
     dispose() {},
     /** The camera picture freezes (iPhone: track muted) when true: no frames reach the session. */
     frozen: false,
-    emit(f: PoseFrame) { if (p.attached && !p.frozen) for (const cb of [...cbs]) cb(f); },
+    emit(f: PoseFrame) { if (p.attached && !p.frozen && !p.switching) for (const cb of [...cbs]) cb(f); },
     get listeners() { return cbs.size; },
   };
   return p satisfies PoseService & Record<string, unknown>;
@@ -558,6 +568,8 @@ describe('Session, camera run', () => {
     const h = harness();
     await h.session.start('fake', CAMERA);
     h.until('running', 6000);
+    await flush();   // the model's switch back to one pose (after the calibration) has answered
+    h.pass(100);     // and a frame came after it
     h.pose.frozen = true;
     h.pass(2400);
     expect(h.session.state).toBe('running');
@@ -580,6 +592,42 @@ describe('Session, camera run', () => {
     expect(h.session.state).toBe('calibrating');
     h.pass(2500);
     expect(h.session.pauseReason).toBe('camera_ended');
+  });
+
+  it('the model going back to one pose after the calibration is not a stopped camera (WebKit on a phone, QA 25 Oct): no frame for seconds while it switches', async () => {
+    const h = harness();
+    await h.session.start('fake', CAMERA);
+    expect(h.pose.numPoses).toEqual([1, 2]);
+    h.pose.holdSwitch = true;
+    h.until('countdown', 6000);
+    expect(h.pose.numPoses).toEqual([1, 2, 1]);
+    expect(h.pose.switching).toBe(true);
+    h.pass(8000);   // the switch takes 8 s: the countdown ends and the round runs, with no frame at all
+    expect(h.session.state).toBe('running');
+    expect(h.seen.pauses).toEqual([]);
+    expect(h.cam.stats().live).toBe(1);
+    h.pose.finishSwitch();
+    await flush();
+    h.pass(1000);
+    expect(h.session.state).toBe('running');
+    expect(h.seen.pauses).toEqual([]);
+    // once the switch is done and frames come again, a camera that really stops is said within the usual 2.5 s
+    h.pose.frozen = true;
+    h.pass(2600);
+    expect(h.session.pauseReason).toBe('camera_ended');
+    expect(h.game.log.ctx!.input.sample(0).tracking).toEqual({ ok: false, code: 'stalled' });
+  });
+
+  it('a switch of the model that never ends is still caught: after the first-frame time (12 s), not never', async () => {
+    const h = harness();
+    await h.session.start('fake', CAMERA);
+    h.pose.holdSwitch = true;
+    h.until('countdown', 6000);
+    h.pass(11_000);
+    expect(h.session.state).toBe('running');
+    h.pass(1500);
+    expect(h.session.pauseReason).toBe('camera_ended');
+    expect(h.cam.stats().live).toBe(0);
   });
 
   it('recalibrate() mid-run keeps a live lease, calibrates and continues', async () => {
