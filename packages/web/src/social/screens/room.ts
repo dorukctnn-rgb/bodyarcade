@@ -89,6 +89,7 @@ function videoLinks(ctx: ViewContext, r: RoomState): SafeHtml {
 function proNote(ctx: ViewContext, v: RoomView): SafeHtml {
   const u = ux(ctx);
   const p = v.pro;
+  const waiting = v.room.info?.pro?.ok === false ? html`<div class="k-mt">${banner({ kind: 'warn', icon: 'sparkle', id: 'pro-waiting', text: u('pro.waiting') })}</div>` : '';
   if (p) {
     const known = ctx.games.some((g) => g.id === p.game);
     const pick = v.room.members.find((m) => m.seat === v.room.me)?.host === true && v.games.length > 1;
@@ -96,10 +97,9 @@ function proNote(ctx: ViewContext, v: RoomView): SafeHtml {
       <div class="k-pronote__head">${icon('sparkle')}<h2 class="k-h3" id="pro-h">${u('pro.title')}</h2></div>
       <p class="ba-small k-flat">${u(`pro.${p.reason}`)}</p>
       <div class="k-rowbtns k-rowbtns--wrap k-mt"><a class="ba-btn ba-btn--primary" href="${ctx.href('pro', known ? { query: { game: p.game } } : {})}">${u('pro.see')}</a>${pick ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="room.game">${u('pro.free')}</button>` : ''}<button class="ba-btn ba-btn--quiet" type="button" data-action="room.proDismiss">${u('pro.later')}</button></div>
-    </section>`;
+    </section>${waiting}`;
   }
-  if (v.room.info?.pro?.ok === false) return html`<div class="k-mt">${banner({ kind: 'warn', icon: 'sparkle', id: 'pro-waiting', text: u('pro.waiting') })}</div>`;
-  return html``;
+  return html`${waiting}`;
 }
 
 const PROBLEMS: readonly RoomProblem[] = ['full', 'no_room', 'removed', 'replaced', 'version', 'not_allowed', 'ticket', 'offline'];

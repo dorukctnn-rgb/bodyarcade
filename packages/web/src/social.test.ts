@@ -374,6 +374,10 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     const waiting = roomPage(ctx, view({ room: { ...room, info: { ...room.info, pro: { ok: false } } } })).value;
     expect(waiting).toContain('data-banner="pro-waiting"');
     expect(textOf(waiting)).toContain(u('pro.waiting'));
+    // both at once (the host's pick was refused while the old proof had run out): the note and the line, one each
+    const both = roomPage(ctx, view({ room: { ...room, info: { ...room.info, pro: { ok: false } } }, pro: { game: 'pad-work', reason: 'refused', at: 1 } })).value;
+    expect(both).toContain('data-pro="refused"');
+    expect(both).toContain('data-banner="pro-waiting"');
     // a Pro game with its proof in place: the line under the game says whose Pro opens it, and no warning
     const proGame = roomPage(ctx, view({ room: { ...room, info: { ...room.info, pro: { ok: true } } } })).value;
     expect(proGame).toContain('data-pro-game');

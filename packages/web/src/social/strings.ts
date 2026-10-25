@@ -229,7 +229,7 @@ export const en = {
 
   // ---- a Pro game in a room: it starts only while the host's Pro stands behind it, and everyone in the room plays it ----
   'pro.title': 'This game needs Pro',
-  'pro.none': 'A room starts a Pro game when its host has Pro. Everyone in the room then plays it, with or without Pro.',
+  'pro.none': 'A room starts a Pro game when its host has Pro, and everyone in the room then plays it. If you have Pro, open BodyArcade online for a moment so it can be confirmed.',
   'pro.expired': 'Your Pro could not be confirmed, because it renews online. Open BodyArcade with a connection for a moment, then pick the game again.',
   'pro.invalid': 'Your Pro could not be checked on this device. Restore it in Settings, or pick a free game.',
   'pro.refused': 'The room did not take this game. A Pro game needs the host to have Pro. Pick a free game, or get Pro.',
@@ -544,7 +544,7 @@ export const tr: Words = {
 
   // ---- odada Pro oyun: ev sahibinin Pro üyeliği arkasında durduğu sürece başlar, odadaki herkes oynar ----
   'pro.title': 'Bu oyun için Pro gerekir',
-  'pro.none': 'Pro oyunu bir odada başlatmak için ev sahibinde Pro üyeliği olmalı. Oyun, Pro olsun olmasın odadaki herkes için açılır.',
+  'pro.none': 'Pro oyunu bir odada başlatmak için ev sahibinde Pro üyeliği olmalı; oyun odadaki herkes için açılır. Pro üyeliğin varsa uygulamayı bir an internete bağlıyken aç, doğrulansın.',
   'pro.expired': 'Pro üyeliğin doğrulanamadı, çünkü çevrimiçi yenileniyor. Uygulamayı bir an internete bağlıyken aç, sonra oyunu yeniden seç.',
   'pro.invalid': 'Pro üyeliğin bu cihazda denetlenemedi. Ayarlar sayfasından geri yükle ya da ücretsiz bir oyun seç.',
   'pro.refused': 'Oda bu oyunu kabul etmedi. Pro oyun için ev sahibinde Pro üyeliği olmalı. Ücretsiz bir oyun seç ya da Pro üyeliği al.',
