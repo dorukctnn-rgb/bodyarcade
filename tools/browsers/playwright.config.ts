@@ -26,7 +26,7 @@ type Engine = 'chromium' | 'firefox' | 'webkit';
 /** What an engine is launched with. Chromium: the headless shell and the fake device flags of the platform's e2e; Firefox: its fake camera and no prompt. */
 function launch(engine: Engine): LaunchOptions {
   if (engine === 'chromium') return baseLaunchOptions;
-  if (engine === 'firefox') return { headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true, 'media.peerconnection.ice.obfuscate_host_addresses': false } };
+  if (engine === 'firefox') return { headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true, 'media.peerconnection.ice.obfuscate_host_addresses': false, 'media.peerconnection.ice.loopback': true } };
   return { headless: true };
 }
 

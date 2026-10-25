@@ -52,3 +52,15 @@ describe('browser table', () => {
     expect(md).toContain('pictures: qa-out/browsers/shots/webkit-phone/camera.jpg');
   });
 });
+
+describe('merge of several runs', () => {
+  it('puts the runs side by side, one row per flow, the label in front of every project', async () => {
+    const { mergeRows } = await import('./merge.ts');
+    const a: JsonReport = { suites: [{ title: 'f.spec.ts', file: 'f.spec.ts', specs: [{ title: 'home', ok: true, tests: [test('webkit-phone', 'expected')] }, { title: 'camera', ok: false, tests: [test('webkit-phone', 'skipped')] }] }] };
+    const b: JsonReport = { suites: [{ title: 'f.spec.ts', file: 'f.spec.ts', specs: [{ title: 'home', ok: true, tests: [test('webkit-phone', 'expected')] }, { title: 'camera', ok: false, tests: [test('webkit-phone', 'unexpected', 'no picture')] }] }] };
+    const md = tableMarkdown(mergeRows([{ label: 'win', report: a }, { label: 'mac', report: b }]));
+    expect(md).toContain('| flow | win-webkit-phone | mac-webkit-phone |');
+    expect(md).toContain('| home | ok | ok |');
+    expect(md).toContain('| camera | skip | FAIL |');
+  });
+});
