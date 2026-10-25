@@ -204,12 +204,14 @@ export class PlayController {
 
   /** The round is over: its clip is cut (a moment), then the results. */
   private async over(summary: RunSummary): Promise<void> {
+    // how a race ended is read at the moment it ended, before the moment the clip takes
+    const outcome = this.o.race?.outcome() ?? null;
     const recorder = this.clip;
     this.clip = null;
     let clip: ClipFile | null = null;
     if (recorder) { try { clip = await recorder.finish(); } catch { clip = null; } }
     if (this.disposed) return;
-    this.host.finish(this.game, this.setup, summary, this.o.race?.outcome() ?? null, clip);
+    this.host.finish(this.game, this.setup, summary, outcome, clip);
   }
 
   /** The recording of the last seconds begins with the play, and waits when the round does. */
