@@ -10,9 +10,9 @@ import { WEB_REAL_URL } from '../e2e/support/ports.ts';
 
 interface RealGame { id: string; template: string; durationSec: number; free: boolean; modes: string[]; seated: boolean; silentSafe: boolean }
 
-function realGames(): RealGame[] {
+function realGames(all = false): RealGame[] {
   const dir = join(process.cwd(), 'packages', 'games');
-  const only = (process.env['BA_GAMES'] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  const only = all ? [] : (process.env['BA_GAMES'] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const out: RealGame[] = [];
   for (const d of readdirSync(dir, { withFileTypes: true })) {
     if (!d.isDirectory() || !existsSync(join(dir, d.name, 'manifest.json')) || !existsSync(join(dir, d.name, 'index.ts'))) continue;
@@ -205,5 +205,6 @@ test.describe('whole rounds on a fake clock (laptop)', () => {
 
 test('the real catalogue lists every game folder that has code', async ({ page }) => {
   await page.goto(`${WEB_REAL_URL}/`);
-  await expect(page.locator('a.ba-tile')).toHaveCount(realGames().length);
+  // every game, whichever ones BA_GAMES picked to play
+  await expect(page.locator('a.ba-tile')).toHaveCount(realGames(true).length);
 });
