@@ -40,7 +40,7 @@ export const CLIP_BITS = 2_000_000;
 
 /** What the browser can record, best first: MP4 is what the apps that take a shared clip like best. */
 const KINDS: readonly { mime: string; ext: 'mp4' | 'webm' }[] = [
-  { mime: 'video/mp4;codecs=avc1.42E01E', ext: 'mp4' },
+  { mime: 'video/mp4;codecs=avc1', ext: 'mp4' },
   { mime: 'video/mp4', ext: 'mp4' },
   { mime: 'video/webm;codecs=vp9', ext: 'webm' },
   { mime: 'video/webm;codecs=vp8', ext: 'webm' },

@@ -11,7 +11,7 @@ import { createStore, memoryStorage } from '../../core/store/store.ts';
 import { weekdayIndex } from '../src/app/arcade.ts';
 import type { Hooks } from '../e2e/support/helpers.ts';
 
-export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'welcome', 'welcome-2', 'welcome-3', 'welcome-4', 'welcome-5', 'players', 'players-manage', 'players-add', 'players-kid', 'race-dialog', 'race-offer'] as const;
+export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'welcome', 'welcome-2', 'welcome-3', 'welcome-4', 'welcome-5', 'players', 'players-manage', 'players-add', 'players-kid', 'race-dialog', 'race-offer', 'explainer', 'camera-error', 'play-nocamera'] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 
 /** A friend's recording of Squat Flap as the short code they would send (made from the practice partner's code, so it is always a real course). */
@@ -28,6 +28,7 @@ const PATHS: Record<Scenario, string> = {
   room: '/r/K7Q2MX/?social=1', 'room-host': '/friends/?social=1', safety: '/safety/?social=1', friendlink: '/f/BA-9PXMR3/?social=1',
   players: '/profiles/', 'players-manage': '/profiles/?manage=1', 'players-add': '/profiles/', 'players-kid': '/settings/',
   'race-dialog': '/games/squat-flap/', 'race-offer': `/games/squat-flap/?ghost=${friendCode()}`,
+  explainer: '/play/squat-flap/', 'camera-error': '/play/squat-flap/', 'play-nocamera': '/play/squat-flap/?input=keyboard',
   welcome: '/welcome/', 'welcome-2': '/welcome/?step=2', 'welcome-3': '/welcome/?step=3', 'welcome-4': '/welcome/?step=4', 'welcome-5': '/welcome/?step=5',
 };
 
@@ -37,6 +38,8 @@ function hooksOf(name: Scenario): Hooks {
   switch (name) {
     case 'play': return { ...base, timeScale: 5, roundSeconds: 120 };
     case 'calibrate': case 'calibrate-headroom': return { ...base, timeScale: 1, roundSeconds: 120 };
+    // The real game and session, and no keyboard hook: a phone is a phone (touch, no keys), as a player's is.
+    case 'camera-error': case 'play-nocamera': return { timeScale: 1, roundSeconds: 120 };
     case 'calibrate-desk': return { ...base, timeScale: 12, roundSeconds: 120, desk: true };
     case 'pro-unavailable': return { ...base, billing: 'unavailable' };
     case 'pro-trial': return { ...base, plan: 'pro', trial: { endsInHours: 30 } };
@@ -113,6 +116,7 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
   const hooks: Hooks = o.hooks ?? hooksOf(name);
   await page.addInitScript((h) => { window.__BA_TEST__ = h; }, hooks);
   await page.addInitScript(`window.__SEED__ = ${JSON.stringify(name)};`);
+  if (name === 'camera-error') await page.addInitScript(() => { const md = navigator.mediaDevices; if (md) md.getUserMedia = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError')); });
   if (name === 'home-week') await page.addInitScript(`window.__ARCADE_SEED__ = ${JSON.stringify(weekSeed())};`);
   await page.addInitScript(SEED);
   const path = `${prefix}${PATHS[name]}`;
@@ -151,8 +155,14 @@ export async function openScenario(browser: Browser, base: string, name: Scenari
     await page.getByRole('button', { name: /^Play/ }).click();
     await page.waitForSelector('[data-progress]', { timeout: 60_000 });
   }
-  if (name === 'play') {
-    await page.waitForSelector('[data-hud="statusLeft"]', { timeout: 15_000 });
+  if (name === 'explainer') await page.waitForSelector('[data-action="camera-continue"]', { timeout: 15_000 });
+  if (name === 'camera-error') {
+    await page.locator('[data-action="camera-continue"]').click();
+    await page.waitForSelector('[data-action="camera-retry"]', { timeout: 30_000 });
+    await page.waitForTimeout(300);
+  }
+  if (name === 'play' || name === 'play-nocamera') {
+    await page.waitForSelector('[data-hud="statusLeft"]', { timeout: 30_000 });
     await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal'), undefined, { timeout: 15_000 });
     await page.waitForTimeout(1200);
   }

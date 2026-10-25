@@ -38,11 +38,11 @@ for (const name of list) {
   if (!known.has(name)) { console.error(`unknown page ${name}`); continue; }
   for (const size of sizes) {
     const { page, context, errors } = await openScenario(browser, base, name as Scenario, { w: size.w, h: size.h, lang, plan: plan as 'free' | 'pro', dark });
-    const hud = name === 'play' ? await page.evaluate(() => window.__BA__?.debug().playProblems ?? ['no HUD']) : [];
+    const hud = name === 'play' || name === 'play-nocamera' ? await page.evaluate(() => window.__BA__?.debug().playProblems ?? ['no HUD']) : [];
     const problems = [...(await checkPage(page)), ...hud.map((h) => `HUD: ${h}`), ...errors.map((e) => `console: ${e}`)];
     // A sticky bar sits at the bottom of the first screen in a full-page capture and hides what is under it; for the overview it goes static.
     if (!args.includes('--view')) await page.addStyleTag({ content: '.k-actionbar { position: static !important; }' });
-    await page.screenshot({ path: join(out, `${name}-${size.id}${lang === 'en' ? '' : `-${lang}`}${dark ? '-dark' : ''}.png`), fullPage: !args.includes('--view') && name !== 'play' && name !== 'calibrate' && name !== 'calibrate-desk' && name !== 'calibrate-headroom' });
+    await page.screenshot({ path: join(out, `${name}-${size.id}${lang === 'en' ? '' : `-${lang}`}${dark ? '-dark' : ''}.png`), fullPage: !args.includes('--view') && name !== 'play' && name !== 'play-nocamera' && name !== 'explainer' && name !== 'camera-error' && name !== 'calibrate' && name !== 'calibrate-desk' && name !== 'calibrate-headroom' });
     if (problems.length) { failed += 1; console.log(`${name} ${size.id}: ${problems.length} problem(s)\n  ${problems.slice(0, 8).join('\n  ')}`); }
     await context.close();
   }
