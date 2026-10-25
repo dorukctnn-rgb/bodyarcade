@@ -62,11 +62,11 @@ const root = document.querySelector('[data-hud-root]') as HTMLElement;
 let hud: PlayHud | null = null;
 
 /** A score, a timer, lives and a combo as large as a round makes them: the status plates at their widest. */
-function open(c: Case): PlayHud {
+function open(c: Case, extra: { selfView?: boolean } = {}): PlayHud {
   hud?.dispose();
   const i18n = createI18n(c.lang);
   const next = new PlayHud({
-    document, root, i18n, mode: c.mode, pipCorner: c.corner, duo: c.duo,
+    document, root, i18n, mode: c.mode, pipCorner: c.corner, duo: c.duo, ...extra,
     announce: () => undefined, toast: () => undefined, onPause: () => undefined, onMovePip: () => undefined,
   });
   next.set('score', 12840);
@@ -190,6 +190,21 @@ function kitAgrees(c: Case): { text: string; problem: string }[] {
   return found;
 }
 
+/** A round without the camera: no self view tile and no button to bring one back, and at least the room for the game that it had with one. */
+function withoutSelfView(c: Case): { tileShown: boolean; buttonShown: boolean; problems: string[]; corner: string; playWith: Box; playWithout: Box } {
+  const a = open(c);
+  a.problems();
+  const playWith = (a.layoutInfo() as { play: Box }).play;
+  const b = open(c, { selfView: false });
+  b.set('prompt', { text: 'Jack', icon: 'stand' });
+  say(b, c.duo, longest(reasons(c.lang)));
+  const problems = b.problems();
+  const info = b.layoutInfo() as { play: Box; pipCorner: string };
+  const tile = root.querySelector<HTMLElement>('[data-hud="pip"]');
+  const button = root.querySelector<HTMLElement>('[data-ref="showPip"]');
+  return { tileShown: !!tile && !tile.hidden, buttonShown: !!button && !button.hidden, problems, corner: info.pipCorner, playWith, playWithout: info.play };
+}
+
 /** Leaves one reason (and a command) on the screen, for a picture of it. */
 function show(c: Case, text: string, command = 'Jack'): string[] {
   const h = open(c);
@@ -199,6 +214,6 @@ function show(c: Case, text: string, command = 'Jack'): string[] {
 }
 
 declare global {
-  interface Window { __HUD__: { check(c: Case): Found[]; rivals(c: Case): { who: string; problems: string[] }[]; kit(c: Case): { text: string; problem: string }[]; reasons(lang: Lang): string[]; commands(lang: Lang): string[]; show(c: Case, text: string, command?: string): string[] } }
+  interface Window { __HUD__: { check(c: Case): Found[]; rivals(c: Case): { who: string; problems: string[] }[]; kit(c: Case): { text: string; problem: string }[]; noSelfView(c: Case): ReturnType<typeof withoutSelfView>; reasons(lang: Lang): string[]; commands(lang: Lang): string[]; show(c: Case, text: string, command?: string): string[] } }
 }
-window.__HUD__ = { check, rivals, kit: kitAgrees, reasons, commands, show };
+window.__HUD__ = { check, rivals, kit: kitAgrees, noSelfView: withoutSelfView, reasons, commands, show };

@@ -38,7 +38,8 @@ import { PRO_DIFFICULTIES, defaultSetup, playHref, sanitizeSetup, setupFields, s
 import { applyHead, readAssetMap, swap } from './dom.ts';
 import { localEntitlements } from './entitlements.ts';
 import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
-import { PlayController, type PlayHost } from './play.ts';
+import { hudModeFor, PlayController, type PlayHost } from './play.ts';
+import { clipAllowed, createClipRecorder, type ClipFile } from './clip.ts';
 import { WelcomeController, type WelcomeHost } from './welcome.ts';
 import { askParentGate, ProfilesController, type ProfilesHost } from './profiles.ts';
 import { factsOf, OPEN_RULES, type PlayerFacts } from './profiles-model.ts';
@@ -159,6 +160,9 @@ export class App {
   private tour: WelcomeController | null = null;
   /** The round on the stage is the first game of the welcome tour. */
   private firstRound = false;
+  /** The clip of the last round, as a file (to share) and as an address for the page (to show and to save). One at a time. */
+  private clipBlob: Blob | null = null;
+  private clipUrl: string | null = null;
   /** The recordings each player keeps, read once per player and let go when the player changes. */
   private readonly ghostBooks = new Map<string, GhostBook>();
   /** What the race on the stage was asked for (`?ghost=`): "Race again" asks for the same kind of race. */
@@ -632,6 +636,8 @@ export class App {
 
   private render(): void {
     const route = this.route;
+    // A clip is the results' own: it goes when the page goes on to anything else.
+    if (route?.id !== 'results') this.dropClip();
     this.endPlay();
     this.endTour();
     if (route?.id === 'welcome') this.tour = new WelcomeController(this.welcomeHost(), stepFrom(route.query.get('step')));
@@ -760,6 +766,7 @@ export class App {
     this.play = new PlayController({
       host: this.playHost(g), game: g, setup, stage,
       ...(this.o.bodyIsSimulated?.(g.id) ? { simulatedBody: true } : {}),
+      makeClip: (canvas) => (this.clipsWanted(g) ? createClipRecorder(this.win, canvas) : null),
       makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}), ...(race ? { race } : {}) }) ?? null,
       ...(race ? { race } : {}),
       ...(this.o.onRoundEnded ? { release: this.o.onRoundEnded } : {}),
@@ -795,7 +802,7 @@ export class App {
       toast: (t) => this.toaster.show(t),
       confirmLeave: () => this.confirm({ title: this.ctx().i18n.t('leave.title'), body: this.ctx().i18n.t('leave.body'), confirm: this.ctx().i18n.t('leave.confirm'), cancel: this.ctx().i18n.t('leave.keep'), danger: true }),
       leave: () => this.nav.go(this.ctx().href('game', { params: { slug: g.seo.slug } }), { replace: true }),
-      finish: (game, setup, summary, race) => this.finishRound(game, setup, summary, race ?? null),
+      finish: (game, setup, summary, race, clip) => this.finishRound(game, setup, summary, race ?? null, clip ?? null),
       pipCorner: () => this.currentSettings().pipCorner,
       cyclePip: () => {
         const cur = this.currentSettings().pipCorner;
@@ -865,7 +872,61 @@ export class App {
    * The round is over: it goes into the record (a plan's game moves the plan on), and the results screen is built from what the
    * record says happened. Two players on one camera add their minutes to the habit and set no personal record.
    */
-  private finishRound(game: ShellGame, setup: SetupState, summary: Parameters<PlayHost['finish']>[2], race: RaceOutcome | null = null): void {
+  /** Whether this round's last seconds are kept for a clip: the player's setting, and a mirror game only with the camera picture allowed. */
+  private clipsWanted(g: ShellGame): boolean {
+    const s = this.currentSettings();
+    return clipAllowed({ clips: s.clips, clipCamera: s.clipCamera, share: this.rules().share, mirror: hudModeFor(g) === 'mirror' });
+  }
+
+  private dropClip(): void {
+    if (this.clipUrl) { try { URL.revokeObjectURL(this.clipUrl); } catch { /* it was never made */ } }
+    this.clipUrl = null;
+    this.clipBlob = null;
+  }
+
+  /** The clip of a round that has just ended, made ready for the results page (null when there is none). */
+  private takeClip(game: ShellGame, summary: Parameters<PlayHost['finish']>[2], clip: ClipFile | null): RoundResult['clip'] {
+    this.dropClip();
+    if (!clip) return null;
+    try {
+      this.clipBlob = clip.blob;
+      this.clipUrl = URL.createObjectURL(clip.blob);
+    } catch { this.dropClip(); return null; }
+    const mirror = hudModeFor(game) === 'mirror';
+    return { url: this.clipUrl as string, name: `bodyarcade-${game.seo.slug}-${Math.max(0, Math.round(summary.score))}.${clip.ext}`, mime: clip.mime, seconds: clip.seconds, camera: mirror };
+  }
+
+  /** The clip goes to the share sheet as a file where the browser takes one; anywhere else it is saved, which the player is told. */
+  private async shareClip(): Promise<void> {
+    const blob = this.clipBlob;
+    const info = this.state.result?.clip;
+    const result = this.state.result;
+    if (!blob || !info || !result) return;
+    const ctx = this.ctx();
+    const g = gameById(this.games, result.gameId);
+    const file = new File([blob], info.name, { type: info.mime });
+    const data: ShareData = {
+      files: [file], title: g ? titleOf(ctx, g) : 'BodyArcade',
+      text: ctx.i18n.t('results.clip.text', { score: ctx.i18n.number(Math.round(result.score)), game: g ? titleOf(ctx, g) : 'BodyArcade' }),
+      ...(g ? { url: `${this.win.location.origin}${ctx.href('game', { params: { slug: g.seo.slug } })}` } : {}),
+    };
+    const nav = this.win.navigator;
+    try {
+      if (typeof nav.canShare === 'function' && nav.canShare(data) && typeof nav.share === 'function') { await nav.share(data); return; }
+    } catch (e) {
+      if ((e as { name?: string }).name === 'AbortError') return;
+      /* the share sheet failed: the file is saved instead */
+    }
+    const a = this.doc.createElement('a');
+    a.href = info.url;
+    a.download = info.name;
+    this.doc.body.append(a);
+    a.click();
+    a.remove();
+    this.toaster.show(ctx.i18n.t('results.clip.saved'));
+  }
+
+  private finishRound(game: ShellGame, setup: SetupState, summary: Parameters<PlayHost['finish']>[2], race: RaceOutcome | null = null, clip: ClipFile | null = null): void {
     const ctx = this.ctx();
     // A child's profile has no weight and no calories.
     const weightKg = this.rules().calories ? this.currentSettings().weightKg : null;
@@ -893,8 +954,10 @@ export class App {
     const progress = practice ? null : this.progressOf(report ? { play: report.play, challenge: report.challenge, habit: report.habit, news: report.outcome.news } : { play: shared?.play ?? null, challenge: null, habit: shared?.habit ?? this.arcade.habit.view(), news: [] });
     const plan = step?.progress && before ? this.panelOf(step.progress, before.plan, before.total) : null;
     const again = this.raceParam ? playHref(ctx, game, setup, { ghost: this.raceParam }) : '';
+    const clipOf = this.takeClip(game, summary, clip);
     const result: RoundResult = {
       ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous, practice }), progress, plan, ...(first ? { first: true } : {}),
+      ...(clipOf ? { clip: clipOf } : {}),
       ...(race ? { score: race.you, race: { ...race, again } } : {}),
     };
     this.state = { ...this.state, result };
@@ -1063,6 +1126,10 @@ export class App {
         if (g) openGhostDialog(this.ghostHost(), g);
         break;
       }
+      case 'clip-share':
+        e.preventDefault();
+        void this.shareClip();
+        break;
       case 'ghost-send':
         e.preventDefault();
         void this.sendRun(el.dataset['code'] ?? '');
@@ -1170,6 +1237,8 @@ export class App {
       // What a round starts with: a game's page that was already opened keeps what it had, so the choice is made again from the new default.
       case 'controls': s.set({ controls: t.value === 'keyboard' ? 'keyboard' : 'camera' }); this.setups.clear(); break;
       case 'skeleton': s.set({ skeleton: checked }); break;
+      case 'clips': s.set({ clips: checked }); break;
+      case 'clipCamera': s.set({ clipCamera: checked }); break;
       case 'sound': s.set({ sound: checked }); break;
       case 'bigText': s.set({ bigText: checked }); break;
       case 'motion': s.set({ motion: checked ? 'reduce' : 'full' }); break;

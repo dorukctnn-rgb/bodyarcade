@@ -75,8 +75,8 @@ test.describe('the challenge of the day and the week', () => {
     await page.evaluate(() => localStorage.setItem('ba2.entitlements.current', JSON.stringify({ v: 1, d: { kept: true } })));
     await page.goto(`${WEB_DEV_URL}/settings/`);
     await page.getByRole('button', { name: 'Clear data on this device' }).click();
-    await page.getByRole('button', { name: 'Clear data', exact: true }).click();
-    await expect(page.locator('.ba-toast')).toContainText('Data cleared');
+    await page.getByRole('button', { name: 'Clear records', exact: true }).click();
+    await expect(page.locator('.ba-toast')).toContainText('Your records on this device were cleared.');
     expect(await page.evaluate(() => localStorage.getItem('ba2.entitlements.current'))).toContain('kept');
     expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('ba2.squat-flap.')))).toEqual([]);
     await page.goto(`${WEB_DEV_URL}/`);

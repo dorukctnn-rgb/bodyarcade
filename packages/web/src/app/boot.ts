@@ -36,7 +36,7 @@ export interface BootOptions {
 // ---- the switches of launch day: each is one line, and each stays false until what it names is true --------------------------------
 
 /**
- * LAUNCH DAY, switch 1 of 2: Family is sold once its six profiles are there to use: the screen of players (who is playing, add, edit,
+ * LAUNCH DAY, the one switch left: Family is sold once its six profiles are there to use: the screen of players (who is playing, add, edit,
  * remove), the parent gate, the rules of a child's profile in every screen, and the table of the family on a game's page, all tested on
  * the ten sizes. The entitlements keep the plan off the page until it is told (realBilling's `family`), so this is the one switch:
  * change `false` to `true` on this line and nothing else (no test pins it off; the release gate of content.test.ts, BA_RELEASE=1,
@@ -45,11 +45,12 @@ export interface BootOptions {
 export const FAMILY_ON = false;
 
 /**
- * LAUNCH DAY, switch 2 of 2: the paywall says that rooms play the host's Pro games only once the Room verifies the host's signed Pro
- * before a Pro game starts (builder N; BUILD-PLAN, launch-day list, "Room claim"). Until that check is on v2 the line stays out of the
- * paywall. When it is, change `false` to `true` on this line.
+ * The paywall says that rooms play the host's Pro games only because the Room verifies the host's signed Pro before a Pro game starts
+ * (builder N; BUILD-PLAN, launch-day list, "Room claim"). That check is on v2 since 25 Oct (the Worker checks the entitlement token with
+ * the public key and the Room compares its end time with its own clock; a free host is refused a Pro game, players who join never need
+ * Pro), so the line is in. If the check is ever taken out, this goes back to `false` in the same change.
  */
-export const ROOM_PRO_ON = false;
+export const ROOM_PRO_ON = true;
 
 /** How long the first page waits for the entitlements before it is drawn from what the device kept. */
 export const ENTITLEMENTS_WAIT_MS = 600;

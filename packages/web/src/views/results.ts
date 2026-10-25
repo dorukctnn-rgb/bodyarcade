@@ -75,6 +75,8 @@ export interface RoundResult {
   race?: (RaceOutcome & { again: string }) | null;
   /** Played with the keyboard or touch: practice, so no calories, no record and no progress; the page says that instead. */
   practice?: boolean;
+  /** The last seconds of the round as a video made on this device (the address is the page's own, a blob), to show, share and save. */
+  clip?: { url: string; name: string; mime: string; seconds: number; /** The video shows the camera picture (a mirror game's game view has it). */ camera: boolean } | null;
 }
 
 export function formatClock(seconds: number): string {
@@ -113,6 +115,20 @@ function calories(ctx: ViewContext, r: RoundResult): SafeHtml {
   if (!rulesOf(ctx.player).calories) return html``;
   if (r.calories === null) return html`<div class="k-kcal"><span class="ba-small">${t.t('results.noWeight')} <a class="ba-link" href="${ctx.href('settings')}">${t.t('nav.settings')}</a></span></div>`;
   return html`<div class="k-kcal"><b>${t.t('results.calories', { n: t.number(Math.round(r.calories)) })}</b><span class="ba-small">${t.t('results.calories.note')}</span></div>`;
+}
+
+/** The clip of the round's last seconds, with the way to share it and to save it, and what it is made of. */
+function clipCard(ctx: ViewContext, r: RoundResult): SafeHtml {
+  const c = r.clip;
+  if (!c) return html``;
+  const t = ctx.i18n;
+  return html`<section class="k-card k-clip" aria-labelledby="clip-h" data-clip>
+    <h2 class="k-h3" id="clip-h">${t.t('results.clip.title')}</h2>
+    <video class="k-clipvideo" src="${c.url}" controls playsinline muted loop preload="metadata" aria-label="${t.t('results.clip.alt')}"></video>
+    <div class="k-clipactions"><button type="button" class="ba-btn ba-btn--primary" data-action="clip-share">${icon('share')}<span>${t.t('results.clip.share')}</span></button>
+      <a class="ba-btn ba-btn--secondary" href="${c.url}" download="${c.name}" data-clip-save>${icon('download')}<span>${t.t('results.clip.save')}</span></a></div>
+    <p class="k-fine">${c.camera ? t.t('results.clip.noteCamera') : t.t('results.clip.note')}</p>
+  </section>`;
 }
 
 function why(ctx: ViewContext, r: RoundResult): SafeHtml {
@@ -185,6 +201,7 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
       </div>
       <div class="k-stack">
         ${r.plan ? planPanel(ctx, r.plan) : ''}
+        ${clipCard(ctx, r)}
         ${why(ctx, r)}
         ${r.replay ? html`<section class="k-card k-replay" aria-labelledby="replay"><h2 id="replay" class="k-h3">${t.t('results.replay.title')}</h2>
           <div class="view" data-replay role="img" aria-label="${t.t('results.replay.alt', { reason: r.replay.reason })}"></div>

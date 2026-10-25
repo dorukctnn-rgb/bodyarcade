@@ -28,6 +28,10 @@ export interface Settings {
   pipCorner: PipPlacement;
   /** Draw the tracked skeleton on the self view. */
   skeleton: boolean;
+  /** Keep the last seconds of a round on this device, to be shared from the results. Nothing is uploaded. */
+  clips: boolean;
+  /** Let the mirror games make a clip: their game view has the camera picture in it. Off: they make none. */
+  clipCamera: boolean;
   motion: MotionPref;
   /** TV mode: root font size 150 % and four columns. */
   bigText: boolean;
@@ -56,6 +60,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   controls: 'camera',
   pipCorner: 'bottom-right',
   skeleton: true,
+  clips: true,
+  clipCamera: false,
   motion: 'system',
   bigText: false,
   sound: true,
@@ -95,6 +101,8 @@ export function sanitizeSettings(raw: unknown): Settings {
     controls: oneOf(o['controls'], ['camera', 'keyboard'], d.controls),
     pipCorner: oneOf(o['pipCorner'], PIP_PLACEMENTS, d.pipCorner),
     skeleton: bool(o['skeleton'], d.skeleton),
+    clips: bool(o['clips'], d.clips),
+    clipCamera: bool(o['clipCamera'], d.clipCamera),
     motion: oneOf(o['motion'], ['system', 'reduce', 'full'], d.motion),
     bigText: bool(o['bigText'], d.bigText),
     sound: bool(o['sound'], d.sound),

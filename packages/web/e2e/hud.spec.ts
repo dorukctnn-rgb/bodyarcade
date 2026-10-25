@@ -57,6 +57,26 @@ for (const bp of BREAKPOINTS) {
     expect(found, found.join('\n')).toEqual([]);
   });
 
+  test(`${bp.label}: a round without the camera has no self view and no button for one, and the game keeps at least the room it had`, async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: bp.w, height: bp.h });
+    await page.goto(`${WEB_DEV_URL}/e2e/pages/hud.html`, { waitUntil: 'networkidle' });
+    await page.evaluate(() => document.fonts.ready);
+    const found: string[] = [];
+    for (const lang of ['en', 'tr'] as const) {
+      for (const c of SOLO) {
+        const r = await page.evaluate((x) => window.__HUD__.noSelfView(x), { lang, ...c });
+        const label = `${lang} ${c.mode} ${c.corner}`;
+        if (r.tileShown) found.push(`${label}: the self view tile is on the screen`);
+        if (r.buttonShown) found.push(`${label}: the button that brings a self view back is on the screen`);
+        if (r.corner !== 'hidden') found.push(`${label}: the HUD says the self view is in ${r.corner}`);
+        if (r.problems.length > 0) found.push(`${label}: ${r.problems.join('; ')}`);
+        if (r.playWithout.w * r.playWithout.h < r.playWith.w * r.playWith.h - 1) found.push(`${label}: the game has less room without the self view (${JSON.stringify(r.playWithout)}) than with it (${JSON.stringify(r.playWith)})`);
+      }
+    }
+    expect(found, found.join('\n')).toEqual([]);
+  });
+
   test(`${bp.label}: the scene kit leaves a game the area the HUD reports, its plate boxes are where the plates are, and a scene game is clear of them, with every reason, in every language`, async ({ page }) => {
     test.setTimeout(300_000);
     await page.setViewportSize({ width: bp.w, height: bp.h });

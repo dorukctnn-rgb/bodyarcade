@@ -17,6 +17,7 @@ import {
 } from './calib.ts';
 import type { StageHandles } from './ports.ts';
 import { plateName, type RaceOutcome, type RaceRival, type RaceSource } from './race.ts';
+import type { ClipFile, ClipRecorder } from './clip.ts';
 
 export interface PlayHost {
   document: Document;
@@ -28,8 +29,8 @@ export interface PlayHost {
   confirmLeave(): Promise<boolean>;
   /** Back to the game's page. */
   leave(): void;
-  /** The round is over: show the results (of a race, how it ended). */
-  finish(game: ShellGame, setup: SetupState, summary: RunSummary, race?: RaceOutcome | null): void;
+  /** The round is over: show the results (of a race, how it ended), with the clip of its last seconds when there is one. */
+  finish(game: ShellGame, setup: SetupState, summary: RunSummary, race?: RaceOutcome | null, clip?: ClipFile | null): void;
   pipCorner(): PipPlacement;
   /** Moves the self view to the next corner (or hides it) and returns where it is now. */
   cyclePip(): PipPlacement;
@@ -62,6 +63,8 @@ export interface PlayControllerOptions {
   race?: RaceSource | null;
   /** The body of this round is a stand-in (the practice session of development and test builds): the self view stays whatever the controls are. */
   simulatedBody?: boolean;
+  /** A recorder of the last seconds of the game view, for a clip the player may share; null where clips are off or cannot be made. */
+  makeClip?(canvas: HTMLCanvasElement): ClipRecorder | null;
 }
 
 const CAMERA_CODES = new Set(['denied', 'not_found', 'in_use', 'overconstrained', 'no_frames', 'insecure', 'unsupported', 'unknown']);
@@ -97,6 +100,8 @@ export class PlayController {
   private stuck = false;
   private deskShown: DeskCard = 'none';
   private fellBack = false;
+  private clip: ClipRecorder | null = null;
+  private clipTried = false;
   private disposed = false;
   private usedFree = false;
   private launching = false;
@@ -191,10 +196,30 @@ export class PlayController {
     on('pause', (r) => this.onPause(r));
     on('countdown', ({ remaining }) => this.onCountdown(remaining));
     on('calibration', (c) => this.onCalibration(c));
-    on('over', (summary) => this.host.finish(this.game, this.setup, summary, this.o.race?.outcome() ?? null));
+    on('over', (summary) => { void this.over(summary); });
     on('error', (e) => this.onError(e.code, e.message));
     on('player', (p) => this.onPlayer(p.player, p.present));
     on('video', ({ el }) => this.onVideo(el));
+  }
+
+  /** The round is over: its clip is cut (a moment), then the results. */
+  private async over(summary: RunSummary): Promise<void> {
+    const recorder = this.clip;
+    this.clip = null;
+    let clip: ClipFile | null = null;
+    if (recorder) { try { clip = await recorder.finish(); } catch { clip = null; } }
+    if (this.disposed) return;
+    this.host.finish(this.game, this.setup, summary, this.o.race?.outcome() ?? null, clip);
+  }
+
+  /** The recording of the last seconds begins with the play, and waits when the round does. */
+  private beginClip(): void {
+    if (this.clip) { this.clip.resume(); return; }
+    if (this.clipTried) return;
+    this.clipTried = true;
+    const canvas = this.o.stage.querySelector<HTMLCanvasElement>('[data-scene] canvas');
+    this.clip = canvas ? this.o.makeClip?.(canvas) ?? null : null;
+    this.clip?.start();
   }
 
   private async launch(): Promise<void> {
@@ -222,10 +247,12 @@ export class PlayController {
     switch (state) {
       case 'idle':
       case 'setup':
+        this.clip?.pause();
         hud.setPhase('calibrate');
         if (!this.overlay || this.overlay.kind === 'loading' || this.overlay.kind === 'countdown') this.show({ kind: 'loading' });
         break;
       case 'calibrating': {
+        this.clip?.pause();
         hud.setPhase('calibrate');
         this.lastCalib = '';
         this.deskOffer.reset();
@@ -242,12 +269,14 @@ export class PlayController {
         break;
       }
       case 'countdown':
+        this.clip?.pause();
         hud.setPhase('play');
         this.host.announce(this.ctx().i18n.t('countdown.announce', { n: 3 }));
         this.show({ kind: 'countdown', n: 3 });
         break;
       case 'running':
         hud.setPhase('play');
+        this.beginClip();
         this.show(null);
         this.pauseReason = null;
         hud.setAway(null);
@@ -263,6 +292,7 @@ export class PlayController {
 
   private onPause(reason: PauseReason): void {
     this.pauseReason = reason;
+    this.clip?.pause();
     // A lost player is shown on the stage (their half dims and a plate asks them back); everything else gets a panel.
     if (reason === 'player_lost') return;
     this.show({ kind: 'paused', reason });
@@ -488,6 +518,10 @@ export class PlayController {
   }
 
   private async restart(): Promise<void> {
+    // a round that begins again is a new clip
+    this.clip?.dispose();
+    this.clip = null;
+    this.clipTried = false;
     this.session?.quit();
     this.hud?.setAway(null);
     await this.launch();
@@ -553,6 +587,8 @@ export class PlayController {
     this.doc.removeEventListener('visibilitychange', this.visibility);
     for (const off of this.offs.splice(0)) off();
     this.guideObserver?.disconnect();
+    this.clip?.dispose();
+    this.clip = null;
     this.session?.quit();
     this.o.race?.dispose();
     this.layoutListeners.clear();

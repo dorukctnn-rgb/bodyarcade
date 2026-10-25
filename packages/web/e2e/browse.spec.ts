@@ -114,7 +114,8 @@ test.describe('a round', () => {
     await expect(page.locator('h1')).toHaveText('BodyArcade Pro');
     await expect(page.locator('.ba-callout')).toContainText('Pro is active on this device.');
 
-    await page.goto(`${WEB_DEV_URL}/games/pad-work/`);
+    // A development build keeps the plan in memory (a published one keeps the licence), so the game's page is reached without loading the page again.
+    await page.evaluate(() => { history.pushState(null, '', '/games/pad-work/'); window.dispatchEvent(new PopStateEvent('popstate')); });
     await expect(page.locator('form[data-form="setup"]')).toHaveCount(1);
     await expect(page.locator('a.ba-tile, .ba-badge--pro').first()).toBeVisible();
   });
@@ -316,13 +317,13 @@ test.describe('settings and language', () => {
     await page.goto(`${WEB_DEV_URL}/settings/`);
     await page.locator('label[for="set-quiet"]').click();
     await page.getByRole('button', { name: 'Clear data on this device' }).click();
-    await expect(page.getByRole('dialog')).toContainText('Clear data on this device?');
+    await expect(page.getByRole('dialog')).toContainText('Clear your records?');
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.locator('#set-quiet')).toBeChecked();
     await page.getByRole('button', { name: 'Clear data on this device' }).click();
-    await page.getByRole('button', { name: 'Clear data', exact: true }).click();
+    await page.getByRole('button', { name: 'Clear records', exact: true }).click();
     await expect(page.locator('#set-quiet')).not.toBeChecked();
-    await expect(page.locator('.ba-toast')).toContainText('Data cleared');
+    await expect(page.locator('.ba-toast')).toContainText('Your records on this device were cleared.');
   });
 
   test('going offline says so once, even when the event comes twice', async ({ page, context }) => {

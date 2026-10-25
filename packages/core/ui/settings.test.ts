@@ -39,6 +39,18 @@ describe('settings', () => {
     expect(store.get().controls).toBe('camera');
   });
 
+  it('the clips are on to begin with and the camera picture is not in them; a damaged value is the default', () => {
+    expect(DEFAULT_SETTINGS.clips).toBe(true);
+    expect(DEFAULT_SETTINGS.clipCamera).toBe(false);
+    const s = sanitizeSettings({ clips: false, clipCamera: true });
+    expect(s.clips).toBe(false);
+    expect(s.clipCamera).toBe(true);
+    for (const bad of ['no', 0, null, {}]) {
+      expect(sanitizeSettings({ clips: bad, clipCamera: bad }).clips).toBe(true);
+      expect(sanitizeSettings({ clips: bad, clipCamera: bad }).clipCamera).toBe(false);
+    }
+  });
+
   it('a value that is not an object resets the key, nothing else', () => {
     expect(SETTINGS_SCHEMA.parse('oops')).toBeNull();
     expect(SETTINGS_SCHEMA.parse([])).toBeNull();
