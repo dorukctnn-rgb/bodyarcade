@@ -122,7 +122,7 @@ export function webTargets(prefix: string): Target[] {
     { id: 'web:profiles:manage', server: 'web', path: `${prefix}/profiles/?manage=1`, hooks: family, steps: [MAIN_READY], note: 'players, manage state' },
     { id: 'web:profiles:add', server: 'web', path: `${prefix}/profiles/`, hooks: family, steps: [MAIN_READY, { click: '[data-action="profile-add"]' }, { waitFor: 'form[data-form="profile"]' }, { wait: 300 }], note: 'the form that adds a player' },
     { id: 'web:profiles:kid', server: 'web', path: `${prefix}/settings/`, hooks: kid, steps: [MAIN_READY], note: 'the settings of a child profile' },
-    { id: 'web:profiles:gate', server: 'web', path: `${prefix}/profiles/`, hooks: kid, steps: [MAIN_READY, { click: 'role=button[name="Play as Me"]' }, { waitFor: 'dialog.pf-gatebox[open]' }, { wait: 300 }], note: 'the parent gate (a sum) that a child needs to go back to the main player' },
+    { id: 'web:profiles:gate', server: 'web', path: `${prefix}/profiles/`, hooks: kid, steps: [MAIN_READY, { click: 'button[data-action="profile-pick"]:has(b.pf-name:text-is("Me"))' }, { waitFor: 'dialog.pf-gatebox[open]' }, { wait: 300 }], note: 'the parent gate (a sum) that a child needs to go back to the main player' },
   );
   // The friends side in the practice build (`?social=...`): the screens, the sign-up window, a room just made.
   const social = (id: string, path: string, note: string, steps: Step[] = []): Target => ({ id: `web:${id}`, server: 'web', path: `${prefix}${path}`, hooks: PRACTICE, steps: [MAIN_READY, ...steps], note });

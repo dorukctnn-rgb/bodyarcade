@@ -93,6 +93,8 @@ jobs:
           - { os: ubuntu-latest, engine: webkit, label: 'WebKit, Linux', pagecheck: false }
           - { os: ubuntu-latest, engine: firefox, label: 'Firefox, Linux', pagecheck: true }
           - { os: macos-latest, engine: firefox, label: 'Firefox, macOS', pagecheck: false }
+          # the same flows on Chromium in the same environment: a flow that fails here too is the flow's, not the engine's
+          - { os: ubuntu-latest, engine: chromium, label: 'Chromium, Linux (baseline)', pagecheck: false }
     steps:
       - uses: actions/checkout@v7
 
@@ -105,7 +107,7 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Install the engine
-        run: npx playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }} ${{ matrix.engine }}
+        run: npx playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }} ${{ matrix.engine == 'chromium' && '--only-shell' || '' }} ${{ matrix.engine }}
 
       - name: What this engine can do here (camera, WebRTC, Web Audio, WebGL, workers)
         run: node tools/browsers/run.ts --probe --engines ${{ matrix.engine }}
