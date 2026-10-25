@@ -244,17 +244,34 @@ try {
     cameraFile = conv.file;
     personCamera = engine === 'chromium' ? null : conv.file;
   }
-  browser = engine === 'webkit' ? await webkit.launch({ headless: true })
-    : engine === 'firefox' ? await firefox.launch({ headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true } })
-      : await chromium.launch(cameraFile ? withFakeVideo(cameraFile) : baseLaunchOptions);
+  const launch = (): Promise<Browser> => engine === 'webkit' ? webkit.launch({ headless: true })
+    : engine === 'firefox' ? firefox.launch({ headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true } })
+      : chromium.launch(cameraFile ? withFakeVideo(cameraFile) : baseLaunchOptions);
+  browser = await launch();
   // Start the servers before the workers race for them.
   for (const k of new Set(targets.map((t) => t.server))) await serverFor(k);
+  // A screen that never answers (a browser that crashed and does not say so: WebKit for Windows on the home page hung a run for twenty minutes) is a finding of its own, and the browser
+  // is started again for the screens after it.
+  const SCREEN_LIMIT_MS = 180_000;
+  const checkWithin = async (target: Target, size: { id: string; w: number; h: number }): Promise<PageResult> => {
+    const used = browser as Browser;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        check(used, target, size),
+        new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error(`no answer in ${SCREEN_LIMIT_MS / 1000} s`)), SCREEN_LIMIT_MS); }),
+      ]);
+    } catch (e) {
+      if (browser === used) { browser = null; await used.close().catch(() => undefined); browser = await launch(); }
+      return { target: target.id, size: size.id, w: size.w, h: size.h, errors: 1, warnings: 0, findings: [], messages: [`could not check the page: ${(e as Error).message}`], probe: [], probeWarn: [], shot: null, ms: SCREEN_LIMIT_MS, stats: null } as unknown as PageResult;
+    } finally { clearTimeout(timer); }
+  };
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(jobsN, jobs.length) }, async () => {
     for (;;) {
       const j = jobs[next++];
       if (!j) return;
-      let r = await check(browser as Browser, j.t, j.s);
+      let r = await checkWithin(j.t, j.s);
       // A dev server that resets one connection on a loaded machine is not a finding: a screen whose only problem is that is looked at once more.
       if (r.errors > 0 && r.findings.length === 0 && r.probe.length === 0 && r.messages.filter((m) => !m.startsWith('console.warn')).every((m) => /ERR_CONNECTION_(RESET|REFUSED|CLOSED)|ECONNRESET/.test(m))) r = await check(browser as Browser, j.t, j.s);
       results.push(r);
