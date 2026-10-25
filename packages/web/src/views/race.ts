@@ -7,6 +7,7 @@ import { attr, html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import type { ViewContext } from '../context.ts';
 import { ghostParam, plateName, specOfRun, type GhostMenu, type RaceOutcome } from '../app/race.ts';
+import { lrText } from '../app/live-strings.ts';
 
 /** The draft of the window: what is chosen, and the recordings pasted in since it opened. */
 export interface GhostChoice {
@@ -116,6 +117,44 @@ export function raceBlock(ctx: ViewContext, r: RaceOutcome, o: { again: string; 
     <div class="ba-actions rc-actions"><a class="ba-btn ba-btn--secondary" href="${o.again}" data-action="again" data-replace>${icon('replay')}<span>${t.t('race.result.again')}</span></a>
       ${o.sendable && r.code ? html`<button type="button" class="ba-btn ba-btn--secondary" data-action="ghost-send" data-code="${r.code}">${icon('share')}<span>${t.t('race.result.send')}</span></button>` : ''}</div>
     ${o.sendable && r.code ? html`<p class="ba-small">${t.t('race.result.sendHint')}</p>` : ''}
+  </section>`;
+}
+
+/**
+ * The lines of the results screen about a race in a room: who won and by how much (or who left), every player with their place and
+ * points, the runs of the others that the player may keep (a private room sends them; a child's screens never keep a stranger's
+ * words), and the room's own line about the rematch ([data-rematch], kept up to date by the app while the page is open).
+ */
+export function liveRaceBlock(ctx: ViewContext, r: RaceOutcome, o: { keep: boolean }): SafeHtml {
+  const t = ctx.i18n;
+  const lr = lrText(t);
+  const live = r.live;
+  if (!live) return html``;
+  const others = live.seats.filter((s) => !s.you);
+  const left = others.filter((s) => s.forfeited);
+  const winner = live.seats.find((s) => s.place === 1 && !s.forfeited && !s.you);
+  const verdict = live.reason === 'abandoned' ? lr('result.abandoned')
+    : live.reason === 'no_contest' ? lr('result.noContest')
+      : live.reason === 'forfeit' && r.won && left.length > 0 ? (left.length === 1 ? lr('result.left.one', { name: left[0]?.name ?? '' }) : lr('result.left.many'))
+        : r.won ? t.t('race.result.won', { n: Math.abs(r.margin) })
+          : r.draw ? t.t('race.result.draw')
+            : t.t('race.result.lost', { name: winner?.name ?? '', n: Math.abs(r.margin) });
+  const bestLine = r.best === 'best' ? t.t('race.result.best') : r.best === 'kept' ? t.t('race.result.kept') : '';
+  const keepable = o.keep ? others.filter((s) => s.run && !s.forfeited) : [];
+  return html`<section class="k-card rc-result lr-result" aria-labelledby="race-result-h" data-race data-live-result data-room="${live.room}">
+    <h2 class="k-h3" id="race-result-h">${t.t('race.result.title')}</h2>
+    <p class="rc-verdict" role="status" data-race-verdict>${verdict}</p>
+    <ol class="lr-places" aria-label="${lr('result.list')}">${live.seats.map((s) => html`<li data-seat="${s.seat}"${attr('data-you', s.you)}${attr('data-left', s.forfeited)}>
+      ${s.place !== null && !s.forfeited ? html`<span class="lr-place" aria-hidden="true">${String(s.place)}</span><span class="ba-visually-hidden">${lr('result.place', { n: s.place })}</span>` : html`<span class="lr-place lr-place--out" aria-hidden="true"></span>`}
+      <span class="lr-pname">${s.you ? lr('result.you', { name: s.name || t.t('race.result.you') }) : s.name}${s.forfeited ? html` <small>${lr('result.forfeit')}</small>` : ''}</span>
+      <b class="lr-ppoints">${points(ctx, s.score)}</b></li>`)}</ol>
+    ${bestLine ? html`<p class="ba-small" data-race-best>${bestLine}</p>` : ''}
+    <p class="ba-small lr-rematch" role="status" data-rematch></p>
+    ${keepable.length > 0 ? html`<div class="ba-actions rc-actions">${keepable.map((s) => s.kept
+      ? html`<p class="ba-small" data-kept="${s.seat}">${lr('result.kept', { name: s.name })}</p>`
+      : html`<button type="button" class="ba-btn ba-btn--secondary" data-action="race-keep" data-seat="${s.seat}">${icon('download')}<span>${lr('result.keep', { name: s.name })}</span></button>`)}</div>
+      <p class="ba-small">${lr('result.keepHint')}</p>` : ''}
+    <div class="ba-actions rc-actions"><button type="button" class="ba-btn ba-btn--quiet" data-action="room.leave">${lr('result.leave')}</button></div>
   </section>`;
 }
 

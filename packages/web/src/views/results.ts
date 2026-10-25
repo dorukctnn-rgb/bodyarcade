@@ -11,7 +11,8 @@ import { chrome } from './chrome.ts';
 import { pageHead } from './parts.ts';
 import { planPanel, type PlanPanel } from './plans.ts';
 import type { RaceOutcome } from '../app/race.ts';
-import { raceBlock } from './race.ts';
+import { liveRaceBlock, raceBlock } from './race.ts';
+import { lrText } from '../app/live-strings.ts';
 import { playHref, type SetupState } from './setup.ts';
 
 /** A number a game adds to its results beyond the common ones (Reaction Tag: the average and the best reaction), already in words. */
@@ -193,7 +194,7 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
           ${r.personalBest ? html`<span class="k-pb">${icon('star')}${t.t('results.personalBest')}</span>` : ''}
         </div>
         ${r.setup.players === 2 && r.players ? duo(ctx, r) : html`${score(ctx, r, g)}${counted(ctx, r)}`}
-        ${r.race ? raceBlock(ctx, r.race, { again: r.race.again, sendable: rulesOf(ctx.player).share }) : ''}
+        ${r.race?.live ? liveRaceBlock(ctx, r.race, { keep: rulesOf(ctx.player).ghosts === 'all' }) : r.race ? raceBlock(ctx, r.race, { again: r.race.again, sendable: rulesOf(ctx.player).share }) : ''}
         ${stats(ctx, r)}
         ${r.practice ? html`<p class="ba-callout" role="note" data-practice>${icon('info')}<span>${t.t('results.practice.note')}</span></p>` : calories(ctx, r)}
         ${first && !r.practice ? html`<p class="k-sub" data-first-saved>${t.t('onboarding.s7.saved')}</p>` : ''}
@@ -209,9 +210,12 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
           <p class="k-fine">${t.t('results.replay.hint')}</p></section>` : ''}
         ${!hasPro(ctx) && proMore > 0 ? html`<div class="k-card k-procard"><p>${t.t('results.proCard', { n: proMore })}</p><a class="ba-link" href="${ctx.href('pro')}">${t.t('results.proLink')}</a></div>` : ''}
       </div>
-      <div class="k-actionbar"><div class="k-actions k-actions--results">
-        <a class="ba-btn ba-btn--primary ba-btn--lg" href="${again}" data-action="again" data-replace>${icon('replay')}<span>${first ? t.t('onboarding.s7.full') : t.t('results.again')}</span></a>
-        <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${first ? t.t('onboarding.s7.all', { n: ctx.games.length }) : t.t('results.other')}</a>
+      <div class="k-actionbar"><div class="k-actions k-actions--results">${r.race?.live
+        // a race in a room: the rematch is the room's next race (the camera gets ready first), and the room is one press away
+        ? html`<a class="ba-btn ba-btn--primary ba-btn--lg" href="${r.race.again}" data-action="again" data-rematch-go data-replace>${icon('replay')}<span>${lrText(t)('result.rematch')}</span></a>
+        <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${r.race.live.roomHref ?? ctx.href('room', { params: { code: r.race.live.room } })}" data-room-back>${icon('users')}<span>${lrText(t)('result.room')}</span></a>`
+        : html`<a class="ba-btn ba-btn--primary ba-btn--lg" href="${again}" data-action="again" data-replace>${icon('replay')}<span>${first ? t.t('onboarding.s7.full') : t.t('results.again')}</span></a>
+        <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${first ? t.t('onboarding.s7.all', { n: ctx.games.length }) : t.t('results.other')}</a>`}
       </div></div>
     </div>`;
   return chrome(ctx, { tab: 'games', main, mainClass: 'ba-page--results', pushed: true });

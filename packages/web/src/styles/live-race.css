@@ -1,0 +1,67 @@
+/* A race in a room, on the stage of the round (app/live-stage.ts): the others' tiles (camera or skeleton, name and points), the line
+   that says who the start waits for or who holds the race, the Room's 3-2-1, bubbles of what the others send and a row of reactions.
+   Above the HUD, under the panels of the round; only the buttons take a touch, everything else lets it through to the stage. */
+.lr-layer { position: absolute; inset: 0; z-index: 6; pointer-events: none; color: #F4F2F8; font-family: var(--ba-font-text); }
+.lr-layer [hidden] { display: none !important; }
+.lr-status {
+  position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 84px); transform: translateX(-50%); margin: 0;
+  max-width: min(calc(100vw - 32px), 520px); width: max-content; padding: 10px 18px; border-radius: 999px; text-align: center;
+  background: rgba(20, 15, 39, 0.8); font: 600 1rem/1.35 var(--ba-font-text); overflow-wrap: anywhere;
+}
+.lr-count {
+  position: absolute; inset: 0; display: grid; place-items: center; font: 800 min(38vw, 38vh, 220px)/1 var(--ba-font-display, var(--ba-font-text));
+  color: #FFC53A; text-shadow: 0 6px 0 rgba(20, 15, 39, 0.55); font-variant-numeric: tabular-nums;
+}
+.lr-tiles {
+  position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: 50%; transform: translateY(-50%); display: grid; gap: 8px;
+  margin: 0; padding: 0; list-style: none;
+}
+.lr-tile { width: 132px; padding: 6px; border-radius: 14px; background: rgba(20, 15, 39, 0.74); font-size: 0.8125rem; line-height: 1.3; }
+.lr-tile.is-out { opacity: 0.55; }
+.lr-pic { position: relative; overflow: hidden; border-radius: 9px; background: #241C40; aspect-ratio: 4 / 3; }
+.lr-pic canvas, .lr-pic video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.lr-pic video { transform: scaleX(-1); }
+.lr-who { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; margin-top: 4px; }
+.lr-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ba-hud-plate-muted, #CFC8E6); }
+.lr-score { font-weight: 800; font-variant-numeric: tabular-nums; }
+.lr-note { margin: 4px 0 0; font-size: 0.75rem; color: #CFC8E6; }
+.lr-retry {
+  pointer-events: auto; margin-top: 4px; min-height: 32px; width: 100%; border: 0; border-radius: 999px; cursor: pointer;
+  background: #F4F2F8; color: #1C1433; font: 700 0.8125rem/1 var(--ba-font-text);
+}
+.lr-bubble {
+  position: absolute; left: 50%; top: 6px; transform: translateX(-50%); max-width: calc(100% - 12px); padding: 3px 9px; border-radius: 999px;
+  background: #F4F2F8; color: #1C1433; font: 700 0.75rem/1.3 var(--ba-font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lr-bubble[data-kind="react"] { padding: 2px 6px; }
+.lr-bubble svg { display: block; width: 26px; height: 26px; }
+.lr-reacts {
+  position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); transform: translateX(-50%); display: flex; gap: 6px;
+  padding: 6px; border-radius: 999px; background: rgba(20, 15, 39, 0.74);
+}
+.lr-react {
+  pointer-events: auto; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  background: rgba(244, 242, 248, 0.1);
+}
+.lr-react svg { width: 28px; height: 28px; }
+.lr-react:focus-visible, .lr-retry:focus-visible { outline: 3px solid var(--ba-focus-halo, #46B4FF); outline-offset: 2px; }
+.lr-react:active { transform: scale(0.94); }
+@media (max-width: 480px), (max-height: 480px) {
+  .lr-tile { width: 104px; padding: 5px; }
+  .lr-status { font-size: 0.9375rem; padding: 8px 14px; top: calc(env(safe-area-inset-top, 0px) + 72px); }
+  .lr-react { width: 40px; height: 40px; }
+  .lr-react svg { width: 24px; height: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { .lr-react:active { transform: none; } }
+
+/* The results of a race in a room: every player with their place and points. */
+.lr-places { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.lr-places li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: var(--ba-radius-lg); background: var(--ba-surface-sunken); }
+.lr-places li[data-you] { box-shadow: inset 0 0 0 2px var(--ba-accent); }
+.lr-places li[data-left] { opacity: 0.7; }
+.lr-place { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--ba-surface); font-weight: 800; font-variant-numeric: tabular-nums; }
+.lr-place--out { background: transparent; }
+.lr-pname { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.lr-pname small { color: var(--ba-text-muted); font-weight: 500; }
+.lr-ppoints { flex: none; font-variant-numeric: tabular-nums; }
+.lr-rematch:empty { display: none; }

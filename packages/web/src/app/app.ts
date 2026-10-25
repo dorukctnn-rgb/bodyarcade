@@ -49,10 +49,13 @@ import { decodeRun, type GhostRun } from '../../../core/net/ghost.ts';
 import { keyValueOf } from '../../../core/store/index.ts';
 import { canRace } from './duel.ts';
 import { openGhostDialog, type GhostDialogHost } from './ghost-dialog.ts';
-import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceWorld } from './race.ts';
+import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceStageMount, type RaceWorld } from './race.ts';
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
-import { SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
+import { roomOfRoute, SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
+import { liveSource } from './live-race.ts';
+import { mountLiveStage } from './live-stage.ts';
+import { lrText } from './live-strings.ts';
 import type { SocialServices } from '../social/port.ts';
 import { buildRoundResult, caloriesFor } from './results.ts';
 
@@ -167,6 +170,13 @@ export class App {
   private readonly ghostBooks = new Map<string, GhostBook>();
   /** What the race on the stage was asked for (`?ghost=`): "Race again" asks for the same kind of race. */
   private raceParam: string | null = null;
+  /** The room whose race is on the stage (`?room=`): the results go back to it, and its rematch is its next race. */
+  private raceRoom: string | null = null;
+  /** The stage of a room's race waits for the room (the friends services, or joining it again after a reload) before the round begins. */
+  private stageWait: { code: string; token: number } | null = null;
+  private stageToken = 0;
+  /** The results of a room's race follow the room (who wants a rematch, who left) while they are on the screen. */
+  private offRoomWatch: (() => void) | null = null;
   /** Back during a round: the page goes forward again and asks ('restoring'); a yes goes back for real ('leaving'). */
   private backGuard: 'idle' | 'restoring' | 'leaving' = 'idle';
   private social: SocialController | null;
@@ -413,6 +423,8 @@ export class App {
     this.social.start();
     this.social.enter(this.route);
     this.rerender();
+    // the stage of a room's race that waited for the friends services begins now
+    if (this.route?.id === 'play' && this.stageWait) this.render();
   }
 
   /** The services will not come (this site has no friends service): their pages are not there, as before. */
@@ -420,6 +432,7 @@ export class App {
     if (this.social || !this.socialComing) return;
     this.socialComing = false;
     this.rerender();
+    if (this.route?.id === 'play' && this.stageWait) this.render();
   }
 
   private watchEntitlements(): void {
@@ -559,7 +572,7 @@ export class App {
 
   /** What the address of the round carries besides the choices (the workout plan, the tour's first game, the race): a reload starts the same round. */
   private roundExtra(): Record<string, string | number> {
-    return { ...(this.planRound ? { plan: 1 } : {}), ...(this.firstRound ? { first: 1 } : {}), ...(this.raceParam ? { ghost: this.raceParam } : {}) };
+    return { ...(this.planRound ? { plan: 1 } : {}), ...(this.firstRound ? { first: 1 } : {}), ...(this.raceParam ? { ghost: this.raceParam } : {}), ...(this.raceRoom ? { room: this.raceRoom } : {}) };
   }
 
   /** How long a race is: the game's round within half a minute and a minute and a half (a test can shorten it). */
@@ -637,6 +650,9 @@ export class App {
 
   private render(): void {
     const route = this.route;
+    this.offRoomWatch?.();
+    this.offRoomWatch = null;
+    this.stageWait = null;
     // A clip is the results' own: it goes when the page goes on to anything else.
     if (route?.id !== 'results') this.dropClip();
     this.endPlay();
@@ -666,7 +682,7 @@ export class App {
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });
     if (route?.id === 'play' && page.status === 200) this.beginPlay(route);
     if (route?.id === 'welcome') void this.tour?.begin();
-    if (route?.id === 'results') this.startRestTimer();
+    if (route?.id === 'results') { this.startRestTimer(); this.watchRoom(); }
   }
 
   // ---- the welcome tour -------------------------------------------------------------------------------------------------
@@ -739,21 +755,29 @@ export class App {
     const ctx = this.ctx();
     // A race is one player's round (the other side is the recording, or the friends of a room), whatever the game's page had chosen,
     // and it is played with the camera: the platform's session does not start a race by keyboard (the moves are the race).
-    const spec = parseGhost(route.query.get('ghost'));
-    const racing = spec !== null && canRace(g);
+    // A room's race (`?room=`) is the room's: its clock, its course and its judge are the Room's (live-race.ts).
+    const room = canRace(g) ? roomOfRoute(route) : null;
+    const spec = room ? null : parseGhost(route.query.get('ghost'));
+    const racing = room !== null || (spec !== null && canRace(g));
     const asked = setupFromQuery(ctx, g, route.query);
     const setup: SetupState = racing ? { ...asked, players: 1, input: 'camera' } : asked;
     this.planRound = route.query.get('plan') === '1' && this.arcade.plans.active()?.current?.game === g.id;
     this.firstRound = route.query.get('first') === '1' && g.id === FIRST_GAME_ID;
-    // A Pro game without Pro and without a free round left goes to the offer, not to a round that cannot count.
-    if (accessOf(ctx, g) === 'locked') {
+    // A Pro game without Pro and without a free round left goes to the offer, not to a round that cannot count. In a room the Room
+    // decides: a Pro game starts there only with the host's verified Pro, and then it is everybody's to play.
+    if (!room && accessOf(ctx, g) === 'locked') {
       this.nav.go(ctx.href('pro', { query: { game: g.id } }), { replace: true });
       return;
     }
     // A race against a recording: the address says which; a race needs a game that can be raced, and a recording that exists.
     let race: RaceSource | null = null;
     this.raceParam = null;
-    if (spec && racing) {
+    this.raceRoom = null;
+    if (room) {
+      race = this.roomRace(g, room);
+      if (!race) return;
+      this.raceRoom = room;
+    } else if (spec && racing) {
       race = this.ghostRace(g, spec);
       if (!race) {
         this.nav.go(ctx.href('game', { params: { slug: g.seo.slug } }), { replace: true });
@@ -774,6 +798,120 @@ export class App {
       ...(this.firstRound ? { explained: true } : {}),
     });
     void this.play.begin();
+  }
+
+  /**
+   * The race of the room the address names (`?room=`), on the room's own client (the room is the app's: the player goes from its page to
+   * its stage and back on one connection). Null while the stage waits for the room, which begins the round by itself once the room is
+   * there (the friends services arrive, or the room is joined again after a reload), and when the room is not this player's to race
+   * here: its page says why (no profile yet, a room that closed, another game chosen since).
+   */
+  private roomRace(g: ShellGame, code: string): RaceSource | null {
+    const ctx = this.ctx();
+    if (!this.social) {
+      if (this.socialComing) { this.waitForRoom(code, false); return null; }
+      this.nav.go(ctx.href('game', { params: { slug: g.seo.slug } }), { replace: true });
+      return null;
+    }
+    const rooms = this.social.services().rooms;
+    const st = rooms.state();
+    const client = rooms.client?.() ?? null;
+    if (!client || !st.info || st.info.code !== code || (st.phase !== 'lobby' && st.phase !== 'playing')) { this.waitForRoom(code, true); return null; }
+    if (st.info.config.gameId !== g.id) {
+      this.nav.go(ctx.href('room', { params: { code } }), { replace: true });
+      return null;
+    }
+    const src = liveSource(client, { room: code, name: this.liveName(), book: this.ghostBook(), standIn: this.o.bodyIsSimulated?.(g.id) === true });
+    return Object.assign(src, { mount: (m: RaceStageMount) => mountLiveStage(m, src) });
+  }
+
+  /** The name the player has in rooms (their own run of a race carries it). */
+  private liveName(): string {
+    return this.social?.services().social.state().profile?.name ?? this.playerFacts()?.name ?? '';
+  }
+
+  /**
+   * The stage of a room's race says that it is joining the room, joins it (again) when asked to, and begins once the room has welcomed
+   * this page. A room that cannot be joined from here goes to its page, which says why or asks for the profile first.
+   */
+  private waitForRoom(code: string, join: boolean): void {
+    const token = ++this.stageToken;
+    this.stageWait = { code, token };
+    const overlay = this.doc.querySelector<HTMLElement>('[data-overlay]');
+    if (overlay) {
+      const panel = this.doc.createElement('div');
+      panel.className = 'ba-sheetpanel lr-joining';
+      panel.setAttribute('role', 'status');
+      panel.setAttribute('data-room-joining', '');
+      const p = this.doc.createElement('p');
+      p.className = 'ba-lead';
+      p.textContent = lrText(this.ctx().i18n)('joining');
+      panel.append(p);
+      overlay.replaceChildren(panel);
+    }
+    const social = this.social;
+    if (!join || !social) return;                                  // attachSocial() and noSocial() draw the stage again
+    const current = (): boolean => this.stageWait?.token === token && this.route?.id === 'play';
+    const toRoom = (): void => { if (current()) this.nav.go(this.ctx().href('room', { params: { code } }), { replace: true }); };
+    void (async () => {
+      const r = await social.joinForStage(code);
+      if (!current()) return;
+      if (!r.ok) { toRoom(); return; }
+      const rooms = social.services().rooms;
+      const welcomed = await new Promise<boolean>((done) => {
+        const check = (): boolean | null => {
+          const st = rooms.state();
+          if (st.info?.code === code && (st.phase === 'lobby' || st.phase === 'playing')) return true;
+          return st.phase === 'closed' ? false : null;
+        };
+        const first = check();
+        if (first !== null) { done(first); return; }
+        let off: () => void = () => undefined;
+        const timer = setTimeout(() => { off(); done(false); }, 15_000);
+        off = rooms.subscribe(() => { const v = check(); if (v !== null) { clearTimeout(timer); off(); done(v); } });
+      });
+      if (!current()) return;
+      if (welcomed) this.render(); else toRoom();
+    })();
+  }
+
+  /** The results of a room's race follow the room: who wants a rematch, who left. */
+  private watchRoom(): void {
+    const live = this.state.result?.race?.live;
+    const rooms = this.social?.services().rooms;
+    if (!live || !rooms) return;
+    const update = (): void => {
+      const el = this.doc.querySelector<HTMLElement>('[data-rematch]');
+      if (!el) return;
+      const st = rooms.state();
+      const t = lrText(this.ctx().i18n);
+      let text = '';
+      if (st.info?.code === live.room && st.phase !== 'closed') {
+        const others = st.members.filter((m) => m.seat !== st.me);
+        const ready = others.filter((m) => m.ready && m.online);
+        const gone = live.seats.filter((x) => !x.you && !others.some((m) => m.seat === x.seat));
+        if (others.length === 0) text = t('rematch.alone');
+        else if (ready.length === 1) text = t('rematch.one', { name: ready[0]?.name ?? '' });
+        else if (ready.length > 1) text = t('rematch.many', { n: ready.length });
+        else if (gone.length > 0) text = t('rematch.left', { name: gone[0]?.name ?? '' });
+      }
+      if (el.textContent !== text) el.textContent = text;
+    };
+    update();
+    this.offRoomWatch = rooms.subscribe(update);
+  }
+
+  /** "Keep the run of Bo": a friend's run of the race in the room goes into the player's book of recordings, to race it later. */
+  private keepRun(seat: string): void {
+    const r = this.state.result;
+    const live = r?.race?.live;
+    const s = live?.seats.find((x) => x.seat === seat && !x.you);
+    if (!r || !r.race || !live || !s?.run || this.rules().ghosts !== 'all') return;
+    this.ghostBook().addFriend(s.run);
+    const seats = live.seats.map((x) => (x.seat === seat ? { ...x, kept: true } : x));
+    this.state = { ...this.state, result: { ...r, race: { ...r.race, live: { ...live, seats } } } };
+    this.toaster.show(lrText(this.ctx().i18n)('result.kept', { name: s.name }));
+    this.rerender();
   }
 
   /** The Back button during a round is a way out like any other: the round is held, the page returns to it and asks. */
@@ -801,7 +939,12 @@ export class App {
       context: () => this.ctx(),
       announce: (t, a) => this.live.announce(t, a),
       toast: (t) => this.toaster.show(t),
-      confirmLeave: () => this.confirm({ title: this.ctx().i18n.t('leave.title'), body: this.ctx().i18n.t('leave.body'), confirm: this.ctx().i18n.t('leave.confirm'), cancel: this.ctx().i18n.t('leave.keep'), danger: true }),
+      confirmLeave: () => {
+        const t = this.ctx().i18n;
+        // leaving a room's race leaves the room too (the others see it: in a race of two the other wins at once)
+        if (this.raceRoom) { const lr = lrText(t); return this.confirm({ title: lr('leave.title'), body: lr('leave.body'), confirm: lr('leave.confirm'), cancel: t.t('leave.keep'), danger: true }); }
+        return this.confirm({ title: t.t('leave.title'), body: t.t('leave.body'), confirm: t.t('leave.confirm'), cancel: t.t('leave.keep'), danger: true });
+      },
       leave: () => this.nav.go(this.ctx().href('game', { params: { slug: g.seo.slug } }), { replace: true }),
       finish: (game, setup, summary, race, clip) => this.finishRound(game, setup, summary, race ?? null, clip ?? null),
       pipCorner: () => this.currentSettings().pipCorner,
@@ -844,6 +987,7 @@ export class App {
       announce: (text) => this.live.announce(text),
       rerender: () => this.rerender(),
       share: (text, o) => this.shareText(text, o),
+      raceMs: (g) => this.raceLength(g),
     };
   }
 
@@ -944,7 +1088,8 @@ export class App {
     // A round with the keyboard or by touch is practice: no body moved, so nothing of it goes into the record, the habit, the plan or the calories.
     const practice = setup.input !== 'camera' && !this.o.bodyIsSimulated?.(game.id);
     // A race is played for the time, like two players on one camera: its minutes count for the habit, and its score (the Room's sum, not the game's) is no personal best.
-    const solo = setup.players === 1 && !race;
+    const room = this.raceRoom;
+    const solo = setup.players === 1 && !race && !room;
     const before = this.arcade.plans.active();
     let report: RunReport | null = null;
     let step: PlanStepReport | null = null;
@@ -961,12 +1106,14 @@ export class App {
     const previous = report?.outcome.saved && report.outcome.previousBest > 0 ? report.outcome.previousBest : null;
     const progress = practice ? null : this.progressOf(report ? { play: report.play, challenge: report.challenge, habit: report.habit, news: report.outcome.news } : { play: shared?.play ?? null, challenge: null, habit: shared?.habit ?? this.arcade.habit.view(), news: [] });
     const plan = step?.progress && before ? this.panelOf(step.progress, before.plan, before.total) : null;
-    const again = this.raceParam ? playHref(ctx, game, setup, { ghost: this.raceParam }) : '';
+    // "Race again" is the same kind of race; after a room's race it is the room's next race (the rematch)
+    const again = room ? playHref(ctx, game, setup, { room }) : this.raceParam ? playHref(ctx, game, setup, { ghost: this.raceParam }) : '';
+    const raced = race?.live && room ? { ...race, live: { ...race.live, roomHref: ctx.href('room', { params: { code: room } }) } } : race;
     const clipOf = this.takeClip(game, summary, clip);
     const result: RoundResult = {
       ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous, practice }), progress, plan, ...(first ? { first: true } : {}),
       ...(clipOf ? { clip: clipOf } : {}),
-      ...(race ? { score: race.you, race: { ...race, again } } : {}),
+      ...(raced ? { score: raced.you, race: { ...raced, again } } : {}),
     };
     this.state = { ...this.state, result };
     if (!practice) {
@@ -974,7 +1121,8 @@ export class App {
       this.shell.set('rounds', this.rounds() + 1);
       void this.arcade.sync.sync();
     }
-    this.nav.go(ctx.href('results'), { replace: true });
+    // the results of a room's race belong to the room: it stays open under them (rematch, back to the room)
+    this.nav.go(room ? ctx.href('results', { query: { room } }) : ctx.href('results'), { replace: true });
   }
 
   /** What the round did to the record, as the results screen tells it: only what happened. */
@@ -1063,7 +1211,7 @@ export class App {
     const s = this.currentSettings();
     const show = shouldShowPaywallAfterRound({
       now: Date.now(), entitlementPlan: this.plan, child: !this.rules().autoPaywall, lastShownAt: s.paywallShownAt, priorRounds: Math.max(0, this.rounds() - 1),
-      round: { activeSeconds: r.seconds, completed: true, live: false },
+      round: { activeSeconds: r.seconds, completed: true, live: r.race?.live !== undefined },
       good: r.personalBest || (r.quality ?? 0) >= 0.8,
     });
     if (!show) return;
@@ -1141,6 +1289,10 @@ export class App {
       case 'ghost-send':
         e.preventDefault();
         void this.sendRun(el.dataset['code'] ?? '');
+        break;
+      case 'race-keep':
+        e.preventDefault();
+        this.keepRun(el.dataset['seat'] ?? '');
         break;
       case 'trial-dismiss':
         e.preventDefault();

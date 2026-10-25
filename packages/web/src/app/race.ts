@@ -9,6 +9,7 @@ import type { GhostRace, GhostRival } from '../../../core/net/ghost-race.ts';
 import type { RaceSide } from '../../../core/net/session-bridge.ts';
 import type { AvatarId, ProfileRules } from '../../../core/store/index.ts';
 import type { Landmark, Unsubscribe } from '../../../core/types/index.ts';
+import type { I18n } from '../../../core/ui/i18n/index.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import type { DuelFeed } from './duel.ts';
 
@@ -153,9 +154,56 @@ export interface RaceSource {
   readonly label: GhostLabel | null;
   /** How the race ended, once it has. */
   outcome(): RaceOutcome | null;
+  /**
+   * How the race ended, waiting for it when the game is over before the judge has spoken (a race in a room: the Room's result comes
+   * after the last final list, or after its grace). Null when no result comes within its wait. A recording has none: outcome() is final.
+   */
+  settle?(): Promise<RaceOutcome | null>;
+  /** What the race draws on the stage of its own (a race in a room: the friends' tiles, who the start waits for, the Room's 3-2-1). */
+  mount?(m: RaceStageMount): Unsubscribe;
   /** The player leaves the race: nothing more is called. */
   leave(): void;
   dispose(): void;
+}
+
+/** Where a race draws on the stage (see RaceSource.mount). */
+export interface RaceStageMount {
+  document: Document;
+  /** The stage of the round ([data-stage]). */
+  stage: HTMLElement;
+  /** The words of the page's language, fresh every call. */
+  i18n(): I18n;
+  announce(text: string): void;
+  /** A panel of the round is open (the calibration, a pause, an error): what the race draws over the play gives way to it. */
+  busy(): boolean;
+}
+
+/** One player of a race in a room, as the Room scored them. */
+export interface LiveSeat {
+  seat: string;
+  name: string;
+  score: number;
+  passes: number;
+  hits: number;
+  /** 1 is first; equal points share a place. Null for a player who left. */
+  place: number | null;
+  forfeited: boolean;
+  you: boolean;
+  /** The run as a recording to keep (a private room sends every player's run; a public room none, so a stranger's is never kept). */
+  run: GhostRun | null;
+  /** The player kept this run in their book (the results screen says so instead of offering it again). */
+  kept?: boolean;
+}
+
+/** A race in a room, as the results screen tells it: why it ended, every player, and the room. */
+export interface LiveRaceDetails {
+  reason: 'complete' | 'forfeit' | 'abandoned' | 'no_contest';
+  /** Best first, then the players who left. */
+  seats: LiveSeat[];
+  /** The code of the room. */
+  room: string;
+  /** The page of the room ("Back to the room"), filled in by the app. */
+  roomHref?: string;
 }
 
 /** How a race ended, for the results screen. */
@@ -176,6 +224,8 @@ export interface RaceOutcome {
   code: string | null;
   /** Where the next race of the same kind goes (the address of the round), for "Race again". */
   again?: string;
+  /** A race in a room: every player as the Room scored them. */
+  live?: LiveRaceDetails;
 }
 
 export interface GhostSourceOptions {

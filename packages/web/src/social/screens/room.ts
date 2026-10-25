@@ -42,7 +42,7 @@ const secondsLabel = (ctx: ViewContext, ms: number): string => {
   return s >= 90 && s % 60 === 0 ? ctx.i18n.t('room.min', { n: s / 60 }) : ctx.i18n.t('room.sec', { n: s });
 };
 
-const REACTION_ART: Record<ReactionId, string> = {
+export const REACTION_ART: Record<ReactionId, string> = {
   clap: '<svg viewBox="0 0 32 32" aria-hidden="true"><g fill="#46B4FF"><rect x="9" y="5.5" width="3.6" height="13" rx="1.8"/><rect x="13.2" y="3.6" width="3.6" height="14" rx="1.8"/><rect x="17.4" y="4.6" width="3.6" height="13.5" rx="1.8"/><rect x="21.6" y="7.4" width="3.4" height="11.5" rx="1.7"/><path d="M8.6 16.5h16.4v4.5a7.4 7.4 0 01-7.4 7.4h-1.6a7.4 7.4 0 01-6.5-3.9l-3.3-6.3a2 2 0 013.4-2.1z"/></g></svg>',
   fire: '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 29c-5.7 0-9.2-3.7-9.2-8.6 0-4.6 3.3-7.1 4.8-11.3.3-.9 1.5-1 2-.2 1 1.6 1.4 3.4 1.2 5.3 1.7-1.4 2.7-3.5 2.7-5.8 0-.8.9-1.3 1.6-.8 3.7 2.6 6.1 7.3 6.1 12.6 0 5-3.5 8.8-9.2 8.8z" fill="#FF4F6E"/><path d="M16.2 28.6c-2.7 0-4.4-1.8-4.4-4.1 0-2.6 2.2-3.8 3.1-6.4.6 1.5 1.6 2.3 2.6 2.3.4-.8.6-1.6.6-2.5 1.6 1.4 2.6 3.6 2.6 5.7 0 3-1.9 5-4.5 5z" fill="#FFC53A"/></svg>',
   wave: '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 20c3-4 6-4 9 0s6 4 9 0 4-3 5-2" fill="none" stroke="#46B4FF" stroke-width="3.2" stroke-linecap="round"/><path d="M5 12c3-4 6-4 9 0s6 4 9 0 4-3 5-2" fill="none" stroke="#22C383" stroke-width="3.2" stroke-linecap="round"/></svg>',

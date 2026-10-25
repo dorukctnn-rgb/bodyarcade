@@ -7,6 +7,7 @@
 @import url("./welcome.css");
 @import url("./profiles.css");
 @import url("./race.css");
+@import url("./live-race.css");
 
 /* ---------- Base ---------- */
 html { scrollbar-gutter: stable; }

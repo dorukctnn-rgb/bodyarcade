@@ -16,7 +16,7 @@ import type { ShellGame } from '../../catalogue/types.ts';
 import { hasPro, titleOf, type ViewContext } from '../context.ts';
 import type { RouteId } from '../routes.ts';
 import { failText } from '../social/messages.ts';
-import type { Failed, MatchDriver, MatchProgress, ProNeeded, SocialNotice, SocialServices } from '../social/port.ts';
+import type { Failed, MatchDriver, MatchProgress, ProNeeded, RoomDone, SocialNotice, SocialServices } from '../social/port.ts';
 import { ux } from '../social/strings.ts';
 import { IDLE_QUICK, type QuickView } from '../social/screens/lobbies.ts';
 import '../social/social.css';
@@ -39,14 +39,17 @@ export interface SocialHost {
   rerender(): void;
   /** Copies text, or hands a link to the system share sheet where there is one; false when neither worked. */
   share(text: string, o: { link: boolean }): Promise<boolean>;
+  /** How long a race with a friend lasts (the game's round, half a minute to a minute and a half; a test build can shorten it). */
+  raceMs?(g: ShellGame): number;
 }
 
 export const SOCIAL_ROUTES: ReadonlySet<RouteId> = new Set<RouteId>(['friends', 'lobbies', 'room', 'friendlink', 'safety']);
 
-/** The room a page belongs to: the room page itself, or the stage of a race played in it (`/play/<game>/?room=<code>`). */
+/** The room a page belongs to: the room page itself, the stage of a race played in it (`/play/<game>/?room=<code>`) or its results. */
 export function roomOfRoute(route: Matched<RouteId> | null): string | null {
   if (!route) return null;
-  const raw = route.id === 'room' ? (route.params['code'] ?? '') : route.id === 'play' ? (route.query.get('room') ?? '') : '';
+  // the results of a room's race stay with the room (`/results/?room=<code>`): the rematch and the way back to the room need it open
+  const raw = route.id === 'room' ? (route.params['code'] ?? '') : route.id === 'play' || route.id === 'results' ? (route.query.get('room') ?? '') : '';
   return raw ? codeFromInvite(raw) : null;
 }
 
@@ -167,6 +170,22 @@ export class SocialController {
 
   /** The services of the room and the friends, for the stage of a race. */
   services(): SocialServices { return this.svc; }
+
+  /**
+   * The stage of a race in a room was opened without the room open on this page (a reload, a link to the stage): the room is joined
+   * again. A player without a profile is not asked here: the stage sends them to the room's page, which asks the age first.
+   */
+  async joinForStage(raw: string): Promise<RoomDone> {
+    const code = codeFromInvite(raw);
+    const rooms = this.svc.rooms;
+    if (!code || !isRoomCode(code)) return { ok: false, code: 'no_room' };
+    await this.opened;
+    if (this.svc.social.state().noOnline || !this.svc.social.state().profile) return { ok: false, code: 'not_allowed' };
+    if (rooms.state().info?.code === code && rooms.state().phase !== 'closed') return { ok: true, value: undefined };
+    const r = await rooms.join(code);
+    this.changed();
+    return r;
+  }
 
   /** Asks the age and the name when this player has no profile yet; true once there is one. */
   async ensureProfile(): Promise<boolean> {
@@ -1111,7 +1130,7 @@ export class SocialController {
     const g = this.host.context().games.find((x) => x.id === gameId);
     if (!g || !g.modes.includes('duel')) return;
     if (!(await this.ensureProfile())) return;
-    const r = await this.svc.rooms.create({ game: g.id, kind: 'private', size: 2, band: null, durationMs: raceMs(g) });
+    const r = await this.svc.rooms.create({ game: g.id, kind: 'private', size: 2, band: null, durationMs: this.host.raceMs?.(g) ?? raceMs(g) });
     if (!r.ok) { this.roomFailed(r.code); return; }
     this.room.joining = r.value;
     this.room.invited = [];

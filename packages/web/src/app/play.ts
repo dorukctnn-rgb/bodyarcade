@@ -177,6 +177,12 @@ export class PlayController {
     const rows = (list: readonly RaceRival[]): { name: string; score: number }[] => list.map((r) => ({ name: race.label ? plateName(race.label, i18n) : r.name, score: r.score }));
     hud.setRivals(rows(race.rivals()));
     this.offs.push(race.onRivals((list) => hud.setRivals(rows(list))), bridgeSession(s, race.side));
+    // a race in a room draws the others on the stage too (live-stage.ts); it gives way to the panels of the round
+    if (race.mount) {
+      this.offs.push(race.mount({
+        document: this.doc, stage: this.o.stage, i18n: () => this.ctx().i18n, announce: (t) => this.host.announce(t), busy: () => this.overlayEl.childElementCount > 0,
+      }));
+    }
   }
 
   /** The explainer is shown until the player has read it once and the browser has the camera allowed. */
@@ -204,14 +210,17 @@ export class PlayController {
 
   /** The round is over: its clip is cut (a moment), then the results. */
   private async over(summary: RunSummary): Promise<void> {
-    // how a race ended is read at the moment it ended, before the moment the clip takes
-    const outcome = this.o.race?.outcome() ?? null;
+    // how a race ended is read at the moment it ended, before the moment the clip takes; a race in a room waits for the Room's word
+    const race = this.o.race;
+    const known = race?.outcome() ?? null;
+    const outcome = !known && race?.settle ? race.settle() : Promise.resolve(known);
     const recorder = this.clip;
     this.clip = null;
     let clip: ClipFile | null = null;
     if (recorder) { try { clip = await recorder.finish(); } catch { clip = null; } }
+    const settled = await outcome;
     if (this.disposed) return;
-    this.host.finish(this.game, this.setup, summary, outcome, clip);
+    this.host.finish(this.game, this.setup, summary, settled, clip);
   }
 
   /** The recording of the last seconds begins with the play, and waits when the round does. */
