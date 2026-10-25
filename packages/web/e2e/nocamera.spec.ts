@@ -174,7 +174,9 @@ test.describe('on a phone', () => {
     // the pause button still takes a tap, and leaving works without a keyboard
     await page.getByRole('button', { name: 'Pause', exact: true }).tap();
     const paused = page.getByRole('dialog', { name: 'Paused' });
-    await expect(paused).toBeVisible();
+    await page.waitForTimeout(600);
+    const where = await page.evaluate(() => ({ url: location.pathname + location.search, dialogs: [...document.querySelectorAll('[role="dialog"]')].map((d) => (d.textContent ?? '').trim().slice(0, 50)), hud: !!document.querySelector('[data-hud]') }));
+    await expect(paused, `after the tap: ${JSON.stringify(where)}`).toBeVisible();
     await paused.getByRole('button', { name: 'Leave round' }).tap();
     await page.getByRole('button', { name: 'Leave', exact: true }).tap();
     await expect(page).toHaveURL(/\/games\/squat-flap\/$/);
@@ -201,9 +203,11 @@ test.describe('on a phone', () => {
     await expect(needs).toContainText('To allow the camera');
     await expect(needs.getByRole('button', { name: /camera|keyboard|touch/i })).toHaveCount(0);
     await expect(needs.getByRole('button', { name: 'Try again' })).toBeVisible();
-    // an address that asks for touch plays with the camera
+    // an address that asks for touch plays with the camera: the camera panel (the explainer, or the refusal once it was explained), and no way around it
     await page.goto(`${WEB_DEV_URL}/play/pad-work/?input=keyboard`);
-    await expect(page.getByRole('dialog', { name: 'Let the camera see your moves' })).toBeVisible();
+    const asked = page.getByRole('dialog', { name: /camera/i });
+    await expect(asked).toBeVisible({ timeout: 30_000 });
+    await expect(asked.getByRole('button', { name: /without the camera|keyboard|touch/i })).toHaveCount(0);
   });
 
   test('the settings page has the controls, in Turkish too', async ({ page }) => {

@@ -192,7 +192,10 @@ function kitAgrees(c: Case): { text: string; problem: string }[] {
 
 /** A round without the camera: no self view tile and no button to bring one back, and at least the room for the game that it had with one. */
 function withoutSelfView(c: Case): { tileShown: boolean; buttonShown: boolean; problems: string[]; corner: string; playWith: Box; playWithout: Box } {
+  // both with the same words on the plates, so that only the self view differs
   const a = open(c);
+  a.set('prompt', { text: 'Jack', icon: 'stand' });
+  say(a, c.duo, longest(reasons(c.lang)));
   a.problems();
   const playWith = (a.layoutInfo() as { play: Box }).play;
   const b = open(c, { selfView: false });
