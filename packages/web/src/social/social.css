@@ -142,7 +142,10 @@
 }
 
 /* The footer of a seat: its state, and the menu of the player in it. */
-.k-seatfoot { display: flex; align-items: center; justify-content: center; gap: 6px; max-width: 100%; }
+.k-seatfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; max-width: 100%; }
+.k-seatfoot .k-state { flex: none; white-space: nowrap; }
+/* Beside the camera and chat column (a phone held sideways, a tablet) the seats have the room for two in a row, not four. */
+@media (min-width: 900px) and (max-width: 1199px) { .k-seats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .k-seat .k-seatmore { position: static; width: 32px; height: 32px; flex: none; }
 .k-seat .k-seatmore svg { width: 16px; height: 16px; }
 

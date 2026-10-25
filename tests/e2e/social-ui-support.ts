@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { generate } from '../../packages/web/generator/generate.ts';
 import { checkPage } from '../../packages/web/tools/layout-check.ts';
+import { layoutProbe } from '../../tools/page-check/probe.ts';
 import { scan } from '../../packages/web/e2e/support/axe.ts';
 import { startStack, type Stack } from '../../packages/server/src/social/stack.ts';
 import { baseLaunchOptions } from './support/browser.ts';
@@ -167,9 +168,24 @@ export async function befriend(a: Page, b: Page, bCode: string): Promise<void> {
   await expect(a.locator('[data-list="friends"] li')).toHaveCount(1, { timeout: 20_000 });
 }
 
+/** Waits until the animations that end have ended (a window sliding in is not where it will stay), at most three seconds. */
+export async function stilled(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const ending = document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+    await Promise.race([Promise.all(ending.map((a) => a.finished.catch(() => undefined))), new Promise((done) => setTimeout(done, 3000))]);
+  });
+}
+
 /** The problems the layout rule, the crowding check and the accessibility checks find on the page as it is now. */
-export async function inspect(page: Page, o: { axe?: boolean; layout?: boolean; crowding?: boolean } = {}): Promise<string[]> {
+export async function inspect(page: Page, o: { axe?: boolean; layout?: boolean; crowding?: boolean; probe?: boolean } = {}): Promise<string[]> {
+  await stilled(page);
   const out = o.layout === false ? [] : [...(await checkPage(page))];
+  // The probe of the QA page check (tools/page-check): its errors (text that spills out of its box, two things on top of each other ...)
+  // are what the nightly check of the whole web shell reports for these pages, so they are found here first.
+  if (o.probe !== false) {
+    const probe = await page.evaluate(layoutProbe, { ignore: [], touch: false, minTarget: 24, primary: [] });
+    out.push(...probe.findings.filter((f) => f.severity === 'error').map((f) => `probe ${f.kind}: ${f.message}`));
+  }
   if (o.crowding !== false) out.push(...(await crowding(page)).map((x) => `crowding: ${x}`));
   if (o.axe !== false) out.push(...(await scan(page)).map((x) => `axe: ${x}`));
   return out;

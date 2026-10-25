@@ -105,6 +105,8 @@ export class SocialController {
     const tray = doc.createElement('div');
     tray.className = 'ba-invites';
     tray.setAttribute('data-invites', '');
+    // A notice that floats over the top of the page for two minutes by design (the QA layout probe leaves a layer like this alone).
+    tray.setAttribute('data-qa-layer', '');
     doc.body.appendChild(tray);
     this.tray = tray;
     this.cleanups.push(() => tray.remove());

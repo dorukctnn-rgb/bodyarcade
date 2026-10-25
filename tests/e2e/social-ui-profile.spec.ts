@@ -386,6 +386,7 @@ test('the screens speak Turkish with Turkish letters, from the age question to t
   await shot(ada.page, 'recovery-tr-360', { full: false });
   await ada.page.locator('[data-action="sheet.recovery.saved"]').click();
   await expect(ada.page.locator('.k-profile .name')).toHaveText('Ayşe');
+  await expect(ada.page.locator('dialog[open]')).toHaveCount(0); // the page scrolls again only when the window is gone
   expect(await inspect(ada.page)).toEqual([]);
   await ada.open('/tr/friends/?view=profile');
   await expect(ada.page.locator('h1')).toHaveText('Profilim');
