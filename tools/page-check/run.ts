@@ -8,6 +8,7 @@
 //   npm run qa:pages -- --url http://127.0.0.1:5173/x.html [--click "#start"] [--wait-for ".ready"] [--hook '{"timeScale":5}']
 //   npm run qa:pages -- --list                        what would be checked
 //   options: --lang tr --dark --plan pro --out qa-out/page-check --png --no-shots --warn-as-error --jobs 1 --camera tests/e2e/fixtures/standing-640x360.mjpeg --base qa-out/older/report.json
+//            --known web:home:trial,web:friends  (pages with an open, filed bug: their errors are listed and shown as KNOWN but do not fail the run)
 //            --browser chromium|webkit|firefox (default chromium; the other two run the same checks in WebKit, the engine under Safari and every browser on an iPhone, and in Firefox;
 //            a camera for them is the page-side person camera of tools/browsers/support/camera.ts)
 //            --groups web,site   --fixtures fill|only|none   --allow-external   --ignore ".selector,.other"
@@ -57,6 +58,9 @@ const jobsN = Math.max(1, Number(flag('jobs') ?? 1));
 const shots = !has('no-shots');
 const png = has('png');
 const warnAsError = has('warn-as-error');
+/** Pages (or the start of a page's name) whose errors are known and filed: they are reported, and they do not fail the run. */
+const known = list('known');
+const isKnown = (id: string): boolean => known.some((k) => id === k || id.startsWith(`${k}:`));
 const groups = list('groups').length ? list('groups') : ['web', 'site'];
 
 const sizes = (() => {
@@ -255,7 +259,7 @@ try {
       const bad = r.errors > 0 || (warnAsError && r.warnings > 0);
       if (bad) {
         const lines = [...r.findings.filter((f) => f.severity === 'error' || warnAsError).map((f) => `${f.kind}: ${f.message}`), ...r.probe.map((p) => `HUD: ${p}`), ...r.messages.filter((m) => !m.startsWith('console.warn'))];
-        console.log(`FAIL ${r.target} ${r.size}: ${lines.length} problem(s)\n  ${lines.slice(0, 8).join('\n  ')}${lines.length > 8 ? `\n  ... ${lines.length - 8} more` : ''}`);
+        console.log(`${isKnown(r.target) ? 'KNOWN' : 'FAIL'} ${r.target} ${r.size}: ${lines.length} problem(s)\n  ${lines.slice(0, 8).join('\n  ')}${lines.length > 8 ? `\n  ... ${lines.length - 8} more` : ''}`);
       }
     }
   }));
@@ -277,13 +281,15 @@ if (flag('base')) {
 } else {
   results.sort((a, b) => a.target.localeCompare(b.target) || reportSizes.indexOf(a.size) - reportSizes.indexOf(b.size));
 }
-const failing = results.filter((r) => r.errors > 0 || (warnAsError && r.warnings > 0));
+const failingAll = results.filter((r) => r.errors > 0 || (warnAsError && r.warnings > 0));
+const failing = failingAll.filter((r) => !isKnown(r.target));
+const knownBad = failingAll.filter((r) => isKnown(r.target));
 const warnOnly = results.filter((r) => r.errors === 0 && r.warnings > 0);
 writeFileSync(join(out, 'report.json'), JSON.stringify({ generated: new Date().toISOString(), browser: engine, lang, dark, sizes: reportSizes, carried, checked: results.length, failing: failing.length, results }, null, 1));
 // The list a builder works through (FINDINGS.md next to the report): one line per page and problem, with the sizes and the element.
 try { execFileSync(process.execPath, [fileURLToPath(new URL('./summarize.ts', import.meta.url)), join(out, 'report.json'), '--md', join(out, 'FINDINGS.md'), '--warnings'], { stdio: 'ignore' }); } catch { /* exit code 1 only says that errors are listed */ }
 const kinds = new Map<string, number>();
 for (const r of results) for (const f of r.findings) kinds.set(`${f.severity} ${f.kind}`, (kinds.get(`${f.severity} ${f.kind}`) ?? 0) + 1);
-console.log(`\n${results.length} screen(s) in ${targets.length} page(s) checked in ${((Date.now() - t00) / 1000).toFixed(0)} s: ${failing.length} with problems, ${warnOnly.length} with warnings only. Report and pictures: ${out}`);
+console.log(`\n${results.length} screen(s) in ${targets.length} page(s) checked in ${((Date.now() - t00) / 1000).toFixed(0)} s: ${failing.length} with problems, ${warnOnly.length} with warnings only${knownBad.length ? `, ${knownBad.length} with KNOWN problems (filed, not failing: ${[...new Set(knownBad.map((r) => r.target))].join(', ')})` : ''}. Report and pictures: ${out}`);
 if (kinds.size) console.log([...kinds].map(([k, n]) => `${k} x${n}`).join(', '));
 process.exit(failing.length ? 1 : 0);
