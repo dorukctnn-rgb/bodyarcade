@@ -264,16 +264,21 @@ describe('service worker: invitation and friend-link pages', () => {
 
   it('a slow network gets the start page at once; a link the server cannot answer well (404 or a failure) gets it too, and a good answer is passed on as it is', async () => {
     let mode: 'slow' | '404' | '503' | 'ok' = 'slow';
+    // the slow answer comes 200 ms after the worker's own wait of 50 ms (navTimeoutMs): "at once" is before the network has answered, which
+    // a timer of 200 ms against one of 50 ms says however busy the machine is (a bound on the clock failed under the final test's load)
+    let answered = false;
     const s = sandbox(async (url) => {
-      if (mode === 'slow') await new Promise((r) => setTimeout(r, 200));
+      if (mode === 'slow') { await new Promise((r) => setTimeout(r, 200)); answered = true; }
       if (mode === '404') return new Response('missing', { status: 404 });
       if (mode === '503') return new Response('down', { status: 503 });
       return ok(`new ${pathOf(url)}`);
     });
     await s.lifecycle('install');
-    const t0 = Date.now();
-    expect(await (await s.request('/r/K7Q2MX', { mode: 'navigate' }))?.text()).toBe('new /');                       // the cached start page of the install
-    expect(Date.now() - t0).toBeLessThan(180);
+    answered = false;
+    const first = await s.request('/r/K7Q2MX', { mode: 'navigate' });
+    const before = !answered;
+    expect(await first?.text()).toBe('new /');                                                                    // the cached start page of the install
+    expect(before, 'the start page came before the slow network answered').toBe(true);
     await s.settle();
     await new Promise((r) => setTimeout(r, 0));
     expect(cached(s)).not.toContain('/r/K7Q2MX');
