@@ -592,6 +592,43 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     expect(w.errors).toEqual([]);
   });
 
+  test('rotating the phone during a round: the HUD and the scene follow, both ways', async ({ page }, info) => {
+    test.skip(!isPhone(page), 'a phone is turned; the desktop windows are resized by the other flows');
+    const w = watch(page);
+    await withHooks(page, { keyboard: true });
+    await page.goto(`${DEMO_URL}/play/squat-flap/?input=keyboard`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-hud-root] [data-hud]', { timeout: 60_000 });
+    await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal') && !document.querySelector('.ba-loading'), undefined, { timeout: 60_000 });
+    const upright = page.viewportSize() as { width: number; height: number };
+    for (const [name, size] of [['sideways', { width: upright.height, height: upright.width }], ['upright again', upright]] as const) {
+      await page.setViewportSize(size);
+      await page.waitForTimeout(900);
+      expect(await playProblems(page), `the HUD of the round, ${name}`).toEqual([]);
+      const scene = await look(page.locator('[data-scene] canvas').first());
+      expect(scene.blank, `nothing is drawn in the scene, ${name} (${scene.flatColour})`).toBe(false);
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+      expect(wide, `no sideways scroll, ${name}`).toBe(true);
+      await shot(page, info, `rotated-${name.replace(' ', '-')}`, { full: false });
+    }
+    expect(w.errors).toEqual([]);
+  });
+
+  test('dark theme: the main pages keep the layout rule', async ({ page }, info) => {
+    const w = watch(page);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const pages: [string, string][] = [['home', '/'], ['game', '/games/squat-flap/'], ['plans', '/plans/'], ['pro', '/pro/'], ['settings', '/settings/'], ['friends', '/friends/?social=1']];
+    const found: string[] = [];
+    for (const [id, path] of pages) {
+      await page.goto(`${DEMO_URL}${path}`, { waitUntil: 'networkidle' });
+      await page.waitForSelector('main h1', { timeout: 30_000 });
+      await settle(page);
+      for (const p of await problemsOfLayout(page)) found.push(`${id}: ${p}`);
+      await shot(page, info, `dark-${id}`);
+    }
+    expect(found, 'layout problems of the dark pages').toEqual([]);
+    expect(w.errors).toEqual([]);
+  });
+
   for (const [id, path] of [
     ['friends', '/friends/?social=1'], ['friends-new', '/friends/?social=fresh'], ['profile', '/friends/?view=profile&social=1'], ['boards', '/friends/?view=boards&social=1'],
     ['lobbies', '/lobbies/?social=1'], ['room', '/r/K7Q2MX/?social=1'], ['friend-link', '/f/BA-9PXMR3/?social=1'], ['safety', '/safety/?social=1'],
