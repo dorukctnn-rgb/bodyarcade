@@ -89,7 +89,8 @@ export function framingGuide(w: number, h: number, o: GuideOptions): string {
   const yAt = (v: number): number => top + (v + lift) * scale;
   const k = (x: number, v: number): [number, number] => [cx + x * scale, yAt(v)];
   const stroke = o.ready ? '#22C383' : '#F4F2F8';
-  const body = outline(o.framing === 'side' ? SIDE : lift ? FRONT_UP : FRONT, o.framing !== 'side', k);
+  const points = o.framing === 'side' ? SIDE : lift ? FRONT_UP : FRONT;
+  const body = outline(points, o.framing !== 'side', k);
   const headC = k(HEAD.cx + (o.framing === 'side' ? 0.8 : 0), HEAD.cy);
   const cut = o.framing === 'full' || o.framing === 'side' ? null : yAt(shown);
   const size = Math.max(11, Math.min(17, h * 0.03));
@@ -106,12 +107,13 @@ export function framingGuide(w: number, h: number, o: GuideOptions): string {
       + `<text x="${f(cx)}" y="${f(y + bh / 2 + size * 0.36)}" text-anchor="middle" font-weight="800" font-size="${f(size)}" fill="#1C1433">${label}</text>`;
   }).join('');
   const clip = cut === null ? '' : `<clipPath id="ba-guide-clip"><rect x="0" y="0" width="${w}" height="${f(cut)}"/></clipPath>`;
-  // The made-up person: the outline's points pulled towards the middle of what is shown (so that it keeps the same room above and below), under the dashes.
-  const mid = shown / 2;
+  // The made-up person: the outline's points pulled towards the middle of what is shown (so that it keeps the same room above and below, the raised hands of a
+  // game that lifts them included), under the dashes.
+  const mid = (Math.min(HEAD.cy - HEAD.ry, ...points.map((p) => p[1])) + shown) / 2;
   const kIn = (x: number, v: number): [number, number] => [cx + x * STAND_IN_SCALE * scale, yAt(mid + (v - mid) * STAND_IN_SCALE)];
   const headIn = kIn(HEAD.cx + (o.framing === 'side' ? 0.8 : 0), HEAD.cy);
   const person = o.standIn
-    ? `<g data-standin fill="rgba(244,242,248,0.9)"><path data-standin-body d="${outline(o.framing === 'side' ? SIDE : lift ? FRONT_UP : FRONT, o.framing !== 'side', kIn)}"/>`
+    ? `<g data-standin fill="rgba(244,242,248,0.9)"><path data-standin-body d="${outline(points, o.framing !== 'side', kIn)}"/>`
       + `<ellipse data-standin-head cx="${f(headIn[0])}" cy="${f(headIn[1])}" rx="${f(HEAD.rx * STAND_IN_SCALE * scale)}" ry="${f(HEAD.ry * STAND_IN_SCALE * scale)}"/></g>`
     : '';
   const shape = `<g${cut === null ? '' : ' clip-path="url(#ba-guide-clip)"'}>${person}<path d="${body}" fill="rgba(244,242,248,0.08)" stroke="${stroke}" stroke-width="3" stroke-dasharray="10 8" stroke-linejoin="round" opacity="0.92"/>`

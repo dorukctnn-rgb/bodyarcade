@@ -138,6 +138,8 @@ describe('the framing guide', () => {
           // smaller by the scale it says, in both directions: never "larger than its outline"
           expect((p.r - p.l) / (o.r - o.l)).toBeCloseTo(STAND_IN_SCALE, 1);
           expect((p.b - p.t) / (o.b - o.t)).toBeCloseTo(STAND_IN_SCALE, 1);
+          // the same room above it as under it (where the outline is whole: the upper body is cut at a line)
+          if (framing === 'full' || framing === 'side') expect(Math.abs((p.t - o.t) - (o.b - p.b)), 'room above against room under').toBeLessThanOrEqual(Math.max(2, h * 0.02));
           // and the head is inside the outline's head
           const head = /<ellipse data-standin-head cx="([\d.]+)" cy="([\d.]+)" rx="([\d.]+)" ry="([\d.]+)"/.exec(svg);
           const outer = /<ellipse cx="([\d.]+)" cy="([\d.]+)" rx="([\d.]+)" ry="([\d.]+)"/.exec(svg);

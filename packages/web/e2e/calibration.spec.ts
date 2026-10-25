@@ -12,7 +12,7 @@ const SIZES = [...BREAKPOINTS.map((b) => ({ id: b.id, w: b.w, h: b.h })), { id: 
 interface Box { l: number; t: number; r: number; b: number }
 
 /** The outline (the dashed shapes of the guide) and the made-up person, as boxes in the page, and the pictogram of the self view if it shows. */
-async function measure(page: Page): Promise<{ outline: Box; figure: Box; pictogram: boolean; view: { w: number; h: number } }> {
+async function measure(page: Page): Promise<{ outline: Box; figure: Box; pictogram: boolean; clipped: boolean; view: { w: number; h: number } }> {
   return page.evaluate(() => {
     const union = (els: Element[]): Box => {
       let u: Box | null = null;
@@ -26,11 +26,13 @@ async function measure(page: Page): Promise<{ outline: Box; figure: Box; pictogr
     const dashed = [...view.querySelectorAll('[data-cal-guide] svg path, [data-cal-guide] svg ellipse')].filter((e) => e.getAttribute('stroke-dasharray'));
     const figure = [...view.querySelectorAll('[data-standin-body], [data-standin-head]')];
     const pictogram = [...view.querySelectorAll('.ba-demo-self svg')].some((s) => getComputedStyle(s).display !== 'none');
-    return { outline: union(dashed), figure: union(figure), pictogram, view: { w: view.clientWidth, h: view.clientHeight } };
+    // the upper body and the desk are cut off at a line: the boxes of their paths still hold the whole figure, but only the part above the line is seen
+    const clipped = !!view.querySelector('[data-cal-guide] clipPath');
+    return { outline: union(dashed), figure: union(figure), pictogram, clipped, view: { w: view.clientWidth, h: view.clientHeight } };
   });
 }
 
-function checkFigure(label: string, m: { outline: Box; figure: Box; pictogram: boolean }): string[] {
+function checkFigure(label: string, m: { outline: Box; figure: Box; pictogram: boolean; clipped: boolean }): string[] {
   const o = m.outline, f = m.figure;
   const ow = o.r - o.l, oh = o.b - o.t, fw = f.r - f.l, fh = f.b - f.t;
   const found: string[] = [];
@@ -41,7 +43,9 @@ function checkFigure(label: string, m: { outline: Box; figure: Box; pictogram: b
   if (fw / ow > 1) found.push(`${label}: the figure is wider than its outline (${Math.round((fw / ow) * 100)}%)`);
   if (fh / oh > 0.97 || fh / oh < 0.9) found.push(`${label}: the figure is ${Math.round((fh / oh) * 100)}% of the height of its outline, not about 94%`);
   if (Math.abs((f.l + f.r) / 2 - (o.l + o.r) / 2) > 2) found.push(`${label}: the figure is not in the middle of its outline`);
-  if (Math.abs((f.t - o.t) - (o.b - f.b)) > 3) found.push(`${label}: the room above the figure and the room under it differ`);
+  // the same room above it as under it, where the outline is whole (a cut-off one has its feet below the line: the room above is all there is to compare)
+  if (!m.clipped && Math.abs((f.t - o.t) - (o.b - f.b)) > 3) found.push(`${label}: the room above the figure (${Math.round(f.t - o.t)}) and the room under it (${Math.round(o.b - f.b)}) differ`);
+  if (m.clipped && f.t - o.t < 1) found.push(`${label}: the figure of a cut-off outline starts as high as the outline (${Math.round(f.t - o.t)})`);
   if (m.pictogram) found.push(`${label}: the pictogram of the small self view is on the framing screen too`);
   return found;
 }
