@@ -647,7 +647,6 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'profile.done': 'Bitti',
   'profile.edit': 'Düzenle',
   'profile.remove': 'Kaldır',
-  'profile.choose': '{name} olarak oyna',
   'profile.askOnStart': 'Uygulama açılınca kimin oynadığını sor',
   'profile.capacity': '{max} oyuncudan {used}',
   'profile.notice.frozen': 'Bu cihazdaki oyuncuları uygulamanın daha yeni bir sürümü kurmuş. Değiştirmek için güncelle.',

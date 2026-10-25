@@ -35,12 +35,15 @@ function badges(ctx: ViewContext, p: ProfileView): SafeHtml {
 function pickCard(ctx: ViewContext, p: ProfileView, now: number): SafeHtml {
   const t = ctx.i18n;
   const locked = p.state === 'locked';
+  const status = locked ? t.t('profile.locked') : p.active ? t.t('profile.playing') : lastPlayedText(ctx, p.lastUsedAt, now);
+  // The picture is only a drawing; the name, the badges and the line under them are the button's name (read in that order), so the
+  // name holds every word the card shows (WCAG 2.5.3, label in name). Nothing is added to it.
   const inner = html`<span class="pf-face">${avatar(p.avatar, { size: 88 })}${locked ? html`<span class="pf-lock">${icon('lock')}</span>` : ''}</span>
     <b class="pf-name">${p.name}</b><span class="pf-badges">${badges(ctx, p)}</span>
-    <small>${locked ? t.t('profile.locked') : p.active ? t.t('profile.playing') : lastPlayedText(ctx, p.lastUsedAt, now)}</small>`;
+    <small>${status}</small>`;
   return locked
     ? html`<li><div class="pf-card is-locked" data-profile="${p.id}" aria-disabled="true">${inner}</div></li>`
-    : html`<li><button type="button" class="pf-card${p.active ? ' is-active' : ''}" data-action="profile-pick" data-id="${p.id}"${attr('aria-current', p.active && 'true')} aria-label="${t.t('profile.choose', { name: p.name })}">${inner}</button></li>`;
+    : html`<li><button type="button" class="pf-card${p.active ? ' is-active' : ''}" data-action="profile-pick" data-id="${p.id}"${attr('aria-current', p.active && 'true')}>${inner}</button></li>`;
 }
 
 function addCard(ctx: ViewContext, st: ProfilesPageState): SafeHtml {

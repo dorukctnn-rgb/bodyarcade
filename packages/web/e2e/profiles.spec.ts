@@ -116,12 +116,12 @@ test('the pictures are radio buttons: arrow keys move between them, the chosen o
 
 test('choosing a child is a tap; choosing the main player from a child needs a grown-up, who answers a sum', async ({ browser }) => {
   const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, 'players', { w: 1280, h: 800 });
-  await page.getByRole('button', { name: 'Play as Defne', exact: true }).click();
+  await page.getByRole('button', { name: /^Defne\b/ }).click();
   await page.waitForURL(`${WEB_DEV_URL}/`);
   await expect(page.locator('.pf-switch').first()).toHaveAttribute('aria-label', 'Playing as Defne. Switch player');
   await page.locator('.pf-switch').first().click();
   await page.waitForURL(/\/profiles\//);
-  await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await page.getByRole('button', { name: /^Me\b/ }).click();
   // a wrong answer gives another sum; the right one switches and the gate is shut behind
   await expect(page.locator('dialog.pf-gatebox')).toBeVisible();
   await expect(page.locator('#gate-answer')).toBeFocused();
@@ -140,7 +140,7 @@ test('choosing a child is a tap; choosing the main player from a child needs a g
 test('three wrong answers close the gate for a while, and reloading the page does not open it', async ({ browser }) => {
   const { page, context } = await openScenario(browser, WEB_DEV_URL, 'players-kid', { w: 1280, h: 800 });
   await page.goto(`${WEB_DEV_URL}/profiles/`, { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await page.getByRole('button', { name: /^Me\b/ }).click();
   for (let i = 0; i < 3; i++) {
     await expect(page.locator('#gate-answer')).toBeEnabled();
     await answer(page, 1);
@@ -150,7 +150,7 @@ test('three wrong answers close the gate for a while, and reloading the page doe
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.locator('dialog.pf-gatebox')).toHaveCount(0);
   await page.reload({ waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await page.getByRole('button', { name: /^Me\b/ }).click();
   await expect(page.locator('#gate-note')).toContainText('Try again in');
   await expect(page.locator('#gate-answer')).toBeDisabled();
   await page.keyboard.press('Escape');
@@ -246,7 +246,7 @@ test('with the question switched on, the app opens on who is playing and goes on
   await expect(ask).toBeChecked();
   await page.goto(`${WEB_DEV_URL}/games/squat-flap/?plan=family`, { waitUntil: 'networkidle' });
   await page.waitForURL(/\/profiles\/\?next=%2Fgames%2Fsquat-flap%2F/);
-  await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await page.getByRole('button', { name: /^Me\b/ }).click();
   await page.waitForURL(`${WEB_DEV_URL}/games/squat-flap/?plan=family`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Squat Flap');
   await context.close();
@@ -255,14 +255,14 @@ test('with the question switched on, the app opens on who is playing and goes on
 test('the way on after the picker is never another site', async ({ browser }) => {
   const { page, context } = await bare(browser);
   await page.goto(`${WEB_DEV_URL}/profiles/?next=//evil.example/x&plan=family`, { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await page.getByRole('button', { name: /^Me\b/ }).click();
   await page.waitForURL(`${WEB_DEV_URL}/`);
   await context.close();
 });
 
 test('the family is on the page of a game: each player and their best, the one who plays marked', async ({ browser }) => {
   const { page, context } = await openScenario(browser, WEB_DEV_URL, 'players', { w: 1280, h: 800 });
-  await page.getByRole('button', { name: 'Play as Mert', exact: true }).click();
+  await page.getByRole('button', { name: /^Mert\b/ }).click();
   await page.waitForURL(`${WEB_DEV_URL}/`);
   await page.goto(`${WEB_DEV_URL}/play/squat-flap/?input=keyboard&plan=family`, { waitUntil: 'networkidle' });
   await page.waitForURL(/results/, { timeout: 60_000 });
@@ -283,7 +283,7 @@ test('a player keeps their own settings: the seat chosen for one is not the seat
   await page.locator('label[for="set-seated"]').click();
   await expect(seated).toBeChecked();
   await page.goto(`${WEB_DEV_URL}/profiles/?plan=family`, { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+  await page.getByRole('button', { name: /^Me\b/ }).click();
   await passGate(page);
   await page.waitForURL(`${WEB_DEV_URL}/`);
   await page.goto(`${WEB_DEV_URL}/settings/?plan=family`, { waitUntil: 'networkidle' });
@@ -315,10 +315,10 @@ for (const bp of BREAKPOINTS) {
         for (const p of [...(await checkPage(page)), ...errors.map((e) => `console: ${e}`)]) found.push(`${name}: ${p}`);
         if (name === 'players') {
           // the gate's window, opened by choosing the main player from a child
-          await page.getByRole('button', { name: 'Play as Defne', exact: true }).click();
+          await page.getByRole('button', { name: /^Defne\b/ }).click();
           await page.waitForURL(`${WEB_DEV_URL}/`);
           await page.goto(`${WEB_DEV_URL}/profiles/?plan=family`, { waitUntil: 'networkidle' });
-          await page.getByRole('button', { name: 'Play as Me', exact: true }).click();
+          await page.getByRole('button', { name: /^Me\b/ }).click();
           await page.locator('dialog.pf-gatebox').waitFor();
           // the window slides in: it is measured where it stops
           await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))));

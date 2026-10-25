@@ -647,7 +647,6 @@ export const en = {
   'profile.done': 'Done',
   'profile.edit': 'Edit',
   'profile.remove': 'Remove',
-  'profile.choose': 'Play as {name}',
   'profile.askOnStart': 'Ask who is playing when the app opens',
   'profile.capacity': '{used} of {max} players',
   'profile.notice.frozen': 'A newer version of the app set up the players on this device. Update to change them.',

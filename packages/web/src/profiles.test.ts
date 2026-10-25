@@ -171,7 +171,10 @@ describe.each(['en', 'tr'] as const)('the players screen in %s', (lang) => {
     const t = createI18n(lang);
     expect(html).toContain(t.t('profile.badge.owner'));
     expect(html).toContain(t.t('profile.badge.kid'));
-    expect(html).toContain(`aria-label="${t.t('profile.choose', { name: 'Defne' })}"`);
+    // The card has no label of its own: what it shows (the name, the badges, the line under them) is its name, so a screen reader and a
+    // voice command both get the words that are drawn (WCAG 2.5.3).
+    for (const tag of html.match(/<button\b[^>]*data-action="profile-pick"[^>]*>/g) ?? []) expect(tag).not.toContain('aria-label');
+    expect(html).toMatch(/<button\b[^>]*data-action="profile-pick"[^>]*>[\s\S]*?<b class="pf-name">Defne<\/b>[\s\S]*?<\/button>/);
     expect(html.match(/<h1\b/g)).toHaveLength(1);
     expect(textOf(html)).not.toMatch(/undefined|\[object|NaN|\{[a-z]+\}|profile\./);
   });
