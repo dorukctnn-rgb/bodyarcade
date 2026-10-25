@@ -6,7 +6,7 @@ export interface JsonSpec { title: string; ok: boolean; file?: string; tests: Js
 export interface JsonSuite { title: string; file?: string; specs?: JsonSpec[]; suites?: JsonSuite[] }
 export interface JsonReport { suites: JsonSuite[] }
 
-export type Outcome = 'ok' | 'FAIL' | 'flaky' | 'skip';
+export type Outcome = 'ok' | 'FAIL' | 'flaky' | 'skip' | 'n/a';
 
 export interface Cell {
   project: string;
@@ -26,10 +26,19 @@ export interface Row { flow: string; spec: string; cells: Cell[] }
 const ANSI = /\u001b\[[0-9;]*m/g;
 export const clean = (s: string): string => s.replace(ANSI, '').replace(/\r/g, '');
 
+/**
+ * Failures that are the test tool's limit on an engine and say nothing about the app: Playwright cannot grant the camera permission in
+ * Firefox ("Unknown permission: camera"), so a spec written for Chromium that begins by granting it stops there.
+ */
+const NOT_APPLICABLE: RegExp[] = [/Unknown permission: camera/];
+
 function outcomeOf(t: JsonTest): Outcome {
   if (t.status === 'skipped') return 'skip';
   if (t.status === 'flaky') return 'flaky';
-  return t.status === 'expected' ? 'ok' : 'FAIL';
+  if (t.status === 'expected') return 'ok';
+  const r = t.results[t.results.length - 1];
+  const text = clean(r?.error?.message ?? r?.errors?.[0]?.message ?? '');
+  return NOT_APPLICABLE.some((x) => x.test(text)) ? 'n/a' : 'FAIL';
 }
 
 /** The message of the last result, without colour codes and without the call log, shortened. */
@@ -84,7 +93,7 @@ export function tableMarkdown(rows: readonly Row[], title = 'Browser matrix'): s
   }
   const total = rows.flatMap((r) => r.cells);
   const count = (o: Outcome): number => total.filter((c) => c.outcome === o).length;
-  out.push('', `${total.length} runs: ${count('ok')} ok, ${count('FAIL')} failed, ${count('flaky')} flaky, ${count('skip')} skipped.`);
+  out.push('', `${total.length} runs: ${count('ok')} ok, ${count('FAIL')} failed, ${count('flaky')} flaky, ${count('skip')} skipped${count('n/a') ? `, ${count('n/a')} not applicable (the tool cannot do it on that engine)` : ''}.`);
   const bad = rows.flatMap((r) => r.cells.filter((c) => c.outcome === 'FAIL' || c.outcome === 'flaky').map((c) => ({ r, c })));
   if (bad.length) {
     out.push('', '#### Failures', '');

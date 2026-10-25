@@ -28,21 +28,26 @@ if (has('probe')) {
   process.exit(0);
 }
 
-function table(file: string): string {
+const setName = flag('set') ?? 'flows';
+
+function table(file: string, name = setName): string {
   const rows = rowsOf(JSON.parse(readFileSync(file, 'utf8')) as JsonReport);
-  const md = tableMarkdown(rows, `Browser matrix (${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC)`);
-  writeFileSync(join(out, 'TABLE.md'), md);
+  const what = name === 'ui' ? 'the web shell specs' : name === 'all' ? 'flows and the web shell specs' : 'flows';
+  const md = tableMarkdown(rows, `Browser matrix, ${what} (${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC)`);
+  writeFileSync(join(out, name === 'flows' ? 'TABLE.md' : `TABLE-${name}.md`), md);
   return md;
 }
 
 const tableOnly = flag('table');
 if (tableOnly) { console.log(table(resolve(tableOnly))); process.exit(0); }
 
+const resultsFile = join(root, 'qa-out', 'browsers', setName === 'flows' ? 'results.json' : `results-${setName}.json`);
 const env: Record<string, string> = {
   ...(process.env as Record<string, string>),
   BA_BROWSERS: engines.join(','),
   BA_BROWSERS_SIZES: flag('sizes') ?? 'phone,desktop',
-  BA_BROWSERS_SET: flag('set') ?? 'flows',
+  BA_BROWSERS_SET: setName,
+  BA_BROWSERS_RESULTS: resultsFile,
 };
 if (has('rebuild')) {
   const r = spawnSync(process.execPath, [join(here, 'support', 'sites.ts'), '--build', '--rebuild'], { cwd: root, stdio: 'inherit', env, windowsHide: true });
@@ -55,8 +60,10 @@ if (flag('grep-invert')) pw.push('--grep-invert', flag('grep-invert') as string)
 const files = args.filter((a, i) => !a.startsWith('--') && !['--engines', '--sizes', '--set', '--grep', '--grep-invert', '--out', '--table'].includes(args[i - 1] ?? ''));
 pw.push(...files);
 const res = spawnSync(process.execPath, [cli, ...pw], { cwd: root, stdio: 'inherit', env, windowsHide: true });
-const resultsFile = join(root, 'qa-out', 'browsers', 'results.json');
 if (existsSync(resultsFile)) {
-  console.log(`\n${table(resultsFile)}\n\nTable: ${join(out, 'TABLE.md')}  Pictures: ${join(root, 'qa-out', 'browsers', 'shots')}`);
+  console.log(`
+${table(resultsFile)}
+
+Pictures: ${join(root, 'qa-out', 'browsers', 'shots')}`);
 }
 process.exit(res.status ?? 1);
