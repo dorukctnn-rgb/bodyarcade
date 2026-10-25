@@ -28,6 +28,7 @@ import { analyseScene, decodePng, isBlank, type Rect } from './scene.ts';
 import { beNice } from './nice.ts';
 import { settle } from './settle.ts';
 import { installPersonCamera } from '../browsers/support/camera.ts';
+import { firefoxPrefs } from '../browsers/support/firefox.ts';
 
 beNice();
 
@@ -143,8 +144,10 @@ async function check(browser: Browser, t: Target, size: { id: string; w: number;
     ...(phone ? { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1' } : {}),
     colorScheme: dark ? 'dark' : 'light', locale: lang === 'en' ? 'en-US' : `${lang}-${lang.toUpperCase()}`, reducedMotion: 'no-preference',
   });
-  // Chromium has a fake camera that plays a file (set at launch); the other engines get the same pictures from the page.
-  if (engine !== 'chromium' && personCamera) await installPersonCamera(context, { file: personCamera, portrait: size.w < size.h && size.w < 700 });
+  // Chromium has a fake camera that plays a file (set at launch); the other engines get the same pictures from the page. Firefox has a test picture of
+  // its own without a file; WebKit's headless run only says "not allowed" (the pages with a camera screen all showed "The camera is blocked"), so it gets
+  // the page-side camera too: with the file when there is one, an empty room (Chromium's test pattern shows nobody either) when there is not.
+  if (engine !== 'chromium' && (personCamera || engine === 'webkit')) await installPersonCamera(context, { ...(personCamera ? { file: personCamera } : {}), portrait: size.w < size.h && size.w < 700 });
   const page = await context.newPage();
   const messages: string[] = [];
   const warnings: string[] = [];
@@ -209,6 +212,12 @@ async function check(browser: Browser, t: Target, size: { id: string; w: number;
   } finally {
     await context.close();
   }
+  // No WebGL in this engine here: a console error that says so, and a round that cannot start (the pose model and the 3D scene both need a GL context), are the engine's, not the page's.
+  const noGl = (m: string): boolean => /WebGL context could not be created|Error creating WebGL context|WebGL creation failed/i.test(m);
+  if (!engineWebgl) {
+    for (let i = messages.length - 1; i >= 0; i--) if (noGl(messages[i] as string)) warnings.push(`no WebGL here: ${(messages.splice(i, 1)[0] as string)}`);
+    for (let i = probeLines.length - 1; i >= 0; i--) if (/^the round did not start/.test(probeLines[i] as string)) probeLines[i] = `warn:no WebGL in this engine here, ${probeLines[i]}`;
+  }
   const findings = [...(probe?.findings ?? []), ...(sceneFinding ? [sceneFinding] : [])];
   // A probe line that starts with "warn:" is a warning, any other line is an error.
   const probeWarn = probeLines.filter((l) => l.startsWith('warn:')).map((l) => l.slice(5));
@@ -222,6 +231,8 @@ const jobs = targets.flatMap((t) => sizes.filter((s) => !t.sizes || t.sizes.incl
 const results: PageResult[] = [];
 let browser: Browser | null = null;
 let personCamera: string | null = null;
+/** False when the engine cannot make a WebGL context on this machine (GitHub's Linux runner gives Firefox none): its 3D scenes and the pose model cannot start, which says nothing about the page. */
+let engineWebgl = true;
 const t00 = Date.now();
 try {
   // --camera <video>: the fake camera shows this video instead of Chromium's test picture (a person to calibrate on). A raw .mjpeg
@@ -236,9 +247,15 @@ try {
     personCamera = engine === 'chromium' ? null : conv.file;
   }
   const launch = (): Promise<Browser> => engine === 'webkit' ? webkit.launch({ headless: true })
-    : engine === 'firefox' ? firefox.launch({ headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true } })
+    : engine === 'firefox' ? firefox.launch({ headless: true, firefoxUserPrefs: firefoxPrefs() })
       : chromium.launch(cameraFile ? withFakeVideo(cameraFile) : baseLaunchOptions);
   browser = await launch();
+  if (engine !== 'chromium') {
+    const probeContext = await browser.newContext();
+    engineWebgl = await (await probeContext.newPage()).evaluate(() => { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); }).catch(() => true);
+    await probeContext.close();
+    if (!engineWebgl) console.log(`${engine} has no WebGL on this machine: what only that breaks (the console says so, a round that cannot start) is listed as a warning`);
+  }
   // Start the servers before the workers race for them.
   for (const k of new Set(targets.map((t) => t.server))) await serverFor(k);
   // A screen that never answers (a browser that crashed and does not say so: WebKit for Windows on the home page hung a run for twenty minutes) is a finding of its own, and the browser

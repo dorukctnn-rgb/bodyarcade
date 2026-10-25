@@ -8,6 +8,7 @@ import { writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { baseLaunchOptions } from '../../tests/e2e/support/browser.ts';
+import { firefoxPrefs } from './support/firefox.ts';
 
 export interface EngineFacts {
   engine: string;
@@ -103,7 +104,7 @@ export async function probe(engines: string[]): Promise<EngineFacts[]> {
     let browser: Browser | null = null;
     try {
       browser = engine === 'chromium' ? await chromium.launch(baseLaunchOptions)
-        : engine === 'firefox' ? await firefox.launch({ headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true } })
+        : engine === 'firefox' ? await firefox.launch({ headless: true, firefoxUserPrefs: firefoxPrefs() })
           : await webkit.launch({ headless: true });
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const p = await ctx.newPage();

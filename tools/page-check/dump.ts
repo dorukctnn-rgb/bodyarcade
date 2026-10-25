@@ -1,14 +1,15 @@
 // Looks at one page of the web shell the way page-check does and prints what is on it: handy to see why a target fails.
 //
-//   node tools/page-check/dump.ts /play/pad-work/?input=keyboard [--size 1280x800] [--wait 2500] [--sel body] [--html] [--hook '{"timeScale":5}'] [--shot out.jpg] [--click ".ba-btn--primary"] [--eval "document.title"] [--site]
+//   node tools/page-check/dump.ts /play/pad-work/?input=keyboard [--size 1280x800] [--wait 2500] [--sel body] [--html] [--hook '{"timeScale":5}'] [--shot out.jpg] [--browser chromium|firefox|webkit] [--lang tr] [--click ".ba-btn--primary"] [--eval "document.title"] [--site]
 //
 // Prints the console messages, the visible text of the selector (or its HTML with --html) and the layout findings.
-import { chromium } from '@playwright/test';
+import { chromium, firefox, webkit } from '@playwright/test';
 import { join } from 'node:path';
 import { baseLaunchOptions } from '../../tests/e2e/support/browser.ts';
 import { layoutProbe } from './probe.ts';
 import { startStatic, startWeb, repoRoot } from './servers.ts';
 import { beNice } from './nice.ts';
+import { firefoxPrefs } from '../browsers/support/firefox.ts';
 
 beNice();
 
@@ -17,9 +18,11 @@ const opt = (k: string): string | undefined => { const i = args.indexOf(`--${k}`
 const path = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1]?.startsWith('--') && opt((args[i - 1] as string).slice(2)) === a)) ?? '/';
 const [w, h] = (opt('size') ?? '1280x800').split('x').map(Number) as [number, number];
 const server = args.includes('--site') ? await startStatic(join(repoRoot(), 'site')) : await startWeb('fill');
-const browser = await chromium.launch(baseLaunchOptions);
+const engine = opt('browser') ?? 'chromium';   // chromium | firefox | webkit: the same page in another engine
+const browser = engine === 'firefox' ? await firefox.launch({ headless: true, firefoxUserPrefs: firefoxPrefs() }) : engine === 'webkit' ? await webkit.launch({ headless: true }) : await chromium.launch(baseLaunchOptions);
 try {
-  const context = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: w < 1000, deviceScaleFactor: 1 });
+  const lang = opt('lang') ?? 'en';   // like page-check: the page is English unless asked, not the language of this machine
+  const context = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: w < 1000, deviceScaleFactor: 1, locale: lang === 'en' ? 'en-US' : `${lang}-${lang.toUpperCase()}` });
   const page = await context.newPage();
   const hooks = JSON.parse(opt('hook') ?? '{"timeScale":5,"roundSeconds":120}') as Record<string, unknown>;
   await page.addInitScript((x) => { (window as unknown as { __BA_TEST__: unknown }).__BA_TEST__ = x; }, hooks);

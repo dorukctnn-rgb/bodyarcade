@@ -80,8 +80,16 @@ async function noteCamera(page: Page, info: TestInfo): Promise<void> {
   try { info.annotations.push({ type: 'camera', description: JSON.stringify(await cameraState(page)) }); } catch { /* the page is gone */ }
 }
 
-/** The camera flows run where the page-side camera can: the engine has the camera API and plays a stream made from a canvas. */
-const cameraUsable = async (page: Page): Promise<boolean> => (await hasCameraApi(page)) && (await canvasStreamPlays(page));
+/**
+ * The camera flows run where the page-side camera can: the engine has the camera API and plays a stream made from a canvas, and it has WebGL: the pose model
+ * (MediaPipe) makes a GL context even on the CPU delegate, so with no WebGL at all every frame fails and the round ends with "the camera stopped" (a Firefox
+ * with WebGL switched off does it on any machine: BA_BROWSERS_NOWEBGL=1; GitHub's Linux runner has none for Firefox, whatever the preferences say). The Chromium
+ * baseline never skips for it: a runner that loses WebGL there must be seen.
+ */
+const cameraUsable = async (page: Page): Promise<boolean> => (await hasCameraApi(page)) && (await canvasStreamPlays(page)) && (page.context().browser()?.browserType().name() === 'chromium' || (await hasWebgl(page)));
+
+/** Can this page make a WebGL context (2 or 1)? */
+const hasWebgl = (page: Page): Promise<boolean> => page.evaluate(() => { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); });
 
 /** Does this engine have a camera API at all? (Playwright's WebKit for Windows has none: no MediaStream, no WebRTC, no Web Audio.) */
 const hasCameraApi = (page: Page): Promise<boolean> => page.evaluate(() => typeof navigator.mediaDevices?.getUserMedia === 'function');
@@ -116,7 +124,7 @@ async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestIn
     }
     const seen: string[] = [];
     await page.goto(`${o.base ?? DEMO_URL}/play/squat-flap/?input=camera`, { waitUntil: 'networkidle' });
-    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, or cannot play a stream made from a canvas (the page-side camera): see the tests "camera: where the engine has no camera API" and the engine probe');
+    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, cannot play a stream made from a canvas (the page-side camera), or has no WebGL here (the pose model needs it): see the tests "camera: where the engine has no camera API" and the engine probe');
     try {
       await until(page, 'explainer', 30_000, seen);
       await expect(page.getByRole('dialog').first()).toContainText(/never uploaded or saved|asla/i);
@@ -139,6 +147,8 @@ async function cameraRoundFlow(page: Page, context: BrowserContext, info: TestIn
     } finally {
       info.annotations.push({ type: 'phases', description: seen.join(' > ') });
       await noteCamera(page, info);
+      // what the page said while it ran: a start that stops says nothing about why in its own words ("the camera stopped" can be the model that could not start)
+      if (w.errors.length || w.warnings.length) info.annotations.push({ type: 'console', description: [...w.errors, ...w.warnings].slice(-8).map((m) => m.slice(0, 200)).join(' | ') });
     }
     await leaveRound(page);
     await expect(page).toHaveURL(/\/games\/squat-flap\/$/);
@@ -270,7 +280,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     const seen: string[] = [];
     await page.goto(`${DEMO_URL}/welcome/?step=5`, { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-welcome][data-ready="1"]', { timeout: 45_000 });
-    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, or cannot play a stream made from a canvas (the page-side camera): see the tests "camera: where the engine has no camera API" and the engine probe');
+    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, cannot play a stream made from a canvas (the page-side camera), or has no WebGL here (the pose model needs it): see the tests "camera: where the engine has no camera API" and the engine probe');
     try {
       await shot(page, info, 'first-win-camera-page');
       await page.getByRole('button', { name: 'Continue' }).click();
@@ -657,7 +667,7 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await installPersonCamera(context, { file: TWO_FIXTURE });
     const seen: string[] = [];
     await page.goto(`${DEMO_URL}/games/squat-flap/`, { waitUntil: 'networkidle' });
-    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, or cannot play a stream made from a canvas');
+    test.skip(!(await cameraUsable(page)), 'this engine has no camera API, cannot play a stream made from a canvas, or has no WebGL here (the pose model needs it)');
     await expect(page.locator('input[name="players"]')).toHaveCount(2);
     await page.locator('label:has(input[name="players"][value="2"])').click();
     await shot(page, info, 'two-setup');
@@ -722,6 +732,11 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     };
     // from the game page, as a player comes (the Back button at the end has to land in the app, not before it)
     await page.goto(`${DEMO_URL}/games/squat-flap/`, { waitUntil: 'networkidle' });
+    // the network being quiet is not the app being up (a machine under load boots it late, and the app draws the page's fields when it is): ask for the fields
+    // first and say how long that took, so that a failure here is told apart from a failure of the choices
+    const t0 = Date.now();
+    await page.locator('details.k-more').waitFor({ state: 'attached', timeout: 90_000 });
+    info.annotations.push({ type: 'page-up', description: `${Date.now() - t0} ms after the network was quiet` });
     await useKeyboard(page);
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await inRound();

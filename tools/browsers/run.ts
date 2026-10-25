@@ -3,6 +3,7 @@
 //   options: --engines webkit,firefox,chromium   --sizes phone,desktop   --set flows|ui|all   --grep "camera"   --grep-invert "legal"
 //            (--set peers: the peer layer of live play in four variants, to see what an engine needs)
 //            --repeat-each 3 (every test three times: how steady is it?)
+//            --allow-empty (a --grep that matches no flow is not a failure: a run for the page check alone)
 //            --out qa-out/browsers   --rebuild (build the sites again)   --table <results.json> (only print the table of an earlier run)
 //            --probe (what each engine can do on this machine, then stop)
 // Result: qa-out/browsers/results.json (Playwright's), TABLE.md, shots/<project>/<name>.jpg. Exit code 1 when a flow failed.
@@ -60,6 +61,7 @@ const pw = ['test', '-c', join(here, 'playwright.config.ts'), '--workers=1'];
 if (flag('grep')) pw.push('--grep', flag('grep') as string);
 if (flag('grep-invert')) pw.push('--grep-invert', flag('grep-invert') as string);
 if (flag('repeat-each')) pw.push('--repeat-each', flag('repeat-each') as string);
+if (has('allow-empty')) pw.push('--pass-with-no-tests');
 const files = args.filter((a, i) => !a.startsWith('--') && !['--engines', '--sizes', '--set', '--grep', '--grep-invert', '--repeat-each', '--out', '--table'].includes(args[i - 1] ?? ''));
 pw.push(...files);
 const res = spawnSync(process.execPath, [cli, ...pw], { cwd: root, stdio: 'inherit', env, windowsHide: true });

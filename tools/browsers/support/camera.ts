@@ -13,10 +13,14 @@
 import type { BrowserContext, LaunchOptions, Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { firefoxPrefs } from './firefox.ts';
 
 export interface PersonCameraOptions {
-  /** An MJPEG file (JPEG pictures one after the other, as ffmpeg writes with `-f mjpeg`); played in a loop. */
-  file: string;
+  /**
+   * An MJPEG file (JPEG pictures one after the other, as ffmpeg writes with `-f mjpeg`); played in a loop. Left out: an empty room (a grey
+   * picture with a small mark that moves, so the stream keeps giving pictures), the page-side kind of Chromium's test pattern: a camera that shows nobody.
+   */
+  file?: string;
   /** Pictures per second the file was made for (tests/e2e/fixtures: 15). */
   fps?: number;
   /** A phone held upright gives a 9:16 picture: the middle of the file's pictures is cut out and scaled up. */
@@ -31,7 +35,7 @@ export interface PersonCameraOptions {
  */
 export const CAMERA_BINDING = '__baFakeCameraBytes';
 
-interface ShimConfig { binding: string; fps: number; portrait: boolean }
+interface ShimConfig { binding: string; fps: number; portrait: boolean; empty: boolean }
 
 /** What the page-side camera tells about itself (window.__fakeCamera). */
 export interface CameraInfo { installed: boolean; asked: number; live: number; drawn: number; error: string | null }
@@ -64,11 +68,11 @@ function shim(cfg: ShimConfig): void {
     info.asked += 1;
     try {
       if (constraints && !constraints.video) throw new DOMException('Only the camera is faked', 'NotFoundError');
-      const frames = await load();
-      const first = await createImageBitmap(frames[0] as Blob);
+      const frames = cfg.empty ? [] : await load();
+      const first = cfg.empty ? null : await createImageBitmap(frames[0] as Blob);
       // The picture the camera gives: the file's size, or its middle cut to 9:16 for a phone held upright.
-      const W = cfg.portrait ? 360 : first.width;
-      const H = cfg.portrait ? 640 : first.height;
+      const W = cfg.portrait ? 360 : first ? first.width : 640;
+      const H = cfg.portrait ? 640 : first ? first.height : 360;
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
@@ -80,7 +84,17 @@ function shim(cfg: ShimConfig): void {
         } else ctx.drawImage(bmp, 0, 0, W, H);
         info.drawn += 1;
       };
-      draw(first);
+      // an empty room: grey, with a small mark that moves so that the stream goes on giving pictures
+      let tick = 0;
+      const drawEmpty = (): void => {
+        ctx.fillStyle = '#6b6b6b';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#8a8a8a';
+        ctx.fillRect(8 + (tick % 40) * 4, 8, 12, 12);
+        tick += 1;
+        info.drawn += 1;
+      };
+      if (first) draw(first); else drawEmpty();
       const stream = canvas.captureStream(cfg.fps);
       const track = stream.getVideoTracks()[0] as MediaStreamTrack;
       const settings = { width: W, height: H, frameRate: cfg.fps, facingMode: 'user', deviceId: 'fake-person-camera' };
@@ -90,6 +104,7 @@ function shim(cfg: ShimConfig): void {
       let busy = false;
       const timer = window.setInterval(() => {
         if (busy || track.readyState === 'ended') return;
+        if (cfg.empty) { drawEmpty(); return; }
         busy = true;
         const i = Math.floor(((performance.now() - t0) / 1000) * cfg.fps) % frames.length;
         createImageBitmap(frames[i] as Blob).then((bmp) => { draw(bmp); bmp.close?.(); }).catch((e) => { info.error = `frame: ${String(e)}`; }).finally(() => { busy = false; });
@@ -113,11 +128,13 @@ function shim(cfg: ShimConfig): void {
   Object.defineProperty(navigator, 'mediaDevices', { configurable: true, get: () => fake });
 }
 
-/** Gives every page of the context a camera that shows the person of the file. Call before the first page is opened. */
+/** Gives every page of the context a camera that shows the person of the file (an empty room without a file). Call before the first page is opened. */
 export async function installPersonCamera(context: BrowserContext, o: PersonCameraOptions): Promise<void> {
-  const b64 = readFileSync(resolve(o.file)).toString('base64');
-  await context.exposeFunction(CAMERA_BINDING, () => b64);
-  await context.addInitScript(shim, { binding: CAMERA_BINDING, fps: o.fps ?? 15, portrait: o.portrait === true });
+  if (o.file) {
+    const b64 = readFileSync(resolve(o.file)).toString('base64');
+    await context.exposeFunction(CAMERA_BINDING, () => b64);
+  }
+  await context.addInitScript(shim, { binding: CAMERA_BINDING, fps: o.fps ?? 15, portrait: o.portrait === true, empty: !o.file });
 }
 
 /** What the page-side camera did: how often the page asked for it, how many are open, how many pictures were drawn, and the error it hit (null when none). installed false: the engine cannot make a camera from a canvas. */
@@ -131,6 +148,6 @@ export async function cameraState(page: Page): Promise<CameraInfo> {
  * WebKit: nothing to set (Playwright's build serves mock devices once the context grants the camera).
  */
 export function engineCamera(engine: 'chromium' | 'firefox' | 'webkit'): LaunchOptions {
-  if (engine === 'firefox') return { headless: true, firefoxUserPrefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true } };
+  if (engine === 'firefox') return { headless: true, firefoxUserPrefs: firefoxPrefs() };
   return { headless: true };
 }
