@@ -226,6 +226,98 @@ describe('a match that is running', () => {
   });
 });
 
+describe('an entitlement layer that misbehaves', () => {
+  it('never breaks a room: a token reader that throws is "no token", free games and the Pro refusal work as ever', async () => {
+    const net = await Net.make({ config: FREE });
+    let reads = 0;
+    const a = client(net, 'alice-device-01', { pro: () => { reads++; throw new Error('the entitlement layer is down'); }, proSent: null, refreshTicket: async () => net.grant('alice-device-01') });
+    client(net, 'bob-device-0002');
+    net.run(3000);
+    a.c.configure({ gameId: 'knee-sprint' });
+    net.run(300);
+    expect(a.c.room?.config.gameId).toBe('knee-sprint');
+    a.c.configure({ gameId: 'pad-work' });
+    net.run(300);
+    expect(a.all('roomError')).toEqual([{ code: 'pro_required' }]);
+    expect(reads).toBeGreaterThan(0);
+    expect(a.all('fatal')).toHaveLength(0);
+    expect(await a.c.renewEntitlement()).toBe(true);                // asking for a fresh ticket by hand still works
+    net.run(50); await settle(); net.run(1500);
+    expect(a.c.you).toBe('s1');
+  });
+
+  it('what a ticket was made from is the token read when it was asked for, not one that arrived while the answer was on its way', async () => {
+    const net = await Net.make({ config: FREE });
+    const state: TokenState = { token: 'tok-1', sent: null, proves: true };
+    let asked = 0;
+    const a = client(net, 'alice-device-01', {
+      pro: () => state.token, proSent: null,
+      refreshTicket: async (): Promise<JoinGrant> => {
+        asked++;
+        const g = net.grant('alice-device-01', x(net.room.host.now() + DAY));
+        state.token = 'tok-2';                                       // the app renews its token while the answer is on its way
+        return g;
+      },
+    });
+    client(net, 'bob-device-0002');
+    net.run(3000);
+    a.c.configure({ gameId: 'pad-work' });                           // tok-1 is not what the ticket carries (none): renewed, made from tok-1
+    net.run(50); await settle(); net.run(2000);
+    expect(asked).toBe(1);
+    expect(a.c.room?.config.gameId).toBe('pad-work');
+    a.c.configure({ gameId: 'reaction-tag' });                       // tok-2 is newer than tok-1, which is what the ticket was made from: renewed again
+    net.run(50); await settle(); net.run(2000);
+    expect(asked).toBe(2);
+    expect(a.c.room?.config.gameId).toBe('reaction-tag');
+    a.c.configure({ gameId: 'limbo-bend' });                         // nothing newer now: straight to the Room
+    net.run(300);
+    expect(asked).toBe(2);
+    expect(a.c.room?.config.gameId).toBe('limbo-bend');
+  });
+});
+
+describe('a ticket renewed in the background', () => {
+  // The ticket in hand ends within a minute, so the reconnect after a dropped socket asks for a new one first. Whether the answer comes
+  // before or after the reconnect, the Room has read only what a hello carried, and the client must not believe the Room read the new
+  // token just because a ticket made from it is in hand: a host who got Pro meanwhile still ends up with the Pro game.
+  it.each([
+    ['slower than', 1000],
+    ['faster than', 10],
+  ] as const)('a host who got Pro meanwhile gets the Pro game, the answer coming %s the reconnect', async (_how, answerMs) => {
+    const net = await Net.make({ config: FREE });
+    const state: TokenState = { token: null, sent: null, proves: true };
+    let asked = 0;
+    const soon = Math.floor(Date.now() / 1000) + 20;
+    const a = client(net, 'alice-device-01', {
+      grant: { ...net.grant('alice-device-01'), exp: soon },
+      pro: () => state.token, proSent: null,
+      refreshTicket: async (): Promise<JoinGrant> => {
+        asked++;
+        const g = net.grant('alice-device-01', state.token && state.proves ? x(net.room.host.now() + DAY) : {});   // made from the token read now
+        await new Promise<void>((r) => { net.sched.setTimeout(r, answerMs); });
+        return g;
+      },
+    });
+    client(net, 'bob-device-0002');
+    net.run(5000);
+    expect(a.c.you).toBe('s1');
+
+    state.token = 'bought-pro-in-the-lobby';                       // the Room has read no token of hers
+    net.sockets[0]?.kill();                                        // the network blinks
+    net.run(50); await settle();
+    net.run(answerMs + 600); await settle(); net.run(600);
+    expect(a.c.m.wsOpens).toBeGreaterThanOrEqual(2);
+    expect(asked).toBeGreaterThanOrEqual(1);
+
+    a.c.configure({ gameId: 'limbo-bend' });
+    net.run(50); await settle(); net.run(answerMs + 600); await settle(); net.run(2500);
+    expect(a.c.room).toMatchObject({ config: { gameId: 'limbo-bend' }, pro: { ok: true } });
+    expect(asked).toBeLessThanOrEqual(2);                          // at most one renewal more, never a loop
+    expect(a.all('fatal')).toHaveLength(0);
+    expect(a.c.you).toBe('s1');
+  });
+});
+
 describe('the calls of a page', () => {
   const who = { pid: 'alice-device-01', name: 'Alice', age: 'adult' as const };
   const seen: { url: string; body: Record<string, unknown> }[] = [];
@@ -255,6 +347,17 @@ describe('the calls of a page', () => {
     }
     const plain = await joinRoom('http://loop', 'K7P2QX', who, answer(net, 404, { error: 'no_room' })).catch((v: unknown) => v);
     expect((plain as LiveApiError).info).toBeUndefined();
+  });
+
+  it('a token reader that throws, or answers with a text no token can be, still makes the room, with no token in the body', async () => {
+    const net = await Net.make({ config: FREE });
+    for (const pro of [() => { throw new Error('down'); }, () => 'x'.repeat(5000), () => 7 as never]) {
+      seen.length = 0;
+      const race = await LiveRace.host({ origin: 'http://loop', peers: 'none', pauseWhenHidden: false, pro, fetcher: answer(net), client: { sched: net.sched, socket: net.factory }, who, gameId: 'squat-flap', durationMs: 30_000 });
+      expect(seen).toHaveLength(1);
+      expect('pro' in (seen[0]?.body as object)).toBe(false);
+      race.dispose();
+    }
   });
 
   it('LiveRace asks for the current token at every create, join and ticket renewal', async () => {

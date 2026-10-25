@@ -10,6 +10,7 @@ import {
 } from '../types/net.ts';
 import { ClockFilter, type ClockInfo } from './clock.ts';
 import { isProGame } from './live-games.ts';
+import { currentProToken } from './pro-token.ts';
 import { PeerLink, DEFAULT_VIDEO_LIMITS, type LinkStats, type PeerHost, type PeerMetrics, type VideoLimits } from './peer.ts';
 import { Emitter, WS_CONNECTING, WS_OPEN, browserSocket, randomId, realScheduler, type Scheduler, type SocketFactory, type SocketLike } from './runtime.ts';
 import { parseRoomMessage } from './validate.ts';
@@ -378,9 +379,10 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     const now = this.sched.now();
     if (!refresh || now - this.lastRefresh < 3000) { this.fatal('ticket', CLOSE.TICKET); return; }
     this.lastRefresh = now;
+    const sent = currentProToken(this.opts.pro);                 // what the refresh below presents (it reads the same token in the same breath)
     try {
       this.grant = await refresh();
-      this.proPresented = this.opts.pro?.() ?? null;
+      this.proPresented = sent;
       this.scheduleReconnect(0);
     } catch {
       this.scheduleReconnect();
@@ -389,7 +391,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
 
   /** Is the player's own Pro token a different one from the one the Room read at the door? (A free player has nothing to present.) */
   private proIsNewer(): boolean {
-    const tok = this.opts.pro?.() ?? null;
+    const tok = currentProToken(this.opts.pro);
     return !!tok && tok !== this.proPresented;
   }
 
@@ -418,12 +420,13 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
   private async renew(): Promise<boolean> {
     const refresh = this.opts.refreshTicket;
     if (!refresh || this.closed || !this.started || this.playing) return false;
+    const sent = currentProToken(this.opts.pro);                 // what the refresh below presents (it reads the same token in the same breath)
     try {
       this.grant = await refresh();
     } catch {
       return false;
     }
-    this.proPresented = this.opts.pro?.() ?? null;
+    this.proPresented = sent;
     this.lastRefresh = this.sched.now();
     if (this.ws && !this.closed) this.dropSocket();
     return true;
@@ -439,6 +442,9 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     const refresh = this.opts.refreshTicket;
     if (refresh && this.grant.exp * 1000 - Date.now() < 60_000 && this.sched.now() - this.lastRefresh > 3000) {
       this.lastRefresh = this.sched.now();
+      // `proPresented` is not touched here: the Room has read only what a hello carried, and a socket that connected before this answer
+      // came holds the older ticket's claim. A Pro pick after it may renew once more (renewEntitlement), which is safe; believing the Room
+      // had read a ticket it never saw would leave that pick refused with nothing left to try.
       void refresh().then((g) => { this.grant = g; }).catch(() => { /* the old ticket may still work */ });
     }
     this.reconnectTimer = this.sched.setTimeout(() => this.connect(), delay);

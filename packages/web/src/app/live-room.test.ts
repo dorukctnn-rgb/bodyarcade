@@ -455,6 +455,17 @@ describe('the Pro games of a room', () => {
     expect(t.port.proNeeded()).toBeNull();                         // a late room update does not bring the old note back
   });
 
+  it('a token reader that throws is no token: the room is made and joined as ever, and a Pro game is refused for want of one', async () => {
+    const t = setup({ pro: () => { throw new Error('the entitlement layer is down'); } });
+    expect(await t.port.create({ game: 'squat-flap', kind: 'private', size: 2, band: null })).toEqual({ ok: true, value: 'K7P2QX' });
+    expect('pro' in (t.calls[0]?.body as object)).toBe(false);
+    expect(await t.port.join('ABCDEF')).toEqual({ ok: true, value: undefined });
+    expect('pro' in (t.calls[1]?.body as object)).toBe(false);
+    const refused = setup({ pro: () => { throw new Error('down'); }, fetch: () => new Response(JSON.stringify({ error: 'pro_required', reason: 'none' }), { status: 403 }) });
+    expect(await refused.port.create(PRO_ROOM)).toEqual({ ok: false, code: 'not_allowed' });
+    expect(refused.port.proNeeded()).toMatchObject({ reason: 'none' });
+  });
+
   it('a rejected ticket is renewed with the token the app holds at that moment', async () => {
     let token: string | null = 'TOKEN-A';
     const t = setup({ pro: () => token });

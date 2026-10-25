@@ -8,6 +8,7 @@
 import { LiveClient, type FatalReason, type LiveClientOptions } from '../../../core/net/client.ts';
 import { createRoom, fetchIce, joinRoom, LiveApiError, type Identity } from '../../../core/net/api.ts';
 import { inviteLink, normalizeRoomCode } from '../../../core/net/codes.ts';
+import { currentProToken } from '../../../core/net/pro-token.ts';
 import { DEFAULT_DURATION_MS, MAX_DURATION_MS, MIN_DURATION_MS, type JoinGrant, type RoomKind } from '../../../core/types/net.ts';
 import type { Unsubscribe } from '../../../core/types/index.ts';
 import type { LevelBand } from '../../../core/social/types.ts';
@@ -131,7 +132,7 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
     const live = (): boolean => mine === epoch;
     const c = (deps.makeClient ?? ((o) => new LiveClient(o)))({
       grant, origin: deps.origin, blocks: deps.blocks?.load() ?? [], peers: 'webrtc',
-      refreshTicket: () => joinRoom(deps.origin, grant.code, who, deps.fetcher, deps.pro?.()),
+      refreshTicket: () => joinRoom(deps.origin, grant.code, who, deps.fetcher, currentProToken(deps.pro)),
       ...(deps.pro ? { pro: deps.pro, proSent } : {}),
       ice: () => fetchIce(deps.origin, deps.fetcher),
     });
@@ -172,7 +173,7 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
     set({ ...FRESH, phase: 'joining' });
     picked = null;
     setNeeded(null);                                                // a new try ends the note of an earlier one
-    const pro = deps.pro?.() ?? null;
+    const pro = currentProToken(deps.pro);
     try {
       const grant = await grantFor(who, pro);
       attach(grant, who, pro);

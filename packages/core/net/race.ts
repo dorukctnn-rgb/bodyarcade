@@ -27,6 +27,7 @@ import { LiveApiError, createRoom, fetchIce, joinRoom, previewRoom, type Identit
 import { LiveClient, type FatalReason, type LiveClientOptions } from './client.ts';
 import { codeFromInvite, inviteLink } from './codes.ts';
 import { loadBlocks, saveBlocks } from './identity.ts';
+import { currentProToken } from './pro-token.ts';
 import { encodeQr, qrToSvg, type QrSvgOptions } from './qr.ts';
 import { Emitter, realScheduler, type Scheduler } from './runtime.ts';
 import { makeSchedule, scoreOf, specFor, type Obstacle } from './schedule.ts';
@@ -202,7 +203,7 @@ export class LiveRace extends Emitter<RaceEvents> {
     this.invite = { code: grant.code, link, qrSvg: (o) => qrToSvg(encodeQr(link, 'M'), o) };
     this.client = new LiveClient({
       grant, origin,
-      refreshTicket: () => joinRoom(origin, grant.code, opts.who, fetcher, opts.pro?.()),
+      refreshTicket: () => joinRoom(origin, grant.code, opts.who, fetcher, currentProToken(opts.pro)),
       ...(opts.pro ? { pro: opts.pro, proSent } : {}),
       ice: () => fetchIce(origin, fetcher),
       blocks: store.load(),
@@ -219,7 +220,7 @@ export class LiveRace extends Emitter<RaceEvents> {
   /** Creates a room and a seat in it. Rejects with LiveApiError (see isRetryable) when the Worker refuses or cannot be reached. */
   static async host(o: HostOptions): Promise<LiveRace> {
     const origin = o.origin ?? (typeof location !== 'undefined' ? location.origin : '');
-    const pro = o.pro?.() ?? null;
+    const pro = currentProToken(o.pro);
     const grant = await createRoom(origin, o.who, { kind: o.kind ?? 'private', gameId: o.gameId, size: o.size ?? 2, durationMs: o.durationMs, band: o.band ?? null }, o.fetcher, pro);
     return LiveRace.attach(grant, o, pro);
   }
@@ -229,7 +230,7 @@ export class LiveRace extends Emitter<RaceEvents> {
     const code = codeFromInvite(o.invite);
     if (!code) throw new LiveApiError(400, 'bad_code');
     const origin = o.origin ?? (typeof location !== 'undefined' ? location.origin : '');
-    const pro = o.pro?.() ?? null;
+    const pro = currentProToken(o.pro);
     const grant = await joinRoom(origin, code, o.who, o.fetcher, pro);
     return LiveRace.attach(grant, o, pro);
   }
