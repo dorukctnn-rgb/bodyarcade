@@ -201,11 +201,13 @@ export const reactionTagRules: Rules<LightSpec> = {
   hit(spec: LightSpec, live: Live, j: HitJudgement, lane: LaneApi, out: Out): void {
     const s = lane.stats;
     if (spec.trap) {
-      s.score = Math.max(0, s.score + LIGHT_POINTS.trap);
+      // In a race a red light costs no points (the Room's sum has none to take away): it is a hit, and it breaks the combo.
+      const cost = spec.ob !== undefined ? 0 : LIGHT_POINTS.trap;
+      s.score = Math.max(0, s.score + cost);
       s.misses++;
       s.traps++;
       s.streak = 0;
-      out.event({ type: 'trap', kind: 'light', id: spec.id, x: live.x, y: live.y, pts: LIGHT_POINTS.trap, side: j.side });
+      out.event({ type: 'trap', kind: 'light', id: spec.id, x: live.x, y: live.y, pts: cost, side: j.side });
       out.log('hold_still', false);
       out.hint('hold_still');
       out.cue('warn');

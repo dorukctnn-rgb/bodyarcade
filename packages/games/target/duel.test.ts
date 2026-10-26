@@ -262,6 +262,8 @@ describe('the promises of a game that can be raced', () => {
     // every red light has at most one outcome, and it is a hit
     for (const l of reds) expect(results.filter((e) => e.ob === l.ob).every((e) => e.k === 'hit')).toBe(true);
     expect(events.filter((e) => e.type === 'trap').length).toBe(hitReds.length);
+    // the picture says "0" over a red light that was touched, not the "-40" of a round alone: the race's score has nothing to take away
+    expect(events.filter((e) => e.type === 'trap').every((e) => e['pts'] === 0)).toBe(true);
     // the Room's sum from these results is the game's own
     expect(game.summary().score).toBe(scoreOf(course(), results).score);
     // and a red light touched costs the combo: no pass is scored for it

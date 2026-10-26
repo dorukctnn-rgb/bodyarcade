@@ -9,7 +9,7 @@ import type { Landmark } from '../../../core/types/index.ts';
 import type { ReactionId, SeatId } from '../../../core/types/net.ts';
 import { createI18n, type I18n } from '../../../core/ui/i18n/index.ts';
 import { standInBody, type LiveMessage, type LiveSource, type LiveTile, type LiveView } from './live-race.ts';
-import { clearOf, mountLiveStage } from './live-stage.ts';
+import { clearOf, mountLiveStage, offPicture } from './live-stage.ts';
 import type { RaceStageMount } from './race.ts';
 
 // ---- a fake document: just what the layer uses ----------------------------------------------------------------------------
@@ -392,5 +392,24 @@ describe('the stage of a race in a room', () => {
     expect(Object.keys(new Rect(1, 2, 3, 4))).not.toContain('left');
     expect(clearOf(new Rect(500, 84, 280, 40), [new Rect(490, 24, 300, 88)], 'down')).toBe(112 + 8 - 84);
     expect(clearOf(new Rect(485, 726, 310, 56), [new Rect(336, 723, 340, 52)], 'up')).toBe(723 - 8 - 782);
+  });
+
+  it('keeps the tiles of the others off the camera picture of a mirror game: above it first, below it otherwise, and where they are when nothing fits', () => {
+    const box = (left: number, top: number, w: number, h: number) => ({ left, top, right: left + w, bottom: top + h });
+    // a phone, 390 by 844: the picture of the camera is as wide as the phone, the plates are at the top, the reason is at the bottom
+    const area = box(0, 0, 390, 844);
+    const picture = box(27, 405, 336, 187);
+    const plates = [box(12, 30, 120, 60), box(250, 30, 128, 60), box(20, 757, 350, 50)];
+    // two tiles, centred at the left edge, would cover the left of the picture, where a player who stands to the left has lights
+    const two = box(12, 317, 104, 210);
+    expect(offPicture(two, picture, plates, area)).toBe(405 - 8 - 527);
+    // three tiles do not fit above (the plates) or below (the reason): they stay
+    expect(offPicture(box(12, 265, 104, 315), picture, plates, area)).toBeNull();
+    // a laptop: the picture is in the middle and the tiles are at the edge: nothing moves
+    const wide = box(247, 194, 787, 442);
+    expect(offPicture(box(12, 355, 132, 210), wide, [box(24, 24, 137, 87)], box(0, 0, 1280, 800))).toBe(0);
+    // below the picture when above is taken by the plates and below is free
+    const low = box(12, 420, 104, 100);
+    expect(offPicture(low, box(27, 300, 336, 187), [box(12, 30, 351, 270)], area)).toBe(487 + 8 - 420);
   });
 });

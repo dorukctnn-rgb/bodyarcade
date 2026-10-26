@@ -12,6 +12,10 @@ export function faqTr(): PageSpec {
   const W = F.ROAD_RUN_WORLDS;
   const proTitles = titlesOf((g) => !g.free, 'tr');
   const liveTitles = titlesOf((g) => g.live, 'tr');
+  const proLive = c.proLive;
+  const proLiveTitles = titlesOf((g) => g.live && !g.free, 'tr');
+  // yalnız Pro bir oyun yarışa açıksa söylenir: oda, ev sahibinde Pro varken onu açar; katılan arkadaşlarda Pro gerekmez
+  const proRooms = proLive > 0 ? ` ${proLiveTitles} ${proLive > 1 ? 'Pro oyunlardır' : 'bir Pro oyundur'}: ev sahibinde Pro varsa oda ${proLive > 1 ? 'birini' : 'onu'} açabilir, katılan arkadaşlarda Pro gerekmez.` : '';
   const $ = (n: number): string => F.usd(n, 'tr');
   const memberships = F.FAMILY_PLAN ? 'Pro aylık, Pro yıllık ve Aile yıllık' : 'Pro aylık ve Pro yıllık';
   const app = F.ANDROID_APP_LIVE
@@ -81,7 +85,7 @@ export function faqTr(): PageSpec {
       items: [
         {
           q: 'Bir arkadaşımla çevrimiçi nasıl oynarım?',
-          a: `<p>Arkadaşlar sayfasını aç ve bir profil oluştur. Uygulama yaş grubunu bir kez sorar ve sana BA-7K2Q4X gibi görünen bir arkadaş kodu verir. Arkadaş kodunu ya da davet bağlantını gönder; arkadaşın kabul edince arkadaş olursunuz. Oynamak için bir oda kur, bir oyun seç ve davet bağlantısını, ${F.ROOM_CODE_CHARS} karakterli kodu ya da QR kodu gönder. Bir odada ${F.SEATS.min} ile ${F.SEATS.max} oyuncu bulunur. Herkes hazır olur ve tur hepinizde aynı anda başlar. Canlı yarışlar şu oyunlarda: ${liveTitles}.</p>`,
+          a: `<p>Arkadaşlar sayfasını aç ve bir profil oluştur. Uygulama yaş grubunu bir kez sorar ve sana BA-7K2Q4X gibi görünen bir arkadaş kodu verir. Arkadaş kodunu ya da davet bağlantını gönder; arkadaşın kabul edince arkadaş olursunuz. Oynamak için bir oda kur, bir oyun seç ve davet bağlantısını, ${F.ROOM_CODE_CHARS} karakterli kodu ya da QR kodu gönder. Bir odada ${F.SEATS.min} ile ${F.SEATS.max} oyuncu bulunur. Herkes hazır olur ve tur hepinizde aynı anda başlar. Canlı yarışlar şu oyunlarda: ${liveTitles}.${proRooms}</p>`,
         },
         {
           q: 'İkimiz tek kamerada oynayabilir miyiz?',
