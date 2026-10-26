@@ -187,7 +187,7 @@ export function feedKit(kit: Scene2DKit, info: HudLayoutInfo): void {
     const m: MeasuredDuo = { statusP1: size(d.statusP1), statusP2: size(d.statusP2), timer: size(d.timer), command: size(d.command) };
     if (d.reasonP1) m.reasonP1 = size(d.reasonP1);
     if (d.reasonP2) m.reasonP2 = size(d.reasonP2);
-    kit.setHudDuo(m);
+    kit.setHudDuo(m, { mirror: true });
   } else if (info.solo) {
     const s = info.solo.rects;
     const m: MeasuredHud = { statusLeft: size(s.statusLeft), statusRight: size(s.statusRight), command: size(s.command), reason: size(s.reason) };
@@ -499,4 +499,43 @@ export function key(k: string, down: boolean): void {
 /** Moves the virtual hands by hand (a test that wants a particular touch). */
 export function aim(player: 1 | 2, hand: 'L' | 'R', x: number, y: number, speed = 6): void {
   run?.bodies[player - 1]?.aim(hand, x, y, speed);
+}
+
+export interface PlateCase { prompt: string; hint: string }
+export interface PlateProbe extends PlateCase {
+  /** The mirror rectangle the 2D kit draws the picture in, and the box the HUD gave the camera element (null when it has none). */
+  mirror: Box;
+  host: Box | null;
+  /** The play area the targets live in and the plates that were showing. */
+  play: Box;
+  plates: Record<string, Box>;
+  problems: string[];
+}
+
+/**
+ * The layout with the given words in the command plate and the reason strip, one case after the other in one synchronous call (the
+ * running game cannot change a word in between), each read after the HUD has laid itself out and told the kit. The HUD ends up with
+ * the last case; a test that goes on with the game starts it again.
+ */
+export function probePlates(cases: readonly PlateCase[]): PlateProbe[] | null {
+  const r = run;
+  if (!r) return null;
+  const host = document.querySelector<HTMLElement>('[data-camera-host]');
+  return cases.map((c) => {
+    r.hud.set('prompt', c.prompt);
+    if (r.args.players === 2) { r.hud.setPlayer(1, 'hint', c.hint); r.hud.setPlayer(2, 'hint', c.hint); } else r.hud.set('hint', c.hint);
+    r.hud.relayout(true);
+    const problems = r.hud.problems();
+    const m = r.kit.rects.mirror;
+    const p = r.kit.rects.play;
+    const shown = !!host && host.style.display !== 'none' && host.style.width !== '';
+    return {
+      ...c,
+      mirror: { x: m.x, y: m.y, w: m.w, h: m.h },
+      host: shown ? { x: Number.parseFloat(host.style.left), y: Number.parseFloat(host.style.top), w: Number.parseFloat(host.style.width), h: Number.parseFloat(host.style.height) } : null,
+      play: { x: p.x, y: p.y, w: p.w, h: p.h },
+      plates: plateBoxes(),
+      problems,
+    };
+  });
 }

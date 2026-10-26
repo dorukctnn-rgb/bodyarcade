@@ -8,8 +8,8 @@ import { glyph, type PoseName } from '../glyphs.ts';
 import { html, raw, type SafeHtml } from '../html.ts';
 import type { I18n } from '../i18n/index.ts';
 import {
-  checkRects, duoAvailable, duoReasonRows, hudMetrics, hudSlots, placeHud, placeHudDuo, typicalInsets,
-  type DuoLayout, type HudLayout, type HudMetrics, type HudMode, type Insets, type PipPlacement, type PlacedRect, type Rect, type Size,
+  checkRects, duoAvailable, duoReasonRows, hudMetrics, hudSlots, mirrorReasonLines, mirrorStill, placeHud, placeHudDuo, placeMirrorHud, placeMirrorHudDuo, typicalInsets,
+  type DuoLayout, type HudLayout, type HudMetrics, type HudMode, type Insets, type PipPlacement, type PlacedRect, type Rect, type ReasonRow, type Size,
 } from '../layout.ts';
 import { calibrationPip, chooseReasonRow, fitCommand, fitReasonFont, fitStatusFont, REASON_LINES, type ReasonRows } from './fit.ts';
 
@@ -432,8 +432,8 @@ export class PlayHud implements Hud {
   }
 
   /** A reason takes two lines in the room it has: its own size while that holds, then smaller; the plate keeps that size and width. */
-  private fitReason(plate: HTMLElement, span: HTMLElement, maxW: number, start: number): void {
-    const { font } = fitReasonFont({ start, floor: Math.max(12, Math.floor(start * 0.72)) }, (f) => {
+  private fitReason(plate: HTMLElement, span: HTMLElement, maxW: number, start: number, lines = REASON_LINES): void {
+    const { font } = fitReasonFont({ start, floor: Math.max(12, Math.floor(start * 0.72)), lines }, (f) => {
       plate.style.fontSize = `${f}px`;
       return this.reasonLines(plate, span, maxW);
     });
@@ -462,15 +462,21 @@ export class PlayHud implements Hud {
     if (away) away.style.fontSize = `${Math.round(F.reason * 1.05)}px`;
     this.fitStatus(duo ? ['statusP1', 'timerPlate', 'statusP2'] : ['statusLeft', 'statusRight'], metrics);
 
+    // A mirror game keeps the room of the command plate and of the reason strip for good (mirrorStill): the picture stands still, and
+    // the command is fitted to the width of the row that was kept for it.
+    const mirrorGame = this.mode === 'mirror' && !duo;
+    const still = mirrorGame ? mirrorStill({ w: vp.w, h: vp.h, metrics }, { statusLeft: this.size(this.el['statusLeft'] as HTMLElement), statusRight: this.size(this.el['statusRight'] as HTMLElement) }) : null;
+    const commandRoom = still ? still.commandRoom : metrics.safe.w;
+
     // The command: shrink, then drop the glyph, then wrap (design/LAYOUT.md section 8).
     const setCommand = (font: number, st: { noGlyph: boolean; wrap: boolean }): void => {
       command.style.fontSize = `${font}px`;
       command.classList.toggle('no-glyph', st.noGlyph);
       command.classList.toggle('wrap', st.wrap);
-      command.style.maxWidth = st.wrap ? `${metrics.safe.w}px` : '';
+      command.style.maxWidth = st.wrap ? `${commandRoom}px` : '';
     };
     if (!command.hidden) {
-      const fit = fitCommand({ startFont: F.command, floor: metrics.commandShrinkFloor, safeW: metrics.safe.w }, (font, st) => {
+      const fit = fitCommand({ startFont: F.command, floor: metrics.commandShrinkFloor, safeW: commandRoom }, (font, st) => {
         setCommand(font, st);
         return command.getBoundingClientRect().width;
       });
@@ -491,12 +497,14 @@ export class PlayHud implements Hud {
     if (duo) {
       // Each player's reason stands beside the shared view when it takes two lines there, else above it in their half of the screen.
       const rows: ReasonRows = duoReasonRows({ w: vp.w, h: vp.h, metrics }, this.mode === 'mirror' ? { mirror: true } : {});
+      // a mirror game keeps room for a reason of one line where the row is wide enough for it, and fits the words to that
+      const most = this.mode === 'mirror' ? mirrorReasonLines(metrics, rows.bottom?.w ?? metrics.safe.w / 2) : REASON_LINES;
       for (const n of [1, 2] as const) {
         const plate = this.el[`reason${n}`];
         const span = this.el[`reason${n}Text`];
         if (!plate || !span || plate.hidden) continue;
-        const pick = chooseReasonRow(rows, (_row, w) => this.reasonLines(plate, span, w));
-        this.fitReason(plate, span, rows[pick.row]?.w ?? metrics.safe.w / 2, F.reason);
+        const pick = chooseReasonRow(rows, (_row, w) => this.reasonLines(plate, span, w), most);
+        this.fitReason(plate, span, rows[pick.row]?.w ?? metrics.safe.w / 2, F.reason, most);
       }
       const measured = {
         statusP1: this.size(this.el['statusP1'] as HTMLElement), statusP2: this.size(this.el['statusP2'] as HTMLElement),
@@ -505,7 +513,10 @@ export class PlayHud implements Hud {
         ...(this.visible('reason2') ? { reasonP2: this.size(this.el['reason2'] as HTMLElement) } : {}),
         away: this.away ? this.size(away as HTMLElement) : null,
       };
-      const layout = placeHudDuo({ w: vp.w, h: vp.h, metrics }, measured, { away: this.away ? (this.away.player === 1 ? 'p1' : 'p2') : null, ...(this.mode === 'mirror' ? { mirror: true } : {}) });
+      const duoOptions = { away: this.away ? (this.away.player === 1 ? 'p1' as const : 'p2' as const) : null };
+      const layout = this.mode === 'mirror'
+        ? placeMirrorHudDuo({ w: vp.w, h: vp.h, metrics }, measured, duoOptions)
+        : placeHudDuo({ w: vp.w, h: vp.h, metrics }, measured, duoOptions);
       const r = layout.rects;
       this.put(this.el['statusP1'], r.statusP1); this.put(this.el['statusP2'], r.statusP2); this.put(this.el['timerPlate'], r.timer); this.put(command, r.command);
       this.put(this.el['reason1'], r.reasonP1); this.put(this.el['reason2'], r.reasonP2);
@@ -522,17 +533,24 @@ export class PlayHud implements Hud {
       const cmdSize = command.hidden ? { w: 1, h: 1 } : this.size(command);
       const reason = this.el['reason'] as HTMLElement;
       const options = { mode: this.mode, pipCorner: this.shownCorner };
-      const slots = hudSlots({ w: vp.w, h: vp.h, metrics }, { ...status, command: cmdSize }, options);
-      let reasonRow = slots.reason.preferred;
-      if (!reason.hidden) {
-        const span = this.el['reasonText'] as HTMLElement;
-        const pick = chooseReasonRow(slots.reason, (_row, maxW) => this.reasonLines(reason, span, maxW));
-        reasonRow = pick.row;
-        // When no row has room for two lines, the words are made smaller, never cut off.
-        this.fitReason(reason, span, slots.reason[pick.row]?.w ?? metrics.safe.w, F.reason);
+      let reasonRow: ReasonRow;
+      if (still) {
+        // one row for the reason, the one that was kept for it, and the words are made to fit the room kept in it
+        reasonRow = still.reasonRow;
+        if (!reason.hidden) this.fitReason(reason, this.el['reasonText'] as HTMLElement, still.reasonRoom, F.reason, still.reasonLines);
+      } else {
+        const slots = hudSlots({ w: vp.w, h: vp.h, metrics }, { ...status, command: cmdSize }, options);
+        reasonRow = slots.reason.preferred;
+        if (!reason.hidden) {
+          const span = this.el['reasonText'] as HTMLElement;
+          const pick = chooseReasonRow(slots.reason, (_row, maxW) => this.reasonLines(reason, span, maxW));
+          reasonRow = pick.row;
+          // When no row has room for two lines, the words are made smaller, never cut off.
+          this.fitReason(reason, span, slots.reason[pick.row]?.w ?? metrics.safe.w, F.reason);
+        }
       }
       const measured = { ...status, command: cmdSize, reason: reason.hidden ? { w: 1, h: 1 } : this.size(reason) };
-      const layout = placeHud({ w: vp.w, h: vp.h, metrics }, measured, { ...options, reasonRow });
+      const layout = still ? placeMirrorHud({ w: vp.w, h: vp.h, metrics }, measured) : placeHud({ w: vp.w, h: vp.h, metrics }, measured, { ...options, reasonRow });
       const r = layout.rects;
       this.put(this.el['statusLeft'], r.statusLeft); this.put(this.el['statusRight'], r.statusRight); this.put(command, r.command); this.put(reason, r.reason);
       this.put(pip, calibrating ? calibrationPip(metrics, false) : r.pip, true);

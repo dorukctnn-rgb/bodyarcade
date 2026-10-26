@@ -158,6 +158,8 @@ export interface PlaceOptions {
   mode?: HudMode;
   pipCorner?: PipPlacement;
   reasonRow?: ReasonRow;
+  /** The command plate stands under the score and the time whatever its width (a mirror game keeps that row for it, see mirrorStill). */
+  commandBelow?: boolean;
 }
 
 export type ReasonRow = 'bottom' | 'lifted' | 'side';
@@ -206,7 +208,7 @@ export function placeHud(viewport: Viewport & { metrics?: HudMetrics }, measured
   const between = statusRight.x - (statusLeft.x + statusLeft.w) - 2 * gap;
   const cmd = measured.command;
   let command: HudRects['command'];
-  if (cmd.w <= between) {
+  if (cmd.w <= between && options.commandBelow !== true) {
     const cx = (statusLeft.x + statusLeft.w + statusRight.x) / 2;
     command = { x: r(cx - cmd.w / 2), y: top, w: cmd.w, h: cmd.h, row: 'top' };
   } else {
@@ -348,6 +350,132 @@ export function mirrorRect(m: { w: number; h: number; portrait: boolean }, play?
   let mh = mw / aspect;
   if (mh > area.h) { mh = area.h; mw = mh * aspect; }
   return { x: r(area.x + (area.w - mw) / 2), y: r(area.y + (area.h - mh) / 2), w: r(mw), h: r(mh), fit: 'contain' };
+}
+
+// ---------------- A mirror game's picture stands still ----------------
+// The mirror is fitted in what the plates leave of the screen, so it used to move and change its size with every command and every
+// reason (at 1280 x 800 Pad Work's mirror was 885 x 664 without a command and 859 x 644 with one: a pulse with every beat; with a
+// reason strip or a wrapped command it lost up to a quarter). A mirror game now keeps the room of both plates for good: the picture
+// and the play area are what is left of the screen when a command plate and a reason strip are showing, and the plates, when they
+// come, come into the room that was kept. Only the metrics of the screen and the (steady) score and time plates decide it, never a word.
+
+/** The height of a command plate in ems of its font (design/ui-kit/kit.css .hud-command: padding .12em above and .17em under, line height 1; wrapped 0.98), by lines. */
+const COMMAND_PLATE_EM: Record<1 | 2, number> = { 1: 1.29, 2: 2.25 };
+/** The widest command the top row (between the score and the time) is kept for, in ems of the command font: a word or two and the move glyph. */
+const COMMAND_TOP_EM = 8;
+/**
+ * A command of this many letters or fewer takes one line where it stands under the score and the time (the longest of the games, "Esquive gauche",
+ * has 14), a longer one room for two. The Spanish "Esquiva izquierda" (17) wraps further than that only on a portrait tablet, where it may reach
+ * over the top edge of the picture for the two seconds it is there; the picture does not move.
+ */
+const COMMAND_LETTERS = 14;
+/** The height of a reason plate in ems of its font (.reason: the 1.35 em glyph or two lines of 1.2 em, and .84 em of padding), by lines. */
+const REASON_PLATE_EM: Record<1 | 2, number> = { 1: 2.19, 2: 3.24 };
+/** A bottom row keeps room for one line of a reason when the longest allowed reason (48 letters) fits it at the smallest size the words are made, else for two. */
+const REASON_LETTERS = 48;
+/** The band beside the picture takes the reason strip if two lines of this many letters fit in it at the smallest size the words are made (the longest reason of the games has 38 letters). */
+const SIDE_LETTERS = 21;
+/** The average width of a letter and the room of the plates round the words, in ems of the font. */
+const LETTER_EM = 0.55;
+const COMMAND_PAD_EM = 0.56;
+const REASON_PAD_EM = 3;
+/** What a plate may be taller than its ems say, for the rounding a browser does. */
+const PLATE_SLACK = 1;
+
+/** The smallest size the HUD makes the words of a reason (fitReason's floor). */
+const reasonFloor = (m: Pick<HudMetrics, 'font'>): number => Math.max(12, Math.floor(m.font.reason * 0.72));
+
+/** The lines of a reason a mirror game keeps room for in a bottom row of this width: the words are fitted to it. */
+export function mirrorReasonLines(m: Pick<HudMetrics, 'font'>, rowW: number): 1 | 2 {
+  const f = reasonFloor(m);
+  return (rowW - REASON_PAD_EM * f) / (LETTER_EM * f) >= REASON_LETTERS ? 1 : 2;
+}
+
+/** The lines of a command a mirror game keeps room for where it stands under the score and the time, in a row of this width. */
+export function mirrorCommandLines(m: Pick<HudMetrics, 'font'>, rowW: number): 1 | 2 {
+  const letters = (rowW - COMMAND_PAD_EM * m.font.command) / (LETTER_EM * m.font.command);
+  return letters >= COMMAND_LETTERS ? 1 : 2;
+}
+
+const mirrorCommandH = (m: Pick<HudMetrics, 'font'>, lines: 1 | 2): number => Math.ceil(COMMAND_PLATE_EM[lines] * m.font.command) + PLATE_SLACK;
+const mirrorReasonH = (m: Pick<HudMetrics, 'font'>, lines: 1 | 2): number => Math.ceil(REASON_PLATE_EM[lines] * m.font.reason) + PLATE_SLACK;
+
+/** Whether a band this wide beside the picture holds the reason strip: two lines of SIDE_LETTERS letters at the smallest size the words are made (the HUD's own floor). */
+function sideHoldsReason(m: Pick<HudMetrics, 'font'>, bandW: number): boolean {
+  return bandW >= reasonFloor(m) * (REASON_PAD_EM + SIDE_LETTERS * LETTER_EM);
+}
+
+export interface MirrorStill {
+  /** The whole camera frame's box (before the real camera aspect is fitted in it) and the play area, both the same whatever the plates say. */
+  mirror: Rect & { fit: 'contain' };
+  play: Rect;
+  /** The command plate stands under the score and the time (a narrow screen) rather than between them. */
+  commandBelow: boolean;
+  /** The width the command plate may take where it stands, and how many lines of it the room is for. */
+  commandRoom: number;
+  commandLines: 1 | 2;
+  /** The one row the reason strip stands in, how wide it may be there and how many lines of it the room is for. */
+  reasonRow: 'bottom' | 'side';
+  reasonRoom: number;
+  reasonLines: 1 | 2;
+}
+
+/**
+ * The picture and the play area of a mirror game for one player, from the screen and the sizes of the score and time plates alone.
+ * The layout is done once with a command plate and a reason strip of the sizes that were kept for them, which is what the room is for.
+ * The score plate is taken at least as wide as a long score makes it (so that a score gaining a digit moves nothing).
+ */
+export function mirrorStill(viewport: Viewport & { metrics?: HudMetrics }, status: { statusLeft: Size; statusRight: Size }): MirrorStill {
+  const m = viewport.metrics ?? hudMetrics(viewport);
+  const { w, h, insets, margin, gap, font } = m;
+  const left = insets.left + margin;
+  const right = w - insets.right - margin;
+  const rowW = right - left;
+  const statusLeft: Size = { w: Math.max(status.statusLeft.w, r(4.8 * font.numeral)), h: status.statusLeft.h };
+  const room = rowW - statusLeft.w - status.statusRight.w - 2 * gap;
+  const commandBelow = room < COMMAND_TOP_EM * font.command;
+  const reasonLines = mirrorReasonLines(m, rowW);
+  const commandLines = commandBelow ? mirrorCommandLines(m, rowW) : 1;
+  const measured: MeasuredHud = {
+    statusLeft, statusRight: status.statusRight,
+    command: { w: commandBelow ? rowW : 1, h: mirrorCommandH(m, commandLines) },
+    reason: { w: rowW, h: mirrorReasonH(m, reasonLines) },
+  };
+  const vp = { w, h, ...(viewport.insets ? { insets: viewport.insets } : {}), metrics: m };
+  let placed = placeHud(vp, measured, { mode: 'mirror', pipCorner: 'hidden' }).rects;
+  // the band beside the picture takes the strip only where the longest reason fits in it; else the strip has the bottom row
+  if (placed.reason.row === 'side' && !sideHoldsReason(m, right - ((placed.mirror as Rect).x + (placed.mirror as Rect).w + gap))) {
+    placed = placeHud(vp, measured, { mode: 'mirror', pipCorner: 'hidden', reasonRow: 'bottom' }).rects;
+  }
+  const mirror = placed.mirror as Rect & { fit: 'contain' };
+  const reasonRow = placed.reason.row === 'side' ? 'side' : 'bottom';
+  return {
+    mirror, play: placed.play, commandBelow, commandRoom: commandBelow ? rowW : room, commandLines,
+    reasonRow, reasonRoom: reasonRow === 'side' ? right - (mirror.x + mirror.w + gap) : rowW, reasonLines: reasonRow === 'side' ? 2 : reasonLines,
+  };
+}
+
+/**
+ * placeHud for a mirror game: the plates are where they would be placed, but the picture and the play area are the ones that were kept
+ * for the plates (mirrorStill), the command plate stands in the row that was kept for it and the reason strip in the one row kept for it.
+ */
+export function placeMirrorHud(viewport: Viewport & { metrics?: HudMetrics }, measured: MeasuredHud): HudLayout & { still: MirrorStill } {
+  const m = viewport.metrics ?? hudMetrics(viewport);
+  const vp = { w: viewport.w, h: viewport.h, ...(viewport.insets ? { insets: viewport.insets } : {}), metrics: m };
+  const still = mirrorStill(vp, measured);
+  const layout = placeHud(vp, measured, { mode: 'mirror', pipCorner: 'hidden', reasonRow: still.reasonRow, commandBelow: still.commandBelow });
+  const rects = layout.rects;
+  const { insets, margin, gap } = m;
+  const left = insets.left + margin;
+  const right = m.w - insets.right - margin;
+  const bottom = m.h - insets.bottom - margin;
+  const rs = measured.reason;
+  rects.reason = still.reasonRow === 'side'
+    ? { x: r(still.mirror.x + still.mirror.w + gap + (still.reasonRoom - rs.w) / 2), y: bottom - rs.h, w: rs.w, h: rs.h, row: 'side' }
+    : { x: r(clamp(left, (left + right) / 2 - rs.w / 2, right - rs.w)), y: bottom - rs.h, w: rs.w, h: rs.h, row: 'bottom' };
+  rects.mirror = still.mirror;
+  rects.play = still.play;
+  return { metrics: layout.metrics, rects, still };
 }
 
 const fmt = (a: Rect): string => `${r(a.x)},${r(a.y)} ${r(a.w)}x${r(a.h)}`;
@@ -523,4 +651,33 @@ export function placeHudDuo(
     rects.away = { x: r(half.x + (half.w - aw) / 2), y: r(half.y + (half.h - ah) / 2), w: r(aw), h: ah };
   }
   return { metrics: m, rects, pip: pipSize2 };
+}
+
+/**
+ * placeHudDuo for a mirror game: the plates are where they would be placed, but each player's half of the play area is the one that was
+ * kept for a command plate and a reason strip for each player (the same room whether they are showing or not).
+ */
+export function placeMirrorHudDuo(
+  viewport: Viewport & { metrics?: HudMetrics },
+  measured: MeasuredDuo,
+  options: { away?: DuoAway; camAspect?: number } = {},
+): DuoLayout {
+  const m = viewport.metrics ?? hudMetrics(viewport);
+  const vp = { w: viewport.w, h: viewport.h, ...(viewport.insets ? { insets: viewport.insets } : {}), metrics: m };
+  const rowW = duoReasonRows(vp, { mirror: true }).bottom.w;
+  const lines = mirrorReasonLines(m, rowW);
+  const span = m.w - m.insets.left - m.insets.right - 2 * m.margin;
+  const kept: MeasuredDuo = {
+    ...measured,
+    command: { w: 1, h: mirrorCommandH(m, mirrorCommandLines(m, span)) },
+    reasonP1: { w: rowW, h: mirrorReasonH(m, lines) },
+    reasonP2: { w: rowW, h: mirrorReasonH(m, lines) },
+  };
+  const o = { ...(options.away !== undefined ? { away: options.away } : {}), ...(options.camAspect !== undefined ? { camAspect: options.camAspect } : {}), mirror: true };
+  const room = placeHudDuo(vp, kept, o);
+  const layout = placeHudDuo(vp, measured, o);
+  layout.rects.playP1 = room.rects.playP1;
+  layout.rects.playP2 = room.rects.playP2;
+  if (room.rects.away) layout.rects.away = room.rects.away;
+  return layout;
 }

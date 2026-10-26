@@ -7,7 +7,7 @@
 // window in a corner that never covers the score, the timer, the command or the reason; in mirror games the mirror is
 // the scene and there is no window.
 import {
-  hudMetrics, liveSizes, pipSize, placeHud, placeHudDuo, checkRects,
+  hudMetrics, liveSizes, pipSize, placeHud, placeHudDuo, placeMirrorHud, placeMirrorHudDuo, checkRects,
   type DuoAway, type HudLayout, type HudMode, type Insets, type MeasuredDuo, type MeasuredHud, type PipPlacement,
 } from '../ui/layout.ts';
 import { fitContain, type Rect } from './view.ts';
@@ -51,7 +51,9 @@ export function layoutScene(i: LayoutInput): SceneRects {
   const base = hudMetrics({ w: i.w, h: i.h, ...(i.insets ? { insets: i.insets } : {}) });
   const pip = pipSize({ w: i.w, h: i.h, camAspect: i.camAspect });
   const metrics = { ...base, pip, live: liveSizes({ w: i.w, h: i.h, pip }) };
-  const layout = placeHud({ w: i.w, h: i.h, insets: metrics.insets, metrics }, i.measured, { mode: i.mode, pipCorner: i.pipCorner });
+  // a mirror game's picture and play area stand still whatever the command plate and the reason strip are doing (ui/layout.ts, mirrorStill)
+  const viewport = { w: i.w, h: i.h, insets: metrics.insets, metrics };
+  const layout = i.mode === 'mirror' ? placeMirrorHud(viewport, i.measured) : placeHud(viewport, i.measured, { mode: i.mode, pipCorner: i.pipCorner });
   const r = layout.rects;
   const play = { x: r.play.x, y: r.play.y, w: r.play.w, h: r.play.h };
   const mirror = fitContain(i.camAspect, play);
@@ -77,7 +79,9 @@ export interface DuoInput {
 
 /** Two players on one camera: the shared self view at the bottom centre, a lane for each player. */
 export function layoutDuo(i: DuoInput): SceneRects {
-  const d = placeHudDuo({ w: i.w, h: i.h, ...(i.insets ? { insets: i.insets } : {}) }, i.measured, { camAspect: i.camAspect, ...(i.away !== undefined ? { away: i.away } : {}), ...(i.mirror ? { mirror: true } : {}) });
+  const viewport = { w: i.w, h: i.h, ...(i.insets ? { insets: i.insets } : {}) };
+  const away = i.away !== undefined ? { away: i.away } : {};
+  const d = i.mirror ? placeMirrorHudDuo(viewport, i.measured, { camAspect: i.camAspect, ...away }) : placeHudDuo(viewport, i.measured, { camAspect: i.camAspect, ...away });
   const r = d.rects;
   const lanes: [Rect, Rect] = [r.playP1, r.playP2];
   const play: Rect = { x: lanes[0].x, y: lanes[0].y, w: lanes[1].x + lanes[1].w - lanes[0].x, h: Math.max(lanes[0].h, lanes[1].h) };

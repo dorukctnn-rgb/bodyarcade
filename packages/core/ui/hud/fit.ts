@@ -62,11 +62,12 @@ export function largestFit(start: number, floor: number, fits: (size: number) =>
 export const REASON_LINES = 2;
 
 /**
- * The size of a reason that takes two lines or fewer in a plate of the width it was given: the size it starts at while that
- * holds, then smaller, never under the floor. `linesAt(font)` is the number of lines the text takes at a size.
+ * The size of a reason that takes two lines or fewer (`lines`: the room that was kept for it) in a plate of the width it was given:
+ * the size it starts at while that holds, then smaller, never under the floor. `linesAt(font)` is the number of lines the text takes at a size.
  */
-export function fitReasonFont(i: { start: number; floor: number }, linesAt: (font: number) => number): { font: number; lines: number } {
-  const font = largestFit(i.start, i.floor, (f) => linesAt(f) <= REASON_LINES);
+export function fitReasonFont(i: { start: number; floor: number; lines?: number }, linesAt: (font: number) => number): { font: number; lines: number } {
+  const most = i.lines ?? REASON_LINES;
+  const font = largestFit(i.start, i.floor, (f) => linesAt(f) <= most);
   return { font, lines: linesAt(font) };
 }
 
@@ -86,14 +87,14 @@ export type ReasonRows = { preferred: ReasonRow } & Partial<Record<ReasonRow, { 
  * Picks the row for the reason strip: the preferred row if its text takes two lines or fewer at that row's width,
  * otherwise the next one, and when none do, the one with the fewest lines (the text is then made smaller to fit).
  */
-export function chooseReasonRow(slots: ReasonRows, linesAt: (row: ReasonRow, maxWidth: number) => number): { row: ReasonRow; lines: number } {
+export function chooseReasonRow(slots: ReasonRows, linesAt: (row: ReasonRow, maxWidth: number) => number, most = REASON_LINES): { row: ReasonRow; lines: number } {
   const order = ([slots.preferred, 'bottom', 'lifted', 'side'] as const).filter((k, i, a) => slots[k] && a.indexOf(k) === i);
   let best: { row: ReasonRow; lines: number } | null = null;
   for (const row of order) {
     const slot = slots[row];
     if (!slot) continue;
     const lines = linesAt(row, slot.w);
-    if (lines <= REASON_LINES) return { row, lines };
+    if (lines <= most) return { row, lines };
     if (!best || lines < best.lines) best = { row, lines };
   }
   return best ?? { row: 'bottom', lines: 0 };
