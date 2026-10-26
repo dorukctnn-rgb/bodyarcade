@@ -1,11 +1,16 @@
 // Static checks on what is published from site/: node --test tests/site.test.mjs
-// Covers 23 Oct 2026 audit items B19 (a false claim about live lobbies), SEO-2 and SEO-4 (sitemap dates,
+// Covers 23 Oct 2026 audit items B19 (the Ring Fit page's honest comparison), SEO-2 and SEO-4 (sitemap dates,
 // 404 page), B18 (button contrast), the CSP header, and version strings that must move together.
+// In v2 the release publishes the content pages of site/ (release/assemble.ts LEGACY_PAGES) beside the app; the v1
+// start page, sitemap and service worker of site/ stay in the folder but are not published.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { LEGACY_PAGES } from '../release/assemble.ts';
+import { CANONICAL_ORIGIN, mergeSitemap } from '../release/site.ts';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
 const SITE = path.join(ROOT, 'site');
@@ -23,24 +28,26 @@ test('every ?v= in the pages and the service worker version are the same string'
   assert.ok(seen.size === 1, 'at least one ?v= found');
 });
 
-// ── B19: nothing may promise live races, lobbies or other players ──
-test('B19: no page or script promises live lobbies, live races or other players on a course', () => {
-  const banned = [/live lobb/i, /lobbies/i, /up to \d+ players/i, /players on the same course/i, /every 5 minutes/i, /run the same course/i, /racing other people/i];
-  // One place may say "live race", and only to say there is none: the privacy page.
-  const mayNegate = new Set(['privacy.html']);
-  for (const f of files.filter((x) => /\.(html|js|json|txt|xml)$/.test(x) && !x.includes(`${path.sep}vendor${path.sep}`))) {
-    const text = read(f);
-    for (const re of banned) assert.doesNotMatch(text, re, `${rel(f)} matches ${re}`);
-    if (!mayNegate.has(rel(f))) assert.doesNotMatch(text, /live races?/i, `${rel(f)} mentions live races`);
-  }
-  assert.match(read(SITE, 'privacy.html'), /no live race server/);
-});
+// ── B19, v1's rule "nothing may promise live races, lobbies or other players": retired on 26 Oct 2026. v2 has them (online
+// rooms of two to four players, lobbies, races with friends), the FAQ and the privacy page describe them, and
+// packages/web/content/content.test.ts ("live play is the code") holds what those pages say to the room server's code.
 
-test('B19: the Ring Fit page still compares honestly and no longer lists racing', () => {
-  const t = read(SITE, 'ring-fit-adventure-alternative.html');
-  assert.match(t, /Where BodyArcade is stronger/);
-  assert.match(t, /Challenge links: send a friend your score and they try to beat it in the same world and difficulty/);
-  assert.ok(t.match(/"dateModified": "(\d{4}-\d{2}-\d{2})"/)[1] >= '2026-10-23', 'dateModified is the date of the edit that removed the claim, or later');
+// ── B19: the Ring Fit page stays an honest comparison (v2 content, English and Turkish) ──
+test('B19: the Ring Fit page and its Turkish twin give each side its strengths', () => {
+  for (const [file, theirs, ours] of [
+    ['ring-fit-adventure-alternative.html', 'Where Ring Fit Adventure is stronger', 'Where BodyArcade is stronger'],
+    ['tr/ring-fit-adventure-alternatifi.html', 'Ring Fit Adventure’ın daha güçlü olduğu yerler', 'BodyArcade’ın daha güçlü olduğu yerler'],
+  ]) {
+    const t = read(SITE, file);
+    for (const [id, heading] of [['ringfit-h', theirs], ['bodyarcade-h', ours]]) {
+      const at = t.indexOf(`<h2 id="${id}">${heading}</h2>`);
+      assert.ok(at >= 0, `${file}: "${heading}"`);
+      const next = t.indexOf('<h2', at + 4);
+      const items = (t.slice(at, next < 0 ? undefined : next).match(/<li[ >]/g) || []).length;
+      assert.ok(items >= 3, `${file}: "${heading}" lists ${items} points`);
+    }
+    assert.match(t, /"dateModified":\s*"\d{4}-\d{2}-\d{2}"/, `${file}: dateModified`);
+  }
 });
 
 // ── 404 page (SEO-4) ──
@@ -54,29 +61,41 @@ test('404.html exists, is not indexable, links onwards with root-relative paths 
   assert.doesNotMatch(read(SITE, 'sitemap.xml'), /404/);
 });
 
-// ── sitemap (SEO-2) ──
-test('the sitemap lists every indexable page once, with real dates', () => {
-  const xml = read(SITE, 'sitemap.xml');
-  const urls = [...xml.matchAll(/<url><loc>([^<]+)<\/loc><lastmod>([^<]+)<\/lastmod><\/url>/g)].map((m) => ({ loc: m[1], lastmod: m[2] }));
-  assert.equal(new Set(urls.map((u) => u.loc)).size, urls.length, 'no duplicates');
-  const today = new Date().toISOString().slice(0, 10);
-  const canonicals = new Map();
+// ── sitemap (SEO-2), v2: the release publishes the app's sitemap (packages/web/generator, tested there) with the content pages
+// added by release/assemble.ts, each with the date of its last commit. site/sitemap.xml is v1's and is not published.
+test('the published sitemap lists every indexable content page once, with real dates', () => {
+  const listed = new Set(LEGACY_PAGES.map((p) => p.file));
+  assert.equal(listed.size, LEGACY_PAGES.length, 'no content page twice');
   for (const f of pages) {
     const t = read(f);
-    if (/<meta name="robots" content="[^"]*noindex/.test(t)) continue;
-    const c = t.match(/<link rel="canonical" href="([^"]+)"/);
-    assert.ok(c, `${rel(f)} has a canonical link`);
-    canonicals.set(c[1], { file: f, text: t });
+    if (/<meta name="robots" content="[^"]*noindex/.test(t)) { assert.ok(!listed.has(rel(f)), `${rel(f)} is noindex and published for the sitemap`); continue; }
+    // v1's start page: the app's start page has its address (/), and the release does not take it
+    if (rel(f) === 'index.html') continue;
+    assert.ok(listed.has(rel(f)), `${rel(f)} is indexable but the release leaves it out of the sitemap`);
   }
-  assert.deepEqual([...canonicals.keys()].sort(), urls.map((u) => u.loc).sort(), 'sitemap = the indexable pages');
-  for (const u of urls) {
-    assert.match(u.lastmod, /^\d{4}-\d{2}-\d{2}$/, u.loc);
-    assert.ok(u.lastmod <= today, `${u.loc} lastmod ${u.lastmod} is in the future`);
-    const modified = canonicals.get(u.loc).text.match(/"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/);
-    if (modified) assert.ok(u.lastmod >= modified[1], `${u.loc}: lastmod ${u.lastmod} is older than the page's own dateModified ${modified[1]}`);
-  }
-  // the two pages edited for B19 and the game fixes carry the date of that edit (or a later one)
-  for (const loc of ['https://bodyarcade.com/bodyarcade', 'https://bodyarcade.com/ring-fit-adventure-alternative']) assert.ok(urls.find((u) => u.loc === loc).lastmod >= '2026-10-23', loc);
+  const entries = LEGACY_PAGES.map(({ file, url }) => {
+    const t = read(SITE, file);
+    const loc = `${CANONICAL_ORIGIN}${url}`;
+    assert.ok(t.includes(`<link rel="canonical" href="${loc}">`), `${file}: canonical ${loc}`);
+    // the date release/assemble.ts writes as lastmod
+    const lastmod = execFileSync('git', ['log', '-1', '--format=%cs', '--', `site/${file}`], { cwd: ROOT, encoding: 'utf8' }).trim();
+    assert.match(lastmod, /^\d{4}-\d{2}-\d{2}$/, `${file}: the date of its last commit`);
+    const modified = t.match(/"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/);
+    if (modified) assert.ok(lastmod >= modified[1], `${loc}: lastmod ${lastmod} is older than the page's own dateModified ${modified[1]}`);
+    return { loc, lastmod };
+  });
+  const app = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${CANONICAL_ORIGIN}/</loc>
+  </url>
+</urlset>
+`;
+  const xml = mergeSitemap(app, entries);
+  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  assert.equal(new Set(locs).size, locs.length, 'no address twice');
+  for (const e of entries) assert.ok(xml.includes(`<loc>${e.loc}</loc>
+    <lastmod>${e.lastmod}</lastmod>`), e.loc);
 });
 
 // ── B18: white text on the orange buttons ──

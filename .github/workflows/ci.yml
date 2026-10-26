@@ -38,6 +38,11 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      # The content pages of site/ that the release publishes: the Ring Fit page's honest comparison, the sitemap's content
+      # pages and dates, the 404 page, contrast and the CSP (node's own runner; vitest leaves tests/site.test.mjs out).
+      - name: Site checks
+        run: node --test tests/site.test.mjs
+
       # The release folder for bodyarcade.com (app + old content pages): fails on a missing must-have file, a broken
       # link on any page or an asset over the Workers size limit. Nothing is deployed from CI.
       - name: Release build check
