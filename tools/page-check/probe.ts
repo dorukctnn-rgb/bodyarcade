@@ -321,17 +321,34 @@ export function layoutProbe(opts: ProbeOptions): ProbeResult {
     return 'float';
   };
 
+  // A window that scrolls inside itself (a modal taller than the screen) with a sticky bar of its own (its buttons): its content
+  // scrolls under that bar by design, as a page does under its action bar. What must hold is that with the window scrolled to its
+  // end nothing stays hidden under the bar; the rest of the window is checked as it opens.
+  const modalScrolls = !!modal && modal.scrollHeight > modal.clientHeight + 1 && /^(auto|scroll)$/.test(cs(modal).overflowY);
+  const innerBarOf = (el: Element): Element | null => {
+    if (!modalScrolls) return null;
+    const pr = pinRoot(el);
+    return pr && pr !== modal && (modal as Element).contains(pr) && cs(pr).position === 'sticky' ? pr : null;
+  };
+  const modalStart = modal ? modal.scrollTop : 0;
+  const passes = positions.map((y, pi) => ({ y, pi, modalEnd: false }));
+  if (modalScrolls) passes.push({ y: positions[0] as number, pi: 0, modalEnd: true });
+
   let candidates = 0;
   const last = positions.length - 1;
-  for (let pi = 0; pi < positions.length; pi++) {
-    scrollTo(positions[pi] as number);
+  for (const pass of passes) {
+    const pi = pass.pi;
+    scrollTo(pass.y);
+    if (modalScrolls) (modal as Element).scrollTop = pass.modalEnd ? (modal as Element).scrollHeight : modalStart;
     const items = atoms.map((a) => {
       const pr = a.pinned ? pinRoot(a.el) : null;
-      return { a, rs: rectsOf(a), anchor: (pr ? anchorOf(rectOf(pr.getBoundingClientRect())) : null) as Anchor | null };
+      return { a, rs: rectsOf(a), anchor: (pr ? anchorOf(rectOf(pr.getBoundingClientRect())) : null) as Anchor | null, bar: innerBarOf(a.el) };
     }).filter((x) => x.rs.some((r) => r[2] > 0 && r[0] < W && r[3] > 0 && r[1] < H));
     for (let i = 0; i < items.length; i++) {
       for (let j = i + 1; j < items.length; j++) {
         const A = items[i] as (typeof items)[number]; const B = items[j] as (typeof items)[number];
+        // across the window's own bar: only with the window at its end; everything else: only as the window opens
+        if (modalScrolls && (A.bar !== B.bar) !== pass.modalEnd) continue;
         if (A.a.pinned && B.a.pinned) { if (pi !== 0) continue; }
         else if (A.a.pinned || B.a.pinned) {
           const anchor = A.a.pinned ? A.anchor : B.anchor;
@@ -376,6 +393,7 @@ export function layoutProbe(opts: ProbeOptions): ProbeResult {
     }
   }
   scrollTo(startY);
+  if (modalScrolls) (modal as Element).scrollTop = modalStart;
 
   // ---- tap targets ---------------------------------------------------------------------------------------------------------
   if (opts.touch) {
