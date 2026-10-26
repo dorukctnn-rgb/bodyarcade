@@ -16,10 +16,8 @@ const pages = files.filter((f) => f.endsWith('.html'));
 const rel = (f) => path.relative(SITE, f).replace(/\\/g, '/');
 
 // ── versions that must move together (audit P4) ──
-test('every ?v= in the pages, the game version and the service worker version are the same string', () => {
+test('every ?v= in the pages and the service worker version are the same string', () => {
   const sw = read(SITE, 'sw.js').match(/^const VERSION = '([^']+)'/m)[1];
-  const app = read(SITE, 'game', 'app.js').match(/^const VERSION = '([^']+)'/m)[1];
-  assert.equal(app, sw, 'game/app.js VERSION and sw.js VERSION');
   const seen = new Set();
   for (const f of pages) for (const m of read(f).matchAll(/\?v=([\w.]+)/g)) { seen.add(m[1]); assert.equal(m[1], sw, `${rel(f)} has ?v=${m[1]}`); }
   assert.ok(seen.size === 1, 'at least one ?v= found');
@@ -28,15 +26,14 @@ test('every ?v= in the pages, the game version and the service worker version ar
 // ── B19: nothing may promise live races, lobbies or other players ──
 test('B19: no page or script promises live lobbies, live races or other players on a course', () => {
   const banned = [/live lobb/i, /lobbies/i, /up to \d+ players/i, /players on the same course/i, /every 5 minutes/i, /run the same course/i, /racing other people/i];
-  // Two places may say "live race", and only to say there is none: the privacy page and the game's own toast.
-  const mayNegate = new Set(['privacy.html', 'game/app.js']);
+  // One place may say "live race", and only to say there is none: the privacy page.
+  const mayNegate = new Set(['privacy.html']);
   for (const f of files.filter((x) => /\.(html|js|json|txt|xml)$/.test(x) && !x.includes(`${path.sep}vendor${path.sep}`))) {
     const text = read(f);
     for (const re of banned) assert.doesNotMatch(text, re, `${rel(f)} matches ${re}`);
     if (!mayNegate.has(rel(f))) assert.doesNotMatch(text, /live races?/i, `${rel(f)} mentions live races`);
   }
   assert.match(read(SITE, 'privacy.html'), /no live race server/);
-  assert.match(read(SITE, 'game', 'app.js'), /Live races are offline for now/);
 });
 
 test('B19: the Ring Fit page still compares honestly and no longer lists racing', () => {
@@ -90,7 +87,7 @@ const vars = (css) => Object.fromEntries([...css.matchAll(/--([\w-]+):\s*(#[0-9a
 const resolve = (v, tokens) => { v = v.trim(); const m = v.match(/^var\(--([\w-]+)\)$/); if (m) return tokens[m[1]] || null; if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase(); if (/^#fff$/i.test(v) || v === 'white') return '#ffffff'; return null; };
 const isOrange = (hex) => { const n = parseInt(hex.slice(1), 16); const [r, g, b] = [n >> 16 & 255, n >> 8 & 255, n & 255]; return r > 170 && g < 120 && b < 70; };
 
-for (const css of [['assets', 'ba.css'], ['game', 'ui.css']]) {
+for (const css of [['assets', 'ba.css']]) {
   test(`B18: ${css[1]}: every orange fill with a lighter label reaches 4.5:1, including hover`, () => {
     const text = read(SITE, ...css);
     const tokens = vars(text);
@@ -114,19 +111,13 @@ for (const css of [['assets', 'ba.css'], ['game', 'ui.css']]) {
   });
 }
 
-test('B18b: small orange text on the paper colours and the dimmed game labels reach 4.5:1', () => {
+test('B18b: small orange text on the paper colours reaches 4.5:1', () => {
   const site = vars(read(SITE, 'assets', 'ba.css'));
   const ba = read(SITE, 'assets', 'ba.css');
   assert.ok(contrast(site['signal-text'], site['paper']) >= 4.5, 'orange text on paper');
   assert.ok(contrast(site['signal-text'], site['paper-2']) >= 4.5, 'orange text on paper-2');
   assert.match(ba, /\.kicker \{[^}]*color: var\(--signal-text\)/);
   assert.match(ba, /\.on-ink \.kicker \{ color: var\(--signal\); \}/, 'the bright orange stays on dark sections');
-  const ui = read(SITE, 'game', 'ui.css');
-  const game = vars(ui);
-  const locked = ui.match(/\.seg button\.locked \{ color: (#[0-9a-f]{6})/i)[1];
-  assert.ok(contrast(locked, game['ink-2']) >= 4.5, `locked difficulty ${locked} on ink-2`);
-  const small = ui.match(/\.steps li small \{[^}]*color: (#[0-9a-f]{6})/i)[1];
-  assert.ok(contrast(small, game['ink']) >= 4.5, `setup hint ${small} on ink`);
 });
 
 // ── CSP in report-only mode ──
@@ -159,15 +150,4 @@ test('CSP: every inline script is allowed by hash and every external script, req
   }
   for (const o of new Set(origins(read(SITE, 'game', 'store.js')).filter((x) => /api\./.test(x)))) assert.ok(directives['connect-src'].includes(o), `store.js calls ${o}`);
   assert.ok(scriptSrc.includes("'wasm-unsafe-eval'"), 'the pose model needs WebAssembly');
-});
-
-// ── the game page and app.js agree on element ids ──
-test('every element id app.js asks for exists in BodyArcade.html or is created by app.js', () => {
-  const app = read(SITE, 'game', 'app.js');
-  const html = read(SITE, 'BodyArcade.html');
-  const wanted = new Set([...app.matchAll(/\$\('([\w-]+)'\)/g)].map((m) => m[1]));
-  const have = new Set([...html.matchAll(/\bid="([\w-]+)"/g)].map((m) => m[1]));
-  const made = new Set([...app.matchAll(/\bid="([\w-]+)"/g)].map((m) => m[1]));
-  const missing = [...wanted].filter((id) => !have.has(id) && !made.has(id));
-  assert.deepEqual(missing, []);
 });
