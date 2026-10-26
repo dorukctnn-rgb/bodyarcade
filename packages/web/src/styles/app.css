@@ -731,5 +731,6 @@ dialog.ba-modal .k-sheet > .btns {
 }
 @media (orientation: landscape) and (max-height: 500px) {
   dialog.ba-modal .k-sheet > .btns { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-  dialog.ba-modal .k-sheet > .btns > .ba-btn--primary { flex: 1 1 12em; }
+  dialog.ba-modal .k-sheet > .btns > .ba-btn--primary { flex: 1 1 8em; }
+  dialog.ba-modal .k-sheet > .btns > .ba-btn--quiet { padding-inline: 12px; }
 }
