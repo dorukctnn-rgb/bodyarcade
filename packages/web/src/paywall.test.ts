@@ -337,8 +337,11 @@ describe('the free trial of an active membership, and the one reminder e-mail', 
 });
 
 describe("the paywall's line about rooms is a promise the Room keeps", () => {
-  // A room holds the games that have the duel mode. The catalogue as it is has none among its Pro games; this one gives Pad Work the mode.
+  // A room holds the games that have the duel mode. Among the fixtures' Pro games Reaction Tag has it (as its real manifest does since the first
+  // post-launch update); this catalogue gives Pad Work the mode too, so the line is tried with more than one.
   const proInRooms = games.map((g) => (g.id === 'pad-work' ? { ...g, modes: [...g.modes, 'duel' as const] } : g));
+  /** The same games with the mode taken from every Pro game: nothing Pro can be in a room. */
+  const noProInRooms = games.map((g) => (g.free ? g : { ...g, modes: g.modes.filter((m) => m !== 'duel') }));
   const withFlags = (lang: Lang, flags: { social: boolean; roomsPro?: boolean }, catalogue = proInRooms): string => {
     const m = web();
     const ctx = makeContext({ lang, games: catalogue, url: lang === 'en' ? '/pro/' : `/${lang}/pro/`, plans: m.plans, paywall: infoOf(m), flags });
@@ -364,10 +367,43 @@ describe("the paywall's line about rooms is a promise the Room keeps", () => {
   });
 
   it('is not there while no Pro game has the duel mode: a room could not pick one, so the line would promise nothing', () => {
-    expect(games.filter((g) => !g.free && g.modes.includes('duel')), 'the fixtures: no Pro game can be in a room').toEqual([]);
+    expect(noProInRooms.filter((g) => !g.free && g.modes.includes('duel')), 'no Pro game can be in a room').toEqual([]);
+    expect(noProInRooms.filter((g) => g.free && g.modes.includes('duel')).length, 'the free games keep theirs').toBeGreaterThan(0);
     for (const lang of LANGS) {
       const said = lang === 'en' ? /Rooms where everyone plays the Pro games the host picks/ : /Ev sahibinin seçtiği Pro oyunların/;
-      expect(textOf(withFlags(lang, { social: true, roomsPro: true }, games)), lang).not.toMatch(said);
+      expect(textOf(withFlags(lang, { social: true, roomsPro: true }, noProInRooms)), lang).not.toMatch(said);
     }
+  });
+});
+
+describe("the paywall's line about rooms with the games the app really has", () => {
+  // The catalogue of the build (the manifests of packages/games), not the fixtures: what a player is promised is what the Room keeps.
+  const real = loadCatalogue({ fixtures: 'none', requiredLangs: ['en', 'tr'] }).catalogue.games;
+  const flags = { social: true, roomsPro: true };
+  const said = (lang: Lang): RegExp => (lang === 'en' ? /Rooms where everyone plays the Pro games the host picks/ : /Ev sahibinin seçtiği Pro oyunların/);
+  const paywallOf = (lang: Lang, catalogue = real): string => {
+    const m = web();
+    const ctx = makeContext({ lang, games: catalogue, url: lang === 'en' ? '/pro/' : `/${lang}/pro/`, plans: m.plans, paywall: infoOf(m), flags });
+    return textOf(paywallPage(ctx, defaultPaywallState(ctx)));
+  };
+
+  it('a Pro game of the catalogue can be raced: Reaction Tag has the duel mode, so a room can pick it and the line is on the page in both languages', () => {
+    const proRaced = real.filter((g) => !g.free && g.modes.includes('duel')).map((g) => g.id);
+    expect(proRaced).toEqual(['reaction-tag']);
+    for (const lang of LANGS) expect(paywallOf(lang), lang).toMatch(said(lang));
+  });
+
+  it('the line goes again if no Pro game can be raced: the free games alone promise nothing about Pro rooms', () => {
+    const noProDuel = real.map((g) => (g.free ? g : { ...g, modes: g.modes.filter((m) => m !== 'duel') }));
+    expect(noProDuel.some((g) => !g.free && g.modes.includes('duel'))).toBe(false);
+    for (const lang of LANGS) expect(paywallOf(lang, noProDuel), lang).not.toMatch(said(lang));
+  });
+
+  it('says what is true: the host needs Pro and the others do not, and a free game stays free', () => {
+    // the sentence says the host picks and everybody plays; it does not say that everybody needs Pro
+    expect(paywallOf('en')).not.toMatch(/everyone needs Pro|every player needs Pro/i);
+    expect(paywallOf('tr')).not.toMatch(/herkesin Pro/i);
+    // the free games of the catalogue are open to every room
+    expect(real.filter((g) => g.free && g.modes.includes('duel')).map((g) => g.id)).toEqual(['squat-flap', 'knee-sprint']);
   });
 });

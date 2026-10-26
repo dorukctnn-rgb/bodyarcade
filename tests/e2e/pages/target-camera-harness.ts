@@ -14,12 +14,14 @@ import { createScene2D, type Scene2DKit } from '../../../packages/core/render2d/
 import { PlayHud } from '../../../packages/core/ui/hud/hud.ts';
 import { createI18n, type I18n, type Lang } from '../../../packages/core/ui/i18n/index.ts';
 import type { Game, GameModule, PoseFrame, RunSummary, Session, SessionEvents } from '../../../packages/core/types/index.ts';
+import type { ObstacleResult } from '../../../packages/core/types/net.ts';
 import { padWorkModule } from '../../../packages/games/pad-work/index.ts';
 import { reactionTagModule } from '../../../packages/games/reaction-tag/index.ts';
 import { starCatchModule } from '../../../packages/games/star-catch/index.ts';
 import type { TargetGame } from '../../../packages/games/target/game.ts';
 import type { BaseSpec } from '../../../packages/games/target/types.ts';
 import { setMirrorVideo } from '../../../packages/games/target/video.ts';
+import { duelGame, type DuelFeed } from '../../../packages/web/src/app/duel.ts';
 import { checkTargets, feedKit, plateBoxes, type Box, type Geo } from './target-games-harness.ts';
 
 export type GameId = 'star-catch' | 'pad-work' | 'reaction-tag';
@@ -34,7 +36,15 @@ export interface BeginArgs {
   lang?: Lang;
   /** Quiet mode: no stamping, no floor lights. */
   silent?: boolean;
+  /**
+   * Reaction Tag as a live race, through the shell's own race wrapper (web/src/app/duel.ts) on a feed that stands in for the Room: the match starts when the
+   * countdown ends, its clock is the page's, and what the game reports is kept. One match of this many seconds (15 or more) on this seed.
+   */
+  race?: { seconds: number; seed?: number };
 }
+
+/** What a race of the harness has seen: what the game reported for each light, and the final list it gave at the end. */
+export interface RaceState { reported: ObstacleResult[]; finished: ObstacleResult[] | null; durationMs: number; started: boolean; states: number }
 
 interface Run {
   game: GameId;
@@ -62,6 +72,7 @@ interface Run {
   frames: number;
   observer: ResizeObserver;
   cues: Record<string, number>;
+  race: { reported: ObstacleResult[]; finished: ObstacleResult[] | null; durationMs: number; startedAt: number; states: number } | null;
 }
 
 let run: Run | null = null;
@@ -86,7 +97,24 @@ export async function begin(a: BeginArgs): Promise<void> {
 
   const base = moduleOf(a.game, a.seconds);
   let captured: Run['instance'] = null;
-  const mod: GameModule = { ...base, create: () => { const g = base.create() as NonNullable<Run['instance']>; captured = g; return g; } };
+  // A race: the game is wrapped as the shell wraps it, and the Room is a feed that starts the match when the countdown ends.
+  const race: Run['race'] = a.race ? { reported: [], finished: null, durationMs: Math.max(15, a.race.seconds) * 1000, startedAt: 0, states: 0 } : null;
+  const feed: DuelFeed | null = race ? {
+    match: () => ({ id: 'harness-match', seed: a.race?.seed ?? 4242, durationMs: race.durationMs, gameId: a.game, results: [] }),
+    time: () => (race.startedAt ? performance.now() - race.startedAt : -3000),
+    phase: () => (!race.startedAt ? 'wait' : performance.now() - race.startedAt >= race.durationMs + 400 ? 'over' : 'run'),
+    report: (ob, k) => { race.reported.push({ ob, k }); },
+    finish: (list) => { race.finished = list.map((e) => ({ ob: e.ob, k: e.k })); },
+    state: () => { race.states++; },
+  } : null;
+  const mod: GameModule = {
+    ...base,
+    create: () => {
+      const g = base.create() as NonNullable<Run['instance']>;
+      captured = g;
+      return feed ? duelGame(g, feed) : g;
+    },
+  };
   const i18n: I18n = createI18n(a.lang ?? 'en');
   i18n.extend(`game.${a.game}`, (base as unknown as { strings: Parameters<I18n['extend']>[1] }).strings);
 
@@ -117,7 +145,7 @@ export async function begin(a: BeginArgs): Promise<void> {
   const r: Run = {
     game: a.game, players, session, kit, hud, audio, canvas, instance: null, offs: [], states: [], pauses: [], errors: [], players_: [], over: null,
     video: null, calibrations: 0, countdown: [], lastPose: null, announced, reasons: new Set(), geo: { checked: 0, violations: [] }, raf: 0, frames: 0,
-    observer, cues,
+    observer, cues, race,
   };
   run = r;
 
@@ -128,6 +156,7 @@ export async function begin(a: BeginArgs): Promise<void> {
     if (s === 'idle' || s === 'setup' || s === 'calibrating') hud.setPhase('calibrate');
     else if (s === 'countdown' || s === 'running') hud.setPhase('play');
     if (s === 'running') hud.setAway(null);
+    if (s === 'running' && race && !race.startedAt) race.startedAt = performance.now();
   });
   on('pause', (p) => { r.pauses.push(p); });
   on('error', (e) => { r.errors.push({ code: e.code, message: e.message }); });
@@ -156,7 +185,7 @@ export async function begin(a: BeginArgs): Promise<void> {
   };
   r.raf = requestAnimationFrame(tick);
 
-  await session.start(a.game, { mode: players === 2 ? 'local2' : 'solo', difficulty: a.level ?? 'normal', input: 'camera', seated: a.seated ?? false });
+  await session.start(a.game, { mode: race ? 'duel' : players === 2 ? 'local2' : 'solo', difficulty: a.level ?? 'normal', input: 'camera', seated: a.seated ?? false });
 }
 
 export interface CamState {
@@ -190,6 +219,7 @@ export interface CamState {
   audio: { unknown: number };
   canvases: number;
   frames: number;
+  race: RaceState | null;
 }
 
 export function snap(): CamState | null {
@@ -252,6 +282,7 @@ export function snap(): CamState | null {
     audio: { unknown: r.audio.stats().skipped.unknown },
     canvases: document.querySelectorAll('canvas').length,
     frames: r.frames,
+    race: r.race ? { reported: r.race.reported.map((e) => ({ ...e })), finished: r.race.finished ? r.race.finished.map((e) => ({ ...e })) : null, durationMs: r.race.durationMs, started: r.race.startedAt > 0, states: r.race.states } : null,
   };
 }
 

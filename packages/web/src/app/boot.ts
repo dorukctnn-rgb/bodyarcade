@@ -141,7 +141,9 @@ export async function boot(o: BootOptions): Promise<App> {
     kidProfile: () => !book.online(),
     // A Pro game starts in a room only with the host's signed Pro token behind it: the page hands over the current one (none while the
     // entitlements are not read yet, and none in a build that keeps the plan in memory).
-    pro: () => ent?.service.current().token ?? null,
+    // (A development or test build that keeps the plan in memory has no signed token of its own: a test that needs a room with a Pro game hands
+    // the page one that the test's Worker accepts, as `__BA_TEST__.proToken`.)
+    pro: () => ent?.service.current().token ?? (o.demo ? hooks.proToken ?? null : null),
   });
   let billing: BillingPort;
   let entitlements: EntitlementsPort | undefined;

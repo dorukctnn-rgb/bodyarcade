@@ -7,7 +7,9 @@
 // stepTime(k)), and everything that changes is plain data, so `restore(snapshot())` continues exactly. Randomness is
 // used once, in `start`, by `rules.plan` (the course stream); the run itself never draws a random number, so the same
 // seed and the same input log give the same result on any machine, and two players (or a duel) get the same plan.
-import type { BodyProfile, GameEvent, InputFrame, PlayerSlot, RunSummary } from '../../core/types/index.ts';
+import type { BodyProfile, DuelSetup, GameEvent, InputFrame, PlayerSlot, RunSummary } from '../../core/types/index.ts';
+import type { ObstacleResult } from '../../core/types/net.ts';
+import { scoreOf } from '../../core/net/schedule.ts';
 import type { HitJudgement } from '../../core/moves/handHit.ts';
 import type { Miss } from '../../core/moves/kit.ts';
 import type { Call } from './coach.ts';
@@ -16,7 +18,7 @@ import { envelopeOf, nominalProfile, type Envelope } from './envelope.ts';
 import { Judge } from './judge.ts';
 import { buildTimeline, segmentAt, timeOfStep, type Timeline } from './timeline.ts';
 import {
-  newStats, type BaseSpec, type LaneApi, type LaneState, type Level, type Live, type LogEntry, type Out, type Phase, type Prompt, type Rules,
+  newStats, type BaseSpec, type LaneApi, type LaneState, type Level, type Live, type LogEntry, type Out, type Phase, type PlanInput, type Prompt, type Rules,
   type StartInput, type StepOut, type ViewState,
 } from './types.ts';
 
@@ -61,6 +63,8 @@ interface Snapshot {
   lanes: LaneState[];
   log: LogEntry[];
   phase: Phase;
+  /** A live race: the Room's course and what has been settled of it so far. */
+  duel?: { setup: DuelSetup; results: ObstacleResult[] };
 }
 
 export class TargetEngine<S extends BaseSpec> {
@@ -79,6 +83,8 @@ export class TargetEngine<S extends BaseSpec> {
   log: LogEntry[] = [];
 
   private lanes: Lane[] = [];
+  /** A live race: the Room's course (the clock is the Room's, so nothing here waits for a body) and the outcome of each obstacle as it settled. */
+  private duel: { setup: DuelSetup; results: ObstacleResult[] } | null = null;
   private next = 0;
   private callI = 0;
   private frozen = 0;
@@ -97,6 +103,8 @@ export class TargetEngine<S extends BaseSpec> {
   get players(): 1 | 2 { return this.lanes.length === 2 ? 2 : 1; }
   get laneCount(): number { return this.lanes.length; }
   get latencyMs(): number { return this.config.latencyMs ?? DEFAULT_LATENCY_MS; }
+  /** The run is a live race: its score is the Room's, and its clock never waits. */
+  get raced(): boolean { return this.duel !== null; }
 
   // ───────── start ─────────
 
@@ -114,6 +122,8 @@ export class TargetEngine<S extends BaseSpec> {
     this.log = [];
     this.events = [];
     this.cueQueue = [];
+    this.duel = si.duel ? { setup: si.duel, results: [] } : null;
+    if (this.duel && !this.rules.planDuel) throw new Error(`${this.rules.id} cannot be raced.`);
     const given = si.profiles.length > 1 && si.profiles[1] !== undefined ? 2 : 1;
     this.lanes = [];
     for (let i = 0; i < given; i++) {
@@ -123,10 +133,12 @@ export class TargetEngine<S extends BaseSpec> {
       this.lanes.push({ state: this.laneState(slot, p, env), judge: new Judge({ latencyMs: this.latencyMs }), env, ch: {} });
     }
     const feet = !si.seated && !si.quiet && !this.keyboard && this.lanes.every((l) => l.env.floorY !== null);
-    this.plan = this.rules.plan(si.rng, {
+    const pi: PlanInput = {
       level: si.level, timeline: this.timeline, seated: si.seated, quiet: si.quiet, feet, keyboard: this.keyboard,
       players: this.players, hz: Math.min(...this.lanes.map((l) => l.state.profile.hz || 30)),
-    });
+      ...(si.duel ? { duel: si.duel } : {}),
+    };
+    this.plan = si.duel && this.rules.planDuel ? this.rules.planDuel(si.rng, si.duel, pi) : this.rules.plan(si.rng, pi);
     this.calls = this.rules.calls?.(this.plan, this.timeline) ?? [];
   }
 
@@ -144,7 +156,8 @@ export class TargetEngine<S extends BaseSpec> {
     this.events = [];
     if (this.phase !== 'running') return { events: [], phase: this.phase };
     // Nobody is judged while somebody cannot be seen: the clock waits for them (the Session pauses the round anyway).
-    if (!this.lanes.every((l) => trackingOf(input, l.state.slot))) {
+    // A race is the Room's clock, which waits for nobody: the shell holds the game while the Room does, and what a frame cannot see is missed.
+    if (!this.duel && !this.lanes.every((l) => trackingOf(input, l.state.slot))) {
       this.frozen++;
       if (this.frozen > MAX_FROZEN_STEPS) this.phase = 'over';
       return { events: [], phase: this.phase };
@@ -185,6 +198,7 @@ export class TargetEngine<S extends BaseSpec> {
       this.cueQueue.push('done');
       this.events.push({ type: 'end', t });
     }
+    this.noteDuel();
     return { events: this.events, phase: this.phase };
   }
 
@@ -228,6 +242,16 @@ export class TargetEngine<S extends BaseSpec> {
     const i = l.state.live.indexOf(live);
     if (i >= 0) l.state.live.splice(i, 1);
     l.judge.forget(live.id);
+  }
+
+  /** The obstacles that settled in this step, kept for the score of the race (the first outcome of an obstacle is the one that counts). */
+  private noteDuel(): void {
+    const d = this.duel;
+    if (!d) return;
+    for (const e of this.events) {
+      if (e.type !== 'duel' || typeof e['ob'] !== 'number' || (e['k'] !== 'pass' && e['k'] !== 'hit')) continue;
+      if (!d.results.some((r) => r.ob === e['ob'])) d.results.push({ ob: e['ob'], k: e['k'] });
+    }
   }
 
   private openSegment(idx: number): void {
@@ -357,7 +381,8 @@ export class TargetEngine<S extends BaseSpec> {
       return n > 0 ? l.stats.hits / n : 0;
     };
     const sum: RunSummary = {
-      score: best.stats.score,
+      // A race is scored by the Room's own sum of what each obstacle came to (core/net scoreOf), whatever order they settled in.
+      score: this.duel ? scoreOf(this.duel.setup.schedule, this.duel.results).score : best.stats.score,
       seconds: Math.round(this.t) / 1000,
       hits: best.stats.hits,
       ...(this.rules.clears ? { cleared: best.stats.cleared } : {}),
@@ -380,6 +405,7 @@ export class TargetEngine<S extends BaseSpec> {
       v: 1, rules: this.rules.id, level: this.level, seated: this.seated, quiet: this.quiet, keyboard: this.keyboard,
       steps: this.steps, next: this.next, callI: this.callI, frozen: this.frozen, plan: this.plan, log: this.log, phase: this.phase,
       lanes: this.lanes.map((l) => ({ ...l.state, judge: l.judge.dump() })),
+      ...(this.duel ? { duel: this.duel } : {}),
     })) as Snapshot;
   }
 
@@ -400,6 +426,7 @@ export class TargetEngine<S extends BaseSpec> {
     this.callI = typeof copy.callI === 'number' ? Math.min(copy.callI, this.calls.length) : this.calls.filter((c) => c.t <= made).length;
     this.log = copy.log;
     this.phase = copy.phase;
+    this.duel = copy.duel ?? null;
     this.events = [];
     this.cueQueue = [];
     this.segIndex = this.steps > 0 ? this.timeline.segments.indexOf(segmentAt(this.timeline, this.t)) : -1;

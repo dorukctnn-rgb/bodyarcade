@@ -319,11 +319,11 @@ describe('the pose model and the games', () => {
     for (const p of pages()) expect(renderPage(p), p.file).not.toMatch(/<script[^>]+src=/);
   });
 
-  it('the catalogue the pages count: every game has a seated version, the free and Pro games are the manifests', () => {
+  it('the catalogue the pages count: every game has a seated version, the free and Pro games are the manifests, the live races are the games whose manifest lists a duel', () => {
     const games = gameList('en');
     expect(games.length).toBeGreaterThan(0);
     expect(games.every((g) => g.seated)).toBe(true);
-    expect(games.filter((g) => g.live).map((g) => g.id).sort()).toEqual(['knee-sprint', 'squat-flap']);
+    expect(games.filter((g) => g.live).map((g) => g.id).sort()).toEqual(['knee-sprint', 'reaction-tag', 'squat-flap']);
     const terms = renderPage(pages().find((p) => p.file === 'terms.html') as PageSpec);
     for (const g of games.filter((x) => !x.free)) expect(terms).toContain(g.title);
   });

@@ -112,6 +112,8 @@ test('the Worker makes a Pro room only for a host whose signed token checks out'
   const refused = (reason: string) => ({ status: 403, json: { error: 'pro_required', reason } });
 
   expect(await create(undefined)).toMatchObject(refused('none'));                                  // a free host
+  expect(await create(undefined, 'reaction-tag')).toMatchObject(refused('none'));                  // Reaction Tag, the Pro game with a duel
+  expect(await create(await stranger.mint(), 'reaction-tag')).toMatchObject(refused('invalid'));
   for (const flag of [true, 'true', 'pro', 'a.b.c']) expect(await create(flag), String(flag)).toMatchObject(refused('invalid'));   // a flag, junk
   expect(await create(await stranger.mint())).toMatchObject(refused('invalid'));                   // the right format, another key: forged
   expect(await create(await stack.pro.mint({ feat: [] }))).toMatchObject(refused('invalid'));      // genuine, but not a Pro plan
@@ -147,6 +149,45 @@ test('a Pro host and a friend without Pro play the Pro game the host picked, fro
   } finally { a.c.stop(); b.c.stop(); }
 });
 
+test('Reaction Tag, the Pro game with a duel: a Pro host makes the room, a friend without Pro joins, and the match runs to the result on the course of the Room', async () => {
+  test.setTimeout(150_000);
+  const { a, b } = await pair('reaction-tag', await stack.pro.mint());
+  try {
+    expect(roomOf(a)?.pro).toEqual({ ok: true });
+    expect(roomOf(b)?.pro).toEqual({ ok: true });
+    a.c.setReady(true); b.c.setReady(true);
+    await until(() => a.match && b.match, 20_000, 'the match to start');
+    expect(a.match?.gameId).toBe('reaction-tag');
+    // the lights of the match are the Room's: a pure function of the seed, the length and the game's own line of the table
+    const m = a.match as MatchInfo;
+    const course = makeSchedule(m.seed, m.duration, specFor('reaction-tag'));
+    expect(course.length).toBeGreaterThan(4);
+    expect(course[0]?.t).toBe(2500);
+    await playOut(a, b);
+    expect(a.results[0]?.reason).toBe('complete');
+    expect(JSON.stringify(a.results[0])).toBe(JSON.stringify(b.results[0]));
+    expect(Object.keys(a.results[0]?.scores ?? {}).sort()).toEqual(['s1', 's2']);
+    expect([a.errors, b.errors, a.roomErrors, b.roomErrors]).toEqual([[], [], [], []]);
+  } finally { a.c.stop(); b.c.stop(); }
+});
+
+test('a Pro host who is in a room of a free game picks Reaction Tag in the lobby: it is taken for everyone, and the friend without Pro plays it', async () => {
+  test.setTimeout(150_000);
+  const { a, b } = await pair('squat-flap', await stack.pro.mint());
+  try {
+    expect(roomOf(a)?.pro).toBeUndefined();
+    a.c.configure({ gameId: 'reaction-tag' });
+    await until(() => a.c.room?.config.gameId === 'reaction-tag' && b.c.room?.config.gameId === 'reaction-tag', 15_000, 'Reaction Tag to be taken');
+    expect(roomOf(a)?.pro).toEqual({ ok: true });
+    expect(roomOf(b)?.pro).toEqual({ ok: true });
+    expect(a.roomErrors).toEqual([]);
+    a.c.setReady(true); b.c.setReady(true);
+    await until(() => a.match && b.match, 20_000, 'the match to start');
+    expect(a.match?.gameId).toBe('reaction-tag');
+    expect(b.errors).toEqual([]);
+  } finally { a.c.stop(); b.c.stop(); }
+});
+
 test('a free host who picks a Pro game in the lobby is told no, and the room goes on with the free game', async () => {
   test.setTimeout(90_000);
   const { a, b } = await pair('squat-flap', undefined);
@@ -156,6 +197,9 @@ test('a free host who picks a Pro game in the lobby is told no, and the room goe
     expect(a.c.room?.config.gameId).toBe('squat-flap');
     expect(roomOf(b)?.config.gameId).toBe('squat-flap');
     expect(b.roomErrors).toEqual([]);                                                              // only the host who asked hears of it
+    a.c.configure({ gameId: 'reaction-tag' });                                                     // and the Pro game with a duel is no different
+    await until(() => a.roomErrors.length === 2, 10_000, 'the second refusal');
+    expect(a.c.room?.config.gameId).toBe('squat-flap');
     a.c.setReady(true); b.c.setReady(true);
     await until(() => a.match && b.match, 20_000, 'the free match to start');
     expect(a.match?.gameId).toBe('squat-flap');

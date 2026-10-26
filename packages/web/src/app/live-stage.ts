@@ -71,6 +71,38 @@ function keepClear(stage: HTMLElement, el: HTMLElement, dir: 'down' | 'up'): voi
   if (dy !== 0) el.style.translate = `0 ${Math.round(dy)}px`;
 }
 
+/**
+ * The way up or down that takes a box off the camera picture of a mirror game (the picture is the play area: the lights hang in it, and a tile
+ * over one hides it), staying inside `area` and clear of every part: above the picture first, below it otherwise. Null: no way (the box stays where
+ * it is). 0: the box is not on the picture. Pure.
+ */
+export function offPicture(box: Box, picture: Box, parts: readonly Box[], area: Box): number | null {
+  if (!meets(box, picture)) return 0;
+  const { left, right } = box;
+  for (const dir of ['up', 'down'] as const) {
+    const dy = clearOf(box, [picture, ...parts], dir);
+    const at = { left, right, top: box.top + dy, bottom: box.bottom + dy };
+    if (at.top >= area.top && at.bottom <= area.bottom && ![picture, ...parts].some((p) => meets(at, p))) return dy;
+  }
+  return null;
+}
+
+/** Moves the tiles of the others off the camera picture of a mirror game (a phone's picture is as wide as the phone); a browser only. */
+function keepOffPicture(stage: HTMLElement, el: HTMLElement): void {
+  if (el.hidden || typeof stage.querySelectorAll !== 'function' || typeof el.getBoundingClientRect !== 'function') return;
+  el.style.translate = '';
+  const host = stage.querySelector<HTMLElement>('[data-camera-host]');
+  const pic = host?.getBoundingClientRect();
+  if (!pic || pic.width === 0 || pic.height === 0) return;
+  const r = el.getBoundingClientRect();
+  if (r.width === 0 && r.height === 0) return;
+  const parts = [...stage.querySelectorAll<HTMLElement>(HUD_PARTS)].map((x) => x.getBoundingClientRect()).filter((b) => b.width > 0 && b.height > 0);
+  // each side read by name: a DOMRect's sides are getters of its prototype, which a spread would leave behind
+  const side = (b: DOMRect): Box => ({ left: b.left, right: b.right, top: b.top, bottom: b.bottom });
+  const dy = offPicture(side(r), side(pic), parts.map(side), side(stage.getBoundingClientRect()));
+  if (dy) el.style.translate = `0 ${Math.round(dy)}px`;
+}
+
 const TILE_W = 120;
 const TILE_H = 90;
 const BUBBLE_MS = 3200;
@@ -229,6 +261,8 @@ export function mountLiveStage(m: RaceStageMount, src: LiveSource, o: LiveStageO
     // the line goes below the command and the plates at the top, the reactions above the hint and the self view at the bottom
     keepClear(m.stage, status, 'down');
     keepClear(m.stage, reacts, 'up');
+    // a mirror game plays on the camera picture: the others' tiles stay off it
+    keepOffPicture(m.stage, tiles);
     const seen = new Set<string>();
     for (const tile of v.tiles) {
       seen.add(tile.seat);

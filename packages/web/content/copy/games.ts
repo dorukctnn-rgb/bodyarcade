@@ -115,6 +115,8 @@ export interface GameCounts {
   quiet: number;
   local2: number;
   live: number;
+  /** Games that can be raced live and are Pro games: a room holds one when its host has Pro. */
+  proLive: number;
   shortest: number;
   longest: number;
 }
@@ -129,6 +131,7 @@ export function gameCounts(): GameCounts {
     quiet: g.filter((x) => x.quiet).length,
     local2: g.filter((x) => x.local2).length,
     live: g.filter((x) => x.live).length,
+    proLive: g.filter((x) => x.live && !x.free).length,
     shortest: Math.min(...g.map((x) => x.seconds)),
     longest: Math.max(...g.map((x) => x.seconds)),
   };

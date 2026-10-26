@@ -106,7 +106,7 @@
    "quiet": true,
    "seconds": 155,
    "local2": true,
-   "live": false,
+   "live": true,
    "tagline": {
     "en": "Tap the lights before they fade. Never the red ones.",
     "tr": "Işıklar sönmeden dokun. Kırmızılara asla."
