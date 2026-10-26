@@ -3,3 +3,9 @@
 *.mjpeg binary
 *.y4m binary
 *.webm binary
+
+# The Android (TWA) project: Bubblewrap checks twa-manifest.json against a SHA-1 of its bytes, so its line endings must not change on checkout.
+android/twa-manifest.json text eol=lf
+android/manifest-checksum.txt text eol=lf
+android/gradlew text eol=lf
+android/*.ps1 text eol=crlf
