@@ -15,6 +15,8 @@ export interface SecretSpec {
   /** Who needs it and what happens without it. */
   why: string;
   required: boolean;
+  /** With `required`: only the production Worker needs it (the preview serves no Android app and no Play purchase). */
+  productionOnly?: boolean;
   /** How to make a value here, or null when only a person can provide it (a dashboard key, a store account). */
   generate: (() => string) | null;
 }
@@ -30,13 +32,18 @@ export function es256Pair(): { privateJwk: string; publicJwk: string } {
   return { privateJwk: JSON.stringify(priv), publicJwk: JSON.stringify(pub) };
 }
 
+/** Must this target's secrets file hold it? (required, and for the production Worker only when productionOnly.) */
+export function isRequired(s: Pick<SecretSpec, 'required' | 'productionOnly'>, target: TargetId): boolean {
+  return s.required && (s.productionOnly !== true || target === 'production');
+}
+
 export const SECRETS: readonly SecretSpec[] = [
   { name: 'TICKET_SECRET', why: 'live play: signs room tickets and block keys (the Worker refuses to make rooms without it)', required: true, generate: () => random(36) },
   { name: 'ADMIN_TOKEN', why: 'social: the moderation API, which is how every report is read (it answers 404 without it, so no report could be read and the promise on the privacy page that a person reads each one would break)', required: true, generate: () => random(32) },
   { name: 'ENT_PRIV_JWK', why: "entitlements: signs Pro tokens (ES256); the public half goes to the client; its public half also checks the host's Pro token before a Pro game starts in a room (without it a room never starts a Pro game, free games are not affected)", required: false, generate: null },
   { name: 'TURN_KEY_ID', why: 'live video between friends behind strict NATs: Cloudflare Realtime TURN key id (STUN only without it)', required: false, generate: null },
   { name: 'TURN_KEY_API_TOKEN', why: 'the API token of that TURN key', required: false, generate: null },
-  { name: 'PLAY_SA_JSON', why: 'entitlements: Google Play purchase checks (service account JSON)', required: false, generate: null },
+  { name: 'PLAY_SA_JSON', why: 'entitlements: Google Play purchase checks (service account JSON: client_email and private_key, with the Play permissions of the app). Without it no Play purchase can be verified, so the Android app must not reach a tester or a buyer without it (the production deploy stops)', required: true, productionOnly: true, generate: null },
   { name: 'ENT_MAIL_TOKEN', why: 'entitlements: the ForwardEmail API token that sends the one trial-reminder e-mail on the web (goes with ENT_MAIL_FROM; without both the reminder box stays off)', required: false, generate: null },
   { name: 'ENT_MAIL_FROM', why: 'entitlements: the sender of that e-mail, for example "BodyArcade <info@bodyarcade.com>" (goes with ENT_MAIL_TOKEN; without both the reminder box stays off)', required: false, generate: null },
 ];
@@ -79,7 +86,7 @@ export function initSecrets(target: TargetId): string[] {
 
 export function status(target: TargetId): { name: string; present: boolean; required: boolean; why: string }[] {
   const have = readSecrets(target);
-  return SECRETS.map((s) => ({ name: s.name, present: !!have[s.name], required: s.required, why: s.why }));
+  return SECRETS.map((s) => ({ name: s.name, present: !!have[s.name], required: isRequired(s, target), why: s.why }));
 }
 
 const direct = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
@@ -94,6 +101,6 @@ if (direct) {
     const added = initSecrets(target);
     console.log(added.length ? `generated: ${added.join(', ')}` : 'nothing to generate');
   }
-  for (const s of status(target)) console.log(`${s.present ? 'set    ' : s.required ? 'MISSING' : 'missing'} ${s.name}: ${s.why}`);
+  for (const s of status(target)) console.log(`${s.present ? 'set    ' : isRequired(s, target) ? 'MISSING' : 'missing'} ${s.name}: ${s.why}`);
   console.log(`file: ${secretsFile(target)}`);
 }
