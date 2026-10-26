@@ -16,16 +16,19 @@ describe('the gates of a target', () => {
     expect(gatesFor('preview', root)).toEqual([]);
   });
 
-  it('production runs the Gumroad catalog check with --release, from the tools folder', () => {
+  it('production runs the Gumroad catalog check with --release --online --require-published (launch day), from the tools folder', () => {
     const gates = gatesFor('production', root);
     expect(gates.map((g) => g.name)).toEqual(['Gumroad catalog']);
     const g = gates[0] as Gate;
     expect(g.cmd).toBe(process.execPath);
-    expect(g.args).toHaveLength(2);
+    expect(g.args).toHaveLength(4);
     expect(g.args[0]).toBe(join(root, 'tools', 'entitlements', 'check-catalog.mjs'));
     expect(g.args[1]).toBe('--release');
+    expect(g.args[2]).toBe('--online');
+    expect(g.args[3]).toBe('--require-published');
     expect(existsSync(g.args[0] as string)).toBe(true);
     expect(g.why).toMatch(/placeholder/);
+    expect(g.why).toMatch(/published/);
     expect(g.why).toMatch(/catalog\.ts/);
   });
 
