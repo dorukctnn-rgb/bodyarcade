@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade design</title>
+<meta name="description" content="Everything the art director made for BodyArcade release 1: onboarding, UI kit, in-game HUD, layout rules, brand, art and store graphics.">
+<link rel="stylesheet" href="doc.css">
+<style>
+  .hero { display: grid; gap: clamp(18px, 3vw, 40px); align-items: center; }
+  @media (min-width: 900px) { .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); } }
+  .hero img { width: 100%; height: auto; border-radius: var(--ba-radius-xl); display: block; box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+</style>
+</head>
+<body>
+<main class="doc">
+  <div class="doc-top"><img src="brand/logo.svg" alt="BodyArcade" width="160" height="30"><nav aria-label="Design"><a href="index.html" aria-current="page">Index</a><a href="brand/index.html">Brand</a><a href="art/index.html">Art</a><a href="store/index.html">Store</a></nav></div>
+  <div class="hero">
+    <div><h1>Design for release 1</h1><p class="intro">Prototypes the UI builder ports into the app, the rules behind them, and the files the store needs. Every screen here is checked headless at ten screen sizes, from a 360 px phone to a 1920 px TV.</p></div>
+    <img src="store/export/en/feature-graphic.png" alt="BodyArcade feature graphic" width="1024" height="500">
+  </div>
+
+  <h2>First run</h2>
+  <div class="doc-links">
+    <a href="onboarding/index.html"><b>Onboarding, 7 steps</b><span>Real-time 3D court, pre-rendered fallback for weak phones, camera explainer, calibration, a 30 second first game.</span></a>
+    <a href="onboarding/index.html?step=4"><b>Space and safety</b><span>3D placement guide for phone, laptop and TV; two players on big screens.</span></a>
+    <a href="onboarding/perf.html"><b>3D frame budget</b><span>The onboarding stage measured with the CPU slowed down four times.</span></a>
+  </div>
+
+  <h2>App screens</h2>
+  <div class="doc-links">
+    <a href="ui-kit/home.html"><b>Home</b><span>Today's mix, the week against your line, every game by region.</span></a>
+    <a href="ui-kit/game.html"><b>Game</b><span>How to play, players, difficulty, your best. <em>?game=pad-work</em> shows the Pro lock.</span></a>
+    <a href="ui-kit/calibration.html"><b>Calibration</b><span>Framing guide and checks; <em>?state=done</em> when the line is set.</span></a>
+    <a href="ui-kit/hud.html"><b>In-game HUD</b><span>Scene and mirror layouts, picture in picture, live match tiles.</span></a>
+    <a href="ui-kit/hud-duo.html"><b>Two players, one camera</b><span>Split HUD for laptops and TVs.</span></a>
+    <a href="ui-kit/results.html"><b>Results</b><span>Score against the line and why moves missed. The skeleton replay is drawn ahead of the app.</span></a>
+    <a href="ui-kit/paywall.html"><b>Pro</b><span>Closable, real prices, what stays free.</span></a>
+    <a href="ui-kit/room.html"><b>Room</b><span>Two to four players, ready check, camera sharing off by default.</span></a>
+    <a href="ui-kit/lobbies.html"><b>Public lobbies</b><span>Quick match by level; strangers as skeletons.</span></a>
+    <a href="ui-kit/friends.html"><b>Friends</b><span>Friend code, invite link and QR, requests, presence.</span></a>
+    <a href="ui-kit/safety.html"><b>Safety</b><span>Age check, report, block, what others see.</span></a>
+    <a href="ui-kit/settings.html"><b>Settings</b><span>Modes, camera view corner, display, data on this device.</span></a>
+  </div>
+
+  <h2>Rules and files</h2>
+  <div class="doc-links">
+    <a href="LAYOUT.md"><b>LAYOUT.md</b><span>Breakpoints, HUD sizes, picture in picture formula, safe areas.</span></a>
+    <a href="tokens/tokens.css"><b>Design tokens</b><span>Colour, type, spacing, radius and motion for light and dark.</span></a>
+    <a href="brand/index.html"><b>Brand</b><span>Logo, mark, icons, colour, type, the line.</span></a>
+    <a href="art/index.html"><b>Art direction</b><span>The Court diorama, catalogue art, world rules.</span></a>
+    <a href="store/index.html"><b>Store graphics</b><span>Feature graphic, icon, phone and tablet screenshots in English and Turkish, rendered from the real app.</span></a>
+    <a href="shots/kit/report.json"><b>Check reports</b><span>Headless results per page and screen size, with screenshots in design/shots.</span></a>
+  </div>
+</main>
+</body>
+</html>

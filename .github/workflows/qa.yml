@@ -1,0 +1,237 @@
+name: QA
+
+# Layout checks that need every screen size (BUILD-PLAN "Screen layout rule"): the pages of the web shell and the live
+# site are opened headless at the ten screen sizes, saved as pictures, and checked for things cut off, things on top of
+# each other, sideways scrolling and console errors (tools/page-check). The pictures are kept as an artifact.
+
+on:
+  push:
+    branches: [main, v2]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Browsers job: only the flows whose title contains this text (for a quick look at one thing)'
+        required: false
+        default: ''
+      page_check:
+        description: 'Run the page-check job too (false: the engines only)'
+        required: false
+        default: 'true'
+      full:
+        description: 'Browsers job: also the web shell specs and the page check on each engine (about 60 more minutes per engine; a push runs the smoke only)'
+        required: false
+        default: 'false'
+      only:
+        description: 'Browsers job: the page check on the Safari engine and Firefox for these targets only (for example web:home:trial,web:plans,web:pro), a few minutes; works with a grep that matches no flow to skip the flows'
+        required: false
+        default: ''
+      sizes:
+        description: 'With only: the sizes (breakpoint ids or WIDTHxHEIGHT, for example phone-land-915,phone-390)'
+        required: false
+        default: ''
+      lang:
+        description: 'With only: the language of the pages (en or tr)'
+        required: false
+        default: 'en'
+      repeat:
+        description: 'Browsers job: every flow this many times (how steady is it?), meant for a grep'
+        required: false
+        default: ''
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/v2' && github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  page-check:
+    if: github.event_name != 'workflow_dispatch' || inputs.page_check != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install headless Chromium
+        run: npx playwright install --with-deps --only-shell chromium
+
+      # The web shell is what ships: any layout problem or console error here fails the job. (The three pages that had a filed bug, the trial notice
+      # of a phone held sideways, the QR code of the friends page and the "Not ready" pill of a room, were clean at all ten sizes on 25 Oct: no page is
+      # listed as known any more.)
+      - name: Page check, web shell (ten screen sizes)
+        run: npm run qa:pages -- --groups web --jobs 3 --out qa-out/page-check
+
+      # The legal and help pages of the release (privacy, terms, FAQ, English and Turkish) are part of what v2 ships: they fail the job too.
+      - name: Page check, legal pages (ten screen sizes)
+        run: npm run qa:pages -- --groups site --only site:privacy,site:terms,site:faq,site:tr/privacy,site:tr/terms,site:tr/faq --jobs 3 --out qa-out/page-check-legal
+
+      # The other pages of the live site (site/) belong to the fixes on main; their problems are reported but do not fail this job.
+      # Bounded: a page that never goes quiet must not eat the job's time.
+      - name: Page check, the rest of the live site (report only)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: npm run qa:pages -- --groups site --jobs 3 --out qa-out/page-check-site
+
+      - name: Keep the pictures and the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: page-check
+          path: |
+            qa-out/page-check/
+            qa-out/page-check-legal/
+            qa-out/page-check-site/
+          retention-days: 7
+
+  # The other engines (BUILD-PLAN "Browsers"): WebKit is the engine under Safari and under every browser on an iPhone, Firefox is Firefox.
+  # The macOS runner has Safari's WebKit (camera, WebRTC, Web Audio); the Linux runner has Playwright's WebKitGTK build. Playwright's WebKit
+  # for Windows has no camera, no WebRTC and no Web Audio at all, which is why these flows run here and not on a Windows laptop.
+  # A push runs the SMOKE (about 15 minutes per engine, in parallel with the page check): the probe, the flows, the peer layer. `full` (workflow_dispatch)
+  # adds the web shell's own specs and the ten-size page check on each engine.
+  # tools/browsers: the main flows of a visitor (home, tour, camera and calibration on a person, rounds, results, plans, paywall,
+  # Family, social in the practice build, legal pages in English and Turkish, service worker offline) on a phone (390x844) and a
+  # desktop (1440x900), the table of browser x flow in the job summary, the pictures in the artifact.
+  browsers:
+    name: browsers (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    # The engines gate every push like the page check does (25 Oct: the table was green on every engine, NOTLAR-qa.md has it). The steps below go on after a failure
+    # so that the table and the pictures are always kept; the Verdict step at the end turns a failed step into a red job.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # pagecheck: the ten-size layout check of the web shell on this engine too (one runner per engine is enough)
+          - { os: macos-latest, engine: webkit, label: 'Safari engine, macOS', pagecheck: true }
+          - { os: ubuntu-latest, engine: webkit, label: 'WebKit, Linux', pagecheck: false }
+          - { os: ubuntu-latest, engine: firefox, label: 'Firefox, Linux', pagecheck: true }
+          - { os: macos-latest, engine: firefox, label: 'Firefox, macOS', pagecheck: false }
+          # the same flows on Chromium in the same environment: a flow that fails here too is the flow's, not the engine's
+          - { os: ubuntu-latest, engine: chromium, label: 'Chromium, Linux (baseline)', pagecheck: false }
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install the engine
+        run: npx playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }} ${{ matrix.engine == 'chromium' && '--only-shell' || '' }} ${{ matrix.engine }}
+
+      - name: What this engine can do here (camera, WebRTC, Web Audio, WebGL, workers)
+        run: node tools/browsers/run.ts --probe --engines ${{ matrix.engine }}
+
+      - name: Build the practice site and the release site
+        run: node tools/browsers/support/sites.ts --build
+
+      # A flow that fails is a bug in the web app on that engine: the table says which, and the picture is in the artifact.
+      - name: Flows on ${{ matrix.engine }} (phone and desktop)
+        id: flows
+        timeout-minutes: 30
+        continue-on-error: true
+        env:
+          GREP: ${{ inputs.grep }}
+          REPEAT: ${{ inputs.repeat }}
+        shell: bash
+        run: node tools/browsers/run.ts --engines ${{ matrix.engine }} ${GREP:+--grep "$GREP" --allow-empty} ${REPEAT:+--repeat-each "$REPEAT"}
+
+      # The web shell's own end-to-end specs (packages/web/e2e: browse, welcome, play, plans, players, layout, accessibility) on this engine.
+      - name: The web shell's own specs on ${{ matrix.engine }}
+        id: shellspecs
+        timeout-minutes: 50
+        if: github.event_name == 'workflow_dispatch' && inputs.full == 'true' && inputs.grep == ''
+        continue-on-error: true
+        run: node tools/browsers/run.ts --set ui --engines ${{ matrix.engine }}
+
+      # The ten screen sizes of the layout rule, with the overlap and clipping check, in this engine (the Chromium run is the page-check job).
+      - name: Page check on ${{ matrix.engine }} (ten screen sizes)
+        id: pagecheck
+        timeout-minutes: 40
+        if: matrix.pagecheck && github.event_name == 'workflow_dispatch' && ((inputs.full == 'true' && inputs.grep == '') || inputs.only != '')
+        continue-on-error: true
+        env:
+          ONLY: ${{ inputs.only }}
+          SIZES: ${{ inputs.sizes }}
+          LANG_CHECK: ${{ inputs.lang }}
+        shell: bash
+        run: node tools/page-check/run.ts --groups web --browser ${{ matrix.engine }} --jobs 2 ${ONLY:+--only "$ONLY"} ${SIZES:+--sizes "$SIZES"} ${LANG_CHECK:+--lang "$LANG_CHECK"} --out qa-out/page-check-${{ matrix.engine }}
+
+      # The Friends screens in this engine (builder SO's tests/e2e/social-ui-engines.spec.ts: layout of the main screens and windows, a real profile with the
+      # device key kept across a reload, a friend request over the socket; the production Worker in Miniflare). The spec launches WebKit and Firefox itself,
+      # which the CI workflow does not install, so it runs here, where the engine is: the tests whose title starts with the engine's name.
+      # The room race of two friends (builder N's tests/e2e/social-ui-race.spec.ts) has its Firefox row here for the same reason (its WebKit row is skipped
+      # unless BA_RACE_WEBKIT=1; the CI workflow runs its Chromium rows).
+      - name: Friends screens on ${{ matrix.engine }}
+        id: socialengine
+        timeout-minutes: 25
+        if: matrix.engine != 'chromium' && (github.event_name != 'workflow_dispatch' || inputs.grep == '')
+        continue-on-error: true
+        run: node node_modules/@playwright/test/cli.js test -c tests/social/playwright.config.ts --workers=1 tests/e2e/social-ui-engines.spec.ts tests/e2e/social-ui-race.spec.ts -g "${{ matrix.engine }}:"
+
+      # The same peer layer in four variants (host candidates or a relay through the local TURN, one canvas cloned or one for each side): where an
+      # engine passes says what its test needs (tools/browsers/peers.spec.ts).
+      - name: Peer layer variants on ${{ matrix.engine }}
+        id: peervariants
+        timeout-minutes: 10
+        if: github.event_name != 'workflow_dispatch' || inputs.grep == ''
+        continue-on-error: true
+        run: node tools/browsers/run.ts --set peers --engines ${{ matrix.engine }}
+
+      # The peer layer of live play on this engine (builder N's spec: the state channel and the friend camera between two pages).
+      # The live suite is left out of GitHub runs by its own `CI` check; this step lifts that for this one spec only.
+      - name: Live play peers on ${{ matrix.engine }}
+        id: peers
+        timeout-minutes: 10
+        if: github.event_name != 'workflow_dispatch' || inputs.grep == ''
+        continue-on-error: true
+        env:
+          CI: ''
+        run: node node_modules/@playwright/test/cli.js test -c tests/live/playwright.config.ts --workers=1 tests/live/engines.spec.ts -g "peer layer on ${{ matrix.engine }}"
+
+      - name: Table in the summary
+        if: always()
+        shell: bash
+        run: |
+          for f in qa-out/browsers/TABLE.md qa-out/browsers/TABLE-ui.md qa-out/browsers/TABLE-peers.md; do if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; echo >> "$GITHUB_STEP_SUMMARY"; fi; done
+          if [ -f qa-out/page-check-${{ matrix.engine }}/FINDINGS.md ]; then echo '### Page check on ${{ matrix.engine }}' >> "$GITHUB_STEP_SUMMARY"; head -c 20000 qa-out/page-check-${{ matrix.engine }}/FINDINGS.md >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f qa-out/browsers/engines.json ]; then echo '```json' >> "$GITHUB_STEP_SUMMARY"; cat qa-out/browsers/engines.json >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Keep the pictures, the table and the traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browsers-${{ matrix.os }}-${{ matrix.engine }}
+          path: |
+            qa-out/browsers/TABLE.md
+            qa-out/browsers/TABLE-ui.md
+            qa-out/browsers/TABLE-peers.md
+            qa-out/browsers/engines.json
+            qa-out/browsers/results.json
+            qa-out/browsers/results-ui.json
+            qa-out/browsers/results-peers.json
+            qa-out/browsers/shots/
+            qa-out/browsers/test-results/
+            qa-out/page-check-${{ matrix.engine }}/
+          retention-days: 7
+
+      # The job reports the engines' state; it is red when a flow failed or the peers could not talk, so the workflow shows it.
+      - name: Verdict
+        if: always()
+        shell: bash
+        run: |
+          echo "flows: ${{ steps.flows.outcome }}, shell specs: ${{ steps.shellspecs.outcome }}, page check: ${{ steps.pagecheck.outcome }}, friends screens: ${{ steps.socialengine.outcome }}, peers: ${{ steps.peers.outcome }}"
+          for o in "${{ steps.flows.outcome }}" "${{ steps.shellspecs.outcome }}" "${{ steps.peers.outcome }}" "${{ steps.pagecheck.outcome }}" "${{ steps.socialengine.outcome }}"; do if [ "$o" = "failure" ]; then exit 1; fi; done

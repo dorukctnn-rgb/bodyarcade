@@ -1,0 +1,123 @@
+[
+ {
+  "page": "step-1",
+  "breakpoint": "laptop-1440",
+  "ms": 1253,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding-dark/step-1-laptop-1440.webp"
+ },
+ {
+  "page": "step-2",
+  "breakpoint": "laptop-1440",
+  "ms": 881,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 53,
+   "triangles": 13134,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding-dark/step-2-laptop-1440.webp"
+ },
+ {
+  "page": "step-3",
+  "breakpoint": "laptop-1440",
+  "ms": 865,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding-dark/step-3-laptop-1440.webp"
+ },
+ {
+  "page": "step-4",
+  "breakpoint": "laptop-1440",
+  "ms": 994,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 64,
+   "triangles": 9204,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding-dark/step-4-laptop-1440.webp"
+ },
+ {
+  "page": "step-5",
+  "breakpoint": "laptop-1440",
+  "ms": 936,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 20,
+   "triangles": 8514,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding-dark/step-5-laptop-1440.webp"
+ },
+ {
+  "page": "step-6",
+  "breakpoint": "laptop-1440",
+  "ms": 939,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding-dark/step-6-laptop-1440.webp"
+ },
+ {
+  "page": "step-7",
+  "breakpoint": "laptop-1440",
+  "ms": 1237,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/onboarding-dark/step-7-laptop-1440.webp"
+ },
+ {
+  "page": "step-7-done",
+  "breakpoint": "laptop-1440",
+  "ms": 985,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 31,
+   "triangles": 11418,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding-dark/step-7-done-laptop-1440.webp"
+ },
+ {
+  "page": "step-4-duo",
+  "breakpoint": "laptop-1440",
+  "ms": 997,
+  "problems": [],
+  "stats": {
+   "frames": 0,
+   "p50": 0,
+   "p95": 0,
+   "calls": 54,
+   "triangles": 17000,
+   "tier": 1
+  },
+  "shot": "design/shots/onboarding-dark/step-4-duo-laptop-1440.webp"
+ }
+]

@@ -1,0 +1,87 @@
+{
+  "id": "pose-wall",
+  "template": "gate",
+  "version": 1,
+  "title": "Pose Wall",
+  "regions": [
+    "mobility",
+    "arms",
+    "legs"
+  ],
+  "framing": "full",
+  "headroom": "arms-up",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 210,
+  "met": 4,
+  "detectors": [
+    {
+      "id": "poseMatch"
+    }
+  ],
+  "free": true,
+  "modes": [
+    "solo",
+    "local2"
+  ],
+  "minPoseHz": 10,
+  "seo": {
+    "slug": "pose-wall",
+    "keywords": [
+      "pose game",
+      "pose matching game",
+      "body shape game",
+      "hole in the wall game"
+    ]
+  },
+  "catalogue": {
+    "tagline": {
+      "en": "Make the shape before the wall reaches you.",
+      "tr": "Duvar sana ulaşmadan şekli yap."
+    },
+    "about": {
+      "en": "A wall with a person-shaped hole comes toward you. Make the shape with your arms, legs and body, hold it for a moment, and pass through. Early shapes are plain with a wide tolerance; later levels add more shapes, runs of two or three walls, and a tighter fit. Every miss says which arm or leg was off. Three sets with short rests. On a big screen, two people can take on the same wall side by side.",
+      "tr": "İnsan biçiminde bir boşluğu olan duvar sana doğru gelir. Kollarınla, bacaklarınla ve gövdenle şekli yap, bir an tut ve içinden geç. İlk şekiller yalın, tolerans geniştir; sonraki seviyelerde daha çok şekil, art arda iki üç duvarlık seriler ve daha sıkı bir uyum gelir. Her ıskalamada hangi kolun ya da bacağın çıktığı söylenir. Aralarda kısa dinlenmeli üç set var. Büyük ekranda iki kişi aynı duvarı yan yana geçebilir."
+    },
+    "how": [
+      {
+        "en": "Stand where the camera sees you from head to feet, with room for your arms out to both sides. Seated play shows the upper body only.",
+        "tr": "Kameranın seni baştan ayağa gördüğü, kolların iki yana açılacak kadar boşluğu olan bir yere dur. Oturarak oynarken yalnızca üst gövde gösterilir."
+      },
+      {
+        "en": "Look at the shape cut into the wall as it comes.",
+        "tr": "Duvar gelirken içine oyulmuş şekle bak."
+      },
+      {
+        "en": "Make the shape and hold it for a moment before the wall arrives. The rim turns green when you fit.",
+        "tr": "Duvar gelmeden önce şekli yap ve bir an tut. Uyduğunda kenar yeşile döner."
+      }
+    ],
+    "measures": [
+      {
+        "en": "The direction of your arms, legs, trunk and head against the shape, limb by limb.",
+        "tr": "Kollarının, bacaklarının, gövdenin ve başının yönü, uzuv uzuv şekle göre."
+      },
+      {
+        "en": "How long you hold it: at least 0.3 s in the last 0.8 s before the wall.",
+        "tr": "Ne kadar tuttuğun: duvardan önceki son 0,8 saniyede en az 0,3 saniye."
+      }
+    ],
+    "move": "tPose",
+    "tile": "pose-wall",
+    "order": 10,
+    "related": [
+      "limbo-bend",
+      "twist-turbine"
+    ],
+    "seatedNote": {
+      "en": "Upper body walls: the shapes need only your arms, trunk and head.",
+      "tr": "Üst gövde duvarları: şekiller yalnızca kollarını, gövdeni ve başını ister."
+    },
+    "quietNote": {
+      "en": "Held shapes only, nothing loud and no jumping.",
+      "tr": "Yalnızca tutulan şekiller; gürültü ve zıplama yok."
+    }
+  }
+}

@@ -1,0 +1,47 @@
+/* The welcome tour. The art director's stylesheet (design/onboarding/onboarding.css) comes in as it is: the stage and the panel, the
+   rows of the five pages, the layouts on phones, tablets and wide screens. What follows is what the shell changes: the two global
+   rules of that file that belong to the tour page only, and the choices drawn as real radio buttons (a screen reader and the
+   arrow keys get them for free) instead of buttons that pretend to be. */
+@import url("../../../../design/onboarding/onboarding.css");
+
+/* The art director's file sets the page to the height of the screen without scrolling: that is the tour page, not every page. */
+html:not(:has(.ob)),
+html:not(:has(.ob)) body { height: auto; }
+html:not(:has(.ob)) body { overflow: visible; overflow-x: hidden; }
+html:has(.ob) body { overflow: hidden; }
+
+.ba-app--welcome { display: block; min-height: 0; }
+.ba-app--welcome > main { min-height: 0; }
+.ob { z-index: 1; }
+
+/* The logo is the shell's own (both themes are in the page, the stylesheet shows the one that fits). */
+.ob-top .ba-logo img { height: 30px; width: auto; }
+@media (min-width: 700px) and (orientation: portrait) { .ob-top .ba-logo img { height: 36px; } }
+@media (orientation: landscape) and (max-height: 500px) { .ob-top .ba-logo img { height: 24px; } }
+@media (min-width: 1200px) and (orientation: landscape) { .ob-top .ba-logo img { height: 38px; } }
+
+.ob-title:focus { outline: none; }
+.ob-lang { text-decoration: none; }
+.ob-lang:focus-visible, .ob-link:focus-visible, .ob-level:has(input:focus-visible), .ob-seg label:has(input:focus-visible) { outline: 3px solid var(--ba-focus); outline-offset: 3px; }
+
+/* Segments: a row of radio buttons, the chosen one lifted. The input is there for the keyboard and the screen reader, and not seen. */
+.ob-seg { max-width: 100%; flex-wrap: wrap; }
+.ob-seg label { display: inline-flex; position: relative; cursor: pointer; border-radius: 10px; }
+/* The input covers its whole label and cannot be seen: a click anywhere on the choice is a click on the radio button itself. */
+.ob-seg input, .ob-level input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.ob-seg label > span { display: inline-flex; align-items: center; gap: 6px; border-radius: 10px; padding: 9px 14px; font-weight: 600; color: var(--ba-text); white-space: nowrap; }
+.ob-seg label > span svg { width: 18px; height: 18px; flex: none; }
+.ob-seg input:checked + span { background: var(--ba-surface); box-shadow: 0 1px 0 var(--ba-border), 0 0 0 1.5px var(--ba-text); }
+
+/* Levels: three cards, the chosen one with a dot. */
+.ob-level { display: block; position: relative; }
+.ob-level:has(input:checked) { box-shadow: inset 0 0 0 2.5px var(--ba-text); background: var(--ba-surface); }
+.ob-level:has(input:checked) b::after { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--ba-accent); margin-left: 8px; vertical-align: 0.12em; }
+@media (min-width: 600px) { .ob-level-desc { display: none; } }
+
+/* A button that is not pressable yet says so by its look as well as by its state. */
+.ob-actions .ba-btn[disabled] { opacity: 0.6; cursor: default; box-shadow: none; transform: none; }
+
+/* No spinning, no camera sway: a visitor who asked for less motion gets the still picture of the stage. */
+html[data-motion="reduce"] .ob-stage canvas { transition: none; }
+

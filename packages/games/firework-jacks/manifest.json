@@ -1,0 +1,41 @@
+{
+  "id": "firework-jacks",
+  "template": "strength",
+  "version": 1,
+  "title": "Firework Jacks",
+  "regions": ["cardio"],
+  "framing": "full",
+  "headroom": "arms-up",
+  "seated": true,
+  "lowImpact": false,
+  "silentSafe": true,
+  "durationSec": 240,
+  "met": 8,
+  "detectors": [{ "id": "jumpingJack" }],
+  "free": true,
+  "modes": ["solo", "local2"],
+  "minPoseHz": 15,
+  "seo": { "slug": "firework-jacks", "keywords": ["jumping jacks game", "jumping jack workout game", "cardio game", "interval workout game"] },
+  "catalogue": {
+    "tagline": { "en": "Every jumping jack sends a firework up.", "tr": "Her jumping jack gökyüzüne bir havai fişek yollar." },
+    "about": {
+      "en": "Each jumping jack launches a firework over the city. Land it on the beat for a bigger one, and at the end every firework bursts again as a finale. Four sets with short rests. On a big screen, two people can share one sky.",
+      "tr": "Her jumping jack, şehrin üzerinde bir havai fişek patlatır. Vuruşa denk getirirsen fişek daha büyük olur, sonunda hepsi final olarak yeniden patlar. Aralarda kısa dinlenmeli dört set var. Büyük ekranda iki kişi aynı gökyüzünü paylaşabilir."
+    },
+    "how": [
+      { "en": "Stand where the camera sees you from head to feet, with room on both sides.", "tr": "Kameranın seni baştan ayağa gördüğü, iki yanında boşluk olan bir yere dur." },
+      { "en": "Do a jumping jack on each beat: arms up and feet apart, then back together.", "tr": "Her vuruşta bir jumping jack yap: kollar yukarı, ayaklar açık, sonra yine bir araya." },
+      { "en": "Keep it going for four short sets. A jack on the beat sends a bigger firework.", "tr": "Dört kısa seti sürdür. Vuruşa denk gelen jack daha büyük bir fişek yollar." }
+    ],
+    "measures": [
+      { "en": "Whether both arms go overhead and your feet come apart.", "tr": "İki kolunun baş üstüne gidip ayaklarının açılıp açılmadığı." },
+      { "en": "How close each jack is to the beat.", "tr": "Her jackin vuruşa ne kadar yakın olduğu." }
+    ],
+    "move": "jackOpen",
+    "tile": "firework-jacks",
+    "order": 6,
+    "related": ["twist-turbine", "knee-sprint"],
+    "seatedNote": { "en": "Arm jacks: open and close your arms overhead from a chair.", "tr": "Kol jackleri: sandalyede otururken kollarını baş üstünde açıp kapat." },
+    "quietNote": { "en": "Step jacks: step one foot out to the side instead of jumping.", "tr": "Adım jackleri: zıplamak yerine bir ayağını yana at." }
+  }
+}

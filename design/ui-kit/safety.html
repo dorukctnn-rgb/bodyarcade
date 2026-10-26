@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade safety</title>
+<meta name="description" content="UI kit: safety flows for playing with others. Age check at first social use, report, block, and what strangers and friends can see.">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="pages.css">
+<style>
+  .k-flows { display: grid; gap: clamp(16px, 2.4vw, 28px); margin-top: 16px; }
+  @media (min-width: 900px) { .k-flows { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; } }
+  .k-flow-label { display: block; font-size: var(--ba-text-xs); font-weight: 800; color: var(--ba-text-muted); margin: 0 0 8px 4px; }
+  .k-agecards { display: grid; gap: 8px; }
+  .k-age { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 12px; align-items: start; padding: 14px; border-radius: var(--ba-radius-md); box-shadow: inset 0 0 0 1.5px var(--ba-border); cursor: pointer; }
+  .k-age input { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; margin: 2px 0 0; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--ba-border-strong); display: grid; place-items: center; }
+  .k-age input:checked { background: var(--ba-text); box-shadow: none; }
+  .k-age input:checked::after { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--ba-accent); }
+  .k-age:has(input:checked) { box-shadow: inset 0 0 0 2.5px var(--ba-text); }
+  .k-age b { font-weight: 800; }
+  .k-age ul { grid-column: 2; margin: 0; padding-left: 18px; color: var(--ba-text-muted); font-size: var(--ba-text-sm); line-height: 1.5; }
+  .k-sheet .who { display: flex; align-items: center; gap: 12px; }
+  .k-sheet .who .ba-avatar { width: 48px; height: 48px; }
+  .k-sheet .btns { display: grid; gap: 8px; }
+  .ba-btn--danger { background: var(--ba-flush-700); color: #fff; box-shadow: 0 4px 0 0 #8E1F35; }
+  .k-sees .pic.friend { background: var(--ba-surface-sunken); display: grid; place-items: center; }
+  .k-sees .pic.friend .ba-avatar { width: 72px; height: 72px; background: var(--ba-surface); }
+  .k-sees .pic.friend .ba-avatar svg { width: 56px; height: 56px; }
+</style>
+</head>
+<body class="ba-app no-tabbar" data-long="1">
+<main class="ba-page" id="page"></main>
+<script type="module" data-wait>
+import { mountShell, pageHead, ICON, avatar, ready } from './shell.mjs';
+import { ghostArt, cameraArt } from './art.mjs';
+
+mountShell('friends');
+const reasons = ['Unkind or rude messages', 'A name that is not okay', 'Cheating or a fake score', 'Seems younger than 16', 'Something else'];
+const page = document.getElementById('page');
+page.innerHTML = `
+  ${pageHead('Safety', { back: 'friends.html' })}
+  <p class="k-sub">How playing with others stays friendly. These are the three moments you meet safety in the app, and what each person can see.</p>
+  <div class="k-flows">
+    <div><span class="k-flow-label">First time you play with others</span>
+      <section class="k-sheet" aria-labelledby="age">
+        <h2 id="age">How old are you?</h2>
+        <p class="ba-small" style="margin:0">We ask once, before your first room or lobby. It sets what you can share.</p>
+        <div class="k-agecards" role="radiogroup" aria-labelledby="age">
+          <label class="k-age"><input type="radio" name="age"><b>Under 18</b><ul><li>Friends only by code or link</li><li>Preset messages, no free text</li><li>Never video</li></ul></label>
+          <label class="k-age"><input type="radio" name="age" checked><b>18 or older</b><ul><li>Text chat with friends</li><li>Video with a friend when you both turn it on</li></ul></label>
+        </div>
+        <button class="ba-btn ba-btn--primary ba-btn--lg" type="button">Continue</button>
+      </section>
+    </div>
+    <div><span class="k-flow-label">Report a player</span>
+      <section class="k-sheet" aria-labelledby="rep">
+        <div class="who">${avatar('#46B4FF', 'stand')}<h2 id="rep">Report Kestrel</h2></div>
+        <div class="k-radios" role="radiogroup" aria-labelledby="rep">${reasons.map((r, i) => `<label class="k-radio"><input type="radio" name="reason" ${i === 0 ? 'checked' : ''}>${r}</label>`).join('')}</div>
+        <textarea class="ba-input k-textarea" aria-label="Add details (optional)" placeholder="Add details (optional)"></textarea>
+        <label class="k-check"><input type="checkbox" checked>Also block Kestrel</label>
+        <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button">${ICON.flag}Send report</button><button class="ba-btn ba-btn--quiet" type="button">Cancel</button></div>
+        <p class="k-fine">A person reads every report. Kestrel is not told who sent it.</p>
+      </section>
+    </div>
+    <div><span class="k-flow-label">Block a player</span>
+      <section class="k-sheet" aria-labelledby="blk">
+        <div class="who">${avatar('#46B4FF', 'stand')}<h2 id="blk">Block Kestrel?</h2></div>
+        <p class="ba-small" style="margin:0">You will not be matched, invited or shown to each other again. Kestrel is not told. You can unblock in Settings.</p>
+        <div class="btns"><button class="ba-btn ba-btn--danger ba-btn--lg" type="button">${ICON.block}Block</button><button class="ba-btn ba-btn--secondary ba-btn--lg" type="button">Cancel</button></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="ba-section" aria-labelledby="sees">
+    <header><h2 id="sees">What others see</h2></header>
+    <div class="k-sees">
+      <div class="k-card"><div class="pic">${ghostArt({ w: 300, h: 120, pose: 'jack', color: '#46B4FF' })}</div><h3>Players you do not know</h3><ul><li>A skeleton in your colour and your display name</li><li>Preset messages and drawn reactions</li><li>Never your video, never free text</li></ul></div>
+      <div class="k-card"><div class="pic friend">${avatar('#FF4F6E', 'jackOpen')}</div><h3>Friends</h3><ul><li>Your name, figure and whether you are online</li><li>Text chat when you are both 18 or older</li><li>Invites into your rooms</li></ul></div>
+      <div class="k-card"><div class="pic">${cameraArt({ w: 300, h: 120, pose: 'squat', skeleton: false })}</div><h3>A friend with video on</h3><ul><li>Only in a private room</li><li>Only when you both switch it on, both 18 or older</li><li>Never recorded or saved</li></ul></div>
+    </div>
+  </section>`;
+await ready();
+</script>
+</body>
+</html>

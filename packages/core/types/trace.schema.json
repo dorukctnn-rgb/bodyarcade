@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bodyarcade.com/schemas/trace-v1.json",
+  "title": "BodyArcade landmark trace, version 1",
+  "description": "Recorded pose landmarks (never video) for detector, calibration and replay tests. Times are milliseconds from the start of the trace. Landmarks are MediaPipe Pose order, raw (not mirrored) image-normalised coordinates: 33 x [x, y, z, visibility] flattened to 132 numbers.",
+  "type": "object",
+  "required": ["format", "version", "fps", "aspect", "meta", "frames"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "bodyarcade-trace" },
+    "version": { "const": 1 },
+    "fps": { "type": "number", "exclusiveMinimum": 0, "maximum": 240, "description": "Nominal capture rate; frames carry their own times." },
+    "aspect": { "type": "number", "exclusiveMinimum": 0, "maximum": 4, "description": "Width / height of the analysed image." },
+    "meta": {
+      "type": "object",
+      "required": ["id", "origin", "framing"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$" },
+        "origin": { "enum": ["recorded", "video", "synthetic"] },
+        "framing": { "enum": ["full", "upper", "side"] },
+        "model": { "type": "string", "maxLength": 200 },
+        "recordedAt": { "type": "string", "format": "date-time" },
+        "device": { "type": "string", "maxLength": 200 },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "consent": { "enum": ["opt-in", "licensed", "own"] }
+      }
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["t", "id", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "t": { "type": "number", "minimum": 0 },
+          "id": {
+            "enum": ["squat", "jump", "lean", "kneeLift", "jumpingJack", "handHit", "swipe", "twist", "sideBend", "pull",
+              "overheadPress", "poseMatch", "energy", "steadiness", "sideLine", "armDirection", "still", "leave", "enter"]
+          },
+          "kind": { "enum": ["rep", "hit", "holdStart", "holdEnd", "value", "marker"] },
+          "side": { "enum": ["L", "R"] },
+          "note": { "type": "string", "maxLength": 200 }
+        }
+      }
+    },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["t", "lm"],
+        "additionalProperties": false,
+        "properties": {
+          "t": { "type": "number", "minimum": 0 },
+          "lm": {
+            "oneOf": [
+              { "type": "null" },
+              { "type": "array", "minItems": 132, "maxItems": 132, "items": { "type": "number" } }
+            ]
+          },
+          "ms": { "type": "number", "minimum": 0, "description": "Inference time of this frame, if measured." },
+          "people": {
+            "type": "array",
+            "maxItems": 4,
+            "description": "Two-person recordings: every person found (132 numbers each), in the detector's order; lm is the first.",
+            "items": { "type": "array", "minItems": 132, "maxItems": 132, "items": { "type": "number" } }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,80 @@
+/* The players of this device: who is playing, the list to manage, the form to add one, the switcher in the bar, the table of the
+   family on a game's page and the parent gate. Plain surfaces from the kit's tokens, round pictures, and nothing that moves. */
+
+.pf-cards { list-style: none; margin: 18px 0 8px; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); }
+.pf-cards > li { display: flex; min-width: 0; }
+.pf-card {
+  display: grid; justify-items: center; align-content: start; gap: 8px; width: 100%; min-height: 176px; padding: 18px 12px 16px;
+  border: 0; border-radius: var(--ba-radius-lg); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border);
+  color: var(--ba-text); font: inherit; text-align: center; text-decoration: none; cursor: pointer;
+}
+.pf-card:hover { box-shadow: inset 0 0 0 2px var(--ba-text); }
+.pf-card:focus-visible { outline: 3px solid var(--ba-focus); outline-offset: 3px; }
+.pf-card.is-active { box-shadow: inset 0 0 0 3px var(--ba-accent); }
+.pf-card.is-locked, .pf-card.is-disabled { cursor: default; }
+.pf-card.is-locked .pf-face svg { opacity: 0.55; }
+.pf-card.is-locked:hover, .pf-card.is-disabled:hover { box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.pf-face { position: relative; display: block; width: 88px; height: 88px; }
+.pf-face svg { display: block; width: 100%; height: 100%; }
+.pf-lock { position: absolute; right: -4px; bottom: -4px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--ba-text); color: var(--ba-text-inverse, var(--ba-bg)); }
+.pf-lock svg { width: 16px; height: 16px; }
+.pf-name { font-family: var(--ba-font-display); font-weight: 800; font-size: 1.2rem; line-height: 1.15; overflow-wrap: anywhere; }
+.pf-badges { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.pf-badges:empty { display: none; }
+.pf-badge { display: inline-flex; padding: 2px 9px; border-radius: 999px; background: var(--ba-surface-sunken); color: var(--ba-text); font-size: 0.75rem; font-weight: 700; line-height: 1.5; }
+.pf-badge--kid { background: var(--ba-accent-tint); color: var(--ba-accent-text); }
+.pf-card small { color: var(--ba-text-muted); font-size: 0.8125rem; line-height: 1.3; }
+.pf-card--add { border: 2px dashed var(--ba-border-strong, var(--ba-border)); background: transparent; box-shadow: none; align-content: center; }
+.pf-card--add:hover { border-color: var(--ba-text); box-shadow: none; }
+.pf-plus { width: 88px; height: 88px; border-radius: 50%; display: grid; place-items: center; background: var(--ba-surface-sunken); }
+.pf-plus svg { width: 36px; height: 36px; }
+.pf-actions { margin: 6px 0 18px; }
+.pf-ask { margin-top: 8px; }
+
+/* The list to manage. */
+.pf-list { list-style: none; margin: 14px 0; padding: 0; display: grid; gap: 10px; }
+.pf-row { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: var(--ba-radius-lg); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.pf-row > svg { flex: none; }
+.pf-who { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.pf-who b { overflow-wrap: anywhere; }
+.pf-who small { color: var(--ba-text-muted); }
+.pf-who .pf-badges { justify-content: flex-start; }
+.pf-rowbtns { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+@media (max-width: 480px) { .pf-row { flex-wrap: wrap; } .pf-rowbtns { width: 100%; justify-content: flex-start; } }
+
+/* The form. */
+.pf-form { max-width: 560px; }
+.pf-avatars { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px; margin-top: 6px; }
+.pf-pick { position: relative; display: grid; place-items: center; padding: 6px; border-radius: 18px; cursor: pointer; }
+.pf-pick input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.pf-pick svg { display: block; max-width: 100%; height: auto; }
+.pf-pick:has(input:checked) { background: var(--ba-accent-tint); box-shadow: 0 0 0 3px var(--ba-accent); }
+.pf-pick:has(input:focus-visible) { outline: 3px solid var(--ba-focus); outline-offset: 2px; }
+.pf-error { margin: 6px 0 0; color: var(--ba-flush-700); font-weight: 650; }
+[data-theme="dark"] .pf-error { color: var(--ba-flush-500); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pf-error { color: var(--ba-flush-500); } }
+.pf-notice { margin-top: 12px; color: var(--ba-text-muted); }
+
+/* The switcher in the bar of the site. */
+.pf-switch { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; max-width: 46vw; padding: 4px 14px 4px 6px; border-radius: 999px; background: var(--ba-surface-sunken); color: var(--ba-text); font-weight: 700; text-decoration: none; }
+.pf-switch:hover { box-shadow: inset 0 0 0 1.5px var(--ba-text); }
+.pf-switch:focus-visible { outline: 3px solid var(--ba-focus); outline-offset: 2px; }
+.pf-switch svg { flex: none; }
+.pf-switch span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 12ch; }
+.ba-mobilehead .ba-me { display: inline-flex; align-items: center; gap: 8px; }
+
+/* The family on a game's page. */
+.pf-family { display: grid; gap: 10px; margin-top: 14px; }
+.pf-family h2 { margin: 0; }
+.pf-board { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pf-board li { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+.pf-board .who { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.pf-board .n { font-variant-numeric: tabular-nums; }
+.pf-board li[aria-current="true"] .who { font-weight: 800; }
+
+/* The parent gate. */
+.pf-gatebox { width: min(92vw, 420px); }
+.pf-gate { display: grid; gap: 14px; }
+.pf-gate h2, .pf-gate p { margin: 0; }
+.pf-sum { font-family: var(--ba-font-display); font-weight: 800; font-size: 1.75rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pf-gate .pf-error { min-height: 1.4em; margin: 0; }

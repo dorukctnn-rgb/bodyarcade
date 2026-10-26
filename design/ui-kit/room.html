@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade room</title>
+<meta name="description" content="UI kit: a private room for two to four players. Invite by code, link or QR; the host picks the game; ready check; camera sharing starts off; preset messages and drawn reactions.">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="pages.css">
+<style>
+  .k-invite { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+  .k-invite .ba-btn { min-height: 44px; padding: 0 16px; font-size: var(--ba-text-sm); }
+  .k-seat .ba-badge { height: 22px; font-size: 11px; }
+  .k-camcard { display: grid; gap: 12px; }
+  .k-camcard .row { display: flex; gap: 14px; align-items: center; }
+  .k-camcard .row .grow { flex: 1; min-width: 0; }
+  .k-camcard b { display: block; font-weight: 750; }
+  .k-msgrow { display: grid; gap: 10px; }
+  .k-reacts { display: flex; gap: 8px; }
+  .k-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: var(--ba-text-sm); }
+  .k-feed li { display: flex; gap: 10px; align-items: center; }
+  .k-feed .ba-avatar { width: 30px; height: 30px; }
+  .k-feed .ba-avatar svg { width: 22px; height: 22px; }
+  .k-feed .k-react { width: 30px; height: 30px; box-shadow: none; background: transparent; }
+  .k-feed .k-react svg { width: 24px; height: 24px; }
+  @media (min-width: 900px) { .k-cols { grid-template-rows: auto 1fr; } .k-cols > .k-stack:nth-child(2) { grid-column: 2; grid-row: 1 / span 2; } .k-cols > .k-actionbar { grid-column: 1; grid-row: 2; align-self: start; margin-top: 0; } }
+</style>
+</head>
+<body class="ba-app no-tabbar">
+<main class="ba-page" id="page"></main>
+<script type="module" data-wait>
+import { mountShell, pageHead, ICON, REACTIONS, avatar, artSrc, q, ready } from './shell.mjs';
+
+mountShell('friends');
+const seats = [
+  { name: 'You', color: '#FF4F6E', pose: 'jackOpen', host: true, ready: true, cam: false },
+  { name: 'Elif', color: '#46B4FF', pose: 'reach', ready: true, cam: true },
+  { name: 'Mert', color: '#FFC53A', pose: 'stand', ready: false, cam: false },
+];
+// ?state=ready shows the moment everyone is ready and the host can start.
+const allReady = q.get('state') === 'ready';
+if (allReady) seats[2].ready = true;
+const tick = '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4l2.6 2.6L11 4.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const page = document.getElementById('page');
+page.innerHTML = `
+  ${pageHead('Room', { back: 'friends.html', actions: `<button class="ba-btn ba-btn--quiet" type="button">${ICON.door}Leave</button>` })}
+  <div class="k-invite">
+    <span class="k-code" aria-label="Room code K7Q2MX">K7Q2MX<button type="button" aria-label="Copy the room code">${ICON.copy}</button></span>
+    <button class="ba-btn ba-btn--secondary" type="button">${ICON.link}Invite link</button>
+    <button class="ba-btn ba-btn--secondary" type="button">${ICON.qr}QR code</button>
+  </div>
+  <div class="k-cols" style="margin-top:20px">
+    <div class="k-stack">
+      <section class="k-card" aria-labelledby="g"><div class="k-gamepick"><img src="${artSrc('squat-flap')}" alt="" width="400" height="300"><div><span class="k-label" id="g" style="margin:0 0 4px">The host picks the game</span><b>Squat Flap</b><small>Normal, 5 minute round</small><br><button class="ba-link" type="button" style="margin-top:8px">Change game</button></div></div></section>
+      <section aria-label="Players">
+        <span class="k-label">Players, ${seats.length} of 4</span>
+        <div class="k-seats">${seats.map((s) => `<div class="k-seat">${s.host ? `<span class="host" title="Host">${ICON.host}</span>` : ''}<span class="cam" title="${s.cam ? 'Shares camera with friends' : 'Camera not shared'}">${s.cam ? ICON.camera : ICON.cameraOff}</span>${avatar(s.color, s.pose)}<b>${s.name}</b><span class="k-state ${s.ready ? 'ready' : 'wait'}">${s.ready ? `${tick}Ready` : 'Not ready'}</span></div>`).join('')}
+          <button class="k-seat empty" type="button"><span class="plus">${ICON.plus}</span><b>Invite</b><span class="ba-small">Seat open</span></button></div>
+      </section>
+    </div>
+    <div class="k-stack">
+      <section class="k-card k-camcard" aria-labelledby="cam">
+        <div class="row"><div class="grow"><b id="cam">Share my camera with friends here</b><small class="ba-small">Starts off. A friend sees your video only when you both turn this on.</small></div><span class="ba-switch"><input type="checkbox" aria-labelledby="cam"><span></span></span></div>
+        <p class="k-fine">Players under 18 never share video. Your camera still reads your moves on this device either way.</p>
+      </section>
+      <section class="k-card k-msgrow" aria-labelledby="say">
+        <span class="k-label" id="say" style="margin:0">Say something</span>
+        <div class="k-msgs">${['Ready when you are', 'One more round', 'Good game', 'Wait for me', 'Nice move'].map((m) => `<button class="ba-chip ba-chip--text" type="button">${m}</button>`).join('')}</div>
+        <div class="k-reacts">${Object.entries(REACTIONS).map(([k, svg]) => `<button class="k-react" type="button" aria-label="Send a ${k === 'hand' ? 'high five' : k}">${svg}</button>`).join('')}</div>
+        <ul class="k-feed" aria-label="Room messages"><li>${avatar('#46B4FF', 'reach')}<span><b>Elif</b> Ready when you are</span></li><li>${avatar('#FFC53A', 'stand')}<span><b>Mert</b> sent</span><span class="k-react">${REACTIONS.hand}</span></li></ul>
+      </section>
+    </div>
+    <div class="k-actionbar">${allReady ? `<div class="k-actions"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button">${ICON.play}Start the round</button></div><p class="k-note">Everyone is ready. The round starts for all of you at once.</p>` : `<div class="k-actions"><button class="ba-btn ba-btn--primary ba-btn--lg is-waiting" type="button" disabled aria-disabled="true">Waiting for Mert</button><button class="ba-btn ba-btn--secondary ba-btn--lg" type="button">Remind Mert</button></div><p class="k-note">The round starts for everyone when all players are ready.</p>`}</div>
+  </div>`;
+await ready();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+[
+ {
+  "page": "art-direction",
+  "breakpoint": "phone-390",
+  "ms": 2351,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/art/art-direction-phone-390.webp"
+ },
+ {
+  "page": "art-direction",
+  "breakpoint": "laptop-1440",
+  "ms": 2157,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/art/art-direction-laptop-1440.webp"
+ }
+]

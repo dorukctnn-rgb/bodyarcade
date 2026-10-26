@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade Pro</title>
+<meta name="description" content="UI kit: the Pro paywall. Closable, shown only after a first good session or on request; real prices, a real saving, and what stays free.">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="pages.css">
+<style>
+  .ba-page { padding-top: calc(env(safe-area-inset-top, 0px) + 18px); }
+  .k-pw h1 { font-family: var(--ba-font-display); font-weight: 900; font-size: clamp(2.1rem, 1.4rem + 3vw, 3.8rem); letter-spacing: -0.024em; line-height: 0.98; margin: 0; text-wrap: balance; max-width: 12em; }
+  .k-pw .lead { margin: 0; font-size: var(--ba-text-lg); color: var(--ba-text-muted); line-height: 1.45; max-width: 28em; }
+  .k-pw .free { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-accent-tint); color: var(--ba-accent-text); font-weight: 650; font-size: var(--ba-text-sm); line-height: 1.4; }
+  .k-pw .free svg { width: 22px; height: 22px; flex: none; }
+  .k-pw-art { max-width: 520px; }
+  @media (min-width: 900px) { .k-pw { grid-template-rows: auto auto 1fr; } .k-pw > .k-stack { grid-column: 1; grid-row: 1 / span 3; } .k-pw > .k-plans, .k-pw > .k-actionbar, .k-pw > .k-links { grid-column: 2; } .k-pw > .k-plans { align-self: end; } }
+  .k-links { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
+  .k-pw .k-actionbar .k-actions { flex-direction: column; align-items: stretch; }
+  .k-pw .k-actionbar .k-actions .ba-btn--primary { flex: none; }
+  @media (max-width: 599px) { .k-pw-art { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-right: 52px; } .k-pw-art img { aspect-ratio: 1; } }
+  @media (min-width: 900px) and (min-height: 501px) { .ba-page { padding-top: 56px; } .k-pw { align-items: center; min-height: calc(100vh - 120px); } .k-links { justify-content: flex-start; } }
+</style>
+</head>
+<body class="ba-app">
+<a class="ba-icon-btn k-close" href="home.html" aria-label="Close and continue free"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
+<main class="ba-page" id="page"></main>
+<script type="module" data-wait>
+import { ICON, artSrc, GAMES, ready } from './shell.mjs';
+
+// Prices mirror packages/core/ui/plans.ts (STUB_PLANS) until the entitlements config lands.
+const plans = [
+  { id: 'pro-yearly', name: 'Pro yearly', price: '$39.99 a year', detail: 'About $3.33 a month', trial: '7 days free, then $39.99 a year', save: 'Saves 58%' },
+  { id: 'pro-monthly', name: 'Pro monthly', price: '$7.99 a month', detail: '' },
+  { id: 'family-yearly', name: 'Family yearly', price: '$59.99 a year', detail: '6 profiles on up to 4 devices. About $5.00 a month', trial: '7 days free, then $59.99 a year' },
+  { id: 'lifetime', name: 'Lifetime', price: '$119.99 once', detail: 'One payment, no renewals' },
+];
+const proGames = GAMES.filter((g) => g.tier === 'pro');
+const free = GAMES.length - proGames.length;
+const page = document.getElementById('page');
+page.innerHTML = `
+  <div class="k-pw">
+    <div class="k-stack">
+      <div class="k-pw-art" aria-hidden="true">${proGames.map((g) => `<img src="${artSrc(g.id)}" alt="" width="400" height="300">`).join('')}</div>
+      <h1>Play every game with Pro</h1>
+      <p class="lead">Free stays free. Pro adds more games and every difficulty.</p>
+      <ul class="k-benefits">
+        <li>${ICON.arcade}<span>${proGames.length} more games: ${proGames.map((g) => g.name).join(', ').replace(/, ([^,]+)$/, ' and $1')}</span></li>
+        <li>${ICON.trophy}<span>Hard and Expert difficulty in every game</span></li>
+        <li>${ICON.friends}<span>Rooms where everyone plays the Pro games the host picks</span></li>
+      </ul>
+      <p class="free">${ICON.check}<span>Always free: ${free} games, the seated and quiet versions, no ads.</span></p>
+    </div>
+    <div class="k-plans" role="radiogroup" aria-label="Plans">${plans.map((p, i) => `
+        <button class="k-plan" type="button" role="radio" aria-checked="${i === 0}">${p.save ? `<span class="save">${p.save}</span>` : ''}<span class="radio"></span><b>${p.name}</b><span class="price">${p.price}</span>${p.detail ? `<small>${p.detail}</small>` : ''}</button>`).join('')}</div>
+    <div class="k-actionbar"><div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="results.html">Try 7 days free</a><a class="ba-btn ba-btn--quiet" href="home.html">Continue free</a></div><p class="k-note">7 days free, then $39.99 a year. Cancel any time in your Gumroad library.</p></div>
+    <div class="k-links"><button class="ba-link" type="button">Restore purchases</button><button class="ba-link" type="button">Already have a license key?</button></div>
+  </div>`;
+await ready();
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone screenshot render</title>
+<link rel="stylesheet" href="store.css">
+<style>
+  /* Google Play phone screenshot, 1080 x 1920: laid out at 540 x 960 and photographed at 2x by design/tools/render-store.mjs.
+     The screen in the phone is a capture of the real app at 412 x 940 CSS px (a tall Android phone, 20.5:9; 412 px wide is one of the ten sizes of the layout rule) and 2x pixels (design/tools/store-app.mjs), shown
+     smaller than it was taken (306 px wide, whole screen and whole phone): nothing is enlarged and nothing is cut off. Above the
+     screen sits the status strip of the phone with its camera hole, in the colour of the top of the picture, so the hole never covers
+     anything the app draws (an app page starts under the status bar). One short caption above it. */
+  html, body { width: 540px; height: 960px; }
+  .shot { position: relative; width: 540px; height: 960px; overflow: hidden; }
+  .cap { position: absolute; left: 44px; right: 44px; top: 46px; }
+  .cap h1 { font-size: 42px; }
+  .cap p { margin-top: 12px; font-size: 18px; max-width: 27em; }
+  .phone { position: absolute; left: 50%; top: 202px; width: 306px; height: 713px; transform: translateX(-50%); border-radius: 34px; background: #0E0A1C;
+    box-shadow: 0 0 0 9px #0E0A1C, 0 0 0 10.5px #3B3263, 0 36px 70px -26px rgba(20, 12, 44, 0.55); overflow: hidden; }
+  .phone .status { position: relative; height: 15px; background: var(--bar, #F4F2F8); }
+  .phone img { width: 306px; height: 698px; display: block; }
+  /* A camera hole in the status strip, as on the phones the app runs on. */
+  .phone .status::after { content: ""; position: absolute; left: 50%; top: 3px; width: 9px; height: 9px; transform: translateX(-50%); border-radius: 50%; background: #0E0A1C; box-shadow: 0 0 0 1.5px #2A2350; }
+</style>
+</head>
+<body>
+<div class="shot" id="shot"></div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const ids = ['promise', 'privacy', 'calibrate', 'games', 'friends', 'modes'];
+const n = +(q.get('n') || 1);
+const id = ids[n - 1];
+const lang = q.get('lang') || 'en';
+document.documentElement.lang = lang;
+const all = await (await fetch('captions.json')).json();
+const c = all.shots[id][lang];
+const mark = (s) => s.replace(/\*([^*]+)\*/g, '<span class="ln">$1</span>');
+document.getElementById('shot').innerHTML = `<div class="cap" id="cap"><h1 id="h">${mark(c.h)}</h1><p id="p">${mark(c.p)}</p></div><div class="phone"><div class="status" id="status"></div><img id="screen" alt="" src=".cap/${lang}/phone/${id}.png"></div>`;
+const img = document.getElementById('screen');
+await new Promise((ok) => { if (img.complete) ok(); else { img.onload = img.onerror = ok; } });
+await document.fonts.ready;
+// The status strip takes the colour of the top of the picture: the middle value of each channel along its first rows.
+{
+  const w = img.naturalWidth, cv = document.createElement('canvas');
+  cv.width = w; cv.height = 3;
+  const cx = cv.getContext('2d', { willReadFrequently: true });
+  cx.drawImage(img, 0, 0, w, 3, 0, 0, w, 3);
+  const d = cx.getImageData(0, 0, w, 3).data;
+  const mid = (ch) => { const v = []; for (let i = 0; i < d.length; i += 4) v.push(d[i + ch]); v.sort((a, b) => a - b); return v[v.length >> 1]; };
+  document.getElementById('status').style.setProperty('--bar', `rgb(${mid(0)}, ${mid(1)}, ${mid(2)})`);
+}
+// The caption has the room above the phone and no more: the headline gets smaller until it fits.
+const cap = document.getElementById('cap'), h = document.getElementById('h');
+let fs = 42;
+while (cap.getBoundingClientRect().bottom > 182 && fs > 30) { fs -= 1; h.style.fontSize = `${fs}px`; }
+document.documentElement.dataset.captionBottom = String(Math.round(cap.getBoundingClientRect().bottom));
+document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>

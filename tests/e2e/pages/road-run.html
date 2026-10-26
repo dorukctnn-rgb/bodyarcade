@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Road Run harness</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:960px;height:540px}</style></head>
+<body>
+<canvas id="stage" width="960" height="540"></canvas>
+<script type="module">
+  import { createSession } from '/packages/core/loop/session.ts';
+  import { createScene3D } from '/packages/core/render3d/scene3d.ts';
+  import { roadRunModule, manifest } from '/packages/games/road-run/index.ts';
+
+  const canvas = document.getElementById('stage');
+  const kit = createScene3D({ canvas, level: 1, mode: 'medium', mobile: false, size: () => ({ width: 960, height: 540 }) });
+  const hud = {};
+  const games = [];
+  const base = roadRunModule({ ...manifest, durationSec: 8 });
+  const module = { ...base, create: () => { const g = base.create(); games.push(g); return g; } };
+  const session = createSession({
+    games: (id) => (id === 'road-run' ? module : null),
+    ui: () => ({
+      hud: { set: (slot, v) => { hud[slot] = v; }, announce() {}, toast() {} },
+      audio: { unlock() {}, play() {}, clock: () => ({ now: () => 0, schedule() {}, latencyMs: 0 }) },
+      store: { get: (_k, _s, f) => f, set() {}, remove() {} },
+      scene3d: kit,
+      t: (k) => k,
+    }),
+    countdownMs: 1000,
+    keyTarget: window,
+    seed: () => 7,
+  });
+  const seen = { states: [], over: [], errors: [] };
+  session.on('state', (s) => seen.states.push(s));
+  session.on('over', (s) => seen.over.push(s));
+  session.on('error', (e) => seen.errors.push(e));
+  window.ba = { session, kit, hud, games, seen, renderer: kit.renderer };
+  window.harnessReady = true;
+</script>
+</body>
+</html>

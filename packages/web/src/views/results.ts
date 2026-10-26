@@ -1,0 +1,225 @@
+// The screen after a round (design/ui-kit/results.html): the score, what you did, why moves missed (with the one second
+// skeleton replay of a miss, drawn from the landmarks of a round with the camera), calories only as an honest estimate, and the way to go again.
+import { html, type SafeHtml } from '../../../core/ui/html.ts';
+import { icon } from '../../../core/ui/icons.ts';
+import { localized } from '../../../core/ui/i18n/localized.ts';
+import { proGames } from '../../catalogue/filter.ts';
+import type { ShellGame } from '../../catalogue/types.ts';
+import { rulesOf } from '../app/profiles-model.ts';
+import { durationLabel, hasPro, titleOf, type ViewContext } from '../context.ts';
+import { chrome } from './chrome.ts';
+import { pageHead } from './parts.ts';
+import { planPanel, type PlanPanel } from './plans.ts';
+import type { RaceOutcome } from '../app/race.ts';
+import { liveRaceBlock, raceBlock } from './race.ts';
+import { lrText } from '../app/live-strings.ts';
+import { playHref, type SetupState } from './setup.ts';
+
+/** A number a game adds to its results beyond the common ones (Reaction Tag: the average and the best reaction), already in words. */
+export interface ResultExtra { label: string; value: string }
+
+export interface PlayerResult {
+  slot: 1 | 2;
+  score: number;
+  reps?: number;
+  hits?: number;
+  cleared?: number;
+  extras?: ResultExtra[];
+}
+
+/** What a round did to the player's record, in the facts the results screen tells. Only what happened is here. */
+export interface RoundProgress {
+  /** This round made today an active day. */
+  activeDay: boolean;
+  /** This round was the one that reached the week's goal. */
+  weekGoalReached: boolean;
+  weekDays: number;
+  weekStreak: number;
+  /** This round finished the challenge of the day, and beat the player's own best in it. */
+  challengeDone: boolean;
+  challengeBonus: boolean;
+  /** Names of the achievements this round unlocked, in the page language. */
+  achievements: string[];
+}
+
+export interface RoundResult {
+  gameId: string;
+  setup: SetupState;
+  score: number;
+  seconds: number;
+  reps?: number;
+  hits?: number;
+  cleared?: number;
+  bestStreak?: number;
+  /** 0 to 1, how clean the movements were. */
+  quality?: number;
+  /** Estimated from the game's MET value, the player's weight and the time spent moving; null when there is no weight. */
+  calories: number | null;
+  personalBest: boolean;
+  /** The best score before this round on this difficulty, or null when there was none. */
+  previousBest?: number | null;
+  /** What the missed moves were, most frequent first. */
+  reasons: { text: string; count: number }[];
+  /** More numbers of this game: reaction times and the like. */
+  extras?: ResultExtra[];
+  /** Mode local2: each player's own numbers. */
+  players?: PlayerResult[];
+  /** There is a one second skeleton replay of a miss (a round with the camera and a miss with a reason): what it shows in words, and how long it is in milliseconds. The slot stays out of the page without it. */
+  replay?: { reason: string; ms?: number } | null;
+  /** What this round did to the record of the player. */
+  progress?: RoundProgress | null;
+  /** Where the workout plan stands, when this round was one of its games. */
+  plan?: PlanPanel | null;
+  /** This was the first game of the welcome tour: the page says so and leads on to the full round and the other games. */
+  first?: boolean;
+  /** This was a race: how it ended, and where "Race again" goes. */
+  race?: (RaceOutcome & { again: string }) | null;
+  /** Played with the keyboard or touch: practice, so no calories, no record and no progress; the page says that instead. */
+  practice?: boolean;
+  /** The last seconds of the round as a video made on this device (the address is the page's own, a blob), to show, share and save. */
+  clip?: { url: string; name: string; mime: string; seconds: number } | null;
+}
+
+export function formatClock(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+const stat = (label: string, value: string): SafeHtml => html`<div><b>${value}</b><span>${label}</span></div>`;
+
+function stats(ctx: ViewContext, r: RoundResult): SafeHtml {
+  const t = ctx.i18n;
+  const items: SafeHtml[] = [stat(t.t('results.seconds'), formatClock(r.seconds))];
+  if (r.reps !== undefined) items.push(stat(t.t('results.reps'), t.number(r.reps)));
+  if (r.hits !== undefined && r.reps === undefined) items.push(stat(t.t('results.hits'), t.number(r.hits)));
+  if (r.cleared !== undefined) items.push(stat(t.t('results.cleared'), t.number(r.cleared)));
+  if (r.bestStreak !== undefined) items.push(stat(t.t('results.streak'), t.number(r.bestStreak)));
+  if (r.quality !== undefined) items.push(stat(t.t('results.quality'), t.number(r.quality, { style: 'percent', maximumFractionDigits: 0 })));
+  for (const x of r.extras ?? []) items.push(stat(x.label, x.value));
+  return html`<div class="k-stats">${items}</div>`;
+}
+
+function counted(ctx: ViewContext, r: RoundResult): SafeHtml {
+  const t = ctx.i18n;
+  if (r.hits === undefined || r.reps === undefined || r.reps <= 0) return html``;
+  const pct = Math.max(0, Math.min(100, Math.round((r.hits / r.reps) * 100)));
+  const label = t.t('results.countedOf', { hits: t.number(r.hits), reps: t.number(r.reps) });
+  return html`<div class="k-card k-reach">
+    <div class="row"><span>${t.t('results.counted')}</span><span>${label}</span></div>
+    <progress class="k-linebar" max="100" value="${pct}" aria-label="${t.t('results.counted')}: ${label}"></progress>
+  </div>`;
+}
+
+function calories(ctx: ViewContext, r: RoundResult): SafeHtml {
+  const t = ctx.i18n;
+  // A child's profile has no weight and no calories: not even the line that asks for one.
+  if (!rulesOf(ctx.player).calories) return html``;
+  if (r.calories === null) return html`<div class="k-kcal"><span class="ba-small">${t.t('results.noWeight')} <a class="ba-link" href="${ctx.href('settings')}">${t.t('nav.settings')}</a></span></div>`;
+  return html`<div class="k-kcal"><b>${t.t('results.calories', { n: t.number(Math.round(r.calories)) })}</b><span class="ba-small">${t.t('results.calories.note')}</span></div>`;
+}
+
+/** The clip of the round's last seconds, with the way to share it and to save it, and what it is made of. */
+function clipCard(ctx: ViewContext, r: RoundResult): SafeHtml {
+  const c = r.clip;
+  if (!c) return html``;
+  const t = ctx.i18n;
+  return html`<section class="k-card k-clip" aria-labelledby="clip-h" data-clip>
+    <h2 class="k-h3" id="clip-h">${t.t('results.clip.title')}</h2>
+    <video class="k-clipvideo" src="${c.url}" controls playsinline muted loop preload="metadata" aria-label="${t.t('results.clip.alt')}"></video>
+    <div class="k-clipactions"><button type="button" class="ba-btn ba-btn--primary" data-action="clip-share">${icon('share')}<span>${t.t('results.clip.share')}</span></button>
+      <a class="ba-btn ba-btn--secondary" href="${c.url}" download="${c.name}" data-clip-save>${icon('download')}<span>${t.t('results.clip.save')}</span></a></div>
+    <p class="k-fine">${t.t('results.clip.note')}</p>
+  </section>`;
+}
+
+function why(ctx: ViewContext, r: RoundResult): SafeHtml {
+  const t = ctx.i18n;
+  return html`<section aria-labelledby="why"><h2 id="why" class="k-h3">${t.t('results.why.title')}</h2>
+    ${r.reasons.length === 0
+      ? html`<p class="k-sub">${t.t('results.why.none')}</p>`
+      : html`<ul class="k-misses">${r.reasons.map((x) => html`<li><div><b>${x.text}</b></div><span class="x">${t.number(x.count)}x</span></li>`)}</ul>`}
+  </section>`;
+}
+
+/** The lines about the record: an active day, the week, the challenge, achievements. Nothing when nothing happened. */
+function progressBlock(ctx: ViewContext, p: RoundProgress | null | undefined): SafeHtml {
+  if (!p) return html``;
+  const t = ctx.i18n;
+  const lines: SafeHtml[] = [];
+  if (p.activeDay) lines.push(html`<li>${icon('check')}<span>${t.t('results.progress.active')}</span></li>`);
+  if (p.weekGoalReached) lines.push(html`<li>${icon('star')}<span>${t.t('results.progress.weekGoal', { days: p.weekDays })}</span></li>`);
+  if (p.weekStreak > 0 && (p.activeDay || p.weekGoalReached)) lines.push(html`<li>${icon('trophy')}<span>${t.t('results.progress.weekStreak', { n: p.weekStreak })}</span></li>`);
+  if (p.challengeDone) lines.push(html`<li>${icon('check')}<span>${t.t('results.progress.challengeDone')}</span></li>`);
+  if (p.challengeBonus) lines.push(html`<li>${icon('star')}<span>${t.t('results.progress.challengeBonus')}</span></li>`);
+  for (const name of p.achievements) lines.push(html`<li>${icon('trophy')}<span>${t.t('results.progress.achievement', { name })}</span></li>`);
+  if (lines.length === 0) return html``;
+  return html`<section class="k-card k-progress" aria-labelledby="progress-h" data-progress><h2 class="k-h3" id="progress-h">${t.t('results.progress.title')}</h2><ul>${lines}</ul></section>`;
+}
+
+function duo(ctx: ViewContext, r: RoundResult): SafeHtml {
+  const t = ctx.i18n;
+  const ps = r.players ?? [];
+  const [a, b] = ps;
+  const verdict = a && b ? (a.score === b.score ? t.t('results.draw') : t.t('results.winner', { who: t.t(a.score > b.score ? 'hud.player1' : 'hud.player2') })) : '';
+  return html`${verdict ? html`<p class="k-verdict" role="status">${verdict}</p>` : ''}
+    <div class="k-duocols">${ps.map((p) => html`<section class="k-duocol k-duocol--p${p.slot}" aria-labelledby="r-p${p.slot}"><h2 id="r-p${p.slot}">${t.t(p.slot === 1 ? 'hud.player1' : 'hud.player2')}</h2><p class="n">${t.number(p.score)}</p>
+      <div class="k-stats">${[p.reps !== undefined ? stat(t.t('results.reps'), t.number(p.reps)) : '', p.hits !== undefined ? stat(t.t('results.hits'), t.number(p.hits)) : '', p.cleared !== undefined ? stat(t.t('results.cleared'), t.number(p.cleared)) : '', ...(p.extras ?? []).map((x) => stat(x.label, x.value))]}</div></section>`)}</div>`;
+}
+
+function score(ctx: ViewContext, r: RoundResult, g: ShellGame | undefined): SafeHtml {
+  const t = ctx.i18n;
+  const unit = g?.catalogue.unit ? localized(g.catalogue.unit, ctx.lang) : t.t('results.score');
+  const small = r.previousBest !== null && r.previousBest !== undefined ? html`<small>${t.t('results.bestBefore', { n: t.number(r.previousBest) })}</small>` : '';
+  return html`<div class="k-score"><span class="n" aria-label="${t.t('results.score')}: ${r.score}">${t.number(r.score)}</span><span class="u">${t.t('results.unitIn', { unit, time: durationLabel(ctx, Math.max(1, r.seconds)) })}${small}</span></div>`;
+}
+
+export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
+  const t = ctx.i18n;
+  if (!r) {
+    const main = html`${pageHead(ctx, t.t('results.title'), { back: ctx.href('home') })}
+      <p class="k-sub">${t.t('results.missing')}</p><div class="ba-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('home')}">${t.t('results.other')}</a></div>`;
+    return chrome(ctx, { tab: 'games', main, mainClass: 'ba-page--results', pushed: true });
+  }
+  const g = ctx.games.find((x) => x.id === r.gameId);
+  const proMore = proGames(ctx.games).length;
+  const again = g ? playHref(ctx, g, r.setup) : ctx.href('home');
+  const level = t.tx(`setup.difficulty.${r.setup.difficulty}`);
+  const first = r.first === true;
+  const main = html`
+    ${pageHead(ctx, first ? t.t('onboarding.s7.done') : t.t('results.title'), { back: g ? ctx.href('game', { params: { slug: g.seo.slug } }) : ctx.href('home') })}
+    <div class="k-cols k-cols--results">
+      <div class="k-stack">
+        <div class="ba-row-wrap k-between">
+          <span class="k-game">${g ? html`<img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="48" height="36">` : ''}${g ? t.t('results.gameLevel', { game: titleOf(ctx, g), level }) : ''}</span>
+          ${r.personalBest ? html`<span class="k-pb">${icon('star')}${t.t('results.personalBest')}</span>` : ''}
+        </div>
+        ${r.setup.players === 2 && r.players ? duo(ctx, r) : html`${score(ctx, r, g)}${counted(ctx, r)}`}
+        ${r.race?.live ? liveRaceBlock(ctx, r.race, { keep: rulesOf(ctx.player).ghosts === 'all' }) : r.race ? raceBlock(ctx, r.race, { again: r.race.again, sendable: rulesOf(ctx.player).share }) : ''}
+        ${stats(ctx, r)}
+        ${r.practice ? html`<p class="ba-callout" role="note" data-practice>${icon('info')}<span>${t.t('results.practice.note')}</span></p>` : calories(ctx, r)}
+        ${first && !r.practice ? html`<p class="k-sub" data-first-saved>${t.t('onboarding.s7.saved')}</p>` : ''}
+        ${progressBlock(ctx, r.practice ? null : r.progress)}
+      </div>
+      <div class="k-stack">
+        ${r.plan ? planPanel(ctx, r.plan) : ''}
+        ${clipCard(ctx, r)}
+        ${why(ctx, r)}
+        ${r.replay ? html`<section class="k-card k-replay" aria-labelledby="replay"><h2 id="replay" class="k-h3">${t.t('results.replay.title')}</h2>
+          <div class="view" data-replay role="img" aria-label="${t.t('results.replay.alt', { reason: r.replay.reason })}"></div>
+          <p class="k-replay-reason" data-replay-reason>${r.replay.reason}</p>
+          <div class="scrub"><button class="ba-icon-btn" type="button" data-action="replay" aria-label="${t.t('results.replay.play')}">${icon('replay')}</button>
+            <span class="track" aria-hidden="true" data-replay-track><i></i><em></em></span>
+            <span class="ba-small" data-replay-length>${t.t('results.replay.length', { n: t.number((r.replay.ms ?? 1000) / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}</span></div>
+          <p class="k-fine">${t.t('results.replay.hint')}</p></section>` : ''}
+        ${!hasPro(ctx) && proMore > 0 ? html`<div class="k-card k-procard"><p>${t.t('results.proCard', { n: proMore })}</p><a class="ba-link" href="${ctx.href('pro')}">${t.t('results.proLink')}</a></div>` : ''}
+      </div>
+      <div class="k-actionbar"><div class="k-actions k-actions--results">${r.race?.live
+        // a race in a room: the rematch is the room's next race (the camera gets ready first), and the room is one press away
+        ? html`<a class="ba-btn ba-btn--primary ba-btn--lg" href="${r.race.again}" data-action="again" data-rematch-go data-replace>${icon('replay')}<span>${lrText(t)('result.rematch')}</span></a>
+        <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${r.race.live.roomHref ?? ctx.href('room', { params: { code: r.race.live.room } })}" data-room-back>${icon('users')}<span>${lrText(t)('result.room')}</span></a>`
+        : html`<a class="ba-btn ba-btn--primary ba-btn--lg" href="${again}" data-action="again" data-replace>${icon('replay')}<span>${first ? t.t('onboarding.s7.full') : t.t('results.again')}</span></a>
+        <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${first ? t.t('onboarding.s7.all', { n: ctx.games.length }) : t.t('results.other')}</a>`}
+      </div></div>
+    </div>`;
+  return chrome(ctx, { tab: 'games', main, mainClass: 'ba-page--results', pushed: true });
+}

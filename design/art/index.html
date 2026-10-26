@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade art direction</title>
+<meta name="description" content="Art direction for BodyArcade: the Court diorama 3D language, one world colour per game, the release 1 catalogue art, budgets and asset rules.">
+<link rel="stylesheet" href="../doc.css">
+<style>
+  .tiles { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+  .tiles .doc-card { padding: 10px; }
+  .tiles .doc-card > img { aspect-ratio: 4 / 3; object-fit: cover; }
+  .tiles .doc-card .cap { padding: 0 6px; }
+  .tiles .doc-card p { padding: 0 6px 6px; }
+  .tpl { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
+  .tpl .doc-card b { font-family: var(--ba-font-display); font-weight: 850; font-size: 1.6rem; display: block; line-height: 1; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <div class="doc-top"><a href="../index.html"><img src="../brand/logo.svg" alt="BodyArcade design"></a><nav aria-label="Design"><a href="../index.html">Index</a><a href="../brand/index.html">Brand</a><a href="index.html" aria-current="page">Art</a><a href="../store/index.html">Store</a></nav></div>
+  <h1>The Court: toys on a puck, in daylight.</h1>
+  <p class="intro">BodyArcade's 3D is a small diorama: a round sports floor with painted lines, one soft clay-like player, a few props from the game, one key light from the upper left. It is our own language, built from primitives, so every world stays light on a phone and nothing looks like a stock asset.</p>
+
+  <h2>Release 1 catalogue art</h2>
+  <p class="lede">One world colour per game, the player on the puck in the game's key pose. Rendered by <code>node design/tools/render-tiles.mjs</code> to 800 x 600 and 400 x 300 WebP.</p>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Game templates</h2>
+  <div class="tpl" id="tpl"></div>
+
+  <h2>Rules for every world</h2>
+  <ul class="doc-rules">
+    <li><span>The player is always the Mover: ball head in flush, ink body (chalk on night worlds), sun band on the left wrist, sky band on the right. No faces, no clothes, no mascot.</span></li>
+    <li><span>Matte materials, roughness 0.5 to 0.85, no metal, no glow except stars and fireworks. Neutral tone mapping so flush stays flush.</span></li>
+    <li><span>One key light upper left front, a sky and ground fill, a warm rim from behind. Soft blob shadows on phones; real shadows only on the high tier.</span></li>
+    <li><span>Field of view 27 to 30 degrees, a three-quarter view from slightly above. The puck may bleed off the frame; the player never does.</span></li>
+    <li><span>Phone budget: under 60 draw calls and 30 000 triangles per scene, no post-processing; vignette and grain are CSS.</span></li>
+    <li><span>Assets: everything in release 1 is procedural. Later worlds may use CC0 packs from Kenney and Poly Haven only, credited in the licence list. Quaternius is not used since its licence changed.</span></li>
+  </ul>
+</main>
+<script type="module">
+import { GAMES, REGION_LABEL } from '../ui-kit/games.mjs';
+const TPL = { A: ['Runner', 'Run, jump, duck and lean along a road.'], B: ['Flight', 'Squats and arm beats keep something in the air.'], C: ['Targets', 'The mirror is the scene; hit what lights up.'], E: ['Reps world', 'Every rep builds or lights part of a world.'], F: ['Gates', 'Make the shape before the wall or gate arrives.'] };
+document.getElementById('tiles').innerHTML = GAMES.map((g) => `<div class="doc-card"><img src="tiles/${g.id}-400.webp" srcset="tiles/${g.id}-400.webp 400w, tiles/${g.id}.webp 800w" sizes="(min-width: 900px) 280px, 90vw" alt="${g.name} catalogue art" width="400" height="300"><div class="cap"><b>${g.name}</b><span>${TPL[g.template][0]}, ${g.tier === 'pro' ? 'Pro' : 'Free'}</span></div><p>${g.line} ${REGION_LABEL[g.region]}.</p></div>`).join('');
+document.getElementById('tpl').innerHTML = Object.entries(TPL).map(([k, [name, d]]) => `<div class="doc-card"><b>${k}</b><h3 style="margin-top:8px">${name}</h3><p>${d} ${GAMES.filter((g) => g.template === k).map((g) => g.name).join(', ')}.</p></div>`).join('');
+await document.fonts.ready;
+document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>

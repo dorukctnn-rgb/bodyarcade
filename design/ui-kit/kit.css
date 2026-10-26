@@ -1,0 +1,167 @@
+/* BodyArcade UI kit: components built only on design/tokens/tokens.css.
+   The UI builder ports these classes into packages/core/ui; names are stable. */
+@import url("../tokens/tokens.css");
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--ba-bg);
+  color: var(--ba-text);
+  font-family: var(--ba-font-text);
+  font-size: var(--ba-text-md);
+  line-height: var(--ba-leading-text);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible {
+  outline: 3px solid var(--ba-focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 7px color-mix(in srgb, var(--ba-focus-halo) 35%, transparent);
+  border-radius: var(--ba-radius-sm);
+}
+.ba-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Type ---------- */
+.ba-display, .ba-h1, .ba-h2, .ba-h3 {
+  font-family: var(--ba-font-display);
+  font-weight: var(--ba-weight-display);
+  letter-spacing: var(--ba-tracking-display);
+  line-height: var(--ba-leading-display);
+  margin: 0;
+  text-wrap: balance;
+}
+.ba-display { font-size: var(--ba-display-xl); letter-spacing: var(--ba-tracking-display-xl); font-weight: var(--ba-weight-display-heavy); line-height: var(--ba-leading-tight); }
+.ba-h1 { font-size: var(--ba-display-lg); }
+.ba-h2 { font-size: var(--ba-display-md); }
+.ba-h3 { font-size: var(--ba-display-sm); }
+.ba-lead { font-size: var(--ba-text-lg); line-height: 1.45; color: var(--ba-text-muted); max-width: 38em; margin: 0; }
+.ba-small { font-size: var(--ba-text-sm); color: var(--ba-text-muted); }
+.ba-label { font-size: var(--ba-text-sm); font-weight: var(--ba-weight-label); }
+.ba-num { font-variant-numeric: tabular-nums; font-weight: var(--ba-weight-numeric); }
+
+/* ---------- Buttons: press like an arcade button (solid edge, no blur) ---------- */
+.ba-btn {
+  --edge: var(--ba-accent-edge);
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 52px; padding: 0 22px;
+  border: 0; border-radius: var(--ba-radius-md);
+  font-family: var(--ba-font-text); font-weight: 700; font-size: 1.0625rem; line-height: 1;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: transform var(--ba-dur-press) var(--ba-ease-out), box-shadow var(--ba-dur-press) var(--ba-ease-out), background-color var(--ba-dur-state);
+}
+.ba-btn svg { width: 22px; height: 22px; flex: none; }
+.ba-btn--primary { background: var(--ba-accent); color: var(--ba-on-accent); box-shadow: var(--ba-elev-button-edge) var(--edge); }
+.ba-btn--primary:hover { background: var(--ba-accent-pressed); }
+.ba-btn--primary:active { transform: translateY(3px); box-shadow: 0 1px 0 0 var(--edge); }
+.ba-btn--secondary { background: var(--ba-surface); color: var(--ba-text); box-shadow: inset 0 0 0 2px var(--ba-border-strong); }
+.ba-btn--secondary:active { transform: translateY(2px); }
+.ba-btn--quiet { background: transparent; color: var(--ba-text); padding: 0 12px; }
+.ba-btn--quiet:hover { background: var(--ba-surface-sunken); }
+.ba-btn--block { width: 100%; }
+.ba-btn--lg { min-height: 60px; font-size: 1.1875rem; padding: 0 28px; border-radius: 18px; }
+.ba-icon-btn {
+  display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+  border: 0; background: var(--ba-surface); color: var(--ba-text); cursor: pointer;
+  box-shadow: inset 0 0 0 2px var(--ba-border);
+}
+.ba-icon-btn svg { width: 22px; height: 22px; }
+
+/* ---------- Chips (region filter, toggles) ---------- */
+.ba-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 4px 14px 4px 6px;
+  border-radius: var(--ba-radius-pill); border: 0; cursor: pointer;
+  background: var(--ba-surface); color: var(--ba-text);
+  box-shadow: inset 0 0 0 1.5px var(--ba-border);
+  font-weight: 600; font-size: var(--ba-text-sm); white-space: nowrap;
+}
+.ba-chip svg { width: 34px; height: 34px; flex: none; }
+.ba-chip[aria-pressed="true"] { background: var(--ba-text); color: var(--ba-bg); box-shadow: none; }
+.ba-chip--text { padding: 4px 16px; }
+
+/* ---------- Switch ---------- */
+.ba-switch { position: relative; display: inline-block; width: 52px; height: 32px; flex: none; }
+.ba-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.ba-switch span {
+  position: absolute; inset: 0; border-radius: 999px; background: var(--ba-ink-200);
+  transition: background-color var(--ba-dur-state);
+}
+.ba-switch span::after {
+  content: ""; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--ba-paper); transition: transform var(--ba-dur-state) var(--ba-ease-out);
+  box-shadow: 0 1px 2px rgba(28, 20, 51, 0.3);
+}
+.ba-switch input:checked + span { background: var(--ba-text); }
+.ba-switch input:checked + span::after { transform: translateX(20px); background: var(--ba-accent); }
+.ba-switch input:focus-visible + span { outline: 3px solid var(--ba-focus); outline-offset: 3px; }
+[data-theme="dark"] .ba-switch span { background: var(--ba-night-600); }
+
+/* ---------- Surfaces ---------- */
+.ba-sheet { background: var(--ba-surface); border-radius: var(--ba-radius-xl); padding: var(--ba-space-6); }
+.ba-row { display: flex; align-items: center; gap: var(--ba-space-3); }
+.ba-divider { height: 1px; background: var(--ba-border); border: 0; margin: 0; }
+.ba-badge {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px;
+  border-radius: var(--ba-radius-pill); font-size: var(--ba-text-xs); font-weight: 700;
+  background: var(--ba-surface-sunken); color: var(--ba-text);
+}
+.ba-badge--pro { background: var(--ba-text); color: var(--ba-bg); }
+.ba-badge--free { background: var(--ba-accent-tint); color: var(--ba-accent-text); }
+.ba-badge--live { background: var(--ba-accent); color: var(--ba-on-accent); }
+.ba-badge svg { width: 16px; height: 16px; }
+
+/* ---------- The line: the signature target line ---------- */
+.ba-line {
+  position: relative; height: 0; border-top: 6px solid var(--ba-hud-line); border-radius: 6px;
+}
+.ba-line::after {
+  content: attr(data-label); position: absolute; right: 0; top: -2px; transform: translateY(-100%);
+  background: var(--ba-hud-line); color: var(--ba-hud-command-text); font: 700 12px/1 var(--ba-font-text);
+  padding: 4px 8px; border-radius: 8px 8px 0 8px;
+}
+
+/* ---------- HUD primitives (shared by the in-game mockups) ---------- */
+.hud-plate {
+  background: var(--ba-hud-plate-bg); color: var(--ba-hud-plate-text);
+  border-radius: 14px; display: inline-flex; align-items: center;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.hud-command {
+  background: var(--ba-hud-command-bg); color: var(--ba-hud-command-text);
+  font-family: var(--ba-font-display); font-weight: 800; letter-spacing: 0;
+  line-height: 1; display: inline-flex; align-items: center; white-space: nowrap;
+  border-radius: 0.28em; padding: 0.12em 0.34em 0.17em 0.22em; gap: 0.16em;
+  box-shadow: 0 0.09em 0 0 var(--ba-flush-700);
+}
+.hud-command svg { width: 1em; height: 1em; flex: none; }
+
+/* HUD plates used by the in-game mockups (hud.html, hud-duo.html) */
+[data-hud] { position: absolute; }
+.status { gap: 0.32em; padding: 0.18em 0.36em 0.2em; }
+.status b { font-family: var(--ba-font-text); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.status small { display: block; font-weight: 600; color: var(--ba-hud-plate-muted); line-height: 1.1; }
+.status .stack { display: flex; flex-direction: column; justify-content: center; }
+.feathers { display: flex; gap: 0.12em; margin-left: 0.1em; }
+.feathers i { width: 0.32em; height: 0.32em; border-radius: 50%; background: var(--ba-flush-500); display: block; }
+.feathers i.off { background: transparent; box-shadow: inset 0 0 0 0.06em var(--ba-hud-plate-muted); }
+.pause { width: 1.15em; height: 1.15em; border-radius: 50%; display: grid; place-items: center; background: rgba(244,242,248,0.14); margin-left: 0.12em; }
+.pause svg { width: 0.5em; height: 0.5em; }
+.reason { gap: 0.45em; padding: 0.4em 0.7em 0.44em 0.5em; font-weight: 600; line-height: 1.2; }
+.reason span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-wrap: balance; }
+.hud-command.wrap { white-space: normal; line-height: 0.98; text-wrap: balance; }
+.hud-command.no-glyph svg { display: none; }
+.reason svg { width: 1.35em; height: 1.35em; flex: none; }
+.tile { border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 3px var(--ba-hud-pip-frame), var(--ba-elev-float); background: #241C40; }
+.tile .tag { position: absolute; left: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; background: rgba(28,20,51,0.86); color: #F4F2F8; font: 700 12px/1.2 var(--ba-font-text); }
+.tile .tag .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ba-hud-camera-on); }
+.tile .move { position: absolute; right: 6px; top: 6px; width: 26px; height: 26px; border-radius: 50%; background: rgba(28,20,51,0.7); display: grid; place-items: center; }
+.tile .move svg { width: 14px; height: 14px; }
+.tile .score { position: absolute; right: 6px; top: 6px; padding: 2px 8px; border-radius: 999px; background: var(--ba-sky-400); color: #1C1433; font: 800 14px/1.3 var(--ba-font-text); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+}

@@ -1,0 +1,58 @@
+/* A race against a recording: the window that asks who to race, the card a friend's link opens on a game's page, the others under
+   the score during the round, and what the results say. Plain surfaces from the kit's tokens, round pictures, nothing that moves. */
+
+/* The window "Race a ghost". */
+.rc-box { width: min(100%, 520px); }
+.rc-sheet { display: grid; gap: 14px; }
+.rc-sheet h2, .rc-sheet p { margin: 0; }
+.rc-choices { display: grid; gap: 8px; }
+.rc-choice {
+  position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 14px;
+  border-radius: var(--ba-radius-lg); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); cursor: pointer;
+}
+.rc-choice:hover { box-shadow: inset 0 0 0 2px var(--ba-text); }
+.rc-choice input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.rc-choice:has(input:checked) { background: var(--ba-accent-tint); box-shadow: inset 0 0 0 3px var(--ba-accent); }
+.rc-choice:has(input:focus-visible) { outline: 3px solid var(--ba-focus); outline-offset: 2px; }
+.rc-choice.is-off, .rc-choice.is-off:hover { cursor: default; box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.rc-choice.is-off input { cursor: default; }
+.rc-choice.is-off .rc-face, .rc-choice.is-off .rc-text b { opacity: 0.6; }
+.rc-face { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ba-surface-sunken); }
+.rc-face svg { display: block; width: 22px; height: 22px; }
+.rc-face svg[width] { width: 40px; height: 40px; }
+.rc-text { display: grid; gap: 2px; min-width: 0; }
+.rc-text b { overflow-wrap: anywhere; }
+.rc-text small { color: var(--ba-text-muted); font-size: 0.8125rem; line-height: 1.3; }
+.rc-level { margin: 0; }
+.rc-code { display: grid; gap: 6px; }
+.rc-codebox { display: flex; gap: 8px; align-items: stretch; }
+.rc-codebox .ba-input { flex: 1 1 auto; min-width: 0; }
+.rc-note { min-height: 1.4em; }
+
+/* The card a friend's link opens on the page of a game. */
+.rc-offer { display: grid; gap: 10px; margin-bottom: 18px; }
+.rc-offer h2, .rc-offer p { margin: 0; }
+.rc-offer h2 { display: flex; align-items: center; gap: 10px; }
+.rc-offer h2 svg { width: 24px; height: 24px; flex: none; }
+.rc-offer p { color: var(--ba-text-muted); }
+
+/* The others of a race, under the score. */
+.ba-hud [data-hud="statusLeft"] { flex-direction: column; align-items: stretch; gap: 0.14em; }
+.ba-hud [data-hud="statusLeft"] > .row { display: flex; align-items: center; gap: 0.32em; }
+.ba-hud .rivals {
+  list-style: none; margin: 0; padding: 0.16em 0 0.04em; display: grid; gap: 0.14em; font-weight: 700; line-height: 1.15;
+  border-top: 1px solid rgba(244, 242, 248, 0.2);
+}
+.ba-hud .rivals li { display: flex; align-items: baseline; justify-content: space-between; gap: 0.8em; }
+.ba-hud .rivals .rn { min-width: 0; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ba-hud-plate-muted); font-weight: 600; }
+.ba-hud .rivals b { font-variant-numeric: tabular-nums; font-weight: 800; }
+
+/* What the results say about a race. */
+.rc-result { display: grid; gap: 12px; }
+.rc-result h2, .rc-result p { margin: 0; }
+.rc-verdict { font-family: var(--ba-font-display); font-weight: 800; font-size: 1.35rem; line-height: 1.2; }
+.rc-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.rc-scores > div { display: grid; gap: 2px; min-width: 0; padding: 12px 14px; border-radius: var(--ba-radius-lg); background: var(--ba-surface-sunken); }
+.rc-scores b { font-family: var(--ba-font-display); font-weight: 800; font-size: 1.75rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rc-scores span { color: var(--ba-text-muted); font-size: 0.875rem; overflow-wrap: anywhere; }
+.rc-actions { flex-wrap: wrap; }

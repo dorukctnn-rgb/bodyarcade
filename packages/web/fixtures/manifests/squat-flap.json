@@ -1,0 +1,39 @@
+{
+  "id": "squat-flap",
+  "template": "flight",
+  "version": 1,
+  "title": "Squat Flap",
+  "regions": ["legs"],
+  "framing": "full",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 300,
+  "met": 5,
+  "detectors": [{ "id": "squat" }],
+  "free": true,
+  "modes": ["solo", "ghost", "local2", "duel"],
+  "seo": { "slug": "squat-flap", "keywords": ["squat game", "webcam squat game", "exercise game for legs"] },
+  "catalogue": {
+    "tagline": { "en": "Every rise is a wing beat. Stay low to glide.", "tr": "Her kalkış bir kanat çırpışı. Alçakta kalırsan süzülürsün." },
+    "about": {
+      "en": "Stand up from a squat to flap the bird upward and stay low to let it glide. The camera reads your knees and hips, so the bird follows how deep and how steady you squat.",
+      "tr": "Çömelmeden ayağa kalktığında kuş yukarı çırpınır, alçakta kaldığında süzülür. Kamera dizlerinizi ve kalçanızı okur; kuş, ne kadar derin ve düzenli çömeldiğinize göre hareket eder."
+    },
+    "how": [
+      { "en": "Stand where the camera sees you from head to feet.", "tr": "Kameranın sizi baştan ayağa gördüğü bir yere durun." },
+      { "en": "Squat low and the bird glides. Stand up and it flaps upward.", "tr": "Alçak çömelin, kuş süzülsün. Ayağa kalkın, kuş yukarı çırpınsın." },
+      { "en": "Weave through the gaps between the pipes for as long as you can.", "tr": "Boruların arasındaki boşluklardan elinizden geldiğince uzun süre geçin." }
+    ],
+    "measures": [
+      { "en": "How deep your hips drop and how fast you rise.", "tr": "Kalçanızın ne kadar alçaldığı ve ne kadar hızlı kalktığınız." },
+      { "en": "Whether your knees stay over your feet.", "tr": "Dizlerinizin ayaklarınızın üzerinde kalıp kalmadığı." }
+    ],
+    "move": "squat",
+    "tile": "squat-flap",
+    "order": 1,
+    "related": ["knee-sprint", "road-run"],
+    "seatedNote": { "en": "Stand up from a chair to flap and sit back down to glide.", "tr": "Sandalyeden kalkarak kanat çırpın, oturarak süzülün." },
+    "quietNote": { "en": "Slow squats work as well. No jumping and no stamping.", "tr": "Yavaş çömelmeler de aynı işi görür. Zıplama ve yere vurma yok." }
+  }
+}

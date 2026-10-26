@@ -1,0 +1,162 @@
+[
+ {
+  "page": "game",
+  "breakpoint": "phone-390",
+  "ms": 996,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-phone-390.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "phone-390",
+  "ms": 757,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-phone-390.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "laptop-1440",
+  "ms": 1114,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-laptop-1440.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "laptop-1440",
+  "ms": 852,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-laptop-1440.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "phone-360",
+  "ms": 732,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-phone-360.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "phone-360",
+  "ms": 752,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-phone-360.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "phone-412",
+  "ms": 752,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-phone-412.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "phone-412",
+  "ms": 731,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-phone-412.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "phone-land-844",
+  "ms": 852,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-phone-land-844.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "phone-land-844",
+  "ms": 763,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-phone-land-844.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "phone-land-915",
+  "ms": 881,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-phone-land-915.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "phone-land-915",
+  "ms": 771,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-phone-land-915.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "tablet-768",
+  "ms": 1390,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-tablet-768.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "tablet-768",
+  "ms": 1630,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-tablet-768.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1980,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-tablet-land-1024.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "tablet-land-1024",
+  "ms": 1682,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-tablet-land-1024.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "laptop-1280",
+  "ms": 1807,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-laptop-1280.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "laptop-1280",
+  "ms": 1067,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-laptop-1280.webp"
+ },
+ {
+  "page": "game",
+  "breakpoint": "tv-1920",
+  "ms": 2268,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-tv-1920.webp"
+ },
+ {
+  "page": "game-pad-work",
+  "breakpoint": "tv-1920",
+  "ms": 2460,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/kit/game-pad-work-tv-1920.webp"
+ }
+]

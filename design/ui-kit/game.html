@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade game</title>
+<meta name="description" content="UI kit: a game before you play. Art, how to play, players, difficulty, your best and the play button; a Pro game shows the honest lock instead.">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="pages.css">
+<style>
+  .k-lead { font-size: var(--ba-text-lg); line-height: 1.45; color: var(--ba-text-muted); margin: 10px 0 0; max-width: 30em; }
+  .k-block { margin-top: 22px; }
+  .k-seg-lock svg { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; margin-left: 5px; opacity: 0.7; }
+  .k-duo { display: flex; gap: 10px; align-items: flex-start; }
+  .k-duo i { width: 14px; height: 14px; border-radius: 50%; flex: none; margin-top: 3px; }
+  .k-lockcard { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .k-lockcard .ico { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--ba-text); color: var(--ba-bg); }
+  .k-lockcard .ico svg { width: 22px; height: 22px; }
+  .k-lockcard b { display: block; font-weight: 800; margin-bottom: 2px; }
+  /* Phones: the action bar is last and sticks to the bottom. Wide screens: it sits under the
+     title so Play is visible without scrolling. */
+  .k-info { display: flex; flex-direction: column; }
+  .k-info > * { order: 3; }
+  .k-info > .k-top { order: 1; }
+  .k-info > .k-actionbar { order: 10; }
+  @media (min-width: 900px) and (min-height: 501px) { .k-info > .k-actionbar { order: 2; margin-top: 20px; } .k-info > .k-lockcard { order: 2; } }
+  /* Phones held sideways: art on the left, details on the right, Play pinned to the bottom. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .k-detail { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr); align-items: start; }
+    .k-detail .art { position: sticky; top: 12px; }
+    .k-info .k-actionbar { margin-left: 0; margin-right: calc(-1 * var(--ba-gutter)); padding-left: 0; }
+  }
+</style>
+</head>
+<body class="ba-app no-tabbar">
+<main class="ba-page" id="page"></main>
+<script type="module" data-wait>
+import { mountShell, pageHead, GAMES, REGION_LABEL, glyph, ICON, bigScreen, artSrc, q, fillGlyphs, ready } from './shell.mjs';
+
+mountShell('arcade');
+const g = GAMES.find((x) => x.id === (q.get('game') || 'squat-flap')) || GAMES[0];
+const locked = g.tier === 'pro' && q.get('plan') !== 'pro';
+const duoOk = bigScreen() && g.local2;
+const players = duoOk && q.get('players') === '2' ? 2 : 1;
+
+const HOW = {
+  'squat-flap': [['squat', 'Squat to flap', 'Each squat is one wing beat.', ['legL1', 'legL2', 'legR1', 'legR2']], ['squat', 'Reach the line', 'Hips down to the flush line counts as a full flap.', ['torso']], ['stand', 'Hold low to glide', 'Stay down to float through the long gaps.', []]],
+};
+const how = HOW[g.id] || [[g.moves[0], 'The move', g.line, []], ['stand', 'Your line', 'A move counts when it reaches your line. A miss tells you why.', []], ['seated', 'Seated version', `${g.seated}.`, ['armL1', 'armL2', 'armR1', 'armR2']]];
+const free = GAMES.filter((x) => x.tier === 'free').length, pro = GAMES.length - free;
+
+const page = document.getElementById('page');
+page.innerHTML = `
+  ${pageHead('', { back: 'home.html', actions: `<button class="ba-icon-btn" type="button" aria-label="Share this game">${ICON.share}</button>` })}
+  <div class="k-detail">
+    <div class="art"><img src="${artSrc(g.id, false)}" alt="" width="800" height="600">${g.tier === 'pro' ? '<span class="ba-badge ba-badge--pro">Pro</span>' : '<span class="ba-badge ba-badge--free">Free</span>'}</div>
+    <div class="k-info">
+      <div class="k-top">
+      <h1>${g.name}</h1>
+      <p class="k-lead">${g.line}</p>
+      <ul class="k-facts">
+        <li><span data-glyph="${g.moves[0]}" data-floor="0"></span>${REGION_LABEL[g.region]}</li>
+        <li>${ICON.clock}${g.min} min round</li>
+        ${g.seated ? `<li>${ICON.chair}Seated version</li>` : ''}
+        ${g.quiet ? `<li>${ICON.quiet}Quiet version</li>` : ''}
+      </ul>
+      </div>
+
+      <div class="k-block"><span class="k-label">How to play</span>
+        <ol class="k-how">${how.map(([pose, t, d, hl]) => `<li><span class="g">${glyph(pose, { highlight: hl, accent: '#FF4F6E', title: '' })}</span><div><b>${t}</b><span>${d}</span></div></li>`).join('')}</ol>
+      </div>
+
+      ${locked ? `
+      <div class="k-block k-card k-lockcard"><span class="ico">${ICON.lock}</span><div><b>${g.name} is part of Pro.</b><p>Pro adds ${pro} more games and the Hard and Expert difficulty. ${free} games stay free, with no ads.</p></div></div>
+      <div class="k-actionbar"><div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="paywall.html">See Pro plans</a><a class="ba-btn ba-btn--secondary ba-btn--lg" href="home.html">Free games</a></div></div>` : `
+      ${duoOk ? `<div class="k-block"><span class="k-label">Players</span>
+        <div class="ba-seg" role="radiogroup" aria-label="Players"><button type="button" role="radio" aria-checked="${players === 1}">Just me</button><button type="button" role="radio" aria-checked="${players === 2}">2 players, one camera</button></div>
+        ${players === 2 ? `<div class="k-duo" style="margin-top:12px"><i style="background:var(--ba-left)"></i><p class="ba-small" style="margin:0">Player 1 stands on the left, Player 2 on the right, about 1 m apart and 3 m from the screen. Each of you gets your own score.</p></div>` : ''}
+      </div>` : ''}
+      <div class="k-block"><span class="k-label">Difficulty</span>
+        <div class="ba-seg" role="radiogroup" aria-label="Difficulty"><button type="button" role="radio" aria-checked="false">Easy</button><button type="button" role="radio" aria-checked="true">Normal</button><button type="button" role="radio" aria-checked="false" class="k-seg-lock">Hard${ICON.lock}</button><button type="button" role="radio" aria-checked="false" class="k-seg-lock">Expert${ICON.lock}</button></div>
+        <p class="ba-small" style="margin:8px 0 0">Normal fits your level. Hard and Expert are part of Pro.</p>
+      </div>
+      ${g.id === 'squat-flap' ? `<div class="k-block k-best">${ICON.star}<span>Your best: <b>18 squats</b>, today. 14 reached the line.</span></div>` : ''}
+      <div class="k-actionbar"><div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="calibration.html">${ICON.play}Play</a><a class="ba-btn ba-btn--secondary ba-btn--lg" href="room.html">${ICON.friends}With friends</a></div><p class="k-note">The camera reads your moves on this device. Nothing is uploaded.</p></div>`}
+    </div>
+  </div>`;
+fillGlyphs(page);
+await ready();
+</script>
+</body>
+</html>

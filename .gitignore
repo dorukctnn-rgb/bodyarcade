@@ -1,7 +1,22 @@
 # Local Netlify folder
 .netlify
 
-# Cloudflare Workers: local state and the generated asset folder
+# v2 tooling
+node_modules/
+dist/
+.vite/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+*.tsbuildinfo
+
+# Cloudflare Workers: local state and the generated asset folders
 .wrangler
 .cf-dist
-node_modules
+
+# QA: generated test videos, downloaded model assets and capture output (regenerate with npm run traces:videos)
+tests/traces/videos/
+tools/synth-video/assets/
+tools/fake-camera/out/
+qa-out/

@@ -1,0 +1,3476 @@
+[
+ {
+  "breakpoint": "phone-360",
+  "w": 360,
+  "h": 780,
+  "mode": "scene",
+  "commandFont": 63,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 112.21875,
+    "h": 59.828125
+   },
+   "statusRight": {
+    "x": 202,
+    "y": 40,
+    "w": 145.453125,
+    "h": 59.828125
+   },
+   "command": {
+    "x": 39,
+    "y": 108,
+    "w": 282.09375,
+    "h": 81.25,
+    "font": 63
+   },
+   "reason": {
+    "x": 13,
+    "y": 545,
+    "w": 334.65625,
+    "h": 50.34375
+   },
+   "pip": {
+    "x": 240,
+    "y": 604,
+    "w": 108,
+    "h": 144
+   }
+  },
+  "shot": "design/shots/hud/scene-phone-360.webp"
+ },
+ {
+  "breakpoint": "phone-360",
+  "w": 360,
+  "h": 780,
+  "mode": "scene-tl",
+  "commandFont": 63,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 112.21875,
+    "h": 59.828125
+   },
+   "statusRight": {
+    "x": 202,
+    "y": 40,
+    "w": 145.453125,
+    "h": 59.828125
+   },
+   "command": {
+    "x": 39,
+    "y": 108,
+    "w": 282.09375,
+    "h": 81.25,
+    "font": 63
+   },
+   "reason": {
+    "x": 13,
+    "y": 697,
+    "w": 334.65625,
+    "h": 50.34375
+   },
+   "pip": {
+    "x": 12,
+    "y": 198,
+    "w": 108,
+    "h": 144
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-phone-360.webp"
+ },
+ {
+  "breakpoint": "phone-360",
+  "w": 360,
+  "h": 780,
+  "mode": "scene-de",
+  "commandFont": 63,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 112.21875,
+    "h": 59.828125
+   },
+   "statusRight": {
+    "x": 202,
+    "y": 40,
+    "w": 145.453125,
+    "h": 59.828125
+   },
+   "command": {
+    "x": 12,
+    "y": 108,
+    "w": 336,
+    "h": 141.71875,
+    "font": 63
+   },
+   "reason": {
+    "x": 12,
+    "y": 521,
+    "w": 336,
+    "h": 74.484375
+   },
+   "pip": {
+    "x": 12,
+    "y": 604,
+    "w": 108,
+    "h": 144
+   }
+  },
+  "shot": "design/shots/hud/scene-de-phone-360.webp"
+ },
+ {
+  "breakpoint": "phone-360",
+  "w": 360,
+  "h": 780,
+  "mode": "live-friend",
+  "commandFont": 63,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 112.21875,
+    "h": 59.828125
+   },
+   "statusRight": {
+    "x": 202,
+    "y": 40,
+    "w": 145.453125,
+    "h": 59.828125
+   },
+   "command": {
+    "x": 39,
+    "y": 108,
+    "w": 282.09375,
+    "h": 81.25,
+    "font": 63
+   },
+   "reason": {
+    "x": 13,
+    "y": 523,
+    "w": 334.65625,
+    "h": 50.34375
+   },
+   "own": {
+    "x": 12,
+    "y": 644,
+    "w": 78,
+    "h": 104
+   },
+   "friend": {
+    "x": 224,
+    "y": 582,
+    "w": 124,
+    "h": 166
+   }
+  },
+  "shot": "design/shots/hud/live-friend-phone-360.webp"
+ },
+ {
+  "breakpoint": "phone-360",
+  "w": 360,
+  "h": 780,
+  "mode": "live-ghost",
+  "commandFont": 63,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 112.21875,
+    "h": 59.828125
+   },
+   "statusRight": {
+    "x": 202,
+    "y": 40,
+    "w": 145.453125,
+    "h": 59.828125
+   },
+   "command": {
+    "x": 39,
+    "y": 108,
+    "w": 282.09375,
+    "h": 81.25,
+    "font": 63
+   },
+   "reason": {
+    "x": 13,
+    "y": 523,
+    "w": 334.65625,
+    "h": 50.34375
+   },
+   "own": {
+    "x": 12,
+    "y": 644,
+    "w": 78,
+    "h": 104
+   },
+   "friend": {
+    "x": 224,
+    "y": 582,
+    "w": 124,
+    "h": 166
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-phone-360.webp"
+ },
+ {
+  "breakpoint": "phone-360",
+  "w": 360,
+  "h": 780,
+  "mode": "mirror",
+  "commandFont": 63,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 112.21875,
+    "h": 59.828125
+   },
+   "statusRight": {
+    "x": 202,
+    "y": 40,
+    "w": 145.453125,
+    "h": 59.828125
+   },
+   "command": {
+    "x": 19,
+    "y": 108,
+    "w": 322.890625,
+    "h": 81.25,
+    "font": 63
+   },
+   "reason": {
+    "x": 40,
+    "y": 697,
+    "w": 280.78125,
+    "h": 50.34375
+   }
+  },
+  "shot": "design/shots/hud/mirror-phone-360.webp"
+ },
+ {
+  "breakpoint": "phone-360",
+  "w": 360,
+  "h": 780,
+  "mode": "mirror-tr",
+  "commandFont": 63,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 112.21875,
+    "h": 59.828125
+   },
+   "statusRight": {
+    "x": 202,
+    "y": 40,
+    "w": 145.453125,
+    "h": 59.828125
+   },
+   "command": {
+    "x": 36,
+    "y": 108,
+    "w": 287.828125,
+    "h": 81.25,
+    "font": 63
+   },
+   "reason": {
+    "x": 49,
+    "y": 697,
+    "w": 262.78125,
+    "h": 50.34375
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-phone-360.webp"
+ },
+ {
+  "breakpoint": "phone-390",
+  "w": 390,
+  "h": 844,
+  "mode": "scene",
+  "commandFont": 68,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 119.015625,
+    "h": 63.6875
+   },
+   "statusRight": {
+    "x": 223,
+    "y": 40,
+    "w": 154.28125,
+    "h": 63.6875
+   },
+   "command": {
+    "x": 43,
+    "y": 112,
+    "w": 304.484375,
+    "h": 87.703125,
+    "font": 68
+   },
+   "reason": {
+    "x": 13,
+    "y": 593,
+    "w": 363.765625,
+    "h": 54.75
+   },
+   "pip": {
+    "x": 261,
+    "y": 656,
+    "w": 117,
+    "h": 156
+   }
+  },
+  "shot": "design/shots/hud/scene-phone-390.webp"
+ },
+ {
+  "breakpoint": "phone-390",
+  "w": 390,
+  "h": 844,
+  "mode": "scene-tl",
+  "commandFont": 68,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 119.015625,
+    "h": 63.6875
+   },
+   "statusRight": {
+    "x": 223,
+    "y": 40,
+    "w": 154.28125,
+    "h": 63.6875
+   },
+   "command": {
+    "x": 43,
+    "y": 112,
+    "w": 304.484375,
+    "h": 87.703125,
+    "font": 68
+   },
+   "reason": {
+    "x": 13,
+    "y": 757,
+    "w": 363.765625,
+    "h": 54.75
+   },
+   "pip": {
+    "x": 12,
+    "y": 208,
+    "w": 117,
+    "h": 156
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-phone-390.webp"
+ },
+ {
+  "breakpoint": "phone-390",
+  "w": 390,
+  "h": 844,
+  "mode": "scene-de",
+  "commandFont": 68,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 119.015625,
+    "h": 63.6875
+   },
+   "statusRight": {
+    "x": 223,
+    "y": 40,
+    "w": 154.28125,
+    "h": 63.6875
+   },
+   "command": {
+    "x": 12,
+    "y": 112,
+    "w": 366,
+    "h": 152.953125,
+    "font": 68
+   },
+   "reason": {
+    "x": 12,
+    "y": 567,
+    "w": 366,
+    "h": 81
+   },
+   "pip": {
+    "x": 12,
+    "y": 656,
+    "w": 117,
+    "h": 156
+   }
+  },
+  "shot": "design/shots/hud/scene-de-phone-390.webp"
+ },
+ {
+  "breakpoint": "phone-390",
+  "w": 390,
+  "h": 844,
+  "mode": "live-friend",
+  "commandFont": 68,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 119.015625,
+    "h": 63.6875
+   },
+   "statusRight": {
+    "x": 223,
+    "y": 40,
+    "w": 154.28125,
+    "h": 63.6875
+   },
+   "command": {
+    "x": 43,
+    "y": 112,
+    "w": 304.484375,
+    "h": 87.703125,
+    "font": 68
+   },
+   "reason": {
+    "x": 13,
+    "y": 570,
+    "w": 363.765625,
+    "h": 54.75
+   },
+   "own": {
+    "x": 12,
+    "y": 700,
+    "w": 84,
+    "h": 112
+   },
+   "friend": {
+    "x": 243,
+    "y": 633,
+    "w": 135,
+    "h": 179
+   }
+  },
+  "shot": "design/shots/hud/live-friend-phone-390.webp"
+ },
+ {
+  "breakpoint": "phone-390",
+  "w": 390,
+  "h": 844,
+  "mode": "live-ghost",
+  "commandFont": 68,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 119.015625,
+    "h": 63.6875
+   },
+   "statusRight": {
+    "x": 223,
+    "y": 40,
+    "w": 154.28125,
+    "h": 63.6875
+   },
+   "command": {
+    "x": 43,
+    "y": 112,
+    "w": 304.484375,
+    "h": 87.703125,
+    "font": 68
+   },
+   "reason": {
+    "x": 13,
+    "y": 570,
+    "w": 363.765625,
+    "h": 54.75
+   },
+   "own": {
+    "x": 12,
+    "y": 700,
+    "w": 84,
+    "h": 112
+   },
+   "friend": {
+    "x": 243,
+    "y": 633,
+    "w": 135,
+    "h": 179
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-phone-390.webp"
+ },
+ {
+  "breakpoint": "phone-390",
+  "w": 390,
+  "h": 844,
+  "mode": "mirror",
+  "commandFont": 68,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 119.015625,
+    "h": 63.6875
+   },
+   "statusRight": {
+    "x": 223,
+    "y": 40,
+    "w": 154.28125,
+    "h": 63.6875
+   },
+   "command": {
+    "x": 21,
+    "y": 112,
+    "w": 348.515625,
+    "h": 87.703125,
+    "font": 68
+   },
+   "reason": {
+    "x": 42,
+    "y": 757,
+    "w": 305.21875,
+    "h": 54.75
+   }
+  },
+  "shot": "design/shots/hud/mirror-phone-390.webp"
+ },
+ {
+  "breakpoint": "phone-390",
+  "w": 390,
+  "h": 844,
+  "mode": "mirror-tr",
+  "commandFont": 68,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 119.015625,
+    "h": 63.6875
+   },
+   "statusRight": {
+    "x": 223,
+    "y": 40,
+    "w": 154.28125,
+    "h": 63.6875
+   },
+   "command": {
+    "x": 40,
+    "y": 112,
+    "w": 310.671875,
+    "h": 87.703125,
+    "font": 68
+   },
+   "reason": {
+    "x": 52,
+    "y": 757,
+    "w": 285.65625,
+    "h": 54.75
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-phone-390.webp"
+ },
+ {
+  "breakpoint": "phone-412",
+  "w": 412,
+  "h": 915,
+  "mode": "scene",
+  "commandFont": 74,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 232,
+    "y": 40,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 40,
+    "y": 117,
+    "w": 331.34375,
+    "h": 95.453125,
+    "font": 74
+   },
+   "reason": {
+    "x": 12,
+    "y": 622,
+    "w": 388,
+    "h": 87.453125
+   },
+   "pip": {
+    "x": 276,
+    "y": 718,
+    "w": 124,
+    "h": 165
+   }
+  },
+  "shot": "design/shots/hud/scene-phone-412.webp"
+ },
+ {
+  "breakpoint": "phone-412",
+  "w": 412,
+  "h": 915,
+  "mode": "scene-tl",
+  "commandFont": 74,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 232,
+    "y": 40,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 40,
+    "y": 117,
+    "w": 331.34375,
+    "h": 95.453125,
+    "font": 74
+   },
+   "reason": {
+    "x": 12,
+    "y": 795,
+    "w": 388,
+    "h": 87.453125
+   },
+   "pip": {
+    "x": 12,
+    "y": 221,
+    "w": 124,
+    "h": 165
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-phone-412.webp"
+ },
+ {
+  "breakpoint": "phone-412",
+  "w": 412,
+  "h": 915,
+  "mode": "scene-de",
+  "commandFont": 74,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 232,
+    "y": 40,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 12,
+    "y": 117,
+    "w": 388,
+    "h": 166.484375,
+    "font": 74
+   },
+   "reason": {
+    "x": 12,
+    "y": 622,
+    "w": 388,
+    "h": 87.453125
+   },
+   "pip": {
+    "x": 12,
+    "y": 718,
+    "w": 124,
+    "h": 165
+   }
+  },
+  "shot": "design/shots/hud/scene-de-phone-412.webp"
+ },
+ {
+  "breakpoint": "phone-412",
+  "w": 412,
+  "h": 915,
+  "mode": "live-friend",
+  "commandFont": 74,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 232,
+    "y": 40,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 40,
+    "y": 117,
+    "w": 331.34375,
+    "h": 95.453125,
+    "font": 74
+   },
+   "reason": {
+    "x": 12,
+    "y": 597,
+    "w": 388,
+    "h": 87.453125
+   },
+   "own": {
+    "x": 12,
+    "y": 764,
+    "w": 89,
+    "h": 119
+   },
+   "friend": {
+    "x": 257,
+    "y": 693,
+    "w": 143,
+    "h": 190
+   }
+  },
+  "shot": "design/shots/hud/live-friend-phone-412.webp"
+ },
+ {
+  "breakpoint": "phone-412",
+  "w": 412,
+  "h": 915,
+  "mode": "live-ghost",
+  "commandFont": 74,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 232,
+    "y": 40,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 40,
+    "y": 117,
+    "w": 331.34375,
+    "h": 95.453125,
+    "font": 74
+   },
+   "reason": {
+    "x": 12,
+    "y": 597,
+    "w": 388,
+    "h": 87.453125
+   },
+   "own": {
+    "x": 12,
+    "y": 764,
+    "w": 89,
+    "h": 119
+   },
+   "friend": {
+    "x": 257,
+    "y": 693,
+    "w": 143,
+    "h": 190
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-phone-412.webp"
+ },
+ {
+  "breakpoint": "phone-412",
+  "w": 412,
+  "h": 915,
+  "mode": "mirror",
+  "commandFont": 74,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 232,
+    "y": 40,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 16,
+    "y": 117,
+    "w": 379.265625,
+    "h": 95.453125,
+    "font": 74
+   },
+   "reason": {
+    "x": 41,
+    "y": 823,
+    "w": 329.609375,
+    "h": 59.109375
+   }
+  },
+  "shot": "design/shots/hud/mirror-phone-412.webp"
+ },
+ {
+  "breakpoint": "phone-412",
+  "w": 412,
+  "h": 915,
+  "mode": "mirror-tr",
+  "commandFont": 74,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 12,
+    "y": 40,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 232,
+    "y": 40,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 37,
+    "y": 117,
+    "w": 338.078125,
+    "h": 95.453125,
+    "font": 74
+   },
+   "reason": {
+    "x": 52,
+    "y": 823,
+    "w": 308.46875,
+    "h": 59.109375
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-phone-412.webp"
+ },
+ {
+  "breakpoint": "phone-land-844",
+  "w": 844,
+  "h": 390,
+  "mode": "scene",
+  "commandFont": 52,
+  "commandPct": 13.3,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 676,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 293,
+    "y": 12,
+    "w": 232.84375,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 225,
+    "y": 322,
+    "w": 261.890625,
+    "h": 39.390625
+   },
+   "pip": {
+    "x": 675,
+    "y": 268,
+    "w": 125,
+    "h": 94
+   }
+  },
+  "shot": "design/shots/hud/scene-phone-land-844.webp"
+ },
+ {
+  "breakpoint": "phone-land-844",
+  "w": 844,
+  "h": 390,
+  "mode": "scene-tl",
+  "commandFont": 52,
+  "commandPct": 13.3,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 676,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 293,
+    "y": 12,
+    "w": 232.84375,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 291,
+    "y": 322,
+    "w": 261.890625,
+    "h": 39.390625
+   },
+   "pip": {
+    "x": 44,
+    "y": 73,
+    "w": 125,
+    "h": 94
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-phone-land-844.webp"
+ },
+ {
+  "breakpoint": "phone-land-844",
+  "w": 844,
+  "h": 390,
+  "mode": "scene-de",
+  "commandFont": 52,
+  "commandPct": 13.3,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 676,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 216,
+    "y": 12,
+    "w": 386.890625,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 326,
+    "y": 322,
+    "w": 324.21875,
+    "h": 39.390625
+   },
+   "pip": {
+    "x": 44,
+    "y": 268,
+    "w": 125,
+    "h": 94
+   }
+  },
+  "shot": "design/shots/hud/scene-de-phone-land-844.webp"
+ },
+ {
+  "breakpoint": "phone-land-844",
+  "w": 844,
+  "h": 390,
+  "mode": "live-friend",
+  "commandFont": 52,
+  "commandPct": 13.3,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 676,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 293,
+    "y": 12,
+    "w": 232.84375,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 264,
+    "y": 322,
+    "w": 261.890625,
+    "h": 39.390625
+   },
+   "own": {
+    "x": 44,
+    "y": 294,
+    "w": 90,
+    "h": 68
+   },
+   "friend": {
+    "x": 656,
+    "y": 254,
+    "w": 144,
+    "h": 108
+   }
+  },
+  "shot": "design/shots/hud/live-friend-phone-land-844.webp"
+ },
+ {
+  "breakpoint": "phone-land-844",
+  "w": 844,
+  "h": 390,
+  "mode": "live-ghost",
+  "commandFont": 52,
+  "commandPct": 13.3,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 676,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 293,
+    "y": 12,
+    "w": 232.84375,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 264,
+    "y": 322,
+    "w": 261.890625,
+    "h": 39.390625
+   },
+   "own": {
+    "x": 44,
+    "y": 294,
+    "w": 90,
+    "h": 68
+   },
+   "friend": {
+    "x": 656,
+    "y": 254,
+    "w": 144,
+    "h": 108
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-phone-land-844.webp"
+ },
+ {
+  "breakpoint": "phone-land-844",
+  "w": 844,
+  "h": 390,
+  "mode": "mirror",
+  "commandFont": 52,
+  "commandPct": 13.3,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 676,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 246,
+    "y": 12,
+    "w": 326.828125,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 612,
+    "y": 303,
+    "w": 188,
+    "h": 58.28125
+   }
+  },
+  "shot": "design/shots/hud/mirror-phone-land-844.webp"
+ },
+ {
+  "breakpoint": "phone-land-844",
+  "w": 844,
+  "h": 390,
+  "mode": "mirror-tr",
+  "commandFont": 52,
+  "commandPct": 13.3,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 676,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 290,
+    "y": 12,
+    "w": 237.578125,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 612,
+    "y": 303,
+    "w": 188,
+    "h": 58.28125
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-phone-land-844.webp"
+ },
+ {
+  "breakpoint": "phone-land-915",
+  "w": 915,
+  "h": 412,
+  "mode": "scene",
+  "commandFont": 52,
+  "commandPct": 12.6,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 747,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 328,
+    "y": 12,
+    "w": 232.84375,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 257,
+    "y": 344,
+    "w": 261.890625,
+    "h": 39.390625
+   },
+   "pip": {
+    "x": 739,
+    "y": 285,
+    "w": 132,
+    "h": 99
+   }
+  },
+  "shot": "design/shots/hud/scene-phone-land-915.webp"
+ },
+ {
+  "breakpoint": "phone-land-915",
+  "w": 915,
+  "h": 412,
+  "mode": "scene-tl",
+  "commandFont": 52,
+  "commandPct": 12.6,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 747,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 328,
+    "y": 12,
+    "w": 232.84375,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 327,
+    "y": 344,
+    "w": 261.890625,
+    "h": 39.390625
+   },
+   "pip": {
+    "x": 44,
+    "y": 73,
+    "w": 132,
+    "h": 99
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-phone-land-915.webp"
+ },
+ {
+  "breakpoint": "phone-land-915",
+  "w": 915,
+  "h": 412,
+  "mode": "scene-de",
+  "commandFont": 52,
+  "commandPct": 12.6,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 747,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 251,
+    "y": 12,
+    "w": 386.890625,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 365,
+    "y": 344,
+    "w": 324.21875,
+    "h": 39.390625
+   },
+   "pip": {
+    "x": 44,
+    "y": 285,
+    "w": 132,
+    "h": 99
+   }
+  },
+  "shot": "design/shots/hud/scene-de-phone-land-915.webp"
+ },
+ {
+  "breakpoint": "phone-land-915",
+  "w": 915,
+  "h": 412,
+  "mode": "live-friend",
+  "commandFont": 52,
+  "commandPct": 12.6,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 747,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 328,
+    "y": 12,
+    "w": 232.84375,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 298,
+    "y": 344,
+    "w": 261.890625,
+    "h": 39.390625
+   },
+   "own": {
+    "x": 44,
+    "y": 313,
+    "w": 95,
+    "h": 71
+   },
+   "friend": {
+    "x": 719,
+    "y": 270,
+    "w": 152,
+    "h": 114
+   }
+  },
+  "shot": "design/shots/hud/live-friend-phone-land-915.webp"
+ },
+ {
+  "breakpoint": "phone-land-915",
+  "w": 915,
+  "h": 412,
+  "mode": "live-ghost",
+  "commandFont": 52,
+  "commandPct": 12.6,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 747,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 328,
+    "y": 12,
+    "w": 232.84375,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 298,
+    "y": 344,
+    "w": 261.890625,
+    "h": 39.390625
+   },
+   "own": {
+    "x": 44,
+    "y": 313,
+    "w": 95,
+    "h": 71
+   },
+   "friend": {
+    "x": 719,
+    "y": 270,
+    "w": 152,
+    "h": 114
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-phone-land-915.webp"
+ },
+ {
+  "breakpoint": "phone-land-915",
+  "w": 915,
+  "h": 412,
+  "mode": "mirror",
+  "commandFont": 52,
+  "commandPct": 12.6,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 747,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 281,
+    "y": 12,
+    "w": 326.828125,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 663,
+    "y": 325,
+    "w": 208,
+    "h": 58.28125
+   }
+  },
+  "shot": "design/shots/hud/mirror-phone-land-915.webp"
+ },
+ {
+  "breakpoint": "phone-land-915",
+  "w": 915,
+  "h": 412,
+  "mode": "mirror-tr",
+  "commandFont": 52,
+  "commandPct": 12.6,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 44,
+    "y": 12,
+    "w": 97.0625,
+    "h": 52.921875
+   },
+   "statusRight": {
+    "x": 747,
+    "y": 12,
+    "w": 123.421875,
+    "h": 52.921875
+   },
+   "command": {
+    "x": 326,
+    "y": 12,
+    "w": 237.578125,
+    "h": 67.0625,
+    "font": 52
+   },
+   "reason": {
+    "x": 664,
+    "y": 344,
+    "w": 205.65625,
+    "h": 39.390625
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-phone-land-915.webp"
+ },
+ {
+  "breakpoint": "tablet-768",
+  "w": 768,
+  "h": 1024,
+  "mode": "scene",
+  "commandFont": 82,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 146.25,
+    "h": 78.015625
+   },
+   "statusRight": {
+    "x": 555,
+    "y": 23,
+    "w": 189.53125,
+    "h": 78.015625
+   },
+   "command": {
+    "x": 200,
+    "y": 114,
+    "w": 367.171875,
+    "h": 105.765625,
+    "font": 82
+   },
+   "reason": {
+    "x": 68,
+    "y": 933,
+    "w": 451.03125,
+    "h": 67.859375
+   },
+   "pip": {
+    "x": 576,
+    "y": 776,
+    "w": 169,
+    "h": 225
+   }
+  },
+  "shot": "design/shots/hud/scene-tablet-768.webp"
+ },
+ {
+  "breakpoint": "tablet-768",
+  "w": 768,
+  "h": 1024,
+  "mode": "scene-tl",
+  "commandFont": 82,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 146.25,
+    "h": 78.015625
+   },
+   "statusRight": {
+    "x": 555,
+    "y": 23,
+    "w": 189.53125,
+    "h": 78.015625
+   },
+   "command": {
+    "x": 200,
+    "y": 114,
+    "w": 367.171875,
+    "h": 105.765625,
+    "font": 82
+   },
+   "reason": {
+    "x": 158,
+    "y": 933,
+    "w": 451.03125,
+    "h": 67.859375
+   },
+   "pip": {
+    "x": 23,
+    "y": 114,
+    "w": 169,
+    "h": 225
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-tablet-768.webp"
+ },
+ {
+  "breakpoint": "tablet-768",
+  "w": 768,
+  "h": 1024,
+  "mode": "scene-de",
+  "commandFont": 82,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 146.25,
+    "h": 78.015625
+   },
+   "statusRight": {
+    "x": 555,
+    "y": 23,
+    "w": 189.53125,
+    "h": 78.015625
+   },
+   "command": {
+    "x": 79,
+    "y": 114,
+    "w": 610.09375,
+    "h": 105.765625,
+    "font": 82
+   },
+   "reason": {
+    "x": 204,
+    "y": 900,
+    "w": 541,
+    "h": 100.390625
+   },
+   "pip": {
+    "x": 23,
+    "y": 776,
+    "w": 169,
+    "h": 225
+   }
+  },
+  "shot": "design/shots/hud/scene-de-tablet-768.webp"
+ },
+ {
+  "breakpoint": "tablet-768",
+  "w": 768,
+  "h": 1024,
+  "mode": "live-friend",
+  "commandFont": 82,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 146.25,
+    "h": 78.015625
+   },
+   "statusRight": {
+    "x": 555,
+    "y": 23,
+    "w": 189.53125,
+    "h": 78.015625
+   },
+   "command": {
+    "x": 200,
+    "y": 114,
+    "w": 367.171875,
+    "h": 105.765625,
+    "font": 82
+   },
+   "reason": {
+    "x": 158,
+    "y": 662,
+    "w": 451.03125,
+    "h": 67.859375
+   },
+   "own": {
+    "x": 23,
+    "y": 839,
+    "w": 122,
+    "h": 162
+   },
+   "friend": {
+    "x": 551,
+    "y": 742,
+    "w": 194,
+    "h": 259
+   }
+  },
+  "shot": "design/shots/hud/live-friend-tablet-768.webp"
+ },
+ {
+  "breakpoint": "tablet-768",
+  "w": 768,
+  "h": 1024,
+  "mode": "live-ghost",
+  "commandFont": 82,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 146.25,
+    "h": 78.015625
+   },
+   "statusRight": {
+    "x": 555,
+    "y": 23,
+    "w": 189.53125,
+    "h": 78.015625
+   },
+   "command": {
+    "x": 200,
+    "y": 114,
+    "w": 367.171875,
+    "h": 105.765625,
+    "font": 82
+   },
+   "reason": {
+    "x": 158,
+    "y": 662,
+    "w": 451.03125,
+    "h": 67.859375
+   },
+   "own": {
+    "x": 23,
+    "y": 839,
+    "w": 122,
+    "h": 162
+   },
+   "friend": {
+    "x": 551,
+    "y": 742,
+    "w": 194,
+    "h": 259
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-tablet-768.webp"
+ },
+ {
+  "breakpoint": "tablet-768",
+  "w": 768,
+  "h": 1024,
+  "mode": "mirror",
+  "commandFont": 82,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 146.25,
+    "h": 78.015625
+   },
+   "statusRight": {
+    "x": 555,
+    "y": 23,
+    "w": 189.53125,
+    "h": 78.015625
+   },
+   "command": {
+    "x": 126,
+    "y": 114,
+    "w": 515.375,
+    "h": 105.765625,
+    "font": 82
+   },
+   "reason": {
+    "x": 195,
+    "y": 933,
+    "w": 378.4375,
+    "h": 67.859375
+   }
+  },
+  "shot": "design/shots/hud/mirror-tablet-768.webp"
+ },
+ {
+  "breakpoint": "tablet-768",
+  "w": 768,
+  "h": 1024,
+  "mode": "mirror-tr",
+  "commandFont": 82,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 146.25,
+    "h": 78.015625
+   },
+   "statusRight": {
+    "x": 555,
+    "y": 23,
+    "w": 189.53125,
+    "h": 78.015625
+   },
+   "command": {
+    "x": 197,
+    "y": 114,
+    "w": 374.640625,
+    "h": 105.765625,
+    "font": 82
+   },
+   "reason": {
+    "x": 207,
+    "y": 933,
+    "w": 354.171875,
+    "h": 67.859375
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-tablet-768.webp"
+ },
+ {
+  "breakpoint": "tablet-land-1024",
+  "w": 1024,
+  "h": 768,
+  "mode": "scene",
+  "commandFont": 62,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 108.828125,
+    "h": 58.4375
+   },
+   "statusRight": {
+    "x": 859,
+    "y": 23,
+    "w": 141.0625,
+    "h": 58.4375
+   },
+   "command": {
+    "x": 357,
+    "y": 23,
+    "w": 277.609375,
+    "h": 79.96875,
+    "font": 62
+   },
+   "reason": {
+    "x": 216,
+    "y": 694,
+    "w": 334.65625,
+    "h": 50.34375
+   },
+   "pip": {
+    "x": 755,
+    "y": 561,
+    "w": 246,
+    "h": 184
+   }
+  },
+  "shot": "design/shots/hud/scene-tablet-land-1024.webp"
+ },
+ {
+  "breakpoint": "tablet-land-1024",
+  "w": 1024,
+  "h": 768,
+  "mode": "scene-tl",
+  "commandFont": 62,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 108.828125,
+    "h": 58.4375
+   },
+   "statusRight": {
+    "x": 859,
+    "y": 23,
+    "w": 141.0625,
+    "h": 58.4375
+   },
+   "command": {
+    "x": 357,
+    "y": 23,
+    "w": 277.609375,
+    "h": 79.96875,
+    "font": 62
+   },
+   "reason": {
+    "x": 345,
+    "y": 694,
+    "w": 334.65625,
+    "h": 50.34375
+   },
+   "pip": {
+    "x": 23,
+    "y": 94,
+    "w": 246,
+    "h": 184
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-tablet-land-1024.webp"
+ },
+ {
+  "breakpoint": "tablet-land-1024",
+  "w": 1024,
+  "h": 768,
+  "mode": "scene-de",
+  "commandFont": 62,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 108.828125,
+    "h": 58.4375
+   },
+   "statusRight": {
+    "x": 859,
+    "y": 23,
+    "w": 141.0625,
+    "h": 58.4375
+   },
+   "command": {
+    "x": 265,
+    "y": 23,
+    "w": 461.28125,
+    "h": 79.96875,
+    "font": 62
+   },
+   "reason": {
+    "x": 434,
+    "y": 694,
+    "w": 414.28125,
+    "h": 50.34375
+   },
+   "pip": {
+    "x": 23,
+    "y": 561,
+    "w": 246,
+    "h": 184
+   }
+  },
+  "shot": "design/shots/hud/scene-de-tablet-land-1024.webp"
+ },
+ {
+  "breakpoint": "tablet-land-1024",
+  "w": 1024,
+  "h": 768,
+  "mode": "live-friend",
+  "commandFont": 62,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 108.828125,
+    "h": 58.4375
+   },
+   "statusRight": {
+    "x": 859,
+    "y": 23,
+    "w": 141.0625,
+    "h": 58.4375
+   },
+   "command": {
+    "x": 357,
+    "y": 23,
+    "w": 277.609375,
+    "h": 79.96875,
+    "font": 62
+   },
+   "reason": {
+    "x": 345,
+    "y": 470,
+    "w": 334.65625,
+    "h": 50.34375
+   },
+   "own": {
+    "x": 23,
+    "y": 613,
+    "w": 177,
+    "h": 132
+   },
+   "friend": {
+    "x": 718,
+    "y": 533,
+    "w": 283,
+    "h": 212
+   }
+  },
+  "shot": "design/shots/hud/live-friend-tablet-land-1024.webp"
+ },
+ {
+  "breakpoint": "tablet-land-1024",
+  "w": 1024,
+  "h": 768,
+  "mode": "live-ghost",
+  "commandFont": 62,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 108.828125,
+    "h": 58.4375
+   },
+   "statusRight": {
+    "x": 859,
+    "y": 23,
+    "w": 141.0625,
+    "h": 58.4375
+   },
+   "command": {
+    "x": 357,
+    "y": 23,
+    "w": 277.609375,
+    "h": 79.96875,
+    "font": 62
+   },
+   "reason": {
+    "x": 345,
+    "y": 470,
+    "w": 334.65625,
+    "h": 50.34375
+   },
+   "own": {
+    "x": 23,
+    "y": 613,
+    "w": 177,
+    "h": 132
+   },
+   "friend": {
+    "x": 718,
+    "y": 533,
+    "w": 283,
+    "h": 212
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-tablet-land-1024.webp"
+ },
+ {
+  "breakpoint": "tablet-land-1024",
+  "w": 1024,
+  "h": 768,
+  "mode": "mirror",
+  "commandFont": 62,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 108.828125,
+    "h": 58.4375
+   },
+   "statusRight": {
+    "x": 859,
+    "y": 23,
+    "w": 141.0625,
+    "h": 58.4375
+   },
+   "command": {
+    "x": 301,
+    "y": 23,
+    "w": 389.671875,
+    "h": 79.96875,
+    "font": 62
+   },
+   "reason": {
+    "x": 372,
+    "y": 694,
+    "w": 280.78125,
+    "h": 50.34375
+   }
+  },
+  "shot": "design/shots/hud/mirror-tablet-land-1024.webp"
+ },
+ {
+  "breakpoint": "tablet-land-1024",
+  "w": 1024,
+  "h": 768,
+  "mode": "mirror-tr",
+  "commandFont": 62,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 23,
+    "y": 23,
+    "w": 108.828125,
+    "h": 58.4375
+   },
+   "statusRight": {
+    "x": 859,
+    "y": 23,
+    "w": 141.0625,
+    "h": 58.4375
+   },
+   "command": {
+    "x": 354,
+    "y": 23,
+    "w": 283.25,
+    "h": 79.96875,
+    "font": 62
+   },
+   "reason": {
+    "x": 381,
+    "y": 694,
+    "w": 262.78125,
+    "h": 50.34375
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-tablet-land-1024.webp"
+ },
+ {
+  "breakpoint": "tablet-land-1024",
+  "w": 1024,
+  "h": 768,
+  "mode": "duo",
+  "commandFont": 62,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusP1": {
+    "x": 23,
+    "y": 23,
+    "w": 157,
+    "h": 58.4375
+   },
+   "statusP2": {
+    "x": 842,
+    "y": 23,
+    "w": 158.546875,
+    "h": 58.4375
+   },
+   "timer": {
+    "x": 443,
+    "y": 23,
+    "w": 137.359375,
+    "h": 58.4375
+   },
+   "command": {
+    "x": 373,
+    "y": 94,
+    "w": 277.609375,
+    "h": 79.96875,
+    "font": 62
+   },
+   "reasonP1": {
+    "x": 23,
+    "y": 513,
+    "w": 334.65625,
+    "h": 50.34375
+   },
+   "reasonP2": {
+    "x": 803,
+    "y": 694,
+    "w": 197.796875,
+    "h": 50.34375
+   },
+   "pip": {
+    "x": 362,
+    "y": 576,
+    "w": 300,
+    "h": 169
+   }
+  },
+  "shot": "design/shots/hud/duo-tablet-land-1024.webp"
+ },
+ {
+  "breakpoint": "tablet-land-1024",
+  "w": 1024,
+  "h": 768,
+  "mode": "duo-away",
+  "commandFont": 62,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusP1": {
+    "x": 23,
+    "y": 23,
+    "w": 157,
+    "h": 58.4375
+   },
+   "statusP2": {
+    "x": 842,
+    "y": 23,
+    "w": 158.546875,
+    "h": 58.4375
+   },
+   "timer": {
+    "x": 443,
+    "y": 23,
+    "w": 137.359375,
+    "h": 58.4375
+   },
+   "command": {
+    "x": 352,
+    "y": 94,
+    "w": 320.875,
+    "h": 79.96875,
+    "font": 62
+   },
+   "reasonP1": {
+    "x": 23,
+    "y": 694,
+    "w": 284.8125,
+    "h": 50.34375
+   },
+   "reasonP2": {
+    "x": 792,
+    "y": 694,
+    "w": 208.375,
+    "h": 50.34375
+   },
+   "away": {
+    "x": 555,
+    "y": 208,
+    "w": 410,
+    "h": 333.953125
+   },
+   "pip": {
+    "x": 362,
+    "y": 576,
+    "w": 300,
+    "h": 169
+   }
+  },
+  "shot": "design/shots/hud/duo-away-tablet-land-1024.webp"
+ },
+ {
+  "breakpoint": "laptop-1280",
+  "w": 1280,
+  "h": 800,
+  "mode": "scene",
+  "commandFont": 64,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 24,
+    "y": 24,
+    "w": 115.65625,
+    "h": 62.296875
+   },
+   "statusRight": {
+    "x": 1106,
+    "y": 24,
+    "w": 149.875,
+    "h": 62.296875
+   },
+   "command": {
+    "x": 480,
+    "y": 24,
+    "w": 286.578125,
+    "h": 82.546875,
+    "font": 64
+   },
+   "reason": {
+    "x": 331,
+    "y": 723,
+    "w": 349.203125,
+    "h": 52.53125
+   },
+   "pip": {
+    "x": 1000,
+    "y": 584,
+    "w": 256,
+    "h": 192
+   }
+  },
+  "shot": "design/shots/hud/scene-laptop-1280.webp"
+ },
+ {
+  "breakpoint": "laptop-1280",
+  "w": 1280,
+  "h": 800,
+  "mode": "scene-tl",
+  "commandFont": 64,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 24,
+    "y": 24,
+    "w": 115.65625,
+    "h": 62.296875
+   },
+   "statusRight": {
+    "x": 1106,
+    "y": 24,
+    "w": 149.875,
+    "h": 62.296875
+   },
+   "command": {
+    "x": 480,
+    "y": 24,
+    "w": 286.578125,
+    "h": 82.546875,
+    "font": 64
+   },
+   "reason": {
+    "x": 465,
+    "y": 723,
+    "w": 349.203125,
+    "h": 52.53125
+   },
+   "pip": {
+    "x": 24,
+    "y": 99,
+    "w": 256,
+    "h": 192
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-laptop-1280.webp"
+ },
+ {
+  "breakpoint": "laptop-1280",
+  "w": 1280,
+  "h": 800,
+  "mode": "scene-de",
+  "commandFont": 64,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 24,
+    "y": 24,
+    "w": 115.65625,
+    "h": 62.296875
+   },
+   "statusRight": {
+    "x": 1106,
+    "y": 24,
+    "w": 149.875,
+    "h": 62.296875
+   },
+   "command": {
+    "x": 385,
+    "y": 24,
+    "w": 476.171875,
+    "h": 82.546875,
+    "font": 64
+   },
+   "reason": {
+    "x": 558,
+    "y": 723,
+    "w": 432.296875,
+    "h": 52.53125
+   },
+   "pip": {
+    "x": 24,
+    "y": 584,
+    "w": 256,
+    "h": 192
+   }
+  },
+  "shot": "design/shots/hud/scene-de-laptop-1280.webp"
+ },
+ {
+  "breakpoint": "laptop-1280",
+  "w": 1280,
+  "h": 800,
+  "mode": "live-friend",
+  "commandFont": 64,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 24,
+    "y": 24,
+    "w": 115.65625,
+    "h": 62.296875
+   },
+   "statusRight": {
+    "x": 1106,
+    "y": 24,
+    "w": 149.875,
+    "h": 62.296875
+   },
+   "command": {
+    "x": 480,
+    "y": 24,
+    "w": 286.578125,
+    "h": 82.546875,
+    "font": 64
+   },
+   "reason": {
+    "x": 410,
+    "y": 723,
+    "w": 349.203125,
+    "h": 52.53125
+   },
+   "own": {
+    "x": 24,
+    "y": 638,
+    "w": 184,
+    "h": 138
+   },
+   "friend": {
+    "x": 962,
+    "y": 555,
+    "w": 294,
+    "h": 221
+   }
+  },
+  "shot": "design/shots/hud/live-friend-laptop-1280.webp"
+ },
+ {
+  "breakpoint": "laptop-1280",
+  "w": 1280,
+  "h": 800,
+  "mode": "live-ghost",
+  "commandFont": 64,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 24,
+    "y": 24,
+    "w": 115.65625,
+    "h": 62.296875
+   },
+   "statusRight": {
+    "x": 1106,
+    "y": 24,
+    "w": 149.875,
+    "h": 62.296875
+   },
+   "command": {
+    "x": 480,
+    "y": 24,
+    "w": 286.578125,
+    "h": 82.546875,
+    "font": 64
+   },
+   "reason": {
+    "x": 410,
+    "y": 723,
+    "w": 349.203125,
+    "h": 52.53125
+   },
+   "own": {
+    "x": 24,
+    "y": 638,
+    "w": 184,
+    "h": 138
+   },
+   "friend": {
+    "x": 962,
+    "y": 555,
+    "w": 294,
+    "h": 221
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-laptop-1280.webp"
+ },
+ {
+  "breakpoint": "laptop-1280",
+  "w": 1280,
+  "h": 800,
+  "mode": "mirror",
+  "commandFont": 64,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 24,
+    "y": 24,
+    "w": 115.65625,
+    "h": 62.296875
+   },
+   "statusRight": {
+    "x": 1106,
+    "y": 24,
+    "w": 149.875,
+    "h": 62.296875
+   },
+   "command": {
+    "x": 422,
+    "y": 24,
+    "w": 402.25,
+    "h": 82.546875,
+    "font": 64
+   },
+   "reason": {
+    "x": 494,
+    "y": 723,
+    "w": 293,
+    "h": 52.53125
+   }
+  },
+  "shot": "design/shots/hud/mirror-laptop-1280.webp"
+ },
+ {
+  "breakpoint": "laptop-1280",
+  "w": 1280,
+  "h": 800,
+  "mode": "mirror-tr",
+  "commandFont": 64,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 24,
+    "y": 24,
+    "w": 115.65625,
+    "h": 62.296875
+   },
+   "statusRight": {
+    "x": 1106,
+    "y": 24,
+    "w": 149.875,
+    "h": 62.296875
+   },
+   "command": {
+    "x": 477,
+    "y": 24,
+    "w": 292.40625,
+    "h": 82.546875,
+    "font": 64
+   },
+   "reason": {
+    "x": 503,
+    "y": 723,
+    "w": 274.203125,
+    "h": 52.53125
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-laptop-1280.webp"
+ },
+ {
+  "breakpoint": "laptop-1280",
+  "w": 1280,
+  "h": 800,
+  "mode": "duo",
+  "commandFont": 64,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusP1": {
+    "x": 24,
+    "y": 24,
+    "w": 167.25,
+    "h": 62.296875
+   },
+   "statusP2": {
+    "x": 1087,
+    "y": 24,
+    "w": 168.90625,
+    "h": 62.296875
+   },
+   "timer": {
+    "x": 567,
+    "y": 24,
+    "w": 145.9375,
+    "h": 62.296875
+   },
+   "command": {
+    "x": 497,
+    "y": 99,
+    "w": 286.578125,
+    "h": 82.546875,
+    "font": 64
+   },
+   "reasonP1": {
+    "x": 24,
+    "y": 723,
+    "w": 349.203125,
+    "h": 52.53125
+   },
+   "reasonP2": {
+    "x": 1049,
+    "y": 723,
+    "w": 206.390625,
+    "h": 52.53125
+   },
+   "pip": {
+    "x": 484,
+    "y": 600,
+    "w": 313,
+    "h": 176
+   }
+  },
+  "shot": "design/shots/hud/duo-laptop-1280.webp"
+ },
+ {
+  "breakpoint": "laptop-1280",
+  "w": 1280,
+  "h": 800,
+  "mode": "duo-away",
+  "commandFont": 64,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusP1": {
+    "x": 24,
+    "y": 24,
+    "w": 167.25,
+    "h": 62.296875
+   },
+   "statusP2": {
+    "x": 1087,
+    "y": 24,
+    "w": 168.90625,
+    "h": 62.296875
+   },
+   "timer": {
+    "x": 567,
+    "y": 24,
+    "w": 145.9375,
+    "h": 62.296875
+   },
+   "command": {
+    "x": 474,
+    "y": 99,
+    "w": 331.25,
+    "h": 82.546875,
+    "font": 64
+   },
+   "reasonP1": {
+    "x": 24,
+    "y": 723,
+    "w": 297.203125,
+    "h": 52.53125
+   },
+   "reasonP2": {
+    "x": 1038,
+    "y": 723,
+    "w": 217.4375,
+    "h": 52.53125
+   },
+   "away": {
+    "x": 695,
+    "y": 255,
+    "w": 512,
+    "h": 272.9375
+   },
+   "pip": {
+    "x": 484,
+    "y": 600,
+    "w": 313,
+    "h": 176
+   }
+  },
+  "shot": "design/shots/hud/duo-away-laptop-1280.webp"
+ },
+ {
+  "breakpoint": "laptop-1440",
+  "w": 1440,
+  "h": 900,
+  "mode": "scene",
+  "commandFont": 72,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 27,
+    "y": 27,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 1245,
+    "y": 27,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 540,
+    "y": 27,
+    "w": 322.390625,
+    "h": 92.859375,
+    "font": 72
+   },
+   "reason": {
+    "x": 373,
+    "y": 813,
+    "w": 392.828125,
+    "h": 59.109375
+   },
+   "pip": {
+    "x": 1125,
+    "y": 657,
+    "w": 288,
+    "h": 216
+   }
+  },
+  "shot": "design/shots/hud/scene-laptop-1440.webp"
+ },
+ {
+  "breakpoint": "laptop-1440",
+  "w": 1440,
+  "h": 900,
+  "mode": "scene-tl",
+  "commandFont": 72,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 27,
+    "y": 27,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 1245,
+    "y": 27,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 540,
+    "y": 27,
+    "w": 322.390625,
+    "h": 92.859375,
+    "font": 72
+   },
+   "reason": {
+    "x": 524,
+    "y": 813,
+    "w": 392.828125,
+    "h": 59.109375
+   },
+   "pip": {
+    "x": 27,
+    "y": 110,
+    "w": 288,
+    "h": 216
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-laptop-1440.webp"
+ },
+ {
+  "breakpoint": "laptop-1440",
+  "w": 1440,
+  "h": 900,
+  "mode": "scene-de",
+  "commandFont": 72,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 27,
+    "y": 27,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 1245,
+    "y": 27,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 433,
+    "y": 27,
+    "w": 535.6875,
+    "h": 92.859375,
+    "font": 72
+   },
+   "reason": {
+    "x": 628,
+    "y": 813,
+    "w": 486.3125,
+    "h": 59.109375
+   },
+   "pip": {
+    "x": 27,
+    "y": 657,
+    "w": 288,
+    "h": 216
+   }
+  },
+  "shot": "design/shots/hud/scene-de-laptop-1440.webp"
+ },
+ {
+  "breakpoint": "laptop-1440",
+  "w": 1440,
+  "h": 900,
+  "mode": "live-friend",
+  "commandFont": 72,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 27,
+    "y": 27,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 1245,
+    "y": 27,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 540,
+    "y": 27,
+    "w": 322.390625,
+    "h": 92.859375,
+    "font": 72
+   },
+   "reason": {
+    "x": 462,
+    "y": 813,
+    "w": 392.828125,
+    "h": 59.109375
+   },
+   "own": {
+    "x": 27,
+    "y": 717,
+    "w": 207,
+    "h": 156
+   },
+   "friend": {
+    "x": 1082,
+    "y": 625,
+    "w": 331,
+    "h": 248
+   }
+  },
+  "shot": "design/shots/hud/live-friend-laptop-1440.webp"
+ },
+ {
+  "breakpoint": "laptop-1440",
+  "w": 1440,
+  "h": 900,
+  "mode": "live-ghost",
+  "commandFont": 72,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 27,
+    "y": 27,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 1245,
+    "y": 27,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 540,
+    "y": 27,
+    "w": 322.390625,
+    "h": 92.859375,
+    "font": 72
+   },
+   "reason": {
+    "x": 462,
+    "y": 813,
+    "w": 392.828125,
+    "h": 59.109375
+   },
+   "own": {
+    "x": 27,
+    "y": 717,
+    "w": 207,
+    "h": 156
+   },
+   "friend": {
+    "x": 1082,
+    "y": 625,
+    "w": 331,
+    "h": 248
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-laptop-1440.webp"
+ },
+ {
+  "breakpoint": "laptop-1440",
+  "w": 1440,
+  "h": 900,
+  "mode": "mirror",
+  "commandFont": 72,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 27,
+    "y": 27,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 1245,
+    "y": 27,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 475,
+    "y": 27,
+    "w": 452.53125,
+    "h": 92.859375,
+    "font": 72
+   },
+   "reason": {
+    "x": 555,
+    "y": 813,
+    "w": 329.609375,
+    "h": 59.109375
+   }
+  },
+  "shot": "design/shots/hud/mirror-laptop-1440.webp"
+ },
+ {
+  "breakpoint": "laptop-1440",
+  "w": 1440,
+  "h": 900,
+  "mode": "mirror-tr",
+  "commandFont": 72,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 27,
+    "y": 27,
+    "w": 129.25,
+    "h": 68.921875
+   },
+   "statusRight": {
+    "x": 1245,
+    "y": 27,
+    "w": 167.484375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 537,
+    "y": 27,
+    "w": 328.9375,
+    "h": 92.859375,
+    "font": 72
+   },
+   "reason": {
+    "x": 566,
+    "y": 813,
+    "w": 308.46875,
+    "h": 59.109375
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-laptop-1440.webp"
+ },
+ {
+  "breakpoint": "laptop-1440",
+  "w": 1440,
+  "h": 900,
+  "mode": "duo",
+  "commandFont": 72,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusP1": {
+    "x": 27,
+    "y": 27,
+    "w": 185.328125,
+    "h": 68.921875
+   },
+   "statusP2": {
+    "x": 1225,
+    "y": 27,
+    "w": 187.171875,
+    "h": 68.921875
+   },
+   "timer": {
+    "x": 638,
+    "y": 27,
+    "w": 163.09375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 559,
+    "y": 110,
+    "w": 322.390625,
+    "h": 92.859375,
+    "font": 72
+   },
+   "reasonP1": {
+    "x": 27,
+    "y": 813,
+    "w": 392.828125,
+    "h": 59.109375
+   },
+   "reasonP2": {
+    "x": 1180,
+    "y": 813,
+    "w": 232.171875,
+    "h": 59.109375
+   },
+   "pip": {
+    "x": 544,
+    "y": 675,
+    "w": 352,
+    "h": 198
+   }
+  },
+  "shot": "design/shots/hud/duo-laptop-1440.webp"
+ },
+ {
+  "breakpoint": "laptop-1440",
+  "w": 1440,
+  "h": 900,
+  "mode": "duo-away",
+  "commandFont": 72,
+  "commandPct": 8,
+  "problems": [],
+  "rects": {
+   "statusP1": {
+    "x": 27,
+    "y": 27,
+    "w": 185.328125,
+    "h": 68.921875
+   },
+   "statusP2": {
+    "x": 1225,
+    "y": 27,
+    "w": 187.171875,
+    "h": 68.921875
+   },
+   "timer": {
+    "x": 638,
+    "y": 27,
+    "w": 163.09375,
+    "h": 68.921875
+   },
+   "command": {
+    "x": 534,
+    "y": 110,
+    "w": 372.640625,
+    "h": 92.859375,
+    "font": 72
+   },
+   "reasonP1": {
+    "x": 27,
+    "y": 813,
+    "w": 334.34375,
+    "h": 59.109375
+   },
+   "reasonP2": {
+    "x": 1168,
+    "y": 813,
+    "w": 244.59375,
+    "h": 59.109375
+   },
+   "away": {
+    "x": 782,
+    "y": 286,
+    "w": 576,
+    "h": 305.625
+   },
+   "pip": {
+    "x": 544,
+    "y": 675,
+    "w": 352,
+    "h": 198
+   }
+  },
+  "shot": "design/shots/hud/duo-away-laptop-1440.webp"
+ },
+ {
+  "breakpoint": "tv-1920",
+  "w": 1920,
+  "h": 1080,
+  "mode": "scene",
+  "commandFont": 87,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 128,
+    "y": 86,
+    "w": 153.046875,
+    "h": 81.890625
+   },
+   "statusRight": {
+    "x": 1593,
+    "y": 86,
+    "w": 198.359375,
+    "h": 81.890625
+   },
+   "command": {
+    "x": 743,
+    "y": 86,
+    "w": 389.546875,
+    "h": 112.21875,
+    "font": 87
+   },
+   "reason": {
+    "x": 573,
+    "y": 923,
+    "w": 465.578125,
+    "h": 70.0625
+   },
+   "pip": {
+    "x": 1499,
+    "y": 774,
+    "w": 293,
+    "h": 220
+   }
+  },
+  "shot": "design/shots/hud/scene-tv-1920.webp"
+ },
+ {
+  "breakpoint": "tv-1920",
+  "w": 1920,
+  "h": 1080,
+  "mode": "scene-tl",
+  "commandFont": 87,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 128,
+    "y": 86,
+    "w": 153.046875,
+    "h": 81.890625
+   },
+   "statusRight": {
+    "x": 1593,
+    "y": 86,
+    "w": 198.359375,
+    "h": 81.890625
+   },
+   "command": {
+    "x": 743,
+    "y": 86,
+    "w": 389.546875,
+    "h": 112.21875,
+    "font": 87
+   },
+   "reason": {
+    "x": 727,
+    "y": 923,
+    "w": 465.578125,
+    "h": 70.0625
+   },
+   "pip": {
+    "x": 128,
+    "y": 184,
+    "w": 293,
+    "h": 220
+   }
+  },
+  "shot": "design/shots/hud/scene-tl-tv-1920.webp"
+ },
+ {
+  "breakpoint": "tv-1920",
+  "w": 1920,
+  "h": 1080,
+  "mode": "scene-de",
+  "commandFont": 87,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 128,
+    "y": 86,
+    "w": 153.046875,
+    "h": 81.890625
+   },
+   "statusRight": {
+    "x": 1593,
+    "y": 86,
+    "w": 198.359375,
+    "h": 81.890625
+   },
+   "command": {
+    "x": 614,
+    "y": 86,
+    "w": 647.28125,
+    "h": 112.21875,
+    "font": 87
+   },
+   "reason": {
+    "x": 826,
+    "y": 923,
+    "w": 576.375,
+    "h": 70.0625
+   },
+   "pip": {
+    "x": 128,
+    "y": 774,
+    "w": 293,
+    "h": 220
+   }
+  },
+  "shot": "design/shots/hud/scene-de-tv-1920.webp"
+ },
+ {
+  "breakpoint": "tv-1920",
+  "w": 1920,
+  "h": 1080,
+  "mode": "live-friend",
+  "commandFont": 87,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 128,
+    "y": 86,
+    "w": 153.046875,
+    "h": 81.890625
+   },
+   "statusRight": {
+    "x": 1593,
+    "y": 86,
+    "w": 198.359375,
+    "h": 81.890625
+   },
+   "command": {
+    "x": 743,
+    "y": 86,
+    "w": 389.546875,
+    "h": 112.21875,
+    "font": 87
+   },
+   "reason": {
+    "x": 664,
+    "y": 923,
+    "w": 465.578125,
+    "h": 70.0625
+   },
+   "own": {
+    "x": 128,
+    "y": 836,
+    "w": 211,
+    "h": 158
+   },
+   "friend": {
+    "x": 1455,
+    "y": 741,
+    "w": 337,
+    "h": 253
+   }
+  },
+  "shot": "design/shots/hud/live-friend-tv-1920.webp"
+ },
+ {
+  "breakpoint": "tv-1920",
+  "w": 1920,
+  "h": 1080,
+  "mode": "live-ghost",
+  "commandFont": 87,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 128,
+    "y": 86,
+    "w": 153.046875,
+    "h": 81.890625
+   },
+   "statusRight": {
+    "x": 1593,
+    "y": 86,
+    "w": 198.359375,
+    "h": 81.890625
+   },
+   "command": {
+    "x": 743,
+    "y": 86,
+    "w": 389.546875,
+    "h": 112.21875,
+    "font": 87
+   },
+   "reason": {
+    "x": 664,
+    "y": 923,
+    "w": 465.578125,
+    "h": 70.0625
+   },
+   "own": {
+    "x": 128,
+    "y": 836,
+    "w": 211,
+    "h": 158
+   },
+   "friend": {
+    "x": 1455,
+    "y": 741,
+    "w": 337,
+    "h": 253
+   }
+  },
+  "shot": "design/shots/hud/live-ghost-tv-1920.webp"
+ },
+ {
+  "breakpoint": "tv-1920",
+  "w": 1920,
+  "h": 1080,
+  "mode": "mirror",
+  "commandFont": 87,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 128,
+    "y": 86,
+    "w": 153.046875,
+    "h": 81.890625
+   },
+   "statusRight": {
+    "x": 1593,
+    "y": 86,
+    "w": 198.359375,
+    "h": 81.890625
+   },
+   "command": {
+    "x": 664,
+    "y": 86,
+    "w": 546.796875,
+    "h": 112.21875,
+    "font": 87
+   },
+   "reason": {
+    "x": 1496,
+    "y": 890,
+    "w": 296,
+    "h": 103.65625
+   }
+  },
+  "shot": "design/shots/hud/mirror-tv-1920.webp"
+ },
+ {
+  "breakpoint": "tv-1920",
+  "w": 1920,
+  "h": 1080,
+  "mode": "mirror-tr",
+  "commandFont": 87,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusLeft": {
+    "x": 128,
+    "y": 86,
+    "w": 153.046875,
+    "h": 81.890625
+   },
+   "statusRight": {
+    "x": 1593,
+    "y": 86,
+    "w": 198.359375,
+    "h": 81.890625
+   },
+   "command": {
+    "x": 739,
+    "y": 86,
+    "w": 397.46875,
+    "h": 112.21875,
+    "font": 87
+   },
+   "reason": {
+    "x": 1496,
+    "y": 890,
+    "w": 296,
+    "h": 103.65625
+   }
+  },
+  "shot": "design/shots/hud/mirror-tr-tv-1920.webp"
+ },
+ {
+  "breakpoint": "tv-1920",
+  "w": 1920,
+  "h": 1080,
+  "mode": "duo",
+  "commandFont": 87,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusP1": {
+    "x": 128,
+    "y": 86,
+    "w": 220.015625,
+    "h": 81.890625
+   },
+   "statusP2": {
+    "x": 1569,
+    "y": 86,
+    "w": 222.203125,
+    "h": 81.890625
+   },
+   "timer": {
+    "x": 863,
+    "y": 86,
+    "w": 193.140625,
+    "h": 81.890625
+   },
+   "command": {
+    "x": 765,
+    "y": 184,
+    "w": 389.546875,
+    "h": 112.21875,
+    "font": 87
+   },
+   "reasonP1": {
+    "x": 128,
+    "y": 923,
+    "w": 465.578125,
+    "h": 70.0625
+   },
+   "reasonP2": {
+    "x": 1516,
+    "y": 923,
+    "w": 275.171875,
+    "h": 70.0625
+   },
+   "pip": {
+    "x": 749,
+    "y": 756,
+    "w": 422,
+    "h": 238
+   }
+  },
+  "shot": "design/shots/hud/duo-tv-1920.webp"
+ },
+ {
+  "breakpoint": "tv-1920",
+  "w": 1920,
+  "h": 1080,
+  "mode": "duo-away",
+  "commandFont": 87,
+  "commandPct": 8.1,
+  "problems": [],
+  "rects": {
+   "statusP1": {
+    "x": 128,
+    "y": 86,
+    "w": 220.015625,
+    "h": 81.890625
+   },
+   "statusP2": {
+    "x": 1569,
+    "y": 86,
+    "w": 222.203125,
+    "h": 81.890625
+   },
+   "timer": {
+    "x": 863,
+    "y": 86,
+    "w": 193.140625,
+    "h": 81.890625
+   },
+   "command": {
+    "x": 735,
+    "y": 184,
+    "w": 450.28125,
+    "h": 112.21875,
+    "font": 87
+   },
+   "reasonP1": {
+    "x": 128,
+    "y": 923,
+    "w": 396.25,
+    "h": 70.0625
+   },
+   "reasonP2": {
+    "x": 1502,
+    "y": 923,
+    "w": 289.890625,
+    "h": 70.0625
+   },
+   "away": {
+    "x": 996,
+    "y": 341,
+    "w": 768,
+    "h": 371.125
+   },
+   "pip": {
+    "x": 749,
+    "y": 756,
+    "w": 422,
+    "h": 238
+   }
+  },
+  "shot": "design/shots/hud/duo-away-tv-1920.webp"
+ }
+]

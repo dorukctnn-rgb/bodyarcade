@@ -1,0 +1,18 @@
+[
+ {
+  "page": "play-graphics",
+  "breakpoint": "phone-390",
+  "ms": 3342,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/store/play-graphics-phone-390.webp"
+ },
+ {
+  "page": "play-graphics",
+  "breakpoint": "laptop-1440",
+  "ms": 4130,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/store/play-graphics-laptop-1440.webp"
+ }
+]

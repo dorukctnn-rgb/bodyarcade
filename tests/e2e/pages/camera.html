@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Camera harness</title></head>
+<body>
+<p>Camera service harness for the e2e tests (Chromium fake camera).</p>
+<script type="module">
+  import { createCameraService, isAbortError } from '/packages/core/camera/camera.ts';
+  window.harness = { createCameraService, isAbortError };
+  window.harnessReady = true;
+</script>
+</body>
+</html>

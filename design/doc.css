@@ -1,0 +1,40 @@
+/* Reference pages in design/ (index, brand, art, store). Same tokens as the product. */
+@import url("ui-kit/kit.css");
+
+body { background: var(--ba-bg); }
+.doc { --g: max(clamp(16px, 4vw, 56px), env(safe-area-inset-left, 0px)); max-width: calc(1180px + 2 * var(--g)); margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 28px) var(--g) 72px; }
+.doc-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: clamp(24px, 4vw, 48px); }
+.doc-top img { height: 30px; width: auto; }
+.doc-top nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.doc-top nav a { height: 38px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 10px; font-weight: 700; font-size: var(--ba-text-sm); text-decoration: none; color: var(--ba-text-muted); }
+.doc-top nav a[aria-current="page"] { color: var(--ba-text); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.doc h1 { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(2.2rem, 1.4rem + 3.4vw, 4.2rem); letter-spacing: 0; line-height: 0.98; margin: 0; text-wrap: balance; max-width: 14em; }
+.doc .intro { font-size: var(--ba-text-lg); color: var(--ba-text-muted); line-height: 1.5; max-width: 40em; margin: 14px 0 0; }
+.doc h2 { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.2rem); letter-spacing: 0; line-height: 1.04; margin: clamp(40px, 6vw, 72px) 0 8px; }
+.doc h3 { font-family: var(--ba-font-display); font-weight: 800; font-size: 1.2rem; letter-spacing: 0; margin: 0 0 6px; }
+.doc p, .doc li { line-height: 1.55; }
+.doc .lede { color: var(--ba-text-muted); max-width: 44em; margin: 0 0 18px; }
+.doc code { font-size: 0.9em; background: var(--ba-surface-sunken); padding: 1px 6px; border-radius: 6px; }
+.doc-grid { display: grid; gap: clamp(12px, 2vw, 24px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.doc-card { background: var(--ba-surface); border-radius: var(--ba-radius-lg); padding: 16px; box-shadow: inset 0 0 0 1.5px var(--ba-border); min-width: 0; }
+.doc-card > img, .doc-card > .frame { width: 100%; height: auto; border-radius: 14px; display: block; background: var(--ba-surface-sunken); }
+.doc-card p { margin: 6px 0 0; color: var(--ba-text-muted); font-size: var(--ba-text-sm); }
+.doc-card .cap { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-top: 12px; }
+.doc-card .cap b { font-weight: 800; }
+.doc-card .cap span { color: var(--ba-text-muted); font-size: var(--ba-text-xs); font-weight: 700; white-space: nowrap; }
+.doc-rules { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; max-width: 52em; }
+.doc-rules li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; }
+.doc-rules li::before { content: ""; width: 14px; height: 4px; border-radius: 2px; background: var(--ba-accent); margin-top: 0.7em; }
+.doc-wide { overflow: hidden; border-radius: var(--ba-radius-lg); box-shadow: inset 0 0 0 1.5px var(--ba-border); background: var(--ba-surface); }
+.doc-wide img { width: 100%; height: auto; display: block; }
+.doc-swatches { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); }
+.doc-swatch { border-radius: var(--ba-radius-md); overflow: hidden; background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.doc-swatch i { display: block; height: 76px; }
+.doc-swatch div { padding: 10px 12px; font-size: var(--ba-text-sm); }
+.doc-swatch b { display: block; font-weight: 800; }
+.doc-swatch span { color: var(--ba-text-muted); font-size: var(--ba-text-xs); }
+.doc-links { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.doc-links a { display: grid; gap: 4px; padding: 14px 16px; border-radius: var(--ba-radius-md); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); text-decoration: none; color: var(--ba-text); }
+.doc-links a:hover { box-shadow: inset 0 0 0 2.5px var(--ba-text); }
+.doc-links b { font-weight: 800; }
+.doc-links span { color: var(--ba-text-muted); font-size: var(--ba-text-sm); line-height: 1.4; }

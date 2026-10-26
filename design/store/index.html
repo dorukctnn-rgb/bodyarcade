@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade store graphics</title>
+<meta name="description" content="Google Play listing graphics for BodyArcade in English and Turkish: icon, feature graphic, phone and tablet screenshots, the sizes used and the rules behind them.">
+<link rel="stylesheet" href="../doc.css">
+<style>
+  .shots { display: grid; gap: 14px; }
+  .shots.phone { grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); }
+  .shots.tablet { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .shots figure { margin: 0; }
+  .shots img { width: 100%; height: auto; border-radius: 14px; box-shadow: 0 0 0 1.5px var(--ba-border); display: block; }
+  .shots figcaption { margin-top: 8px; font-size: var(--ba-text-sm); color: var(--ba-text-muted); line-height: 1.4; }
+  .shots figcaption b { color: var(--ba-text); display: block; }
+  .icons { display: flex; flex-wrap: wrap; gap: 18px; align-items: end; }
+  .icons img { border-radius: 22%; }
+  .sizes { width: 100%; border-collapse: collapse; font-size: var(--ba-text-sm); }
+  .sizes th, .sizes td { text-align: left; padding: 8px 10px; border-bottom: 1.5px solid var(--ba-border); vertical-align: top; }
+  .sizes th { color: var(--ba-text-muted); font-weight: 700; }
+  .lang-h { margin: 22px 0 10px; font-size: var(--ba-text-md); }
+</style>
+</head>
+<body>
+<main class="doc">
+  <div class="doc-top"><a href="../index.html"><img src="../brand/logo.svg" alt="BodyArcade design"></a><nav aria-label="Design"><a href="../index.html">Index</a><a href="../brand/index.html">Brand</a><a href="../art/index.html">Art</a><a href="index.html" aria-current="page">Store</a></nav></div>
+  <h1>Google Play graphics</h1>
+  <p class="intro">Daylight and flat colour in a category that is dark, neon and loud. Every screen in every image is a capture of the real app, opened as the Android app, in the language of the image, at the real size of the device. Nothing is a mock-up and nothing is enlarged. Nothing has been uploaded yet.</p>
+
+  <h2>Feature graphic</h2>
+  <p class="lede">1024 x 500, 24-bit PNG. Headline and hero sit inside the middle 80 %, nothing important near the edges. The hero is the 3D court of the welcome tour. The night version is for promotions and dark placements.</p>
+  <h3 class="lang-h">English</h3>
+  <div class="doc-wide"><img src="export/en/feature-graphic.png" alt="Feature graphic: BodyArcade logo, Squat, jump, punch. The game moves when you do. A 3D player jumps on the court." width="1024" height="500"></div>
+  <h3 class="lang-h">Türkçe</h3>
+  <div class="doc-wide"><img src="export/tr/feature-graphic.png" alt="Öne çıkan görsel: BodyArcade logosu, Çömel, zıpla, yumruk at. Sen hareket edince oyun da hareket eder. Kortta zıplayan 3B oyuncu." width="1024" height="500"></div>
+  <div class="doc-wide" style="margin-top:14px;max-width:560px"><img src="export/en/feature-graphic-dark.png" alt="Feature graphic, night version" width="1024" height="500"></div>
+  <div class="doc-wide" style="margin-top:14px;max-width:560px"><img src="export/tr/feature-graphic-dark.png" alt="Öne çıkan görsel, gece sürümü" width="1024" height="500"></div>
+
+  <h2>Icon</h2>
+  <p class="lede">The flat mark ships as the icon: a person made of a stick and a ball, standing on the line. It reads at 48 px where a 3D render turns to mush, and it matches the favicon and the logo. 3D lives in the feature graphic and the screenshots.</p>
+  <div class="icons"><img src="../brand/png/play-icon-512.png" alt="App icon at 128 px" width="128" height="128"><img src="../brand/png/play-icon-512.png" alt="App icon at 64 px" width="64" height="64"><img src="../brand/png/play-icon-512.png" alt="App icon at 48 px" width="48" height="48"></div>
+  <div class="doc-wide" style="margin-top:14px"><img src="../brand/png/preview.png" alt="The adaptive icon under circle, squircle and rounded masks at 192 and 48 px, on light and dark" width="984" height="480"></div>
+
+  <h2>Phone screenshots</h2>
+  <p class="lede">1080 x 1920 (9:16), six in this order, one promise per image. The app screen is captured at 412 x 940 CSS px (a tall Android phone) and 2x pixels, and shown smaller than it was taken, whole screen and whole phone.</p>
+  <div id="phone"></div>
+
+  <h2>7-inch tablet screenshots</h2>
+  <p class="lede">1920 x 1080 (16:9, landscape). The app is captured at 960 x 600 CSS px and 2x pixels, a 7-inch tablet held sideways, and shown smaller than it was taken. The modes screen comes from Settings here, because the welcome step does not fit above its buttons at this height.</p>
+  <div id="tablet7"></div>
+
+  <h2>10-inch tablet screenshots</h2>
+  <p class="lede">2560 x 1440 (16:9, landscape). The app is captured at 1280 x 800 CSS px and 2x pixels, a 10-inch tablet held sideways. A picture may end a few pixels higher than that (see the rules below), so its tablet is a little less tall.</p>
+  <div id="tablet10"></div>
+
+  <h2>Sizes used, and the Play rules they follow</h2>
+  <p class="lede">From the Play Console help page on preview assets, read on 25 Oct 2026. Check the limits shown in the Console when the images are uploaded; it states them again next to each upload box.</p>
+  <table class="sizes">
+    <thead><tr><th>Asset</th><th>Used here</th><th>Play rule</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">App icon</th><td>512 x 512, 32-bit PNG</td><td>512 x 512, 32-bit PNG with alpha, up to 1024 KB. No ranking, price or category badges.</td></tr>
+      <tr><th scope="row">Feature graphic</th><td>1024 x 500, 24-bit PNG, no alpha</td><td>1024 x 500, JPEG or 24-bit PNG without alpha.</td></tr>
+      <tr><th scope="row">Phone screenshots</th><td>6 per language, 1080 x 1920 (9:16), 24-bit PNG, no alpha</td><td>JPEG or 24-bit PNG without alpha; each side 320 to 3840 px; the long side at most twice the short side; 2 to 8 per device type. A game is eligible for large-format recommendations with at least three 9:16 screenshots of 1080 x 1920 or more.</td></tr>
+      <tr><th scope="row">7-inch tablet</th><td>6 per language, 1920 x 1080 (16:9 landscape)</td><td>Each side 1080 to 7680 px; 16:9 for landscape or 9:16 for portrait; at least 4 and up to 8 per device type.</td></tr>
+      <tr><th scope="row">10-inch tablet</th><td>6 per language, 2560 x 1440 (16:9 landscape)</td><td>The same rule as the 7-inch tablet.</td></tr>
+    </tbody>
+  </table>
+  <p class="lede" style="margin-top:12px">Exact sizes and file sizes of every image: <a href="export/report.json">export/report.json</a>. Contact sheets: <a href="export/contact.webp">both languages</a>, <a href="export/contact-en.webp">English</a>, <a href="export/contact-tr.webp">Türkçe</a>.</p>
+
+  <h2>Rules</h2>
+  <ul class="doc-rules">
+    <li><span>No rankings, awards, prices, free-trial text, player counts or counts of games in a caption or in a picture the captions point at. The catalogue grows every week, so a caption never says how many games there are, and the games screen hides the line that does.</span></li>
+    <li><span>Captions are sentence case, one idea each, readable at thumbnail size; the flush underline marks the key words. English follows <code>core/ui/i18n/en.ts</code> and Turkish follows <code>tr.ts</code>, in the same vocabulary. All captions are in <code>captions.json</code>.</span></li>
+    <li><span>Only what the app does today appears, as the Android app: two players on one camera is never offered there, so it is not in any image. The skeleton replay of a miss is not in the app yet, so no caption mentions it; the reasons are the ones the app already gives.</span></li>
+    <li><span>The game picture is a real round of Squat Flap played with the keyboard until the score is up, with all three feathers left. The framing check shows the practice session's stand-in figure for a person. The sample friends in the room are sample names, and the player's own name in it is replaced by a neutral one.</span></li>
+    <li><span>No line of text is cut in half by an edge. A screen that scrolls (the room, the settings, the games) is photographed at the few pixels of scroll where the bottom edge, or the bar over it, falls between two lines; where no scroll does it, the picture of a tablet ends up to 56 CSS px higher, and the device in the image is as tall as its picture. Nothing is stretched. The capture tool prints what it did and fails the render when a line is still cut.</span></li>
+    <li><span>Each language gets its own capture and its own render, never text pasted over an image of another language.</span></li>
+    <li><span>The Play images are in <code>export/en</code> and <code>export/tr</code>. <code>export/feature-graphic.png</code> at the top of the folder is the older feature graphic that <code>packages/web/content/build.ts</code> copies into the site as its share image; it stays byte for byte as it was until the site is rebuilt from the new one.</span></li>
+    <li><span>Re-render after any UI change or new game: <code>node C:/Users/doruk/apps/_tools/e2e-slot.mjs run -- node design/tools/render-store.mjs</code> (also <code>--lang tr</code>, <code>--only phone</code>, <code>--shots games</code>). Icons: <code>node design/tools/render-brand.mjs</code>.</span></li>
+  </ul>
+</main>
+<script type="module">
+const caps = await (await fetch('captions.json')).json();
+const ids = ['promise', 'privacy', 'calibrate', 'games', 'friends', 'modes'];
+const names = { en: 'English', tr: 'Türkçe' };
+const strip = (s) => s.replace(/\*/g, '');
+const build = (id, kind, prefix, w, h) => {
+  const box = document.getElementById(id);
+  for (const lang of ['en', 'tr']) {
+    const head = document.createElement('h3'); head.className = 'lang-h'; head.textContent = names[lang]; box.append(head);
+    const grid = document.createElement('div'); grid.className = `shots ${kind}`;
+    ids.forEach((shot, i) => {
+      const c = caps.shots[shot][lang];
+      const f = document.createElement('figure');
+      f.innerHTML = `<img src="export/${lang}/${prefix}-${i + 1}.png" alt="${caps.alt[lang][shot]}" width="${w}" height="${h}"><figcaption><b>${i + 1}. ${strip(c.h)}</b>${strip(c.p)}</figcaption>`;
+      grid.append(f);
+    });
+    box.append(grid);
+  }
+};
+build('phone', 'phone', 'phone', 1080, 1920);
+build('tablet7', 'tablet', 'tablet7', 1920, 1080);
+build('tablet10', 'tablet', 'tablet10', 2560, 1440);
+</script>
+</body>
+</html>

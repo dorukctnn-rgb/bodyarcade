@@ -1,12 +1,33 @@
 {
-  // BodyArcade on Cloudflare Workers static assets (replaces Netlify, Oct 2026).
-  // Build the asset folder first, then deploy from the repo root:
-  //   node cloudflare/build.mjs && npx wrangler deploy
-  "name": "bodyarcade",
-  "compatibility_date": "2026-10-01",
+  // PREVIEW of BodyArcade v2: the release build (dist/, made by release/build.ts) plus the one Worker
+  // (packages/server: live play rooms, invites, TURN credentials, social, the old game addresses, CSP reports).
+  // This is the repository's default config on purpose: a bare `npx wrangler deploy` can only ever reach the
+  // preview, never bodyarcade.com. Production is wrangler.prod.jsonc, switched by the main session after the
+  // final test (node release/deploy.ts production --confirm-production).
+  //   node release/deploy.ts preview          build, check, deploy (secrets from the local secrets file)
+  //   https://bodyarcade-v2-preview.railer-iot.workers.dev
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "bodyarcade-v2-preview",
+  "main": "packages/server/src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "preview_urls": false,
   "assets": {
-    "directory": "./.cf-dist",
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // The API, the invitation and friend-link pages (/r/CODE, /f/BA-XXXXXX: the Worker serves the start page under them) and the
+    // old game addresses (their query decides where they go: packages/server/src/site/routes.ts).
+    "run_worker_first": ["/api/*", "/r/*", "/f/*", "/bodyarcade", "/bodyarcade/", "/BodyArcade", "/BodyArcade/", "/BodyArcade.html", "/bodyarcade.html", "/play", "/play/", "/app", "/app/", "/index.html"],
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
-  }
+  },
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "HUB", "class_name": "PlayerHub" }, { "name": "SOCIAL", "class_name": "SocialDirectory" }, { "name": "ENTITLEMENTS", "class_name": "EntitlementsDO" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["PlayerHub"] }, { "tag": "v3", "new_sqlite_classes": ["EntitlementsDO"] }, { "tag": "v4", "new_sqlite_classes": ["SocialDirectory"] }],
+  // Social (profiles, friends, presence, lobbies, boards, moderation) is one Durable Object, SocialDirectory (binding SOCIAL,
+  // migration v4): its SQLite storage holds every table and the players' sockets, so there is no database to create. HUB and
+  // PlayerHub stay only because migration v2 made that class on the preview; nothing uses them. Optional secret: ADMIN_TOKEN
+  // (the moderation API answers 404 without it); optional variable: SOCIAL_MAX_SIGNUPS_PER_DAY (default 4000).
+  "vars": { "PUBLIC_ORIGIN": "https://bodyarcade-v2-preview.railer-iot.workers.dev", "SITE_TARGET": "preview" },
+  "observability": { "enabled": true },
+  "upload_source_maps": false
 }

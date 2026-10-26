@@ -1,0 +1,39 @@
+{
+  "id": "reaction-tag",
+  "template": "target",
+  "version": 1,
+  "title": "Reaction Tag",
+  "regions": ["arms", "cardio"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 180,
+  "met": 4,
+  "detectors": [{ "id": "handHit" }],
+  "free": false,
+  "modes": ["solo", "local2"],
+  "seo": { "slug": "reaction-tag", "keywords": ["reaction game", "reaction time game", "hand tracking game"] },
+  "catalogue": {
+    "tagline": { "en": "Tap the lights before they fade. Never the red ones.", "tr": "Işıklar sönmeden dokunun. Kırmızılara asla." },
+    "about": {
+      "en": "Green lights flash around you and fade fast. Tap each one with either hand and leave the red ones alone.",
+      "tr": "Yeşil ışıklar çevrenizde yanıp hızla söner. Her birine istediğiniz elle dokunun, kırmızılara dokunmayın."
+    },
+    "how": [
+      { "en": "Stand or sit with space around you.", "tr": "Çevrenizde boşluk olacak şekilde durun ya da oturun." },
+      { "en": "Tap each green light before it fades.", "tr": "Her yeşil ışığa sönmeden önce dokunun." },
+      { "en": "Leave the red lights alone.", "tr": "Kırmızı ışıkları rahat bırakın." }
+    ],
+    "measures": [
+      { "en": "How fast your hand reaches each light.", "tr": "Elinizin her ışığa ne kadar çabuk ulaştığı." },
+      { "en": "Whether you tapped a green light or a red one.", "tr": "Yeşil mi kırmızı mı ışığa dokunduğunuz." }
+    ],
+    "move": "reach",
+    "tile": "reaction-tag",
+    "order": 5,
+    "related": ["star-catch", "pad-work"],
+    "seatedNote": { "en": "Hands only: play the whole game from a chair.", "tr": "Yalnızca eller: oyunun tamamını sandalyeden oynayın." },
+    "quietNote": { "en": "No jumping and no stamping.", "tr": "Zıplama ve yere vurma yok." }
+  }
+}

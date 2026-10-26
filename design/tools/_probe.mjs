@@ -1,0 +1,12 @@
+import { startServer } from './serve.mjs';
+import { launch } from './pw.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const server = await startServer(repo);
+const browser = await launch();
+const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+await page.goto(`${server.url}/${process.argv[2]}`, { waitUntil: 'networkidle' });
+await page.evaluate(() => document.fonts.ready);
+console.log(await page.evaluate(process.argv[3] ? new Function(process.argv[3]) : () => null));
+await browser.close(); await server.close();

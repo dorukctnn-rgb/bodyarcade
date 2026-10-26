@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade onboarding</title>
+<meta name="description" content="First-run onboarding prototype: welcome, how the camera works, goals, space and safety, camera permission, calibration and a 30 second first game.">
+<link rel="stylesheet" href="onboarding.css">
+<script type="importmap">{ "imports": { "three": "../../site/vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<main class="ob" id="ob" data-step="1">
+  <section class="ob-stage" id="stage" aria-hidden="true">
+    <canvas id="c"></canvas>
+    <img class="ob-poster" id="poster" alt="">
+    <video class="ob-poster" id="loop" muted loop playsinline preload="none" aria-hidden="true"></video>
+    <div id="overlay"></div>
+  </section>
+  <section class="ob-panel" id="panel" aria-live="polite"></section>
+</main>
+
+<script type="module">
+import { glyph, REGIONS } from '../brand/glyphs.mjs';
+import { cameraArt, cameraArtDuo } from '../ui-kit/art.mjs';
+import { duoAvailable } from '../tokens/layout.mjs';
+import { GAMES } from '../ui-kit/games.mjs';
+
+const q = new URLSearchParams(location.search);
+const ob = document.getElementById('ob');
+const panel = document.getElementById('panel');
+const overlay = document.getElementById('overlay');
+const stageEl = document.getElementById('stage');
+const isStatic = q.has('static');
+const theme = q.get('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+document.documentElement.dataset.theme = theme;
+
+const state = {
+  step: Math.min(7, Math.max(1, +(q.get('step') || 1))),
+  done: q.has('done'),
+  regions: new Set((q.get('regions') || 'legs,cardio').split(',').filter(Boolean)),
+  level: q.get('level') || 'steady',
+  seated: q.has('seated'), quiet: q.has('quiet'),
+  device: q.get('device') || 'phone',
+  players: +(q.get('players') || 1),
+};
+const bigScreen = () => duoAvailable({ w: innerWidth, h: innerHeight });
+if (!bigScreen()) state.players = 1;
+if (state.players === 2 && !['laptop', 'tv'].includes(state.device)) state.device = 'laptop';
+
+const ICON = {
+  device: '<svg viewBox="0 0 36 36" aria-hidden="true"><rect x="9" y="4" width="18" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="18" cy="17" r="5" fill="#FF4F6E"/><path d="M15.6 17.2l1.7 1.7 3.2-3.4" fill="none" stroke="#1C1433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  line: '<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="11" r="5.5" fill="#FF4F6E"/><line x1="5" y1="25" x2="31" y2="25" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="5 4"/></svg>',
+  friends: '<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="12" cy="11" r="4.5" fill="currentColor"/><circle cx="25" cy="11" r="4.5" fill="#46B4FF"/><path d="M4.5 28c0-5 3.4-8.5 7.5-8.5s7.5 3.5 7.5 8.5M17.5 28c0-5 3.4-8.5 7.5-8.5s7.5 3.5 7.5 8.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
+  only: '<svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="8" width="26" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M14 14l9 4-9 4z" fill="#FF4F6E"/></svg>',
+  prompt: '<svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="7" width="26" height="22" rx="5" fill="none" stroke="currentColor" stroke-width="2.6"/><rect x="10" y="20" width="16" height="5" rx="2.5" fill="#FF4F6E"/><line x1="10" y1="13.5" x2="24" y2="13.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  globe: '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M2.8 10h14.4M10 2.5c2.2 2.3 2.2 12.7 0 15M10 2.5c-2.2 2.3-2.2 12.7 0 15" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+  lock: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="2" fill="currentColor"/><path d="M5.5 7V5.2a2.5 2.5 0 015 0V7" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
+  phoneUp: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="5" y="1.5" width="8" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
+  phoneSide: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="1.5" y="5" width="15" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
+  laptop: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="3" y="3.5" width="12" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M1 14.5h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  tv: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="1.5" y="3" width="15" height="9.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M6 15.5h6M9 12.5v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+  tick: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4l2.6 2.6L11 4.6" fill="none" stroke="#1C1433" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  dots: '<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="3.5" cy="7" r="1.4" fill="#1C1433"/><circle cx="7" cy="7" r="1.4" fill="#1C1433"/><circle cx="10.5" cy="7" r="1.4" fill="#1C1433"/></svg>',
+};
+
+const progress = (n) => `<div class="ob-progress"><ol aria-hidden="true">${[1, 2, 3, 4, 5, 6, 7].map((i) => `<li class="${i < n ? 'done' : i === n ? 'now' : ''}"></li>`).join('')}</ol><span>Step ${n} of 7</span></div>`;
+const actions = (primary, back = true, extra = '') => `<div class="ob-actions">${back ? '<button class="ba-btn ba-btn--quiet" data-go="back" type="button">Back</button>' : ''}${extra}${primary}</div>`;
+const next = (label = 'Next') => `<button class="ba-btn ba-btn--primary ba-btn--lg" data-go="next" type="button">${label}</button>`;
+
+const LEVELS = [['gentle', 'Gentle', 'New to exercise or coming back'], ['steady', 'Steady', 'You move a few times a week'], ['strong', 'Strong', 'Ready for deep squats and fast rounds']];
+const DEVICE_TEXT_DUO = {
+  laptop: 'Stand side by side, <strong>about 1 m apart and 3 m</strong> from the laptop. Tilt the screen until the camera sees both of you, head to feet.',
+  tv: 'Put the camera on top of the TV. Stand side by side, <strong>about 1 m apart and 3 m</strong> from the screen.',
+};
+const deviceText = () => (state.players === 2 ? DEVICE_TEXT_DUO[state.device] : DEVICE_TEXT[state.device]);
+const DEVICE_TEXT = {
+  phone: 'Stand the phone upright at hip height, <strong>2 to 3 m away</strong>, leaning on something steady.',
+  phoneLand: 'Sideways shows more of the room. Step back to <strong>about 3 m</strong> so your feet stay in view.',
+  laptop: 'Tilt the screen back until the camera sees your feet, then step back <strong>2.5 to 3 m</strong>.',
+};
+
+const STEPS = {
+  1: () => `
+    <div class="ob-scroll">
+      <h1 class="ob-title">Squat, jump, punch. The game moves when you do.</h1>
+      <p class="ob-text">Short games for every part of the body, on your phone, laptop or TV. The camera reads your moves right here on the device.</p>
+    </div>
+    <div class="ob-actions">${next('Start')}</div>
+    <p class="ob-note">About two minutes to your first game.</p>`,
+  2: () => `
+    <div class="ob-scroll">${progress(2)}
+      <h2 class="ob-title">The camera finds 33 points on your body.</h2>
+      <ul class="ob-points">
+        <li>${ICON.device}<div><b>It stays on this device</b><span>The video turns into points on your phone or laptop and is never uploaded or saved.</span></div></li>
+        <li>${ICON.line}<div><b>Every miss gets a reason</b><span>If a move does not count, you see why, for example hips 4 cm above the line.</span></div></li>
+        <li>${ICON.friends}<div><b>Friends see you only if you both agree</b><span>In a private room, camera sharing starts off and each of you decides.</span></div></li>
+      </ul>
+    </div>${actions(next())}`,
+  3: () => `
+    <div class="ob-scroll">${progress(3)}
+      <h2 class="ob-title">What do you want to work on?</h2>
+      <div class="ob-regions" role="group" aria-label="Body regions">
+        ${REGIONS.filter((r) => r.id !== 'seated').map((r) => `<button class="ba-chip" type="button" data-region="${r.id}" aria-pressed="${state.regions.has(r.id)}">${glyph(r.pose, { highlight: r.highlight, accent: '#FF4F6E', title: r.label })}${r.label}</button>`).join('')}
+      </div>
+      <p class="ob-label">Your level</p>
+      <div class="ob-levels" role="radiogroup" aria-label="Level">
+        ${LEVELS.map(([id, name, desc]) => `<button class="ob-level" type="button" role="radio" data-level="${id}" aria-checked="${state.level === id}"><b>${name}</b><span>${desc}</span></button>`).join('')}
+      </div>
+      <p class="ob-level-desc" id="leveldesc">${LEVELS.find((l) => l[0] === state.level)[2]}.</p>
+      <div class="ob-modes">
+        <label class="ob-mode">${glyph('seated', { highlight: ['armL1', 'armL2', 'armR1', 'armR2'], title: 'Seated' }).replace('<svg', '<svg class="g"')}<div><b>Seated mode</b><span>Play from a chair. ${GAMES.every((g) => g.seated) ? 'Every game has a seated version.' : `${GAMES.filter((g) => g.seated).length} games have a seated version.`}</span></div><span class="ba-switch"><input type="checkbox" data-mode="seated" ${state.seated ? 'checked' : ''} aria-label="Seated mode"><span></span></span></label>
+        <label class="ob-mode">${glyph('stand', { title: 'Quiet' }).replace('<svg', '<svg class="g"')}<div><b>Quiet mode</b><span>No jumping or stamping. Kind to the neighbours below.</span></div><span class="ba-switch"><input type="checkbox" data-mode="quiet" ${state.quiet ? 'checked' : ''} aria-label="Quiet mode"><span></span></span></label>
+      </div>
+      <p class="ob-note ob-note--wide">Pick one or more. You can change all of this later in Settings.</p>
+    </div>${actions(next())}`,
+  4: () => `
+    <div class="ob-scroll">${progress(4)}
+      <h2 class="ob-title">${state.players === 2 ? 'Clear about 3 metres for the two of you.' : 'Clear about 2 metres around you.'}</h2>
+      ${bigScreen() ? `<div class="ob-seg" role="radiogroup" aria-label="Players">${[[1, 'Just me'], [2, '2 players, one camera']].map(([n, name]) => `<button type="button" role="radio" data-players="${n}" aria-checked="${state.players === n}">${name}</button>`).join('')}</div>` : ''}
+      <div class="ob-seg" role="radiogroup" aria-label="Device">
+        ${(state.players === 2 ? [['laptop', 'Laptop', ICON.laptop], ['tv', 'TV', ICON.tv]] : [['phone', 'Upright', ICON.phoneUp], ['phoneLand', 'Sideways', ICON.phoneSide], ['laptop', 'Laptop', ICON.laptop]]).map(([id, name, ic]) => `<button type="button" role="radio" data-device="${id}" aria-checked="${state.device === id}">${ic}${name}</button>`).join('')}
+      </div>
+      <p class="ob-text" id="devtext">${deviceText()}</p>
+      <div class="ob-health"><b>Before you start.</b> Check with a doctor if you are pregnant, have a heart or joint condition, or feel pain when you move. Stop if you feel dizzy or a sharp pain. Children play with an adult nearby.</div>
+    </div>${actions(next('I have the space'))}`,
+  5: () => `
+    <div class="ob-scroll">${progress(5)}
+      <h2 class="ob-title">Let the camera see your moves.</h2>
+      <ul class="ob-points">
+        <li>${ICON.device}<div><b>It stays on this device</b><span>Nothing is uploaded or recorded. Each frame becomes points, then it is gone.</span></div></li>
+        <li>${ICON.only}<div><b>Only while you play</b><span>The camera runs only while a game is open.</span></div></li>
+        <li>${ICON.prompt}<div><b>Your browser asks next</b><span>Choose Allow in the box that appears. You can change it later.</span></div></li>
+      </ul>
+    </div><div class="ob-actions">${next('Continue')}</div>`,
+  6: () => `
+    <div class="ob-scroll">${progress(6)}
+      <h2 class="ob-title">Step back until your feet show.</h2>
+      <div class="ob-calib-msg">
+        <svg class="ob-ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="none" stroke="var(--ba-border)" stroke-width="7"/><circle cx="32" cy="32" r="27" fill="none" stroke="#FF4F6E" stroke-width="7" stroke-linecap="round" stroke-dasharray="170" stroke-dashoffset="85" transform="rotate(-90 32 32)"/><text x="32" y="38" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="17" fill="currentColor">3 of 4</text></svg>
+        <p class="ob-text" style="margin:0">Stand where you will play. We measure your height, arm reach and comfortable squat depth so every game fits your body.</p>
+      </div>
+      <button class="ob-link" type="button">Play seated instead</button>
+    </div>${actions('<button class="ba-btn ba-btn--primary ba-btn--lg is-waiting" type="button" disabled aria-disabled="true">Waiting for your feet</button>')}`,
+  7: () => state.done ? `
+    <div class="ob-scroll">
+      <h2 class="ob-title">Your first game is done.</h2>
+      <div class="ob-win"><div class="big">18</div><div class="unit">squats in 30 seconds<small>14 reached the line. Your deepest went 6 cm below it.</small></div></div>
+      <p class="ob-note">Saved on this device.</p>
+    </div>
+    <div class="ob-actions stack">${next('Play the full round')}<button class="ba-btn ba-btn--secondary ba-btn--lg" type="button">See all games</button></div>` : `
+    <div class="ob-scroll">${progress(7)}
+      <h2 class="ob-title">Your first game: Squat Flap.</h2>
+      <p class="ob-text">Squat down to flap, stand up to fly. <strong>30 seconds</strong>, nothing to beat yet. In seated mode, stand up from a chair to flap.</p>
+    </div><div class="ob-actions"><button class="ba-btn ba-btn--secondary ba-btn--lg" type="button">Pause</button></div>`,
+};
+
+// ---------- Stage per step ----------
+let stage = null;
+let fallback = q.has('fallback');
+async function ensureStage() {
+  if (stage || fallback) return stage;
+  try {
+    const { createStage } = await import('./scene.mjs');
+    stage = createStage(document.getElementById('c'), {
+      theme, step: state.step, capture: isStatic, tier: q.has('tier') ? +q.get('tier') : 1,
+      onLabels: (l) => drawLabels(l),
+    });
+  } catch (e) {
+    console.warn('3D unavailable, using the pre-rendered fallback', e);
+    fallback = true;
+  }
+  return stage;
+}
+
+function drawLabels(l) {
+  if (!l) return;
+  const W = stageEl.clientWidth, H = stageEl.clientHeight;
+  const put = (id, p, text, cls = '') => {
+    let n = document.getElementById(id);
+    if (!n) { n = document.createElement('div'); n.id = id; overlay.append(n); }
+    n.className = `ob-tag3d ${cls}`; n.textContent = text;
+    n.style.left = `${Math.min(W - 70, Math.max(70, p.x * W))}px`; n.style.top = `${Math.max(36, p.y * H - 8)}px`;
+  };
+  const duo = l.players === 2;
+  put('t-dist', l.distance, duo ? 'About 3 m' : '2 to 3 m');
+  put('t-dev', l.device, duo ? 'Camera sees both of you' : state.device === 'laptop' ? 'Camera sees your feet' : 'Hip height', 'flush');
+  put('t-space', l.space, duo ? '1 m apart' : '1 m clear all round');
+  // Nudge labels apart if they touch.
+  const tags = [...overlay.querySelectorAll('.ob-tag3d')];
+  for (let i = 0; i < tags.length; i++) for (let j = 0; j < i; j++) {
+    const a = tags[i].getBoundingClientRect(), b = tags[j].getBoundingClientRect();
+    if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) tags[i].style.top = `${parseFloat(tags[i].style.top) + (b.bottom - a.top) + 6}px`;
+  }
+}
+
+async function renderStage() {
+  overlay.innerHTML = '';
+  const s = state.step;
+  const threeD = s <= 5 || (s === 7 && state.done);
+  stageEl.classList.toggle('is-fallback', fallback && threeD);
+  document.getElementById('c').style.display = threeD ? '' : 'none';
+  // Fallback: the pre-rendered loop on the welcome step (still image when motion is reduced),
+  // stills on the other 3D steps. Same scene, rendered by design/tools/render-onboarding.mjs.
+  const poster = document.getElementById('poster');
+  const loop = document.getElementById('loop');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches || isStatic;
+  const useLoop = threeD && fallback && (s === 1 || s === 7) && !still;
+  loop.style.display = useLoop ? 'block' : 'none';
+  poster.style.display = threeD && fallback && !useLoop ? 'block' : 'none';
+  if (useLoop && !loop.src) {
+    loop.poster = `fallback/hero-${theme}.avif`;
+    loop.innerHTML = `<source src="fallback/hero-loop-${theme}.webm" type="video/webm"><source src="fallback/hero-loop-${theme}.mp4" type="video/mp4">`;
+    loop.load(); loop.play().catch(() => {});
+  }
+  if (threeD && fallback && !useLoop) poster.src = `fallback/step-${s === 7 ? 1 : s}-${theme}.webp`;
+
+  if (s === 6) {
+    const portrait = stageEl.clientHeight >= stageEl.clientWidth;
+    const cam = portrait ? { w: 300, h: 400 } : { w: 400, h: 300 };
+    overlay.innerHTML = `<div class="ob-cam" style="--cam-ar:${cam.w} / ${cam.h}"><div class="frame">${cameraArt({ ...cam, pose: 'stand', skeleton: true })}${guideSvg(cam)}</div>
+      <div class="ob-checks"><span class="ob-check"><i>${ICON.tick}</i>Head</span><span class="ob-check"><i>${ICON.tick}</i>Hands</span><span class="ob-check wait"><i>${ICON.dots}</i>Feet</span><span class="ob-check"><i>${ICON.tick}</i>Light</span></div></div>`;
+  }
+  if (s === 7 && !state.done) {
+    overlay.innerHTML = `<iframe class="ob-game" title="Squat Flap, your first game" src="../ui-kit/hud.html?mode=scene&cmd=Squat&reason=${encodeURIComponent('11 squats so far')}" style="border:0;width:100%;height:100%"></iframe>`;
+  }
+  if (s === 5) overlay.innerHTML = `<div class="ob-finder"><i></i><i></i><i></i><i></i><em>${ICON.lock}Processed on this device</em></div>`;
+
+  if (threeD && !fallback) {
+    const st = await ensureStage();
+    if (st) {
+      st.setRegions([...state.regions]);
+      st.setDevice(state.device);
+      st.setPlayers(s === 4 ? state.players : 1);
+      st.setStep(s === 7 ? 1 : s, { instant: isStatic, logoBand: s === 1 });
+      if (isStatic) st.renderAt(+(q.get('t') || (s === 7 ? 1.7 : 1.7)));
+      else { st.start(); autoTier(st); }
+    }
+  } else if (stage) stage.stop();
+}
+
+// Tier policy (graphics-maps.md 3.3): phones start at T1, weak devices at T0. After 90 frames,
+// drop a tier if the 95th percentile frame cost is over 20 ms (T1, T2) or switch to the
+// pre-rendered fallback if T0 still costs over 33 ms.
+let tierChecked = false;
+function autoTier(st) {
+  if (tierChecked || q.has('tier')) return;
+  tierChecked = true;
+  const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 3;
+  if (weak) st.setTier(0);
+  const check = () => {
+    const s = st.stats();
+    if (s.frames < 90) return setTimeout(check, 500);
+    if (s.p95 > 20 && st.tier > 0) { st.setTier(st.tier - 1); st.resetStats(); return setTimeout(check, 1500); }
+    if (s.p95 > 33 && st.tier === 0) { st.stop(); fallback = true; renderStage(); }
+  };
+  setTimeout(check, 1500);
+}
+
+function guideSvg(cam) {
+  // Framing guide: where the body should be, drawn as a dashed outline with the feet zone.
+  const { w, h } = cam;
+  const cx = w / 2, top = h * 0.12, bottom = h * 0.95, bw = Math.min(w * 0.42, h * 0.3);
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <rect x="${cx - bw / 2}" y="${top}" width="${bw}" height="${bottom - top}" rx="${bw * 0.45}" fill="none" stroke="#F4F2F8" stroke-width="3" stroke-dasharray="10 8" opacity="0.9"/>
+    <rect x="${cx - bw * 0.75}" y="${bottom - h * 0.07}" width="${bw * 1.5}" height="${h * 0.07}" rx="10" fill="#FFC53A" opacity="0.35"/>
+    <text x="${cx}" y="${bottom - h * 0.025}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="${Math.max(12, h * 0.035)}" fill="#1C1433">Feet here</text></svg>`;
+}
+
+function renderPanel() {
+  ob.dataset.step = state.step;
+  ob.dataset.done = state.done ? '1' : '0';
+  const top = state.step === 1 ? `<div class="ob-top"><img class="ob-logo" src="../brand/${theme === 'dark' ? 'logo-dark' : 'logo'}.svg" alt="BodyArcade"><button class="ob-lang" type="button">${ICON.globe}English</button></div>` : '';
+  stageEl.querySelector('.ob-top')?.remove();
+  if (top) stageEl.insertAdjacentHTML('beforeend', top);
+  panel.innerHTML = STEPS[state.step]();
+  const sc = panel.querySelector('.ob-scroll');
+  if (sc) requestAnimationFrame(() => sc.classList.toggle('is-clipped', sc.scrollHeight > sc.clientHeight + 4));
+}
+
+panel.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.go === 'next') { if (state.step === 7 && !state.done) return; go(state.step === 7 ? 7 : state.step + 1, state.step === 7); }
+  if (b.dataset.go === 'back') go(Math.max(1, state.step - 1));
+  if (b.dataset.region) { const r = b.dataset.region; state.regions.has(r) ? state.regions.delete(r) : state.regions.add(r); b.setAttribute('aria-pressed', state.regions.has(r)); stage?.setRegions([...state.regions]); }
+  if (b.dataset.level) { state.level = b.dataset.level; panel.querySelectorAll('[data-level]').forEach((x) => x.setAttribute('aria-checked', x === b)); document.getElementById('leveldesc').textContent = LEVELS.find((l) => l[0] === state.level)[2] + '.'; }
+  if (b.dataset.device) { state.device = b.dataset.device; panel.querySelectorAll('[data-device]').forEach((x) => x.setAttribute('aria-checked', x === b)); document.getElementById('devtext').innerHTML = deviceText(); stage?.setDevice(state.device); }
+  if (b.dataset.players) {
+    state.players = +b.dataset.players;
+    if (state.players === 2 && !['laptop', 'tv'].includes(state.device)) state.device = 'laptop';
+    renderPanel(); stage?.setDevice(state.device); stage?.setPlayers(state.players);
+  }
+});
+panel.addEventListener('change', (e) => { const m = e.target.dataset.mode; if (m) state[m] = e.target.checked; });
+
+async function go(n, done = false) {
+  state.step = n; state.done = done;
+  renderPanel();
+  await renderStage();
+  panel.querySelector('.ob-title')?.focus?.();
+}
+
+renderPanel();
+await renderStage();
+if (state.step === 7 && !state.done) {
+  await new Promise((ok) => { const f = overlay.querySelector('iframe'); f.addEventListener('load', () => { const w = f.contentWindow; const t = setInterval(() => { if (w.document.documentElement.dataset.ready === '1') { clearInterval(t); ok(); } }, 50); }); });
+}
+await document.fonts.ready;
+window.__ob = { stats: stage?.stats?.() ?? null, step: state.step };
+document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>

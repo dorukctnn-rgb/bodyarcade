@@ -1,0 +1,44 @@
+{
+  "id": "squat-flap",
+  "template": "flight",
+  "version": 1,
+  "title": "Squat Flap",
+  "regions": ["legs"],
+  "framing": "full",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 270,
+  "met": 5,
+  "detectors": [
+    { "id": "armDirection", "opts": { "flap": 1 } },
+    { "id": "squat", "opts": { "flap": 1, "down": 0.3 } }
+  ],
+  "free": true,
+  "modes": ["solo", "local2", "duel"],
+  "minPoseHz": 12,
+  "seo": { "slug": "squat-flap", "keywords": ["squat game", "webcam squat game", "exercise game for legs", "flappy bird workout"] },
+  "catalogue": {
+    "tagline": { "en": "Every rise is a wing beat. Stay low to glide.", "tr": "Her kalkış bir kanat çırpışı. Alçakta kalırsan süzülürsün." },
+    "about": {
+      "en": "Stand up from a squat to flap the bird upward, and stay low to let it glide. The camera reads how deep you squat and how fast you rise. Fly through the gaps between the columns, three sets of a minute with a real rest between them.",
+      "tr": "Çömelmeden ayağa kalktığında kuş yukarı çırpınır, alçakta kaldığında süzülür. Kamera ne kadar derin çömeldiğini ve ne kadar hızlı kalktığını okur. Sütunların arasındaki boşluklardan geç: birer dakikalık üç set, aralarda gerçek dinlenme."
+    },
+    "how": [
+      { "en": "Stand where the camera sees you from head to feet.", "tr": "Kameranın seni baştan ayağa gördüğü bir yere dur." },
+      { "en": "Squat low and the bird glides. Stand up fast and it flaps upward.", "tr": "Alçağa çömel, kuş süzülsün. Hızlıca kalk, kuş yukarı çırpınsın." },
+      { "en": "A warm-up of three flaps measures your pace, and the columns are spaced for it.", "tr": "Üç kanatlık bir ısınma tempoyu ölçer, sütunlar buna göre aralanır." },
+      { "en": "Fly through the gaps. Three sets of one minute, with a rest between each.", "tr": "Boşluklardan geç. Birer dakikalık üç set, aralarda dinlenme." }
+    ],
+    "measures": [
+      { "en": "How deep your hips drop and how fast you stand up.", "tr": "Kalçanın ne kadar indiği ve ne kadar hızlı kalktığın." },
+      { "en": "The pace of your squats, to space the columns for you.", "tr": "Çömelme temponun hızı; sütunlar sana göre aralanır." }
+    ],
+    "move": "squat",
+    "tile": "squat-flap",
+    "order": 1,
+    "related": ["road-run"],
+    "seatedNote": { "en": "Sit and flap with your arms: raise both, bring them down, hold them level to glide.", "tr": "Otur ve kollarınla kanat çırp: ikisini kaldır, aşağı indir, süzülmek için yatay tut." },
+    "quietNote": { "en": "Slow squats work as well. No jumping and no stamping.", "tr": "Yavaş çömelmeler de aynı işi görür. Zıplama ve yere vurma yok." }
+  }
+}

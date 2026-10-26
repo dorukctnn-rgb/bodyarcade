@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stage render</title>
+<script type="importmap">{ "imports": { "three": "../../site/vendor/three.module.min.js" } }</script>
+<style>html, body { margin: 0; background: #F4F2F8; } #wrap { width: var(--w); height: var(--h); position: relative; } canvas { width: 100%; height: 100%; display: block; }</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<script type="module">
+// Offline render page for the fallback stills, the hero loop and the store key art.
+// design/tools/render-onboarding.mjs drives it; nothing here runs in the product.
+import { createStage } from './scene.mjs';
+const q = new URLSearchParams(location.search);
+const w = +(q.get('w') ?? 1080), h = +(q.get('h') ?? 1080);
+document.documentElement.style.setProperty('--w', `${w}px`);
+document.documentElement.style.setProperty('--h', `${h}px`);
+const stage = createStage(document.getElementById('c'), { tier: 2, step: +(q.get('step') ?? 1), theme: q.get('theme') ?? 'light', capture: true, reducedMotion: false });
+stage.renderer.setPixelRatio(1);
+stage.renderer.setSize(w, h, false);
+if (q.get('regions')) stage.setRegions(q.get('regions').split(','));
+if (q.get('device')) stage.setDevice(q.get('device'));
+stage.setStep(+(q.get('step') ?? 1), { instant: true, logoBand: q.has('logoBand') });
+window.__frame = (t) => { stage.renderAt(t); return document.getElementById('c').toDataURL('image/png'); };
+document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>

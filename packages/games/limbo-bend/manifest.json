@@ -1,0 +1,41 @@
+{
+  "id": "limbo-bend",
+  "template": "gate",
+  "version": 1,
+  "title": "Limbo Bend",
+  "regions": ["core", "mobility"],
+  "framing": "upper",
+  "headroom": "arms-up",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 180,
+  "met": 2.3,
+  "detectors": [{ "id": "sideBend" }],
+  "free": false,
+  "modes": ["solo", "local2"],
+  "minPoseHz": 10,
+  "seo": { "slug": "limbo-bend", "keywords": ["side bend exercise game", "mobility game", "stretching game", "oblique stretch game"] },
+  "catalogue": {
+    "tagline": { "en": "Bend sideways to slip through tilted gates.", "tr": "Eğik kapılardan geçmek için yana eğil." },
+    "about": {
+      "en": "Tilted gates fly toward you. Lean from your hips to match the tilt of each one, with your arms up for the tall ones, and slip through. The angles are gentle, the tolerance is shown, and every miss says what was off. Three sets with short rests. On a big screen, two people can play side by side.",
+      "tr": "Eğik kapılar sana doğru uçar. Her kapının eğimine kalçandan eğilerek uy, uzun kapılarda kollarını yukarıda tut ve içinden geç. Açılar yumuşak, tolerans görünür ve her ıskalamada neyin eksik olduğu söylenir. Aralarda kısa dinlenmeli üç set var. Büyük ekranda iki kişi yan yana oynayabilir."
+    },
+    "how": [
+      { "en": "Stand with your feet apart where the camera sees you from your head to your hips.", "tr": "Kameranın seni başından kalçana kadar gördüğü bir yerde ayakların açık dur." },
+      { "en": "Look at which way the next gate tilts, and how far.", "tr": "Sıradaki kapının hangi yöne ve ne kadar eğildiğine bak." },
+      { "en": "Lean from the hips to that angle and hold it for a moment. For a tall gate, lift both hands over your head.", "tr": "Kalçandan o açıya eğil ve bir an tut. Uzun kapıda iki elini başının üstüne kaldır." }
+    ],
+    "measures": [
+      { "en": "The angle of your upper body against the vertical.", "tr": "Üst gövdenin dikeye göre açısı." },
+      { "en": "Whether your hips stay still and you do not fold forward.", "tr": "Kalçanın sabit kalıp kalmadığı ve öne eğilip eğilmediğin." }
+    ],
+    "move": "sideBend",
+    "tile": "limbo-bend",
+    "order": 9,
+    "related": ["twist-turbine", "pose-wall"],
+    "seatedNote": { "en": "Seated bend: lean from the waist while you sit, same gates.", "tr": "Oturarak eğilme: otururken belinden eğil, kapılar aynı." },
+    "quietNote": { "en": "No jumping and no stamping, just a smooth bend.", "tr": "Zıplama ve yere vurma yok, yalnızca yumuşak bir eğilme." }
+  }
+}

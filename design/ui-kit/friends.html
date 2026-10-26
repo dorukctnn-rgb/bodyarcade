@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BodyArcade friends</title>
+<meta name="description" content="UI kit: the Friends tab. Your profile card and friend code, add by code, link or QR, requests, friends with presence and a quick invite into a room.">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="pages.css">
+<style>
+  .k-start { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .k-start .ba-btn { width: 100%; }
+  .k-flist .grow small { display: flex; align-items: center; gap: 6px; }
+  .k-flist .grow small i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+  .k-codeline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .k-under18 { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .k-under18 svg { width: 28px; height: 28px; }
+</style>
+</head>
+<body class="ba-app" data-long="1">
+<main class="ba-page" id="page"></main>
+<script type="module" data-wait>
+import { mountShell, mobileHead, ICON, avatar, qrArt, ready } from './shell.mjs';
+
+mountShell('friends');
+const friends = [
+  { name: 'Mert', color: '#FFC53A', pose: 'stand', presence: 'online', status: 'Online' },
+  { name: 'Ayşe', color: '#46B4FF', pose: 'reach', presence: 'ingame', status: 'Playing Star Catch' },
+  { name: 'Can', color: '#22C383', pose: 'squat', presence: 'offline', status: 'Last played 2 days ago' },
+  { name: 'Selin', color: '#FF4F6E', pose: 'jackOpen', presence: 'offline', status: 'Last played last week' },
+];
+const page = document.getElementById('page');
+page.innerHTML = `
+  ${mobileHead(`<a class="ba-icon-btn" href="safety.html" aria-label="Safety and blocked players">${ICON.shield}</a>`)}
+  <div class="ba-pagehead"><h1 class="ba-h1">Friends</h1></div>
+  <div class="k-cols k-cols--even">
+    <div class="k-stack">
+      <section class="k-card k-profile" aria-label="Your profile">
+        ${avatar('#FF4F6E', 'jackOpen')}
+        <div><p class="name">Doruk</p><div class="k-codeline"><span class="k-code" aria-label="Your friend code BA-7K2Q">BA-7K2Q<button type="button" aria-label="Copy your friend code">${ICON.copy}</button></span></div></div>
+        <div class="k-share"><div class="k-stack" style="gap:8px"><p class="ba-small" style="margin:0">Friends add you with this code, your invite link or the QR code.</p><button class="ba-btn ba-btn--secondary" type="button">${ICON.share}Share invite link</button></div><span class="ba-qr">${qrArt('BA-7K2Q')}</span></div>
+      </section>
+      <div class="k-start"><a class="ba-btn ba-btn--primary" href="room.html">${ICON.plus}New room</a><a class="ba-btn ba-btn--secondary" href="lobbies.html">${ICON.search}Public lobbies</a></div>
+      <section class="k-card" aria-labelledby="add">
+        <h2 class="k-h3" id="add">Add a friend</h2>
+        <div class="k-addrow" style="margin-top:10px"><input class="ba-input" type="text" inputmode="text" autocomplete="off" placeholder="BA-" aria-label="Friend code" value="BA-"><button class="ba-btn ba-btn--secondary" type="button">Add</button></div>
+        <button class="ba-btn ba-btn--quiet" type="button" style="margin-top:8px">${ICON.qr}Scan a QR code</button>
+      </section>
+    </div>
+    <div class="k-stack">
+      <section aria-labelledby="req">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 class="k-h3" id="req">Requests</h2><span class="ba-small">1 new</span></div>
+        <ul class="ba-list" style="margin-top:8px"><li>${avatar('#46B4FF', 'tPose')}<div class="grow"><b>Elif</b><small>Wants to be friends. Added your code.</small></div><div class="k-rowbtns"><button class="ba-btn ba-btn--secondary" type="button">Accept</button><button class="ba-btn ba-btn--quiet" type="button">Decline</button></div></li></ul>
+      </section>
+      <section aria-labelledby="list">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 class="k-h3" id="list">Your friends</h2><span class="ba-small">${friends.length}</span></div>
+        <ul class="ba-list k-flist" style="margin-top:8px">${friends.map((f) => `<li>${avatar(f.color, f.pose, f.presence)}<div class="grow"><b>${f.name}</b><small><i class="${f.presence}"></i>${f.status}</small></div><div class="k-rowbtns">${f.presence === 'offline' ? '' : `<button class="ba-btn ba-btn--secondary" type="button">Invite</button>`}<button class="ba-icon-btn" type="button" aria-label="More for ${f.name}: remove, block or report">${ICON.more}</button></div></li>`).join('')}</ul>
+      </section>
+      <section class="k-card k-under18">${ICON.shield}<p>Players under 18 add friends only by code or link, send preset messages only and never share video. <a class="ba-link" href="safety.html">How safety works</a></p></section>
+    </div>
+  </div>`;
+await ready();
+</script>
+</body>
+</html>

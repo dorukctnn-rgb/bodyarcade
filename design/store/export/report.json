@@ -1,0 +1,303 @@
+{
+  "note": "Written by design/tools/render-store.mjs. Play rules checked: 24-bit PNG without alpha; feature graphic 1024 x 500; phone screenshots 320 to 3840 px per side, long side at most twice the short side (here 1080 x 1920, 9:16); tablet screenshots 1080 to 7680 px per side at 16:9 (here landscape: 1920 x 1080 for 7-inch, 2560 x 1440 for 10-inch); 2 to 8 per device type (4 or more for tablets).",
+  "devices": {
+    "phone": {
+      "appViewportCssPx": "412 x 940",
+      "pixelRatio": 2,
+      "label": "Phone, portrait 412 x 940"
+    },
+    "tablet7": {
+      "appViewportCssPx": "960 x 600",
+      "pixelRatio": 2,
+      "label": "7-inch tablet, landscape 960 x 600"
+    },
+    "tablet10": {
+      "appViewportCssPx": "1280 x 800",
+      "pixelRatio": 2,
+      "label": "10-inch tablet, landscape 1280 x 800"
+    }
+  },
+  "files": [
+    {
+      "file": "export/en/feature-graphic.png",
+      "size": "1024 x 500",
+      "bytes": 134962,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/feature-graphic-dark.png",
+      "size": "1024 x 500",
+      "bytes": 129885,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/phone-1.png",
+      "size": "1080 x 1920",
+      "bytes": 139003,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/phone-2.png",
+      "size": "1080 x 1920",
+      "bytes": 460748,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/phone-3.png",
+      "size": "1080 x 1920",
+      "bytes": 177273,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/phone-4.png",
+      "size": "1080 x 1920",
+      "bytes": 349294,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/phone-5.png",
+      "size": "1080 x 1920",
+      "bytes": 207291,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/phone-6.png",
+      "size": "1080 x 1920",
+      "bytes": 315841,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet7-1.png",
+      "size": "1920 x 1080",
+      "bytes": 223894,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet7-2.png",
+      "size": "1920 x 1080",
+      "bytes": 723702,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet7-3.png",
+      "size": "1920 x 1080",
+      "bytes": 275474,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet7-4.png",
+      "size": "1920 x 1080",
+      "bytes": 435935,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet7-5.png",
+      "size": "1920 x 1080",
+      "bytes": 325714,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet7-6.png",
+      "size": "1920 x 1080",
+      "bytes": 327581,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet10-1.png",
+      "size": "2560 x 1440",
+      "bytes": 469841,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet10-2.png",
+      "size": "2560 x 1440",
+      "bytes": 1148589,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet10-3.png",
+      "size": "2560 x 1440",
+      "bytes": 389332,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet10-4.png",
+      "size": "2560 x 1440",
+      "bytes": 696248,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet10-5.png",
+      "size": "2560 x 1440",
+      "bytes": 515526,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/en/tablet10-6.png",
+      "size": "2560 x 1440",
+      "bytes": 977783,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/feature-graphic.png",
+      "size": "1024 x 500",
+      "bytes": 145587,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/feature-graphic-dark.png",
+      "size": "1024 x 500",
+      "bytes": 139735,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/phone-1.png",
+      "size": "1080 x 1920",
+      "bytes": 147843,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/phone-2.png",
+      "size": "1080 x 1920",
+      "bytes": 460107,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/phone-3.png",
+      "size": "1080 x 1920",
+      "bytes": 183208,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/phone-4.png",
+      "size": "1080 x 1920",
+      "bytes": 344065,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/phone-5.png",
+      "size": "1080 x 1920",
+      "bytes": 209992,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/phone-6.png",
+      "size": "1080 x 1920",
+      "bytes": 314670,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet7-1.png",
+      "size": "1920 x 1080",
+      "bytes": 227806,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet7-2.png",
+      "size": "1920 x 1080",
+      "bytes": 721739,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet7-3.png",
+      "size": "1920 x 1080",
+      "bytes": 279757,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet7-4.png",
+      "size": "1920 x 1080",
+      "bytes": 434531,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet7-5.png",
+      "size": "1920 x 1080",
+      "bytes": 335899,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet7-6.png",
+      "size": "1920 x 1080",
+      "bytes": 315922,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet10-1.png",
+      "size": "2560 x 1440",
+      "bytes": 477346,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet10-2.png",
+      "size": "2560 x 1440",
+      "bytes": 1146075,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet10-3.png",
+      "size": "2560 x 1440",
+      "bytes": 393892,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet10-4.png",
+      "size": "2560 x 1440",
+      "bytes": 674869,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet10-5.png",
+      "size": "2560 x 1440",
+      "bytes": 490961,
+      "channels": 3,
+      "alpha": false
+    },
+    {
+      "file": "export/tr/tablet10-6.png",
+      "size": "2560 x 1440",
+      "bytes": 979029,
+      "channels": 3,
+      "alpha": false
+    }
+  ],
+  "problems": []
+}

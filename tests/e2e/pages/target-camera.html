@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Target games camera harness</title>
+<link rel="stylesheet" href="/packages/web/src/styles/app.css">
+<style>html,body{margin:0;background:#1A1430}</style>
+</head>
+<body>
+<div class="ba-stage" data-stage>
+  <div class="ba-stage-scene" data-scene></div>
+  <div class="ba-camera-host" data-camera-host></div>
+  <div class="ba-hud" data-hud-root></div>
+</div>
+<script type="module">
+  import * as h from './target-camera-harness.ts';
+  window.tc = h;
+  window.harnessReady = true;
+</script>
+</body>
+</html>

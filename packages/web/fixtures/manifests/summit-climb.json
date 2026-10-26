@@ -1,0 +1,39 @@
+{
+  "id": "summit-climb",
+  "template": "strength",
+  "version": 1,
+  "title": "Summit Climb",
+  "regions": ["chest-back", "arms"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 240,
+  "met": 4,
+  "detectors": [{ "id": "pull" }],
+  "free": true,
+  "modes": ["solo"],
+  "seo": { "slug": "summit-climb", "keywords": ["climbing exercise game", "pulling exercise game", "back workout game"] },
+  "catalogue": {
+    "tagline": { "en": "Reach, grab and pull, hand over hand.", "tr": "Uzanın, kavrayın ve çekin; el el üstüne." },
+    "about": {
+      "en": "Climb a mountain wall by reaching up and pulling down, one hand after the other. Each pull takes you a little higher.",
+      "tr": "Bir elinizle sonra diğeriyle yukarı uzanıp aşağı çekerek dağ duvarına tırmanın. Her çekiş sizi biraz daha yükseğe taşır."
+    },
+    "how": [
+      { "en": "Face the camera with room to reach overhead.", "tr": "Başınızın üzerine uzanabileceğiniz boşlukla kameraya dönün." },
+      { "en": "Reach up with one hand to grab the next hold.", "tr": "Sıradaki tutamağı kavramak için bir elinizle yukarı uzanın." },
+      { "en": "Pull down with that hand, then reach with the other one.", "tr": "O elinizle aşağı çekin, sonra diğer elinizle uzanın." }
+    ],
+    "measures": [
+      { "en": "Which hand reaches up and which one pulls down.", "tr": "Hangi elin yukarı uzandığı, hangisinin aşağı çektiği." },
+      { "en": "How far each pull travels.", "tr": "Her çekişin ne kadar yol aldığı." }
+    ],
+    "move": "pull",
+    "tile": "summit-climb",
+    "order": 8,
+    "related": ["twist-turbine", "star-catch"],
+    "seatedNote": { "en": "Arms only: the whole climb works from a chair.", "tr": "Yalnızca kollar: bütün tırmanış sandalyeden yapılır." },
+    "quietNote": { "en": "No jumping and no stamping.", "tr": "Zıplama ve yere vurma yok." }
+  }
+}

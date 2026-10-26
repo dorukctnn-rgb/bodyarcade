@@ -1,0 +1,38 @@
+{
+  "id": "twist-turbine",
+  "template": "strength",
+  "version": 1,
+  "title": "Twist Turbine",
+  "regions": ["core"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 180,
+  "met": 3,
+  "detectors": [{ "id": "twist" }],
+  "free": true,
+  "modes": ["solo"],
+  "seo": { "slug": "twist-turbine", "keywords": ["twist exercise game", "core workout game", "oblique workout game"] },
+  "catalogue": {
+    "tagline": { "en": "Twist to spin the turbine and light the city.", "tr": "Türbini döndürmek ve şehri aydınlatmak için gövdenizi çevirin." },
+    "about": {
+      "en": "Twist your torso left and right to turn a wind turbine. The more you twist, the more windows light up in the city.",
+      "tr": "Rüzgâr türbinini döndürmek için gövdenizi sağa sola çevirin. Ne kadar çevirirseniz şehirde o kadar pencere yanar."
+    },
+    "how": [
+      { "en": "Face the camera with your arms folded in front of your chest.", "tr": "Kollarınızı göğsünüzün önünde kavuşturup kameraya dönün." },
+      { "en": "Twist from one side to the other, leading with your shoulders.", "tr": "Omuzlarınız önde olacak şekilde bir yandan diğer yana dönün." },
+      { "en": "Keep turning to power the turbine and light the windows.", "tr": "Türbini çalıştırmak ve pencereleri yakmak için dönmeye devam edin." }
+    ],
+    "measures": [
+      { "en": "How far your shoulders turn compared with your hips.", "tr": "Omuzlarınızın kalçanıza göre ne kadar döndüğü." }
+    ],
+    "move": "twist",
+    "tile": "twist-turbine",
+    "order": 7,
+    "related": ["limbo-bend", "summit-climb"],
+    "seatedNote": { "en": "Seated twist: turn from the waist while you sit.", "tr": "Oturarak dönüş: otururken belinizden dönün." },
+    "quietNote": { "en": "No jumping and no stamping, just a steady twist.", "tr": "Zıplama ve yere vurma yok, yalnızca düzenli bir dönüş." }
+  }
+}

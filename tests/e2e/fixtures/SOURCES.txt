@@ -1,0 +1,31 @@
+Fake camera feeds for the e2e tests (Chromium --use-file-for-fake-video-capture). Landmarks only are derived
+from them; no video leaves the test machine.
+
+standing-640x360.mjpeg
+  Source: Wikimedia Commons, "Conditioning Drill 3- Alternate Staggered Squat Jump.webm", U.S. Army video,
+  public domain (work of the U.S. federal government). Seconds 2 to 8, scaled to 640x360, 15 fps, MJPEG.
+  Made with: ffmpeg -ss 2 -t 6 -i <source>.webm -vf "fps=15,scale=640:360" -c:v mjpeg -q:v 5 -an standing-640x360.mjpeg
+
+two-standing-640x360.mjpeg
+  Two people side by side for the two-player tests (mode 'local2'): the same public-domain Army clip as above,
+  the centre 320 px of each frame twice, the right copy mirrored and 37 frames (about 2.5 s) later, 6 s, 15 fps.
+  Made with: ffmpeg -f mjpeg -framerate 15 -i standing-640x360.mjpeg -stream_loop 1 -f mjpeg -framerate 15
+  -i standing-640x360.mjpeg -filter_complex "[0:v]crop=320:360:160:0,setpts=PTS-STARTPTS[a];[1:v]trim=start_frame=37,
+  setpts=PTS-STARTPTS,crop=320:360:160:0,hflip[b];[a][b]hstack=inputs=2:shortest=1" -c:v mjpeg -q:v 5 -an
+  -f mjpeg two-standing-640x360.mjpeg
+
+desk-640x480.mjpeg
+  A person at a desk: head and shoulders like a laptop camera at about 0.6 m, the hips under the picture (the real model gives
+  them a visibility of 0.02). The same public-domain Army clip as above, cropped from the 1920x1080 original to 300x225 at
+  (822, 254), scaled to 640x480, seconds 0 to 6, 15 fps, MJPEG. The landmark trace of the same pictures is
+  tests/traces/video/army-desk-near-6s.trace.json (see SOURCES.txt there for the ffmpeg line).
+  Made with: ffmpeg -i desk-near.webm -vf fps=15 -c:v mjpeg -q:v 6 -an -f mjpeg desk-640x480.mjpeg
+
+desk-dark-640x480.mjpeg and desk-backlit-640x480.mjpeg
+  The desk picture above, 3 s, made very dark (an average luma of about 0.03) and made into a silhouette against the bright wall
+  (face and shirt dark, wall bright), for "too dark" and "the light is behind you" on the real camera path
+  (tests/e2e/light-camera.spec.ts; the brightness maps of the three pictures are in packages/core/body/light.real.test.ts).
+  Made with: ffmpeg -t 3 -i desk-near.webm -vf "eq=brightness=-0.62:contrast=0.55,fps=15" -c:v mjpeg -q:v 8 -an -f mjpeg desk-dark-640x480.mjpeg
+              ffmpeg -t 3 -i desk-near.webm -vf "curves=all='0/0 0.45/0.03 0.7/0.12 0.85/0.45 1/1',format=yuvj420p,fps=15" -c:v mjpeg -q:v 8 -an -f mjpeg desk-backlit-640x480.mjpeg
+  Keep every fixture yuvj420p: Chromium's fake camera does not read a 4:4:4 JPEG stream and shows a flat test pattern instead
+  (the first backlit file was 4:4:4 and the test saw a grey picture with nobody in it).

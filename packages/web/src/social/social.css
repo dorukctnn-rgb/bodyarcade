@@ -1,0 +1,193 @@
+/* The friends screens beyond the art director's kit pages: banners and state panels, my profile, the weekly boards, quick match,
+   the recovery code, the friend link, the tray of invitations. Built on the design tokens only; the kit's own classes (k-card,
+   k-stack, ba-list, ba-btn ...) come from app.css. Imported by app/social.ts (the views import no CSS). */
+
+/* ---------- banners and state panels ---------- */
+.k-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 0 0 14px; padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.k-banner svg { width: 24px; height: 24px; flex: none; }
+.k-banner p { margin: 0; flex: 1 1 14em; min-width: 0; font-size: var(--ba-text-sm); line-height: 1.45; }
+.k-banner .ba-btn { min-height: 40px; padding: 0 14px; font-size: var(--ba-text-sm); }
+.k-banner--warn { background: color-mix(in srgb, var(--ba-sun-400) 16%, var(--ba-surface)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ba-sun-400) 55%, var(--ba-border)); }
+.k-banner--warn svg { color: var(--ba-reward-text); }
+.k-banner--info svg { color: var(--ba-info); }
+.k-statepanel .ba-actions { gap: 10px 14px; }
+.k-statepanel p { max-width: 40em; }
+.k-minor { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: var(--ba-text-sm); min-height: 44px; }
+.k-minor svg { width: 18px; height: 18px; }
+
+/* The three ways in on the Friends page: new room, lobbies, weekly boards. */
+.k-start { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.k-start .ba-btn { white-space: normal; text-align: center; line-height: 1.15; padding: 8px 12px; gap: 8px; }
+.k-start .ba-btn:nth-child(3) { grid-column: 1 / -1; }
+@media (min-width: 640px) { .k-start { grid-template-columns: repeat(3, minmax(0, 1fr)); } .k-start .ba-btn:nth-child(3) { grid-column: auto; } }
+@media (min-width: 900px) and (max-width: 1199px) { .k-start { grid-template-columns: repeat(2, minmax(0, 1fr)); } .k-start .ba-btn:nth-child(3) { grid-column: 1 / -1; } }
+
+/* ---------- my profile ---------- */
+.k-me__head { display: flex; align-items: center; gap: 14px; }
+.k-me__head .ba-avatar { width: 64px; height: 64px; }
+.k-me__head .ba-avatar svg { width: 50px; height: 50px; }
+.k-me__name { margin: 2px 0 0; font-family: var(--ba-font-display); font-weight: 800; font-size: 1.5rem; line-height: 1.1; overflow-wrap: anywhere; color: var(--ba-text); }
+.k-addrow .k-nameinput { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.k-codebox { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; }
+.k-codebox .ba-qr { width: 112px; height: 112px; padding: 8px; }
+/* The QR code goes under the buttons where the card is narrow: a phone, and the half-page column of a phone held sideways or a small tablet. */
+@media (max-width: 479px), (min-width: 900px) and (max-width: 1099px) { .k-codebox { grid-template-columns: minmax(0, 1fr); } .k-codebox .ba-qr { justify-self: start; } }
+.k-linkline { margin: 0; font-size: var(--ba-text-sm); color: var(--ba-text-muted); overflow-wrap: anywhere; }
+.k-rowbtns--wrap { flex-wrap: wrap; }
+/* The link under the data buttons: its 3px of padding must not reach up into the button above it (.k-card p and .k-flat would take the gap away). */
+.k-card .k-datalink { margin: 10px 0 0; }
+.k-canlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.k-canlist li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; font-size: var(--ba-text-sm); line-height: 1.4; }
+.k-canlist svg { width: 20px; height: 20px; margin-top: 1px; }
+.k-canlist .yes svg { color: var(--ba-hit-text); }
+.k-canlist .no { color: var(--ba-text-muted); }
+.k-canlist .no svg { color: var(--ba-text-muted); }
+/* The list of facts of the profile screen (a dl). The game page's row of pills is also called .k-facts (design/ui-kit/pages.css, a ul): these rules are
+   for the dl alone, with the specificity they always had, so they do not turn that row into a column. */
+:where(dl).k-facts { margin: 0; display: grid; gap: 10px; }
+dl.k-facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+dl.k-facts dt { color: var(--ba-text-muted); font-size: var(--ba-text-sm); }
+dl.k-facts dd { margin: 0; font-weight: 700; }
+.k-cols-wide { grid-column: 1 / -1; }
+.k-prefs .ba-field select { max-width: 320px; }
+.k-prefs small { display: block; margin-top: 6px; }
+.k-me .k-namepick { align-items: flex-start; }
+.k-me .k-namepick .ba-small { flex: 1 1 16em; }
+
+/* ---------- weekly boards ---------- */
+.k-boardctl { display: grid; gap: 14px; }
+.k-boardsegs { display: flex; flex-wrap: wrap; gap: 8px 28px; }
+.k-boardsegs .ba-fieldset { margin: 0; }
+.k-board { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; background: var(--ba-border); border-radius: var(--ba-radius-lg); overflow: hidden; }
+.k-board li { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; background: var(--ba-surface); min-height: 56px; }
+.k-board li:has(.ba-avatar) { grid-template-columns: 2.4em 40px minmax(0, 1fr) auto; }
+.k-board .ba-avatar { width: 40px; height: 40px; }
+.k-board .ba-avatar svg { width: 30px; height: 30px; }
+.k-board .rank { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ba-text-muted); }
+.k-board b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-board .score { font-weight: 800; font-variant-numeric: tabular-nums; }
+.k-board li.you { background: var(--ba-accent-tint); box-shadow: inset 4px 0 0 var(--ba-accent); }
+.k-board li.you .rank { color: var(--ba-text); }
+.k-board li.gap { margin-top: 10px; border-radius: var(--ba-radius-md); }
+.k-yours { margin: 12px 0 0; font-weight: 700; }
+
+/* ---------- lobbies and quick match ---------- */
+.k-regionpick { display: inline-flex; align-items: center; gap: 8px; }
+.k-regionselect { height: 44px; padding: 0 10px; max-width: 170px; font-size: var(--ba-text-md); }
+.k-regionpick .ba-icon-btn { width: 44px; height: 44px; }
+.k-searching { display: flex; align-items: center; gap: 12px; }
+.k-searching b { display: block; }
+.k-searching p { margin: 4px 0 0; }
+.k-spinner { width: 24px; height: 24px; flex: none; border-radius: 50%; border: 3px solid var(--ba-border); border-top-color: var(--ba-accent); animation: k-spin 900ms linear infinite; }
+@keyframes k-spin { to { transform: rotate(360deg); } }
+:root[data-motion="reduce"] .k-spinner { animation: none; border-top-color: var(--ba-accent); border-right-color: var(--ba-accent); }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .k-spinner { animation: none; } }
+.k-ghostcard { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-surface-sunken); }
+.k-ghostcard b { font-weight: 800; }
+.k-ghostcard p { margin: 0; font-size: var(--ba-text-sm); color: var(--ba-text-muted); }
+
+/* ---------- the recovery code and its sheet ---------- */
+.k-recoverybox { margin: 0; display: grid; gap: 12px; }
+.k-recoverybox dt { font-size: var(--ba-text-xs); font-weight: 700; color: var(--ba-text-muted); margin: 0 0 4px; }
+.k-recoverybox dd { margin: 0; }
+.k-recoverycode { padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-surface-sunken); font-weight: 800; font-size: 1.3rem; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+.k-recoverycode--friend { font-size: 1.05rem; }
+.k-codeinput { text-transform: uppercase; letter-spacing: 0.06em; font-weight: 800; }
+.k-sheet .k-fine { display: flex; gap: 6px; align-items: flex-start; }
+.k-sheet .k-fine svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.k-sheet .ba-callout { margin: 0; }
+/* The agreement of the sign-up: the box beside a sentence of its own, at least as big as a thumb, with the links in it. */
+.k-check--agree { align-items: flex-start; font-weight: 500; line-height: 1.45; padding: 4px 0; }
+.k-check--agree input { flex: none; margin-top: 0; }
+/* Links inside a sentence that wraps: no padding, and a link is never cut in two (the box of a link that wraps covers both of its lines and
+   would lie over its neighbours); inline links are exempt from the touch size. */
+.k-check--agree .ba-link { padding-block: 0; white-space: nowrap; }
+.k-check--agree input[aria-invalid="true"] { outline: 2px solid var(--ba-flush-700); outline-offset: 2px; }
+[data-theme="dark"] .k-check--agree input[aria-invalid="true"] { outline-color: var(--ba-flush-500); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .k-check--agree input[aria-invalid="true"] { outline-color: var(--ba-flush-500); } }
+
+/* ---------- the friend link ---------- */
+.k-linkcard { max-width: 640px; }
+.k-card .k-linkcode { margin: 4px 0 10px; font-size: 2rem; font-weight: 800; letter-spacing: 0.1em; color: var(--ba-text); line-height: 1.1; overflow-wrap: anywhere; }
+.k-linkcard .ba-actions { margin-top: 14px; }
+
+/* ---------- a room: invitations and the seat menu ---------- */
+.k-invitecard .ba-list > li { min-height: 56px; }
+.k-invitecard .ba-btn { min-height: 40px; padding: 0 14px; font-size: var(--ba-text-sm); }
+
+/* ---------- a Pro game in a room: the host's refusal, the line under the game, the tag in the picker, the window ---------- */
+.k-pronote__head { display: flex; align-items: center; gap: 10px; }
+.k-pronote__head svg { width: 24px; height: 24px; flex: none; color: var(--ba-reward-text); }
+.k-pronote__head h2 { margin: 0; }
+.k-pronote p { margin: 8px 0 0; }
+.k-protag { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; color: var(--ba-reward-text); font-weight: 700; line-height: 1.35; }
+.k-protag svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.k-gamepick small.k-protag { display: flex; }
+.k-protag--pill { display: inline-flex; align-items: center; margin: 0 0 0 auto; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ba-sun-400) 22%, var(--ba-surface)); font-size: var(--ba-text-xs); font-weight: 800; letter-spacing: 0.02em; }
+.k-sheet .who > svg { width: 28px; height: 28px; flex: none; color: var(--ba-reward-text); }
+.k-progame { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.k-progame img { width: 48px; height: 36px; flex: none; border-radius: 8px; object-fit: cover; background: var(--ba-surface-sunken); }
+.k-progame b { font-weight: 800; }
+
+/* ---------- the safety page ---------- */
+.k-prose { max-width: 46em; margin: 0 0 14px; color: var(--ba-text-muted); line-height: 1.55; }
+.k-factcards { display: grid; gap: 12px; }
+@media (min-width: 800px) { .k-factcards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.k-factcards .k-card h3 { margin: 0 0 6px; }
+
+/* ---------- invitations from friends: a tray over the page ---------- */
+.ba-invites { position: fixed; z-index: 60; left: 0; right: 0; top: 0; display: flex; justify-content: center; padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 0; pointer-events: none; }
+.ba-invites:empty { display: none; }
+.k-tray { display: grid; gap: 8px; width: min(100%, 520px); pointer-events: auto; }
+.k-tray__card { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 10px 12px; border-radius: var(--ba-radius-lg); background: var(--ba-surface); box-shadow: var(--ba-elev-float), inset 0 0 0 2px var(--ba-border-strong); animation: ba-pop var(--ba-dur-enter) var(--ba-ease-pop); }
+.k-tray__card .grow { flex: 1 1 11em; min-width: 0; }
+.k-tray__card b { display: block; font-weight: 750; line-height: 1.25; }
+.k-tray__card small { color: var(--ba-text-muted); font-size: var(--ba-text-xs); }
+.k-tray__card .ba-avatar { width: 40px; height: 40px; }
+.k-tray__card .ba-avatar svg { width: 30px; height: 30px; }
+.k-tray__card .k-rowbtns { flex: 1 1 100%; justify-content: flex-end; }
+@media (min-width: 560px) { .k-tray__card .k-rowbtns { flex: none; } }
+:root[data-motion="reduce"] .k-tray__card { animation: none; }
+
+/* A state panel on a phone: the picture above the words, not beside them (the words need the width). */
+@media (max-width: 599px) {
+  .k-statepanel { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .k-statepanel > svg { width: 32px; height: 32px; }
+}
+
+/* The footer of a seat: its state, and the menu of the player in it. */
+.k-seatfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; max-width: 100%; }
+.k-seatfoot .k-state { flex: none; white-space: nowrap; }
+/* Beside the camera and chat column (a phone held sideways, a tablet) the seats have the room for two in a row, not four. */
+@media (min-width: 900px) and (max-width: 1199px) { .k-seats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.k-seat .k-seatmore { position: static; width: 32px; height: 32px; flex: none; }
+.k-seat .k-seatmore svg { width: 16px; height: 16px; }
+
+/* ---------- what the first screenshots showed (phones) ---------- */
+/* The profile card: the hint beside the QR code and the share button under both (the button is wider than the column beside the code). */
+@media (max-width: 519px), (min-width: 900px) and (max-width: 1099px) {
+  .k-share { grid-template-columns: minmax(0, 1fr) auto; row-gap: 12px; }
+  .k-share > .k-stack { display: contents; }
+  .k-share > .k-stack > p { grid-column: 1; grid-row: 1; align-self: center; }
+  .k-share > .ba-qr { grid-column: 2; grid-row: 1; }
+  .k-share > .k-stack > .ba-btn { grid-column: 1 / -1; grid-row: 2; }
+}
+/* A request: the words get the width; when the row is too narrow for the words and both answers (a phone, or the right-hand column
+   of a phone held sideways) the two answers sit under them. */
+.k-req { flex-wrap: wrap; }
+.ba-list > li.k-req .grow { flex: 1 1 11em; }
+.k-req .k-rowbtns { margin-left: auto; }
+@media (max-width: 479px) {
+  .ba-list > li.k-req .grow { flex: 1 1 8em; }
+  .k-req .k-rowbtns { flex: 1 1 100%; margin-left: 0; }
+  .k-req .k-rowbtns .ba-btn { flex: 1 1 0; }
+}
+/* A section head wraps instead of squeezing the control beside its title; the region picker takes the right side of its own line. */
+.k-sechead { flex-wrap: wrap; }
+.k-regionpick { margin-left: auto; }
+/* The games row scrolls under the gutter: the first chip starts where the page does, a little below the words above it. */
+.ba-filters.k-gamechips { scroll-padding-inline: var(--ba-gutter); }
+.ba-filters.k-gamechips.k-mt-lg { margin-top: 14px; }
+/* The age groups of the safety page are cards without a radio: the name above the list, not beside it. */
+.k-age.k-age--static ul { grid-column: 1; }
+legend.k-label { padding: 0; }

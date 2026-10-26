@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stage frame budget</title>
+<script type="importmap">{ "imports": { "three": "../../site/vendor/three.module.min.js" } }</script>
+<style>html, body { margin: 0; height: 100%; background: #F4F2F8; } #wrap { position: fixed; left: 0; top: 0; width: 100%; height: 54%; } canvas { width: 100%; height: 100%; display: block; }</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<script type="module">
+// Runs the hero loop for a few seconds and records frame intervals and the cost of each
+// update + render call. Used by design/tools/perf-onboarding.mjs with CPU throttling.
+import { createStage } from './scene.mjs';
+const q = new URLSearchParams(location.search);
+const tier = +(q.get('tier') ?? 1);
+const seconds = +(q.get('s') ?? 6);
+const stage = createStage(document.getElementById('c'), { tier, step: +(q.get('step') ?? 1), theme: 'light', reducedMotion: false });
+stage.start();
+// Warm up (shader compile, first uploads), then measure.
+await new Promise((ok) => setTimeout(ok, 1500));
+stage.resetStats();
+const gaps = [];
+let last = performance.now();
+const t0 = last;
+await new Promise((done) => {
+  const tick = (now) => {
+    gaps.push(now - last); last = now;
+    if (now - t0 < seconds * 1000) requestAnimationFrame(tick); else done();
+  };
+  requestAnimationFrame(tick);
+});
+stage.stop();
+const s = gaps.slice(10).sort((a, b) => a - b);
+const pick = (p) => s[Math.min(s.length - 1, Math.floor(p * s.length))];
+const st = stage.stats();
+window.__perf = { tier, frames: s.length, rafP50: pick(0.5), rafP95: pick(0.95), cpuP50: st.p50, cpuP95: st.p95, calls: st.calls, triangles: st.triangles, canvas: [innerWidth, Math.round(innerHeight * 0.54)] };
+document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>

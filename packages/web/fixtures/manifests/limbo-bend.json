@@ -1,0 +1,38 @@
+{
+  "id": "limbo-bend",
+  "template": "gate",
+  "version": 1,
+  "title": "Limbo Bend",
+  "regions": ["core", "mobility"],
+  "framing": "full",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 180,
+  "met": 3,
+  "detectors": [{ "id": "sideBend" }],
+  "free": false,
+  "modes": ["solo", "local2"],
+  "seo": { "slug": "limbo-bend", "keywords": ["side bend exercise game", "mobility game", "stretching game"] },
+  "catalogue": {
+    "tagline": { "en": "Bend sideways to slip through tilted gates.", "tr": "Eğik kapılardan geçmek için yana eğilin." },
+    "about": {
+      "en": "Tilted gates slide toward you. Bend to the side to match the tilt and slip through.",
+      "tr": "Eğik kapılar size doğru kayar. Eğime uyacak şekilde yana eğilin ve içinden geçin."
+    },
+    "how": [
+      { "en": "Stand with your feet apart and your arms by your sides.", "tr": "Ayaklarınız açık, kollarınız iki yanda durun." },
+      { "en": "Look at which way the next gate tilts.", "tr": "Sıradaki kapının hangi yöne eğildiğine bakın." },
+      { "en": "Bend from the waist to that side until you are through.", "tr": "Geçene kadar belinizden o yana eğilin." }
+    ],
+    "measures": [
+      { "en": "How far your upper body leans to the left or the right.", "tr": "Üst gövdenizin sola ya da sağa ne kadar eğildiği." }
+    ],
+    "move": "sideBend",
+    "tile": "limbo-bend",
+    "order": 9,
+    "related": ["twist-turbine", "pose-wall"],
+    "seatedNote": { "en": "Seated bend: lean from the waist while you sit.", "tr": "Oturarak eğilme: otururken belinizden yana eğilin." },
+    "quietNote": { "en": "No jumping and no stamping, just a smooth bend.", "tr": "Zıplama ve yere vurma yok, yalnızca yumuşak bir eğilme." }
+  }
+}

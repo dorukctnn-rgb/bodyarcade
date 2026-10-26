@@ -1,0 +1,39 @@
+{
+  "id": "firework-jacks",
+  "template": "strength",
+  "version": 1,
+  "title": "Firework Jacks",
+  "regions": ["cardio"],
+  "framing": "full",
+  "seated": true,
+  "lowImpact": false,
+  "silentSafe": true,
+  "durationSec": 240,
+  "met": 8,
+  "detectors": [{ "id": "jumpingJack" }],
+  "free": true,
+  "modes": ["solo", "local2", "duel"],
+  "seo": { "slug": "firework-jacks", "keywords": ["jumping jacks game", "jumping jack workout game", "cardio game"] },
+  "catalogue": {
+    "tagline": { "en": "Every jumping jack sends a firework up.", "tr": "Her jumping jack gökyüzüne bir havai fişek yollar." },
+    "about": {
+      "en": "Each jumping jack launches a firework over the skyline. Keep the rhythm going and the sky stays lit.",
+      "tr": "Her jumping jack, şehrin üzerinde bir havai fişek patlatır. Ritmi sürdürdükçe gökyüzü aydınlık kalır."
+    },
+    "how": [
+      { "en": "Stand with room on both sides of you.", "tr": "İki yanınızda boşluk olacak şekilde durun." },
+      { "en": "Do a jumping jack: arms up and feet apart, then back together.", "tr": "Bir jumping jack yapın: kollar yukarı, ayaklar açık, sonra yine bir araya." },
+      { "en": "Keep the pace steady to keep the fireworks coming.", "tr": "Havai fişekler gelmeye devam etsin diye hızınızı sabit tutun." }
+    ],
+    "measures": [
+      { "en": "Whether your arms go overhead and your feet come apart.", "tr": "Kollarınızın baş üstüne gidip ayaklarınızın açılıp açılmadığı." },
+      { "en": "Your pace from one jack to the next.", "tr": "Bir jackten diğerine hızınız." }
+    ],
+    "move": "jackOpen",
+    "tile": "firework-jacks",
+    "order": 6,
+    "related": ["knee-sprint", "squat-flap"],
+    "seatedNote": { "en": "Arm jacks: open and close your arms from a chair.", "tr": "Kol jackleri: sandalyede otururken kollarınızı açıp kapatın." },
+    "quietNote": { "en": "Step jacks: step out to the side instead of jumping.", "tr": "Adım jackleri: zıplamak yerine yana adım atın." }
+  }
+}

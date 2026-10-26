@@ -1,0 +1,39 @@
+{
+  "id": "star-catch",
+  "template": "target",
+  "version": 1,
+  "title": "Star Catch",
+  "regions": ["arms"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 180,
+  "met": 3.5,
+  "detectors": [{ "id": "handHit" }],
+  "free": true,
+  "modes": ["solo", "local2", "duel"],
+  "seo": { "slug": "star-catch", "keywords": ["reach game", "arm exercise game", "hand tracking game"] },
+  "catalogue": {
+    "tagline": { "en": "Catch each star with the hand of its colour.", "tr": "Her yıldızı kendi renginin eliyle yakalayın." },
+    "about": {
+      "en": "Stars drift across the mirror view of your room. Reach out and touch each one with the hand that matches its colour.",
+      "tr": "Yıldızlar odanızın ayna görüntüsünde süzülür. Uzanın ve her birine rengiyle eşleşen elinizle dokunun."
+    },
+    "how": [
+      { "en": "Stand or sit where the camera sees you from head to hips.", "tr": "Kameranın sizi baştan kalçaya kadar gördüğü bir yerde durun ya da oturun." },
+      { "en": "Gold stars belong to your left hand and blue stars to your right.", "tr": "Altın yıldızlar sol elinizin, mavi yıldızlar sağ elinizin." },
+      { "en": "Reach, touch and keep the combo going without missing a star.", "tr": "Uzanın, dokunun ve hiçbir yıldızı kaçırmadan seriyi sürdürün." }
+    ],
+    "measures": [
+      { "en": "Where your hands are on the screen, left and right.", "tr": "Ellerinizin ekranda nerede olduğu, sol ve sağ." },
+      { "en": "How quickly you reach each star.", "tr": "Her yıldıza ne kadar çabuk uzandığınız." }
+    ],
+    "move": "reach",
+    "tile": "star-catch",
+    "order": 3,
+    "related": ["pad-work", "reaction-tag"],
+    "seatedNote": { "en": "Seated reach: everything works from a chair.", "tr": "Oturarak uzanma: her şey sandalyeden yapılır." },
+    "quietNote": { "en": "No jumping and no stamping.", "tr": "Zıplama ve yere vurma yok." }
+  }
+}

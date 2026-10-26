@@ -1,0 +1,40 @@
+{
+  "id": "twist-turbine",
+  "template": "strength",
+  "version": 1,
+  "title": "Twist Turbine",
+  "regions": ["core"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 180,
+  "met": 2.3,
+  "detectors": [{ "id": "twist" }],
+  "free": true,
+  "modes": ["solo"],
+  "minPoseHz": 10,
+  "seo": { "slug": "twist-turbine", "keywords": ["twist exercise game", "core workout game", "oblique workout game", "seated twist exercise"] },
+  "catalogue": {
+    "tagline": { "en": "Twist to spin the turbine and light the city.", "tr": "Türbini döndürmek ve şehri aydınlatmak için gövdeni çevir." },
+    "about": {
+      "en": "Twist your body from side to side to turn a wind turbine and give a night city its power. Keep to the pace band of your level and the windows light block by block. In a blackout, twist fast; in an overload, hold your twist to the side shown. Three sets with short rests.",
+      "tr": "Rüzgâr türbinini döndürmek ve geceye gömülü şehre elektrik vermek için gövdeni bir yana bir yana çevir. Seviyenin tempo bandında kalırsan pencereler blok blok yanar. Kesintide hızlı dön, aşırı yükte gösterilen yönde dönüşü tut. Aralarda kısa dinlenmeli üç set var."
+    },
+    "how": [
+      { "en": "Face the camera with your hands together in front of your chest.", "tr": "Ellerin göğsünün önünde bir araya gelmiş halde kameraya dön." },
+      { "en": "Twist from one side to the other, turning your shoulders and not only your arms.", "tr": "Bir yandan diğer yana dön; yalnızca kolların değil omuzların da dönsün." },
+      { "en": "Stay inside the pace band. In a storm, twist fast or hold the side shown.", "tr": "Tempo bandında kal. Fırtınada hızlı dön ya da gösterilen yönde tut." }
+    ],
+    "measures": [
+      { "en": "How far your hands travel from the centre as your shoulders turn.", "tr": "Omuzların dönerken ellerinin merkezden ne kadar uzaklaştığı." },
+      { "en": "How many twists a minute you keep up.", "tr": "Dakikada kaç dönüşü sürdürdüğün." }
+    ],
+    "move": "twist",
+    "tile": "twist-turbine",
+    "order": 7,
+    "related": ["limbo-bend", "summit-climb"],
+    "seatedNote": { "en": "Seated twist: turn from the waist while you sit, with the same pace band.", "tr": "Oturarak dönüş: otururken belinden dön, tempo bandı aynı." },
+    "quietNote": { "en": "No jumping and no stamping, just a steady twist.", "tr": "Zıplama ve yere vurma yok, yalnızca düzenli bir dönüş." }
+  }
+}

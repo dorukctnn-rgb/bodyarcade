@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["packages/games/kit-g1/**/*.ts", "packages/games/flight/**/*.ts", "packages/games/sprint/**/*.ts", "packages/games/climb/**/*.ts", "packages/games/squat-flap/**/*.ts", "packages/games/knee-sprint/**/*.ts", "packages/games/summit-climb/**/*.ts", "tests/e2e/**/g1*.ts"]
+}

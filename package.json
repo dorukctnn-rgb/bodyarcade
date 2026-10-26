@@ -1,0 +1,50 @@
+{
+  "name": "bodyarcade",
+  "version": "2.0.0-dev",
+  "private": true,
+  "description": "BodyArcade v2: webcam fitness games in the browser (platform, games, web). The live site stays in site/.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:live": "playwright test -c tests/live/playwright.config.ts",
+    "test:social": "playwright test -c tests/social/playwright.config.ts",
+    "qa:pages": "node tools/page-check/run.ts",
+    "qa:fakecam": "node tools/fake-camera/run.ts",
+    "qa:simbot": "node tools/simbot/run.ts",
+    "qa:leak": "node tools/perf/leak.ts",
+    "qa:perf": "node tools/perf/budget.ts",
+    "qa:browsers": "node tools/browsers/run.ts",
+    "check": "npm run typecheck && npm test && npm run test:e2e",
+    "web:dev": "vite --config packages/web/vite.config.ts",
+    "web:build": "node packages/web/tools/build.ts",
+    "web:shots": "node packages/web/tools/shots.ts",
+    "web:e2e": "playwright test --config packages/web/playwright.config.ts",
+    "release:build": "node release/build.ts",
+    "release:deploy": "node release/deploy.ts",
+    "test:release": "playwright test -c tests/release/playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "22.20.5",
+    "@types/three": "0.170.0",
+    "ajv": "8.20.0",
+    "axe-core": "4.14.0",
+    "jsqr": "1.4.0",
+    "node-turn": "0.0.6",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5",
+    "wrangler": "4.152.0"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.1.1",
+    "qrcode-generator": "2.0.4",
+    "three": "0.170.0"
+  }
+}

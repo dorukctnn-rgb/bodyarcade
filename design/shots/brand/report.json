@@ -1,0 +1,18 @@
+[
+ {
+  "page": "brand-sheet",
+  "breakpoint": "phone-390",
+  "ms": 1373,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/brand/brand-sheet-phone-390.webp"
+ },
+ {
+  "page": "brand-sheet",
+  "breakpoint": "laptop-1440",
+  "ms": 1198,
+  "problems": [],
+  "stats": null,
+  "shot": "design/shots/brand/brand-sheet-laptop-1440.webp"
+ }
+]

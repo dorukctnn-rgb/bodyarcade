@@ -1,0 +1,93 @@
+{
+  "_note": "Captions of the Google Play images, one entry per screen, in store order. Each says only what the app does today: no counts of games (the catalogue grows every week), no prices, no free-trial text. *Words between stars* get the flush underline. English follows packages/core/ui/i18n/en.ts, Turkish follows tr.ts, with the same vocabulary.",
+  "feature": {
+    "en": {
+      "h": "Squat, jump, punch.",
+      "p": "The game moves *when you do*."
+    },
+    "tr": {
+      "h": "Çömel, zıpla, yumruk at.",
+      "p": "Sen hareket edince *oyun da hareket eder*."
+    }
+  },
+  "shots": {
+    "promise": {
+      "en": {
+        "h": "Squat, jump, punch.",
+        "p": "The game moves *when you do*."
+      },
+      "tr": {
+        "h": "Çömel, zıpla, yumruk at.",
+        "p": "Sen hareket edince *oyun da hareket eder*."
+      }
+    },
+    "privacy": {
+      "en": {
+        "h": "Your camera reads your moves *on this device*.",
+        "p": "The video is never uploaded or saved. Every miss gets a reason."
+      },
+      "tr": {
+        "h": "Kameran hareketlerini *bu cihazda* okur.",
+        "p": "Görüntü hiçbir yere gönderilmez, kaydedilmez. Her kaçırmanın bir sebebi var."
+      }
+    },
+    "calibrate": {
+      "en": {
+        "h": "A quick check *before each game*.",
+        "p": "It tells you if the camera sees you from head to feet."
+      },
+      "tr": {
+        "h": "Her oyundan önce *kısa bir kontrol*.",
+        "p": "Kameranın seni baştan ayağa görüp görmediğini söyler."
+      }
+    },
+    "games": {
+      "en": {
+        "h": "Short games for *every part* of the body.",
+        "p": "Legs, arms, core, cardio and balance."
+      },
+      "tr": {
+        "h": "Vücudunun *her bölgesi* için kısa oyunlar.",
+        "p": "Bacak, kol, karın, kardiyo ve denge."
+      }
+    },
+    "friends": {
+      "en": {
+        "h": "Play with *friends*.",
+        "p": "Private rooms for up to four. Camera sharing starts off."
+      },
+      "tr": {
+        "h": "Arkadaşlarla *oyna*.",
+        "p": "Dört kişiye kadar özel odalar. Kamera paylaşımı kapalı başlar."
+      }
+    },
+    "modes": {
+      "en": {
+        "h": "Seated and quiet modes *for every home*.",
+        "p": "Play from a chair, or with no jumping or stamping."
+      },
+      "tr": {
+        "h": "Oturarak ve sessiz mod, *her ev için*.",
+        "p": "Sandalyeden oyna ya da zıplamadan, ayak vurmadan."
+      }
+    }
+  },
+  "alt": {
+    "en": {
+      "promise": "A round of Squat Flap on the phone: the bird flies between columns, score and time at the top.",
+      "privacy": "The welcome screen that explains the camera finds 33 points on the body and the video stays on the device.",
+      "calibrate": "The framing check before a round: a body outline, ticks for head, hips, knees and feet, and the words Hold still, measuring.",
+      "games": "The games screen: filters for each part of the body and the 3D art of each game.",
+      "friends": "A private room with up to four players, an invite link, a QR code and camera sharing switched off.",
+      "modes": "The welcome screen where seated mode and quiet mode are switched on or off."
+    },
+    "tr": {
+      "promise": "Telefonda bir Squat Flap turu: kuş sütunların arasından uçuyor, üstte skor ve süre var.",
+      "privacy": "Kameranın bedende 33 nokta bulduğunu ve görüntünün cihazda kaldığını anlatan karşılama ekranı.",
+      "calibrate": "Turdan önceki kadraj kontrolü: vücut çizgisi, baş, kalça, diz ve ayaklar için işaretler ve Sabit dur, ölçülüyor yazısı.",
+      "games": "Oyunlar ekranı: her vücut bölgesi için filtreler ve her oyunun 3B görseli.",
+      "friends": "En çok dört oyunculu özel oda, davet bağlantısı, QR kodu ve kapalı kamera paylaşımı.",
+      "modes": "Oturarak ve sessiz modun açılıp kapandığı karşılama ekranı."
+    }
+  }
+}

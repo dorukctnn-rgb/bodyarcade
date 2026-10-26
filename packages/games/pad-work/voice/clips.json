@@ -1,0 +1,252 @@
+{
+  "clips": {
+    "en": {
+      "n1": {
+        "text": "One",
+        "ms": 345,
+        "bytes": 2232,
+        "sha256": "83930f3afce4421be61a47e562666e9cfc1bb2ae2c709cf088a6ddfe121e5b08",
+        "speed": 1.05,
+        "take": 0
+      },
+      "n2": {
+        "text": "Two",
+        "ms": 240,
+        "bytes": 1752,
+        "sha256": "e6c8da92390de3ba2d01ddd265e920a9e9c1857b0862deee0c21835bbb4a044b",
+        "speed": 1.15,
+        "take": 1
+      },
+      "n3": {
+        "text": "Three",
+        "ms": 320,
+        "bytes": 2112,
+        "sha256": "e227a32ec348127208e7908ccd30ec09d855ea61877fa68f371dee7ea07a1bd0",
+        "speed": 1.05,
+        "take": 1
+      },
+      "n4": {
+        "text": "Four",
+        "ms": 305,
+        "bytes": 1992,
+        "sha256": "470ba2c18ecc0c0dc7ef4b418bfb4bfd3b6df23732f6bdf425f39f0a2d9dac28",
+        "speed": 1.05,
+        "take": 2
+      },
+      "n5": {
+        "text": "Five",
+        "ms": 345,
+        "bytes": 2232,
+        "sha256": "544bd44fdd8df754ff2f5d859182730fc6dbfcbd21c2a3aa6d7dbff6b67e61aa",
+        "speed": 1.05,
+        "take": 0
+      },
+      "n6": {
+        "text": "Six",
+        "ms": 315,
+        "bytes": 2112,
+        "sha256": "aff51e50557504f24e445bb5ce522b9eb9a7a6a8862a119d92cf8d8be6148e05",
+        "speed": 1.15,
+        "take": 1
+      },
+      "slipL": {
+        "text": "Slip left",
+        "ms": 615,
+        "bytes": 3552,
+        "sha256": "8190eb743898ba7ab30ba7efdaf3ecf6a7ce1b5d68caee5c49d5aea19cc127b1",
+        "speed": 1.0,
+        "take": 0
+      },
+      "slipR": {
+        "text": "Slip right",
+        "ms": 515,
+        "bytes": 3072,
+        "sha256": "2e9fd689be3893bbbdef67a5b2d4ba90bbe05ff9919d8973086595ff1bddc0fd",
+        "speed": 1.0,
+        "take": 0
+      },
+      "duck": {
+        "text": "Duck",
+        "ms": 360,
+        "bytes": 2352,
+        "sha256": "9eba9891c1b878c6cbbc55129a90d9cde26df9aba454fa727351b24137b0bfcf",
+        "speed": 1.0,
+        "take": 0
+      },
+      "round1": {
+        "text": "Round one",
+        "ms": 510,
+        "bytes": 3072,
+        "sha256": "e5dc90bcc11a123fe025eb200666e35c57277a6363083c42afe3c2096f3341ba",
+        "speed": 1.0,
+        "take": 0
+      },
+      "round2": {
+        "text": "Round two",
+        "ms": 640,
+        "bytes": 3672,
+        "sha256": "36d006eca8d56b921610b132991b919791962d811d72ca23c544225ab0a3dfd8",
+        "speed": 1.0,
+        "take": 0
+      },
+      "round3": {
+        "text": "Round three",
+        "ms": 620,
+        "bytes": 3552,
+        "sha256": "37c8588b37559785350a16ea66045836b07ae7dc700b86da753d95be229ac16e",
+        "speed": 1.0,
+        "take": 0
+      },
+      "roundFinal": {
+        "text": "Final round",
+        "ms": 555,
+        "bytes": 3312,
+        "sha256": "1b8c17c463c1154052785491c3e01d57352f553551df30810a3c8a1343d7e64b",
+        "speed": 1.0,
+        "take": 0
+      },
+      "last10": {
+        "text": "Ten seconds",
+        "ms": 754,
+        "bytes": 4272,
+        "sha256": "ffb2d7dae36c4ca1e9318b84b5f85ff8d019cd9fdb050d11b593ae8f948a2595",
+        "speed": 1.0,
+        "take": 0
+      },
+      "rest": {
+        "text": "Time, take a rest",
+        "ms": 1079,
+        "bytes": 5832,
+        "sha256": "811f7b7816d540d25894b7106f716d188a01c26f9e5204730a739f98cf402113",
+        "speed": 1.0,
+        "take": 0
+      }
+    },
+    "tr": {
+      "n1": {
+        "text": "Bir",
+        "ms": 320,
+        "bytes": 2112,
+        "sha256": "e9431d7b711d4ab7e6e5e91cae4c8adfd895d8d0912d5f2d31945d68431f4c1e",
+        "speed": 1.05,
+        "take": 0
+      },
+      "n2": {
+        "text": "İki",
+        "ms": 285,
+        "bytes": 1872,
+        "sha256": "248a9bd4fc9725a07bfc8152c400662fa21e049722c8fde6a4b50f2a115bcb79",
+        "speed": 1.05,
+        "take": 0
+      },
+      "n3": {
+        "text": "Üç",
+        "ms": 330,
+        "bytes": 2112,
+        "sha256": "b7ff7177f4824f16ba2f7c4ded36c4fadf4d6e0be3ead9e949948bd22a7b9896",
+        "speed": 1.05,
+        "take": 0
+      },
+      "n4": {
+        "text": "Dört",
+        "ms": 350,
+        "bytes": 2232,
+        "sha256": "6b5053827cca9e096c5b7ea583bd546cc70c8d048f5cedf8757dee671741eb81",
+        "speed": 1.25,
+        "take": 0
+      },
+      "n5": {
+        "text": "Beş",
+        "ms": 300,
+        "bytes": 1992,
+        "sha256": "4e4e8e700e718164a3996236d9d220d0efdabdcddad5746bebbe1bd657f1b198",
+        "speed": 1.05,
+        "take": 0
+      },
+      "slipL": {
+        "text": "Sola kaç",
+        "ms": 665,
+        "bytes": 3792,
+        "sha256": "dee81b92cf2237346100b78c4fe807680cfc626db2e7f74fbda02fa96bebd12a",
+        "speed": 1.0,
+        "take": 0
+      },
+      "slipR": {
+        "text": "Sağa kaç",
+        "ms": 719,
+        "bytes": 4032,
+        "sha256": "cde41d26c0ebfff14a1e1edde995fefe09feea99c00da72ca93b9c28ae4027d0",
+        "speed": 1.0,
+        "take": 0
+      },
+      "duck": {
+        "text": "Eğil",
+        "ms": 355,
+        "bytes": 2232,
+        "sha256": "d0492f15d6c95a6801b062fae60af9f89ecc664926738b3d857704ad1a161fac",
+        "speed": 1.0,
+        "take": 0
+      },
+      "round1": {
+        "text": "Birinci tur",
+        "ms": 555,
+        "bytes": 3312,
+        "sha256": "9fff828e0ee11de03833062a40a8af17eb1746c820029bf2686cac4dd0aa2d42",
+        "speed": 1.1,
+        "take": 0
+      },
+      "round2": {
+        "text": "İkinci tur",
+        "ms": 585,
+        "bytes": 3432,
+        "sha256": "f2585bef8f1a82c4c1e583bb299bdf3669c68341e98f0e38b1d404de012a582d",
+        "speed": 1.0,
+        "take": 0
+      },
+      "round3": {
+        "text": "Üçüncü tur",
+        "ms": 625,
+        "bytes": 3672,
+        "sha256": "2aeb0189e6a471b40d832a21ceb9cdbbdf3f10af4897f0b61e4dd909be07aa34",
+        "speed": 1.0,
+        "take": 0
+      },
+      "roundFinal": {
+        "text": "Son tur",
+        "ms": 435,
+        "bytes": 2712,
+        "sha256": "12304f5c3523c7e4da5b5b034982ec258723197d30e2fa68ab672a203573132c",
+        "speed": 1.0,
+        "take": 0
+      },
+      "last10": {
+        "text": "On saniye",
+        "ms": 620,
+        "bytes": 3552,
+        "sha256": "1e69d673e82353dac10a9727854d83e9b39c5bd2b02f72df949b435ec6f29c61",
+        "speed": 1.0,
+        "take": 0
+      },
+      "rest": {
+        "text": "Süre doldu, mola ver",
+        "ms": 1438,
+        "bytes": 7632,
+        "sha256": "e866c799ba44713274b76761127d0e384546ebb28781f4db144cfa989a59d436",
+        "speed": 1.0,
+        "take": 0
+      },
+      "n6": {
+        "text": "Altı",
+        "ms": 341,
+        "bytes": 2232,
+        "sha256": "22756353a59275421a789e0be3dce8398b220609e3c2d222a69d15715af9d154",
+        "speed": 1.05,
+        "take": 0,
+        "squeezed": true
+      }
+    }
+  },
+  "model": "supertonic-3",
+  "voice": "M1",
+  "format": "mp3 mono 24 kHz 40 kbit/s"
+}

@@ -1,0 +1,235 @@
+/* First-run onboarding. Layout rule (LAYOUT.md section 11): portrait screens put the stage
+   on top (about half the height) and the panel below; landscape screens put the stage on
+   the left (55 %) and the panel on the right. The primary button never scrolls away. */
+@import url("../ui-kit/kit.css");
+
+html, body { height: 100%; }
+body { overflow: hidden; }
+.ob {
+  position: fixed; inset: 0;
+  display: grid;
+  grid-template-rows: minmax(0, var(--stage-share, 50%)) minmax(0, 1fr);
+  background: var(--ba-bg);
+}
+.ob[data-step="1"] { --stage-share: 54%; }
+.ob[data-step="2"] { --stage-share: 42%; }
+.ob[data-step="3"] { --stage-share: 27%; }
+.ob[data-step="4"] { --stage-share: 44%; }
+.ob[data-step="5"] { --stage-share: 44%; }
+.ob[data-step="6"] { --stage-share: 54%; }
+.ob[data-step="7"][data-done="0"] { grid-template-rows: 1fr 0; grid-template-columns: 1fr; }
+.ob[data-step="7"][data-done="0"] .ob-panel { display: none; }
+.ob[data-step="7"][data-done="1"] { --stage-share: 50%; }
+
+.ob-stage { position: relative; overflow: hidden; min-height: 0; }
+.ob-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ob-stage .ob-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; background: var(--ba-bg); }
+.ob-stage.is-fallback canvas { display: none; }
+.ob-stage.is-fallback .ob-poster { display: block; }
+/* No seam where the stage meets the panel: the vignette, the grain and the 3D canvas all fade
+   out on that side (bottom in portrait, right in landscape), so the scene melts into the page. */
+.ob-stage { --ob-vig: 120% 90% at 50% 45%; --ob-fade: linear-gradient(to bottom, #000 calc(100% - 56px), transparent); }
+.ob-stage canvas, .ob-stage .ob-poster { -webkit-mask-image: var(--ob-fade); mask-image: var(--ob-fade); }
+.ob[data-step="7"][data-done="0"] .ob-stage { --ob-fade: none; }
+.ob-stage::after { /* soft vignette and grain: cheap stand-ins for post-processing */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  -webkit-mask-image: var(--ob-fade); mask-image: var(--ob-fade);
+  background:
+    radial-gradient(var(--ob-vig), transparent 62%, color-mix(in srgb, var(--ba-text) 7%, transparent) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+.ob-top {
+  position: absolute; z-index: 2; top: calc(env(safe-area-inset-top, 0px) + 14px); left: var(--ob-gutter); right: var(--ob-gutter);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; pointer-events: none;
+}
+.ob-top > * { pointer-events: auto; }
+.ob-top .ob-logo { height: 30px; width: auto; }
+.ob-lang {
+  display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 999px; border: 0;
+  background: color-mix(in srgb, var(--ba-surface) 82%, transparent); color: var(--ba-text); font-weight: 600; font-size: var(--ba-text-sm);
+  box-shadow: inset 0 0 0 1.5px var(--ba-border); cursor: pointer;
+}
+.ob-lang svg { width: 18px; height: 18px; }
+
+.ob-panel {
+  --ob-gutter: clamp(20px, 5vw, 48px);
+  position: relative; min-height: 0;
+  display: flex; flex-direction: column;
+  padding: clamp(14px, 2.6vh, 28px) var(--ob-gutter) calc(env(safe-area-inset-bottom, 0px) + clamp(14px, 2.4vh, 28px));
+  background: var(--ba-bg);
+}
+.ob { --ob-gutter: clamp(20px, 5vw, 48px); }
+.ob-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 8px; scrollbar-width: thin; }
+.ob-scroll.is-clipped { -webkit-mask-image: linear-gradient(#000 calc(100% - 36px), transparent); mask-image: linear-gradient(#000 calc(100% - 36px), transparent); }
+.ob-progress { display: flex; align-items: center; gap: 10px; margin-bottom: clamp(10px, 1.8vh, 18px); }
+.ob-progress ol { display: flex; gap: 5px; list-style: none; margin: 0; padding: 0; flex: 0 1 220px; min-width: 0; }
+.ob-progress li { flex: 1 1 22px; max-width: 22px; min-width: 8px; height: 5px; border-radius: 3px; background: var(--ba-border); }
+.ob-progress span { white-space: nowrap; }
+.ob-progress li.done { background: var(--ba-text); }
+.ob-progress li.now { background: var(--ba-accent); flex-basis: 34px; max-width: 34px; }
+.ob-progress span { font-size: var(--ba-text-xs); font-weight: 600; color: var(--ba-text-muted); }
+
+.ob-title {
+  font-family: var(--ba-font-display); font-weight: 800; letter-spacing: 0; line-height: 1.02;
+  font-size: clamp(1.75rem, 1.2rem + 2.6vmin, 3.1rem); margin: 0 0 clamp(8px, 1.4vh, 14px); text-wrap: balance;
+}
+.ob[data-step="1"] .ob-title { font-size: clamp(2.05rem, 1.3rem + 3.6vmin, 3.9rem); }
+.ob-text { margin: 0 0 12px; max-width: 34em; color: var(--ba-text-muted); font-size: clamp(1rem, 0.94rem + 0.3vmin, 1.125rem); line-height: 1.5; }
+.ob-text strong { color: var(--ba-text); font-weight: 600; }
+.ob-note { font-size: var(--ba-text-sm); color: var(--ba-text-muted); margin: 6px 0 0; }
+
+.ob-actions { flex: none; display: flex; gap: 10px; align-items: center; padding-top: clamp(10px, 1.6vh, 16px); }
+.ob-actions .ba-btn--primary { flex: 1 1 auto; max-width: 420px; }
+.ob-actions .ba-btn--quiet { flex: none; }
+.ob-actions.stack { flex-direction: column; align-items: stretch; gap: 8px; }
+.ob-actions.stack .ba-btn { max-width: 420px; width: 100%; }
+.ba-btn.is-waiting { opacity: 0.6; cursor: default; box-shadow: none; transform: none; }
+.ob-link { margin-top: 12px; border: 0; background: none; padding: 6px 0; color: var(--ba-text); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; text-decoration-color: var(--ba-accent); cursor: pointer; }
+
+/* Lists with icons (how it works, camera) */
+.ob-points { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 10px; max-width: 36em; }
+.ob-points li { display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; font-size: clamp(0.97rem, 0.93rem + 0.25vmin, 1.06rem); line-height: 1.45; }
+.ob-points svg { width: 36px; height: 36px; }
+.ob-points b { display: block; font-weight: 700; }
+.ob-points span { color: var(--ba-text-muted); }
+
+/* Step 3: region chips, level, modes */
+.ob-regions { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 14px; }
+.ob-regions .ba-chip { min-height: 46px; }
+.ob-label { font-weight: 700; font-size: var(--ba-text-sm); margin: 0 0 8px; }
+.ob-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.ob-level {
+  text-align: left; border: 0; border-radius: var(--ba-radius-md); padding: 10px 12px; cursor: pointer;
+  background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); color: var(--ba-text);
+}
+.ob-level b { display: block; font-family: var(--ba-font-display); font-weight: 800; font-size: 1.12rem; letter-spacing: 0; }
+.ob-level span { display: block; font-size: var(--ba-text-xs); color: var(--ba-text-muted); line-height: 1.35; margin-top: 2px; }
+.ob-level[aria-checked="true"] { box-shadow: inset 0 0 0 2.5px var(--ba-text); background: var(--ba-surface); }
+.ob-level-desc { display: none; margin: -6px 0 12px; font-size: var(--ba-text-sm); color: var(--ba-text-muted); }
+@media (max-width: 599px) {
+  .ob-level { padding: 9px 10px; text-align: center; }
+  .ob-level span { display: none; }
+  .ob-level-desc { display: block; }
+  .ob-regions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .ob-regions .ba-chip { min-height: 44px; padding-right: 8px; font-size: 0.875rem; white-space: normal; line-height: 1.15; text-align: left; }
+  .ob-regions .ba-chip svg { width: 30px; height: 30px; }
+  .ob-mode { padding: 8px 10px; }
+  .ob-mode span:not(.ba-switch) { font-size: 0.8125rem; }
+  .ob-mode svg.g { width: 32px; height: 32px; }
+}
+/* Phones in portrait: step 3 is the longest panel, so its stage gives up room and the
+   closing note (repeated in Settings) is left out. */
+@media (max-width: 599px) and (orientation: portrait) {
+  .ob[data-step="3"] { --stage-share: 21%; }
+  .ob-note--wide { display: none; }
+  .ob-regions .ba-chip { min-height: 42px; }
+}
+.ob-level[aria-checked="true"] b::after { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--ba-accent); margin-left: 8px; vertical-align: 0.12em; }
+.ob-modes { display: grid; gap: 8px; }
+.ob-mode { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--ba-radius-md); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.ob-mode svg.g { width: 38px; height: 38px; flex: none; }
+.ob-mode div { flex: 1; min-width: 0; }
+.ob-mode b { display: block; font-weight: 700; }
+.ob-mode span { display: block; font-size: var(--ba-text-sm); color: var(--ba-text-muted); line-height: 1.35; }
+
+/* Step 4: device choice and 3D labels */
+.ob-seg { display: inline-flex; padding: 4px; border-radius: 14px; background: var(--ba-surface-sunken); gap: 4px; margin: 0 0 12px; }
+.ob-seg button { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 600; background: transparent; color: var(--ba-text); cursor: pointer; white-space: nowrap; }
+.ob-seg button svg { width: 18px; height: 18px; }
+.ob-seg button[aria-checked="true"] { background: var(--ba-surface); box-shadow: 0 1px 0 var(--ba-border), 0 0 0 1.5px var(--ba-text); }
+.ob-health { margin-top: 8px; padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); font-size: var(--ba-text-sm); line-height: 1.45; color: var(--ba-text-muted); max-width: 40em; }
+.ob-health b { color: var(--ba-text); }
+.ob-tag3d {
+  position: absolute; z-index: 1; transform: translate(-50%, -100%); white-space: nowrap;
+  padding: 6px 10px; border-radius: 10px; font-weight: 700; font-size: 13px; line-height: 1.2;
+  background: var(--ba-surface); color: var(--ba-text); box-shadow: 0 0 0 1.5px var(--ba-text);
+}
+.ob-tag3d.flush { background: var(--ba-accent); color: var(--ba-on-accent); box-shadow: none; }
+
+/* Step 5: viewfinder over the stage */
+.ob-finder { position: absolute; inset: 12% 16% 10%; pointer-events: none; }
+.ob-finder i { position: absolute; width: 34px; height: 34px; border: 4px solid var(--ba-text); }
+.ob-finder i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-radius: 10px 0 0 0; }
+.ob-finder i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-radius: 0 10px 0 0; }
+.ob-finder i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 10px; }
+.ob-finder i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 10px 0; }
+.ob-finder em { position: absolute; left: 50%; bottom: -6px; transform: translate(-50%, 100%); font-style: normal; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  background: var(--ba-text); color: var(--ba-bg); padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 13px; }
+.ob-finder em svg { width: 16px; height: 16px; }
+
+/* Step 6: calibration over the camera */
+.ob-cam { position: absolute; inset: 0; background: #1A1430; }
+.ob-cam .frame { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); aspect-ratio: var(--cam-ar, 3 / 4); height: 100%; max-width: 100%; overflow: hidden; }
+.ob-cam .frame > svg { position: absolute; inset: 0; }
+.ob-guide { position: absolute; inset: 0; }
+.ob-checks { position: absolute; left: 12px; top: calc(env(safe-area-inset-top, 0px) + 60px); display: grid; gap: 6px; }
+.ob-check { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; font-weight: 700; font-size: 14px; background: rgba(28,20,51,0.86); color: #F4F2F8; }
+.ob-check i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #22C383; }
+.ob-check i svg { width: 14px; height: 14px; }
+.ob-check.wait i { background: #FFC53A; }
+.ob-calib-msg { display: flex; align-items: center; gap: 14px; }
+.ob-ring { width: 64px; height: 64px; flex: none; }
+
+/* Step 7: the quick win */
+.ob-game { position: absolute; inset: 0; }
+.ob-win { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: center; margin: 4px 0 10px; }
+.ob-win .big { font-family: var(--ba-font-text); font-weight: 800; font-size: clamp(3rem, 2rem + 6vmin, 5.2rem); line-height: 0.9; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.ob-win .unit { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(1.3rem, 1rem + 1.4vmin, 2rem); line-height: 1.05; }
+.ob-win .unit small { display: block; font-family: var(--ba-font-text); font-weight: 600; font-size: var(--ba-text-sm); color: var(--ba-text-muted); margin-top: 4px; }
+
+/* Tablets in portrait: more stage, larger type, a centred column */
+@media (min-width: 700px) and (orientation: portrait) {
+  .ob { --stage-share: 56%; }
+  .ob[data-step="4"], .ob[data-step="5"] { --stage-share: 50%; }
+  .ob[data-step="2"] { --stage-share: 44%; }
+  .ob[data-step="3"] { --stage-share: 33%; }
+  .ob-panel { padding-left: max(48px, 8vw); padding-right: max(48px, 8vw); }
+  .ob-title { font-size: clamp(2.4rem, 1rem + 3.4vw, 3.4rem); }
+  .ob[data-step="1"] .ob-title { font-size: clamp(2.8rem, 1rem + 4.4vw, 4.2rem); }
+  .ob-text, .ob-points li { font-size: 1.1875rem; }
+  .ob-points svg { width: 42px; height: 42px; }
+  .ob-points li { grid-template-columns: 42px 1fr; }
+  .ob-regions .ba-chip { min-height: 52px; font-size: 1rem; }
+  .ob-regions .ba-chip svg { width: 40px; height: 40px; }
+  .ob-top .ob-logo { height: 36px; }
+}
+
+/* Landscape: stage left, panel right */
+@media (orientation: landscape) {
+  .ob { grid-template-rows: 1fr; grid-template-columns: minmax(0, 55fr) minmax(0, 45fr); }
+  .ob[data-step="3"] { grid-template-columns: minmax(0, 40fr) minmax(0, 60fr); }
+  .ob[data-step="6"], .ob[data-step="7"] { grid-template-columns: minmax(0, 60fr) minmax(0, 40fr); }
+  .ob-panel { justify-content: center; padding-top: clamp(16px, 4vh, 48px); padding-left: clamp(18px, 3.2vw, 56px); padding-right: max(var(--ob-gutter), env(safe-area-inset-right, 0px)); }
+  .ob-scroll { flex: 0 1 auto; }
+  .ob-top { right: auto; width: calc(55% - 2 * var(--ob-gutter)); }
+  .ob-stage { --ob-vig: 140% 110% at 70% 40%; --ob-fade: linear-gradient(to right, #000 calc(100% - clamp(48px, 7vw, 120px)), transparent); }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .ob-title { font-size: clamp(1.4rem, 1rem + 2.4vmin, 2rem); }
+  .ob[data-step="1"] .ob-title { font-size: clamp(1.6rem, 1rem + 3vmin, 2.3rem); }
+  .ob-text { font-size: 0.95rem; margin-bottom: 8px; }
+  .ob-progress { margin-bottom: 8px; }
+  .ob-levels .ob-level span { display: none; }
+  .ob-mode span { display: none; }
+  .ob-points li { grid-template-columns: 28px 1fr; gap: 8px; font-size: 0.92rem; }
+  .ob-points svg { width: 28px; height: 28px; }
+  .ob-top .ob-logo { height: 24px; }
+  .ba-btn--lg { min-height: 50px; font-size: 1.05rem; }
+}
+@media (min-width: 1200px) and (orientation: landscape) {
+  .ob-panel { padding-right: max(64px, 6vw); }
+  .ob-panel > * { max-width: 640px; }
+  .ob-title { font-size: clamp(2.6rem, 1rem + 2.4vw, 4rem); }
+  .ob[data-step="1"] .ob-title { font-size: clamp(3rem, 1rem + 3vw, 4.8rem); }
+  .ob-text, .ob-points li { font-size: clamp(1.125rem, 0.8rem + 0.5vw, 1.375rem); }
+  .ob-points { gap: 16px; }
+  .ob-points li { grid-template-columns: 44px 1fr; }
+  .ob-points svg { width: 44px; height: 44px; }
+  .ba-btn--lg { min-height: 64px; font-size: 1.25rem; }
+  .ob-regions .ba-chip { min-height: 52px; font-size: 1rem; }
+  .ob-regions .ba-chip svg { width: 40px; height: 40px; }
+  .ob-level b { font-size: 1.3rem; }
+  .ob-level span, .ob-mode span, .ob-health { font-size: 0.95rem; }
+  .ob-top .ob-logo { height: 38px; }
+}

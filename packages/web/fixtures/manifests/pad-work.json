@@ -1,0 +1,39 @@
+{
+  "id": "pad-work",
+  "template": "target",
+  "version": 1,
+  "title": "Pad Work",
+  "regions": ["arms", "core"],
+  "framing": "upper",
+  "seated": true,
+  "lowImpact": true,
+  "silentSafe": true,
+  "durationSec": 420,
+  "met": 5.5,
+  "detectors": [{ "id": "handHit" }],
+  "free": false,
+  "modes": ["solo", "local2"],
+  "seo": { "slug": "pad-work", "keywords": ["shadow boxing game", "boxing workout game", "punching game"] },
+  "catalogue": {
+    "tagline": { "en": "Jab, cross and hook on the beat.", "tr": "Ritme göre direkt, çapraz ve kroşe vurun." },
+    "about": {
+      "en": "Numbered pads appear in front of you. Hit each one in order and land every punch on the beat.",
+      "tr": "Önünüzde numaralı pedler belirir. Her birine sırayla vurun ve her yumruğu ritme denk getirin."
+    },
+    "how": [
+      { "en": "Stand with room for your arms to swing.", "tr": "Kollarınızı savurabileceğiniz kadar boşlukta durun." },
+      { "en": "Hit the pads in the order of their numbers.", "tr": "Pedlere numaralarının sırasıyla vurun." },
+      { "en": "Land each punch on the beat to build your combo.", "tr": "Seriyi büyütmek için her yumruğu ritme denk getirin." }
+    ],
+    "measures": [
+      { "en": "Which pad your fist reaches, and when.", "tr": "Yumruğunuzun hangi pede ve ne zaman ulaştığı." },
+      { "en": "Your timing against the beat.", "tr": "Ritme göre zamanlamanız." }
+    ],
+    "move": "punch",
+    "tile": "pad-work",
+    "order": 4,
+    "related": ["star-catch", "reaction-tag"],
+    "seatedNote": { "en": "Seated boxing: throw every punch from a chair.", "tr": "Oturarak boks: bütün yumrukları sandalyeden atın." },
+    "quietNote": { "en": "No jumping and no stamping, just punches.", "tr": "Zıplama ve yere vurma yok, yalnızca yumruklar." }
+  }
+}

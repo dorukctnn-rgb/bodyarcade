@@ -1,0 +1,270 @@
+{
+  "model": "supertonic-3",
+  "voice": "M1",
+  "steps": 8,
+  "clips": {
+    "en": {
+      "n1": {
+        "text": "One",
+        "say": "One!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n2": {
+        "text": "Two",
+        "say": "Two!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n3": {
+        "text": "Three",
+        "say": "Three!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n4": {
+        "text": "Four",
+        "say": "Four!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n5": {
+        "text": "Five",
+        "say": "Five!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n6": {
+        "text": "Six",
+        "say": "Six!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "slipL": {
+        "text": "Slip left",
+        "say": "Slip left!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "slipR": {
+        "text": "Slip right",
+        "say": "Slip right!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "duck": {
+        "text": "Duck",
+        "say": "Duck!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "round1": {
+        "text": "Round one",
+        "say": "Round one!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "round2": {
+        "text": "Round two",
+        "say": "Round two!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "round3": {
+        "text": "Round three",
+        "say": "Round three!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "roundFinal": {
+        "text": "Final round",
+        "say": "Final round!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "last10": {
+        "text": "Ten seconds",
+        "say": "Ten seconds!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "rest": {
+        "text": "Time, take a rest",
+        "say": "Time. Take a rest.",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      }
+    },
+    "tr": {
+      "n1": {
+        "text": "Bir",
+        "say": "Bir!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n2": {
+        "text": "İki",
+        "say": "İki!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n3": {
+        "text": "Üç",
+        "say": "Üç!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n4": {
+        "text": "Dört",
+        "say": "Dört!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n5": {
+        "text": "Beş",
+        "say": "Beş!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "n6": {
+        "text": "Altı",
+        "say": "Altı!",
+        "speeds": [
+          1.05,
+          1.15,
+          1.25
+        ]
+      },
+      "slipL": {
+        "text": "Sola kaç",
+        "say": "Sola kaç!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "slipR": {
+        "text": "Sağa kaç",
+        "say": "Sağa kaç!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "duck": {
+        "text": "Eğil",
+        "say": "Eğil!",
+        "speeds": [
+          1.0,
+          1.1
+        ],
+        "also": [
+          "eyl",
+          "eyil",
+          "eil",
+          "ey il"
+        ]
+      },
+      "round1": {
+        "text": "Birinci tur",
+        "say": "Birinci tur!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "round2": {
+        "text": "İkinci tur",
+        "say": "İkinci tur!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "round3": {
+        "text": "Üçüncü tur",
+        "say": "Üçüncü tur!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "roundFinal": {
+        "text": "Son tur",
+        "say": "Son tur!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "last10": {
+        "text": "On saniye",
+        "say": "On saniye!",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      },
+      "rest": {
+        "text": "Süre doldu, mola ver",
+        "say": "Süre doldu. Mola ver.",
+        "speeds": [
+          1.0,
+          1.1
+        ]
+      }
+    }
+  },
+  "takes": 3
+}

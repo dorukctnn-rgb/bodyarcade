@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>2 players HUD</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  html, body { height: 100%; }
+  body { overflow: hidden; background: #2B2248; }
+  .stage { position: fixed; inset: 0; }
+  .scene { position: absolute; inset: 0; }
+  .who { display: inline-flex; align-items: center; gap: 0.3em; font: 800 0.42em/1 var(--ba-font-text); color: #1C1433; padding: 0.32em 0.6em 0.36em; border-radius: 999px; margin-right: 0.2em; white-space: nowrap; }
+  .who svg { width: 1.3em; height: 1.3em; }
+  .p1 .who { background: var(--ba-sun-400); }
+  .p2 .who { background: var(--ba-sky-400); }
+  .status.p1 { box-shadow: inset 0 -0.08em 0 var(--ba-sun-400); }
+  .status.p2 { box-shadow: inset 0 -0.08em 0 var(--ba-sky-400); }
+  .reason.p1 svg circle { fill: var(--ba-sun-400); }
+  .reason.p2 svg circle { fill: var(--ba-sky-400); }
+  .reason.p1 { box-shadow: inset 0.16em 0 0 var(--ba-sun-400); }
+  .reason.p2 { box-shadow: inset -0.16em 0 0 var(--ba-sky-400); }
+  .away { flex-direction: column; text-align: center; padding: 0.7em 1em 0.8em; gap: 0.3em; border-radius: 22px; background: rgba(28,20,51,0.92); box-shadow: 0 0 0 4px var(--ba-sky-400); }
+  .away svg { width: 2.6em; height: 2.6em; }
+  .away b { font-family: var(--ba-font-display); font-weight: 900; font-size: 1.35em; line-height: 1.05; letter-spacing: -0.01em; }
+  .away span { color: var(--ba-hud-plate-muted); font-weight: 650; }
+  .away .count { font-variant-numeric: tabular-nums; color: var(--ba-sky-400); font-weight: 800; }
+  .lane-dim { position: absolute; background: rgba(26,20,48,0.55); }
+  .grain { position: absolute; inset: 0; pointer-events: none; opacity: 0.06; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<script type="module">
+// 2 players, same camera (web, big screens only). Player 1 is on the left in sun, Player 2 on
+// the right in sky; one shared self view at the bottom shows both people.
+import { hudMetrics, placeHudDuo, duoAvailable, checkRects, typicalInsets } from '../tokens/layout.mjs';
+import { glyph } from '../brand/glyphs.mjs';
+import { cameraArtDuo, squatFlapDuo } from './art.mjs';
+
+const q = new URLSearchParams(location.search);
+const away = q.get('away'); // 'p2' shows the "step back in" state
+const w = innerWidth, h = innerHeight;
+const stage = document.getElementById('stage');
+const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+const problems = [];
+if (!duoAvailable({ w, h })) {
+  stage.append(el(`<div style="position:absolute;inset:0;display:grid;place-items:center;color:#F4F2F8;font:600 18px/1.4 var(--ba-font-text);padding:24px;text-align:center">2 players on one camera needs a laptop, desktop, TV or a tablet held sideways.</div>`));
+  window.__hud = { problems, rendered: {}, unavailable: true };
+  document.documentElement.dataset.ready = '1';
+} else {
+  const metrics = hudMetrics({ w, h, insets: typicalInsets(w, h) });
+  const F = metrics.font;
+  stage.append(el(`<div class="scene">${squatFlapDuo(w, h)}</div>`), el('<div class="grain"></div>'));
+  const lineIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><line x1="3" y1="17" x2="21" y2="17" stroke="#F4F2F8" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="4 3.4"/></svg>';
+  const pauseIcon = '<svg viewBox="0 0 10 10"><rect x="1.5" y="1" width="2.4" height="8" rx="1" fill="#F4F2F8"/><rect x="6.1" y="1" width="2.4" height="8" rx="1" fill="#F4F2F8"/></svg>';
+  const who = (n) => `<span class="who">${glyph('stand', { ink: '#1C1433', floor: false, title: `Player ${n}` })}Player ${n}</span>`;
+  const statusP1 = el(`<div class="hud-plate status p1" data-hud="statusP1" style="font-size:${F.numeral}px">${who(1)}<div class="stack"><b>9</b><small style="font-size:${F.label}px">pipes</small></div></div>`);
+  const statusP2 = el(`<div class="hud-plate status p2" data-hud="statusP2" style="font-size:${F.numeral}px"><div class="stack"><b>11</b><small style="font-size:${F.label}px">pipes</small></div>${who(2)}</div>`);
+  const timer = el(`<div class="hud-plate status" data-hud="timer" style="font-size:${F.numeral}px"><div class="stack"><b>0:41</b><small style="font-size:${F.label}px">left</small></div><span class="pause" role="button" aria-label="Pause">${pauseIcon}</span></div>`);
+  const command = el(`<div class="hud-command" data-hud="command" style="font-size:${F.command}px">${glyph('squat', { ink: '#1C1433', floor: false, title: 'Squat' })}<span>${away ? 'Paused' : 'Squat'}</span></div>`);
+  const reasonP1 = el(`<div class="hud-plate reason p1" data-hud="reasonP1" style="font-size:${F.reason}px">${lineIcon}<span>${away ? 'Waiting for Player 2' : 'Hips 4 cm above the line'}</span></div>`);
+  const reasonP2 = el(`<div class="hud-plate reason p2" data-hud="reasonP2" style="font-size:${F.reason}px">${lineIcon}<span>${away ? 'Out of frame' : 'Good depth'}</span></div>`);
+  stage.append(statusP1, statusP2, timer, command, reasonP1, reasonP2);
+  let awayEl = null;
+  if (away) {
+    awayEl = el(`<div class="hud-plate away" data-hud="away" style="font-size:${Math.round(F.reason * 1.05)}px">${glyph('stand', { ink: '#F4F2F8', accent: '#46B4FF', highlight: ['torso'], title: 'Player 2' })}<b>Player 2, step back in</b><span>Paused for both of you. Stand on the right, about 3 m from the camera.</span><span class="count">Player 1 can go on alone in 17 s</span></div>`);
+    awayEl.style.maxWidth = `${Math.round(w * 0.4)}px`;
+    stage.append(awayEl);
+  }
+  const size = (n) => { const r = n.getBoundingClientRect(); return { w: Math.ceil(r.width), h: Math.ceil(r.height) }; };
+  const measured = { statusP1: size(statusP1), statusP2: size(statusP2), timer: size(timer), command: size(command), reasonP1: size(reasonP1), reasonP2: size(reasonP2), away: awayEl ? size(awayEl) : null };
+  const { rects } = placeHudDuo({ w, h, metrics }, measured, { away });
+  const put = (n, r) => { n.style.left = `${r.x}px`; n.style.top = `${r.y}px`; if (n.dataset.size) { n.style.width = `${r.w}px`; n.style.height = `${r.h}px`; } };
+  put(statusP1, rects.statusP1); put(statusP2, rects.statusP2); put(timer, rects.timer); put(command, rects.command); put(reasonP1, rects.reasonP1); put(reasonP2, rects.reasonP2);
+  if (awayEl) {
+    put(awayEl, rects.away);
+    const dim = el('<div class="lane-dim"></div>');
+    Object.assign(dim.style, { left: `${w / 2}px`, top: '0px', width: `${w / 2}px`, height: `${h}px` });
+    stage.querySelector('.grain').after(dim);
+  }
+  const pip = el(`<div class="tile" data-hud="pip" data-size="1">${cameraArtDuo({ w: 640, h: 360, away })}<span class="tag">You both</span></div>`);
+  stage.append(pip); put(pip, rects.pip);
+
+  const rendered = {};
+  for (const n of stage.querySelectorAll('[data-hud]')) { const r = n.getBoundingClientRect(); rendered[n.dataset.hud] = { x: r.x, y: r.y, w: r.width, h: r.height }; }
+  rendered.command.font = parseFloat(command.style.fontSize);
+  problems.push(...checkRects(rendered, { w, h, minCommand: Math.ceil(0.08 * h) }));
+  for (const plate of stage.querySelectorAll('[data-hud]')) {
+    const pr = plate.getBoundingClientRect();
+    const walker = document.createTreeWalker(plate, NodeFilter.SHOW_TEXT);
+    for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+      if (!t.textContent.trim() || t.parentElement.closest('svg')) continue;
+      const range = document.createRange(); range.selectNodeContents(t);
+      const tol = 0.25 * parseFloat(getComputedStyle(t.parentElement).fontSize);
+      for (const rr of range.getClientRects()) if (rr.left < pr.left - 0.5 || rr.right > pr.right + 0.5 || rr.top < pr.top - tol || rr.bottom > pr.bottom + tol) { problems.push(`text spills out of ${plate.dataset.hud}`); break; }
+    }
+  }
+  window.__hud = { problems, rendered, commandFont: rendered.command.font };
+  document.documentElement.dataset.ready = '1';
+}
+</script>
+</body>
+</html>
