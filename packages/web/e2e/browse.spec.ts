@@ -328,6 +328,9 @@ test.describe('settings and language', () => {
 
   test('going offline says so once, even when the event comes twice', async ({ page, context }) => {
     await page.goto(`${WEB_DEV_URL}/`);
+    // the app has started (it listens for the event from then on): cut off before that, the dev server's last modules never came and there was no
+    // app to say anything (no toast at all in the final test's web:e2e on ff5d073, on a loaded machine)
+    await page.waitForFunction(() => window.__BA__ !== undefined, undefined, { timeout: 30_000 });
     await context.setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));
     await expect(page.locator('.ba-toast')).toHaveCount(1);
