@@ -83,5 +83,6 @@ describe('preview-only settings', () => {
     const problems = bridgeProblems('preview', { preview: text('wrangler.jsonc'), production: text('wrangler.prod.jsonc'), server: text('packages/server/wrangler.jsonc') }, signs);
     // Red means: the shell signs now, so delete the line from wrangler.jsonc (the message names it) and run the preview's live races signed.
     expect(problems).toEqual([]);
-  });
+    // it reads and strips every source file of the web app: 0.3 s on a quiet machine, past vitest's 5 s default while the browser lanes run
+  }, 30_000);
 });
