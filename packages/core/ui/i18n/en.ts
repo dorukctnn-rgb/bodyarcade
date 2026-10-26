@@ -44,6 +44,11 @@ export const en = {
   'footer.delete': 'Delete account',
   'footer.camera': 'Camera video stays on your device.',
   'footer.language': 'Language',
+  'footer.guides': 'Guides',
+  'footer.guide.hub': 'Fitness games',
+  'footer.guide.seated': 'Seated games',
+  'footer.guide.friends': 'Games with friends',
+  'footer.guide.areas': 'By body area',
 
   'region.legs': 'Legs and hips',
   'region.arms': 'Arms and shoulders',

@@ -104,7 +104,10 @@ describe.each(LANGS)('every page in %s', (lang) => {
   });
 
   it('links only to pages that exist, in the same language', () => {
-    const files = new Set(['/privacy', '/terms', '/faq', '/delete-account', '/tr/privacy', '/tr/terms', '/tr/faq', '/tr/delete-account']);
+    const files = new Set(['/privacy', '/terms', '/faq', '/delete-account', '/tr/privacy', '/tr/terms', '/tr/faq', '/tr/delete-account',
+      // the search pages of the site that the footer links to (content/copy/seo-*.ts)
+      '/fitness-games', '/seated-exercise-games', '/workout-games-with-friends', '/workout-games-by-body-area',
+      '/tr/evde-spor-oyunlari', '/tr/oturarak-egzersiz-oyunlari', '/tr/arkadaslarla-spor-oyunlari', '/tr/bolgeye-gore-spor-oyunlari']);
     for (const url of urls) {
       const { html } = draw(lang, url);
       for (const h of hrefs(html)) {

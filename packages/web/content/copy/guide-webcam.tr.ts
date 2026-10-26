@@ -81,7 +81,7 @@ ${ul([
       id: 'dene',
       title: 'Şimdi birini dene',
       html: `<p>BodyArcade, ${roundLength(c.shortest, 'tr')} ile ${roundLength(c.longest, 'tr')} arasında turlarla ${c.total} kısa oyun içerir; ${c.free} tanesi ücretsizdir. Tek başına, büyük bir ekranda tek kamerada yan yana iki kişi olarak ya da çevrimiçi bir odada arkadaşlarla oynayabilirsin. Poz modeli cihazında çalışır, görüntü orada kalır.</p>
-<p>İlgili: <a href="/tr/ring-fit-adventure-alternatifi">tarayıcıda oynayabileceğin bir Ring Fit Adventure alternatifi</a>.</p>`,
+<p>İlgili: <a href="/tr/evde-spor-oyunlari">${c.total} oyunun hepsi ve hangisiyle başlayacağın</a>, <a href="/tr/oturarak-egzersiz-oyunlari">her oyunu sandalyeden oynamak</a>, <a href="/tr/ring-fit-adventure-alternatifi">tarayıcıda oynayabileceğin bir Ring Fit Adventure alternatifi</a>.</p>`,
     },
   ];
   const title = 'Kamera ile spor oyunları nasıl çalışır ve odanı nasıl hazırlarsın';

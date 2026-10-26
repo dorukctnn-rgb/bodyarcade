@@ -33,6 +33,15 @@ export const LEGACY_PAGES: readonly { file: string; url: string }[] = [
   { file: 'tr/faq.html', url: '/tr/faq' },
   { file: 'delete-account.html', url: '/delete-account' },
   { file: 'tr/delete-account.html', url: '/tr/delete-account' },
+  // The search pages (packages/web/content/copy/seo-*.ts): fitness games, seated games, games with friends, games by body area.
+  { file: 'fitness-games.html', url: '/fitness-games' },
+  { file: 'tr/evde-spor-oyunlari.html', url: '/tr/evde-spor-oyunlari' },
+  { file: 'seated-exercise-games.html', url: '/seated-exercise-games' },
+  { file: 'tr/oturarak-egzersiz-oyunlari.html', url: '/tr/oturarak-egzersiz-oyunlari' },
+  { file: 'workout-games-with-friends.html', url: '/workout-games-with-friends' },
+  { file: 'tr/arkadaslarla-spor-oyunlari.html', url: '/tr/arkadaslarla-spor-oyunlari' },
+  { file: 'workout-games-by-body-area.html', url: '/workout-games-by-body-area' },
+  { file: 'tr/bolgeye-gore-spor-oyunlari.html', url: '/tr/bolgeye-gore-spor-oyunlari' },
 ];
 
 /** Other files of the live site that keep their addresses: the content pages' styles, fonts and pictures, the IndexNow key. */

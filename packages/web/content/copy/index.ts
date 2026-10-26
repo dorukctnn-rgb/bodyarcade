@@ -15,11 +15,20 @@ import { privacyEn } from './privacy.en.ts';
 import { privacyTr } from './privacy.tr.ts';
 import { termsEn } from './terms.en.ts';
 import { termsTr } from './terms.tr.ts';
+import { seoAreasEn } from './seo-areas.en.ts';
+import { seoAreasTr } from './seo-areas.tr.ts';
+import { seoFriendsEn } from './seo-friends.en.ts';
+import { seoFriendsTr } from './seo-friends.tr.ts';
+import { seoHubEn } from './seo-hub.en.ts';
+import { seoHubTr } from './seo-hub.tr.ts';
+import { seoSeatedEn } from './seo-seated.en.ts';
+import { seoSeatedTr } from './seo-seated.tr.ts';
 
 export function allPages(): PageSpec[] {
   return [
     privacyEn(), privacyTr(), termsEn(), termsTr(), faqEn(), faqTr(), deleteAccountEn(), deleteAccountTr(),
     guideWebcamEn(), guideWebcamTr(), guideRingfitEn(), guideRingfitTr(),
     blogEn(), postBrowserEn(), postPrivacyEn(),
+    seoHubEn(), seoHubTr(), seoSeatedEn(), seoSeatedTr(), seoFriendsEn(), seoFriendsTr(), seoAreasEn(), seoAreasTr(),
   ];
 }

@@ -44,6 +44,11 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'footer.delete': 'Hesabı sil',
   'footer.camera': 'Kamera görüntüsü cihazında kalır.',
   'footer.language': 'Dil',
+  'footer.guides': 'Rehberler',
+  'footer.guide.hub': 'Evde spor oyunları',
+  'footer.guide.seated': 'Oturarak oyunlar',
+  'footer.guide.friends': 'Arkadaşlarla oyunlar',
+  'footer.guide.areas': 'Bölgeye göre',
 
   'region.legs': 'Bacak ve kalça',
   'region.arms': 'Kol ve omuz',

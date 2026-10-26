@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalogue } from '../../catalogue/load.ts';
 import { localized } from '../../../core/ui/i18n/localized.ts';
+import type { BodyRegion } from '../../../core/types/index.ts';
 import type { Lang } from '../facts.ts';
 
 export interface Pair { en: string; tr: string }
@@ -31,6 +32,17 @@ export interface SnapshotGame {
   live: boolean;
   tagline: Pair;
   about: Pair;
+  /** The body regions the manifest lists (the app files the game under each of them). */
+  regions: BodyRegion[];
+  /** What the camera must see: the whole body, or the upper body. */
+  framing: string;
+  /** The intensity the app uses for calories (a MET value); the pages only rank games by it, they never print it. */
+  met: number;
+  /** What the camera reads, in plain words (the manifest's `measures`). */
+  measures: Pair[];
+  /** How the seated version plays, and how the quiet version plays (when the manifest says so). */
+  seatedNote?: Pair;
+  quietNote?: Pair;
 }
 
 export const SNAPSHOT_FILE = join(dirname(fileURLToPath(import.meta.url)), '..', 'catalogue.snapshot.json');
@@ -55,6 +67,12 @@ export function liveGames(): SnapshotGame[] {
     live: g.modes.includes('duel'),
     tagline: pair(g.catalogue.tagline),
     about: pair(g.catalogue.about),
+    regions: [...g.regions],
+    framing: g.framing,
+    met: g.met,
+    measures: g.catalogue.measures.map(pair),
+    ...(g.catalogue.seatedNote ? { seatedNote: pair(g.catalogue.seatedNote) } : {}),
+    ...(g.catalogue.quietNote ? { quietNote: pair(g.catalogue.quietNote) } : {}),
   }));
 }
 
@@ -98,12 +116,20 @@ export interface GameInfo {
   live: boolean;
   tagline: string;
   about: string;
+  regions: BodyRegion[];
+  framing: string;
+  met: number;
+  measures: string[];
+  seatedNote: string | null;
+  quietNote: string | null;
 }
 
 export function gameList(lang: Lang): GameInfo[] {
   return snapshotGames().map((g) => ({
     id: g.id, slug: g.slug, title: g.title[lang], free: g.free, seated: g.seated, lowImpact: g.lowImpact, quiet: g.quiet,
     seconds: g.seconds, local2: g.local2, live: g.live, tagline: g.tagline[lang], about: g.about[lang],
+    regions: g.regions, framing: g.framing, met: g.met, measures: g.measures.map((m) => m[lang]),
+    seatedNote: g.seatedNote ? g.seatedNote[lang] : null, quietNote: g.quietNote ? g.quietNote[lang] : null,
   }));
 }
 
