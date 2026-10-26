@@ -30,6 +30,9 @@ export const DEFAULT_SPEC: ScheduleSpec = { firstMs: 3000, minGapMs: 1600, maxGa
 export const SCHEDULE_SPECS: Readonly<Record<string, ScheduleSpec>> = {
   'squat-flap': { firstMs: 3000, minGapMs: 1800, maxGapMs: 2800, endPadMs: 1500 },
   'knee-sprint': { firstMs: 3000, minGapMs: 1500, maxGapMs: 2400, endPadMs: 1500 },
+  // Reaction Tag: one light per obstacle, on for 1.4 to 1.9 s, so the last light is out well before the match ends (endPadMs is longer
+  // than the longest light, and the game keeps that: reaction-tag.ts DUEL_LIFE).
+  'reaction-tag': { firstMs: 2500, minGapMs: 900, maxGapMs: 1600, endPadMs: 2000 },
 };
 
 export function specFor(gameId: string): ScheduleSpec {

@@ -12,7 +12,7 @@
   "met": 4,
   "detectors": [{ "id": "handHit" }],
   "free": false,
-  "modes": ["solo", "local2"],
+  "modes": ["solo", "local2", "duel"],
   "seo": { "slug": "reaction-tag", "keywords": ["reaction game", "reaction time game", "hand tracking game"] },
   "catalogue": {
     "tagline": { "en": "Tap the lights before they fade. Never the red ones.", "tr": "Işıklar sönmeden dokunun. Kırmızılara asla." },

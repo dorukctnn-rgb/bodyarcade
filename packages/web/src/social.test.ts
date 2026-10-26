@@ -394,10 +394,17 @@ describe.each(LANGS)('friends screens in %s', (lang) => {
     const u = ux(ctx);
     const padWork = games.find((g) => g.id === 'pad-work');
     if (!padWork) throw new Error('no pad-work fixture');
-    const picker = gameSheet(ctx, [...onlineGames(ctx), padWork], 'squat-flap').value;
-    expect(picker.match(/k-protag--pill/g)).toHaveLength(1);                       // only the Pro game carries the tag
+    const online = onlineGames(ctx);
+    // the Pro game a room can hold today is Reaction Tag (the duel mode of its manifest); the free ones carry no tag
+    expect(online.filter((g) => !g.free).map((g) => g.id)).toEqual(['reaction-tag']);
+    const picker = gameSheet(ctx, [...online, padWork], 'squat-flap').value;
+    expect(picker.match(/k-protag--pill/g)).toHaveLength(2);                       // only the Pro games carry the tag: Reaction Tag and the Pro game added here
     expect(textOf(picker)).toContain(ctx.i18n.t('common.pro'));
-    expect(gameSheet(ctx, onlineGames(ctx), 'squat-flap').value).not.toContain('k-protag');
+    const tagged = (html: string, id: string): boolean => new RegExp(`data-dialog-close="${id}"[^>]*>(?:(?!</button>).)*k-protag--pill`).test(html);
+    expect(tagged(picker, 'reaction-tag')).toBe(true);
+    expect(tagged(picker, 'pad-work')).toBe(true);
+    expect(tagged(picker, 'squat-flap')).toBe(false);
+    expect(gameSheet(ctx, online.filter((g) => g.free), 'squat-flap').value).not.toContain('k-protag');
     for (const reason of ['none', 'expired', 'invalid', 'refused'] as const) {
       const html = proSheet(ctx, { game: padWork, reason }).value;
       expect(textOf(html)).toContain(u('pro.title'));

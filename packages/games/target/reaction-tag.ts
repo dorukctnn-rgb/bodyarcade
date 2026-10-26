@@ -6,7 +6,19 @@
 // Rules, from the card: contact at once (the first frame inside counts), 0.15 T for hands and 0.35 W for feet with the
 // ankle on the floor line, light life from 1.5 s down to 0.6 s, and hands only for a seated player. Colour is never the
 // only signal: a red light is also a different shape (a square with a cross), so it reads for colour blind players.
-import type { Rng } from '../../core/types/index.ts';
+//
+// A live race (mode 'duel', see DuelSetup in core/types and web/src/app/duel.ts): the Room fixes WHEN each light comes on (every
+// obstacle of its shared course is one light, the same time for every player); this game fixes what the light looks like from the match
+// seed and the obstacle's place in the course, so two devices light the same lights. Where a light lands is given in arm lengths from the
+// shoulder midpoint and is turned into each player's own body by `spot` (their arm, their frame, a desk's shorter reach), so a taller
+// player, a seated one and one on a phone all face the same lights inside their own reach. A race has hand lights only (green and red):
+// nobody has to step aside or stamp, so a seated player, a quiet one and a standing one race the same course. How a light ends:
+//   a green light tapped in time        -> { type: 'duel', ob, k: 'pass' }
+//   a green light that faded untouched  -> { type: 'duel', ob, k: 'hit' }   (missed)
+//   a red light that was touched        -> { type: 'duel', ob, k: 'hit' }
+//   a red light left alone              -> nothing: it is neither a pass nor a hit, the Room counts it as neither and the combo goes on
+// so that standing still never earns points from the red lights.
+import type { DuelSetup, Rng } from '../../core/types/index.ts';
 import type { HitJudgement } from '../../core/moves/handHit.ts';
 import type { Miss } from '../../core/moves/kit.ts';
 import { floorSpot, spot } from './envelope.ts';
@@ -17,6 +29,8 @@ import { between, clamp, lerp, missCode, ms, range, slowFactor } from './util.ts
 export type Zone = 'hand' | 'wide' | 'floor';
 
 export interface LightSpec extends BaseSpec {
+  /** A race: the id of the Room's obstacle this light is (`plan` ids are the indexes; the Room's ids start at 1). */
+  ob?: number;
   zone: Zone;
   /** A red light: leave it alone. */
   trap: boolean;
@@ -57,6 +71,13 @@ export const STEP_EXTRA_MS = 380;
 
 /** How far the camera's clock may run ahead of the game's own clock before the game's own reading is used (ms). */
 export const REACT_SLACK_MS = 60;
+
+/** A race is run on this level whatever a player chose alone, so everybody's lights are the same ones. */
+export const DUEL_CFG = LIGHT_LEVELS.normal;
+/** How long a light stays in a race (ms), at the first obstacle and at the last; the schedule's end pad (core/net/schedule.ts) is longer than the first. */
+export const DUEL_LIFE: readonly [number, number] = DUEL_CFG.life;
+/** The first lights of a race are never red: the first red light is a surprise only after the player has seen what a light is. */
+export const DUEL_SAFE_LIGHTS = 2;
 
 export const LIGHT_POINTS = { tap: 60, speed: 40, trap: -40, avoid: 5 } as const;
 export const LIGHT_STREAK_STEP = 5;
@@ -119,6 +140,42 @@ export function planLights(rng: Rng, p: PlanInput): LightSpec[] {
   return specs;
 }
 
+/**
+ * The lights of a race: one for each obstacle of the Room's course, at the obstacle's time. The look of the lights (red or green, and
+ * where) comes from the match seed alone, with the same number of draws for every light however many tries its place took, so the plan
+ * is the same on every device that has the same course and does not depend on the body, the level, a desk or quiet mode.
+ */
+export function planDuelLights(rng: Rng, d: DuelSetup, _p?: PlanInput): LightSpec[] {
+  const cfg = DUEL_CFG;
+  const course = [...d.schedule].sort((a, b) => a.t - b.t || a.id - b.id);
+  const span = Math.max(1, d.durationMs);
+  const specs: LightSpec[] = [];
+  const recent: { until: number; ax: number; ay: number }[] = [];
+  course.forEach((o, i) => {
+    const rTrap = rng();
+    const tries: [number, number][] = [];
+    for (let k = 0; k < 8; k++) tries.push([rng(), rng()]);
+    const life = ms(lerp(DUEL_LIFE[0], DUEL_LIFE[1], o.t / span));
+    // anywhere around the upper body, but not on top of the head; a few tries to stay clear of what is on the screen
+    let ax = 0, ay = 0;
+    for (const [rx, ry] of tries) {
+      ax = (rx * 2 - 1) * 0.95;
+      ay = -0.55 + ry * 1.35;
+      const onHead = Math.abs(ax) < 0.22 && ay > 0.15 && ay < 0.65;
+      const crowded = recent.some((r) => r.until > o.t && Math.hypot(r.ax - ax, r.ay - ay) < 0.5);
+      if (!onHead && !crowded) break;
+    }
+    ax = Math.round(ax * 1000) / 1000;
+    ay = Math.round(ay * 1000) / 1000;
+    recent.push({ until: o.t + life, ax, ay });
+    if (recent.length > 12) recent.shift();
+    specs.push({
+      id: i, ob: o.id, at: o.t, life, zone: 'hand', trap: i >= DUEL_SAFE_LIGHTS && rTrap < cfg.trap, limb: 'hand', ax, ay, r: cfg.radius, burst: i,
+    });
+  });
+  return specs;
+}
+
 export const reactionTagRules: Rules<LightSpec> = {
   id: 'reaction-tag',
   rounds: 3,
@@ -126,6 +183,7 @@ export const reactionTagRules: Rules<LightSpec> = {
   met: 4,
 
   plan: planLights,
+  planDuel: planDuelLights,
 
   open(spec: LightSpec, lane: LaneApi): Live | null {
     if (spec.zone === 'floor') {
@@ -151,6 +209,7 @@ export const reactionTagRules: Rules<LightSpec> = {
       out.log('hold_still', false);
       out.hint('hold_still');
       out.cue('warn');
+      if (spec.ob !== undefined) out.event({ type: 'duel', ob: spec.ob, k: 'hit' });
       return;
     }
     // The detector measures on the camera's clock; this game's own clock stands still while the session is paused or somebody
@@ -171,6 +230,7 @@ export const reactionTagRules: Rules<LightSpec> = {
     out.event({ type: 'hit', kind: 'light', id: spec.id, burst: spec.burst, x: live.x, y: live.y, pts, react, mult, limb: j.limb, side: j.side });
     out.log('tag', true, react);
     out.cue('tag');
+    if (spec.ob !== undefined) out.event({ type: 'duel', ob: spec.ob, k: 'pass' });
   },
 
   expire(spec: LightSpec, live: Live, miss: Miss | null, lane: LaneApi, out: Out): void {
@@ -189,6 +249,7 @@ export const reactionTagRules: Rules<LightSpec> = {
     out.log(code, false);
     out.hint(code);
     out.cue('miss');
+    if (spec.ob !== undefined) out.event({ type: 'duel', ob: spec.ob, k: 'hit' });
   },
 
   prompt(lane: LaneApi): Prompt | null {

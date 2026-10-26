@@ -12,7 +12,7 @@
   "met": 4,
   "detectors": [{ "id": "handHit", "opts": { "feet": 1 } }],
   "free": false,
-  "modes": ["solo", "local2"],
+  "modes": ["solo", "local2", "duel"],
   "minPoseHz": 15,
   "seo": { "slug": "reaction-tag", "keywords": ["reaction game", "reaction time game", "hand tracking game", "agility game", "camera workout game"] },
   "catalogue": {
