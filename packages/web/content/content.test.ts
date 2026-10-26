@@ -316,7 +316,7 @@ describe('the pose model and the games', () => {
   it('no code of ours sets a cookie, and no page loads an analytics script', () => {
     for (const rel of ['packages/core/store/store.ts', 'packages/web/src/app/app.ts', 'packages/web/src/main.ts', 'packages/web/src/document.ts']) expect(read(rel), rel).not.toContain('document.cookie');
     expect(F.ANALYTICS_ON).toBe(false);
-    for (const p of pages()) expect(renderPage(p), p.file).not.toMatch(/<script[^>]+src=/);
+    for (const p of pages()) expect(renderPage(p), p.file).not.toMatch(/<script[^>]+src="(?!\/assets\/twa\.js")/);
   });
 
   it('the catalogue the pages count: every game has a seated version, the free and Pro games are the manifests', () => {
@@ -608,6 +608,79 @@ describe('the page on deleting the account is what the app and the server do', (
     expect((byFile.get('delete-account.html') as PageSpec).url).toBe('/delete-account');
     expect((byFile.get('tr/delete-account.html') as PageSpec).url).toBe('/tr/delete-account');
     expect(read('release/site.ts')).not.toMatch(/Disallow: \/delete-account/);
+  });
+});
+
+// In the Android app Google Play is the only way to buy (Google Play payments policy). The app's own screens never name the web
+// shop (core/entitlements/paywall.ts); the content pages it links to load twa.js, which marks them when they are open in the app,
+// and content.css then hides every sentence marked data-web-pay and makes the web shop's links plain text. On the web nothing changes.
+describe('inside the Android app the pages say nothing about paying on the web', () => {
+  const twa = read('packages/web/content/twa.js');
+  const css = read('packages/web/content/content.css');
+  const withoutMarked = (html: string): string => html.replace(/<span data-web-pay>[\s\S]*?<\/span>/g, ' ');
+  const sold = (lang: 'en' | 'tr'): string[] => [F.PRICE.proMonthly, F.PRICE.proYearly, F.PRICE.familyYearly, F.PRICE.lifetime].map((n) => F.usd(n, lang));
+  const run = (search: string, referrer: string, flag: boolean): { twa: boolean; flag: string | undefined } => {
+    const classes = new Set<string>();
+    const store = new Map<string, string>(flag ? [['ba_twa', '1']] : []);
+    const win = { location: { search }, sessionStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); } } };
+    const doc = { referrer, documentElement: { classList: { add: (c: string) => { classes.add(c); } } } };
+    new Function('window', 'document', twa)(win, doc);
+    return { twa: classes.has('twa'), flag: store.get('ba_twa') };
+  };
+
+  it('every page loads twa.js in its head, and no other script file', () => {
+    for (const p of all) {
+      const html = renderPage(p);
+      expect(/<head>([\s\S]*?)<\/head>/.exec(html)?.[1] ?? '', p.file).toContain('<script src="/assets/twa.js"></script>');
+      expect([...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]), p.file).toEqual(['/assets/twa.js']);
+    }
+    expect(build().map((o) => o.file)).toContain('assets/twa.js');
+  });
+
+  it('twa.js tells the app the way the app tells itself, and sends and keeps nothing else', () => {
+    const env = read('packages/core/entitlements/billing-env.ts');
+    expect(env).toContain("SESSION_FLAG = 'ba_twa'");
+    expect(env).toContain('[?&]src=twa(?:&|$)');
+    expect(read('packages/core/entitlements/plans.ts')).toContain("'com.peakapps.bodyarcade'");
+    expect(twa).toContain('[?&]src=twa(?:&|$)');
+    expect(twa).toContain("'android-app://com.peakapps.bodyarcade'");
+    expect(twa.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/fetch|XMLHttpRequest|sendBeacon|cookie|localStorage|import /);
+  });
+
+  it('twa.js marks the page in the app and leaves it alone in a browser', () => {
+    expect(run('?src=twa', '', false)).toEqual({ twa: true, flag: '1' });
+    expect(run('?x=1&src=twa', '', false).twa).toBe(true);
+    expect(run('', 'android-app://com.peakapps.bodyarcade/', false)).toEqual({ twa: true, flag: '1' });
+    expect(run('', '', true).twa).toBe(true);
+    expect(run('', 'https://www.google.com/', false)).toEqual({ twa: false, flag: undefined });
+    expect(run('?src=twa2', '', false).twa).toBe(false);
+    expect(run('', 'android-app://com.example.other/', false).twa).toBe(false);
+  });
+
+  it('the stylesheet hides what is marked and makes the web shop links plain text, only in the app', () => {
+    expect(css).toContain('.twa [data-web-pay] { display: none !important; }');
+    expect(css).toContain('.twa a[href*="gumroad.com"] { pointer-events: none; color: inherit; text-decoration: none; }');
+    expect(css.split('[data-web-pay]').length).toBe(css.split('.twa [data-web-pay]').length);
+  });
+
+  it('with the marked sentences gone, the FAQ and the Ring Fit guide name no web shop and no price of a plan on sale, and still say how Google Play does it', () => {
+    for (const [file, lang] of [['faq.html', 'en'], ['tr/faq.html', 'tr'], ['ring-fit-adventure-alternative.html', 'en'], ['tr/ring-fit-adventure-alternatifi.html', 'tr']] as const) {
+      const html = renderPage(byFile.get(file) as PageSpec);
+      const marked = [...html.matchAll(/<span data-web-pay>([\s\S]*?)<\/span>/g)].map((m) => m[1] as string);
+      expect(marked.length, file).toBeGreaterThan(0);
+      for (const m of marked) expect(m, file).not.toContain('<span');
+      const shown = visible(withoutMarked(html));
+      expect(shown, file).not.toMatch(/gumroad/i);
+      for (const price of sold(lang)) expect(shown, `${file} ${price}`).not.toContain(price);
+      if (file.endsWith('faq.html')) expect(shown, file).toContain('Google Play');
+    }
+  });
+
+  it('on the web every sentence is still there', () => {
+    const faq = visible(renderPage(byFile.get('faq.html') as PageSpec));
+    expect(faq).toContain('On the web, open your Gumroad library');
+    expect(faq).toContain('After you pay on Gumroad, you get an e-mail with a license key.');
+    expect(faq).toContain(`Lifetime ${F.usd(F.PRICE.lifetime, 'en')} once`);
   });
 });
 

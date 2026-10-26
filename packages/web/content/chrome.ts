@@ -146,6 +146,8 @@ function head(spec: PageSpec, w: Words): string {
   return [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
+    // before anything is drawn: marks the page when it is open in the Android app (content.css hides paying on the web there)
+    '<script src="/assets/twa.js"></script>',
     `<title>${esc(title)}</title>`,
     `<meta name="description" content="${esc(spec.description)}">`,
     `<link rel="canonical" href="${url}">`,

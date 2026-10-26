@@ -123,7 +123,7 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'How much do the plans cost?',
-          a: `<p>On the web: Pro monthly ${$(F.PRICE.proMonthly)} a month, Pro yearly ${$(F.PRICE.proYearly)} a year with a ${F.TRIAL_DAYS}-day free trial, ${F.FAMILY_PLAN ? `Family yearly ${$(F.PRICE.familyYearly)} a year, ` : ''}and Lifetime ${$(F.PRICE.lifetime)} once. In the Android app, Google Play sets the price and the currency for your country. The details are in the <a href="/terms">terms</a>.</p>`,
+          a: `<p><span data-web-pay>On the web: Pro monthly ${$(F.PRICE.proMonthly)} a month, Pro yearly ${$(F.PRICE.proYearly)} a year with a ${F.TRIAL_DAYS}-day free trial, ${F.FAMILY_PLAN ? `Family yearly ${$(F.PRICE.familyYearly)} a year, ` : ''}and Lifetime ${$(F.PRICE.lifetime)} once. </span>In the Android app, Google Play sets the price and the currency for your country. The details are in the <a href="/terms">terms</a>.</p>`,
         },
         {
           q: 'What does Lifetime mean?',
@@ -135,19 +135,19 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'How do I cancel?',
-          a: '<p>On the web, open your Gumroad library, choose BodyArcade and select Manage membership; the receipt e-mail has the same link. In the Android app, cancel in Google Play subscriptions. Pro stays on until the end of the period you already paid for.</p>',
+          a: '<p><span data-web-pay>On the web, open your Gumroad library, choose BodyArcade and select Manage membership; the receipt e-mail has the same link. </span>In the Android app, cancel in Google Play subscriptions. Pro stays on until the end of the period you already paid for.</p>',
         },
         {
           q: 'How do I get a refund?',
-          a: `<p>Refunds follow the rules of the store that sold the plan. On the web, every plan can be refunded within ${F.REFUND_DAYS} days of buying it. Gumroad makes the refund; the refund period is also on the product page and your receipt, and you can write to ${mail()} for help. On Google Play, Google&rsquo;s rules apply. A refunded plan ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>`,
+          a: `<p>Refunds follow the rules of the store that sold the plan. <span data-web-pay>On the web, every plan can be refunded within ${F.REFUND_DAYS} days of buying it. Gumroad makes the refund; the refund period is also on the product page and your receipt, and you can write to ${mail()} for help. </span>On Google Play, Google&rsquo;s rules apply. A refunded plan ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>`,
         },
         {
           q: 'How do I turn Pro on with my license key?',
-          a: '<p>After you pay on Gumroad, you get an e-mail with a license key. Open the Pro screen, find &ldquo;Already have a license key?&rdquo;, paste the key and press Activate. In the Android app, press Restore purchases if Pro is not on yet.</p>',
+          a: '<p><span data-web-pay>After you pay on Gumroad, you get an e-mail with a license key. </span>Open the Pro screen, find &ldquo;Already have a license key?&rdquo;, paste the key and press Activate. In the Android app, press Restore purchases if Pro is not on yet.</p>',
         },
         {
           q: 'I lost my license key.',
-          a: '<p>Gumroad e-mailed it to you when you paid, and it is also in your Gumroad library. If you cannot find it, write to us from the address you paid with.</p>',
+          a: '<p><span data-web-pay>Gumroad e-mailed it to you when you paid, and it is also in your Gumroad library. </span>If you cannot find it, write to us from the address you paid with.</p>',
         },
         {
           q: 'On how many devices can I use Pro?',

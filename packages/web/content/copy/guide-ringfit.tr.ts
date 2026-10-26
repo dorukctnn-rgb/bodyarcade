@@ -31,7 +31,7 @@ export function guideRingfitTr(): PageSpec {
         ['Seni nasıl takip eder', 'Joy-Con’lardaki hareket sensörleri ve Ring-Con’daki, sıkmayı ve çekmeyi algılayan bir kuvvet sensörü', `Kamera ve bedeninde ${F.MODEL_POINTS} nokta bulan, cihazda çalışan bir poz modeli`],
         ['Oyun türü', 'Savaşlar, seviyeler ve mini oyunlarla rol yapma macerası', `Bacaklar, kollar, karın ve denge için ${c.total} kısa arcade oyunu`],
         ['Seans süresi', 'İstediğin kadar; macera seviyeleri daha uzun seanslara uygundur', `${roundLength(c.shortest, 'tr')} ile ${roundLength(c.longest, 'tr')} arasında turlar`],
-        ['Maliyet', 'Oyunun tek seferlik satın alımı ve konsol', `${c.total} oyunun ${c.free} tanesi ücretsiz, reklamsız. Pro ayda ${$(F.PRICE.proMonthly)}, yılda ${$(F.PRICE.proYearly)} ya da tek sefer ${$(F.PRICE.lifetime)}`],
+        ['Maliyet', 'Oyunun tek seferlik satın alımı ve konsol', `${c.total} oyunun ${c.free} tanesi ücretsiz, reklamsız.<span data-web-pay> Pro ayda ${$(F.PRICE.proMonthly)}, yılda ${$(F.PRICE.proYearly)} ya da tek sefer ${$(F.PRICE.lifetime)}</span>`],
       ]),
     },
     {

@@ -123,7 +123,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Planların fiyatı ne kadar?',
-          a: `<p>Web’de: Pro aylık ayda ${$(F.PRICE.proMonthly)}, Pro yıllık yılda ${$(F.PRICE.proYearly)} (${F.TRIAL_DAYS} günlük ücretsiz denemeyle), ${F.FAMILY_PLAN ? `Aile yıllık yılda ${$(F.PRICE.familyYearly)}, ` : ''}Ömür boyu tek sefer ${$(F.PRICE.lifetime)}. Android uygulamasında fiyatı ve para birimini ülken için Google Play belirler. Ayrıntılar <a href="/tr/terms">koşullarda</a>.</p>`,
+          a: `<p><span data-web-pay>Web’de: Pro aylık ayda ${$(F.PRICE.proMonthly)}, Pro yıllık yılda ${$(F.PRICE.proYearly)} (${F.TRIAL_DAYS} günlük ücretsiz denemeyle), ${F.FAMILY_PLAN ? `Aile yıllık yılda ${$(F.PRICE.familyYearly)}, ` : ''}Ömür boyu tek sefer ${$(F.PRICE.lifetime)}. </span>Android uygulamasında fiyatı ve para birimini ülken için Google Play belirler. Ayrıntılar <a href="/tr/terms">koşullarda</a>.</p>`,
         },
         {
           q: 'Ömür boyu ne demek?',
@@ -135,19 +135,19 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Nasıl iptal ederim?',
-          a: '<p>Web’de Gumroad kütüphaneni aç, BodyArcade’ı seç ve Manage membership’i seç; makbuz e-postasında da aynı bağlantı var. Android uygulamasında Google Play aboneliklerinden iptal et. Pro, zaten ödediğin sürenin sonuna kadar açık kalır.</p>',
+          a: '<p><span data-web-pay>Web’de Gumroad kütüphaneni aç, BodyArcade’ı seç ve Manage membership’i seç; makbuz e-postasında da aynı bağlantı var. </span>Android uygulamasında Google Play aboneliklerinden iptal et. Pro, zaten ödediğin sürenin sonuna kadar açık kalır.</p>',
         },
         {
           q: 'Nasıl iade alırım?',
-          a: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır. Web’de her plan, satın alındığı günden başlayarak ${F.REFUND_DAYS} gün içinde iade edilebilir. İadeyi Gumroad yapar; iade süresi ürün sayfasında ve makbuzunda da yazar, yardım için ${mail()} adresine yazabilirsin. Google Play’de Google’ın kuralları geçerlidir. İade edilen bir plan, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>`,
+          a: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır. <span data-web-pay>Web’de her plan, satın alındığı günden başlayarak ${F.REFUND_DAYS} gün içinde iade edilebilir. İadeyi Gumroad yapar; iade süresi ürün sayfasında ve makbuzunda da yazar, yardım için ${mail()} adresine yazabilirsin. </span>Google Play’de Google’ın kuralları geçerlidir. İade edilen bir plan, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>`,
         },
         {
           q: 'Pro’yu lisans anahtarımla nasıl açarım?',
-          a: '<p>Gumroad’da ödedikten sonra bir lisans anahtarı içeren bir e-posta alırsın. Pro ekranını aç, “Lisans anahtarın var mı?” bölümünü bul, anahtarı yapıştır ve Etkinleştir’e bas. Android uygulamasında Pro henüz açılmadıysa Satın alımları geri yükle’ye bas.</p>',
+          a: '<p><span data-web-pay>Gumroad’da ödedikten sonra bir lisans anahtarı içeren bir e-posta alırsın. </span>Pro ekranını aç, “Lisans anahtarın var mı?” bölümünü bul, anahtarı yapıştır ve Etkinleştir’e bas. Android uygulamasında Pro henüz açılmadıysa Satın alımları geri yükle’ye bas.</p>',
         },
         {
           q: 'Lisans anahtarımı kaybettim.',
-          a: '<p>Gumroad, ödediğinde onu sana e-postayla gönderdi; Gumroad kütüphanende de var. Bulamazsan ödeme yaptığın adresten bize yaz.</p>',
+          a: '<p><span data-web-pay>Gumroad, ödediğinde onu sana e-postayla gönderdi; Gumroad kütüphanende de var. </span>Bulamazsan ödeme yaptığın adresten bize yaz.</p>',
         },
         {
           q: 'Pro’yu kaç cihazda kullanabilirim?',
