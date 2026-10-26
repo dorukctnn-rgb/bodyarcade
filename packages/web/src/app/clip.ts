@@ -8,6 +8,12 @@
 //
 // A 2D stage is copied onto a canvas of its own several times a second, a WebGL stage (Road Run) at the moment its kit has drawn a frame; both
 // copies have the same size (the stage's size on the screen, the long edge at most CLIP_MAX_EDGE) and carry the same score, time and name of the site.
+// Copying a WebGL picture costs nothing where the browser keeps it on the GPU, and a lot where it reads it back (Firefox, and any browser that draws
+// WebGL in software: 25 to 130 ms a copy at a laptop's size, which at the clip's rate left Road Run's keys answering in half a second in Firefox and
+// timed the round out on the QA runners). So a WebGL stage is copied only where trial copies cost less than COPY_BUDGET_MS; elsewhere the browser
+// records the stage as it is (its own size, no plates: the browser does that without the page's thread), and where the copies turn dear in the round
+// (the trials are taken outside a frame, which some browsers read back faster) the recorders start again on the stage as it is. The round never pays
+// for its clip.
 //
 // What is recorded is the stage's canvas and nothing else: the self view of the camera is a tile of the page, never in it. A mirror
 // game draws the camera picture on its canvas itself, so it makes no clip at all (clipAllowed): the camera video is never recorded.
@@ -43,6 +49,15 @@ export const CLIP_MAX_EDGE = 960;
 export const CLIP_BITS = 2_000_000;
 /** The name of the site, in a corner of the picture of every clip. */
 export const CLIP_BRAND = 'bodyarcade.com';
+/**
+ * What one copy of a WebGL stage may cost the page's thread, in milliseconds (the middle of three trials before the round, and each copy in the round).
+ * Measured on Road Run: where the GPU copies the picture (Chromium on the hardware GPU) a copy takes 0 to 2 ms, trials and round alike; where the
+ * browser reads it back, the trials take 4 to 13 ms (Chromium drawing WebGL in software) or 17 to 86 ms (Firefox), and a copy in the round 40 ms at a
+ * phone's size to 130 ms at a laptop's (Chromium in software), 28 to 55 ms (Firefox).
+ */
+export const COPY_BUDGET_MS = 3;
+/** In the round, this many copies over the budget in a row end the copies (the recorders start again on the stage as it is): one slow copy is a hiccup, not a slow browser. */
+export const DEAR_COPIES = 3;
 
 /** What the HUD shows at this moment, to be put on the picture of the clip: the score and the time, as the plates say them. */
 export interface ClipOverlay { score: string; time: string }
@@ -121,13 +136,18 @@ export interface ClipDeps {
   now(): number;
   /** Calls `fn` every `ms` until the returned function is called. */
   every(fn: () => void, ms: number): () => void;
-  /** The picture the recorders take: the canvas, made smaller where it is big (null: this canvas cannot be recorded). */
-  source(canvas: HTMLCanvasElement): ClipSource | null;
+  /**
+   * The picture the recorders take: the canvas, made smaller where it is big (null: this canvas cannot be recorded). `asIs`: the stage itself, with
+   * no copy (asked for when the copies of a WebGL stage turned dear).
+   */
+  source(canvas: HTMLCanvasElement, o?: { asIs?: boolean }): ClipSource | null;
 }
 
 export interface ClipSource {
   stream: MediaStream;
   close(): void;
+  /** True once the picture can no longer be kept up without slowing the round (a WebGL stage whose copies turned dear): the recorders start again on the stage as it is. */
+  dear?(): boolean;
 }
 
 /**
@@ -171,11 +191,21 @@ export function browserDeps(win: Window & typeof globalThis, overlay?: () => Cli
     Recorder,
     now: () => win.performance.now(),
     every,
-    source: (canvas) => {
+    source: (canvas, o) => {
       try {
         const doc = canvas.ownerDocument;
         const size = clipSize(canvas, win.devicePixelRatio || 1);
         if (Math.max(canvas.width, canvas.height, canvas.clientWidth) < 2) return null;
+        // A 2D canvas is copied smaller onto the canvas of its own several times a second (`getContext('2d')` hands back the same context it
+        // already has). A WebGL canvas gives none (null), and its picture is gone once the browser has shown it: the copy is taken in the very
+        // task in which the kit has drawn a frame (core/render3d/frames.ts), at the clip's rate, never on a timer (a copy on a timer is blank).
+        const flat = canvas.getContext('2d');
+        if (!flat && (o?.asIs === true || copyCost(win, doc, canvas, size) > COPY_BUDGET_MS)) {
+          // this browser reads a WebGL picture back to copy it: the stage is recorded as it is (its own size, no plates), which costs the round nothing
+          mark(canvas, 'as-is');
+          const stream = canvas.captureStream(CLIP_FPS);
+          return { stream, close: () => stream.getTracks().forEach((t) => t.stop()) };
+        }
         const out = doc.createElement('canvas');
         out.width = size.width;
         out.height = size.height;
@@ -187,28 +217,56 @@ export function browserDeps(win: Window & typeof globalThis, overlay?: () => Cli
             paintOverlay(c, out.width, out.height, overlay?.() ?? null);
           } catch { /* a frame that could not be copied is skipped */ }
         };
-        // A 2D canvas is copied smaller onto the canvas of its own several times a second (`getContext('2d')` hands back the same context it
-        // already has). A WebGL canvas gives none (null), and its picture is gone once the browser has shown it: the copy is taken in the very
-        // task in which the kit has drawn a frame (core/render3d/frames.ts), at the clip's rate, never on a timer (a copy on a timer is blank).
-        const flat = canvas.getContext('2d');
         let stop: () => void;
+        let dear = 0;
         if (flat) {
           draw();
           stop = every(draw, 1000 / CLIP_FPS);
         } else {
+          mark(canvas, 'plates');
           let last = Number.NEGATIVE_INFINITY;
           stop = tapFrames(canvas, () => {
             const now = win.performance.now();
-            if (now - last < 1000 / CLIP_FPS - 3) return;   // 3 ms of slack, as the kit's own frame gate has
+            if (dear >= DEAR_COPIES || now - last < 1000 / CLIP_FPS - 3) return;   // 3 ms of slack, as the kit's own frame gate has
             last = now;
             draw();
+            // copies that turn dear in the round end the copies (the recorders then start again on the stage as it is): the round keeps its speed
+            dear = win.performance.now() - now > COPY_BUDGET_MS ? dear + 1 : 0;
           });
         }
         const stream = out.captureStream(CLIP_FPS);
-        return { stream, close: () => { stop(); stream.getTracks().forEach((t) => t.stop()); } };
+        return { stream, close: () => { stop(); stream.getTracks().forEach((t) => t.stop()); }, dear: () => dear >= DEAR_COPIES };
       } catch { return null; }
     },
   };
+}
+
+/**
+ * What one copy of this WebGL stage costs the page's thread: the middle of three copies onto a canvas of the clip's size that is then let go (outside a
+ * frame the picture may be blank, but reading it back costs the same: a browser that keeps it on the GPU takes no time here, one that reads it back does).
+ */
+function copyCost(win: Window & typeof globalThis, doc: Document, canvas: HTMLCanvasElement, size: { width: number; height: number }): number {
+  try {
+    const trial = doc.createElement('canvas');
+    trial.width = size.width;
+    trial.height = size.height;
+    const c = trial.getContext('2d');
+    if (!c) return Number.POSITIVE_INFINITY;
+    const times: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const at = win.performance.now();
+      try { c.drawImage(canvas, 0, 0, trial.width, trial.height); } catch { /* a copy that fails costs what it took */ }
+      times.push(win.performance.now() - at);
+    }
+    trial.width = 0;
+    trial.height = 0;
+    return times.sort((a, b) => a - b)[1] as number;
+  } catch { return Number.POSITIVE_INFINITY; }
+}
+
+/** Notes on the stage how its clip is made ('plates': a copy with the score, the time and the site; 'as-is': the stage itself), for tests and for a look in the inspector. */
+function mark(canvas: HTMLCanvasElement, how: 'plates' | 'as-is'): void {
+  try { canvas.dataset['clip'] = how; } catch { /* a canvas with no dataset */ }
 }
 
 interface Slot {
@@ -326,6 +384,9 @@ export class ClipRecorder {
 
   private tick(): void {
     if (this.paused || this.ended) return;
+    // copies that can no longer be kept up without slowing the round: the recorders start again on the stage as it is (the clip is the round's
+    // last seconds, so it loses nothing but the plates), or the round makes no clip where that cannot be had
+    if (this.source?.dear?.() === true) { this.recordAsIs(); return; }
     this.advance();
     // a recorder that has been going for a second has not failed
     if (this.slots.some((s) => s.active >= 1000)) this.failed = 0;
@@ -335,6 +396,15 @@ export class ClipRecorder {
     }
     if (this.slots.length === 1 && (this.slots[0]?.active ?? 0) >= STAGGER_MS) this.open();
     if (this.slots.length === 0) this.open();
+  }
+
+  private recordAsIs(): void {
+    for (const s of this.slots.splice(0)) this.discard(s);
+    this.source?.close();
+    this.source = this.deps.source(this.canvas, { asIs: true });
+    if (!this.source) { this.dispose(); return; }
+    this.last = this.deps.now();
+    this.open();
   }
 
   private drop(slot: Slot): void {

@@ -2,7 +2,7 @@
 // there are seconds worth keeping, nothing while the round is paused, and no clip and no error where the browser cannot make one.
 import { describe, expect, it } from 'vitest';
 import { frameDrawn } from '../../../core/render3d/frames.ts';
-import { browserDeps, CLIP_BRAND, CLIP_FPS, CLIP_MAX_EDGE, clipAllowed, clipKind, ClipRecorder, clipSize, isWebGLStage, paintOverlay, MIN_CLIP_MS, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
+import { browserDeps, CLIP_BRAND, CLIP_FPS, CLIP_MAX_EDGE, clipAllowed, COPY_BUDGET_MS, DEAR_COPIES, clipKind, ClipRecorder, clipSize, isWebGLStage, paintOverlay, MIN_CLIP_MS, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
 
 class Fake implements RecorderLike {
   static made: Fake[] = [];
@@ -33,18 +33,24 @@ class Fake implements RecorderLike {
   get running(): boolean { return this.state !== 'inactive'; }
 }
 
-function rig(opts: { source?: boolean } = {}): { rec: ClipRecorder; advance(ms: number): void; closed: () => boolean; deps: ClipDeps } {
+function rig(opts: { source?: boolean; dear?: () => boolean; asIs?: 'none' } = {}): { rec: ClipRecorder; advance(ms: number): void; closed: () => boolean; deps: ClipDeps; asked: { asIs?: boolean }[] } {
   Fake.made = [];
   Fake.throwOnMake = false;
   Fake.silentStop = false;
   let t = 1000;
   let closed = false;
+  const asked: { asIs?: boolean }[] = [];
   const timers: { fn: () => void; ms: number; next: number; on: boolean }[] = [];
   const deps: ClipDeps = {
     Recorder: Fake as unknown as ClipDeps['Recorder'],
     now: () => t,
     every: (fn, ms) => { const timer = { fn, ms, next: t + ms, on: true }; timers.push(timer); return () => { timer.on = false; }; },
-    source: (): ClipSource | null => (opts.source === false ? null : { stream: {} as MediaStream, close: () => { closed = true; } }),
+    source: (_canvas, o): ClipSource | null => {
+      asked.push(o ?? {});
+      if (opts.source === false || (o?.asIs === true && opts.asIs === 'none')) return null;
+      closed = false;
+      return { stream: { asIs: o?.asIs === true } as unknown as MediaStream, close: () => { closed = true; }, ...(opts.dear && o?.asIs !== true ? { dear: opts.dear } : {}) };
+    },
   };
   const rec = new ClipRecorder({} as HTMLCanvasElement, deps, { mime: 'video/mp4;codecs=avc1.42E01E', ext: 'mp4' });
   const advance = (ms: number): void => {
@@ -56,7 +62,7 @@ function rig(opts: { source?: boolean } = {}): { rec: ClipRecorder; advance(ms: 
       }
     }
   };
-  return { rec, advance, closed: () => closed, deps };
+  return { rec, advance, closed: () => closed, deps, asked };
 }
 
 const live = (): Fake[] => Fake.made.filter((f) => f.running);
@@ -188,6 +194,38 @@ describe('where no clip can be made', () => {
     rec.start();
     advance(30_000);
     expect(Fake.made).toHaveLength(0);
+    expect(await rec.finish()).toBeNull();
+  });
+
+  it('copies that turned dear in the round: the recorders start again on the stage as it is, and the clip is of the last seconds as before', async () => {
+    let dear = false;
+    const { rec, advance, asked } = rig({ dear: () => dear });
+    rec.start();
+    advance(6_000);
+    expect(live()).toHaveLength(2);
+    dear = true;
+    advance(200);
+    // the two recorders of the copy are let go, one starts on the stage as it is, the second joins half a length later
+    expect(asked).toEqual([{}, { asIs: true }]);
+    expect(live()).toHaveLength(1);
+    expect((live()[0]!.stream as { asIs: boolean }).asIs).toBe(true);
+    advance(STAGGER_MS + 200);
+    expect(live()).toHaveLength(2);
+    advance(3_000);
+    const clip = await rec.finish();
+    expect(clip?.seconds).toBeGreaterThanOrEqual(STAGGER_MS / 1000);
+    expect(asked).toHaveLength(2);
+  });
+
+  it('copies that turned dear where the stage itself cannot be recorded: no clip, nothing left running', async () => {
+    let dear = false;
+    const { rec, advance, closed } = rig({ dear: () => dear, asIs: 'none' });
+    rec.start();
+    advance(6_000);
+    dear = true;
+    advance(400);
+    expect(live()).toHaveLength(0);
+    expect(closed()).toBe(true);
     expect(await rec.finish()).toBeNull();
   });
 
@@ -323,9 +361,14 @@ describe('the size of the clip', () => {
 });
 
 describe('the picture of the clip of a 2D stage and of a WebGL stage', () => {
-  /** A canvas that notes what is drawn on it; `webgl` has no 2D context, as a WebGL canvas has none. */
-  function stage(o: { webgl: boolean; w: number; h: number; fail?: boolean }): { canvas: HTMLCanvasElement; made: { w: number; h: number; draws: string[]; texts: string[]; captured: number }[] } {
+  /**
+   * A canvas that notes what is drawn on it; `webgl` has no 2D context, as a WebGL canvas has none. `cost(n)`: the milliseconds the n-th copy of it
+   * takes (on `clock`), as a browser that reads a WebGL picture back takes them. `stageStreams`: how often the stage itself was recorded.
+   */
+  function stage(o: { webgl: boolean; w: number; h: number; fail?: boolean; clock?: { t: number }; cost?: (n: number) => number }): { canvas: HTMLCanvasElement; made: { w: number; h: number; draws: string[]; texts: string[]; captured: number }[]; stageStreams: () => number } {
     const made: { w: number; h: number; draws: string[]; texts: string[]; captured: number }[] = [];
+    let copies = 0;
+    let stageStreams = 0;
     const copy = (): { out: unknown; rec: (typeof made)[number] } => {
       const rec = { w: 0, h: 0, draws: [] as string[], texts: [] as string[], captured: 0 };
       made.push(rec);
@@ -333,7 +376,12 @@ describe('the picture of the clip of a 2D stage and of a WebGL stage', () => {
         font: '', fillStyle: '', textBaseline: '', textAlign: '',
         save: () => undefined, restore: () => undefined, beginPath: () => undefined, fill: () => undefined, rect: () => undefined, roundRect: () => undefined,
         measureText: (t: string) => ({ width: t.length * 8 }) as TextMetrics,
-        drawImage: (_src: unknown, _x: number, _y: number, w: number, h: number) => { if (o.fail) throw new Error('the buffer is gone'); rec.draws.push(`${w}x${h}`); },
+        drawImage: (_src: unknown, _x: number, _y: number, w: number, h: number) => {
+          if (o.clock && o.cost) o.clock.t += o.cost(copies);
+          copies++;
+          if (o.fail) throw new Error('the buffer is gone');
+          rec.draws.push(`${w}x${h}`);
+        },
         fillText: (t: string) => { rec.texts.push(t); },
       };
       const out = {
@@ -347,10 +395,15 @@ describe('the picture of the clip of a 2D stage and of a WebGL stage', () => {
       width: o.w, height: o.h, clientWidth: o.w, clientHeight: o.h,
       ownerDocument: { createElement: () => copy().out },
       getContext: () => (o.webgl ? null : {}),
-      captureStream: () => { throw new Error('the stage itself is never recorded'); },
+      dataset: {} as Record<string, string>,
+      captureStream: () => { stageStreams++; return { getTracks: () => [] } as unknown as MediaStream; },
     } as unknown as HTMLCanvasElement;
-    return { canvas, made };
+    return { canvas, made, stageStreams: () => stageStreams };
   }
+
+  /** The canvas the clip is recorded from (a WebGL stage first gets a trial canvas, three copies on it, which is let go). */
+  const recorded = (made: { captured: number }[]): number => made.findIndex((m) => m.captured > 0);
+  const how = (canvas: HTMLCanvasElement): string | undefined => (canvas as unknown as { dataset: Record<string, string> }).dataset['clip'];
 
   function win(clock: { t: number }, timers: { fn: () => void; ms: number; on: boolean }[]): Window & typeof globalThis {
     return {
@@ -379,41 +432,104 @@ describe('the picture of the clip of a 2D stage and of a WebGL stage', () => {
     expect(timers.filter((x) => x.on).map((x) => x.ms)).toEqual([1000 / CLIP_FPS]);
     src.close();
     expect(timers.some((x) => x.on)).toBe(false);
+    expect(src.dear?.()).toBe(false);
   });
 
   it('a WebGL stage is copied the same way (the same size, the same score, time and name of the site) in the task in which its kit has drawn a frame, never on a timer', () => {
     const clock = { t: 0 };
     const timers: { fn: () => void; ms: number; on: boolean }[] = [];
     const deps = browserDeps(win(clock, timers), overlay) as ClipDeps;
-    const { canvas, made } = stage({ webgl: true, w: 1920, h: 1080 });
+    // a browser whose GPU copies the picture: a copy costs this page nothing
+    const { canvas, made, stageStreams } = stage({ webgl: true, w: 1920, h: 1080, clock, cost: () => 0 });
     const src = deps.source(canvas) as ClipSource;
-    // the clip is a picture of the same size as a 2D stage's, and the stage itself is not what is recorded
-    expect(`${made[0]!.w}x${made[0]!.h}`).toBe(`${CLIP_MAX_EDGE}x540`);
-    expect(made[0]!.captured).toBe(1);
+    // three trial copies on a canvas of the clip's size, which is let go; the clip is a picture of the same size as a 2D stage's
+    const at = recorded(made);
+    expect(at).toBe(1);
+    expect(made[0]!.draws).toEqual([`${CLIP_MAX_EDGE}x540`, `${CLIP_MAX_EDGE}x540`, `${CLIP_MAX_EDGE}x540`]);
+    expect(made[0]!.w).toBe(0);
+    const copy = made[at]!;
+    expect(`${copy.w}x${copy.h}`).toBe(`${CLIP_MAX_EDGE}x540`);
+    expect(copy.captured).toBe(1);
+    expect(stageStreams()).toBe(0);
+    expect(how(canvas)).toBe('plates');
     // nothing is copied on a timer: a WebGL canvas copied outside the task that drew it is blank
     expect(timers.filter((x) => x.on)).toHaveLength(0);
-    expect(made[0]!.draws).toHaveLength(0);
+    expect(copy.draws).toHaveLength(0);
     // a frame drawn by the kit is copied, scaled to the clip's size, with the overlay
     frameDrawn(canvas);
-    expect(made[0]!.draws).toEqual([`${CLIP_MAX_EDGE}x540`]);
-    expect(made[0]!.texts).toEqual(expect.arrayContaining(['420', '0:37', CLIP_BRAND]));
+    expect(copy.draws).toEqual([`${CLIP_MAX_EDGE}x540`]);
+    expect(copy.texts).toEqual(expect.arrayContaining(['420', '0:37', CLIP_BRAND]));
     // at the clip's rate: frames that come faster than that are not all copied
     clock.t += 5;
     frameDrawn(canvas);
-    expect(made[0]!.draws).toHaveLength(1);
+    expect(copy.draws).toHaveLength(1);
     clock.t += 1000 / CLIP_FPS;
     frameDrawn(canvas);
-    expect(made[0]!.draws).toHaveLength(2);
+    expect(copy.draws).toHaveLength(2);
     // the quality steps change the stage's own buffer: the clip's picture does not follow it
     (canvas as unknown as { width: number }).width = 800;
     clock.t += 100;
     frameDrawn(canvas);
-    expect(`${made[0]!.w}x${made[0]!.h}`).toBe(`${CLIP_MAX_EDGE}x540`);
+    expect(`${copy.w}x${copy.h}`).toBe(`${CLIP_MAX_EDGE}x540`);
+    expect(src.dear?.()).toBe(false);
     // after the round no frame is copied
     src.close();
     clock.t += 100;
     frameDrawn(canvas);
+    expect(copy.draws).toHaveLength(3);
+  });
+
+  it('where a copy of a WebGL picture is dear (the browser reads it back: Firefox, or WebGL drawn in software), the stage is recorded as it is and the round pays nothing', () => {
+    const clock = { t: 0 };
+    const timers: { fn: () => void; ms: number; on: boolean }[] = [];
+    const deps = browserDeps(win(clock, timers), overlay) as ClipDeps;
+    // the middle of the three trials decides: one slow trial is a hiccup, two are a slow browser
+    const hiccup = stage({ webgl: true, w: 1440, h: 900, clock, cost: (n) => (n === 0 ? 40 : 1) });
+    expect(deps.source(hiccup.canvas)).not.toBeNull();
+    expect(hiccup.stageStreams()).toBe(0);
+    expect(how(hiccup.canvas)).toBe('plates');
+    const { canvas, made, stageStreams } = stage({ webgl: true, w: 1440, h: 900, clock, cost: () => 28 });
+    const src = deps.source(canvas) as ClipSource;
+    expect(stageStreams()).toBe(1);
+    expect(recorded(made)).toBe(-1);
+    expect(made).toHaveLength(1);
+    expect(how(canvas)).toBe('as-is');
+    // the kit's frames are not copied, and there is no timer
+    frameDrawn(canvas);
+    clock.t += 1000;
+    frameDrawn(canvas);
     expect(made[0]!.draws).toHaveLength(3);
+    expect(timers).toHaveLength(0);
+    expect(src.dear?.() ?? false).toBe(false);
+    src.close();
+    // asked for the stage as it is (the copies turned dear in the round), there is no trial: the stage is recorded at once
+    const again = stage({ webgl: true, w: 1440, h: 900, clock, cost: () => 0 });
+    expect(deps.source(again.canvas, { asIs: true })).not.toBeNull();
+    expect(again.stageStreams()).toBe(1);
+    expect(again.made).toHaveLength(0);
+    expect(how(again.canvas)).toBe('as-is');
+  });
+
+  it(`copies that turn dear in the round (${DEAR_COPIES} in a row over ${COPY_BUDGET_MS} ms) end the copies, and the source says so`, () => {
+    const clock = { t: 0 };
+    const deps = browserDeps(win(clock, []), overlay) as ClipDeps;
+    // cheap trials, then: one slow copy (a hiccup), cheap ones, then slow ones only
+    const costs = [0, 0, 0, 20, 0, 0, 20, 20, 20];
+    const { canvas, made } = stage({ webgl: true, w: 1440, h: 900, clock, cost: (n) => costs[n] ?? 20 });
+    const src = deps.source(canvas) as ClipSource;
+    const copy = made[recorded(made)]!;
+    const frame = (): void => { clock.t += 1000 / CLIP_FPS; frameDrawn(canvas); };
+    frame(); frame(); frame();
+    expect(copy.draws).toHaveLength(3);
+    expect(src.dear?.()).toBe(false);
+    expect(how(canvas)).toBe('plates');
+    frame(); frame(); frame();
+    expect(copy.draws).toHaveLength(6);
+    expect(src.dear?.()).toBe(true);
+    // no copy after that, however long the round goes on
+    for (let i = 0; i < 20; i++) frame();
+    expect(copy.draws).toHaveLength(6);
+    src.close();
   });
 
   it('a small stage keeps its size, a WebGL one as a 2D one, and a stage with nothing on the screen gives no picture to record', () => {
@@ -422,7 +538,8 @@ describe('the picture of the clip of a 2D stage and of a WebGL stage', () => {
     for (const webgl of [false, true]) {
       const { canvas, made } = stage({ webgl, w: 390, h: 844 });
       expect(deps.source(canvas)).not.toBeNull();
-      expect(`${made[0]!.w}x${made[0]!.h}`).toBe('390x844');
+      const copy = made[recorded(made)]!;
+      expect(`${copy.w}x${copy.h}`).toBe('390x844');
       expect(deps.source(stage({ webgl, w: 1, h: 1 }).canvas)).toBeNull();
     }
   });
@@ -433,6 +550,6 @@ describe('the picture of the clip of a 2D stage and of a WebGL stage', () => {
     const { canvas, made } = stage({ webgl: true, w: 640, h: 360, fail: true });
     deps.source(canvas);
     expect(() => frameDrawn(canvas)).not.toThrow();
-    expect(made[0]!.texts).toEqual([]);
+    expect(made.every((m) => m.texts.length === 0)).toBe(true);
   });
 });

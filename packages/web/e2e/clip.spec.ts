@@ -4,7 +4,9 @@
 // turned it off. The two recorders that take turns, the lengths and the pauses are held in app/clip.test.ts with a stand-in recorder.
 // A 2D game (Squat Flap) and Road Run's 3D stage make the same clip: the same size cap, and the score, the time and the name of the site
 // written over the game view (the 3D stage is copied in the task that drew a frame: a copy on a timer is blank), packaged as avc3 for the
-// 3D stage where the browser records it and as avc1 for a 2D one.
+// 3D stage where the browser records it and as avc1 for a 2D one. Where copying the 3D picture is dear (the browser reads it back: headless
+// Chromium draws WebGL in software, Firefox), the stage is recorded as it is, without the plates, and the round keeps its speed; the stage
+// says which (data-clip: 'plates', or 'as-is', also when copies turned dear in the round and the recorders started again on the stage).
 import { expect, test, type Page } from '@playwright/test';
 import { CLIP_BRAND, CLIP_MAX_EDGE } from '../src/app/clip.ts';
 import { collectErrors } from './support/helpers.ts';
@@ -42,6 +44,16 @@ async function watchWriting(page: Page): Promise<void> {
   });
 }
 
+/** Notes how the clip of the round is made, as the stage says it (data-clip on its canvas), the last word before the stage goes. */
+async function watchClipHow(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __clipHow?: string };
+    new MutationObserver((list) => {
+      for (const m of list) { const v = (m.target as Element).getAttribute('data-clip'); if (v) w.__clipHow = v; }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ['data-clip'] });
+  });
+}
+
 /** The size of the game view on the screen, read while the round is on (the results have no stage). */
 const stageOf = (page: Page): Promise<{ w: number; h: number }> => page.locator('[data-scene] canvas').evaluate((c: HTMLCanvasElement) => ({ w: c.clientWidth, h: c.clientHeight }));
 
@@ -50,7 +62,7 @@ const stageOf = (page: Page): Promise<{ w: number; h: number }> => page.locator(
  * stage it was recorded from, the score, the time and the name of the site written over the game view on a canvas of the clip's size, a picture that
  * is not black, and the packaging of the codec: avc3 for a 3D stage where the browser records avc3, avc1 for a 2D one.
  */
-async function expectTheClip(page: Page, stage: { w: number; h: number }, kind: '2d' | '3d'): Promise<{ size: number; type: string; src: string }> {
+async function expectTheClip(page: Page, stage: { w: number; h: number }, kind: '2d' | '3d', plates = true): Promise<{ size: number; type: string; src: string }> {
   const card = page.locator('[data-clip]');
   await expect(card).toBeVisible({ timeout: 15_000 });
   const video = card.locator('video');
@@ -68,17 +80,19 @@ async function expectTheClip(page: Page, stage: { w: number; h: number }, kind: 
   // the video decodes: it has a size and a first frame
   await expect.poll(async () => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
   const dims = await video.evaluate((v: HTMLVideoElement) => ({ w: v.videoWidth, h: v.videoHeight }));
-  // the size cap: the stage's own long edge (the screen's pixel ratio is 1 here) up to the cap, never more, never the 300 by 150 of an unsized canvas
-  const long = Math.max(dims.w, dims.h);
-  expect(long, `the long edge of the ${kind} clip (${dims.w}x${dims.h})`).toBeLessThanOrEqual(CLIP_MAX_EDGE);
-  expect(Math.abs(long - Math.min(CLIP_MAX_EDGE, Math.max(stage.w, stage.h))), `the long edge of the ${kind} clip (${dims.w}x${dims.h}) is the stage's (${stage.w}x${stage.h}) up to the cap`).toBeLessThanOrEqual(2);
   expect(Math.abs(dims.w / dims.h - stage.w / stage.h), `the ${kind} clip has the shape of the stage`).toBeLessThan(0.02);
-  // the overlay, written on a canvas of the clip's size: a time, a score and the name of the site
-  const wrote = (await page.evaluate(() => (window as unknown as { __wrote: Wrote[] }).__wrote)).filter((x) => x.w === dims.w && x.h === dims.h);
-  const texts = [...new Set(wrote.map((x) => x.text))];
-  expect(texts, `what was written over the ${kind} clip`).toContain(CLIP_BRAND);
-  expect(texts.some((t) => /^\d{1,2}:\d\d$/.test(t)), `the time was written over the ${kind} clip (${texts.join(' | ')})`).toBe(true);
-  expect(texts.some((t) => /^[\d.,\s]+$/.test(t)), `the score was written over the ${kind} clip (${texts.join(' | ')})`).toBe(true);
+  if (plates) {
+    // the size cap: the stage's own long edge (the screen's pixel ratio is 1 here) up to the cap, never more, never the 300 by 150 of an unsized canvas
+    const long = Math.max(dims.w, dims.h);
+    expect(long, `the long edge of the ${kind} clip (${dims.w}x${dims.h})`).toBeLessThanOrEqual(CLIP_MAX_EDGE);
+    expect(Math.abs(long - Math.min(CLIP_MAX_EDGE, Math.max(stage.w, stage.h))), `the long edge of the ${kind} clip (${dims.w}x${dims.h}) is the stage's (${stage.w}x${stage.h}) up to the cap`).toBeLessThanOrEqual(2);
+    // the overlay, written on a canvas of the clip's size: a time, a score and the name of the site
+    const wrote = (await page.evaluate(() => (window as unknown as { __wrote: Wrote[] }).__wrote)).filter((x) => x.w === dims.w && x.h === dims.h);
+    const texts = [...new Set(wrote.map((x) => x.text))];
+    expect(texts, `what was written over the ${kind} clip`).toContain(CLIP_BRAND);
+    expect(texts.some((t) => /^\d{1,2}:\d\d$/.test(t)), `the time was written over the ${kind} clip (${texts.join(' | ')})`).toBe(true);
+    expect(texts.some((t) => /^[\d.,\s]+$/.test(t)), `the score was written over the ${kind} clip (${texts.join(' | ')})`).toBe(true);
+  }
   // the packaging of the codec
   if (info.type === 'video/mp4') {
     if (kind === '3d' && info.canAvc3) expect(info.avc3, 'the 3D clip is avc3 where the browser records it').toBe(true);
@@ -103,7 +117,7 @@ async function expectTheClip(page: Page, stage: { w: number; h: number }, kind: 
   expect(blackShare, `the ${kind} clip shows the game view, not black with the plates over it`).toBeLessThan(0.85);
   // BA_CLIP_SHOTS=<folder> keeps a picture of the frame, to look at (the score, the time and the name of the site are on it)
   const shots = process.env['BA_CLIP_SHOTS'];
-  if (shots) await video.screenshot({ path: `${shots}/clip-frame-${kind}.png` });
+  if (shots) await video.screenshot({ path: `${shots}/clip-frame-${kind}${plates ? '' : '-as-is'}.png` });
   return { size: info.size, type: info.type, src };
 }
 
@@ -157,11 +171,12 @@ test('a round ends with a clip of its last seconds: a video from the game view, 
   expect(errors.filter((e) => !/MediaRecorder|captureStream/i.test(e))).toEqual([]);
 });
 
-test('Road Run, a 3D stage, makes the same clip as a 2D game: the size cap, the score, the time and the name of the site over the game view, and a picture of the road', async ({ page }) => {
+test('Road Run, a 3D stage, makes the same clip as a 2D game where copying its picture is cheap, and records the stage as it is where it is dear: a picture of the road either way', async ({ page }) => {
   // the real game on the real 3D scene (headless Chromium draws it in software), in real time, to the end of the round or the last heart
   test.setTimeout(260_000);
   const errors = collectErrors(page);
   await watchWriting(page);
+  await watchClipHow(page);
   await page.goto(ROAD_RUN);
   await expect(page.locator('[data-scene] canvas')).toBeVisible({ timeout: 60_000 });
   await expect.poll(async () => (await stageOf(page)).w, { timeout: 30_000 }).toBeGreaterThan(300);
@@ -170,8 +185,12 @@ test('Road Run, a 3D stage, makes the same clip as a 2D game: the size cap, the 
   await expect(page.locator('[data-scene] canvas')).toHaveAttribute('data-world', /^[a-z]+$/,{ timeout: 60_000 });
   const webgl = await page.locator('[data-scene] canvas').evaluate((c: HTMLCanvasElement) => c.getContext('2d') === null);
   expect(webgl, 'Road Run draws on a WebGL canvas (no 2D context)').toBe(true);
+  // the recorder starts with the round and the stage says how its clip is made
+  await expect(page.locator('[data-scene] canvas')).toHaveAttribute('data-clip', /^(plates|as-is)$/, { timeout: 60_000 });
   await playToResults(page, 220_000);
-  await expectTheClip(page, stage, '3d');
+  const how = await page.evaluate(() => (window as unknown as { __clipHow?: string }).__clipHow);
+  test.info().annotations.push({ type: 'clip', description: how ?? 'none' });
+  await expectTheClip(page, stage, '3d', how === 'plates');
   // nothing in the console: not the "codec description is not supposed to change" of an avc1 recorder fed frames of two sizes
   expect(errors.filter((e) => !/MediaRecorder|captureStream/i.test(e))).toEqual([]);
 });
