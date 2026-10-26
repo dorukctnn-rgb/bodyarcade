@@ -88,7 +88,9 @@ describe('the ticket of a run', () => {
     const run = await start(ada);
     expect((await post(bo, 100, { run })).body.error).toBe('bad_run');
     expect((await post(ada, 100, { run, game: 'knee-sprint' })).body.error).toBe('bad_run');
-    const flipped = run.slice(0, -2) + (run.endsWith('A') ? 'B' : 'A') + run.slice(-1);
+    // one letter of the signature changed (the one before the last: the last carries bits that base64 leaves unused); it must differ from the one it replaces
+    const flipped = run.slice(0, -2) + (run.at(-2) === 'A' ? 'B' : 'A') + run.slice(-1);
+    expect(flipped).not.toBe(run);
     expect((await post(ada, 100, { run: flipped })).body.error).toBe('bad_run');
     const later = run.replace(/^r1\.(\d+)\./, (_, t: string) => `r1.${Number(t) + 1000}.`);
     expect((await post(ada, 100, { run: later })).body.error).toBe('bad_run');
