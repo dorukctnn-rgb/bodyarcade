@@ -42,10 +42,12 @@
 .k-canlist .yes svg { color: var(--ba-hit-text); }
 .k-canlist .no { color: var(--ba-text-muted); }
 .k-canlist .no svg { color: var(--ba-text-muted); }
-.k-facts { margin: 0; display: grid; gap: 10px; }
-.k-facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
-.k-facts dt { color: var(--ba-text-muted); font-size: var(--ba-text-sm); }
-.k-facts dd { margin: 0; font-weight: 700; }
+/* The list of facts of the profile screen (a dl). The game page's row of pills is also called .k-facts (design/ui-kit/pages.css, a ul): these rules are
+   for the dl alone, with the specificity they always had, so they do not turn that row into a column. */
+:where(dl).k-facts { margin: 0; display: grid; gap: 10px; }
+dl.k-facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+dl.k-facts dt { color: var(--ba-text-muted); font-size: var(--ba-text-sm); }
+dl.k-facts dd { margin: 0; font-weight: 700; }
 .k-cols-wide { grid-column: 1 / -1; }
 .k-prefs .ba-field select { max-width: 320px; }
 .k-prefs small { display: block; margin-top: 6px; }
