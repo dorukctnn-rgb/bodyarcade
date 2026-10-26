@@ -3,7 +3,7 @@
 import { attr, html, type SafeHtml } from '../../../core/ui/html.ts';
 import { avatar } from '../../../core/ui/avatars.ts';
 import { icon, type IconName } from '../../../core/ui/icons.ts';
-import { LANG_INFO, type Lang } from '../../../core/ui/i18n/index.ts';
+import { LANG_INFO, type Lang, type StringKey } from '../../../core/ui/i18n/index.ts';
 import { router, INDEXED_LANGS, type NavTab } from '../routes.ts';
 import { hasPro, type ViewContext } from '../context.ts';
 
@@ -52,6 +52,15 @@ const SITE_PAGES = {
 } as const;
 export const sitePageHref = (lang: Lang, page: 'privacy' | 'terms' | 'faq' | 'delete'): string => SITE_PAGES[lang === 'tr' ? 'tr' : 'en'][page];
 
+/** The search pages of the site (sources: content/copy/seo-*.ts; content.test.ts keeps these addresses equal to theirs). */
+const SITE_GUIDES = {
+  en: { hub: '/fitness-games', seated: '/seated-exercise-games', friends: '/workout-games-with-friends', areas: '/workout-games-by-body-area' },
+  tr: { hub: '/tr/evde-spor-oyunlari', seated: '/tr/oturarak-egzersiz-oyunlari', friends: '/tr/arkadaslarla-spor-oyunlari', areas: '/tr/bolgeye-gore-spor-oyunlari' },
+} as const;
+export type SiteGuide = keyof (typeof SITE_GUIDES)['en'];
+export const SITE_GUIDE_IDS: readonly SiteGuide[] = ['hub', 'seated', 'friends', 'areas'];
+export const siteGuideHref = (lang: Lang, page: SiteGuide): string => SITE_GUIDES[lang === 'tr' ? 'tr' : 'en'][page];
+
 /** The id of the community rules (conduct and fair play) on the terms page of each language; content.test.ts checks that the page has it. */
 export const COMMUNITY_RULES_ANCHOR = { en: 'conduct', tr: 'davranis' } as const;
 
@@ -66,6 +75,9 @@ function footer(ctx: ViewContext): SafeHtml {
         <li><a href="${sitePageHref(ctx.lang, 'faq')}" data-native>${t.t('footer.faq')}</a></li>
         <li><a href="${sitePageHref(ctx.lang, 'delete')}" data-native>${t.t('footer.delete')}</a></li>
         <li><a href="mailto:info@peakappsstudio.com">${t.t('footer.contact')}</a></li>
+      </ul>
+      <ul class="ba-footer-links ba-footer-guides" aria-label="${t.t('footer.guides')}">
+        ${SITE_GUIDE_IDS.map((g) => html`<li><a href="${siteGuideHref(ctx.lang, g)}" data-native>${t.t(`footer.guide.${g}` as StringKey)}</a></li>`)}
       </ul>
       ${languageLinks(ctx)}
     </div>

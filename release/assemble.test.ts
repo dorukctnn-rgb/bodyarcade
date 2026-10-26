@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { LEGACY_PAGES, MUST_HAVE, assemble, resolvePath } from './assemble.ts';
 import { HEAD_TAGS, TARGETS } from './site.ts';
+import { REGION_IDS } from '../packages/core/ui/settings.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const tmp = mkdtempSync(join(tmpdir(), 'ba-release-'));
@@ -32,6 +33,17 @@ function fakeWebBuild(dir: string, extraBody = ''): void {
     'static/main-b2.css': 'body{}',
     'vendor/mediapipe/models/m.task': 'model',
   };
+  // The content pages link to every game page, to the list of every body area and to the plans (the search pages of packages/web/content do).
+  for (const g of readdirSync(join(root, 'packages', 'games'), { withFileTypes: true })) {
+    const manifest = join(root, 'packages', 'games', g.name, 'manifest.json');
+    if (!g.isDirectory() || !existsSync(manifest)) continue;
+    const slug = (JSON.parse(readFileSync(manifest, 'utf8')) as { seo: { slug: string } }).seo.slug;
+    files[`games/${slug}/index.html`] ??= page('');
+    files[`tr/games/${slug}/index.html`] ??= page('');
+  }
+  for (const r of REGION_IDS) { files[`workouts/${r}/index.html`] = page(''); files[`tr/workouts/${r}/index.html`] = page(''); }
+  files['plans/index.html'] = page('');
+  files['tr/plans/index.html'] = page('');
   for (const [f, text] of Object.entries(files)) {
     mkdirSync(dirname(join(dir, f)), { recursive: true });
     writeFileSync(join(dir, f), text);

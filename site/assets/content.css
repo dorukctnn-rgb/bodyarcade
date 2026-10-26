@@ -191,6 +191,8 @@ h1 {
 .tbl thead th { background: var(--ba-surface-sunken); font-weight: 700; font-size: 0.875rem; }
 .tbl tbody tr + tr > * { border-top: 1px solid var(--ba-border); }
 .tbl tbody th { font-weight: 700; width: 9.5rem; }
+/* The link in a row heading (a game, an area) stands alone in its cell: a touch target of at least 24 px. */
+.tbl tbody th a { display: inline-block; padding: 2px 0; }
 @media (max-width: 679px) {
   .tbl, .tbl tbody, .tbl tr, .tbl th, .tbl td { display: block; }
   .tbl thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -7,11 +7,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_FREE_FEATURES, ROAD_RUN_WORLDS } from '../../core/entitlements/features.ts';
+import { DEFAULT_FREE_FEATURES, ROAD_RUN_WORLDS, canUse } from '../../core/entitlements/features.ts';
 import { PLANS } from '../../core/entitlements/plans.ts';
 import { GUMROAD_CATALOG } from '../../core/entitlements/catalog.ts';
 import { DAY_MS, DIRECT_GRACE_MS, REFRESH_AFTER_MS } from '../../core/entitlements/state.ts';
 import { MAX_TOKEN_TTL_S } from '../../core/entitlements/token.ts';
+import { FREE_PLAN_ID, WORKOUT_PLANS, seatedFor } from '../../core/store/workout-plans.ts';
 import { CHAT_INTERVAL_MS, CHAT_MAX_CHARS, NAME_MAX_CHARS } from '../../core/net/chat-filter.ts';
 import { ROOM_CODE_LENGTH } from '../../core/net/codes.ts';
 import { POSE_JOINTS } from '../../core/net/pose-frame.ts';
@@ -30,11 +31,13 @@ import { LOBBY_STALE_MS } from '../../server/src/social/lobbies.ts';
 import { REPORTER_MIN_AGE_MS } from '../../server/src/social/moderation.ts';
 import { MAX_DEVICES } from '../../server/src/social/recovery.ts';
 import { uxTables } from '../src/social/strings.ts';
-import { COMMUNITY_RULES_ANCHOR, sitePageHref } from '../src/views/chrome.ts';
+import { COMMUNITY_RULES_ANCHOR, SITE_GUIDE_IDS, siteGuideHref, sitePageHref } from '../src/views/chrome.ts';
+import { REGION_ORDER, ROUTES, router } from '../src/routes.ts';
 import { AUDIT_KEEP_MS, LOBBY_GONE_MS, ORPHAN_REPORT_KEEP_MS, RESOLVED_REPORT_KEEP_MS, UNUSED_PROFILE_DAYS } from '../../server/src/social/sweep.ts';
 import { REPO_ROOT, build, outOfDate, pages } from './build.ts';
-import { OG_IMAGE, renderPage, type PageSpec } from './chrome.ts';
-import { gameList, snapshotIsCurrent } from './copy/games.ts';
+import { FOOTER_GUIDES, OG_IMAGE, renderPage, type PageSpec } from './chrome.ts';
+import { gameCounts, gameList, snapshotGames, snapshotIsCurrent } from './copy/games.ts';
+import { GUIDE_URL, MOVE, SEO_URL, type SeoPage } from './copy/seo-shared.ts';
 import * as F from './facts.ts';
 
 const read = (rel: string): string => readFileSync(join(REPO_ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -373,7 +376,8 @@ describe.each(all.map((p) => [p.file, p] as const))('%s', (_file, spec) => {
     expect(text.match(/[a-zçğıöşü]{2}[.!?][A-ZÇĞİÖŞÜ0-9]/g) ?? []).toEqual([]);
     // doubled words are looked for inside one run of text: the same word may end a heading and start the next element
     const prose = html.replace(/<head>[\s\S]*?<\/head>/, '').replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/g, '\u0001');
-    expect(prose.match(/\b([A-Za-zÇĞİÖŞÜçğıöşü]{3,}) \1\b/g) ?? []).toEqual([]);
+    // (a Turkish word said twice on purpose, "uzuv uzuv" for limb by limb, is Turkish and not a slip)
+    expect((prose.match(/\b([A-Za-zÇĞİÖŞÜçğıöşü]{3,}) \1\b/g) ?? []).filter((d) => !(spec.lang === 'tr' && /^(uzuv uzuv|tek tek|ayrı ayrı|birer birer)$/i.test(d)))).toEqual([]);
     expect(text.match(/[a-zçğıöşü],[A-Za-zÇĞİÖŞÜçğıöşü]/g) ?? []).toEqual([]);
     expect(text).not.toMatch(/\bundefined\b|\bnull\b|\[object Object\]|\$\{/);
   });
@@ -398,6 +402,15 @@ describe.each(all.map((p) => [p.file, p] as const))('%s', (_file, spec) => {
       if (path.startsWith('/assets/')) { expect(existsSync(join(REPO_ROOT, 'site', path)), `${spec.file}: ${path}`).toBe(true); continue; }
       const g = /^(?:\/tr)?\/games\/([a-z0-9-]+)\/$/.exec(path);
       if (g) { expect(games.has(g[1] as string), `${spec.file}: ${path}`).toBe(true); continue; }
+      // the app's own lists: one per body area (it has to have a game) and the workout plans
+      const area = /^(?:\/tr)?\/workouts\/([a-z-]+)\/$/.exec(path);
+      if (area) {
+        const m = router.match(path);
+        expect(m?.id, `${spec.file}: ${path}`).toBe('region');
+        expect(gameList('en').some((x) => x.regions.includes(area[1] as never) || (area[1] === 'seated' && x.seated)), `${spec.file}: ${path} has games`).toBe(true);
+        continue;
+      }
+      if (/^(?:\/tr)?\/plans\/$/.test(path)) { expect(router.match(path)?.id, `${spec.file}: ${path}`).toBe('plans'); continue; }
       expect(known.has(path), `${spec.file} links to ${path}`).toBe(true);
     }
   });
@@ -650,6 +663,345 @@ describe('Road Run: three of its ten worlds are free', () => {
   });
 });
 
+// ───────── the search pages (copy/seo-*.ts): fitness games, seated games, games with friends, games by body area ─────────
+// Each page answers one search question, so each claim on it is compared with what the build does: the manifests (through the
+// snapshot), the workout plans, the entitlements, the app's own words and the routes of the app it links to.
+describe('the search pages say what the build does', () => {
+  const PAGES: Record<SeoPage, { en: string; tr: string }> = {
+    hub: { en: 'fitness-games.html', tr: 'tr/evde-spor-oyunlari.html' },
+    seated: { en: 'seated-exercise-games.html', tr: 'tr/oturarak-egzersiz-oyunlari.html' },
+    friends: { en: 'workout-games-with-friends.html', tr: 'tr/arkadaslarla-spor-oyunlari.html' },
+    areas: { en: 'workout-games-by-body-area.html', tr: 'tr/bolgeye-gore-spor-oyunlari.html' },
+  };
+  const kinds = Object.keys(PAGES) as SeoPage[];
+  const LANGS2 = ['en', 'tr'] as const;
+  const spec = (page: SeoPage, lang: 'en' | 'tr'): PageSpec => byFile.get(PAGES[page][lang]) as PageSpec;
+  const htmlOf = (page: SeoPage, lang: 'en' | 'tr'): string => renderPage(spec(page, lang));
+  const textOf = (page: SeoPage, lang: 'en' | 'tr'): string => visible(htmlOf(page, lang));
+  const raw = snapshotGames();
+  const c = gameCounts();
+  const section = (html: string, id: string): string => new RegExp(`<section id="${id}"[^>]*>([\\s\\S]*?)</section>`).exec(html)?.[1] ?? '';
+  const slugsIn = (html: string): string[] => [...new Set([...html.matchAll(/href="(?:\/tr)?\/games\/([a-z0-9-]+)\/"/g)].map((m) => m[1] as string))];
+  const i18n = { en: createI18n('en'), tr: createI18n('tr') };
+
+  it('there are four pages in each language, at the addresses the footers and the app use', () => {
+    for (const page of kinds) {
+      for (const lang of LANGS2) {
+        expect(spec(page, lang), `${page} ${lang}`).toBeDefined();
+        expect(spec(page, lang).url).toBe(SEO_URL[lang][page]);
+        expect(spec(page, lang).lang).toBe(lang);
+        expect(spec(page, lang).other?.url).toBe(SEO_URL[lang === 'en' ? 'tr' : 'en'][page]);
+      }
+    }
+    // the footer of the content pages, the footer of the app and the pages themselves name the same addresses
+    for (const lang of LANGS2) {
+      expect(FOOTER_GUIDES[lang].map(([, href]) => href)).toEqual([...kinds.map((k) => SEO_URL[lang][k]), GUIDE_URL[lang]]);
+      for (const page of SITE_GUIDE_IDS) expect(siteGuideHref(lang, page), `${lang} ${page}`).toBe(SEO_URL[lang][page]);
+    }
+    expect([...SITE_GUIDE_IDS].sort()).toEqual([...kinds].sort());
+  });
+
+  it('every page of the site links to all four from its footer, and each search page is also linked from the others and from the first guide', () => {
+    for (const p of all) {
+      const h = renderPage(p);
+      for (const k of kinds) expect(h, `${p.file} -> ${k}`).toContain(`<a href="${SEO_URL[p.lang][k]}"`);
+    }
+    for (const lang of LANGS2) {
+      for (const k of kinds) {
+        for (const other of kinds.filter((x) => x !== k)) expect(section(htmlOf(k, lang), 'more'), `${k} ${lang} -> ${other}`).toContain(`href="${SEO_URL[lang][other]}"`);
+      }
+    }
+    expect(renderPage(byFile.get('webcam-fitness-games.html') as PageSpec)).toContain('href="/fitness-games"');
+    expect(renderPage(byFile.get('tr/kamera-ile-spor-oyunlari.html') as PageSpec)).toContain('href="/tr/evde-spor-oyunlari"');
+  });
+
+  it('each page has its own title and its own description, a title that fits a result and a description that does too', () => {
+    const titles = new Set<string>();
+    const descriptions = new Set<string>();
+    for (const page of kinds) {
+      for (const lang of LANGS2) {
+        const sp = spec(page, lang);
+        expect(`${sp.title} | BodyArcade`.length, `${sp.file} title`).toBeLessThanOrEqual(72);
+        expect(sp.description.length, `${sp.file} description`).toBeGreaterThanOrEqual(100);
+        expect(sp.description.length, `${sp.file} description`).toBeLessThanOrEqual(165);
+        titles.add(sp.title);
+        descriptions.add(sp.description);
+      }
+    }
+    expect(titles.size).toBe(8);
+    expect(descriptions.size).toBe(8);
+    for (const p of all.filter((x) => !Object.values(PAGES).some((f) => f.en === x.file || f.tr === x.file))) {
+      expect(titles.has(p.title), `${p.file} has the title of a search page`).toBe(false);
+    }
+  });
+
+  it('the structured data names this page, and its questions are the ones the page shows', () => {
+    for (const page of kinds) {
+      for (const lang of LANGS2) {
+        const html = htmlOf(page, lang);
+        const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '{}') as { '@graph': { '@type': string; name?: string; numberOfItems?: number; mainEntity?: { name: string }[]; mainEntityOfPage?: string }[] };
+        const types = ld['@graph'].map((g) => g['@type']).sort();
+        expect(types, `${page} ${lang}`).toEqual([page === 'hub' ? 'ItemList' : 'Article', 'BreadcrumbList', 'FAQPage'].sort());
+        const faq = ld['@graph'].find((g) => g['@type'] === 'FAQPage');
+        const shown = [...html.matchAll(/<details class="qa"><summary>([\s\S]*?)<\/summary>/g)].map((m) => (m[1] as string).replace(/<[^>]+>/g, '').trim());
+        expect((faq?.mainEntity ?? []).map((q) => q.name), `${page} ${lang}`).toEqual(shown);
+        expect(shown.length).toBeGreaterThanOrEqual(4);
+        if (page === 'hub') expect(ld['@graph'].find((g) => g['@type'] === 'ItemList')?.numberOfItems).toBe(c.total);
+        else expect(ld['@graph'].find((g) => g['@type'] === 'Article')?.mainEntityOfPage).toBe(`${F.SITE}${SEO_URL[lang][page]}`);
+      }
+    }
+  });
+
+  it('English and Turkish say the same numbers (the line with the reading time apart)', () => {
+    const numbers = (sp: PageSpec): string[] => {
+      const { when: _when, ...rest } = sp;
+      const t = visible(renderPage(rest))
+        .replace(/BA-[0-9A-Z]{6}/g, ' ').replace(/\d{4}-\d{2}-\d{2}/g, ' ').replace(/(\d),(\d)/g, '$1.$2');
+      return [...new Set(t.match(/\d+(?:\.\d+)?/g) ?? [])].sort((a, b) => Number(a) - Number(b));
+    };
+    for (const page of kinds) expect(numbers(spec(page, 'tr')), page).toEqual(numbers(spec(page, 'en')));
+  });
+
+  it('each page names the keyword it answers in its title and its heading, and does not repeat it more than a person would', () => {
+    const phrase: Record<SeoPage, { en: string; tr: string }> = {
+      hub: { en: 'fitness games', tr: 'evde spor oyunları' },
+      seated: { en: 'seated exercise games', tr: 'oturarak egzersiz oyunları' },
+      friends: { en: 'with friends', tr: 'arkadaşlarla' },
+      areas: { en: 'body area', tr: 'bölgeye göre' },
+    };
+    for (const page of kinds) {
+      for (const lang of LANGS2) {
+        const sp = spec(page, lang);
+        const key = phrase[page][lang];
+        expect(sp.title.toLocaleLowerCase(lang), `${sp.file} title`).toContain(key);
+        expect(sp.h1.toLocaleLowerCase(lang), `${sp.file} h1`).toContain(key);
+        const text = textOf(page, lang).toLocaleLowerCase(lang);
+        const words = text.split(/\s+/).length;
+        const uses = text.split(key).length - 1;
+        // the footers and the lists of related pages carry the phrase too; one use in fifty words would be stuffing
+        expect(uses / words, `${sp.file}: "${key}" ${uses} times in ${words} words`).toBeLessThan(0.02);
+      }
+    }
+  });
+
+  it('the Turkish pages put the suffix after BodyArcade as the name is said (arkeyd: -i, -in, -de), never -ı or -ın', () => {
+    for (const page of kinds) expect(textOf(page, 'tr'), page).not.toMatch(/BodyArcade[’']ı/);
+  });
+
+  it('claims no health effect: nothing is said to treat, prevent, cure, rehabilitate or lower a risk, and the page that says what the app is not says it plainly', () => {
+    const banned = /\b(cures?|heals?|prevents? (falls|injur)|fall prevention|lowers? (the |your )?risk|reduces? (the |your )?risk|clinically|proven|improves? (your )?balance|rehabilitates?|iyileştirir|tedavi eder|önler|kanıtlanmış)\b/i;
+    for (const page of kinds) for (const lang of LANGS2) expect(textOf(page, lang).replace(/no claim that they improve your balance/g, ''), `${page} ${lang}`).not.toMatch(banned);
+    expect(textOf('seated', 'en')).toContain('not a medical device, a rehabilitation programme or a falls-prevention programme');
+    expect(textOf('seated', 'tr')).toContain('tıbbi bir cihaz, rehabilitasyon programı ya da düşmeyi önleme programı değildir');
+    // what the app itself says about health, in its own words
+    expect(i18n.en.tx('game.measures.not')).toBe('It does not measure heart rate or give medical advice.');
+    expect(i18n.en.tx('onboarding.s4.health')).toContain('Check with a doctor if you are pregnant, have a heart or joint condition, or feel pain when you move. Stop if you feel dizzy or a sharp pain.');
+    for (const lang of LANGS2) for (const page of ['hub', 'seated'] as const) expect(textOf(page, lang), `${page} ${lang}`).toMatch(lang === 'en' ? /Check with a doctor/ : /doktoruna danış/);
+  });
+
+  describe('the games', () => {
+    it('every game has its line of what the body does, in both languages, and no line is for a game that does not exist', () => {
+      expect(Object.keys(MOVE).sort()).toEqual(raw.map((g) => g.id).sort());
+      for (const g of raw) { expect(MOVE[g.id]?.en.length).toBeGreaterThan(10); expect(MOVE[g.id]?.tr.length).toBeGreaterThan(10); }
+    });
+
+    it('the games the copy names are the games the manifests describe: the two that are not low impact, the three most intense, the four seen from the waist up, the one without a quiet mode', () => {
+      expect(raw.filter((g) => !g.lowImpact).map((g) => g.id).sort()).toEqual(['firework-jacks', 'road-run']);
+      expect([...raw].sort((a, b) => b.met - a.met).slice(0, 3).map((g) => g.id)).toEqual(['firework-jacks', 'knee-sprint', 'road-run']);
+      expect(raw.filter((g) => g.framing === 'upper').map((g) => g.id).sort()).toEqual(['limbo-bend', 'pad-work', 'star-catch', 'twist-turbine']);
+      expect(raw.filter((g) => g.framing === 'full').length + raw.filter((g) => g.framing === 'upper').length).toBe(c.total);
+      expect(raw.filter((g) => !g.quiet).map((g) => g.id)).toEqual(['road-run']);
+      // Firework Jacks and Road Run are what the seated page says they become
+      expect(raw.find((g) => g.id === 'firework-jacks')?.seatedNote?.en).toContain('Arm jacks');
+      expect(raw.find((g) => g.id === 'road-run')?.seatedNote?.en).toContain('No jumping needed');
+    });
+
+    it('every game has a seated note and what the camera reads, in both languages (the seated and the area pages quote them)', () => {
+      for (const g of raw) {
+        for (const lang of LANGS2) {
+          expect(g.seatedNote?.[lang]?.length, `${g.id} seated note ${lang}`).toBeGreaterThan(10);
+          expect(g.measures.length, g.id).toBeGreaterThan(0);
+          for (const m of g.measures) expect(m[lang].length, `${g.id} measure ${lang}`).toBeGreaterThan(10);
+        }
+      }
+    });
+
+    it('the pages that list the games call a free game free and a Pro game Pro', () => {
+      for (const lang of LANGS2) {
+        const free = lang === 'en' ? 'Free' : 'Ücretsiz';
+        const heading = lang === 'en' ? 'Free or Pro' : 'Ücretsiz mi, Pro mu';
+        for (const page of ['hub', 'seated'] as const) {
+          const html = htmlOf(page, lang);
+          for (const g of gameList(lang)) {
+            const row = new RegExp(`<tr><th scope="row"><a href="[^"]*/games/${g.slug}/">[^<]+</a></th>([\\s\\S]*?)</tr>`).exec(html)?.[1] ?? '';
+            expect(row, `${page} ${lang} ${g.id}`).not.toBe('');
+            expect(new RegExp(`data-label="${heading}">${g.free ? free : 'Pro'}</td>`).test(row), `${page} ${lang} ${g.id} is ${g.free ? 'free' : 'Pro'}`).toBe(true);
+          }
+        }
+        const areas = htmlOf('areas', lang);
+        for (const g of gameList(lang)) {
+          const marks = [...areas.matchAll(new RegExp(`<strong><a href="[^"]*/games/${g.slug}/">[^<]+</a></strong> \\((Free|Pro|Ücretsiz)[,)]`, 'g'))];
+          expect(marks.length, `${lang} ${g.id} is named in the areas`).toBeGreaterThan(0);
+          for (const m of marks) expect(m[1], `${lang} ${g.id}`).toBe(g.free ? free : 'Pro');
+        }
+      }
+    });
+
+    it('free and Pro: the lists the pages give are the manifests, the plans and the feature rules of the entitlements', () => {
+      const free = { plan: 'free', source: 'none' } as const;
+      const rules = { isFreeGame: (id: string) => raw.some((g) => g.id === id && g.free) };
+      for (const g of raw) expect(canUse(`game:${g.id}`, free, rules), g.id).toBe(g.free);
+      expect(canUse('difficulty:easy', free, rules)).toBe(true);
+      expect(canUse('difficulty:medium', free, rules)).toBe(true);
+      expect(canUse('difficulty:hard', free, rules)).toBe(false);
+      expect(i18n.en.tx('paywall.benefit.levels')).toBe('Hard and Expert difficulty');
+      expect(i18n.tr.tx('paywall.benefit.levels')).toBe('Zor ve Uzman seviyeler');
+      // four of the five plans are Pro, and the one that is not is the free plan of the data
+      const proPlans = WORKOUT_PLANS.filter((p) => !canUse(`plan:${p.id}`, free, rules));
+      expect(proPlans.length).toBe(WORKOUT_PLANS.length - 1);
+      for (const lang of LANGS2) {
+        const t = textOf('hub', lang);
+        expect(t).toContain(lang === 'en' ? `Of the ${c.total} games, ${c.free} are free` : `${c.total} oyunun ${c.free} tanesi ücretsiz`);
+        expect(t).toContain(lang === 'en' ? 'Hard and Expert' : 'Zor ve Uzman');
+        expect(t).toContain(lang === 'en' ? `${proPlans.length} of the ${WORKOUT_PLANS.length} workout plans (Desk break is free)` : `${WORKOUT_PLANS.length} antrenman planının ${proPlans.length} tanesi (Masa molası ücretsiz)`);
+      }
+      expect(FREE_PLAN_ID).toBe('desk-break');
+      expect(i18n.en.tx('setup.note.once')).toBe('This game is part of Pro. You can play it once for free.');
+    });
+  });
+
+  describe('the seated page', () => {
+    it('quotes the seated note of every game, in both languages', () => {
+      for (const lang of LANGS2) {
+        const t = textOf('seated', lang);
+        for (const g of raw) expect(t, `${lang} ${g.id}`).toContain((g.seatedNote as { en: string; tr: string })[lang]);
+      }
+    });
+
+    it('the Easy 60+ plan is what the data says: three free, low-impact games at Easy, thirty seconds of rest, seated unless the player said otherwise; the Desk break is the free plan and always seated', () => {
+      const plan = WORKOUT_PLANS.find((p) => p.id === 'easy-60');
+      expect(plan?.audience).toBe('seniors');
+      expect(plan?.steps.map((s) => s.game)).toEqual(['pose-wall', 'twist-turbine', 'star-catch']);
+      expect(plan?.steps.every((s) => s.difficulty === 'easy')).toBe(true);
+      expect(plan?.steps.slice(0, -1).map((s) => s.restSec)).toEqual([30, 30]);
+      for (const s of plan?.steps ?? []) { const g = raw.find((x) => x.id === s.game); expect(g?.free, s.game).toBe(true); expect(g?.lowImpact, s.game).toBe(true); }
+      expect(plan && seatedFor(plan, null)).toBe(true);
+      expect(plan && seatedFor(plan, false)).toBe(false);
+      const desk = WORKOUT_PLANS.find((p) => p.id === FREE_PLAN_ID);
+      expect(desk?.seating).toBe('always');
+      expect(desk?.steps.map((s) => s.game)).toEqual(['twist-turbine', 'star-catch']);
+      // minutes: the rounds of the manifests plus the rests, worked out here again
+      const minutes = (p: typeof plan): number => Math.max(1, Math.round(((p?.steps ?? []).reduce((n, s) => n + (raw.find((g) => g.id === s.game)?.seconds ?? 0), 0) + (p?.steps ?? []).slice(0, -1).reduce((n, s) => n + s.restSec, 0)) / 60));
+      for (const lang of LANGS2) {
+        const t = textOf('seated', lang);
+        expect(t).toContain(lang === 'en' ? `about ${minutes(plan)} minutes in all` : `toplam yaklaşık ${minutes(plan)} dakika`);
+        expect(t).toContain(lang === 'en' ? `about ${minutes(desk)} minutes` : `yaklaşık ${minutes(desk)} dakika`);
+        expect(t).toContain(lang === 'en' ? 'with 30 seconds of rest' : '30 saniye dinlenmeyle');
+        expect(t).toContain(lang === 'en' ? 'Pose Wall, Twist Turbine and Star Catch' : 'Pose Wall, Twist Turbine ve Star Catch');
+      }
+      expect(i18n.en.tx('plans.description')).toContain('an easy plan for 60 and over');
+    });
+
+    it('the buttons and settings it names are the ones the app has, in both languages', () => {
+      for (const lang of LANGS2) {
+        for (const key of ['settings.seated', 'nav.settings', 'calib.seatedInstead', 'calib.desk.cta', 'game.section.variants', 'settings.quiet']) expect(i18n[lang].has(key), `${lang} ${key}`).toBe(true);
+        const t = textOf('seated', lang);
+        for (const key of ['settings.seated', 'calib.seatedInstead', 'game.section.variants']) expect(t, `${lang} ${key}`).toContain(i18n[lang].tx(key));
+      }
+      expect(i18n.en.tx('calib.msg.desk_back')).toBe('Sit back a little so your head, shoulders and arms show.');
+      expect(i18n.en.tx('game.framing.upper.tip')).toContain('about 1 m away');
+      expect(i18n.en.tx('calib.headroom')).toContain('When you raise your arms, your hands should stay in view.');
+      // the games that ask for the hands-up check (the seated page says "a few games")
+      for (const id of ['firework-jacks', 'limbo-bend', 'pose-wall']) expect(read(`packages/games/${id}/manifest.json`), id).toContain('"headroom": "arms-up"');
+    });
+  });
+
+  describe('the friends page', () => {
+    it('names the games with a live race and the games that share a camera, as the manifests have them, and the rest of a room is the code', () => {
+      expect(raw.filter((g) => g.live).map((g) => g.id).sort()).toEqual(['knee-sprint', 'squat-flap']);
+      expect(raw.filter((g) => g.live).every((g) => g.free)).toBe(true);
+      expect(raw.filter((g) => g.local2).length).toBe(c.local2);
+      for (const lang of LANGS2) {
+        const sect = section(htmlOf('friends', lang), lang === 'en' ? 'screen' : 'ekran');
+        expect(slugsIn(sect).sort()).toEqual(raw.filter((g) => g.local2).map((g) => g.slug).sort());
+        const t = textOf('friends', lang);
+        expect(t).toContain(lang === 'en' ? `A room holds ${MIN_SEATS} to ${MAX_SEATS} players` : `Bir odada ${MIN_SEATS} ile ${MAX_SEATS} oyuncu bulunur`);
+        expect(t).toContain(lang === 'en' ? `the ${ROOM_CODE_LENGTH}-character room code` : `${ROOM_CODE_LENGTH} karakterli oda kodu`);
+        expect(t).toContain(lang === 'en' ? `a skeleton of ${POSE_JOINTS.length} joints` : `${POSE_JOINTS.length} eklemli bir iskeleti`);
+        expect(t).toContain(String(F.SHARE_HZ));
+      }
+      expect(POSE_JOINTS.length).toBe(F.SHARED_JOINTS);
+      // the friend code the page shows has the shape of a real one
+      expect('BA-7K2Q4X').toMatch(new RegExp(`^BA-[0-9A-Z]{${FRIEND_CODE_LEN}}$`));
+      expect(i18n.en.tx('social.intro.cta')).toBe('Make my profile');
+      expect(i18n.tr.tx('social.intro.cta')).toBe('Profilimi oluştur');
+      expect(i18n.en.tx('room.game.label')).toBe('The host picks the game');
+    });
+
+    it('the ages are the ones of the policy: nothing under 16, preset words from 16, typed text and video only between adults', () => {
+      expect(POLICY.child.online).toBe(false);
+      expect(POLICY.teen.freeText).toBe(false);
+      expect(POLICY.teen.video).toBe(false);
+      expect(POLICY.adult.freeText).toBe(true);
+      expect(canSendFriendRequest('adult', 'teen')).toBe(false);
+      for (const lang of LANGS2) {
+        const t = textOf('friends', lang);
+        expect(t).toContain(lang === 'en' ? `Under ${F.AGE.online}: no online profile` : `${F.AGE.online} yaşından küçükler: çevrimiçi profil yok`);
+        expect(t).toContain(lang === 'en' ? `${F.AGE.online} to 17` : `${F.AGE.online} ile 17 arası`);
+        expect(t).toContain(lang === 'en' ? `${F.AGE.video} and over` : `${F.AGE.video} yaş ve üzeri`);
+      }
+    });
+
+    it("how long a room lasts is the server's timing", () => {
+      expect(DEFAULT_TIMING.emptyTtlMs / 60_000).toBe(F.ROOM_EMPTY_MINUTES);
+      expect(DEFAULT_TIMING.roomTtlMs / 3_600_000).toBe(F.ROOM_IDLE_HOURS);
+      for (const lang of LANGS2) {
+        const t = textOf('friends', lang);
+        expect(t).toContain(String(F.ROOM_EMPTY_MINUTES));
+        expect(t).toContain(String(F.ROOM_IDLE_HOURS));
+      }
+    });
+  });
+
+  describe('the body-area page', () => {
+    it('every area section lists the games whose manifests name that area, and no other; each game is described once in full and elsewhere only pointed back to', () => {
+      for (const lang of LANGS2) {
+        const html = htmlOf('areas', lang);
+        for (const region of ['legs', 'arms', 'core', 'cardio', 'mobility'] as const) {
+          const listed = slugsIn(section(html, region)).sort();
+          expect(listed, `${lang} ${region}`).toEqual(raw.filter((g) => (g.regions as string[]).includes(region)).map((g) => g.slug).sort());
+        }
+        // the one game of Chest and back is named under Arms and shoulders, which it is in as well
+        expect(raw.filter((g) => (g.regions as string[]).includes('chest-back')).map((g) => g.id)).toEqual(['summit-climb']);
+        expect(raw.find((g) => g.id === 'summit-climb')?.regions).toContain('arms');
+        const reads = lang === 'en' ? 'The camera reads' : 'Kamera şunları okur';
+        for (const g of raw) expect((html.match(new RegExp(`/games/${g.slug}/">[^<]+</a></strong> \\([^)]+\\)\\. ${reads}`, 'g')) ?? []).length, `${lang} ${g.id}`).toBe(1);
+      }
+    });
+
+    it("the app has a list for each area the page links to, in both languages, and the words are the app's", () => {
+      for (const lang of LANGS2) {
+        const html = htmlOf('areas', lang);
+        for (const region of REGION_ORDER) {
+          const href = `${lang === 'tr' ? '/tr' : ''}/workouts/${region}/`;
+          expect(router.match(href)?.id, href).toBe('region');
+          expect(html, `${lang} ${region}`).toContain(`href="${href}"`);
+          expect(html).toContain(i18n[lang].tx(`region.${region}`));
+        }
+        expect(html).toContain(i18n[lang].tx('home.filters'));
+      }
+      expect(raw.every((g) => g.regions.length >= 1 && g.regions.length <= 3)).toBe(true);
+    });
+  });
+
+  it('the links to the plans and to the Pro page are routes of the app', () => {
+    for (const lang of LANGS2) {
+      expect(router.match(`${lang === 'tr' ? '/tr' : ''}/plans/`)?.id).toBe('plans');
+      expect(router.match(`${lang === 'tr' ? '/tr' : ''}/pro/`)?.id).toBe('pro');
+    }
+  });
+});
+
 describe('the stylesheet uses the design tokens', () => {
   const hexes = (block: string): Map<string, string> => new Map([...block.matchAll(/(--ba-[a-z-]+):\s*(#[0-9A-Fa-f]{6})\b/g)].map((m) => [m[1] as string, (m[2] as string).toUpperCase()]));
   const tokens = read('design/tokens/tokens.css');
@@ -691,6 +1043,13 @@ describe.runIf(process.env['BA_RELEASE'] === '1')('release gate: the pages promi
     // a boolean, so a failing run prints one line and not the files that were searched
     const offersWorlds = /['"`]world:|name="world"/.test(files.map(read).join('\n'));
     expect(offersWorlds, `no screen of the shell lets a player choose a world (searched ${files.join(', ')} for can('world:...') or a world input)`).toBe(true);
+  });
+
+  it('the search pages promise friends, rooms, lobbies and workout plans: the app has the routes, the real social services start, and the plan the seated page names exists', () => {
+    const ids = ROUTES.map((r) => r.id as string);
+    for (const id of ['friends', 'room', 'lobbies', 'friendlink', 'plans']) expect(ids, id).toContain(id);
+    expect(read('packages/web/src/app/boot.ts')).toContain('startServices()');
+    expect(WORKOUT_PLANS.some((p) => p.id === 'easy-60')).toBe(true);
   });
 
   it('the profile screen has the two buttons the privacy policy names', () => {
