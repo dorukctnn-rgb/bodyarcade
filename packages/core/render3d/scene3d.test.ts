@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import { tapFrames } from './frames.ts';
 import { QUALITY_TIERS } from './quality.ts';
 import { createScene3D, DAY_SECONDS, FOV_LANDSCAPE, FOV_PORTRAIT, type RendererLike, type Scene3DKit } from './scene3d.ts';
 import { ThemeError } from './theme.ts';
@@ -408,6 +409,27 @@ describe('the context and the end', () => {
     off();
     r.canvas.dispatchEvent(new Event('webglcontextrestored'));
     expect(back).toBe(1);
+    kit.dispose();
+  });
+
+  it('tells whoever copies the picture (the highlight clip) in the task that drew a frame, and not when nothing was drawn', () => {
+    const { kit, r } = make();
+    kit.setTheme(world('alps'));
+    let copies = 0;
+    const seen: number[] = [];
+    const off = tapFrames(r.canvas, () => { copies++; seen.push(r.renders); });
+    kit.render();
+    kit.render();
+    // each call comes after its frame was drawn, never before
+    expect(seen).toEqual([1, 2]);
+    // a lost context draws nothing and says nothing
+    r.canvas.dispatchEvent(new Event('webglcontextlost'));
+    kit.render();
+    expect(copies).toBe(2);
+    r.canvas.dispatchEvent(new Event('webglcontextrestored'));
+    off();
+    kit.render();
+    expect(copies).toBe(2);
     kit.dispose();
   });
 

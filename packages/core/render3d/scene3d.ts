@@ -17,6 +17,7 @@ import { createBatch, type InstanceBatch } from './instances.ts';
 import { createPrototypeCache, type PrototypeCache } from './prototype.ts';
 import { createQualityGovernor, tierFor, type QualityGovernorKit, type QualityTier } from './quality.ts';
 import { CAMERA_Z, createScenery, type SceneryKit, type SceneryStats } from './scenery.ts';
+import { frameDrawn } from './frames.ts';
 import { buildSky, dayColor, dayDirection, type SkyKit } from './sky.ts';
 import { blobPixels, makeTexture } from './textures.ts';
 import { themeOrThrow, themeSignature, type Theme } from './theme.ts';
@@ -427,6 +428,7 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
     render() {
       if (disposed || lost) return;
       renderer.render(scene, camera);
+      frameDrawn(renderer.domElement);   // the one moment a copy of the picture (the highlight clip) can be taken, see frames.ts
     },
     reset,
     warm,

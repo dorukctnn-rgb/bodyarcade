@@ -6,11 +6,16 @@
 // and the other thrown away, which gives a clip of STAGGER_MS to SEGMENT_MS that ends with the round, and none for a round shorter
 // than MIN_CLIP_MS. The recording stops while the round is paused.
 //
+// A 2D stage is copied onto a canvas of its own several times a second, a WebGL stage (Road Run) at the moment its kit has drawn a frame; both
+// copies have the same size (the stage's size on the screen, the long edge at most CLIP_MAX_EDGE) and carry the same score, time and name of the site.
+//
 // What is recorded is the stage's canvas and nothing else: the self view of the camera is a tile of the page, never in it. A mirror
 // game draws the camera picture on its canvas itself, so it makes no clip at all (clipAllowed): the camera video is never recorded.
 //
 // Everything here is a nicety: a browser without a recorder, an encoder that fails or a canvas that changes its size gives no clip
 // and no error to the round.
+
+import { tapFrames } from '../../../core/render3d/frames.ts';
 
 export interface ClipFile {
   blob: Blob;
@@ -86,11 +91,11 @@ const KINDS: readonly { mime: string; ext: 'mp4' | 'webm' }[] = [
 ];
 
 /**
- * The same for a canvas that is recorded as it is and may change its size during a round: a WebGL stage (it is not copied smaller onto a
- * canvas of a fixed size, see browserDeps) whose kit changes its drawing buffer when its quality steps (Road Run on a phone does so in its
- * first seconds). As avc1, H.264 keeps one description of the picture for the whole file: Chromium says on the console that it must not
- * change, and the frames after the change no longer fit it. As avc3 the description travels with the frames, so the size may change.
- * Where avc3 is not recorded the list goes on as for any canvas.
+ * The same for a WebGL stage, whose kit changes its drawing buffer when its quality steps (Road Run on a phone does so in its first seconds):
+ * the picture that is recorded is a copy of a fixed size, but it is a copy of a buffer that changes. As avc1, H.264 keeps one description of
+ * the picture for the whole file (Chromium says on the console that it must not change, when a recorder was given frames of two sizes);
+ * as avc3 the description travels with the frames, so whatever the stage does to its buffer cannot break the file. Where avc3 is not
+ * recorded the list goes on as for any canvas.
  */
 const RESIZABLE_KINDS: readonly { mime: string; ext: 'mp4' | 'webm' }[] = [{ mime: 'video/mp4;codecs=avc3', ext: 'mp4' }, ...KINDS];
 
@@ -126,14 +131,14 @@ export interface ClipSource {
 }
 
 /**
- * The kind of file this browser makes, or null when it makes none (no recorder, or no way to take a picture of a canvas). `resizable`: the
- * canvas is recorded as it is and its size may change during the round (RESIZABLE_KINDS).
+ * The kind of file this browser makes, or null when it makes none (no recorder, or no way to take a picture of a canvas). `webgl`: the
+ * stage is a WebGL one, whose buffer changes size during the round (RESIZABLE_KINDS).
  */
-export function clipKind(win: Window & typeof globalThis, o: { resizable?: boolean } = {}): { mime: string; ext: 'mp4' | 'webm' } | null {
+export function clipKind(win: Window & typeof globalThis, o: { webgl?: boolean } = {}): { mime: string; ext: 'mp4' | 'webm' } | null {
   const R = (win as unknown as { MediaRecorder?: RecorderCtor }).MediaRecorder;
   if (typeof R !== 'function' || typeof R.isTypeSupported !== 'function') return null;
   if (typeof (win.HTMLCanvasElement?.prototype as { captureStream?: unknown } | undefined)?.captureStream !== 'function') return null;
-  for (const k of o.resizable === true ? RESIZABLE_KINDS : KINDS) {
+  for (const k of o.webgl === true ? RESIZABLE_KINDS : KINDS) {
     try { if (R.isTypeSupported(k.mime)) return k; } catch { /* a type this browser cannot even judge */ }
   }
   return null;
@@ -171,13 +176,6 @@ export function browserDeps(win: Window & typeof globalThis, overlay?: () => Cli
         const doc = canvas.ownerDocument;
         const size = clipSize(canvas, win.devicePixelRatio || 1);
         if (Math.max(canvas.width, canvas.height, canvas.clientWidth) < 2) return null;
-        // A 2D canvas is copied smaller onto a canvas of its own several times a second (and `getContext('2d')` hands back the same
-        // context it already has). A WebGL canvas gives none (null), and is recorded as it is: its own picture is already sized by its kit.
-        const flat = canvas.getContext('2d');
-        if (!flat) {
-          const stream = canvas.captureStream(CLIP_FPS);
-          return { stream, close: () => stream.getTracks().forEach((t) => t.stop()) };
-        }
         const out = doc.createElement('canvas');
         out.width = size.width;
         out.height = size.height;
@@ -189,8 +187,23 @@ export function browserDeps(win: Window & typeof globalThis, overlay?: () => Cli
             paintOverlay(c, out.width, out.height, overlay?.() ?? null);
           } catch { /* a frame that could not be copied is skipped */ }
         };
-        draw();
-        const stop = every(draw, 1000 / CLIP_FPS);
+        // A 2D canvas is copied smaller onto the canvas of its own several times a second (`getContext('2d')` hands back the same context it
+        // already has). A WebGL canvas gives none (null), and its picture is gone once the browser has shown it: the copy is taken in the very
+        // task in which the kit has drawn a frame (core/render3d/frames.ts), at the clip's rate, never on a timer (a copy on a timer is blank).
+        const flat = canvas.getContext('2d');
+        let stop: () => void;
+        if (flat) {
+          draw();
+          stop = every(draw, 1000 / CLIP_FPS);
+        } else {
+          let last = Number.NEGATIVE_INFINITY;
+          stop = tapFrames(canvas, () => {
+            const now = win.performance.now();
+            if (now - last < 1000 / CLIP_FPS - 3) return;   // 3 ms of slack, as the kit's own frame gate has
+            last = now;
+            draw();
+          });
+        }
         const stream = out.captureStream(CLIP_FPS);
         return { stream, close: () => { stop(); stream.getTracks().forEach((t) => t.stop()); } };
       } catch { return null; }
@@ -352,17 +365,16 @@ export class ClipRecorder {
 
 /** A recorder for this canvas, or null where the browser makes no clips. */
 export function createClipRecorder(win: Window & typeof globalThis, canvas: HTMLCanvasElement, overlay?: () => ClipOverlay | null): ClipRecorder | null {
-  const kind = clipKind(win, { resizable: recordedAsItIs(canvas) });
+  const kind = clipKind(win, { webgl: isWebGLStage(canvas) });
   const deps = browserDeps(win, overlay);
   if (!kind || !deps) return null;
   return new ClipRecorder(canvas, deps, kind);
 }
 
 /**
- * Whether the recorders take this canvas as it is: a canvas with no 2D context (a WebGL stage) cannot be copied between its frames, so
- * browserDeps records its own stream, at whatever size its kit gives it. The stage already has its context when a round starts, and
- * browserDeps asks for the same 2D context then (`getContext('2d')` makes none on a canvas that has another kind).
+ * Whether this stage is a WebGL one: a canvas with no 2D context (a canvas has one kind of context for good, and `getContext('2d')` makes none
+ * on a canvas that has another kind). The stage already has its context when a round starts. A canvas that cannot say is taken for a 2D one.
  */
-export function recordedAsItIs(canvas: Pick<HTMLCanvasElement, 'getContext'>): boolean {
+export function isWebGLStage(canvas: Pick<HTMLCanvasElement, 'getContext'>): boolean {
   try { return canvas.getContext('2d') === null; } catch { return false; }
 }

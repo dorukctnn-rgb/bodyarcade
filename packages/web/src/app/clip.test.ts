@@ -1,7 +1,8 @@
 // The highlight clip: two recorders that take turns so that the last seconds of a round are always in one of them, a clip only when
 // there are seconds worth keeping, nothing while the round is paused, and no clip and no error where the browser cannot make one.
 import { describe, expect, it } from 'vitest';
-import { CLIP_BRAND, CLIP_MAX_EDGE, clipAllowed, clipKind, ClipRecorder, clipSize, paintOverlay, MIN_CLIP_MS, recordedAsItIs, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
+import { frameDrawn } from '../../../core/render3d/frames.ts';
+import { browserDeps, CLIP_BRAND, CLIP_FPS, CLIP_MAX_EDGE, clipAllowed, clipKind, ClipRecorder, clipSize, isWebGLStage, paintOverlay, MIN_CLIP_MS, SEGMENT_MS, STAGGER_MS, type ClipDeps, type ClipSource, type RecorderLike } from './clip.ts';
 
 class Fake implements RecorderLike {
   static made: Fake[] = [];
@@ -282,19 +283,19 @@ describe('what this browser can record', () => {
     expect(clipKind(winWith(['video/webm;codecs=vp8']))?.mime).toBe('video/webm;codecs=vp8');
   });
 
-  it('records a canvas taken as it is (a WebGL stage, whose size changes when its quality steps) as avc3 where the browser can, else as any canvas', () => {
-    expect(clipKind(winWith(['video/mp4']), { resizable: true })?.mime).toBe('video/mp4;codecs=avc3');
+  it('records a WebGL stage (whose buffer changes size when its quality steps) as avc3 where the browser can, else as any canvas', () => {
+    expect(clipKind(winWith(['video/mp4']), { webgl: true })?.mime).toBe('video/mp4;codecs=avc3');
     // a browser that records avc1 and not avc3, and one that records no MP4
-    expect(clipKind(winWith(['video/mp4;codecs=avc1', 'video/webm']), { resizable: true })?.mime).toBe('video/mp4;codecs=avc1');
-    expect(clipKind(winWith(['video/webm']), { resizable: true })).toMatchObject({ ext: 'webm' });
-    // a 2D stage is copied onto a canvas of a fixed size: avc1, the description every player knows
+    expect(clipKind(winWith(['video/mp4;codecs=avc1', 'video/webm']), { webgl: true })?.mime).toBe('video/mp4;codecs=avc1');
+    expect(clipKind(winWith(['video/webm']), { webgl: true })).toMatchObject({ ext: 'webm' });
+    // a 2D stage is the description every player knows
     expect(clipKind(winWith(['video/mp4']))?.mime).toBe('video/mp4;codecs=avc1');
   });
 
-  it('takes a canvas with no 2D context (a WebGL stage) as it is, and a 2D one, or one that cannot say, as a copy', () => {
-    expect(recordedAsItIs({ getContext: () => null } as unknown as HTMLCanvasElement)).toBe(true);
-    expect(recordedAsItIs({ getContext: () => ({}) } as unknown as HTMLCanvasElement)).toBe(false);
-    expect(recordedAsItIs({ getContext: () => { throw new Error('no context'); } } as unknown as HTMLCanvasElement)).toBe(false);
+  it('takes a canvas with no 2D context for a WebGL stage, and a 2D one, or one that cannot say, for a 2D one', () => {
+    expect(isWebGLStage({ getContext: () => null } as unknown as HTMLCanvasElement)).toBe(true);
+    expect(isWebGLStage({ getContext: () => ({}) } as unknown as HTMLCanvasElement)).toBe(false);
+    expect(isWebGLStage({ getContext: () => { throw new Error('no context'); } } as unknown as HTMLCanvasElement)).toBe(false);
   });
 
   it('is nothing without a recorder, without a way to take a picture of a canvas, or with no kind it knows', () => {
@@ -318,5 +319,120 @@ describe('the size of the clip', () => {
   it('uses the canvas own size where it has no box on the screen, and never gets below 2', () => {
     expect(clipSize({ width: 640, height: 360, clientWidth: 0, clientHeight: 0 })).toEqual({ width: 640, height: 360 });
     expect(clipSize({ width: 1, height: 1, clientWidth: 0, clientHeight: 0 })).toEqual({ width: 2, height: 2 });
+  });
+});
+
+describe('the picture of the clip of a 2D stage and of a WebGL stage', () => {
+  /** A canvas that notes what is drawn on it; `webgl` has no 2D context, as a WebGL canvas has none. */
+  function stage(o: { webgl: boolean; w: number; h: number; fail?: boolean }): { canvas: HTMLCanvasElement; made: { w: number; h: number; draws: string[]; texts: string[]; captured: number }[] } {
+    const made: { w: number; h: number; draws: string[]; texts: string[]; captured: number }[] = [];
+    const copy = (): { out: unknown; rec: (typeof made)[number] } => {
+      const rec = { w: 0, h: 0, draws: [] as string[], texts: [] as string[], captured: 0 };
+      made.push(rec);
+      const ctx = {
+        font: '', fillStyle: '', textBaseline: '', textAlign: '',
+        save: () => undefined, restore: () => undefined, beginPath: () => undefined, fill: () => undefined, rect: () => undefined, roundRect: () => undefined,
+        measureText: (t: string) => ({ width: t.length * 8 }) as TextMetrics,
+        drawImage: (_src: unknown, _x: number, _y: number, w: number, h: number) => { if (o.fail) throw new Error('the buffer is gone'); rec.draws.push(`${w}x${h}`); },
+        fillText: (t: string) => { rec.texts.push(t); },
+      };
+      const out = {
+        get width() { return rec.w; }, set width(v: number) { rec.w = v; }, get height() { return rec.h; }, set height(v: number) { rec.h = v; },
+        getContext: () => ctx,
+        captureStream: () => { rec.captured++; return { getTracks: () => [] } as unknown as MediaStream; },
+      };
+      return { out, rec };
+    };
+    const canvas = {
+      width: o.w, height: o.h, clientWidth: o.w, clientHeight: o.h,
+      ownerDocument: { createElement: () => copy().out },
+      getContext: () => (o.webgl ? null : {}),
+      captureStream: () => { throw new Error('the stage itself is never recorded'); },
+    } as unknown as HTMLCanvasElement;
+    return { canvas, made };
+  }
+
+  function win(clock: { t: number }, timers: { fn: () => void; ms: number; on: boolean }[]): Window & typeof globalThis {
+    return {
+      MediaRecorder: Fake,
+      devicePixelRatio: 1,
+      performance: { now: () => clock.t },
+      setInterval: (fn: () => void, ms: number) => { timers.push({ fn, ms, on: true }); return timers.length; },
+      clearInterval: (id: number) => { const t = timers[id - 1]; if (t) t.on = false; },
+    } as unknown as Window & typeof globalThis;
+  }
+
+  const overlay = (): { score: string; time: string } => ({ score: '420', time: '0:37' });
+
+  it('a 2D stage is copied onto a canvas of the size of the clip on a timer, with the score, the time and the name of the site', () => {
+    const clock = { t: 0 };
+    const timers: { fn: () => void; ms: number; on: boolean }[] = [];
+    const deps = browserDeps(win(clock, timers), overlay) as ClipDeps;
+    const { canvas, made } = stage({ webgl: false, w: 1920, h: 1080 });
+    const src = deps.source(canvas) as ClipSource;
+    expect(made).toHaveLength(1);
+    expect(`${made[0]!.w}x${made[0]!.h}`).toBe(`${CLIP_MAX_EDGE}x540`);
+    const first = made[0]!.draws.length;
+    for (const t of timers.filter((x) => x.on)) { t.fn(); t.fn(); }
+    expect(made[0]!.draws.length).toBe(first + 2);
+    expect(made[0]!.texts).toEqual(expect.arrayContaining(['420', '0:37', CLIP_BRAND]));
+    expect(timers.filter((x) => x.on).map((x) => x.ms)).toEqual([1000 / CLIP_FPS]);
+    src.close();
+    expect(timers.some((x) => x.on)).toBe(false);
+  });
+
+  it('a WebGL stage is copied the same way (the same size, the same score, time and name of the site) in the task in which its kit has drawn a frame, never on a timer', () => {
+    const clock = { t: 0 };
+    const timers: { fn: () => void; ms: number; on: boolean }[] = [];
+    const deps = browserDeps(win(clock, timers), overlay) as ClipDeps;
+    const { canvas, made } = stage({ webgl: true, w: 1920, h: 1080 });
+    const src = deps.source(canvas) as ClipSource;
+    // the clip is a picture of the same size as a 2D stage's, and the stage itself is not what is recorded
+    expect(`${made[0]!.w}x${made[0]!.h}`).toBe(`${CLIP_MAX_EDGE}x540`);
+    expect(made[0]!.captured).toBe(1);
+    // nothing is copied on a timer: a WebGL canvas copied outside the task that drew it is blank
+    expect(timers.filter((x) => x.on)).toHaveLength(0);
+    expect(made[0]!.draws).toHaveLength(0);
+    // a frame drawn by the kit is copied, scaled to the clip's size, with the overlay
+    frameDrawn(canvas);
+    expect(made[0]!.draws).toEqual([`${CLIP_MAX_EDGE}x540`]);
+    expect(made[0]!.texts).toEqual(expect.arrayContaining(['420', '0:37', CLIP_BRAND]));
+    // at the clip's rate: frames that come faster than that are not all copied
+    clock.t += 5;
+    frameDrawn(canvas);
+    expect(made[0]!.draws).toHaveLength(1);
+    clock.t += 1000 / CLIP_FPS;
+    frameDrawn(canvas);
+    expect(made[0]!.draws).toHaveLength(2);
+    // the quality steps change the stage's own buffer: the clip's picture does not follow it
+    (canvas as unknown as { width: number }).width = 800;
+    clock.t += 100;
+    frameDrawn(canvas);
+    expect(`${made[0]!.w}x${made[0]!.h}`).toBe(`${CLIP_MAX_EDGE}x540`);
+    // after the round no frame is copied
+    src.close();
+    clock.t += 100;
+    frameDrawn(canvas);
+    expect(made[0]!.draws).toHaveLength(3);
+  });
+
+  it('a small stage keeps its size, a WebGL one as a 2D one, and a stage with nothing on the screen gives no picture to record', () => {
+    const clock = { t: 0 };
+    const deps = browserDeps(win(clock, []), overlay) as ClipDeps;
+    for (const webgl of [false, true]) {
+      const { canvas, made } = stage({ webgl, w: 390, h: 844 });
+      expect(deps.source(canvas)).not.toBeNull();
+      expect(`${made[0]!.w}x${made[0]!.h}`).toBe('390x844');
+      expect(deps.source(stage({ webgl, w: 1, h: 1 }).canvas)).toBeNull();
+    }
+  });
+
+  it('a copy that fails is a frame less, never an error in the round', () => {
+    const clock = { t: 0 };
+    const deps = browserDeps(win(clock, []), overlay) as ClipDeps;
+    const { canvas, made } = stage({ webgl: true, w: 640, h: 360, fail: true });
+    deps.source(canvas);
+    expect(() => frameDrawn(canvas)).not.toThrow();
+    expect(made[0]!.texts).toEqual([]);
   });
 });
