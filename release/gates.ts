@@ -5,6 +5,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { parseServiceAccount } from '../packages/server/src/entitlements/upstream/google.ts';
 import type { TargetId } from './site.ts';
 
 export interface Gate {
@@ -47,6 +48,10 @@ export function secretProblems(secrets: Readonly<Record<string, string>>): strin
   const from = !!secrets['ENT_MAIL_FROM'];
   // The Worker reads them as a pair: with one of them the reminder box stays off and the Worker reports a problem.
   if (token !== from) out.push('ENT_MAIL_TOKEN and ENT_MAIL_FROM go together: set both (the trial reminder e-mail) or neither');
+  // The Play service account is read by the Worker with the same parser (it names a broken one "PLAY_SA_JSON unusable" and answers every Play purchase "unavailable"): stop it here, with no part of the value printed.
+  if (secrets['PLAY_SA_JSON'] && !parseServiceAccount(secrets['PLAY_SA_JSON'])) {
+    out.push('PLAY_SA_JSON is not a service account key the Worker can use (a JSON object with client_email and a PEM private_key, token_uri left out or the Google one): every Play purchase would be answered "unavailable"');
+  }
   return out;
 }
 

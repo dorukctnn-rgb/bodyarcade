@@ -50,7 +50,9 @@ describe('capabilities: two players, one camera', () => {
 
   it.each([
     ['launched by the app (referrer)', { referrer: `android-app://${ANDROID_PACKAGE}/` }],
-    ['launch URL marker', { search: '?source=twa' }],
+    ['launch URL marker: the start address of the app, ?src=twa', { search: '?src=twa' }],
+    ['launch URL marker (older spelling)', { search: '?source=twa' }],
+    ['launch URL marker among other parameters', { search: '?lang=tr&src=twa&x=1' }],
     ['an earlier page saw the app', { storedAndroidApp: true }],
     ['Play Billing present on Android', { digitalGoods: true }],
   ])('inside the Android app (%s): never offered, even on a big tablet', (_name, extra) => {
