@@ -55,14 +55,20 @@ async function goOnline(w: Who): Promise<void> {
   await w.client.sync();
 }
 
-async function until(cond: () => boolean | Promise<boolean>, what = 'the condition', ms = 15_000): Promise<void> {
+async function until(cond: () => boolean | Promise<boolean>, what = 'the condition', ms = 15_000, every = 25): Promise<void> {
   const t0 = Date.now();
   for (;;) {
     if (await cond()) return;
     if (Date.now() - t0 > ms) throw new Error(`timed out waiting for ${what}`);
-    await new Promise((r) => setTimeout(r, 25));
+    await new Promise((r) => setTimeout(r, every));
   }
 }
+
+// The lobby list allows a player 30 looks a minute (lobbies.ts): a wait on it asks every half second, so 15 s of waiting stays inside that.
+const LOBBY_POLL_MS = 500;
+
+/** The codes of the lobbies the player is shown for a game. */
+const lobbyCodes = async (w: Who, game: string): Promise<string[]> => (await w.client.lobbies({ game })).map((l) => l.code);
 
 /** Takes a seat in a room with live play's own client (relay only, no WebRTC) and waits for the welcome. */
 async function sitIn(grant: JoinGrant): Promise<LiveClient> {
@@ -312,7 +318,7 @@ describe('rooms, invitations and the lobby directory with real rooms', () => {
     const grant = await host.client.createRoom({ kind: 'public', gameId: 'jacks', size: 3, band: 'easy' });
     expect(await seeker.client.lobbies({ game: 'jacks' })).toEqual([]);          // nobody sits in it yet
     const seat = await sitIn(grant);
-    await until(async () => (await seeker.client.lobbies({ game: 'jacks' })).length === 1, 'the lobby entry');
+    await until(async () => (await lobbyCodes(seeker, 'jacks')).includes(grant.code), 'the lobby entry', 15_000, LOBBY_POLL_MS);
     const [entry] = await seeker.client.lobbies({ game: 'jacks' });
     expect(entry).toMatchObject({ code: grant.code, game: 'jacks', players: 1, size: 3, open: 2 });
     expect(JSON.stringify(entry)).not.toMatch(/pid|"p":/);
@@ -322,7 +328,7 @@ describe('rooms, invitations and the lobby directory with real rooms', () => {
     // a teen cannot take a seat in the adults' lobby either
     await expect(teen.client.joinRoom(grant.code)).rejects.toBeDefined();
     seat.leave();
-    await until(async () => (await seeker.client.lobbies({ game: 'jacks' })).length === 0, 'the lobby to empty');
+    await until(async () => !(await lobbyCodes(seeker, 'jacks')).includes(grant.code), 'the lobby to empty', 15_000, LOBBY_POLL_MS);
   });
 
   it('quick match: the first player opens a room and the second takes the seat; a third finds nothing free in a full pair', async () => {
@@ -350,9 +356,11 @@ describe('rooms, invitations and the lobby directory with real rooms', () => {
     const seeker = await player({ band: 'adult', name: 'Mia' });
     const grant = await host.client.createRoom({ kind: 'public', gameId: 'jacks', size: 2 });
     const seat = await sitIn(grant);
-    await until(async () => (await seeker.client.lobbies({ game: 'jacks' })).length === 1, 'the lobby entry');
+    // Asked every 25 ms, this wait ran into the list's 30 looks a minute when the room's entry took a second to reach the directory (CI
+    // on 17649c7: 429 rate_limited after 1050 ms). Hana's room is looked for by its code, as the Worker is shared by the whole file.
+    await until(async () => (await lobbyCodes(seeker, 'jacks')).includes(grant.code), 'the lobby entry', 15_000, LOBBY_POLL_MS);
     await seeker.client.block(host.fid);
-    expect(await seeker.client.lobbies({ game: 'jacks' })).toEqual([]);
+    expect(await lobbyCodes(seeker, 'jacks')).not.toContain(grant.code);
     await expect(seeker.client.joinRoom(grant.code)).rejects.toMatchObject({ status: 403 });
     seat.stop();
   });
