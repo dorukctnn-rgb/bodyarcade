@@ -188,8 +188,48 @@ export async function inspect(page: Page, o: { axe?: boolean; layout?: boolean; 
     out.push(...probe.findings.filter((f) => f.severity === 'error').map((f) => `probe ${f.kind}: ${f.message}`));
   }
   if (o.crowding !== false) out.push(...(await crowding(page)).map((x) => `crowding: ${x}`));
-  if (o.axe !== false) out.push(...(await scan(page)).map((x) => `axe: ${x}`));
+  if (o.axe !== false) out.push(...(await axeScan(page)).map((x) => `axe: ${x}`));
   return out;
+}
+
+/**
+ * axe on the page as it is now, with the rule of the window's own bar: a window taller than the screen scrolls inside itself and keeps
+ * its buttons at its foot (sticky), its content passing under them as a page's passes under its action bar. axe's target-size sees a
+ * button over a target that is only partly under the bar as the window opens; such a target is judged again with the window scrolled
+ * to its end, where nothing is under the bar (a person scrolls the window to reach it). Every other finding stands as it is.
+ */
+export async function axeScan(page: Page): Promise<string[]> {
+  const lines = await scan(page);
+  const at = lines.findIndex((l) => l.startsWith('target-size '));
+  if (at < 0) return lines;
+  const kept = await page.evaluate(async () => {
+    const dialog = [...document.querySelectorAll('dialog[open]')].pop();
+    const bar = dialog?.querySelector('.k-sheet > .btns');
+    if (!dialog || !bar || getComputedStyle(bar).position !== 'sticky' || dialog.scrollHeight <= dialog.clientHeight + 1) return null;
+    const axe = (window as unknown as { axe: { run(context: unknown, options: object): Promise<{ violations: { nodes: { target: string[] }[] }[] }> } }).axe;
+    const failing = async (context: unknown): Promise<string[]> =>
+      (await axe.run(context, { runOnly: { type: 'rule', values: ['target-size'] }, resultTypes: ['violations'] })).violations.flatMap((v) => v.nodes.map((n) => n.target.join(' ')));
+    const b = bar.getBoundingClientRect();
+    const under = (selector: string): boolean => {
+      const el = document.querySelector(selector);
+      if (!el || bar.contains(el)) return false;
+      const r = el.getBoundingClientRect();
+      return r.bottom > b.top && r.top < b.bottom && r.right > b.left && r.left < b.right;
+    };
+    const now = await failing(document);
+    const later = now.filter(under);
+    if (later.length === 0) return null;
+    const start = dialog.scrollTop;
+    dialog.scrollTop = dialog.scrollHeight;
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    const still = await failing({ include: later.map((s) => [s]) });
+    dialog.scrollTop = start;
+    return [...now.filter((s) => !under(s)), ...still];
+  });
+  if (kept === null) return lines;
+  const line = lines[at] as string;
+  const head = line.slice(0, line.indexOf(': ', line.indexOf(': ') + 2) + 2);
+  return [...lines.slice(0, at), ...(kept.length ? [`${head}${kept.slice(0, 4).join(' | ')}${kept.length > 4 ? ` and ${kept.length - 4} more` : ''}`] : []), ...lines.slice(at + 1)];
 }
 
 /**
