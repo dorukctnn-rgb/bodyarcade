@@ -15,14 +15,14 @@ export interface Gate {
   why: string;
 }
 
-/** The gates of a target, in the order they run. Production: the Gumroad catalog (builder S's check) must hold no placeholder. */
+/** The gates of a target, in the order they run. Production: the Gumroad catalog (builder S's check) must hold no placeholder, and (launch commit) Gumroad itself must say that the four products are published (--online --require-published). */
 export function gatesFor(id: TargetId, root: string): Gate[] {
   if (id !== 'production') return [];
   return [{
     name: 'Gumroad catalog',
     cmd: process.execPath,
-    args: [join(root, 'tools', 'entitlements', 'check-catalog.mjs'), '--release'],
-    why: 'a plan still has a placeholder where its Gumroad product belongs. Create the four products in Gumroad and put their ids and links in packages/core/entitlements/catalog.ts (RELEASE NEEDS 3); the live site is not replaced before that.',
+    args: [join(root, 'tools', 'entitlements', 'check-catalog.mjs'), '--release', '--online', '--require-published'],
+    why: 'a plan still has a placeholder where its Gumroad product belongs (put the product ids and links in packages/core/entitlements/catalog.ts), or one of the four Gumroad products is not published yet or differs from what the app promises (launch day: publish them in Gumroad first, the paywall links answer "not found" while a product is a draft); the live site is not replaced before that.',
   }];
 }
 
