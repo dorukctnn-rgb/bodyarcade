@@ -55,7 +55,7 @@ ${table(null, ['Game', 'How it plays seated', 'Round', 'Free or Pro'], all.map((
     {
       id: 'plan',
       title: 'The Easy 60+ plan',
-      html: `<p>The app has a ready-made plan for people over 60. It chains ${listWords(easy.steps, lang)}, all at Easy difficulty, with ${rest} seconds of rest between the games, about ${easy.minutes} minutes in all. It starts seated unless you have switched Seated mode off, and you can stand up whenever you feel steady.</p>
+      html: `<p>The app has a ready-made plan for people 60 and over. It chains ${listWords(easy.steps, lang)}, all at Easy difficulty, with ${rest} seconds of rest between the games, about ${easy.minutes} minutes in all. It starts seated unless you have switched Seated mode off, and you can stand up whenever you feel steady.</p>
 <p>Workout plans are part of Pro, except one. The free plan is ${desk.title}: ${listWords(desk.steps, lang)}, played seated, about ${desk.minutes} minutes. The games in both plans are free games, so you can also play them one at a time without paying. The ${link(plansHref(lang), 'plans page')} lists all ${WORKOUT_PLANS.length} plans, and the ${link(proHref(lang), 'Pro page')} has what Pro costs.</p>`,
     },
     {

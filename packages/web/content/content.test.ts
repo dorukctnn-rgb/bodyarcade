@@ -784,6 +784,10 @@ describe('the search pages say what the build does', () => {
     }
   });
 
+  it('the Turkish pages put the suffix after BodyArcade as the name is said (arkeyd: -i, -in, -de), never -ı or -ın', () => {
+    for (const page of kinds) expect(textOf(page, 'tr'), page).not.toMatch(/BodyArcade[’']ı/);
+  });
+
   it('claims no health effect: nothing is said to treat, prevent, cure, rehabilitate or lower a risk, and the page that says what the app is not says it plainly', () => {
     const banned = /\b(cures?|heals?|prevents? (falls|injur)|fall prevention|lowers? (the |your )?risk|reduces? (the |your )?risk|clinically|proven|improves? (your )?balance|rehabilitates?|iyileştirir|tedavi eder|önler|kanıtlanmış)\b/i;
     for (const page of kinds) for (const lang of LANGS2) expect(textOf(page, lang).replace(/no claim that they improve your balance/g, ''), `${page} ${lang}`).not.toMatch(banned);

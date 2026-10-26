@@ -55,7 +55,7 @@ ${table(null, ['Oyun', 'Oturarak nasıl oynanır', 'Tur', 'Ücretsiz mi, Pro mu'
     {
       id: 'plan',
       title: 'Rahat 60+ planı',
-      html: `<p>Uygulamada 60 yaş üstü için hazır bir plan var. ${listWords(easy.steps, lang)} oyunlarını, hepsi Kolay seviyede, oyunlar arasında ${rest} saniye dinlenmeyle art arda getirir; toplam yaklaşık ${easy.minutes} dakika sürer. Oturarak modunu kapatmadıysan oturarak başlar ve dengede hissettiğin anda ayağa kalkabilirsin.</p>
+      html: `<p>Uygulamada 60 yaş ve üzeri için hazır bir plan var. ${listWords(easy.steps, lang)} oyunlarını, hepsi Kolay seviyede, oyunlar arasında ${rest} saniye dinlenmeyle art arda getirir; toplam yaklaşık ${easy.minutes} dakika sürer. Oturarak modunu kapatmadıysan oturarak başlar ve dengede hissettiğin anda ayağa kalkabilirsin.</p>
 <p>Antrenman planları bir tanesi hariç Pro içindedir. Ücretsiz plan ${desk.title}: ${listWords(desk.steps, lang)} oyunları, oturarak, yaklaşık ${desk.minutes} dakika. İki plandaki oyunlar da ücretsiz oyunlardır; bu yüzden onları para ödemeden de oynayabilirsin. ${link(plansHref(lang), 'Planlar sayfası')} ${WORKOUT_PLANS.length} planın hepsini sıralar; ${link(proHref(lang), 'Pro sayfasında')} Pro’nun fiyatını görürsün.</p>`,
     },
     {
@@ -100,8 +100,8 @@ ${table(null, ['Oyun', 'Oturarak nasıl oynanır', 'Tur', 'Ücretsiz mi, Pro mu'
   sections.push({ id: 'sss', title: 'Sık sorulanlar', html: faq.map((i) => qa(i.q, i.a)).join('\n') }, moreSection(lang, 'seated'));
 
   const title = 'Yaşlılar için oturarak egzersiz oyunları, kamerayla oynanır';
-  const description = `${c.total} BodyArcade oyununun hepsinin oturarak sürümü var. Sandalyeden web kameranla oyna: kurulum, her oyunun senden istediği ve 60 yaş üstü için rahat bir plan.`;
-  const lead = `BodyArcade’ın ${c.total} kamera oyununun hepsi sandalyeden oynanabilir. Bir dizüstü, tablet ya da telefonun karşısına oturursun; kamera başını, omuzlarını ve kollarını izler, oyun onların yaptığına karşılık verir. Oyunların ${c.free} tanesi ücretsiz, ${c.quiet} tanesinde de sessiz mod var. Bu sayfa oturarak bir turun nasıl kurulduğunu, her oyunun senden ne istediğini ve nelere dikkat etmen gerektiğini anlatır.`;
+  const description = `${c.total} BodyArcade oyununun hepsinin oturarak sürümü var. Sandalyeden web kameranla oyna: kurulum, her oyunun senden istediği ve 60 yaş ve üzeri için rahat bir plan.`;
+  const lead = `BodyArcade’in ${c.total} kamera oyununun hepsi sandalyeden oynanabilir. Bir dizüstü, tablet ya da telefonun karşısına oturursun; kamera başını, omuzlarını ve kollarını izler, oyun onların yaptığına karşılık verir. Oyunların ${c.free} tanesi ücretsiz, ${c.quiet} tanesinde de sessiz mod var. Bu sayfa oturarak bir turun nasıl kurulduğunu, her oyunun senden ne istediğini ve nelere dikkat etmen gerektiğini anlatır.`;
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {
     file: seoFile(lang, 'seated'),

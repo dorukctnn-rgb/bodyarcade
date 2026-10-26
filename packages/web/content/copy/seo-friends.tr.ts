@@ -95,7 +95,7 @@ export function seoFriendsTr(): PageSpec {
 
   const title = 'Arkadaşlarla spor oyunları: çevrimiçi oda ve tek ekran';
   const description = `${live} oyunlarında arkadaşınla canlı yarış, tek ekranda tek kamerayı paylaş ya da bir arkadaşının kaydına karşı yarış. Odalar, kodlar, yaşlar.`;
-  const lead = `BodyArcade’ı başkalarıyla üç şekilde oynayabilirsin. Çevrimiçi, en çok ${F.SEATS.max} oyunculu bir odaya katılır ve ${live} oyunlarında canlı yarışırsın. Tek ekranda, ${c.total} oyunun ${c.local2} tanesinde iki kişi tek kamerayı paylaşır. Tek başına bir arkadaşının koşusunun kaydına karşı yarışabilirsin. Kimsenin e-posta adresine ya da şifreye ihtiyacı yok.`;
+  const lead = `BodyArcade’i başkalarıyla üç şekilde oynayabilirsin. Çevrimiçi, en çok ${F.SEATS.max} oyunculu bir odaya katılır ve ${live} oyunlarında canlı yarışırsın. Tek ekranda, ${c.total} oyunun ${c.local2} tanesinde iki kişi tek kamerayı paylaşır. Tek başına bir arkadaşının koşusunun kaydına karşı yarışabilirsin. Kimsenin e-posta adresine ya da şifreye ihtiyacı yok.`;
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {
     file: seoFile(lang, 'friends'),
