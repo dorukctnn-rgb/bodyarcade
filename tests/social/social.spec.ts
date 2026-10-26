@@ -406,9 +406,12 @@ test('a player who blocked another does not meet them in the lobby list, and can
   const grant = await a.run((ba) => ba.social.createRoom({ kind: 'public', gameId: 'jacks', size: 2 }), undefined) as { code: string };
   await a.run((ba, g) => ba.seat(g), grant);
   await b.until(() => true, 'ready');
-  expect(((await b.run((ba) => ba.social.lobbies({ game: 'jacks' }), undefined)) as unknown[]).length).toBe(1);
+  // Ada's room by its code: the Worker is shared by the whole file, and a lobby of an earlier test can still be listed for a moment (its
+  // players leave with a message the room handles after the test has gone on), which made a count of every listed lobby fail under load
+  const listed = async (): Promise<string[]> => ((await b.run((ba) => ba.social.lobbies({ game: 'jacks' }), undefined)) as { code: string }[]).map((l) => l.code);
+  expect(await listed()).toContain(grant.code);
   await b.run((ba, fid) => ba.social.block(fid), aMe.fid);
-  expect(await b.run((ba) => ba.social.lobbies({ game: 'jacks' }), undefined)).toEqual([]);
+  expect(await listed()).not.toContain(grant.code);
   expect(await b.try((ba, code) => ba.social.joinRoom(code), grant.code)).toMatchObject({ ok: false, status: 403 });
   // and the host does not see Eve in the lobby list either
   expect(bMe.fid).toBeTruthy();
