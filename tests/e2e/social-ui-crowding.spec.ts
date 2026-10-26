@@ -61,4 +61,10 @@ test('an ordinary page is left alone: wrapped lines, a name that ends in dots, a
   // a window is open: only the window counts, and the page under it is not looked at
   const window = await found('<p style="margin:0;position:absolute;left:10px;top:10px">Words under the window</p><button type="button" style="position:absolute;left:10px;top:10px">Under</button><dialog open style="position:fixed;top:200px;left:10px;margin:0"><p>The window</p><button type="button">Close</button></dialog>');
   expect(window).toEqual([]);
+
+  // a window taller than the screen: its words scroll under the buttons at its foot, which stay there (sticky) as a page's action bar
+  // does; the same words under buttons that are not the window's foot are found
+  const tall = (foot: string): Promise<string[]> => found(`<dialog open style="position:fixed;top:0;left:0;margin:0;width:300px;max-height:240px;overflow:auto;padding:0"><div class="k-sheet"><ul style="margin:0">${Array.from({ length: 12 }, (_, i) => `<li>Line ${i + 1} of the rules of the room</li>`).join('')}</ul><div class="${foot}" style="position:sticky;bottom:0;background:#fff"><button type="button" style="width:100%;height:48px">Continue</button></div></div></dialog>`);
+  expect(await tall('btns')).toEqual([]);
+  expect((await tall('foot')).join('\n')).toMatch(/text and control overlap: li "Line \d+ of the rules of the[^"]*" over button "Continue"/);
 });

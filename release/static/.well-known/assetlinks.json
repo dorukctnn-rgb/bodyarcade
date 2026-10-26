@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "com.peakapps.bodyarcade",
       "sha256_cert_fingerprints": [
-        "2A:31:24:0C:A2:EC:AC:B6:A3:FE:68:CA:82:71:AF:DA:92:9C:6C:E8:02:09:D7:DD:10:B9:77:B3:F2:D9:93:52"
+        "2A:31:24:0C:A2:EC:AC:B6:A3:FE:68:CA:82:71:AF:DA:92:9C:6C:E8:02:09:D7:DD:10:B9:77:B3:F2:D9:93:52",
+        "BD:86:7E:C2:B4:56:39:84:81:D3:13:77:EF:BD:AC:A7:70:63:0A:A0:A7:D7:38:F4:6B:7A:25:5A:2E:2C:A3:9A"
       ]
     }
   }

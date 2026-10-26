@@ -1,4 +1,4 @@
-// The Digital Asset Links file of the Android app and the one change that is waiting for the Play Console: the Play app-signing key.
+// The Digital Asset Links file of the Android app: the upload key and the Play app-signing key.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ANDROID_PACKAGE as DEVICE_PACKAGE } from '../packages/core/device/capabilities.ts';
@@ -6,6 +6,9 @@ import { ANDROID_APP_LIVE } from '../packages/web/content/facts.ts';
 import { ANDROID_PACKAGE, ASSETLINKS_FILE, RELATION, fingerprintsOf, normalizeFingerprint, ours, parse, problems, withFingerprint } from './assetlinks.ts';
 
 const UPLOAD = '2A:31:24:0C:A2:EC:AC:B6:A3:FE:68:CA:82:71:AF:DA:92:9C:6C:E8:02:09:D7:DD:10:B9:77:B3:F2:D9:93:52';
+// The Play app-signing key in use (Play Console > Test and release > App integrity > App signing, read 26 Oct 2026 after the first AAB).
+const PLAY_SIGNING = 'BD:86:7E:C2:B4:56:39:84:81:D3:13:77:EF:BD:AC:A7:70:63:0A:A0:A7:D7:38:F4:6B:7A:25:5A:2E:2C:A3:9A';
+// A made-up key for the script's own tests.
 const PLAY = '0F:1E:2D:3C:4B:5A:69:78:87:96:A5:B4:C3:D2:E1:F0:01:12:23:34:45:56:67:78:89:9A:AB:BC:CD:DE:EF:F1';
 const file = readFileSync(ASSETLINKS_FILE, 'utf8');
 
@@ -36,6 +39,11 @@ describe('the assetlinks.json that the release serves', () => {
     }
     expect(problems(file, { minFingerprints: 2 })).toEqual([]);
   });
+
+  it('holds the Play app-signing key after the upload key, so the app from Google Play (closed test included) opens without an address bar', () => {
+    expect(fingerprintsOf(file)).toEqual([UPLOAD, PLAY_SIGNING]);
+    expect(problems(file, { minFingerprints: 2 })).toEqual([]);
+  });
 });
 
 describe('adding the Play app-signing key', () => {
@@ -51,9 +59,9 @@ describe('adding the Play app-signing key', () => {
     expect(() => normalizeFingerprint(bad)).toThrow(/SHA-256/);
   });
 
-  it('puts the key after the upload key, keeps the file as it is otherwise, and the result passes the live check', () => {
+  it('puts the key after the keys already there, keeps the file as it is otherwise, and the result passes the live check', () => {
     const next = withFingerprint(file, PLAY);
-    expect(fingerprintsOf(next)).toEqual([UPLOAD, PLAY]);
+    expect(fingerprintsOf(next)).toEqual([...fingerprintsOf(file), PLAY]);
     expect(problems(next, { minFingerprints: 2 })).toEqual([]);
     const before = parse(file);
     const after = parse(next);
@@ -67,7 +75,8 @@ describe('adding the Play app-signing key', () => {
     const once = withFingerprint(file, PLAY);
     expect(withFingerprint(once, PLAY.replace(/:/g, '').toLowerCase())).toBe(once);
     expect(withFingerprint(file, UPLOAD)).toBe(withFingerprint(file, UPLOAD.toLowerCase()));
-    expect(fingerprintsOf(withFingerprint(file, UPLOAD))).toEqual([UPLOAD]);
+    expect(fingerprintsOf(withFingerprint(file, UPLOAD))).toEqual(fingerprintsOf(file));
+    expect(withFingerprint(file, PLAY_SIGNING.toLowerCase())).toBe(file.replace(/\r\n/g, '\n'));
   });
 
   it('the file, as the repository holds it, is already in the layout the script writes (the patch is a one-line change)', () => {

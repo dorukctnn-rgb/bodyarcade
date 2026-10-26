@@ -196,15 +196,16 @@ export async function inspect(page: Page, o: { axe?: boolean; layout?: boolean; 
  * What the shared layout rule (checkPage) leaves alone: words drawn over other words, a picture (the QR code, an avatar) over a
  * control or over words, a control over a control anywhere on the page (the rule only looks at the first screen), and a paragraph
  * squeezed into a sliver. Each of them was first found by opening a screenshot; the test finds them now. What is fixed to the
- * screen (the bars, the tray of invitations, a toast) lies over the page by design and is left out, and while a window is open
- * only the window counts.
+ * screen (the bars, the tray of invitations, a toast, the buttons at the foot of a window) lies over the page by design and is left
+ * out, and while a window is open only the window counts.
  */
 export async function crowding(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const problems: string[] = [];
     interface Rect { left: number; top: number; right: number; bottom: number }
     interface Box { el: Element; r: Rect; kind: 'text' | 'control' | 'picture' }
-    const FIXED = '.ba-tabbar, .ba-topbar, .ba-skip, .ba-invites, .ba-toast, .k-actionbar';
+    // the buttons of a window (.k-sheet > .btns) stay at the window's foot while its content scrolls under them, as the page's action bar does
+    const FIXED = '.ba-tabbar, .ba-topbar, .ba-skip, .ba-invites, .ba-toast, .k-actionbar, dialog .k-sheet > .btns';
     const open = [...document.querySelectorAll('dialog[open]')];
     const top = open[open.length - 1] ?? null;
     const counts = (el: Element): boolean => (top ? top.contains(el) : !el.closest('dialog')) && !el.closest(FIXED);
