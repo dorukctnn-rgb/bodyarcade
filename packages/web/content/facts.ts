@@ -20,7 +20,7 @@ export const STUDIO = 'Peak Apps Studio';
 export const COUNTRY = 'Türkiye';
 
 /** When the privacy policy and the terms were last changed in substance (ISO day). Change it with the text. */
-export const UPDATED = '2026-10-25';
+export const UPDATED = '2026-10-26';
 
 /** Web list prices in US dollars (core/entitlements/plans.ts). On Google Play the price and the currency are Google Play's. */
 export const PRICE = {
@@ -50,6 +50,14 @@ export const FAMILY_PROFILES = 6;
  * pages say that no picture is shown then. Set this to true on the day the secrets go in.
  */
 export const RELAY_ON = false;
+
+/**
+ * Does the web send the one trial-reminder e-mail? Only once ENT_MAIL_TOKEN and ENT_MAIL_FROM are in the production Worker
+ * (release/secrets.ts); without them the server reports `reminders: false`, the Pro screen offers no address box and the server keeps
+ * no address. While this is false the pages promise only the notice in the app (and Google Play's own reminder). Set it to true in the
+ * release whose deploy carries both secrets (the launch kit verify-launch.mjs reports the server's `reminders` after a deploy).
+ */
+export const REMINDER_MAIL = false;
 
 /**
  * Does the Family plan exist for sale? True: its Gumroad product exists (core/entitlements/catalog.ts). The shell hides it from the paywall

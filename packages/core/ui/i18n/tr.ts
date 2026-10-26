@@ -474,7 +474,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'paywall.closeLabel': 'Kapat ve ücretsiz devam et',
   'paywall.cancel.web': 'İstediğin zaman Gumroad kütüphanenden iptal edebilirsin.',
   'paywall.cancel.play': 'İstediğin zaman Google Play aboneliklerinden iptal edebilirsin.',
-  'paywall.reminder.web': 'Deneme bitmeden iki gün önce hatırlatırız: uygulamada, adresini bırakırsan e-postayla da.',
+  'paywall.reminder.web': 'Deneme bitmeden iki gün önce uygulamada bir bildirimle hatırlatırız.',
   'paywall.reminder.play': 'Deneme bitmeden iki gün önce hatırlatırız, Google Play da kendi hatırlatmasını gönderir.',
   'paywall.key.title': 'Lisans anahtarın var mı?',
   'paywall.key.label': 'Lisans anahtarı',

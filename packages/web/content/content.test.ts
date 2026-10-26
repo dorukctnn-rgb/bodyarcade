@@ -482,6 +482,34 @@ describe('the owner\'s decisions of 25 October are on the pages', () => {
     expect(textOf('tr/terms.html')).toContain('gerçek kişi');
   });
 
+  // The name is said "bodi arkeyd": Turkish suffixes follow the last vowel, e (BodyArcade’i, ’in, ’e, ’de), never the back-vowel forms.
+  it('every Turkish page puts the suffix after BodyArcade as the name is said: -i, -in, -e, -de, never -ı, -ın, -a, -da', () => {
+    const wrong = /BodyArcade[’'](ı|ın|a|da|dan|ya|yı|nın|la|yla|ta|tan)(?![A-Za-zÇĞİÖŞÜçğıöşü])/;
+    const tr = all.filter((p) => p.lang === 'tr');
+    expect(tr.length).toBeGreaterThan(8);
+    for (const p of tr) expect(renderPage(p), p.file).not.toMatch(wrong);
+  });
+
+  // 26 Oct (release 2): no ENT_MAIL_* secrets on the Worker, so the server sends no reminder e-mail and the Pro screen offers no address box.
+  // The pages and the paywall then promise only the notice in the app (and Google Play's own reminder) until facts.ts REMINDER_MAIL is on.
+  it('the trial reminder is promised as the server keeps it: no reminder e-mail while REMINDER_MAIL is off', () => {
+    const pages = [...legal, 'delete-account.html', 'tr/delete-account.html'];
+    const mailWords = /reminder e-mail|e-mail reminder|send one e-mail|left for the trial reminder|hatırlatma e-postası|e-posta hatırlatması|tek bir e-posta göndeririz|Deneme hatırlatması için/i;
+    for (const f of pages) {
+      const t = textOf(f);
+      if (F.REMINDER_MAIL) expect(t, f).toMatch(mailWords);
+      else expect(t, f).not.toMatch(mailWords);
+    }
+    for (const f of ['faq.html', 'terms.html']) expect(textOf(f), f).toContain(`We remind you ${F.REMINDER_DAYS} days before`);
+    for (const f of ['tr/faq.html', 'tr/terms.html']) expect(textOf(f), f).toContain(`${F.REMINDER_DAYS} gün önce sana hatırlatırız`);
+    expect(textOf('privacy.html')).toContain('the app shows a notice on every open');
+    expect(textOf('tr/privacy.html')).toContain('uygulama her açılışta bir bildirim gösterir');
+    // the paywall line of the web says what is kept on every server: the notice in the app
+    const app = { en: createI18n('en'), tr: createI18n('tr') };
+    expect(app.en.tx('paywall.reminder.web')).not.toMatch(/e-?mail/i);
+    expect(app.tr.tx('paywall.reminder.web')).not.toMatch(/e-?posta/i);
+  });
+
   it('Lifetime lasts as long as BodyArcade is offered, promises no refund if the service closes, and leaves statutory rights alone', () => {
     for (const f of ['terms.html', 'faq.html']) {
       expect(textOf(f), f).toContain('for as long as BodyArcade is offered');
@@ -918,8 +946,17 @@ describe('the search pages say what the build does', () => {
 
   describe('the friends page', () => {
     it('names the games with a live race and the games that share a camera, as the manifests have them, and the rest of a room is the code', () => {
-      expect(raw.filter((g) => g.live).map((g) => g.id).sort()).toEqual(['knee-sprint', 'squat-flap']);
-      expect(raw.filter((g) => g.live).every((g) => g.free)).toBe(true);
+      expect(raw.filter((g) => g.live).map((g) => g.id).sort()).toEqual(['knee-sprint', 'reaction-tag', 'squat-flap']);
+      expect(raw.filter((g) => g.live && !g.free).map((g) => g.id)).toEqual(['reaction-tag']);
+      for (const lang of LANGS2) {
+        // a Pro game with a live race is never called free, and the page says who needs Pro for it: the host, not the friends
+        const t = textOf('friends', lang);
+        const limits = section(htmlOf('friends', lang), lang === 'en' ? 'limits' : 'beklenti');
+        expect(slugsIn(limits).sort()).toEqual(raw.filter((g) => g.live).map((g) => g.slug).sort());
+        expect(t).not.toMatch(lang === 'en' ? /Reaction Tag[^.]*(are|is a) free/ : /Reaction Tag[^.]*ücretsiz/);
+        expect(t).toContain(lang === 'en' ? 'Reaction Tag is a Pro game: a room can hold it when its host has Pro, and the friends who join do not need Pro.' : 'Reaction Tag bir Pro oyundur: ev sahibinde Pro varsa oda onu açabilir, katılan arkadaşlarda Pro gerekmez.');
+        expect(t).not.toMatch(lang === 'en' ? /both are free|the two games with live races/ : /ikisi de ücretsiz|Canlı yarışı olan iki oyun/);
+      }
       expect(raw.filter((g) => g.local2).length).toBe(c.local2);
       for (const lang of LANGS2) {
         const sect = section(htmlOf('friends', lang), lang === 'en' ? 'screen' : 'ekran');

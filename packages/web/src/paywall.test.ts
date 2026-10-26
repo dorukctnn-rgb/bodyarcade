@@ -201,7 +201,7 @@ describe('the free trial is promised where there is one', () => {
     expect(row(m, 'pro-yearly')).toContain('7 days free, then $39.99 a year');
     expect(bar(m, 'pro-yearly')).toContain('Try 7 days free');
     expect(bar(m, 'pro-yearly')).toContain('7 days free, then $39.99 a year');
-    expect(bar(m, 'pro-yearly')).toContain('We remind you two days before the trial ends: in the app, and by e-mail if you leave an address.');
+    expect(bar(m, 'pro-yearly')).toContain('We remind you two days before the trial ends, with a notice in the app.');
     for (const id of ['pro-monthly', 'family-yearly', 'lifetime'] as PlanId[]) {
       expect(bar(m, id), id).not.toMatch(TRIALISH);
       expect(bar(m, id), id).not.toContain('remind you two days');

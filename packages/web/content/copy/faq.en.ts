@@ -135,7 +135,7 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'How does the free trial work?',
-          a: `<p>Pro yearly starts with ${F.TRIAL_DAYS} days free. Nothing is charged during the trial. If you do not cancel before it ends, the first year is charged. We remind you ${F.REMINDER_DAYS} days before the end: the app shows a notice on every open, and on the web we send one e-mail if you leave an address. Google Play sends its own reminder too.</p>`,
+          a: `<p>Pro yearly starts with ${F.TRIAL_DAYS} days free. Nothing is charged during the trial. If you do not cancel before it ends, the first year is charged. We remind you ${F.REMINDER_DAYS} days before the end: the app shows a notice on every open${F.REMINDER_MAIL ? ', and on the web we send one e-mail if you leave an address' : ''}. Google Play sends its own reminder too.</p>`,
         },
         {
           q: 'How do I cancel?',

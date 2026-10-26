@@ -36,7 +36,7 @@ test('every ?v= in the pages and the service worker version are the same string'
 test('B19: the Ring Fit page and its Turkish twin give each side its strengths', () => {
   for (const [file, theirs, ours] of [
     ['ring-fit-adventure-alternative.html', 'Where Ring Fit Adventure is stronger', 'Where BodyArcade is stronger'],
-    ['tr/ring-fit-adventure-alternatifi.html', 'Ring Fit Adventure’ın daha güçlü olduğu yerler', 'BodyArcade’ın daha güçlü olduğu yerler'],
+    ['tr/ring-fit-adventure-alternatifi.html', 'Ring Fit Adventure’ın daha güçlü olduğu yerler', 'BodyArcade’in daha güçlü olduğu yerler'],
   ]) {
     const t = read(SITE, file);
     for (const [id, heading] of [['ringfit-h', theirs], ['bodyarcade-h', ours]]) {

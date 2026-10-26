@@ -11,6 +11,11 @@ export function seoFriendsTr(): PageSpec {
   const lang = 'tr';
   const c = gameCounts();
   const live = titlesOf((g) => g.live, lang);
+  const freeLive = titlesOf((g) => g.live && g.free, lang);
+  const freeLiveCount = c.live - c.proLive;
+  const proLiveTitles = titlesOf((g) => g.live && !g.free, lang);
+  // yalnız Pro bir oyun yarışa açıksa söylenir (SSS de aynısını söyler): oda, ev sahibinde Pro varken onu açar; katılan arkadaşlarda Pro gerekmez
+  const proRooms = c.proLive > 0 ? ` ${proLiveTitles} ${c.proLive > 1 ? 'Pro oyunlardır' : 'bir Pro oyundur'}: ev sahibinde Pro varsa oda ${c.proLive > 1 ? 'birini' : 'onu'} açabilir, katılan arkadaşlarda Pro gerekmez.` : '';
   const all = games(lang);
   const liveLinks = listWords(all.filter((g) => g.live).map((g) => gameLink(g, lang)), lang);
   const shareLinks = listWords(all.filter((g) => g.local2).map((g) => gameLink(g, lang)), lang);
@@ -61,7 +66,9 @@ export function seoFriendsTr(): PageSpec {
       id: 'beklenti',
       title: 'Ne beklemeli',
       html: ul([
-        `Canlı yarışlar ${c.live} oyunda var, ${liveLinks}, ikisi de ücretsiz.`,
+        c.proLive > 0
+          ? `Canlı yarışlar ${c.live} oyunda var: ${liveLinks}. ${freeLive} ${freeLiveCount > 1 ? 'ücretsiz oyunlardır' : 'ücretsiz bir oyundur'}.${proRooms}`
+          : `Canlı yarışlar ${c.live} oyunda var, ${liveLinks}, ${c.live > 2 ? 'hepsi' : 'ikisi de'} ücretsiz.`,
         'Bağlantı gerekir. Arkadaşlar, odalar ve sıralamalar çevrimdışı çalışmaz.',
         `Bir oda son oyuncu ayrıldıktan ${F.ROOM_EMPTY_MINUTES} dakika sonra kapanır; son hareketinden en geç ${F.ROOM_IDLE_HOURS} saat sonra da kapanır.`,
         'Her oyuncu kendi kamerasını ve kendi alanını kullanır. Tek kamera ara sıra bir hareketi kaçırır ve sonuç ekranı bir hareketin neden sayılmadığını söyler.',
@@ -72,7 +79,9 @@ export function seoFriendsTr(): PageSpec {
   const faq = [
     {
       q: 'Arkadaşlarımın benimle oynamak için Pro’ya ihtiyacı var mı?',
-      a: `<p>Hayır. Canlı yarışı olan iki oyun, ${live}, ücretsiz oyunlardır.</p>`,
+      a: c.proLive > 0
+        ? `<p>Hayır. ${freeLive} ${freeLiveCount > 1 ? 'ücretsiz oyunlardır' : 'ücretsiz bir oyundur'}.${proRooms}</p>`
+        : `<p>Hayır. Canlı yarışı olan ${c.live > 2 ? 'oyunlar' : 'iki oyun'}, ${live}, ücretsiz oyunlardır.</p>`,
     },
     {
       q: 'Bir odada kaç kişi olabilir?',
@@ -94,7 +103,7 @@ export function seoFriendsTr(): PageSpec {
   sections.push({ id: 'sss', title: 'Sık sorulanlar', html: faq.map((i) => qa(i.q, i.a)).join('\n') }, moreSection(lang, 'friends'));
 
   const title = 'Arkadaşlarla spor oyunları: çevrimiçi oda ve tek ekran';
-  const description = `${live} oyunlarında arkadaşınla canlı yarış, tek ekranda tek kamerayı paylaş ya da bir arkadaşının kaydına karşı yarış. Odalar, kodlar, yaşlar.`;
+  const description = `${live} oyunlarında arkadaşınla canlı yarış, tek ekranda tek kamerayı paylaş ya da bir kayda karşı yarış. Odalar, kodlar, yaşlar.`;
   const lead = `BodyArcade’i başkalarıyla üç şekilde oynayabilirsin. Çevrimiçi, en çok ${F.SEATS.max} oyunculu bir odaya katılır ve ${live} oyunlarında canlı yarışırsın. Tek ekranda, ${c.total} oyunun ${c.local2} tanesinde iki kişi tek kamerayı paylaşır. Tek başına bir arkadaşının koşusunun kaydına karşı yarışabilirsin. Kimsenin e-posta adresine ya da şifreye ihtiyacı yok.`;
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {

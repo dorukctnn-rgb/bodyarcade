@@ -474,7 +474,7 @@ export const en = {
   'paywall.closeLabel': 'Close and continue free',
   'paywall.cancel.web': 'Cancel any time in your Gumroad library.',
   'paywall.cancel.play': 'Cancel any time in Google Play subscriptions.',
-  'paywall.reminder.web': 'We remind you two days before the trial ends: in the app, and by e-mail if you leave an address.',
+  'paywall.reminder.web': 'We remind you two days before the trial ends, with a notice in the app.',
   'paywall.reminder.play': 'We remind you two days before the trial ends, and Google Play sends its own reminder too.',
   'paywall.key.title': 'Already have a license key?',
   'paywall.key.label': 'License key',

@@ -21,7 +21,7 @@ export function privacyTr(): PageSpec {
     description: 'BodyArcade senin hakkında neyi, nerede ve ne kadar süre saklar: kamera görüntüsü cihazında kalır; çevrimiçi oyunun tuttukları, ödemeler, çocuklar ve haklarının.',
     h1: 'Gizlilik politikası',
     when: `Son güncelleme: ${date}`,
-    lead: `BodyArcade, ${F.STUDIO} adıyla çalışan ${F.OWNER} tarafından yapılır. Bu sayfa, BodyArcade’ın senin hakkında neyi, nerede ve ne kadar süre sakladığını açık bir dille anlatır. bodyarcade.com’u ve BodyArcade Android uygulamasını kapsar. Sorular ve talepler için: ${mail()}.`,
+    lead: `BodyArcade, ${F.STUDIO} adıyla çalışan ${F.OWNER} tarafından yapılır. Bu sayfa, BodyArcade’in senin hakkında neyi, nerede ve ne kadar süre sakladığını açık bir dille anlatır. bodyarcade.com’u ve BodyArcade Android uygulamasını kapsar. Sorular ve talepler için: ${mail()}.`,
     brief: {
       title: 'Kısaca',
       items: [
@@ -37,7 +37,7 @@ export function privacyTr(): PageSpec {
       {
         id: 'sorumlu',
         title: 'Veri sorumlusu kim',
-        html: `<p>BodyArcade’ı ${F.COUNTRY}’de ${F.STUDIO} adıyla çalışan gerçek kişi ${F.OWNER} işletir. Bu sayfada “biz” derken onu kastediyoruz. Burada anlatılan verilerle ne yapılacağına biz karar veririz. Veri koruma hukukunda bu bizi veri sorumlusu yapar: GDPR’daki “data controller” ve 6698 sayılı Kişisel Verilerin Korunması Kanunu’ndaki (KVKK) “veri sorumlusu”.</p>
+        html: `<p>BodyArcade’i ${F.COUNTRY}’de ${F.STUDIO} adıyla çalışan gerçek kişi ${F.OWNER} işletir. Bu sayfada “biz” derken onu kastediyoruz. Burada anlatılan verilerle ne yapılacağına biz karar veririz. Veri koruma hukukunda bu bizi veri sorumlusu yapar: GDPR’daki “data controller” ve 6698 sayılı Kişisel Verilerin Korunması Kanunu’ndaki (KVKK) “veri sorumlusu”.</p>
 <p>Bize ${mail()} adresinden ulaşabilirsin. Verilerinle ilgili talepler de bu adrese gelir. Posta adresi yayımlamıyoruz.</p>`,
       },
       {
@@ -50,7 +50,7 @@ ${ul([
   'Sonuçların: son turlar, en iyi skorlar, oynadığın dakikalar ve serin; bir kez denediğin Pro oyunlar.',
   'Hayalet koşular: bir oyundaki en iyi koşun; yani her engelde ne yaptığın ve kendi koşuların için iskeletinin noktalar olarak çizimi. Görüntü asla.',
   'Pro için: etkinleştirdiğin lisans anahtarı (web), cihazının aldığı imzalı lisans ve cihazlarını saymaya yarayan rastgele bir cihaz numarası.',
-  'Deneme hatırlatması için: yazdığın e-posta adresinin maskelenmiş kopyası (örneğin a***@example.com); adresin kendisi değil.',
+  ...(F.REMINDER_MAIL ? ['Deneme hatırlatması için: yazdığın e-posta adresinin maskelenmiş kopyası (örneğin a***@example.com); adresin kendisi değil.'] : []),
   'Çevrimiçi profil için: cihazının profil için ürettiği gizli anahtar (tarayıcının, sayfaların okuyamayacağı biçimde sakladığı bir anahtar), sunucumuzun gönderdiği son profil bilgileri ve engellediğin oyuncuların listesi.',
   'Oyunun kendi dosyalarının kopyaları; böylece ağ olmadan açılır. Poz modeli de buna dahildir.',
 ])}
@@ -61,7 +61,7 @@ ${ul([
         title: 'Kameran',
         html: `<p>Kameraya izin verdiğinde tarayıcın görüntüyü cihazında çalışan bir poz modeline verir. Model her kareyi ${F.MODEL_POINTS} vücut noktasına çevirir (baş, omuzlar, dirsekler, bilekler, kalçalar, dizler, ayak bilekleri ve daha fazlası). Oyun, squat, zıplama, yumruk ve diğer hareketleri saymak için bu noktaları okur.</p>
 <p>Görüntü ne bizim tarafımızdan ne başkası tarafından yüklenir, kaydedilir ya da saklanır. Kamera bir oyun açıkken çalışır; tarayıcının adres çubuğundan istediğin an kapatabilirsin. Tekrar oynatmalar ve hayalet koşular vücut noktalarından çizilir, hiçbir zaman görüntüden değil.</p>
-<p>Poz modeli (Google’ın MediaPipe Pose Landmarker’ı) ve kodu, BodyArcade’ın bodyarcade.com üzerinden kendisinin sunduğu dosyalardır. Tarayıcın bunları yüklemek için Google’a ya da bir kod ağına bağlanmaz. Kütüphane Google’a görüntü içermeyen kısa bir kullanım raporu göndermeye çalışır; BodyArcade bu isteği cihazından çıkmadan durdurur.</p>`,
+<p>Poz modeli (Google’ın MediaPipe Pose Landmarker’ı) ve kodu, BodyArcade’in bodyarcade.com üzerinden kendisinin sunduğu dosyalardır. Tarayıcın bunları yüklemek için Google’a ya da bir kod ağına bağlanmaz. Kütüphane Google’a görüntü içermeyen kısa bir kullanım raporu göndermeye çalışır; BodyArcade bu isteği cihazından çıkmadan durdurur.</p>`,
       },
       {
         id: 'goruntu',
@@ -120,7 +120,7 @@ ${ul([
       {
         id: 'saklanan',
         title: 'Sunucularımızın sakladıkları ve ne kadar süre',
-        html: `<p>Bunların hepsi Cloudflare’in BodyArcade için ayırdığı depolama alanında durur (SQLite’lı Durable Objects). İlk tablo çevrimiçi profildir. İkincisi odalar, lisanslar ve hatırlatmadır.</p>
+        html: `<p>Bunların hepsi Cloudflare’in BodyArcade için ayırdığı depolama alanında durur (SQLite’lı Durable Objects). İlk tablo çevrimiçi profildir. İkincisi odalar${F.REMINDER_MAIL ? ', lisanslar ve hatırlatmadır' : ' ve lisanslardır'}.</p>
 ${table('Çevrimiçi profil', ['Ne', 'Neyi tutar', 'Ne kadar süre'], [
   ['Profil', `Gizli bir profil numarası, arkadaş kodun, görünen adın, yaş grubun, seviyen (cihazının bildirdiği 1 ile ${F.LEVEL_MAX} arasında bir sayı; yalnızca lobilerde kiminle karşılaşacağını belirler), bölgen (bir kıta; senin seçtiğin ya da bağlantından tahmin edilen), dilin, çevrimdışı görünme tercihin, varsa susturma, askıya alma ya da yasak ve bitiş tarihi, profili yaptığın tarih, profili yaparken kabul ettiğin koşulların sürümü ve en son kullandığın gün.`, `Hesabını silene kadar ya da en son çevrimiçi kullandığından ${F.UNUSED_PROFILE_DAYS} gün sonrasına kadar. Sonra kendiliğinden silinir.`],
   ['Cihazlar ve kurtarma', `Her cihaz için (en çok ${F.PROFILE_DEVICES}): anahtarının açık yarısı, onun kısa bir parmak izi ve eklendiği tarih. Kurtarma kodunun bir özeti (hash).`, 'Profil var olduğu sürece. Altıncı cihaz en eskisinin yerine geçer.'],
@@ -134,10 +134,10 @@ ${table('Çevrimiçi profil', ['Ne', 'Neyi tutar', 'Ne kadar süre'], [
   ['Güvenlik günlüğü', 'Bir moderatörün ya da otomatik bir kuralın ne yaptığı (susturma, askıya alma, yasaklama) ve nedeni.', `${F.AUDIT_DAYS} gün.`],
   ['Sınır sayaçları', 'İstismarı durdurmak için profil başına ve bir ağ adresinin karıştırılmış biçimi başına (anahtarlı bir özet; adresin kendisi değil) eylem sayıları.', 'Yaklaşık bir gün.'],
 ])}
-${table('Odalar, lisanslar ve hatırlatma', ['Ne', 'Neyi tutar', 'Ne kadar süre'], [
+${table(F.REMINDER_MAIL ? 'Odalar, lisanslar ve hatırlatma' : 'Odalar ve lisanslar', ['Ne', 'Neyi tutar', 'Ne kadar süre'], [
   ['Oda', 'Canlı oyun bölümünde anlatıldığı gibi: oyuncu numarası, görünen ad, yaş grubu, koltuk, hazır olma, sonuçlar, sohbet ve bildirimler.', `Son oyuncu ayrıldıktan ${F.ROOM_EMPTY_MINUTES} dakika sonra, her durumda son hareketten ${F.ROOM_IDLE_HOURS} saat sonra silinir.`],
   ['Pro lisansı', 'Lisans anahtarının ya da Google Play satın alma jetonunun bir parmak izi (SHA-256); anahtarın ya da jetonun kendisi asla. Plan, durumu ve tarihleri; her cihaz için rastgele numarası ve lisansı en son kullandığı gün.', `Kullanılmayan bir cihaz ${F.SEAT_IDLE_DAYS} gün sonra yerini bırakır. Biten ya da iade edilen ve hiç cihazı kalmayan bir satın alma, son kontrolünden ${F.FORGET_PURCHASE_DAYS} gün sonra unutulur. Süren bir plan, sürdüğü kadar tutulur.`],
-  ['Deneme hatırlatması', 'Yazdığın e-posta adresi, dili ve gönderim günü.', 'Tek hatırlatma gönderilene kadar. Aşağıya bak.'],
+  ...(F.REMINDER_MAIL ? [['Deneme hatırlatması', 'Yazdığın e-posta adresi, dili ve gönderim günü.', 'Tek hatırlatma gönderilene kadar. Aşağıya bak.']] : []),
 ])}
 <p>Ağ adresi yalnızca kısa süre kullanılır. Arkadaş hizmetinde sayaçlar adresin kendisiyle değil karıştırılmış biçimiyle tutulur (örneğin bir adresin bir saatte kaç profil yaptığı) ve yaklaşık bir gün içinde silinir. Canlı oyun ve lisans hizmetleri adrese göre tuttukları kısa sayaçları yalnızca bellekte tutar, depolamaya hiç yazmaz; bunlar bir saat içinde ya da hizmet yeniden başlayınca yok olur. Siteyi sunan Cloudflare bunun için ağ adreslerini işler ve kendi işletim günlüklerini kendi politikası uyarınca tutar.</p>
 <p>Bir şeyi sildiğinde canlı veritabanından hemen kalkar. Cloudflare bu depolamanın 30 güne kadar bir kurtarma geçmişini tutar; bu yüzden silinmiş bir kayıt, kalıcı olarak yok olmadan önce bu geçmişte en çok o kadar süre durabilir.</p>`,
@@ -151,15 +151,17 @@ ${table('Odalar, lisanslar ve hatırlatma', ['Ne', 'Neyi tutar', 'Ne kadar süre
       },
       {
         id: 'hatirlatma',
-        title: 'Deneme hatırlatma e-postası',
-        html: `<p>Pro yıllık planının ${F.TRIAL_DAYS} günlük denemesinde web’de isteğe bağlı bir e-posta hatırlatması vardır. Pro ekranına bir adres yazarsan adres, imzalı lisansınla birlikte sunucumuza gider. Onu, kullandığın dil ve gönderim günüyle birlikte, tek hatırlatma gönderilene kadar, yani deneme bitmeden ${F.REMINDER_DAYS} gün öncesine kadar saklarız. Sonra sileriz.</p>
+        title: F.REMINDER_MAIL ? 'Deneme hatırlatma e-postası' : 'Deneme hatırlatması',
+        html: F.REMINDER_MAIL
+          ? `<p>Pro yıllık planının ${F.TRIAL_DAYS} günlük denemesinde web’de isteğe bağlı bir e-posta hatırlatması vardır. Pro ekranına bir adres yazarsan adres, imzalı lisansınla birlikte sunucumuza gider. Onu, kullandığın dil ve gönderim günüyle birlikte, tek hatırlatma gönderilene kadar, yani deneme bitmeden ${F.REMINDER_DAYS} gün öncesine kadar saklarız. Sonra sileriz.</p>
 <p>Hiçbir şey göndermeden de sileriz: uygulamada adresi geri alırsan, kayıtlarımız planın o günden önce iptal edildiğini ya da iade edildiğini gösterirse, deneme bittiğinde ya da ${F.REMINDER_TRIES} başarısız gönderimden sonra. E-posta düz metindir ve izleme içermez. Adresi başka hiçbir şey için kullanmaz ve ona bir daha yazmayız. E-posta, posta sağlayıcımız Forward Email üzerinden gönderilir.</p>
-<p>Android uygulamasında adres istemeyiz. Google Play kendi hatırlatmasını gönderir; uygulama da denemenin son ${F.REMINDER_DAYS} gününde her açılışta bir bildirim gösterir.</p>`,
+<p>Android uygulamasında adres istemeyiz. Google Play kendi hatırlatmasını gönderir; uygulama da denemenin son ${F.REMINDER_DAYS} gününde her açılışta bir bildirim gösterir.</p>`
+          : `<p>Pro yıllık planının ${F.TRIAL_DAYS} günlük denemesinde bir hatırlatma vardır: denemenin son ${F.REMINDER_DAYS} gününde uygulama her açılışta bir bildirim gösterir. Bildirim, lisansının tarihlerinden cihazında oluşturulur. Bunun için e-posta adresi istemeyiz, e-posta da göndermeyiz. Android uygulamasında Google Play da kendi hatırlatmasını gönderir.</p>`,
       },
       {
         id: 'analitik',
         title: 'Analitik, çerezler ve günlükler',
-        html: `<p>BodyArcade’da reklam izleyicisi ve bizim kendi analitik kodumuz yoktur. Kendi kodu çerez koymaz; yukarıda sıralanan şeyler için tarayıcının depolama alanını kullanır. Siteyi sunan Cloudflare, insanları otomatik trafikten ayırmak için bir güvenlik çerezi koyabilir; Gumroad’ın sayfaları da kendi çerezlerini koyar.</p>
+        html: `<p>BodyArcade’de reklam izleyicisi ve bizim kendi analitik kodumuz yoktur. Kendi kodu çerez koymaz; yukarıda sıralanan şeyler için tarayıcının depolama alanını kullanır. Siteyi sunan Cloudflare, insanları otomatik trafikten ayırmak için bir güvenlik çerezi koyabilir; Gumroad’ın sayfaları da kendi çerezlerini koyar.</p>
 ${analytics}
 <p>Kendi kodumuz hizmetin günlüklerine kısa teknik satırlar yazar: olay adları, oda kodları, sayılar, bir lisans parmak izinin ilk sekiz karakteri ve hata iletileri. Bunlarda görünen ad, mesaj, görüntü ve ağ adresi olmaz. Tarayıcı güvenlik raporları (bir tarayıcının hangi dosyayı yüklemeyi reddettiği) aynı biçimde günlüğe yazılır. Cloudflare ayrıca hizmet için kendi politikası uyarınca istek günlükleri tutar.</p>`,
       },
@@ -170,7 +172,7 @@ ${analytics}
   'Cloudflare siteyi sunar; odaları, profilleri ve lisansları bizim için saklar. STUN hizmeti cihazların birbirini bulmasına yardım eder.' + (F.RELAY_ON ? ' Aktarım hizmeti arkadaş görüntüsünü taşıyabilir.' : '') + ' <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">Gizlilik politikası</a>.',
   'Gumroad, Pro’yu web’de satar, ödemeyi alır, vergiyi halleder ve lisans anahtarlarını doğrular. <a href="https://gumroad.com/privacy" rel="noopener">Gizlilik politikası</a>.',
   'Google, Android uygulamasında ödemeleri alan ve uygulamayı dağıtan Google Play’i ve adresimizin arkasındaki posta kutusunu işletir. Poz modeli Google’ın teknolojisidir ama cihazında çalışır. <a href="https://policies.google.com/privacy" rel="noopener">Gizlilik politikası</a>.',
-  'Forward Email, adresimize gelen postayı iletir ve deneme hatırlatmasını gönderir. <a href="https://forwardemail.net/en/privacy" rel="noopener">Gizlilik politikası</a>.',
+  `Forward Email, adresimize gelen postayı iletir${F.REMINDER_MAIL ? ' ve deneme hatırlatmasını gönderir' : ''}. <a href="https://forwardemail.net/en/privacy" rel="noopener">Gizlilik politikası</a>.`,
 ])}
 <p>Verini satmıyoruz ve reklamverenlerle paylaşmıyoruz. Bize e-posta yazarsan adresini ve mesajını alırız; yalnızca sana yanıt vermek için kullanırız.</p>
 <p>Bu şirketler veriyi ülken dışında, Avrupa Ekonomik Alanı, Birleşik Krallık ve Türkiye dışında da işleyebilir. Öyle yaptıklarında, standart sözleşme maddeleri gibi güvenceler içeren kendi veri koruma şartlarına dayanırlar. Politikaları bunun nasıl olduğunu anlatır. Kişisel verilerin yurt dışına aktarımı bakımından bu, 6698 sayılı Kanun’un 9. maddesi kapsamındadır.</p>`,
@@ -195,8 +197,8 @@ ${ul([
 <h3>Verileri neden işleriz</h3>
 <p>Verileri, uygulamayı kullanırken cihazından otomatik yollarla ve senin yazdıklarından toplarız. Şu amaçlarla ve şu hukuki sebeplerle işleriz:</p>
 ${ul([
-  'İstediğin hizmeti sağlamak için: oyun, profilin, odalar, lisansın ve sipariş ettiğin hatırlatma. (Sözleşme; KVKK madde 5/2-c.)',
-  'Rızanla: tarayıcının sorduğu kamera izni, isteğe bağlı arkadaş görüntüsü ve hatırlatma e-postası. Rızanı istediğin an geri çekebilirsin. (Açık rıza; KVKK madde 5/1.)',
+  `İstediğin hizmeti sağlamak için: oyun, profilin, odalar${F.REMINDER_MAIL ? ', lisansın ve sipariş ettiğin hatırlatma' : ' ve lisansın'}. (Sözleşme; KVKK madde 5/2-c.)`,
+  `Rızanla: tarayıcının sorduğu kamera izni${F.REMINDER_MAIL ? ', isteğe bağlı arkadaş görüntüsü ve hatırlatma e-postası' : ' ve isteğe bağlı arkadaş görüntüsü'}. Rızanı istediğin an geri çekebilirsin. (Açık rıza; KVKK madde 5/1.)`,
   'Hizmeti güvenli ve adil tutmak için: istismara karşı sınırlar, bildirimler, güvenlik günlüğü ve haftalık skorların denetimi. (Meşru menfaat; KVKK madde 5/2-f.)',
   'Vergi ve muhasebe için sipariş kayıtlarını yasanın gerektirdiği süre boyunca tutmak gibi yasal yükümlülükleri yerine getirmek için. (Hukuki yükümlülük; KVKK madde 5/2-ç.)',
 ])}`,
@@ -222,7 +224,7 @@ ${F.FAMILY_PLAN ? `<p>Aile planı, bir cihazı paylaşan ${F.FAMILY_PROFILES} ki
       {
         id: 'degisiklik',
         title: 'Değişiklikler ve iletişim',
-        html: `<p>BodyArcade’ın verileri ele alış biçimi değiştiğinde bu sayfayı ve üstündeki tarihi değiştiririz. Ayrıca <a href="/tr/terms">kullanım koşullarına</a> ve <a href="/tr/faq">sık sorulan sorulara</a> bak.</p>
+        html: `<p>BodyArcade’in verileri ele alış biçimi değiştiğinde bu sayfayı ve üstündeki tarihi değiştiririz. Ayrıca <a href="/tr/terms">kullanım koşullarına</a> ve <a href="/tr/faq">sık sorulan sorulara</a> bak.</p>
 <p>${F.OWNER}, ${F.STUDIO} adıyla, ${F.COUNTRY}. ${mail()}.</p>`,
       },
     ],

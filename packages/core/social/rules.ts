@@ -207,7 +207,7 @@ export function escalate(f: EscalationFacts): Escalation {
  * the day (ISO) they were last changed in substance. packages/web/content/facts.ts UPDATED is the date the pages show and
  * content.test.ts keeps the two equal, so a changed text cannot go out under the old version. The server keeps what the sign-up sent.
  */
-export const TERMS_VERSION = '2026-10-25';
+export const TERMS_VERSION = '2026-10-26';
 
 /** A terms version as it is written: an ISO day. */
 export const isTermsVersion = (x: unknown): x is string => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && Number.isFinite(Date.parse(x));

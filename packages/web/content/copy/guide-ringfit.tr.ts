@@ -46,7 +46,7 @@ export function guideRingfitTr(): PageSpec {
     },
     {
       id: 'bodyarcade',
-      title: 'BodyArcade’ın daha güçlü olduğu yerler',
+      title: 'BodyArcade’in daha güçlü olduğu yerler',
       html: ul([
         '<strong>Satın alınacak bir şey yok.</strong> Zaten sahip olduğun dizüstü, masaüstü, tablet ya da telefonda çalışır.',
         '<strong>Hızlı başlar.</strong> Sayfayı aç, kameraya izin ver ve oyna. İlk ziyarette yaklaşık iki dakikalık bir karşılama turu olur. Kurulacak bir şey ve açılacak bir hesap yok.',
@@ -79,7 +79,7 @@ ${table(null, ['Oyun', 'Ne yaparsın', 'Tur', 'Plan'], gameList('tr').map((g) =>
     },
   ];
   const title = 'Tarayıcıda oynayabileceğin bir Ring Fit Adventure alternatifi';
-  const description = 'Ring Fit Adventure ile BodyArcade’ın dürüst bir karşılaştırması: ne gerekir, her biri seni nasıl takip eder, antrenman türü ve maliyet.';
+  const description = 'Ring Fit Adventure ile BodyArcade’in dürüst bir karşılaştırması: ne gerekir, her biri seni nasıl takip eder, antrenman türü ve maliyet.';
   const lead = 'Ring Fit Adventure, şimdiye kadar yapılmış en sevilen spor oyunlarından biri. Ayrıca bir Nintendo Switch, Joy-Con kumandaları ve kutuda gelen Ring-Con ile Leg Strap ister. Bir Switch’in yoksa ya da elindeki bir dizüstünde hemen başlayabileceğin bir şey istiyorsan, farklı türde bir oyun isteyeceksin.';
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {

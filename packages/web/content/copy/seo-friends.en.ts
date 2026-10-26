@@ -11,6 +11,11 @@ export function seoFriendsEn(): PageSpec {
   const lang = 'en';
   const c = gameCounts();
   const live = titlesOf((g) => g.live, lang);
+  const freeLive = titlesOf((g) => g.live && g.free, lang);
+  const freeLiveCount = c.live - c.proLive;
+  const proLiveTitles = titlesOf((g) => g.live && !g.free, lang);
+  // said only while some Pro game can be raced (the FAQ says the same): a room holds it when its host has Pro, and the friends who join need none
+  const proRooms = c.proLive > 0 ? ` ${proLiveTitles} ${c.proLive > 1 ? 'are Pro games' : 'is a Pro game'}: a room can hold ${c.proLive > 1 ? 'one' : 'it'} when its host has Pro, and the friends who join do not need Pro.` : '';
   const all = games(lang);
   const liveLinks = listWords(all.filter((g) => g.live).map((g) => gameLink(g, lang)), lang);
   const shareLinks = listWords(all.filter((g) => g.local2).map((g) => gameLink(g, lang)), lang);
@@ -61,7 +66,9 @@ export function seoFriendsEn(): PageSpec {
       id: 'limits',
       title: 'What to expect',
       html: ul([
-        `Live races exist in ${c.live} games, ${liveLinks}, and both are free.`,
+        c.proLive > 0
+          ? `Live races exist in ${c.live} games: ${liveLinks}. ${freeLive} ${freeLiveCount > 1 ? 'are free games' : 'is a free game'}.${proRooms}`
+          : `Live races exist in ${c.live} games, ${liveLinks}, and ${c.live > 2 ? 'all of them' : 'both'} are free.`,
         'You need a connection. Friends, rooms and boards do not work offline.',
         `A room closes ${F.ROOM_EMPTY_MINUTES} minutes after the last player leaves, and ${F.ROOM_IDLE_HOURS} hours after its last activity at the latest.`,
         'Each player uses their own camera and their own space. One camera misses a move now and then, and the results screen says why a move did not count.',
@@ -72,7 +79,9 @@ export function seoFriendsEn(): PageSpec {
   const faq = [
     {
       q: 'Do my friends need Pro to play with me?',
-      a: `<p>No. ${live}, the two games with live races, are free games.</p>`,
+      a: c.proLive > 0
+        ? `<p>No. ${freeLive} ${freeLiveCount > 1 ? 'are free games' : 'is a free game'}.${proRooms}</p>`
+        : `<p>No. ${live}, the ${c.live > 2 ? 'games' : 'two games'} with live races, are free games.</p>`,
     },
     {
       q: 'How many people can be in a room?',
@@ -94,7 +103,7 @@ export function seoFriendsEn(): PageSpec {
   sections.push({ id: 'faq', title: 'Questions people ask', html: faq.map((i) => qa(i.q, i.a)).join('\n') }, moreSection(lang, 'friends'));
 
   const title = 'Workout games to play with friends online';
-  const description = `Race a friend live in ${live}, share one camera on one screen, or race a friend’s recorded run. How rooms, friend codes and ages work.`;
+  const description = `Race friends live in ${live}, share one camera on one screen, or race a recorded run. How rooms, friend codes and ages work.`;
   const lead = `You can play BodyArcade with other people in three ways. Online, you join a room of up to ${F.SEATS.max} players and race live in ${live}. On one screen, two people share a single camera in ${c.local2} of the ${c.total} games. On your own, you can race a recording of a friend&rsquo;s run. Nobody needs an e-mail address or a password.`;
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {

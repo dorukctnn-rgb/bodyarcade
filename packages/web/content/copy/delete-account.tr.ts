@@ -14,7 +14,7 @@ export function deleteAccountTr(): PageSpec {
     description: 'BodyArcade çevrimiçi profilini ve sunucularımızdaki verilerini uygulamadan ya da e-postayla nasıl sileceğin; neyin silindiği, neyin neden kaldığı.',
     h1: 'Hesabını ve verilerini sil',
     when: `Son güncelleme: ${date}`,
-    lead: `BodyArcade’ı ${F.STUDIO} adıyla çalışan ${F.OWNER} yapar. Bu sayfa bodyarcade.com’u ve BodyArcade Android uygulamasını kapsar. BodyArcade’da yaptığın çevrimiçi profili nasıl sileceğini, bunun neyi ne zaman sildiğini, neyin neden kaldığını anlatır. Nelerin saklandığının tam listesi <a href="/tr/privacy">gizlilik politikasında</a>.`,
+    lead: `BodyArcade’i ${F.STUDIO} adıyla çalışan ${F.OWNER} yapar. Bu sayfa bodyarcade.com’u ve BodyArcade Android uygulamasını kapsar. BodyArcade’de yaptığın çevrimiçi profili nasıl sileceğini, bunun neyi ne zaman sildiğini, neyin neden kaldığını anlatır. Nelerin saklandığının tam listesi <a href="/tr/privacy">gizlilik politikasında</a>.`,
     brief: {
       title: 'Kısaca',
       items: [
@@ -67,14 +67,14 @@ export function deleteAccountTr(): PageSpec {
   `<strong>Bildirimler.</strong> Senin de içinde olduğun bildirimler, biz işledikten sonra en çok ${F.RESOLVED_REPORT_DAYS} gün kalır; çünkü diğer oyuncuları korurlar. Artık var olmayan bir profil hakkındaki bildirim yapıldıktan ${F.ORPHAN_REPORT_DAYS} gün sonra silinir. Senin yaptığın bir bildirim profiline olan bağını kaybeder; nedeni, odayı, isteğe bağlı notunu, bildirdiğin oyuncuyu ve kayıtlı sohbet satırlarını tutar. Hakkındaki bir bildirim görünen adını ve notunu kaybeder; nedeni, odayı, artık kimseye ait olmayan rastgele bir profil numarasını ve kayıtlı sohbet satırlarını tutar. Sohbet satırları odada kullanılan görünen adları ve sözleri yine taşır.`,
   `<strong>Güvenlik günlüğü.</strong> Bir moderatörün ya da otomatik bir kuralın yaptığı şey (susturma, askıya alma, yasaklama) ve nedeni ${F.AUDIT_DAYS} gün tutulur. Hakkındaki bir kayıt adını değil, rastgele profil numarasını ve moderatörün notunu taşır.`,
   `<strong>Odalar.</strong> Bulunduğun bir oda, son oyuncu çıktıktan ${F.ROOM_EMPTY_MINUTES} dakika sonra, her durumda son hareketten ${F.ROOM_IDLE_HOURS} saat sonra sohbeti ve sonuçlarıyla birlikte silinir. Oda listesindeki kaydı, oda güncellenmeyi bıraktıktan ${F.LOBBY_HIDE_MINUTES} dakika sonra gizlenir ve en geç son güncellemesinden ${F.LOBBY_GONE_HOURS} saat sonra kaldırılır.`,
-  `<strong>Pro lisans kayıtları.</strong> Pro lisansı profiline bağlı değildir; bu yüzden profili silmek ona dokunmaz ve Pro çalışmaya devam eder. Lisans hizmetimiz lisans anahtarının (ya da Google Play satın alma jetonunun) parmak izini, planı, durumunu ve tarihlerini, her cihaz için de rastgele bir numarayı tutar. Bir cihaz ${F.SEAT_IDLE_DAYS} gün kullanılmazsa yerini geri verir; biten ve hiç cihazı kalmayan bir satın alma, son kontrolünden ${F.FORGET_PURCHASE_DAYS} gün sonra unutulur. Süren bir plan, sürdüğü sürece tutulur. Deneme hatırlatması için bırakılan e-posta adresi, hatırlatma gönderilince ya da deneme bitince ya da plan iptal edilince silinir. Bu kayıtlardan birinin daha erken kaldırılmasını istersen ${mail()} adresine yaz.`,
+  `<strong>Pro lisans kayıtları.</strong> Pro lisansı profiline bağlı değildir; bu yüzden profili silmek ona dokunmaz ve Pro çalışmaya devam eder. Lisans hizmetimiz lisans anahtarının (ya da Google Play satın alma jetonunun) parmak izini, planı, durumunu ve tarihlerini, her cihaz için de rastgele bir numarayı tutar. Bir cihaz ${F.SEAT_IDLE_DAYS} gün kullanılmazsa yerini geri verir; biten ve hiç cihazı kalmayan bir satın alma, son kontrolünden ${F.FORGET_PURCHASE_DAYS} gün sonra unutulur. Süren bir plan, sürdüğü sürece tutulur.${F.REMINDER_MAIL ? ' Deneme hatırlatması için bırakılan e-posta adresi, hatırlatma gönderilince ya da deneme bitince ya da plan iptal edilince silinir.' : ''} Bu kayıtlardan birinin daha erken kaldırılmasını istersen ${mail()} adresine yaz.`,
   '<strong>Ödeme kayıtları.</strong> Ödemeler web’de Gumroad, Android uygulamasında Google Play üzerinden geçer; ikisi de kendi kayıtlarını kendi politikalarına göre tutar. Satıcı olarak biz e-posta adresini ve siparişinin ayrıntılarını alırız ve vergi ve muhasebe yasasının gerektirdiği süre kadar saklarız.',
 ])}`,
       },
       {
         id: 'abonelik',
         title: 'Abonelikler',
-        html: `<p>Profili silmek bir aboneliği iptal etmez. Web’de Gumroad kütüphanenden iptal et (BodyArcade’ı seç, sonra Manage membership). Android uygulamasında Google Play aboneliklerinden iptal et. Pro, ödediğin sürenin sonuna kadar açık kalır. İadeler <a href="/tr/terms">koşullarda</a> anlatılır.</p>`,
+        html: `<p>Profili silmek bir aboneliği iptal etmez. Web’de Gumroad kütüphanenden iptal et (BodyArcade’i seç, sonra Manage membership). Android uygulamasında Google Play aboneliklerinden iptal et. Pro, ödediğin sürenin sonuna kadar açık kalır. İadeler <a href="/tr/terms">koşullarda</a> anlatılır.</p>`,
       },
       {
         id: 'cihaz',
@@ -84,7 +84,7 @@ export function deleteAccountTr(): PageSpec {
       {
         id: 'iletisim',
         title: 'Sorular',
-        html: `<p>${mail()} adresine yaz. BodyArcade’ın verileri nasıl işlediği <a href="/tr/privacy">gizlilik politikasında</a>; &ldquo;Seçimlerin ve haklarının&rdquo; bölümü GDPR, Birleşik Krallık GDPR’ı ve Türkiye’deki KVKK kapsamındaki haklarını sıralar.</p>`,
+        html: `<p>${mail()} adresine yaz. BodyArcade’in verileri nasıl işlediği <a href="/tr/privacy">gizlilik politikasında</a>; &ldquo;Seçimlerin ve haklarının&rdquo; bölümü GDPR, Birleşik Krallık GDPR’ı ve Türkiye’deki KVKK kapsamındaki haklarını sıralar.</p>`,
       },
     ],
   };

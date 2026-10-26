@@ -19,7 +19,7 @@ export function faqTr(): PageSpec {
   const $ = (n: number): string => F.usd(n, 'tr');
   const memberships = F.FAMILY_PLAN ? 'Pro aylık, Pro yıllık ve Aile yıllık' : 'Pro aylık ve Pro yıllık';
   const app = F.ANDROID_APP_LIVE
-    ? '<p>Google Play’de bir Android uygulaması var. Aynı oyunları oynatır ve ödemeleri Google Play üzerinden alır. iPhone’da BodyArcade’ı Safari’de kullan.</p>'
+    ? '<p>Google Play’de bir Android uygulaması var. Aynı oyunları oynatır ve ödemeleri Google Play üzerinden alır. iPhone’da BodyArcade’i Safari’de kullan.</p>'
     : '<p>BodyArcade her cihazın tarayıcısında çalışır, bu yüzden kurulacak bir şey yoktur. Google Play’deki Android uygulaması web sürümünün ardından gelir. Ücretli planların her iki yerde de geçerli olması amaçlanır.</p>';
 
   const groups: Group[] = [
@@ -131,15 +131,15 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Ömür boyu ne demek?',
-          a: '<p>Bir kez ödersin ve Pro, BodyArcade sunulduğu sürece yenileme olmadan sürer. Daha sonra eklediğimiz oyunları da içerir. BodyArcade’ı sonsuza kadar sunacağımız anlamına gelmez: bir gün kapatırsak elimizden geldiğince önceden haber veririz; yasadan doğan tüketici haklarına bu durum dokunmaz.</p>',
+          a: '<p>Bir kez ödersin ve Pro, BodyArcade sunulduğu sürece yenileme olmadan sürer. Daha sonra eklediğimiz oyunları da içerir. BodyArcade’i sonsuza kadar sunacağımız anlamına gelmez: bir gün kapatırsak elimizden geldiğince önceden haber veririz; yasadan doğan tüketici haklarına bu durum dokunmaz.</p>',
         },
         {
           q: 'Ücretsiz deneme nasıl çalışır?',
-          a: `<p>Pro yıllık ${F.TRIAL_DAYS} gün ücretsiz başlar. Deneme sırasında hiçbir şey tahsil edilmez. Bitmeden iptal etmezsen ilk yıl tahsil edilir. Bitişten ${F.REMINDER_DAYS} gün önce sana hatırlatırız: uygulama her açılışta bir bildirim gösterir; web’de bir adres bırakırsan tek bir e-posta göndeririz. Google Play da kendi hatırlatmasını gönderir.</p>`,
+          a: `<p>Pro yıllık ${F.TRIAL_DAYS} gün ücretsiz başlar. Deneme sırasında hiçbir şey tahsil edilmez. Bitmeden iptal etmezsen ilk yıl tahsil edilir. Bitişten ${F.REMINDER_DAYS} gün önce sana hatırlatırız: uygulama her açılışta bir bildirim gösterir${F.REMINDER_MAIL ? '; web’de bir adres bırakırsan tek bir e-posta göndeririz' : ''}. Google Play da kendi hatırlatmasını gönderir.</p>`,
         },
         {
           q: 'Nasıl iptal ederim?',
-          a: '<p>Web’de Gumroad kütüphaneni aç, BodyArcade’ı seç ve Manage membership’i seç; makbuz e-postasında da aynı bağlantı var. Android uygulamasında Google Play aboneliklerinden iptal et. Pro, zaten ödediğin sürenin sonuna kadar açık kalır.</p>',
+          a: '<p>Web’de Gumroad kütüphaneni aç, BodyArcade’i seç ve Manage membership’i seç; makbuz e-postasında da aynı bağlantı var. Android uygulamasında Google Play aboneliklerinden iptal et. Pro, zaten ödediğin sürenin sonuna kadar açık kalır.</p>',
         },
         {
           q: 'Nasıl iade alırım?',
@@ -206,8 +206,8 @@ export function faqTr(): PageSpec {
           a: '<p>Girdiğin kiloya (cihazında kalır), ne kadar süre hareket ettiğine ve her oyunun ne kadar yoğun olduğuna göre. Kilo girilmezse kalori gösterilmez. Bir tahmindir, ölçüm değildir ve tıbbi tavsiye değildir.</p>',
         },
         {
-          q: 'BodyArcade’ı kim yapıyor, size nasıl ulaşırım?',
-          a: `<p>BodyArcade’ı ${F.COUNTRY}’de ${F.STUDIO} adıyla çalışan gerçek kişi ${F.OWNER} yapıyor. ${mail()} adresine yaz.</p>`,
+          q: 'BodyArcade’i kim yapıyor, size nasıl ulaşırım?',
+          a: `<p>BodyArcade’i ${F.COUNTRY}’de ${F.STUDIO} adıyla çalışan gerçek kişi ${F.OWNER} yapıyor. ${mail()} adresine yaz.</p>`,
         },
       ],
     },
