@@ -14,6 +14,11 @@
 // that page": the Worker serves the start page under every such address and the app reads the code from the address, so a
 // copy per code would only collect old shells and codes in the cache. They are never stored; when the network is out, slow or
 // answers with a failure they get the cached start page of their language, never an old copy and never a cached 404.
+//
+// Last resort: a page with nothing cached for it and no network (storage cleared, or the first open with no signal after the worker
+// was installed) gets a small page of our own, status 200, in English or Turkish, with a "Try again" link. The browser's error page is
+// never what a player of the app sees (the Trusted Web Activity quality criteria count an offline request that is not answered with 200
+// as a crash of the app: developer.chrome.com/docs/android/trusted-web-activity/whats-new).
 /* eslint-disable no-restricted-globals */
 const CONFIG = /*__CONFIG__*/ { build: 'dev', precache: [], startPages: { en: '/' }, libPrefixes: ['/vendor/mediapipe/'], libCache: 'ba-lib-dev', navTimeoutMs: 3500 };
 
@@ -100,6 +105,41 @@ function startPageFor(path) {
   return CONFIG.startPages[lang || 'en'];
 }
 
+const OFFLINE_TEXT = {
+  en: {
+    lang: 'en', title: 'You are offline',
+    body: 'BodyArcade could not reach the internet, and this page is not saved on this phone yet. Connect once and open it again. After that, the games you have opened work without a connection.',
+    retry: 'Try again',
+  },
+  tr: {
+    lang: 'tr', title: '\u00c7evrimd\u0131\u015f\u0131s\u0131n',
+    body: 'BodyArcade internete ula\u015famad\u0131 ve bu sayfa hen\u00fcz bu telefona kaydedilmemi\u015f. Bir kez ba\u011flan\u0131p yeniden a\u00e7. Ondan sonra a\u00e7t\u0131\u011f\u0131n oyunlar ba\u011flant\u0131s\u0131z da \u00e7al\u0131\u015f\u0131r.',
+    retry: 'Tekrar dene',
+  },
+};
+
+/** The language of the offline page: the prefix of the address, else the first language of the phone (English for every other). */
+function offlineLanguage(path) {
+  if (path === '/tr' || path.startsWith('/tr/')) return 'tr';
+  if (/^\/(?:de|es|fr)(?:\/|$)/.test(path)) return 'en';
+  const langs = (self.navigator && self.navigator.languages) || [];
+  const first = String(langs[0] || (self.navigator && self.navigator.language) || 'en').toLowerCase();
+  return first.startsWith('tr') ? 'tr' : 'en';
+}
+
+function offlinePage(path) {
+  const t = OFFLINE_TEXT[offlineLanguage(path)];
+  const html = '<!doctype html><html lang="' + t.lang + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<meta name="robots" content="noindex"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#1A1430"><title>' + t.title + ' | BodyArcade</title>'
+    + '<style>html,body{margin:0;height:100%;background:#1A1430;color:#F4F1FF;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}'
+    + 'main{box-sizing:border-box;min-height:100%;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:16px;max-width:30rem;margin:0 auto;padding:32px 24px}'
+    + 'h1{margin:0;font-size:1.75rem;line-height:1.2}p{margin:0;color:#CFC8EA}'
+    + 'a{display:inline-block;padding:12px 20px;border-radius:12px;background:#F4F1FF;color:#1A1430;font-weight:600;text-decoration:none}'
+    + 'a:focus-visible{outline:3px solid #8FD3FF;outline-offset:3px}</style></head>'
+    + '<body><main><h1>' + t.title + '</h1><p>' + t.body + '</p><a href="">' + t.retry + '</a></main></body></html>';
+  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
 async function page(event) {
   const request = event.request;
   const path = new URL(request.url).pathname;
@@ -130,7 +170,7 @@ async function page(event) {
   } catch {
     const cached = await fromCache();
     if (cached) return cached;
-    return Response.error();
+    return offlinePage(path);
   } finally {
     clearTimeout(timer);
   }
