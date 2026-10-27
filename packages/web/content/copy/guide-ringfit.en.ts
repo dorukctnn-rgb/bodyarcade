@@ -71,7 +71,8 @@ ${table(null, ['Game', 'What you do', 'Round', 'Plan'], gameList('en').map((g) =
   '<strong>Stability.</strong> Put the laptop or phone on a table or shelf so it does not move while you do.',
   '<strong>Footwear and floor.</strong> Trainers on a floor that is not slippery, with about 2 metres clear around you.',
 ])}
-<p>More on this in <a href="/webcam-fitness-games">how webcam fitness games work, and how to set up your room</a>. If you are looking at camera games on an iPhone or iPad, see <a href="/active-arcade-alternative">BodyArcade next to Active Arcade</a>.</p>`,
+<p>More on this in <a href="/webcam-fitness-games">how webcam fitness games work, and how to set up your room</a>.</p>
+<p>If you are looking at camera games on an iPhone or iPad, see <a href="/active-arcade-alternative">BodyArcade next to Active Arcade</a>.</p>`,
     },
     {
       id: 'faq',

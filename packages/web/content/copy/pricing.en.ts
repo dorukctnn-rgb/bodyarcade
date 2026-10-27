@@ -116,7 +116,7 @@ ${plans}</div>
     },
     {
       q: 'Where do I find the plans in the app?',
-      a: `<p>Open ${link('/pro/', 'the Pro page')} of the app. It shows the plans that can be bought where you are: on the web the ones above, in the Android app Google Play&rsquo;s. The ${link('/faq', 'FAQ')} answers the other questions about payments.</p>`,
+      a: `<p>Open the ${link('/pro/', 'Pro')} page of the app. It shows the plans that can be bought where you are: on the web the ones above, in the Android app Google Play&rsquo;s.</p><p>The ${link('/faq', 'FAQ')} answers the other questions about payments.</p>`,
     },
   ];
   sections.push({ id: 'questions', title: 'Questions about the prices', html: faq.map((i) => qa(i.q, i.a)).join('\n') });

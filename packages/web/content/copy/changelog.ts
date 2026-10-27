@@ -30,8 +30,8 @@ export const RELEASES: readonly Entry[] = [
         tr: 'Bir oyunun sayfasında telefon ekranının altında yalnızca Oyna kalır; arkadaşla ve hayaletle yarış düğmeleri sayfada onu izler.',
       },
       {
-        en: `New pages: <a href="${PRICING_URL.en}">prices</a>, these release notes, and <a href="${ACTIVE_ARCADE_URL.en}">BodyArcade next to Active Arcade</a>.`,
-        tr: `Yeni sayfalar: <a href="${PRICING_URL.tr}">fiyatlar</a>, bu sürüm notları ve <a href="${ACTIVE_ARCADE_URL.tr}">Active Arcade ile BodyArcade yan yana</a>.`,
+        en: `New pages: <a href="${PRICING_URL.en}">prices</a>, these release notes, and a <a href="${ACTIVE_ARCADE_URL.en}">comparison</a> with Active Arcade.`,
+        tr: `Yeni sayfalar: <a href="${PRICING_URL.tr}">fiyatlar</a>, bu sürüm notları ve Active Arcade ile bir <a href="${ACTIVE_ARCADE_URL.tr}">karşılaştırma</a>.`,
       },
       {
         en: 'The home page says what BodyArcade is, which games have live races, where it plays and what Pro costs, also in a browser that does not run scripts.',

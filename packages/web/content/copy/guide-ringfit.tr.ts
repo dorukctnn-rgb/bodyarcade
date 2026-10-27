@@ -70,7 +70,8 @@ ${table(null, ['Oyun', 'Ne yaparsın', 'Tur', 'Plan'], gameList('tr').map((g) =>
   '<strong>Sabitlik.</strong> Dizüstünü ya da telefonu bir masaya ya da rafa koy; sen hareket ederken kımıldamasın.',
   '<strong>Ayakkabı ve zemin.</strong> Kaygan olmayan bir zeminde spor ayakkabı, çevrende yaklaşık 2 metre boş alan.',
 ])}
-<p>Daha fazlası için <a href="/tr/kamera-ile-spor-oyunlari">kamera ile spor oyunları nasıl çalışır ve odanı nasıl hazırlarsın</a> rehberine bak. iPhone ya da iPad’de kameralı oyunlara bakıyorsan <a href="/tr/active-arcade-alternatifi">Active Arcade ile BodyArcade yan yana</a> sayfasına da göz at.</p>`,
+<p>Daha fazlası için <a href="/tr/kamera-ile-spor-oyunlari">kamera ile spor oyunları nasıl çalışır ve odanı nasıl hazırlarsın</a> rehberine bak.</p>
+<p>iPhone ya da iPad’de kameralı oyunlara bakıyorsan <a href="/tr/active-arcade-alternatifi">Active Arcade ile BodyArcade yan yana</a> sayfasına da göz at.</p>`,
     },
     {
       id: 'sss',

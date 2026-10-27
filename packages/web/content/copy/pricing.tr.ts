@@ -85,7 +85,7 @@ ${plans}</div>
     },
     {
       q: 'Planları uygulamada nerede bulurum?',
-      a: `<p>Uygulamanın ${link('/tr/pro/', 'Pro sayfasını')} aç. Orada bulunduğun yerde alınabilen planlar görünür: web’de yukarıdakiler, Android uygulamasında Google Play’inkiler. Ödemelerle ilgili diğer soruları ${link('/tr/faq', 'SSS')} yanıtlar.</p>`,
+      a: `<p>Uygulamanın ${link('/tr/pro/', 'Pro')} sayfasını aç. Orada bulunduğun yerde alınabilen planlar görünür: web’de yukarıdakiler, Android uygulamasında Google Play’inkiler.</p><p>Ödemelerle ilgili diğer soruları ${link('/tr/faq', 'SSS')} yanıtlar.</p>`,
     },
   ];
   sections.push({ id: 'sorular', title: 'Fiyatlarla ilgili sorular', html: faq.map((i) => qa(i.q, i.a)).join('\n') });
