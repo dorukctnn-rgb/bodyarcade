@@ -43,7 +43,7 @@ export const en = {
   'footer.contact': 'Contact',
   'footer.delete': 'Delete account',
   'footer.pricing': 'Prices',
-  'footer.changelog': 'What is new',
+  'footer.changelog': 'Updates',
   'footer.camera': 'Camera video stays on your device.',
   'footer.language': 'Language',
   'footer.guides': 'Guides',
@@ -159,7 +159,7 @@ export const en = {
   'home.about.prices': 'Pro plans',
   'home.about.pricing': 'All plans and prices',
 
-  'workouts.title': '{region} fitness games for your camera',
+  'workouts.title': '{region} fitness games for your webcam',
   'workouts.description': '{region}: {n, plural, one {# short fitness game} other {# short fitness games}}, {free} free. Play them with your webcam or phone camera in the browser; nothing is uploaded.',
 
   'game.back': 'All games',
@@ -193,7 +193,7 @@ export const en = {
   'game.framing.side.tip': 'Stand sideways to the camera with shoulder to ankle in view, about 2 m away.',
   'game.measures.not': 'It does not measure heart rate or give medical advice.',
   'game.lowImpact.note': 'Your feet stay on the floor. No jumping.',
-  'game.title': '{game}: a fitness game for your webcam or phone',
+  'game.title': '{game}: a webcam fitness game in your browser',
   'game.video': 'Camera workout game, plays in your browser',
 
   'setup.title': 'Set up your round',

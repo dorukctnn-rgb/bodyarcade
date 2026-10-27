@@ -48,7 +48,7 @@ function languageLinks(ctx: ViewContext): SafeHtml {
  */
 const SITE_PAGES = {
   en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account', pricing: '/pricing', changelog: '/changelog' },
-  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account', pricing: '/tr/fiyatlar', changelog: '/tr/surum-notlari' },
+  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account', pricing: '/tr/fiyatlar', changelog: '/tr/guncellemeler' },
 } as const;
 export type SitePage = keyof (typeof SITE_PAGES)['en'];
 export const sitePageHref = (lang: Lang, page: SitePage): string => SITE_PAGES[lang === 'tr' ? 'tr' : 'en'][page];

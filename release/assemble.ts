@@ -46,7 +46,7 @@ export const LEGACY_PAGES: readonly { file: string; url: string }[] = [
   { file: 'pricing.html', url: '/pricing' },
   { file: 'tr/fiyatlar.html', url: '/tr/fiyatlar' },
   { file: 'changelog.html', url: '/changelog' },
-  { file: 'tr/surum-notlari.html', url: '/tr/surum-notlari' },
+  { file: 'tr/guncellemeler.html', url: '/tr/guncellemeler' },
   { file: 'active-arcade-alternative.html', url: '/active-arcade-alternative' },
   { file: 'tr/active-arcade-alternatifi.html', url: '/tr/active-arcade-alternatifi' },
 ];

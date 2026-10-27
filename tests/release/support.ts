@@ -74,7 +74,7 @@ export function sitemapUrls(): string[] {
 export const LEGAL_EXTRA: [string, string][] = [
   ['faq', '/faq'], ['privacy-tr', '/tr/privacy'], ['terms-tr', '/tr/terms'], ['faq-tr', '/tr/faq'], ['delete-account', '/delete-account'], ['delete-account-tr', '/tr/delete-account'],
   // release 3: the prices, the release notes and the Active Arcade comparison (checked where the build has them)
-  ['pricing', '/pricing'], ['pricing-tr', '/tr/fiyatlar'], ['changelog', '/changelog'], ['changelog-tr', '/tr/surum-notlari'],
+  ['pricing', '/pricing'], ['pricing-tr', '/tr/fiyatlar'], ['changelog', '/changelog'], ['changelog-tr', '/tr/guncellemeler'],
   ['active-arcade', '/active-arcade-alternative'], ['active-arcade-tr', '/tr/active-arcade-alternatifi'],
 ];
 export function legalPages(known: Iterable<string> | null = existsSync(join(ROOT, 'dist', 'sitemap.xml')) ? sitemapUrls() : null): [string, string][] {

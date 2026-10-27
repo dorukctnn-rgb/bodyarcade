@@ -43,7 +43,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'footer.contact': 'İletişim',
   'footer.delete': 'Hesabı sil',
   'footer.pricing': 'Fiyatlar',
-  'footer.changelog': 'Yenilikler',
+  'footer.changelog': 'Güncellemeler',
   'footer.camera': 'Kamera görüntüsü cihazında kalır.',
   'footer.language': 'Dil',
   'footer.guides': 'Rehberler',
@@ -60,7 +60,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'region.mobility': 'Hareketlilik ve denge',
   'region.seated': 'Oturarak',
 
-  'home.title': 'BodyArcade: kamerayla oynanan ücretsiz spor oyunları',
+  'home.title': 'BodyArcade: kamera ile oynanan ücretsiz spor oyunları',
   'home.description': 'Çömel, zıpla, yumruk at: tarayıcıda oynadığın {n} kısa spor oyunu, {free} tanesi ücretsiz. Kamera hareketlerini cihazında okur, görüntü hiçbir yere gönderilmez.',
   'home.h1': 'Çömel, zıpla, yumruk at. Sen hareket edince oyun da hareket eder.',
   'home.lead': 'Bacak, kol, karın ve denge için {n} kısa oyun. Kameran hareketlerini bu cihazda okur, hiçbir görüntü sunucuya gönderilmez.',
@@ -159,7 +159,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'home.about.prices': 'Pro planları',
   'home.about.pricing': 'Tüm planlar ve fiyatlar',
 
-  'workouts.title': '{region}: kamerayla spor oyunları',
+  'workouts.title': '{region}: kamera ile oynanan spor oyunları',
   'workouts.description': '{region}: {n} kısa spor oyunu, {free} tanesi ücretsiz. Tarayıcıda web kameranla ya da telefon kameranla oynanır; görüntün hiçbir yere gönderilmez.',
 
   'game.back': 'Tüm oyunlar',
@@ -193,7 +193,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'game.framing.side.tip': 'Kameraya yan dur. Omuzdan ayak bileğine kadar görünmeli, yaklaşık 2 m uzakta.',
   'game.measures.not': 'Kalp atışını ölçmez ve tıbbi tavsiye vermez.',
   'game.lowImpact.note': 'Ayaklarınız yerden kesilmez. Zıplama yok.',
-  'game.title': '{game}: kamerayla oynanan spor oyunu',
+  'game.title': '{game}: kamera ile oynanan spor oyunu',
   'game.video': 'Kamerayla egzersiz oyunu, tarayıcında oynanır',
 
   'setup.title': 'Turunu ayarla',

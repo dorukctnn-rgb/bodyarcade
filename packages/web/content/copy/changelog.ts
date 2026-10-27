@@ -19,7 +19,7 @@ export const ACTIVE_ARCADE_URL = { en: '/active-arcade-alternative', tr: '/tr/ac
 export const RELEASES: readonly Entry[] = [
   {
     day: '2026-10-27',
-    title: { en: 'Prices, release notes and small phones', tr: 'Fiyatlar, sürüm notları ve küçük telefonlar' },
+    title: { en: 'Prices, updates and small phones', tr: 'Fiyatlar, güncellemeler ve küçük telefonlar' },
     items: [
       {
         en: 'The Pro screen fits small phones: the plans are on the first screen, and the buy button and &ldquo;Continue free&rdquo; share one row.',
@@ -30,8 +30,8 @@ export const RELEASES: readonly Entry[] = [
         tr: 'Bir oyunun sayfasında telefon ekranının altında yalnızca Oyna kalır; arkadaşla ve hayaletle yarış düğmeleri sayfada onu izler.',
       },
       {
-        en: `New pages: <a href="${PRICING_URL.en}">prices</a>, these release notes, and a <a href="${ACTIVE_ARCADE_URL.en}">comparison</a> with Active Arcade.`,
-        tr: `Yeni sayfalar: <a href="${PRICING_URL.tr}">fiyatlar</a>, bu sürüm notları ve Active Arcade ile bir <a href="${ACTIVE_ARCADE_URL.tr}">karşılaştırma</a>.`,
+        en: `New pages: <a href="${PRICING_URL.en}">prices</a>, this updates page, and a <a href="${ACTIVE_ARCADE_URL.en}">comparison</a> with Active Arcade.`,
+        tr: `Yeni sayfalar: <a href="${PRICING_URL.tr}">fiyatlar</a>, bu güncellemeler sayfası ve Active Arcade ile bir <a href="${ACTIVE_ARCADE_URL.tr}">karşılaştırma</a>.`,
       },
       {
         en: 'The home page says what BodyArcade is, which games have live races, where it plays and what Pro costs, also in a browser that does not run scripts.',
@@ -107,26 +107,26 @@ function page(lang: F.Lang): PageSpec {
     title: `${F.longDate(r.day, lang)}: ${r.title[lang]}`,
     html: ul(r.items.map((x) => x[lang])),
   }));
-  const title = en ? 'What is new in BodyArcade' : 'BodyArcade’de yenilikler';
+  const title = en ? 'BodyArcade updates: new games and changes' : 'BodyArcade güncellemeleri: yeni oyunlar ve değişiklikler';
   const description = en
-    ? 'The release notes of BodyArcade: the games, the screens and the pages that each release added or changed, newest first, with the day it went live.'
-    : 'BodyArcade’in sürüm notları: her sürümün eklediği ya da değiştirdiği oyunlar, ekranlar ve sayfalar, en yenisi başta, yayın günüyle.';
+    ? 'BodyArcade updates: the games, the screens and the pages that each release added or changed, newest first, with the day it went live.'
+    : 'BodyArcade güncellemeleri: her sürümün eklediği ya da değiştirdiği oyunlar, ekranlar ve sayfalar, en yenisi başta, yayın günüyle.';
   return {
-    file: en ? 'changelog.html' : 'tr/surum-notlari.html',
+    file: en ? 'changelog.html' : 'tr/guncellemeler.html',
     url: PAGES_CHANGELOG[lang],
     lang,
     other: { lang: en ? 'tr' : 'en', url: PAGES_CHANGELOG[en ? 'tr' : 'en'] },
     title,
     description,
-    h1: en ? 'What is new' : 'Yenilikler',
+    h1: en ? 'BodyArcade updates' : 'BodyArcade güncellemeleri',
     when: en ? `Last release ${F.longDate(LATEST_RELEASE.day, lang)}` : `Son sürüm ${F.longDate(LATEST_RELEASE.day, lang)}`,
     lead: en
-      ? 'What changed in BodyArcade, release by release, newest first. Pro includes the games we add later, and this is where they appear.'
-      : 'BodyArcade’de her sürümde neyin değiştiği, en yenisi başta. Pro, sonradan eklediğimiz oyunları da içerir; onlar burada görünür.',
+      ? 'BodyArcade updates, release by release, newest first. Pro includes the games we add later, and this is where they appear.'
+      : 'BodyArcade güncellemeleri, en yenisi başta. Pro, sonradan eklediğimiz oyunları da içerir; onlar burada görünür.',
     sections,
     toc: false,
     after: en ? cta('Try what is new in a couple of minutes.', '/', 'Play a game') : cta('Yenilikleri birkaç dakikada dene.', '/tr/', 'Bir oyun oyna'),
-    crumbs: [{ name: 'BodyArcade', url: en ? '/' : '/tr/' }, { name: en ? 'What is new' : 'Yenilikler', url: PAGES_CHANGELOG[lang] }],
+    crumbs: [{ name: 'BodyArcade', url: en ? '/' : '/tr/' }, { name: en ? 'Updates' : 'Güncellemeler', url: PAGES_CHANGELOG[lang] }],
   };
 }
 

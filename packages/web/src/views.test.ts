@@ -110,7 +110,7 @@ describe.each(LANGS)('every page in %s', (lang) => {
       '/fitness-games', '/seated-exercise-games', '/workout-games-with-friends', '/workout-games-by-body-area',
       '/tr/evde-spor-oyunlari', '/tr/oturarak-egzersiz-oyunlari', '/tr/arkadaslarla-spor-oyunlari', '/tr/bolgeye-gore-spor-oyunlari',
       // the prices and the release notes (content/copy/pricing.*.ts, changelog.*.ts)
-      '/pricing', '/changelog', '/tr/fiyatlar', '/tr/surum-notlari']);
+      '/pricing', '/changelog', '/tr/fiyatlar', '/tr/guncellemeler']);
     for (const url of urls) {
       const { html } = draw(lang, url);
       for (const h of hrefs(html)) {
@@ -236,7 +236,7 @@ describe('game pages', () => {
     for (const g of games) {
       const { html, r } = draw('en', `/games/${g.seo.slug}/`, { caps: bigScreen });
       const text = textOf(html.match(/<ul class="k-facts"[\s\S]*?<\/ul>/)?.[0] ?? '');
-      expect(r.title).toBe(`${typeof g.title === 'string' ? g.title : g.title['en']}: a fitness game for your webcam or phone`);
+      expect(r.title).toBe(`${typeof g.title === 'string' ? g.title : g.title['en']}: a webcam fitness game in your browser`);
       expect(r.title.length, g.id).toBeLessThanOrEqual(60);
       expect(html.match(/<ol class="k-how">[\s\S]*?<\/ol>/)?.[0].match(/<li>/g)?.length, g.id).toBe(g.catalogue.how.length);
       expect(text.includes('2 players'), `${g.id} two players`).toBe(g.modes.includes('local2'));

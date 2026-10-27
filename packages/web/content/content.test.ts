@@ -461,7 +461,7 @@ describe('English and Turkish say the same numbers', () => {
     return [...new Set(t.match(/\d+(?:\.\d+)?/g) ?? [])].sort((a, b) => Number(a) - Number(b));
   };
   for (const [en, tr] of [['privacy.html', 'tr/privacy.html'], ['terms.html', 'tr/terms.html'], ['faq.html', 'tr/faq.html'], ['delete-account.html', 'tr/delete-account.html'],
-    ['pricing.html', 'tr/fiyatlar.html'], ['changelog.html', 'tr/surum-notlari.html'], ['active-arcade-alternative.html', 'tr/active-arcade-alternatifi.html']] as const) {
+    ['pricing.html', 'tr/fiyatlar.html'], ['changelog.html', 'tr/guncellemeler.html'], ['active-arcade-alternative.html', 'tr/active-arcade-alternatifi.html']] as const) {
     it(`${en} and ${tr}`, () => {
       expect(numbers(byFile.get(tr) as PageSpec)).toEqual(numbers(byFile.get(en) as PageSpec));
     });
@@ -1196,7 +1196,7 @@ describe('the prices, the release notes, the Active Arcade page and llms.txt (re
       expect(r.items.length).toBeGreaterThan(0);
       for (const i of r.items) { expect(i.en.length).toBeGreaterThan(20); expect(i.tr.length).toBeGreaterThan(20); }
     }
-    for (const [file, lang] of [['changelog.html', 'en'], ['tr/surum-notlari.html', 'tr']] as const) {
+    for (const [file, lang] of [['changelog.html', 'en'], ['tr/guncellemeler.html', 'tr']] as const) {
       const t = textOf(file);
       for (const r of RELEASES) expect(t, r.day).toContain(F.longDate(r.day, lang));
     }

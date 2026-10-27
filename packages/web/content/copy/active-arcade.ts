@@ -46,7 +46,7 @@ function page(lang: F.Lang): PageSpec {
       ['Where it runs', `An app for iPhone and iPad from the App Store; a TV through AirPlay or HDMI ${s.a}`, 'The browser of a phone, tablet, laptop or desktop: Chrome, Edge, Firefox or Safari'],
       ['What you install', `An app of about ${A.sizeMb} MB ${s.a}`, 'Nothing. The browser keeps the pose model, about 6 MB'],
       ['What it costs', `Free, with no ads, no in-app purchases and no subscription ${s.a}`, `${c.free} of ${c.total} games free, no ads.<span data-web-pay> Pro from ${$(F.PRICE.proMonthly)} a month</span>`],
-      ['Last update', `Version ${A.version}, ${day(A.updated)} ${s.a}`, `${day(LATEST_RELEASE.day)}; every change is in the release notes`],
+      ['Last update', `Version ${A.version}, ${day(A.updated)} ${s.a}`, `${day(LATEST_RELEASE.day)}; every change is on the updates page`],
       ['Languages', `English and Chinese ${s.a}`, 'English and Turkish'],
       ['Playing with others', `2-player modes, side by side in front of one device ${s.a}`, `Two people on one camera on a big screen, and live online races in rooms of ${F.SEATS.min} to ${F.SEATS.max} (${live})`],
       ['Seated play', `Not mentioned in the listing ${s.a}`, 'Every game has a seated version'],
@@ -56,7 +56,7 @@ function page(lang: F.Lang): PageSpec {
       ['Nerede çalışır', `App Store’dan iPhone ve iPad uygulaması; AirPlay ya da HDMI ile TV ${s.a}`, 'Telefon, tablet, dizüstü ya da masaüstünde tarayıcı: Chrome, Edge, Firefox veya Safari'],
       ['Ne kurarsın', `Yaklaşık ${A.sizeMb} MB’lık bir uygulama ${s.a}`, 'Hiçbir şey. Poz modelini, yaklaşık 6 MB, tarayıcı saklar'],
       ['Ücreti', `Ücretsiz; reklam, uygulama içi satın alma ve abonelik yok ${s.a}`, `${c.total} oyunun ${c.free} tanesi ücretsiz, reklam yok.<span data-web-pay> Pro ayda ${$(F.PRICE.proMonthly)}’dan başlar</span>`],
-      ['Son güncelleme', `Sürüm ${A.version}, ${day(A.updated)} ${s.a}`, `${day(LATEST_RELEASE.day)}; her değişiklik sürüm notlarında`],
+      ['Son güncelleme', `Sürüm ${A.version}, ${day(A.updated)} ${s.a}`, `${day(LATEST_RELEASE.day)}; her değişiklik güncellemeler sayfasında`],
       ['Diller', `İngilizce ve Çince ${s.a}`, 'İngilizce ve Türkçe'],
       ['Başkalarıyla oynama', `Tek cihazın önünde yan yana 2 oyunculu modlar ${s.a}`, `Büyük ekranda tek kamerada iki kişi ve ${F.SEATS.min} ile ${F.SEATS.max} kişilik odalarda çevrimiçi canlı yarış (${live})`],
       ['Oturarak oynama', `Mağaza sayfasında geçmiyor ${s.a}`, 'Her oyunun oturarak sürümü var'],
@@ -86,13 +86,13 @@ function page(lang: F.Lang): PageSpec {
         '<strong>Nothing to download.</strong> Open the page, allow the camera and play. The camera video is read on your device and never uploaded.',
         `<strong>Seated and quiet versions.</strong> Every game can be played from a chair, and ${c.quiet} of ${c.total} without jumping or stamping.`,
         `<strong>Friends far away.</strong> Live races in ${live}, in a room of ${F.SEATS.min} to ${F.SEATS.max} players, and ghost races against a recording.`,
-        `<strong>Updated.</strong> The last release was on ${day(LATEST_RELEASE.day)}, and the ${link(PAGES_CHANGELOG.en, 'release notes')} list every change.`,
+        `<strong>Updated.</strong> The last release was on ${day(LATEST_RELEASE.day)}, and the ${link(PAGES_CHANGELOG.en, 'updates')} page lists every change.`,
       ] : [
         '<strong>iPhone ya da iPad gerekmez.</strong> Android telefonda, Windows ya da Mac bilgisayarda, iPhone’da ya da iPad’de tarayıcıda çalışır.',
         '<strong>İndirecek bir şey yok.</strong> Sayfayı aç, kameraya izin ver ve oyna. Kamera görüntüsü cihazında okunur, hiçbir yere gönderilmez.',
         `<strong>Oturarak ve sessiz sürümler.</strong> Her oyun sandalyeden oynanabilir; ${c.total} oyunun ${c.quiet} tanesi zıplamadan ve tepinmeden oynanır.`,
         `<strong>Uzaktaki arkadaşlar.</strong> ${live} oyunlarında ${F.SEATS.min} ile ${F.SEATS.max} kişilik odada canlı yarış ve bir kayda karşı hayalet yarışı.`,
-        `<strong>Güncel.</strong> Son sürüm ${day(LATEST_RELEASE.day)} tarihinde çıktı; her değişiklik ${link(PAGES_CHANGELOG.tr, 'sürüm notlarında')} yazar.`,
+        `<strong>Güncel.</strong> Son sürüm ${day(LATEST_RELEASE.day)} tarihinde çıktı; her değişiklik ${link(PAGES_CHANGELOG.tr, 'güncellemeler')} sayfasında yazar.`,
       ]),
     },
     {
@@ -105,7 +105,7 @@ function page(lang: F.Lang): PageSpec {
   ];
 
   const faq = en ? [
-    { q: 'Is there a free alternative to Active Arcade?', a: `<p>BodyArcade is one: ${c.free} of its ${c.total} games are free, with no ads and no account, and it runs in a browser instead of an app. Pro adds the other ${c.total - c.free} games and more; the ${link(PRICING_URL.en, 'prices page')} has the details.</p>` },
+    { q: 'Are there free apps like Active Arcade?', a: `<p>BodyArcade is one, as a web app: ${c.free} of its ${c.total} games are free, with no ads and no account, and it runs in a browser instead of an app. Pro adds the other ${c.total - c.free} games and more; the ${link(PRICING_URL.en, 'prices page')} has the details.</p>` },
     { q: 'Can I play on an Android phone or a computer?', a: '<p>BodyArcade, yes: it runs in Chrome, Edge, Firefox or Safari on a phone, tablet, laptop or desktop. For this page we read only Active Arcade&rsquo;s App Store listing, which is for iPhone and iPad.</p>' },
     { q: 'Can two people play together?', a: `<p>Both have two-player play. In Active Arcade two people stand side by side in front of one device ${s.a}. In BodyArcade two people can share one camera on a big screen, and friends in other places can race live in a room of ${F.SEATS.min} to ${F.SEATS.max}.</p>` },
     { q: 'Is my camera video uploaded?', a: `<p>Not in BodyArcade: your device turns the video into ${F.MODEL_POINTS} body points on the spot, and the video is never uploaded, recorded or saved. See the <a href="/privacy">privacy policy</a>.</p>` },
@@ -128,14 +128,16 @@ function page(lang: F.Lang): PageSpec {
     },
   );
 
-  const title = en ? 'An Active Arcade alternative that runs in your browser' : 'Tarayıcıda çalışan bir Active Arcade alternatifi';
-  const h1 = en ? 'An Active Arcade alternative that runs in your browser' : 'Tarayıcıda çalışan bir Active Arcade alternatifi';
+  // wording from the keyword scan of 27 Oct (NOTLAR-release3.md): "active arcade app", "android" and "pc" are the strongest suggestions
+  // after the name, "active arcade alternative" is offered as it is; in Turkish "apk", "ios", "android". Each says where BodyArcade runs.
+  const title = en ? 'Active Arcade app alternative for Android and PC' : 'Active Arcade alternatifi: Android, iPhone ve bilgisayarda';
+  const h1 = en ? 'An Active Arcade alternative for Android and PC' : 'Android, iPhone ve bilgisayar için Active Arcade alternatifi';
   const description = en
-    ? `Active Arcade is an iPhone and iPad app last updated in ${day(A.updated).replace(/^\d+ /, '')}. BodyArcade runs in a browser, with ${c.free} free games. Side by side, with sources.`
-    : `Active Arcade, son güncellemesi ${day(A.updated).replace(/^\d+ /, '')} olan bir iPhone ve iPad uygulaması. BodyArcade tarayıcıda, ${c.free} ücretsiz oyunla. Kaynaklarıyla yan yana.`;
+    ? `An Active Arcade alternative for Android and PC: BodyArcade runs in a browser, with ${c.free} free games. Active Arcade was last updated in ${day(A.updated).replace(/^\d+ /, '')}.`
+    : `Android, iPhone ve bilgisayar için Active Arcade alternatifi: BodyArcade tarayıcıda, ${c.free} ücretsiz oyunla çalışır. Active Arcade’in son güncellemesi ${day(A.updated).replace(/^\d+ /, '')}.`;
   const lead = en
-    ? `Active Arcade is a free app from ${A.maker} that turns your body into the controller of short games on an iPhone or iPad. Its App Store listing shows version ${A.version}, from ${day(A.updated)} ${s.a}. BodyArcade is a set of ${c.total} short camera games that runs in a browser instead. This page puts the two side by side and names the source and the day of every fact about Active Arcade.`
-    : `Active Arcade, ${A.maker} firmasının, bir iPhone ya da iPad’de bedenini kısa oyunların kumandasına çeviren ücretsiz uygulaması. App Store sayfası ${day(A.updated)} tarihli ${A.version} sürümünü gösteriyor ${s.a}. BodyArcade ise tarayıcıda çalışan ${c.total} kısa kameralı oyundan oluşur. Bu sayfa ikisini yan yana koyar ve Active Arcade hakkındaki her bilginin kaynağını ve tarihini verir.`;
+    ? `BodyArcade is an Active Arcade alternative that runs in the browser of an Android phone, a PC or Mac, an iPhone or an iPad, with no app to download. Active Arcade is a free app from ${A.maker} that turns your body into the controller of short games on an iPhone or iPad. Its App Store listing shows version ${A.version}, from ${day(A.updated)} ${s.a}. BodyArcade is a set of ${c.total} short camera games. This page puts the two side by side and names the source and the day of every fact about Active Arcade.`
+    : `BodyArcade, Android telefonda, PC ya da Mac bilgisayarda, iPhone’da ya da iPad’de tarayıcıda çalışan, uygulama indirmeden oynanan bir Active Arcade alternatifidir. Active Arcade, ${A.maker} firmasının, bir iPhone ya da iPad’de bedenini kısa oyunların kumandasına çeviren ücretsiz uygulaması. App Store sayfası ${day(A.updated)} tarihli ${A.version} sürümünü gösteriyor ${s.a}. BodyArcade ${c.total} kısa kameralı oyundan oluşur. Bu sayfa ikisini yan yana koyar ve Active Arcade hakkındaki her bilginin kaynağını ve tarihini verir.`;
   const minutes = readMinutes(lead + sections.map((x) => x.html).join(' '));
   const url = ACTIVE_ARCADE_URL[lang];
   return {

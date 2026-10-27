@@ -44,7 +44,7 @@ export function pricingTr(): PageSpec {
         `${proPlans.length} antrenman planı daha: ${listWords(proPlans, lang)}.`,
         'Zor ve Uzman zorluk seviyeleri.',
         `Road Run’ın diğer ${W.total - W.free} dünyası.`,
-        `Daha sonra eklediğimiz oyunlar: ${memberships} üyeliklerinden biri etkin olduğu sürece ve Ömür boyu planda. Neyin ne zaman eklendiği ${link(PAGES_CHANGELOG.tr, 'sürüm notlarında')} yazar.`,
+        `Daha sonra eklediğimiz oyunlar: ${memberships} üyeliklerinden biri etkin olduğu sürece ve Ömür boyu planda. Neyin ne zaman eklendiği ${link(PAGES_CHANGELOG.tr, 'güncellemeler')} sayfasında yazar.`,
       ]),
     },
     {
@@ -90,8 +90,8 @@ ${plans}</div>
   ];
   sections.push({ id: 'sorular', title: 'Fiyatlarla ilgili sorular', html: faq.map((i) => qa(i.q, i.a)).join('\n') });
 
-  const title = 'BodyArcade fiyatları: ücretsiz oyunlar ve Pro planları';
-  const description = `${c.total} oyunun ${c.free} tanesi ücretsiz. Web’de Pro: ayda ${$(F.PRICE.proMonthly)}, ${F.TRIAL_DAYS} gün denemeli yılda ${$(F.PRICE.proYearly)} ya da tek sefer ${$(F.PRICE.lifetime)}. Her planda neler var.`;
+  const title = 'BodyArcade fiyatları: ücretsiz spor oyunları ve Pro';
+  const description = `${c.total} BodyArcade spor oyununun ${c.free} tanesi ücretsiz. Web’de Pro: ayda ${$(F.PRICE.proMonthly)}, ${F.TRIAL_DAYS} gün denemeli yılda ${$(F.PRICE.proYearly)} ya da tek sefer ${$(F.PRICE.lifetime)}. Her planda neler var.`;
   return {
     file: 'tr/fiyatlar.html',
     url: PRICING_URL.tr,
@@ -99,9 +99,9 @@ ${plans}</div>
     other: { lang: 'en', url: PRICING_URL.en },
     title,
     description,
-    h1: 'Fiyatlar',
+    h1: 'BodyArcade fiyatları',
     when: `${asOf} itibarıyla fiyatlar`,
-    lead: `BodyArcade’in ücretsiz bir çekirdeği ve tek bir ücretli yükseltmesi var: Pro. ${c.total} oyunun ${c.free} tanesi ücretsizdir ve öyle kalır. <span data-web-pay>Web’de Pro ayda ${$(F.PRICE.proMonthly)}, ${F.TRIAL_DAYS} gün ücretsiz denemeyle yılda ${$(F.PRICE.proYearly)}, ${F.FAMILY_PLAN ? `Aile planıyla yılda ${$(F.PRICE.familyYearly)} ` : ''}ya da tek sefer ${$(F.PRICE.lifetime)}.</span>`,
+    lead: `BodyArcade’in ücretsiz spor oyunları ve tek bir ücretli yükseltmesi var: Pro. ${c.total} oyunun ${c.free} tanesi ücretsizdir ve öyle kalır. <span data-web-pay>Web’de Pro ayda ${$(F.PRICE.proMonthly)}, ${F.TRIAL_DAYS} gün ücretsiz denemeyle yılda ${$(F.PRICE.proYearly)}, ${F.FAMILY_PLAN ? `Aile planıyla yılda ${$(F.PRICE.familyYearly)} ` : ''}ya da tek sefer ${$(F.PRICE.lifetime)}.</span>`,
     sections,
     toc: true,
     after: cta('Ücretsiz bir oyunla başla. Sevdiğinden emin olana kadar Pro bekleyebilir.', '/tr/', 'Ücretsiz bir oyun oyna'),

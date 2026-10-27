@@ -77,7 +77,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Games', '/'], pro: ['Pro', '/pro/'], faq: ['FAQ', '/faq'], blog: ['Blog', '/blog/'] },
     play: 'Play a game', toc: 'On this page', crumbs: 'Breadcrumb',
     made: `BodyArcade is made by ${STUDIO}.`, camera: 'Camera video is read on your device and never recorded.',
-    privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', delete: 'Delete account', guides: 'Guides', pricing: 'Prices', changelog: 'What is new', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
+    privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', delete: 'Delete account', guides: 'Guides', pricing: 'Prices', changelog: 'Updates', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
     studio: STUDIO,
   },
   tr: {
@@ -85,7 +85,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Oyunlar', '/tr/'], pro: ['Pro', '/tr/pro/'], faq: ['SSS', '/tr/faq'], blog: null },
     play: 'Bir oyun oyna', toc: 'Bu sayfada', crumbs: 'Sayfa yolu',
     made: `BodyArcade, ${STUDIO} tarafından yapılır.`, camera: 'Kamera görüntüsü cihazında okunur, hiçbir zaman kaydedilmez.',
-    privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', delete: 'Hesabı sil', guides: 'Rehberler', pricing: 'Fiyatlar', changelog: 'Yenilikler', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
+    privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', delete: 'Hesabı sil', guides: 'Rehberler', pricing: 'Fiyatlar', changelog: 'Güncellemeler', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
     studio: STUDIO,
   },
 };
@@ -93,7 +93,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
 /** The site's own pages in each language (the app's footer has the same addresses: packages/web/src/views/chrome.ts SITE_PAGES). */
 export const PAGES: Readonly<Record<Lang, { privacy: string; terms: string; faq: string; delete: string; pricing: string; changelog: string }>> = {
   en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account', pricing: '/pricing', changelog: '/changelog' },
-  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account', pricing: '/tr/fiyatlar', changelog: '/tr/surum-notlari' },
+  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account', pricing: '/tr/fiyatlar', changelog: '/tr/guncellemeler' },
 };
 
 /** The longest <title> a page gets: about what a search result shows before it cuts the line. */

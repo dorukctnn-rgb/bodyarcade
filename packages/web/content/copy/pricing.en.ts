@@ -75,7 +75,7 @@ export function pricingEn(): PageSpec {
         `${proPlans.length} more workout plans: ${listWords(proPlans, lang)}.`,
         'The Hard and Expert difficulties.',
         `The other ${W.total - W.free} Road Run worlds.`,
-        `The games we add later, while ${memberships} membership is active, and on the Lifetime plan. The ${link(PAGES_CHANGELOG.en, 'release notes')} list what was added and when.`,
+        `The games we add later, while ${memberships} membership is active, and on the Lifetime plan. The ${link(PAGES_CHANGELOG.en, 'updates')} page lists what was added and when.`,
       ]),
     },
     {
@@ -121,8 +121,9 @@ ${plans}</div>
   ];
   sections.push({ id: 'questions', title: 'Questions about the prices', html: faq.map((i) => qa(i.q, i.a)).join('\n') });
 
-  const title = 'BodyArcade prices: the free games and the Pro plans';
-  const description = `${c.free} of ${c.total} games are free. Pro on the web: ${$(F.PRICE.proMonthly)} a month, ${$(F.PRICE.proYearly)} a year with a ${F.TRIAL_DAYS}-day trial, or ${$(F.PRICE.lifetime)} once. What each plan includes.`;
+  // wording from the keyword scan of 27 Oct (NOTLAR-release3.md): "free workout games" is the second strongest free phrase and no other page holds it
+  const title = 'BodyArcade prices: free workout games and Pro plans';
+  const description = `${c.free} of ${c.total} BodyArcade workout games are free. Pro on the web: ${$(F.PRICE.proMonthly)} a month, ${$(F.PRICE.proYearly)} a year with a ${F.TRIAL_DAYS}-day trial, or ${$(F.PRICE.lifetime)} once. What each plan includes.`;
   return {
     file: 'pricing.html',
     url: PRICING_URL.en,
@@ -130,9 +131,9 @@ ${plans}</div>
     other: { lang: 'tr', url: PRICING_URL.tr },
     title,
     description,
-    h1: 'Prices',
+    h1: 'BodyArcade prices',
     when: `Prices as of ${asOf}`,
-    lead: `BodyArcade has a free core and one paid upgrade, Pro. ${c.free} of the ${c.total} games are free and stay free. <span data-web-pay>On the web Pro costs ${$(F.PRICE.proMonthly)} a month, ${$(F.PRICE.proYearly)} a year with ${F.TRIAL_DAYS} days free, ${F.FAMILY_PLAN ? `${$(F.PRICE.familyYearly)} a year for the Family plan, ` : ''}or ${$(F.PRICE.lifetime)} once.</span>`,
+    lead: `BodyArcade has free workout games and one paid upgrade, Pro. ${c.free} of the ${c.total} games are free and stay free. <span data-web-pay>On the web Pro costs ${$(F.PRICE.proMonthly)} a month, ${$(F.PRICE.proYearly)} a year with ${F.TRIAL_DAYS} days free, ${F.FAMILY_PLAN ? `${$(F.PRICE.familyYearly)} a year for the Family plan, ` : ''}or ${$(F.PRICE.lifetime)} once.</span>`,
     sections,
     toc: true,
     after: cta('Start with a free game. Pro can wait until you know you like it.', '/', 'Play a free game'),
@@ -141,5 +142,5 @@ ${plans}</div>
   };
 }
 
-/** The release notes, which the prices page points to for the games added later. */
-export const PAGES_CHANGELOG = { en: '/changelog', tr: '/tr/surum-notlari' } as const;
+/** The updates page (release notes), which the prices page points to for the games added later. */
+export const PAGES_CHANGELOG = { en: '/changelog', tr: '/tr/guncellemeler' } as const;
