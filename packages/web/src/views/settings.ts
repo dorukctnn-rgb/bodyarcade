@@ -4,13 +4,24 @@ import { attr, html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon, type IconName } from '../../../core/ui/icons.ts';
 import { LANG_INFO } from '../../../core/ui/i18n/index.ts';
 import { rulesOf } from '../app/profiles-model.ts';
+import type { OfflineView } from '../app/offline.ts';
 import { hasPro, type ViewContext } from '../context.ts';
 import { chrome, sitePageHref } from './chrome.ts';
 import { segmented } from './forms.ts';
 
+/** What the "This app" group draws (the Android app only; null elsewhere, so the web page is the page it was). */
+export interface AppRows {
+  /** The state of the saved body-tracking files; null where this browser cannot keep files (the row is left out). */
+  offline: OfflineView | null;
+  /** "HH:MM" in the daily reminder's time field. */
+  reminderTime: string;
+}
+
 export interface SettingsViewOptions {
   /** The effective reduced-motion state: the setting, or the device when the setting follows it. */
   reducedMotion: boolean;
+  /** The Android app's own rows. Left out (null) on the web. */
+  app?: AppRows | null;
 }
 
 interface RowOptions { icon?: IconName; title: string; hint?: string | undefined; control: SafeHtml | string; wrap?: boolean; labelFor?: string }
@@ -35,6 +46,40 @@ function pipPicker(ctx: ViewContext): SafeHtml {
   const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
   return html`<div class="k-pipwrap"><div class="k-pip" role="radiogroup" aria-label="${t.t('settings.pip')}"><span class="hud"></span><span class="score"></span>${corners.map((c) => html`<label><input type="radio" name="pipCorner" value="${c}" data-key="pip-${c}" aria-label="${t.tx(`settings.pip.${c}`)}"${attr('checked', s === c)}></label>`)}</div>
     <label class="k-check ba-small"><input type="radio" name="pipCorner" value="hidden" data-key="pip-hidden"${attr('checked', s === 'hidden')}>${t.t('settings.pip.hidden')}</label></div>`;
+}
+
+/** "Play without a connection": what is saved on this phone, said plainly, and the one button that saves it. */
+function offlineRow(ctx: ViewContext, v: OfflineView): SafeHtml {
+  const t = ctx.i18n;
+  const text = ((): string => {
+    switch (v.kind) {
+      case 'checking': return t.t('settings.offline.checking');
+      case 'missing': return t.t('settings.offline.missing', { mb: v.mb });
+      case 'saved': return t.t('settings.offline.saved', { mb: v.mb });
+      case 'saving': return t.t('settings.offline.saving', { pct: v.pct });
+      case 'failed': return t.t('settings.offline.failed');
+    }
+  })();
+  const hint = html`<small data-offline-status>${text}</small>`;
+  const control = v.kind === 'missing' || v.kind === 'failed'
+    ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="offline-save">${t.t(v.kind === 'failed' ? 'common.retry' : 'settings.offline.save')}</button>`
+    : v.kind === 'saved' ? html`<span class="ba-small k-offline-ok">${icon('check')}${t.t('settings.offline.savedBadge')}</span>`
+      : v.kind === 'saving' ? html`<progress class="k-offline-bar" max="100" value="${v.pct}" data-offline-bar aria-label="${t.t('settings.offline')}"></progress>` : '';
+  return html`<li data-offline="${v.kind}"><span class="ico">${icon('download')}</span><div class="grow"><b>${t.t('settings.offline')}</b>${hint}</div>${control}</li>`;
+}
+
+/** "Daily reminder": a time and the button that hands the phone's calendar app a repeating event. */
+function reminderRow(ctx: ViewContext, time: string): SafeHtml {
+  const t = ctx.i18n;
+  return html`<li class="wrap"><span class="ico">${icon('clock')}</span><div class="grow"><b>${t.t('settings.reminder')}</b><small>${t.t('settings.reminder.hint')}</small></div>
+    <span class="k-reminder"><input class="ba-input" type="time" name="reminderTime" data-reminder-time value="${time}" required aria-label="${t.t('settings.reminder.time')}"><button class="ba-btn ba-btn--secondary" type="button" data-action="reminder-add">${t.t('settings.reminder.add')}</button></span></li>`;
+}
+
+function appSection(ctx: ViewContext, app: AppRows): SafeHtml {
+  return html`<section class="k-setgroup" aria-labelledby="s-app"><h2 id="s-app">${ctx.i18n.t('settings.section.app')}</h2><ul class="k-set">
+    ${app.offline ? offlineRow(ctx, app.offline) : ''}
+    ${reminderRow(ctx, app.reminderTime)}
+  </ul></section>`;
 }
 
 export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml {
@@ -82,6 +127,7 @@ export function settingsPage(ctx: ViewContext, o: SettingsViewOptions): SafeHtml
       ${ctx.player && (ctx.player.capacity.max > 1 || ctx.player.players > 1)
         ? row({ icon: 'users', title: t.t('settings.profiles'), hint: t.t('settings.profiles.hint', ctx.player.capacity), control: html`<a class="ba-link" href="${ctx.href('profiles', { query: { manage: '1' } })}">${t.t('settings.profiles.manage')}</a>` }) : ''}
     </ul></section>
+    ${o.app ? appSection(ctx, o.app) : ''}
   </div>`;
 
   const right = html`<div class="k-stack">

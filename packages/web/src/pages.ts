@@ -17,7 +17,7 @@ import { defaultPaywallState, paywallPage, type PaywallState } from './views/pay
 import { NO_PLANS_DATA, plansPage, type PlansData } from './views/plans.ts';
 import { playPage } from './views/play.ts';
 import { resultsPage, type RoundResult } from './views/results.ts';
-import { settingsPage } from './views/settings.ts';
+import { settingsPage, type AppRows } from './views/settings.ts';
 import type { TourState } from './app/welcome-model.ts';
 import { FIRST_TOUR, welcomePage } from './views/welcome.ts';
 
@@ -38,9 +38,11 @@ export interface PageState {
   welcome: TourState | null;
   /** What the players screen draws; null in the page generator, which never draws it. */
   profiles: ProfilesPageState | null;
+  /** The Android app's own rows of the settings page (offline play, the daily reminder); null on the web and in the page generator. */
+  app: AppRows | null;
 }
 
-export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null, welcome: null, profiles: null };
+export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null, welcome: null, profiles: null, app: null };
 
 export interface Rendered {
   body: SafeHtml;
@@ -126,7 +128,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
     case 'pro':
       return { body: paywallPage(ctx, state.paywall ?? defaultPaywallState(ctx, route.query.get('game') ?? undefined)), title: named(t.t('paywall.title')), description: t.t('paywall.lead'), noindex, status: 200, jsonLd: [] };
     case 'settings':
-      return { body: settingsPage(ctx, { reducedMotion: state.reducedMotion || ctx.settings.motion === 'reduce' }), title: named(t.t('settings.title')), description: t.t('settings.title'), noindex, status: 200, jsonLd: [] };
+      return { body: settingsPage(ctx, { reducedMotion: state.reducedMotion || ctx.settings.motion === 'reduce', app: state.app }), title: named(t.t('settings.title')), description: t.t('settings.title'), noindex, status: 200, jsonLd: [] };
     case 'friends':
     case 'lobbies':
     case 'room':
