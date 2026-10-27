@@ -4,12 +4,18 @@
 import { html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import type { BodyRegion } from '../../../core/types/index.ts';
-import { filterGames, orderForPlayer, proGames, supportsLocal2 } from '../../catalogue/filter.ts';
+import { filterGames, inRegion, orderForPlayer, proGames, supportsLocal2 } from '../../catalogue/filter.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import { ACTIVE_DAY_SECONDS, CHART_TOP_MINUTES, type RecentBest, type WeekStats } from '../app/arcade.ts';
 import type { ChallengeToday } from '../../../core/store/daily-challenge.ts';
+import { listPricePlans } from '../../../core/entitlements/plans.ts';
+import { FREE_PLAN_ID, WORKOUT_PLANS } from '../../../core/store/workout-plans.ts';
+import { localized } from '../../../core/ui/i18n/localized.ts';
+import { describeOffer, type PlansConfig } from '../../../core/ui/plans.ts';
+import { MAX_SEATS, MIN_SEATS } from '../../../core/types/net.ts';
 import { hasPro, regionLabel, taglineOf, titleOf, type ViewContext } from '../context.ts';
-import { chrome } from './chrome.ts';
+import { canRace } from '../app/duel.ts';
+import { chrome, sitePageHref } from './chrome.ts';
 import { freeLine } from './paywall.ts';
 import { NO_PLANS_DATA, planStrip, type PlansData } from './plans.ts';
 import { gameGrid, regionChips } from './tiles.ts';
@@ -141,6 +147,58 @@ function proTeaser(ctx: ViewContext): SafeHtml {
   </section>`;
 }
 
+/** The games of a body region page and how many of them are free, whatever the player's modes (its title and description say these). */
+export function regionGames(games: readonly ShellGame[], region: BodyRegion): { n: number; free: number } {
+  const list = games.filter((g) => inRegion(g, region));
+  return { n: list.length, free: list.filter((g) => g.free).length };
+}
+
+/**
+ * The plans and prices the home page states. A page drawn without a visitor (what a crawler and a browser without scripts read) has
+ * the web list prices of core/entitlements/plans.ts; the app draws the plans of where it runs (Google Play's own in the Android app),
+ * and none while that is not known yet.
+ */
+function homeOffers(ctx: ViewContext): PlansConfig | null {
+  if (ctx.server) return listPricePlans();
+  if ((ctx.paywall.mode === 'web' || ctx.paywall.mode === 'play') && ctx.plans.offers.length > 0) return ctx.plans;
+  return null;
+}
+
+/**
+ * What BodyArcade is, in words that stand without scripts: the games and how many are free, the live races, where it plays, the
+ * workout plans and what Pro costs. Every number is the catalogue's, the plans' or the price list's own.
+ */
+function aboutSection(ctx: ViewContext): SafeHtml {
+  const t = ctx.i18n;
+  const n = ctx.games.length;
+  const free = ctx.games.filter((g) => g.free).length;
+  const live = ctx.server || ctx.flags.social ? ctx.games.filter((g) => canRace(g)) : [];
+  const freePlan = WORKOUT_PLANS.find((p) => p.id === FREE_PLAN_ID);
+  const offers = hasPro(ctx) ? null : homeOffers(ctx);
+  const web = ctx.server || ctx.paywall.mode === 'web';
+  const prices = offers
+    ? html`<div class="k-card k-about-prices"${web ? html` data-web-pay` : ''}>
+        <h3 class="k-h3">${t.t('home.about.prices')}</h3>
+        <ul>${offers.offers.map((o) => { const d = describeOffer(o, t, offers); return html`<li><b>${d.name}</b><span>${d.trialLine ?? d.priceLine}</span></li>`; })}</ul>
+        ${web ? html`<p><a class="ba-link" href="${sitePageHref(ctx.lang, 'pricing')}" data-native>${t.t('home.about.pricing')}</a></p>` : ''}
+      </div>`
+    : '';
+  return html`<section class="ba-section k-about" aria-labelledby="about-h"><header><h2 id="about-h">${t.t('home.about.title')}</h2></header>
+    <div class="k-about-grid">
+      <div class="k-about-text">
+        <p class="k-about-lead">${t.t('home.about.body', { n })}</p>
+        <ul class="k-about-facts">
+          <li>${icon('arcade')}<span>${t.t('home.about.free', { n, free })}</span></li>
+          ${live.length ? html`<li>${icon('friends')}<span>${t.t('home.about.live', { names: t.list(live.map((g) => (g.free ? titleOf(ctx, g) : `${titleOf(ctx, g)} (${t.t('common.pro')})`))), min: MIN_SEATS, max: MAX_SEATS })}</span></li>` : ''}
+          <li>${icon('globe')}<span>${t.t('home.about.where')}</span></li>
+          <li>${icon('programs')}<span>${t.t('home.about.plans', { n: WORKOUT_PLANS.length, free: freePlan ? localized(freePlan.title, ctx.lang) : '' })} <a class="ba-link" href="${ctx.href('plans')}">${t.t('home.about.plansLink')}</a></span></li>
+        </ul>
+      </div>
+      ${prices}
+    </div>
+  </section>`;
+}
+
 export interface HomeOptions {
   /** A body region page; null is the home page. */
   region: BodyRegion | null;
@@ -156,7 +214,9 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
   const shownAll = region ? filtered.shown : orderForPlayer(filtered.shown, ctx.settings.regions);
   const shown = data.duoOnly ? shownAll.filter((g) => supportsLocal2(g)) : shownAll;
   const hiddenByModes = filtered.hiddenByModes;
-  const free = ctx.games.filter((g) => g.free).length;
+  // The count line says how many of the games on the page are free ("5 games, 4 free" on a region page), never the free games of the
+  // whole catalogue next to the games of one region.
+  const free = shown.filter((g) => g.free).length;
 
   const empty = html`<div class="k-card ba-empty" role="status">
     <h3 class="k-h3">${t.t('home.empty.title')}</h3>
@@ -170,7 +230,7 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
 
   const top = region
     ? html`<div class="ba-pagehead"><h1 class="ba-h1" data-main-heading>${t.t('workouts.title', { region: regionLabel(ctx, region) })}</h1></div>
-       <p class="k-sub">${t.t('workouts.description', { region: regionLabel(ctx, region) })}</p>`
+       <p class="k-sub">${t.t('workouts.description', { region: regionLabel(ctx, region), ...regionGames(ctx.games, region) })}</p>`
     : html`<section class="k-hero${data.week ? '' : ' k-hero--solo'}" aria-label="${t.t('brand.name')}">${hero(ctx)}${data.week ? weekCard(ctx, data.week, data.recent) : ''}</section>`;
 
   const main = html`
@@ -187,7 +247,8 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
     </section>
     ${region ? '' : planStrip(ctx, data.plans)}
     ${together(ctx)}
-    ${proTeaser(ctx)}`;
+    ${proTeaser(ctx)}
+    ${region ? '' : aboutSection(ctx)}`;
 
   return chrome(ctx, { tab: 'games', main, mainClass: region ? 'ba-page--region' : 'ba-page--home' });
 }

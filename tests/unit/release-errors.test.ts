@@ -1,6 +1,6 @@
 // The page errors of the release layout check (tests/release/support.ts watchErrors): the page's own errors count; the 404 page's
-// own 404 and the friends probe's 401 (the shell asks GET /api/social/me with no signature; a 401 is the service saying it is there)
-// do not. Chromium logs that 401 as a console line without its address, so one line is forgiven per 401 the probe really got.
+// own 404 does not. A 401 counts wherever it comes from: since release 3 the friends probe (GET /api/social/status) answers 200, so a
+// visitor without a profile meets no 401 at all.
 import { describe, expect, it } from 'vitest';
 import { watchErrors } from '../release/support.ts';
 
@@ -38,30 +38,11 @@ describe('watchErrors', () => {
     expect(w.list()).toEqual([]);
   });
 
-  it("forgives the friends probe's 401, whichever comes first, the console line or the answer", () => {
+  it('counts every 401, the old unsigned GET /api/social/me included: no answer of the friends service may print an error any more', () => {
     const p = fakePage();
     const w = watchErrors(p.page);
-    p.console(LINE_401);
-    p.response('https://example.test/api/social/me', 401);
     p.response('https://example.test/api/social/me', 401);
     p.console(LINE_401);
-    expect(w.list()).toEqual([]);
-  });
-
-  it('counts a 401 that is not the probe: another address, another method, or more lines than probe answers', () => {
-    const other = fakePage();
-    const w1 = watchErrors(other.page);
-    other.response('https://example.test/api/rooms', 401, 'POST');
-    other.response('https://example.test/api/social/me', 401, 'POST');
-    other.response('https://example.test/api/social/me/friends', 401);
-    other.console(LINE_401);
-    expect(w1.list()).toEqual([`console: ${LINE_401}`]);
-
-    const more = fakePage();
-    const w2 = watchErrors(more.page);
-    more.response('https://example.test/api/social/me?x=1', 401);
-    more.console(LINE_401);
-    more.console(LINE_401);
-    expect(w2.list()).toEqual([`console: ${LINE_401}`]);
+    expect(w.list()).toEqual([`console: ${LINE_401}`]);
   });
 });

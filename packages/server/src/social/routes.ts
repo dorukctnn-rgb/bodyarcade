@@ -8,6 +8,7 @@
 //
 //   POST /api/social/register            a new passwordless profile (signed with the key it registers)      -> {me, created}
 //   POST /api/social/recover             the profile back on a new device {pub, code, recovery}             -> {me}
+//   GET  /api/social/status              (no signature) the friends service is here: answered by the Worker      -> {service}
 //   GET  /api/social/me                  the player's profile                                               -> {me}
 //   POST /api/social/me                  change name, region, language, level, appear-offline, band (down)  -> {me}
 //   POST /api/social/me/code             a new friend code                                                   -> {me}
@@ -43,7 +44,7 @@
 import { AUTH_HEADER, AUTH_QUERY, parseAuth } from '../../../core/social/sign.ts';
 import { HUB_CLOSE } from '../../../core/social/types.ts';
 import type { Fetcher } from '../cf.ts';
-import { HttpError, clientIp, fail } from '../http.ts';
+import { HttpError, clientIp, fail, json } from '../http.ts';
 import type { Handler, Router } from '../router.ts';
 import { directoryOf } from './env.ts';
 import { closedSocket } from './hub.ts';
@@ -196,14 +197,30 @@ const TABLE: readonly (readonly [Method, string, (d: Deps) => Handler])[] = [
   ['GET', '/api/admin/social/stats', () => adminStats],
 ];
 
-/** The Worker's routes: all of the table forwarded to the directory, and the friend-link page served here. */
+/** What GET /api/social/status answers: the one thing a page asks before it has a profile. */
+export const SOCIAL_STATUS = { service: 'social' } as const;
+
+/**
+ * Is the friends service here? The shell asks once when a page opens, with no profile and no signature, so the answer is the Worker's
+ * own: 200 with a fixed body, no Durable Object request (nothing on the free plan's meter) and nothing about the caller. Before
+ * release 3 the shell asked an unsigned GET /api/social/me and took the 401 as the answer, which every browser printed as a console
+ * error on every page of a visitor without a profile.
+ */
+export const socialStatus: Handler = () => json(SOCIAL_STATUS);
+
+/** The Worker's routes: all of the table forwarded to the directory, the status answered here, and the friend-link page served here. */
 export function registerSocialRoutes(router: Router): void {
   for (const [method, pattern] of TABLE) router.add(method, pattern, forwardToDirectory);
+  router.add('GET', '/api/social/status', socialStatus);
   router.add('GET', '/f/:code', openFriendLink);
 }
 
-/** The directory's routes: the handlers (and, in the handler tests, the whole module on one router). */
+/**
+ * The directory's routes: the handlers (and, in the handler tests, the whole module on one router, so the status is there too; the
+ * Worker answers it itself and never forwards it).
+ */
 export function registerDirectoryRoutes(router: Router, deps: Partial<Deps> = {}): void {
   const full: Deps = { connectHub: deps.connectHub ?? (() => fail('unavailable', 503)) };
   for (const [method, pattern, make] of TABLE) router.add(method, pattern, make(full));
+  router.add('GET', '/api/social/status', socialStatus);
 }

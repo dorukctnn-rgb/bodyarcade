@@ -20,15 +20,27 @@ beforeEach(() => { app = createTestApp(); });
 afterEach(() => { POLICY.child.online = true; });
 
 describe('probing the service', () => {
-  it('a Worker that has the service answers 401 with a JSON error', async () => {
-    expect(await probeSocial(async () => json(401, { error: 'unauthorized' }))).toBe('answers');
-    expect(await probeSocial(async () => json(503, { error: 'unavailable' }))).toBe('answers');
+  it('a Worker that has the service answers 200 {"service":"social"}, with no error a browser would print', async () => {
+    expect(await probeSocial(async () => json(200, { service: 'social' }))).toBe('answers');
   });
 
-  it('a static host answers with its start page or a 404, which is not the service', async () => {
+  it('the real Worker answers the question by itself: 200, no signature needed, nothing stored', async () => {
+    const res = await app.call('GET', '/api/social/status');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.body).toEqual({ service: 'social' });
+    const ctx: ExecutionContextLike = { waitUntil: () => undefined };
+    const viaRouter = async (url: RequestInfo | URL): Promise<Response> => (await app.router.handle(new Request(`${TEST_ORIGIN}${String(url)}`), app.env, ctx)) ?? json(404, { error: 'no_route' });
+    expect(await probeSocial(viaRouter as typeof fetch)).toBe('answers');
+    expect(app.db.raw.prepare('SELECT count(*) AS n FROM soc_profiles').get()).toEqual({ n: 0 });
+  });
+
+  it('a static host answers with its start page or a 404, which is not the service; neither is a refusal or a Worker without the module', async () => {
     expect(await probeSocial(async () => new Response('<!doctype html>', { status: 200, headers: { 'Content-Type': 'text/html' } }))).toBe('absent');
     expect(await probeSocial(async () => new Response('not found', { status: 404, headers: { 'Content-Type': 'text/plain' } }))).toBe('absent');
     expect(await probeSocial(async () => json(200, { hello: 'world' }))).toBe('absent');
+    expect(await probeSocial(async () => json(404, { error: 'not_found' }))).toBe('absent');
+    expect(await probeSocial(async () => json(401, { error: 'unauthorized' }))).toBe('absent');
   });
 
   it('no answer at all is unreachable, not absent', async () => {
@@ -37,9 +49,9 @@ describe('probing the service', () => {
 
   it('asks without credentials and without the cache, at the page\'s own origin', async () => {
     const seen: { url: string; init: RequestInit | undefined }[] = [];
-    await probeSocial(async (url, init) => { seen.push({ url: String(url), init }); return json(401, { error: 'unauthorized' }); });
+    await probeSocial(async (url, init) => { seen.push({ url: String(url), init }); return json(200, { service: 'social' }); });
     expect(seen).toHaveLength(1);
-    expect(seen[0]?.url).toBe('/api/social/me');
+    expect(seen[0]?.url).toBe('/api/social/status');
     expect(seen[0]?.init).toMatchObject({ cache: 'no-store', credentials: 'omit' });
   });
 });
@@ -119,7 +131,7 @@ describe('starting the services', () => {
   it('a player who said under 16 sends nothing: the service is not even asked', async () => {
     const st = store();
     st.ns('social').set('tooYoung', true, { version: 1, parse: (r: unknown) => (typeof r === 'boolean' ? r : null) });
-    const fetchFn = vi.fn(async () => json(401, { error: 'unauthorized' }));
+    const fetchFn = vi.fn(async () => json(200, { service: 'social' }));
     const s = await startSocial({ win: WIN, store: st, fetch: fetchFn as unknown as typeof fetch, keys: new MemoryKeyStore() });
     expect(s).not.toBeNull();
     await s?.social.open();
@@ -129,7 +141,8 @@ describe('starting the services', () => {
 
   it('saying under 16 is kept in the store of the page', async () => {
     const st = store();
-    const s = await startSocial({ win: WIN, store: st, fetch: (async () => json(401, { error: 'unauthorized' })) as unknown as typeof fetch, keys: new MemoryKeyStore() });
+    const s = await startSocial({ win: WIN, store: st, fetch: (async () => json(200, { service: 'social' })) as unknown as typeof fetch, keys: new MemoryKeyStore() });
+    expect(s).not.toBeNull();
     s?.social.declareTooYoung();
     expect(st.ns('social').get('tooYoung', { version: 1, parse: (r: unknown) => (typeof r === 'boolean' ? r : null) }, false)).toBe(true);
   });
@@ -138,7 +151,7 @@ describe('starting the services', () => {
     const keys: KeyStore = new MemoryKeyStore();
     const { generateDeviceKey } = await import('../../../core/social/sign.ts');
     await keys.save({ keys: await generateDeviceKey(), registered: true });
-    const fetchFn = vi.fn(async () => json(401, { error: 'unauthorized' }));
+    const fetchFn = vi.fn(async () => json(200, { service: 'social' }));
     const s = await startSocial({ win: WIN, store: store(), fetch: fetchFn as unknown as typeof fetch, keys });
     expect(s).not.toBeNull();
     expect(fetchFn).not.toHaveBeenCalled();
@@ -253,7 +266,7 @@ describe('starting the services', () => {
   });
 
   it('the room port carries what the room page needs besides rooms: the live client of the open room, report and block by seat', async () => {
-    const s = await startSocial({ win: WIN, store: store(), fetch: (async () => json(401, { error: 'unauthorized' })) as unknown as typeof fetch, keys: new MemoryKeyStore() });
+    const s = await startSocial({ win: WIN, store: store(), fetch: (async () => json(200, { service: 'social' })) as unknown as typeof fetch, keys: new MemoryKeyStore() });
     expect(typeof s?.rooms.client).toBe('function');
     expect(s?.rooms.client?.()).toBeNull();
     expect(typeof s?.rooms.reportSeat).toBe('function');

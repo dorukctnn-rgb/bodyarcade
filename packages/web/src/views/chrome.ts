@@ -47,10 +47,11 @@ function languageLinks(ctx: ViewContext): SafeHtml {
  * Every other language of the app reads the English ones, as the site has no others.
  */
 const SITE_PAGES = {
-  en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account' },
-  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account' },
+  en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account', pricing: '/pricing', changelog: '/changelog' },
+  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account', pricing: '/tr/fiyatlar', changelog: '/tr/surum-notlari' },
 } as const;
-export const sitePageHref = (lang: Lang, page: 'privacy' | 'terms' | 'faq' | 'delete'): string => SITE_PAGES[lang === 'tr' ? 'tr' : 'en'][page];
+export type SitePage = keyof (typeof SITE_PAGES)['en'];
+export const sitePageHref = (lang: Lang, page: SitePage): string => SITE_PAGES[lang === 'tr' ? 'tr' : 'en'][page];
 
 /** The search pages of the site (sources: content/copy/seo-*.ts; content.test.ts keeps these addresses equal to theirs). */
 const SITE_GUIDES = {
@@ -74,6 +75,8 @@ function footer(ctx: ViewContext): SafeHtml {
         <li><a href="${sitePageHref(ctx.lang, 'terms')}" data-native>${t.t('footer.terms')}</a></li>
         <li><a href="${sitePageHref(ctx.lang, 'faq')}" data-native>${t.t('footer.faq')}</a></li>
         <li><a href="${sitePageHref(ctx.lang, 'delete')}" data-native>${t.t('footer.delete')}</a></li>
+        ${ctx.paywall.mode === 'play' ? '' : html`<li><a href="${sitePageHref(ctx.lang, 'pricing')}" data-native>${t.t('footer.pricing')}</a></li>`}
+        <li><a href="${sitePageHref(ctx.lang, 'changelog')}" data-native>${t.t('footer.changelog')}</a></li>
         <li><a href="mailto:info@peakappsstudio.com">${t.t('footer.contact')}</a></li>
       </ul>
       <ul class="ba-footer-links ba-footer-guides" aria-label="${t.t('footer.guides')}">

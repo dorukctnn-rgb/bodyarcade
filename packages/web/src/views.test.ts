@@ -2,6 +2,7 @@
 // the facts of each game present, and nothing a visitor should not see. No browser needed: views are functions.
 import { describe, expect, it } from 'vitest';
 import { textOf } from '../../core/ui/html.ts';
+import { localized } from '../../core/ui/i18n/localized.ts';
 import type { Lang } from '../../core/ui/i18n/index.ts';
 import { SERVER_CAPABILITIES, type UiCapabilities } from '../../core/ui/capabilities.ts';
 import { loadCatalogue } from '../catalogue/load.ts';
@@ -107,7 +108,9 @@ describe.each(LANGS)('every page in %s', (lang) => {
     const files = new Set(['/privacy', '/terms', '/faq', '/delete-account', '/tr/privacy', '/tr/terms', '/tr/faq', '/tr/delete-account',
       // the search pages of the site that the footer links to (content/copy/seo-*.ts)
       '/fitness-games', '/seated-exercise-games', '/workout-games-with-friends', '/workout-games-by-body-area',
-      '/tr/evde-spor-oyunlari', '/tr/oturarak-egzersiz-oyunlari', '/tr/arkadaslarla-spor-oyunlari', '/tr/bolgeye-gore-spor-oyunlari']);
+      '/tr/evde-spor-oyunlari', '/tr/oturarak-egzersiz-oyunlari', '/tr/arkadaslarla-spor-oyunlari', '/tr/bolgeye-gore-spor-oyunlari',
+      // the prices and the release notes (content/copy/pricing.*.ts, changelog.*.ts)
+      '/pricing', '/changelog', '/tr/fiyatlar', '/tr/surum-notlari']);
     for (const url of urls) {
       const { html } = draw(lang, url);
       for (const h of hrefs(html)) {
@@ -177,6 +180,50 @@ describe('home and region pages', () => {
     expect(order.slice(0, 3).sort()).toEqual(['limbo-bend', 'pad-work', 'twist-turbine']);
   });
 
+  it('the count line of a region page counts the free games of that region, not of the whole catalogue', () => {
+    for (const lang of LANGS) {
+      for (const region of REGION_ORDER) {
+        const url = `${lang === 'en' ? '' : `/${lang}`}/workouts/${region}/`;
+        const { r, html } = draw(lang, url);
+        if (r.status !== 200) continue;
+        const shown = [...html.matchAll(/class="ba-tile" href="[^"]*\/games\/([a-z0-9-]+)\//g)].map((m) => m[1]);
+        const free = games.filter((g) => shown.includes(g.seo.slug) && g.free).length;
+        const line = textOf(html.match(/<span class="ba-small" data-count>[\s\S]*?<\/span>/)?.[0] ?? '');
+        expect(line, url).toBe(lang === 'en' ? `${shown.length} ${shown.length === 1 ? 'game' : 'games'}, ${free} free` : `${shown.length} oyun, ${free} ücretsiz`);
+        // the title and the description say the region's own numbers too
+        expect(r.description, url).toContain(lang === 'en' ? `, ${free} free.` : `, ${free} tanesi ücretsiz.`);
+      }
+    }
+  });
+
+  it('a page made without a visitor says what BodyArcade is, the live races, where it plays, the plans and the web prices, and links the plans and the prices', () => {
+    for (const lang of LANGS) {
+      const home = lang === 'en' ? '/' : '/tr/';
+      const { html } = draw(lang, home, { server: true });
+      const about = html.match(/<section class="ba-section k-about"[\s\S]*<\/section>/)?.[0] ?? '';
+      const text = textOf(about);
+      const free = games.filter((g) => g.free).length;
+      expect(text).toContain(lang === 'en' ? `${free} of the ${games.length} games are free` : `${games.length} oyunun ${free} tanesi ücretsiz`);
+      for (const g of games.filter((x) => x.modes.includes('duel'))) expect(text, g.id).toContain(localized(g.title, lang));
+      expect(text).toContain('Chrome, Edge, Firefox');
+      for (const price of ['7.99', '39.99', '59.99', '119.99']) expect(text, price).toContain(lang === 'en' ? `$${price}` : price.replace('.', ','));
+      expect(about).toContain(`href="${lang === 'en' ? '' : '/tr'}/plans/"`);
+      expect(about).toContain(`href="${lang === 'en' ? '/pricing' : '/tr/fiyatlar'}"`);
+      expect(about, 'the web prices are hidden inside the Android app by the page that knows it').toContain('data-web-pay');
+    }
+  });
+
+  it('the app draws the prices of where it runs: none while it does not know yet, Google Play’s own and no web price page in the Android app, none for a Pro player', () => {
+    const neutral = draw('en', '/', { paywall: { mode: 'neutral', note: 'checking', keyEntry: { visible: false, wording: 'neutral' }, manageUrl: null, preview: false } }).html;
+    expect(neutral).not.toContain('k-about-prices');
+    expect(draw('en', '/').html, 'on the web the plans of the web').toContain('href="/pricing"');
+    const play = draw('en', '/', { paywall: { mode: 'play', note: null, keyEntry: { visible: false, wording: 'neutral' }, manageUrl: null, preview: false } }).html;
+    expect(play).toContain('k-about-prices');
+    expect(play).not.toContain('href="/pricing"');
+    expect(play).not.toContain('data-web-pay');
+    expect(draw('en', '/', { plan: 'pro' }).html).not.toContain('k-about-prices');
+  });
+
   it('speaks Turkish with proper characters on the Turkish home page', () => {
     const t = textOf(draw('tr', '/tr/').html);
     expect(t).toContain('Tüm oyunlar');
@@ -189,7 +236,8 @@ describe('game pages', () => {
     for (const g of games) {
       const { html, r } = draw('en', `/games/${g.seo.slug}/`, { caps: bigScreen });
       const text = textOf(html.match(/<ul class="k-facts"[\s\S]*?<\/ul>/)?.[0] ?? '');
-      expect(r.title).toBe(`${typeof g.title === 'string' ? g.title : g.title['en']}: camera workout game`);
+      expect(r.title).toBe(`${typeof g.title === 'string' ? g.title : g.title['en']}: a fitness game for your webcam or phone`);
+      expect(r.title.length, g.id).toBeLessThanOrEqual(60);
       expect(html.match(/<ol class="k-how">[\s\S]*?<\/ol>/)?.[0].match(/<li>/g)?.length, g.id).toBe(g.catalogue.how.length);
       expect(text.includes('2 players'), `${g.id} two players`).toBe(g.modes.includes('local2'));
       expect(text.includes('Seated version'), `${g.id} seated`).toBe(g.seated);

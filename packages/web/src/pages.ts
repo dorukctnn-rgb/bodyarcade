@@ -7,7 +7,7 @@ import type { Matched } from '../../core/ui/router.ts';
 import { gameBySlug } from '../catalogue/filter.ts';
 import { aboutOf, regionLabel, titleOf, type ViewContext } from './context.ts';
 import { INDEXABLE, isRegion, type RouteId } from './routes.ts';
-import { homePage, NO_HOME_DATA, type HomeData } from './views/home.ts';
+import { homePage, NO_HOME_DATA, regionGames, type HomeData } from './views/home.ts';
 import { gamePage, NO_GAME_DATA, type GameData } from './views/game.ts';
 import { notFoundPage } from './views/misc.ts';
 import { socialPage, type SocialPageState } from './views/social.ts';
@@ -88,7 +88,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
     case 'home': {
       const home = ctx.href('home');
       return {
-        body: homePage(ctx, { region: null, data: state.home }), title: t.t('home.title'), description: t.t('home.description'), noindex: false, status: 200,
+        body: homePage(ctx, { region: null, data: state.home }), title: t.t('home.title'), description: t.t('home.description', { n: ctx.games.length, free: ctx.games.filter((g) => g.free).length }), noindex: false, status: 200,
         jsonLd: [{ '@context': 'https://schema.org', '@type': 'WebSite', name: brand, url: `${SITE_ORIGIN}${home}`, inLanguage: t.tag }],
         ...(ctx.games[0] ? { image: ctx.assets.tile(ctx.games[0].catalogue.tile, 800) } : {}),
       };
@@ -98,7 +98,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       if (!isRegion(region) || !ctx.games.some((g) => g.regions.includes(region) || (region === 'seated' && g.seated))) return notFound();
       const label = regionLabel(ctx, region);
       return {
-        body: homePage(ctx, { region, data: state.home }), title: t.t('workouts.title', { region: label }), description: t.t('workouts.description', { region: label }), noindex: false, status: 200,
+        body: homePage(ctx, { region, data: state.home }), title: t.t('workouts.title', { region: label }), description: t.t('workouts.description', { region: label, ...regionGames(ctx.games, region) }), noindex: false, status: 200,
         jsonLd: [crumbs(ctx, [{ name: brand, path: ctx.href('home') }, { name: label, path: ctx.href('region', { params: { region } }) }])],
       };
     }
@@ -144,6 +144,6 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       return { body: profilesPage(ctx, state.profiles ?? NO_PROFILES_STATE), title: named(t.t('profile.title')), description: t.t('profile.lead'), noindex: true, status: 200, jsonLd: [] };
     case 'welcome':
       // The tour is drawn in full by the browser app (it owns the 3D stage); a crawler or a visit without scripts gets its first step, and no index.
-      return { body: welcomePage(ctx, state.welcome ?? FIRST_TOUR), title: named(t.t('onboarding.h1')), description: t.t('home.description'), noindex: true, status: 200, jsonLd: [] };
+      return { body: welcomePage(ctx, state.welcome ?? FIRST_TOUR), title: named(t.t('onboarding.h1')), description: t.t('home.description', { n: ctx.games.length, free: ctx.games.filter((g) => g.free).length }), noindex: true, status: 200, jsonLd: [] };
   }
 }

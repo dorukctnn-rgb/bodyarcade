@@ -107,6 +107,14 @@ export const STATIC_REDIRECTS: readonly (readonly [string, string])[] = [
   ['/webcam-fitness-games.html', '/webcam-fitness-games'],
   ['/blog/why-browser-fitness-games-are-the-future.html', '/blog/why-browser-fitness-games-are-the-future'],
   ['/blog', '/blog/'],
+  // The support address of the store listings (App Store "Support URL", Google Play): the FAQ, which answers the questions and has
+  // the e-mail address. Turkish: /tr/destek, and /tr/sss (the Turkish name of the FAQ) for whoever types it.
+  ['/support', '/faq'],
+  ['/support/', '/faq'],
+  ['/tr/destek', '/tr/faq'],
+  ['/tr/destek/', '/tr/faq'],
+  ['/tr/sss', '/tr/faq'],
+  ['/tr/sss/', '/tr/faq'],
 ];
 
 export function redirectsFile(): string {

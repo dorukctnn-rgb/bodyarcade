@@ -50,13 +50,20 @@ describe('the Worker stand-in of the release site', () => {
       return { status: res.status, type: res.headers.get('content-type') ?? '', body: await res.text() };
     } finally { server.close(); }
   }
-  it('answers a call to the friends service with no signature the way the Worker does: 401 and a JSON error (the page takes that for "the service is there")', async () => {
+  it('answers the question whether the friends service is there the way the Worker does: 200 {"service":"social"}', async () => {
+    const r = await ask(true, '/api/social/status');
+    expect(r.status).toBe(200);
+    expect(r.type).toContain('json');
+    expect(JSON.parse(r.body)).toEqual({ service: 'social' });
+  });
+  it('answers any other call to the friends service with no signature the way the Worker does: 401 and a JSON error', async () => {
     const r = await ask(true, '/api/social/me');
     expect(r.status).toBe(401);
     expect(r.type).toContain('json');
     expect(JSON.parse(r.body)).toEqual({ error: 'unauthorized' });
   });
   it('is off for the practice site, where a plain 404 is what a static host says and the page takes the service for absent', async () => {
+    expect((await ask(false, '/api/social/status')).status).toBe(404);
     expect((await ask(false, '/api/social/me')).status).toBe(404);
   });
   it('leaves every other address to the folder', async () => {

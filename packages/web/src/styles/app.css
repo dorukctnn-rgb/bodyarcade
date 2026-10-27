@@ -168,6 +168,22 @@ ul.ba-grid { list-style: none; margin: 0; padding: 0; }
 .ba-empty { text-align: left; }
 .ba-teaser { margin-top: 40px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .ba-teaser h2 { margin-bottom: 4px; }
+/* What BodyArcade is (home, last section): words that stand without scripts, the facts beside them, and the plans with their prices. */
+.k-about { margin-top: 44px; }
+.k-about-grid { display: grid; gap: clamp(16px, 2.4vw, 28px); align-items: start; }
+@media (min-width: 900px) { .k-about-grid { grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); } }
+.k-about-lead { margin: 0 0 16px; font-size: var(--ba-text-md); line-height: 1.55; max-width: 40em; }
+.k-about-facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.k-about-facts li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; color: var(--ba-text-muted); font-size: var(--ba-text-sm); line-height: 1.45; }
+.k-about-facts svg { width: 26px; height: 26px; color: var(--ba-text); }
+.k-about-facts .ba-link { white-space: nowrap; }
+.k-about-prices h3 { margin-bottom: 10px; }
+.k-about-prices ul { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 0; }
+.k-about-prices li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 9px 0; border-top: 1px solid var(--ba-border); font-size: var(--ba-text-sm); }
+.k-about-prices li:first-child { border-top: 0; }
+.k-about-prices li b { font-weight: 750; color: var(--ba-text); }
+.k-about-prices li span { text-align: right; color: var(--ba-text-muted); }
+.k-about-prices p { margin: 0; }
 
 /* Segmented choice made of radio buttons */
 .ba-seg { display: flex; flex-wrap: wrap; max-width: 100%; overflow: visible; background: var(--ba-surface-sunken); padding: 4px; gap: 4px; border-radius: 14px; }
@@ -288,7 +304,19 @@ ul.ba-grid { list-style: none; margin: 0; padding: 0; }
 .k-info > .k-top { order: 1; }
 .k-info > .k-actionbar, .k-info > form > .k-actionbar { order: 10; }
 form[data-form="setup"] { display: contents; }
-@media (min-width: 900px) and (min-height: 501px) { .k-info > .k-actionbar, .k-info > form > .k-actionbar { order: 2; margin-top: 20px; } .k-info > .k-lockcard { order: 2; } }
+/* Only Play rides at the foot of a phone's screen; the two races and the note come after it in the page (release 3: the bar of three
+   buttons and a paragraph lay over the game's name and its facts at 360 x 640). */
+.k-info > form > .k-moreplay { order: 11; margin-top: 10px; }
+.k-info > form > .k-playnote { order: 12; margin: 10px 0 0; font-size: var(--ba-text-xs); color: var(--ba-text-muted); line-height: 1.45; }
+.k-moreplay .ba-btn { flex: 1 1 0; min-width: max-content; }
+@media (min-width: 900px) and (min-height: 501px) {
+  .k-info > .k-actionbar, .k-info > form > .k-actionbar { order: 2; margin-top: 20px; } .k-info > .k-lockcard { order: 2; }
+  .k-info > form > .k-moreplay, .k-info > form > .k-playnote { order: 2; }
+  .k-moreplay .ba-btn { flex: none; }
+}
+/* A short phone (an iPhone SE or a small Android, 640 to 700 px tall): the picture of the game is less tall, so its name and facts
+   sit on the first screen above the Play bar. */
+@media (max-width: 899px) and (max-height: 720px) and (orientation: portrait) { .k-detail .art { aspect-ratio: 16 / 9; } }
 @media (orientation: landscape) and (max-height: 500px) {
   .k-detail { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr); align-items: start; }
   .k-detail .art { position: sticky; top: 12px; }
@@ -360,12 +388,47 @@ dialog.ba-modal[open] { animation: ba-sheet-in var(--ba-dur-enter) var(--ba-ease
 .k-pw .free { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--ba-radius-md); background: var(--ba-accent-tint); color: var(--ba-accent-text); font-weight: 600; font-size: var(--ba-text-sm); line-height: 1.4; margin: 0; }
 .k-pw .free svg { width: 22px; height: 22px; flex: none; }
 .k-pw-art { max-width: 520px; }
-@media (min-width: 900px) { .k-pw { grid-template-rows: auto auto 1fr; } .k-pw > .k-stack { grid-column: 1; grid-row: 1 / span 4; } .k-pw > .k-plans, .k-pw > .k-actionbar, .k-pw > .k-links, .k-pw > .k-keybox { grid-column: 2; } .k-pw > .k-plans { align-self: end; } }
+@media (min-width: 900px) { .k-pw { grid-template-rows: auto auto 1fr; } .k-pw > .k-stack { grid-column: 1; grid-row: 1 / span 4; } .k-pw > .k-plans, .k-pw > .k-buy, .k-pw > .k-links, .k-pw > .k-keybox { grid-column: 2; } .k-pw > .k-plans { align-self: end; } }
 /* Two columns (900 px and wider) on a screen that is short, a phone held sideways: the bar of the right column stays in the flow under the plans. Sticky it lay over the monthly, family and lifetime plans (all of them in Firefox and WebKit, where a sticky box leaves its grid cell; the plans are 340 px tall and the bar 260 px on a 412 px screen). */
-@media (min-width: 900px) { .k-pw > .k-actionbar { position: static; margin: 22px 0 0; padding: 0; background: none; } .k-pw > .k-actionbar .k-note { text-align: left; } }
+@media (min-width: 900px) { .k-pw .k-actionbar { position: static; margin: 22px 0 0; padding: 0; background: none; } .k-pw .k-actionbar .k-note, .k-pw-note { text-align: left; } }
 .k-links { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
 .k-pw .k-actionbar .k-actions { flex-direction: column; align-items: stretch; }
 .k-pw .k-actionbar .k-actions .ba-btn--primary { flex: none; }
+/* The note under the buy button (the trial, how to cancel, the reminder): in the page, not in the bar that stays on screen. */
+.k-pw-note { margin: 8px 0 0; text-align: center; font-size: var(--ba-text-xs); color: var(--ba-text-muted); line-height: 1.45; }
+/* The Pro offer on a phone or a small tablet held upright (release 3, 27 Oct). The plans come right after what Pro adds and before what
+   stays free, and the bar is one row (the buy button and "Continue free" side by side, the note under it in the page): at 360 x 640 the
+   bar of two stacked buttons and the note covered every plan, and at 390 x 844 it lay over "Pro monthly". Nothing is hidden but the
+   three pictures of the Pro games, on a screen shorter than 760 px. */
+@media (max-width: 899px) {
+  .k-pw > .k-stack, .k-pw > .k-buy { display: contents; }
+  .k-pw-art { order: 1; }
+  .k-pw h1 { order: 2; }
+  .k-pw .lead { order: 3; }
+  .k-pw .k-benefits { order: 4; }
+  .k-pw > .k-plans { order: 5; }
+  .k-pw .k-actionbar { order: 6; }
+  .k-pw-note { order: 7; margin-top: -8px; }
+  .k-pw .free { order: 8; }
+  .k-pw > .k-links { order: 9; }
+  .k-pw > .k-keybox { order: 10; }
+  .k-pw .k-actionbar { padding-top: 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .k-pw .k-actionbar .k-actions { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 8px; }
+  .k-pw .k-actionbar .k-actions .ba-btn--primary { flex: 1 1 10em; min-height: 54px; font-size: 1.0625rem; padding-inline: 18px; }
+  .k-pw .k-actionbar .k-actions .ba-btn--quiet { flex: 0 1 auto; min-height: 44px; padding-inline: 12px; }
+}
+@media (max-width: 599px) {
+  .k-pw .k-benefits { gap: 7px; font-size: var(--ba-text-sm); }
+  .k-pw .k-benefits li { grid-template-columns: 24px minmax(0, 1fr); line-height: 1.3; }
+  .k-pw .k-benefits svg { width: 24px; height: 24px; }
+}
+/* A short screen (under 760 px, an iPhone SE or a small Android): the pictures and the general line under the title give way, so the
+   plans start on the first screen. The line that names a locked game stays. */
+@media (max-width: 899px) and (max-height: 759px) {
+  .k-pw-art { display: none; }
+  .k-pw h1 { padding-right: 56px; font-size: 2rem; }
+  .k-pw .lead:not(.lead--game) { display: none; }
+}
 @media (max-width: 599px) { .k-pw-art { margin-right: 52px; } .k-pw-art img { aspect-ratio: 1; } }
 @media (min-width: 900px) and (min-height: 501px) { .ba-page--pro { padding-top: 56px; } .k-pw { align-items: center; min-height: calc(100vh - 220px); } .k-links { justify-content: flex-start; } }
 .k-plan { transition: box-shadow var(--ba-dur-state); }
@@ -718,7 +781,7 @@ html:has(.ba-stage), html:has(.ba-stage) body { overscroll-behavior: none; }
 /* The paywall in two columns on a short screen (915 x 412): the plans close up so the buy button sits under them on the first screen. */
 @media (min-width: 900px) and (max-height: 500px) {
   .k-pw { row-gap: 10px; }
-  .k-pw > .k-actionbar { margin-top: 0; }
+  .k-pw .k-actionbar { margin-top: 0; }
   .k-pw .k-plans { gap: 8px; }
   .k-pw .k-plan { padding-top: 10px; padding-bottom: 10px; }
 }

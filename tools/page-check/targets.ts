@@ -5,7 +5,17 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { loadCatalogue } from '../../packages/web/catalogue/load.ts';
+import { BREAKPOINTS } from '../../packages/core/ui/layout.ts';
 import { repoRoot } from './servers.ts';
+
+/**
+ * The sizes page-check opens a page at: the ten screens of the layout rule, and a short phone held upright (360 x 640: an older
+ * Android or an iPhone SE class screen). The short phone is the page checker's own (release 3, 27 Oct): the Pro offer and the game page
+ * had their action bar over the plans and the game's name there, and none of the ten sizes is that short. The game screens keep the
+ * ten sizes of the layout rule (core/ui/layout.ts BREAKPOINTS, which their own layout tests run on).
+ */
+export const SHORT_PHONE = { id: 'phone-360-short', w: 360, h: 640, label: 'Phone portrait 360 x 640 (short)' } as const;
+export const PAGE_SIZES: readonly { id: string; w: number; h: number; label: string }[] = [...BREAKPOINTS, SHORT_PHONE];
 
 export type ServerKind = 'web' | 'site' | 'dev' | 'external';
 
@@ -167,7 +177,10 @@ export function webTargets(prefix: string): Target[] {
   if (paid) {
     out.push({ id: 'web:pro:locked', server: 'web', path: `${prefix}/pro/?game=${paid.id}`, note: 'the paywall that a locked game opens' });
   }
-  return out.map((t) => ({ ...t, primary: t.primary ?? ['.ba-btn--primary'] }));
+  // The rounds (the HUD over a game, the calibration) keep the ten sizes of the layout rule; the pages get the short phone too.
+  const ten = BREAKPOINTS.map((b) => b.id);
+  const round = (id: string): boolean => /^web:(play|play2|cam|calibrate):/.test(id);
+  return out.map((t) => ({ ...t, primary: t.primary ?? ['.ba-btn--primary'], ...(!t.sizes && round(t.id) ? { sizes: ten } : {}) }));
 }
 
 /** Every page of the live static site (site/), found on disk. */
