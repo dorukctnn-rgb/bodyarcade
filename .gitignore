@@ -20,3 +20,16 @@ tests/traces/videos/
 tools/synth-video/assets/
 tools/fake-camera/out/
 qa-out/
+
+# Android (Trusted Web Activity) build outputs and anything secret (the upload key and its passwords live outside the repository)
+android/.gradle/
+android/build/
+android/app/build/
+android/*.aab
+android/*.apk
+android/*.idsig
+android/local.properties
+android/.idea/
+*.jks
+*.keystore
+keystore.properties

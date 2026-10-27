@@ -3,7 +3,8 @@
 // ordinary page alone. Plain pages made on the spot; no server.
 import { chromium, expect, test, type Browser } from '@playwright/test';
 import { baseLaunchOptions } from './support/browser.ts';
-import { crowding } from './social-ui-support.ts';
+import { scan } from '../../packages/web/e2e/support/axe.ts';
+import { axeScan, crowding } from './social-ui-support.ts';
 
 let browser: Browser;
 test.beforeAll(async () => { browser = await chromium.launch({ ...baseLaunchOptions, headless: true }); });
@@ -61,4 +62,29 @@ test('an ordinary page is left alone: wrapped lines, a name that ends in dots, a
   // a window is open: only the window counts, and the page under it is not looked at
   const window = await found('<p style="margin:0;position:absolute;left:10px;top:10px">Words under the window</p><button type="button" style="position:absolute;left:10px;top:10px">Under</button><dialog open style="position:fixed;top:200px;left:10px;margin:0"><p>The window</p><button type="button">Close</button></dialog>');
   expect(window).toEqual([]);
+
+  // a window taller than the screen: its words scroll under the buttons at its foot, which stay there (sticky) as a page's action bar
+  // does; the same words under buttons that are not the window's foot are found
+  const tall = (foot: string): Promise<string[]> => found(`<dialog open style="position:fixed;top:0;left:0;margin:0;width:300px;max-height:240px;overflow:auto;padding:0"><div class="k-sheet"><ul style="margin:0">${Array.from({ length: 12 }, (_, i) => `<li>Line ${i + 1} of the rules of the room</li>`).join('')}</ul><div class="${foot}" style="position:sticky;bottom:0;background:#fff"><button type="button" style="width:100%;height:48px">Continue</button></div></div></dialog>`);
+  expect(await tall('btns')).toEqual([]);
+  expect((await tall('foot')).join('\n')).toMatch(/text and control overlap: li "Line \d+ of the rules of the[^"]*" over button "Continue"/);
+});
+
+test('axe and the window\'s own bar: a target partly under the sticky buttons of a tall window is judged with the window at its end; any other button over it is found', async () => {
+  const window = async (foot: string): Promise<{ plain: string[]; ruled: string[] }> => {
+    const page = await browser.newPage({ viewport: { width: 844, height: 390 } });
+    try {
+      const options = Array.from({ length: 8 }, (_, i) => `<label style="display:flex;align-items:center;gap:8px;height:44px"><input type="radio" name="why" value="v${i}" style="width:24px;height:24px;margin:0">Reason ${i + 1}</label>`).join('');
+      await page.setContent(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Report</title><style>body{margin:0;font:16px/1.4 sans-serif}</style><main><h1>Friends</h1></main><dialog aria-label="Report" style="position:fixed;top:0;left:0;margin:0;width:400px;max-height:240px;overflow:auto;padding:0"><div class="k-sheet"><p style="margin:0;height:38px">Why do you report this player?</p>${options}<div class="${foot}" style="position:sticky;bottom:0;background:#fff"><button type="button" style="width:100%;height:48px">Send report</button></div></div></dialog>`);
+      await page.evaluate(() => (document.querySelector('dialog') as HTMLDialogElement).showModal());
+      return { plain: await scan(page), ruled: await axeScan(page) };
+    } finally {
+      await page.close();
+    }
+  };
+  const own = await window('btns');
+  expect(own.plain.join('\n')).toMatch(/^target-size /m);
+  expect(own.ruled.join('\n')).not.toMatch(/^target-size /m);
+  const other = await window('foot');
+  expect(other.ruled.join('\n')).toMatch(/^target-size /m);
 });

@@ -191,6 +191,8 @@ h1 {
 .tbl thead th { background: var(--ba-surface-sunken); font-weight: 700; font-size: 0.875rem; }
 .tbl tbody tr + tr > * { border-top: 1px solid var(--ba-border); }
 .tbl tbody th { font-weight: 700; width: 9.5rem; }
+/* The link in a row heading (a game, an area) stands alone in its cell: a touch target of at least 24 px. */
+.tbl tbody th a { display: inline-block; padding: 2px 0; }
 @media (max-width: 679px) {
   .tbl, .tbl tbody, .tbl tr, .tbl th, .tbl td { display: block; }
   .tbl thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -211,6 +213,11 @@ h1 {
 .qa > div { padding: 0 16px 8px; }
 .qa p:last-child { margin-bottom: 8px; }
 @media (prefers-reduced-motion: reduce) { .qa summary::after { transition: none; } }
+
+/* Inside the Android app (twa.js puts .twa on the page): no word on how to pay on the web, and the web shop's links are plain
+   text. Google Play is the only way to buy there (Google Play payments policy). */
+.twa [data-web-pay] { display: none !important; }
+.twa a[href*="gumroad.com"] { pointer-events: none; color: inherit; text-decoration: none; }
 
 /* The blog index. */
 .body .posts { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }

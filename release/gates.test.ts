@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { bridgeProblems, gatesFor, PREVIEW_ONLY, runGates, secretProblems, shellSignsRoomCalls, withoutComments, type Gate } from './gates.ts';
-import { SECRETS } from './secrets.ts';
+import { isRequired, SECRETS } from './secrets.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const text = (file: string): string => readFileSync(join(root, file), 'utf8');
@@ -123,7 +123,56 @@ describe('secrets', () => {
     expect(s!.why).toMatch(/every report is read/);
     // a deploy that lacks it is stopped (release/deploy.ts lists the required names that are missing)
     expect(SECRETS.filter((x) => x.required && !{ TICKET_SECRET: 'x' }[x.name as 'TICKET_SECRET']).map((x) => x.name)).toContain('ADMIN_TOKEN');
-    expect(text('release/deploy.ts')).toMatch(/s\.required && !secrets\[s\.name\]/);
+    expect(text('release/deploy.ts')).toMatch(/isRequired\(s, id\) && !secrets\[s\.name\]/);
+  });
+
+  it('the Play service account is required for production, and for production only: without it no Play purchase can be verified (Play package README, 25 Oct)', () => {
+    const s = spec('PLAY_SA_JSON');
+    expect(s).toBeDefined();
+    expect(s!.required).toBe(true);
+    expect(s!.productionOnly).toBe(true);
+    expect(s!.generate).toBeNull();
+    expect(s!.why).toMatch(/no Play purchase can be verified/);
+    expect(s!.why).toMatch(/production deploy stops/);
+    expect(isRequired(s!, 'production')).toBe(true);
+    expect(isRequired(s!, 'preview')).toBe(false);
+    // the two secrets every Worker needs stay required on both targets
+    expect(isRequired(spec('TICKET_SECRET')!, 'preview')).toBe(true);
+    expect(isRequired(spec('ADMIN_TOKEN')!, 'production')).toBe(true);
+    // what a deploy lacks when only the two generated secrets are there: the preview nothing, production the Play account
+    const have: Record<string, string> = { TICKET_SECRET: 'x', ADMIN_TOKEN: 'y' };
+    const lacking = (target: 'preview' | 'production'): string[] => SECRETS.filter((x) => isRequired(x, target) && !have[x.name]).map((x) => x.name);
+    expect(lacking('preview')).toEqual([]);
+    expect(lacking('production')).toEqual(['PLAY_SA_JSON']);
+    // release/deploy.ts counts the secrets with isRequired and names each missing one with its reason
+    expect(text('release/deploy.ts')).toMatch(/isRequired\(s, id\) && !secrets\[s\.name\]/);
+    expect(text('release/deploy.ts')).toMatch(/\$\{s\.name\}: \$\{s\.why\}/);
+  });
+
+  const SERVICE_ACCOUNT = JSON.stringify({ client_email: 'play@kopilot-1.iam.gserviceaccount.com', private_key: '-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n', token_uri: 'https://oauth2.googleapis.com/token' });
+
+  it('a Play service account the Worker can read passes, with or without token_uri', () => {
+    expect(secretProblems({ PLAY_SA_JSON: SERVICE_ACCOUNT })).toEqual([]);
+    const { token_uri: _t, ...bare } = JSON.parse(SERVICE_ACCOUNT) as Record<string, string>;
+    expect(secretProblems({ PLAY_SA_JSON: JSON.stringify(bare) })).toEqual([]);
+  });
+
+  it.each([
+    ['text that is no JSON', 'x'.repeat(80)],
+    ['no private key', JSON.stringify({ client_email: 'play@kopilot-1.iam.gserviceaccount.com', note: 'SECRETMARKER'.repeat(6) })],
+    ['no client_email', JSON.stringify({ private_key: '-----BEGIN PRIVATE KEY-----\nSECRETMARKER\n-----END PRIVATE KEY-----\n' })],
+    ['a sign-in address that is not the Google one', JSON.stringify({ ...(JSON.parse(SERVICE_ACCOUNT) as object), token_uri: 'https://evil.example/token' })],
+    ['too short a text', '{"a":1}'],
+  ])('a Play service account with %s stops the deploy, and no part of it is printed', (_why, value) => {
+    const problems = secretProblems({ PLAY_SA_JSON: value });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/^PLAY_SA_JSON is not a service account key the Worker can use/);
+    expect(JSON.stringify(problems)).not.toContain('SECRETMARKER');
+    expect(JSON.stringify(problems)).not.toContain(value.slice(0, 20));
+  });
+
+  it('an empty Play service account is the same as none (the missing-secret check names it, this one stays quiet)', () => {
+    expect(secretProblems({ PLAY_SA_JSON: '' })).toEqual([]);
   });
 
   it('every name is listed once', () => {

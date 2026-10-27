@@ -51,7 +51,7 @@ ${ul([
   'Your results: recent rounds, best scores, minutes played and your streak, and the Pro games you have tried once.',
   'Ghost runs: your best run of a game, which is what you did at each obstacle and, for your own runs, your skeleton drawn as points. Never the picture.',
   'For Pro: the license key you activated (web), the signed license your device received, and a random device number that counts your devices.',
-  'For the trial reminder: a masked copy of the e-mail address you typed, such as a***@example.com, not the address itself.',
+  ...(F.REMINDER_MAIL ? ['For the trial reminder: a masked copy of the e-mail address you typed, such as a***@example.com, not the address itself.'] : []),
   'For an online profile: the secret key your device made for it (kept by the browser in a way that does not let pages read it), the last profile details our server sent back, and your list of blocked players.',
   'Copies of the game&rsquo;s own files, so it opens without a network. This includes the pose model.',
 ])}
@@ -121,7 +121,7 @@ ${ul([
       {
         id: 'kept',
         title: 'What our servers keep, and for how long',
-        html: `<p>All of this lives in Cloudflare&rsquo;s storage for BodyArcade (Durable Objects with SQLite). The first table is the online profile. The second is rooms, licenses and the reminder.</p>
+        html: `<p>All of this lives in Cloudflare&rsquo;s storage for BodyArcade (Durable Objects with SQLite). The first table is the online profile. The second is rooms, licenses${F.REMINDER_MAIL ? ' and the reminder' : ''}.</p>
 ${table('The online profile', ['What', 'What it holds', 'How long'], [
   ['Profile', `A secret profile number, your friend code, display name, age group, level (a number from 1 to ${F.LEVEL_MAX} that your device reports; it only decides who you meet in lobbies), region (a continent, chosen by you or guessed from your connection), language, your appear-offline choice, any mute, suspension or ban with its end date, the date you made it, the version of the terms you agreed to when you made it, and the day you last used it.`, `Until you delete your account, or ${F.UNUSED_PROFILE_DAYS} days after you last used it online. It is then erased automatically.`],
   ['Devices and recovery', `For each device (up to ${F.PROFILE_DEVICES}): the public half of its key, a short fingerprint of it and the date it was added. A hash of your recovery code.`, `As long as the profile. A sixth device replaces the oldest.`],
@@ -135,10 +135,10 @@ ${table('The online profile', ['What', 'What it holds', 'How long'], [
   ['Safety log', 'What a moderator or an automatic rule did (mute, suspension, ban) and why.', `${F.AUDIT_DAYS} days.`],
   ['Limit counters', 'Counts of actions, per profile and per scrambled form of a network address (a keyed hash; never the address), to stop abuse.', 'About a day.'],
 ])}
-${table('Rooms, licenses and the reminder', ['What', 'What it holds', 'How long'], [
+${table(F.REMINDER_MAIL ? 'Rooms, licenses and the reminder' : 'Rooms and licenses', ['What', 'What it holds', 'How long'], [
   ['Room', 'As described under live play: player number, display name, age group, seat, readiness, results, chat and reports.', `Deleted ${F.ROOM_EMPTY_MINUTES} minutes after the last player leaves, and in any case ${F.ROOM_IDLE_HOURS} hours after the last activity.`],
   ['Pro license', 'A fingerprint (SHA-256) of the license key or of the Google Play purchase token, never the key or token itself. The plan, its status and dates, and for each device its random number and the day it last used the license.', `A device gives its place back after ${F.SEAT_IDLE_DAYS} days unused. A purchase that ended or was refunded, with no device left, is forgotten ${F.FORGET_PURCHASE_DAYS} days after its last check. A running plan is kept while it runs.`],
-  ['Trial reminder', 'The e-mail address you typed, its language and the day to send.', 'Until the one reminder is sent. See below.'],
+  ...(F.REMINDER_MAIL ? [['Trial reminder', 'The e-mail address you typed, its language and the day to send.', 'Until the one reminder is sent. See below.']] : []),
 ])}
 <p>A network address is used only briefly. In the friends service, counters are keyed by a scrambled form of the address (for example, how many profiles one address makes in an hour), never by the address itself, and they are removed within about a day. The live-play and license services keep their short counters by address in memory only, never in storage, and they are gone within an hour or when the service restarts. Cloudflare, which delivers the site, handles network addresses to do so and keeps its own operating logs under its policy.</p>
 <p>After you delete something, it is gone from the live database at once. Cloudflare keeps a recovery history of that storage for up to 30 days, so a deleted record can still sit in that history for up to that long before it is gone for good.</p>`,
@@ -152,10 +152,12 @@ ${table('Rooms, licenses and the reminder', ['What', 'What it holds', 'How long'
       },
       {
         id: 'reminder',
-        title: 'The trial reminder e-mail',
-        html: `<p>The ${F.TRIAL_DAYS}-day trial of Pro yearly has an optional e-mail reminder on the web. If you type an address in the Pro screen, it goes to our server together with your signed license. We keep it, with the language you use and the day to send, until the one reminder has been sent, ${F.REMINDER_DAYS} days before the trial ends. Then we delete it.</p>
+        title: F.REMINDER_MAIL ? 'The trial reminder e-mail' : 'The trial reminder',
+        html: F.REMINDER_MAIL
+          ? `<p>The ${F.TRIAL_DAYS}-day trial of Pro yearly has an optional e-mail reminder on the web. If you type an address in the Pro screen, it goes to our server together with your signed license. We keep it, with the language you use and the day to send, until the one reminder has been sent, ${F.REMINDER_DAYS} days before the trial ends. Then we delete it.</p>
 <p>We also delete it, without sending anything, if you take it back in the app, when our records show that the plan was cancelled or refunded before that day, when the trial is over, or after ${F.REMINDER_TRIES} failed deliveries. The e-mail is plain text and holds no tracking. We use the address for nothing else and never write to it again. It is sent through Forward Email, our mail provider.</p>
-<p>In the Android app we ask for no address. Google Play sends its own reminder, and the app shows a notice on every open in the last ${F.REMINDER_DAYS} days of the trial.</p>`,
+<p>In the Android app we ask for no address. Google Play sends its own reminder, and the app shows a notice on every open in the last ${F.REMINDER_DAYS} days of the trial.</p>`
+          : `<p>The ${F.TRIAL_DAYS}-day trial of Pro yearly comes with a reminder: in the last ${F.REMINDER_DAYS} days of the trial the app shows a notice on every open. The notice is made on your device from the dates of your license. We do not ask for an e-mail address for it, and no e-mail is sent. In the Android app, Google Play sends its own reminder too.</p>`,
       },
       {
         id: 'analytics',
@@ -171,7 +173,7 @@ ${analytics}
   'Cloudflare delivers the site and stores rooms, profiles and licenses for us. Its STUN service helps devices find each other.' + (F.RELAY_ON ? ' Its relay service can carry friend video.' : '') + ' <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">Privacy policy</a>.',
   'Gumroad sells Pro on the web, takes the payment, handles tax and checks license keys. <a href="https://gumroad.com/privacy" rel="noopener">Privacy policy</a>.',
   'Google runs Google Play, which takes payments in the Android app and distributes it, and the mailbox behind our address. The pose model is Google&rsquo;s technology but runs on your device. <a href="https://policies.google.com/privacy" rel="noopener">Privacy policy</a>.',
-  'Forward Email passes on mail sent to our address and sends the trial reminder. <a href="https://forwardemail.net/en/privacy" rel="noopener">Privacy policy</a>.',
+  `Forward Email passes on mail sent to our address${F.REMINDER_MAIL ? ' and sends the trial reminder' : ''}. <a href="https://forwardemail.net/en/privacy" rel="noopener">Privacy policy</a>.`,
 ])}
 <p>We do not sell your data and we do not share it with advertisers. If you e-mail us, we receive your address and your message, and we use them only to answer you.</p>
 <p>These companies may handle data outside your country, including outside the European Economic Area, the United Kingdom and Turkey. Where they do, they rely on their own data protection terms, which include safeguards such as standard contractual clauses. Their policies explain how. Under the KVKK this counts as a transfer of personal data abroad (Article 9).</p>`,
@@ -186,8 +188,8 @@ ${analytics}
 <p>Under Article 11 of the KVKK you may also ask whether your data is processed and for what purpose, who it was given to at home or abroad, and ask for it to be corrected, deleted or destroyed, and for third parties to be told. You may claim damages for loss caused by unlawful processing.</p>
 <h3>Why we may process data</h3>
 ${ul([
-  'To give you the service you asked for: the game, your profile, rooms, your license and the reminder you ordered. (Contract; KVKK Article 5/2-c.)',
-  'With your consent: camera access, which your browser asks for, the optional friend video, and the reminder e-mail. You can withdraw it at any time. (Consent; KVKK Article 5/1.)',
+  `To give you the service you asked for: the game, your profile, rooms${F.REMINDER_MAIL ? ', your license and the reminder you ordered' : ' and your license'}. (Contract; KVKK Article 5/2-c.)`,
+  `With your consent: camera access, which your browser asks for, ${F.REMINDER_MAIL ? 'the optional friend video, and the reminder e-mail' : 'and the optional friend video'}. You can withdraw it at any time. (Consent; KVKK Article 5/1.)`,
   'To keep the service safe and fair: limits against abuse, reports, the safety log and the checks on weekly scores. (Legitimate interest; KVKK Article 5/2-f.)',
   'To meet legal duties, such as keeping order records for tax and accounting for as long as the law requires. (Legal obligation; KVKK Article 5/2-ç.)',
 ])}`,

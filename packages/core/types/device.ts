@@ -18,7 +18,7 @@ export interface DeviceSignals {
   userAgent: string;
   /** document.referrer of the first page in this tab (a TWA launch sets android-app://<package>/). */
   referrer: string;
-  /** location.search (the TWA start URL may carry source=twa). */
+  /** location.search (the TWA start address is /?src=twa; source=twa is an older spelling). */
   search: string;
   /** An earlier page in this tab already found the Android app (sessionStorage). */
   storedAndroidApp: boolean;

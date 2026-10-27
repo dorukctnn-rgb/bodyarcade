@@ -7,6 +7,7 @@
 // The pose model on software rendering takes real time: this runs on the local release gate, not on the CI runners.
 // Set BA_SHOT_DIR to a folder to also write a picture of each case (for looking at). Two players: target-camera-two.spec.ts.
 import { expect, test } from '@playwright/test';
+import { makeSchedule, scoreOf, specFor } from '../../packages/core/net/schedule.ts';
 import { withFakeVideo } from './support/browser.ts';
 import { alignment, call, errorsOf, GAMES, open, shot, SKIP_ON_CI, snap, STANDING, waitState } from './support/target-camera.ts';
 
@@ -99,3 +100,49 @@ test('pad-work: pause and resume stop and restart the game, and the camera stays
   expect(await call(page, 'quit')).toEqual({ cameraLive: 0, canvases: 0, surfaces: 0 });
   expect(errorsOf(page)).toEqual([]);
 });
+
+// Reaction Tag as a live race, through the shell's own race wrapper (web/src/app/duel.ts) on a feed that stands in for the Room: the match starts when
+// the countdown ends and its clock is the page's. The real chain plays the Room's lights: the camera, the pose model, the hand detector, the mirror view,
+// the HUD. The Room's own half (its clock, its judge, a friend) is tested against the real Room in packages/games/target/duel.room.test.ts and in
+// tests/e2e/social-ui-race.spec.ts.
+for (const [label, w, h, seconds] of [['a laptop', 1280, 800, 20], ['a phone (390 x 844)', 390, 844, 15]] as const) {
+  test(`reaction-tag as a live race on ${label}: the lights come from the Room's course, one result for each light settled, the race ends with the match, and the score is the Room's`, async ({ page }) => {
+    test.setTimeout(150_000);
+    const seed = 4242;
+    const course = makeSchedule(seed, seconds * 1000, specFor('reaction-tag'));
+    await open(page, w, h);
+    await call(page, 'begin', { game: 'reaction-tag', race: { seconds, seed } });
+    let s = await waitState(page, 'running', 75_000);
+    expect(s.states.slice(0, 4), 'the session walks its states in order').toEqual(['setup', 'calibrating', 'countdown', 'running']);
+    expect(s.race?.started, 'the Room stand-in started the match when the countdown ended').toBe(true);
+    await page.waitForTimeout(seconds > 16 ? 9000 : 6000);
+    s = await snap(page);
+    expect(s.game!.t, 'the game ran on the match clock').toBeGreaterThan(3000);
+    expect(s.race!.reported.length, 'lights settled and were reported as they did').toBeGreaterThan(0);
+    expect(s.hudProblems, 'no plate overlaps another or leaves the screen').toEqual([]);
+    expect(s.geometry.violations, 'no light outside the picture or under a plate').toEqual([]);
+    expect(s.geometry.checked, 'lights were checked').toBeGreaterThan(2);
+    await shot(page, `camera-reaction-tag-race-${w}`);
+
+    s = await waitState(page, ['results', 'error'], 80_000);
+    expect(s.state).toBe('results');
+    expect(s.errors).toEqual([]);
+    const race = s.race!;
+    const ids = race.reported.map((e) => e.ob);
+    expect(new Set(ids).size, 'no light is reported twice').toBe(ids.length);
+    for (const id of ids) expect(course.map((o) => o.id), `light ${id} is one of the Room's`).toContain(id);
+    expect(race.finished, 'the game gave the Room its final list').not.toBeNull();
+    // what was reported is in the final list, with the same outcome
+    for (const e of race.reported) expect(race.finished!.find((x) => x.ob === e.ob)).toEqual(e);
+    // every green light of the match has an outcome: a person who plays no game misses them (a red light left alone has none)
+    expect(race.finished!.length, 'most of the course settled').toBeGreaterThan(course.length * 0.6);
+    expect(race.finished!.filter((e) => e.k === 'hit').length, 'a person who plays no game misses').toBeGreaterThan(2);
+    // the score the game adds up is the Room's sum of those results, and the run is the match's length
+    expect(s.over!.score).toBe(scoreOf(course, race.finished!).score);
+    expect(s.over!.seconds).toBeGreaterThan(seconds - 2);
+    expect(s.over!.seconds).toBeLessThan(seconds + 2);
+    expect(s.cameraLive, 'the camera is off at the results').toBe(0);
+    expect(await call(page, 'quit')).toEqual({ cameraLive: 0, canvases: 0, surfaces: 0 });
+    expect(errorsOf(page), 'console and page errors').toEqual([]);
+  });
+}

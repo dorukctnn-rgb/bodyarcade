@@ -193,8 +193,13 @@ async function check(browser: Browser, t: Target, size: { id: string; w: number;
         return { scene: scene ? rect(scene) : null, covered, overlay: !!document.querySelector('.ba-overlay:has(*)') };
       });
       if (m.scene && !m.overlay) {
-        const rep = analyseScene(decodePng(await page.screenshot({ type: 'png' })), m.scene as Rect, m.covered as Rect[]);
-        if (isBlank(rep)) sceneFinding = { kind: 'blank-scene', severity: 'error', message: `nothing is drawn in the game scene: ${rep.flatColour} over ${(rep.flatShare * 100).toFixed(1)} % of it (${rep.colours} colour(s) in all)`, at: '[data-scene]' };
+        const look = async (): Promise<ReturnType<typeof analyseScene>> => analyseScene(decodePng(await page.screenshot({ type: 'png' })), m.scene as Rect, m.covered as Rect[]);
+        let rep = await look();
+        // A scene that is blank in one picture gets a second look: on a loaded machine a single frame can be caught between a
+        // clear and the next draw (26 Oct, star-catch phone-land-915: blank once, the saved picture a moment later drawn, 8 of 8 clean alone).
+        // A scene that draws nothing stays blank in both.
+        if (isBlank(rep)) { await page.waitForTimeout(600); rep = await look(); }
+        if (isBlank(rep)) sceneFinding = { kind: 'blank-scene', severity: 'error', message: `nothing is drawn in the game scene: ${rep.flatColour} over ${(rep.flatShare * 100).toFixed(1)} % of it (${rep.colours} colour(s) in all), in two pictures 0.6 s apart`, at: '[data-scene]' };
       }
     }
     if (shots) {

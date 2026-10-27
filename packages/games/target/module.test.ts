@@ -95,7 +95,8 @@ describe.each(GAMES)('$id folder', ({ id, mod, manifest, rules, roundSec, free, 
     expect(manifest.id).toBe(id);
     expect(rules.id).toBe(id);
     expect(manifest.template).toBe('target');
-    expect(manifest.modes).toEqual(['solo', 'local2']);
+    // a game can be raced exactly when its rules can make a plan from the Room's course
+    expect(manifest.modes).toEqual((rules as { planDuel?: unknown }).planDuel ? ['solo', 'local2', 'duel'] : ['solo', 'local2']);
     expect(manifest.free).toBe(free);
     expect(manifest.met).toBe(met);
     expect((manifest as unknown as { catalogue: { order: number } }).catalogue.order).toBe(order);

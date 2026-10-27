@@ -2,7 +2,7 @@
 // and the rules object each game hands to the engine. Everything that is state is plain data (numbers, strings, arrays,
 // objects), so a snapshot is one JSON.stringify away; the objects with behaviour (the judge, the envelope) are rebuilt
 // from that data on restore.
-import type { BodyProfile, GameEvent, InputFrame, PlayerSlot, Rng, RunSummary, Side } from '../../core/types/index.ts';
+import type { BodyProfile, DuelSetup, GameEvent, InputFrame, PlayerSlot, Rng, RunSummary, Side } from '../../core/types/index.ts';
 import type { HitJudgement, HitTarget } from '../../core/moves/handHit.ts';
 import type { Miss } from '../../core/moves/kit.ts';
 import type { Call } from './coach.ts';
@@ -118,6 +118,8 @@ export interface PlanInput {
   players: 1 | 2;
   /** Pose rate of the slowest player; a slow device gets more time. */
   hz: number;
+  /** A live race: the Room's obstacles and the match length (the plan is then made by `Rules.planDuel`). */
+  duel?: DuelSetup;
 }
 
 /** What the rules may do to the game while they run. All of it lands in the events, the log, the cue queue and the hint. */
@@ -170,6 +172,13 @@ export interface Rules<S extends BaseSpec> {
   readonly clears?: boolean;
   /** Builds the whole plan once, from the course stream; ids are the indexes. Entries are in order of `at`. */
   plan(rng: Rng, p: PlanInput): S[];
+  /**
+   * A game that can be raced (its manifest's modes has 'duel') makes its plan from the Room's course instead: one entry for each
+   * obstacle of `d.schedule`, `at` = the obstacle's time, the same for every player, whatever their body or their level (a body only
+   * decides where an entry lands inside that player's own reach: `open`). Each entry carries the obstacle's id, and the rules say how
+   * it ended with `out.event({ type: 'duel', ob, k })` (core/types DuelSetup). A game without it cannot be raced.
+   */
+  planDuel?(rng: Rng, d: DuelSetup, p: PlanInput): S[];
   /** The coach's calls, in order of time, made with the plan from the same data (coach.ts). Games without a coach leave it out. */
   calls?(plan: readonly S[], tl: Timeline): Call[];
   /** A plan entry appears for a lane: where it is and what the judge asks. null: this lane does not get it. */
@@ -197,6 +206,8 @@ export interface StartInput {
   quiet: boolean;
   /** Per player; null for a keyboard round. */
   profiles: [BodyProfile | null, (BodyProfile | null)?];
+  /** A live race: one player, one continuous round of the match's length, the Room's course. */
+  duel?: DuelSetup;
 }
 
 /** What a view draws. Read only. */

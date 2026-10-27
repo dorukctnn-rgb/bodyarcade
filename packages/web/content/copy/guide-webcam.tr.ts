@@ -51,7 +51,7 @@ ${ul([
     {
       id: 'oturarak',
       title: 'Oturarak, sessiz ve düşük etkili',
-      html: `<p>Herkes ayakta durup zıplayamaz ya da istemez. BodyArcade’da her oyunun oturarak sürümü var ve ${c.total} oyunun ${c.quiet} tanesi zıplamadan ve yere vurmadan, sessizce oynanabilir; bu, alt katında komşular olan bir dairede önemlidir. Bir masada uygulama yalnızca başını ve omuzlarını gördüğünde bunu fark eder ve masa modunu sunar. Oturarak oynanamayan bir kameralı oyun birçok insanı dışarıda bırakır.</p>`,
+      html: `<p>Herkes ayakta durup zıplayamaz ya da istemez. BodyArcade’de her oyunun oturarak sürümü var ve ${c.total} oyunun ${c.quiet} tanesi zıplamadan ve yere vurmadan, sessizce oynanabilir; bu, alt katında komşular olan bir dairede önemlidir. Bir masada uygulama yalnızca başını ve omuzlarını gördüğünde bunu fark eder ve masa modunu sunar. Oturarak oynanamayan bir kameralı oyun birçok insanı dışarıda bırakır.</p>`,
     },
     {
       id: 'kiyas',
@@ -81,7 +81,7 @@ ${ul([
       id: 'dene',
       title: 'Şimdi birini dene',
       html: `<p>BodyArcade, ${roundLength(c.shortest, 'tr')} ile ${roundLength(c.longest, 'tr')} arasında turlarla ${c.total} kısa oyun içerir; ${c.free} tanesi ücretsizdir. Tek başına, büyük bir ekranda tek kamerada yan yana iki kişi olarak ya da çevrimiçi bir odada arkadaşlarla oynayabilirsin. Poz modeli cihazında çalışır, görüntü orada kalır.</p>
-<p>İlgili: <a href="/tr/ring-fit-adventure-alternatifi">tarayıcıda oynayabileceğin bir Ring Fit Adventure alternatifi</a>.</p>`,
+<p>İlgili: <a href="/tr/evde-spor-oyunlari">${c.total} oyunun hepsi ve hangisiyle başlayacağın</a>, <a href="/tr/oturarak-egzersiz-oyunlari">her oyunu sandalyeden oynamak</a>, <a href="/tr/ring-fit-adventure-alternatifi">tarayıcıda oynayabileceğin bir Ring Fit Adventure alternatifi</a>.</p>`,
     },
   ];
   const title = 'Kamera ile spor oyunları nasıl çalışır ve odanı nasıl hazırlarsın';
@@ -98,7 +98,7 @@ ${ul([
     description,
     h1: title,
     when: `Güncelleme: ${F.longDate(GUIDE_WEBCAM_EN.modified, 'tr')} &middot; ${minutes} dk okuma`,
-    lead: `${lead} Bu rehber bunun bir tarayıcıda nasıl çalıştığını, neyi okuyup neyi okuyamadığını ve bir odanın nasıl hazırlanacağını anlatır. BodyArcade’ı biz yapıyoruz, bu yüzden onu örnek olarak kullanıyoruz; öğütler kamera kullanan her oyun için geçerlidir.`,
+    lead: `${lead} Bu rehber bunun bir tarayıcıda nasıl çalıştığını, neyi okuyup neyi okuyamadığını ve bir odanın nasıl hazırlanacağını anlatır. BodyArcade’i biz yapıyoruz, bu yüzden onu örnek olarak kullanıyoruz; öğütler kamera kullanan her oyun için geçerlidir.`,
     sections,
     toc: true,
     after: cta('Bir oyun aç, kameraya izin ver, geri çekil ve hareket et. İlk tur birkaç dakika sürer.', '/tr/', 'Bir oyun oyna'),

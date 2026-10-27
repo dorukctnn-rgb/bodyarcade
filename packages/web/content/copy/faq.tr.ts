@@ -12,10 +12,14 @@ export function faqTr(): PageSpec {
   const W = F.ROAD_RUN_WORLDS;
   const proTitles = titlesOf((g) => !g.free, 'tr');
   const liveTitles = titlesOf((g) => g.live, 'tr');
+  const proLive = c.proLive;
+  const proLiveTitles = titlesOf((g) => g.live && !g.free, 'tr');
+  // yalnız Pro bir oyun yarışa açıksa söylenir: oda, ev sahibinde Pro varken onu açar; katılan arkadaşlarda Pro gerekmez
+  const proRooms = proLive > 0 ? ` ${proLiveTitles} ${proLive > 1 ? 'Pro oyunlardır' : 'bir Pro oyundur'}: ev sahibinde Pro varsa oda ${proLive > 1 ? 'birini' : 'onu'} açabilir, katılan arkadaşlarda Pro gerekmez.` : '';
   const $ = (n: number): string => F.usd(n, 'tr');
   const memberships = F.FAMILY_PLAN ? 'Pro aylık, Pro yıllık ve Aile yıllık' : 'Pro aylık ve Pro yıllık';
   const app = F.ANDROID_APP_LIVE
-    ? '<p>Google Play’de bir Android uygulaması var. Aynı oyunları oynatır ve ödemeleri Google Play üzerinden alır. iPhone’da BodyArcade’ı Safari’de kullan.</p>'
+    ? '<p>Google Play’de bir Android uygulaması var. Aynı oyunları oynatır ve ödemeleri Google Play üzerinden alır. iPhone’da BodyArcade’i Safari’de kullan.</p>'
     : '<p>BodyArcade her cihazın tarayıcısında çalışır, bu yüzden kurulacak bir şey yoktur. Google Play’deki Android uygulaması web sürümünün ardından gelir. Ücretli planların her iki yerde de geçerli olması amaçlanır.</p>';
 
   const groups: Group[] = [
@@ -81,7 +85,7 @@ export function faqTr(): PageSpec {
       items: [
         {
           q: 'Bir arkadaşımla çevrimiçi nasıl oynarım?',
-          a: `<p>Arkadaşlar sayfasını aç ve bir profil oluştur. Uygulama yaş grubunu bir kez sorar ve sana BA-7K2Q4X gibi görünen bir arkadaş kodu verir. Arkadaş kodunu ya da davet bağlantını gönder; arkadaşın kabul edince arkadaş olursunuz. Oynamak için bir oda kur, bir oyun seç ve davet bağlantısını, ${F.ROOM_CODE_CHARS} karakterli kodu ya da QR kodu gönder. Bir odada ${F.SEATS.min} ile ${F.SEATS.max} oyuncu bulunur. Herkes hazır olur ve tur hepinizde aynı anda başlar. Canlı yarışlar şu oyunlarda: ${liveTitles}.</p>`,
+          a: `<p>Arkadaşlar sayfasını aç ve bir profil oluştur. Uygulama yaş grubunu bir kez sorar ve sana BA-7K2Q4X gibi görünen bir arkadaş kodu verir. Arkadaş kodunu ya da davet bağlantını gönder; arkadaşın kabul edince arkadaş olursunuz. Oynamak için bir oda kur, bir oyun seç ve davet bağlantısını, ${F.ROOM_CODE_CHARS} karakterli kodu ya da QR kodu gönder. Bir odada ${F.SEATS.min} ile ${F.SEATS.max} oyuncu bulunur. Herkes hazır olur ve tur hepinizde aynı anda başlar. Canlı yarışlar şu oyunlarda: ${liveTitles}.${proRooms}</p>`,
         },
         {
           q: 'İkimiz tek kamerada oynayabilir miyiz?',
@@ -123,31 +127,31 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'Planların fiyatı ne kadar?',
-          a: `<p>Web’de: Pro aylık ayda ${$(F.PRICE.proMonthly)}, Pro yıllık yılda ${$(F.PRICE.proYearly)} (${F.TRIAL_DAYS} günlük ücretsiz denemeyle), ${F.FAMILY_PLAN ? `Aile yıllık yılda ${$(F.PRICE.familyYearly)}, ` : ''}Ömür boyu tek sefer ${$(F.PRICE.lifetime)}. Android uygulamasında fiyatı ve para birimini ülken için Google Play belirler. Ayrıntılar <a href="/tr/terms">koşullarda</a>.</p>`,
+          a: `<p><span data-web-pay>Web’de: Pro aylık ayda ${$(F.PRICE.proMonthly)}, Pro yıllık yılda ${$(F.PRICE.proYearly)} (${F.TRIAL_DAYS} günlük ücretsiz denemeyle), ${F.FAMILY_PLAN ? `Aile yıllık yılda ${$(F.PRICE.familyYearly)}, ` : ''}Ömür boyu tek sefer ${$(F.PRICE.lifetime)}. </span>Android uygulamasında fiyatı ve para birimini ülken için Google Play belirler. Ayrıntılar <a href="/tr/terms">koşullarda</a>.</p>`,
         },
         {
           q: 'Ömür boyu ne demek?',
-          a: '<p>Bir kez ödersin ve Pro, BodyArcade sunulduğu sürece yenileme olmadan sürer. Daha sonra eklediğimiz oyunları da içerir. BodyArcade’ı sonsuza kadar sunacağımız anlamına gelmez: bir gün kapatırsak elimizden geldiğince önceden haber veririz; yasadan doğan tüketici haklarına bu durum dokunmaz.</p>',
+          a: '<p>Bir kez ödersin ve Pro, BodyArcade sunulduğu sürece yenileme olmadan sürer. Daha sonra eklediğimiz oyunları da içerir. BodyArcade’i sonsuza kadar sunacağımız anlamına gelmez: bir gün kapatırsak elimizden geldiğince önceden haber veririz; yasadan doğan tüketici haklarına bu durum dokunmaz.</p>',
         },
         {
           q: 'Ücretsiz deneme nasıl çalışır?',
-          a: `<p>Pro yıllık ${F.TRIAL_DAYS} gün ücretsiz başlar. Deneme sırasında hiçbir şey tahsil edilmez. Bitmeden iptal etmezsen ilk yıl tahsil edilir. Bitişten ${F.REMINDER_DAYS} gün önce sana hatırlatırız: uygulama her açılışta bir bildirim gösterir; web’de bir adres bırakırsan tek bir e-posta göndeririz. Google Play da kendi hatırlatmasını gönderir.</p>`,
+          a: `<p>Pro yıllık ${F.TRIAL_DAYS} gün ücretsiz başlar. Deneme sırasında hiçbir şey tahsil edilmez. Bitmeden iptal etmezsen ilk yıl tahsil edilir. Bitişten ${F.REMINDER_DAYS} gün önce sana hatırlatırız: uygulama her açılışta bir bildirim gösterir${F.REMINDER_MAIL ? '; web’de bir adres bırakırsan tek bir e-posta göndeririz' : ''}. Google Play da kendi hatırlatmasını gönderir.</p>`,
         },
         {
           q: 'Nasıl iptal ederim?',
-          a: '<p>Web’de Gumroad kütüphaneni aç, BodyArcade’ı seç ve Manage membership’i seç; makbuz e-postasında da aynı bağlantı var. Android uygulamasında Google Play aboneliklerinden iptal et. Pro, zaten ödediğin sürenin sonuna kadar açık kalır.</p>',
+          a: '<p><span data-web-pay>Web’de Gumroad kütüphaneni aç, BodyArcade’i seç ve Manage membership’i seç; makbuz e-postasında da aynı bağlantı var. </span>Android uygulamasında Google Play aboneliklerinden iptal et. Pro, zaten ödediğin sürenin sonuna kadar açık kalır.</p>',
         },
         {
           q: 'Nasıl iade alırım?',
-          a: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır. Web’de her plan, satın alındığı günden başlayarak ${F.REFUND_DAYS} gün içinde iade edilebilir. İadeyi Gumroad yapar; iade süresi ürün sayfasında ve makbuzunda da yazar, yardım için ${mail()} adresine yazabilirsin. Google Play’de Google’ın kuralları geçerlidir. İade edilen bir plan, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>`,
+          a: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır. <span data-web-pay>Web’de her plan, satın alındığı günden başlayarak ${F.REFUND_DAYS} gün içinde iade edilebilir. İadeyi Gumroad yapar; iade süresi ürün sayfasında ve makbuzunda da yazar, yardım için ${mail()} adresine yazabilirsin. </span>Google Play’de Google’ın kuralları geçerlidir. İade edilen bir plan, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>`,
         },
         {
           q: 'Pro’yu lisans anahtarımla nasıl açarım?',
-          a: '<p>Gumroad’da ödedikten sonra bir lisans anahtarı içeren bir e-posta alırsın. Pro ekranını aç, “Lisans anahtarın var mı?” bölümünü bul, anahtarı yapıştır ve Etkinleştir’e bas. Android uygulamasında Pro henüz açılmadıysa Satın alımları geri yükle’ye bas.</p>',
+          a: '<p><span data-web-pay>Gumroad’da ödedikten sonra bir lisans anahtarı içeren bir e-posta alırsın. </span>Pro ekranını aç, “Lisans anahtarın var mı?” bölümünü bul, anahtarı yapıştır ve Etkinleştir’e bas. Android uygulamasında Pro henüz açılmadıysa Satın alımları geri yükle’ye bas.</p>',
         },
         {
           q: 'Lisans anahtarımı kaybettim.',
-          a: '<p>Gumroad, ödediğinde onu sana e-postayla gönderdi; Gumroad kütüphanende de var. Bulamazsan ödeme yaptığın adresten bize yaz.</p>',
+          a: '<p><span data-web-pay>Gumroad, ödediğinde onu sana e-postayla gönderdi; Gumroad kütüphanende de var. </span>Bulamazsan ödeme yaptığın adresten bize yaz.</p>',
         },
         {
           q: 'Pro’yu kaç cihazda kullanabilirim?',
@@ -202,8 +206,8 @@ export function faqTr(): PageSpec {
           a: '<p>Girdiğin kiloya (cihazında kalır), ne kadar süre hareket ettiğine ve her oyunun ne kadar yoğun olduğuna göre. Kilo girilmezse kalori gösterilmez. Bir tahmindir, ölçüm değildir ve tıbbi tavsiye değildir.</p>',
         },
         {
-          q: 'BodyArcade’ı kim yapıyor, size nasıl ulaşırım?',
-          a: `<p>BodyArcade’ı ${F.COUNTRY}’de ${F.STUDIO} adıyla çalışan gerçek kişi ${F.OWNER} yapıyor. ${mail()} adresine yaz.</p>`,
+          q: 'BodyArcade’i kim yapıyor, size nasıl ulaşırım?',
+          a: `<p>BodyArcade’i ${F.COUNTRY}’de ${F.STUDIO} adıyla çalışan gerçek kişi ${F.OWNER} yapıyor. ${mail()} adresine yaz.</p>`,
         },
       ],
     },

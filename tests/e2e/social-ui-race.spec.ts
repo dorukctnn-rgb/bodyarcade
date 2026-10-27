@@ -8,18 +8,22 @@
 //
 // The players are the practice session of test builds (a body that is not there passes three obstacles in four by the race's own
 // clock, and the friends see a stand-in figure that moves), so no camera is needed; everything else is the real thing.
+// A Pro game in a room (Reaction Tag, the first Pro game with a duel): the Worker of this stack holds the key of a test Pro kit, so a host whose page
+// shows a token of that kit makes the room, a host without one is refused (the window of the Pro page), and the friend who joins needs no Pro.
 // Engines: Chromium and Firefox. WebKit on Windows has no RTCPeerConnection and no MediaStream (a core-only build, see
 // tests/live/engines.spec.ts); its row runs the race over the Room alone and is only run where BA_RACE_WEBKIT=1.
 //   node C:/Users/doruk/apps/_tools/e2e-slot.mjs run -- npx playwright test -c tests/social/playwright.config.ts tests/e2e/social-ui-race.spec.ts --workers=1
 import { chromium, expect, firefox, test, webkit, type Browser, type BrowserContext, type BrowserType, type LaunchOptions, type Page } from '@playwright/test';
 import { rmSync } from 'node:fs';
+import { makeProKit, type ProKit } from '../../packages/server/src/live/prokit.ts';
 import { startStack, type Stack } from '../../packages/server/src/social/stack.ts';
 import { baseLaunchOptions } from './support/browser.ts';
 import { buildShell, inspect, online, ready, shot, signUp } from './social-ui-support.ts';
 
 let dist = '';
 let stack: Stack;
-test.beforeAll(async () => { test.setTimeout(300_000); dist = await buildShell(); stack = await startStack({ assetsDir: dist }); });
+let kit: ProKit;
+test.beforeAll(async () => { test.setTimeout(300_000); dist = await buildShell(); kit = await makeProKit(); stack = await startStack({ assetsDir: dist, vars: kit.env }); });
 test.afterAll(async () => { await stack?.stop().catch(() => undefined); if (dist) rmSync(dist, { recursive: true, force: true }); });
 
 type EngineId = 'chromium' | 'firefox' | 'webkit';
@@ -40,7 +44,7 @@ const HOOKS = { keyboard: true, forceDemo: true, timeScale: 5, raceSeconds: 15 }
 
 interface Person { label: string; ctx: BrowserContext; page: Page; problems: string[] }
 
-async function person(browser: Browser, e: Engine, label: string, o: { phone?: boolean } = {}): Promise<Person> {
+async function person(browser: Browser, e: Engine, label: string, o: { phone?: boolean; pro?: boolean } = {}): Promise<Person> {
   // a phone (a touch screen of 390 by 844) where the engine has phones: Chromium here
   const phone = o.phone === true && e.id === 'chromium';
   const ctx = await browser.newContext({
@@ -48,7 +52,9 @@ async function person(browser: Browser, e: Engine, label: string, o: { phone?: b
     ...(phone ? { deviceScaleFactor: 2, hasTouch: true, isMobile: true } : {}),
     ...(e.id === 'chromium' ? { permissions: ['camera', 'clipboard-read', 'clipboard-write'] } : {}),
   });
-  await ctx.addInitScript((x) => { (window as unknown as { __BA_TEST__: unknown }).__BA_TEST__ = x; }, HOOKS);
+  // a Pro player: the plan of the practice entitlements, and a signed token the Worker of this stack accepts (see ProKit)
+  const hooks = o.pro ? { ...HOOKS, plan: 'pro', proToken: await kit.mint() } : HOOKS;
+  await ctx.addInitScript((x) => { (window as unknown as { __BA_TEST__: unknown }).__BA_TEST__ = x; }, hooks);
   // the camera was explained on this device before (the first round of a device shows what it is for; that panel is tested elsewhere)
   await ctx.addInitScript(() => { try { localStorage.setItem('ba2.shell.cameraExplained', JSON.stringify({ v: 1, d: true })); } catch { /* no storage */ } });
   // What the page copies is what the person pastes into a message to a friend: the test keeps it (Firefox and WebKit give a test no
@@ -81,8 +87,8 @@ async function go(p: Person, path: string): Promise<void> {
 const roomCode = (url: string): string => /\/r\/([A-Z0-9]{6})/.exec(url)?.[1] ?? '';
 
 /** The stage of the race: the panel that says what the camera is for when this browser cannot tell that it is allowed, then the layer of the room. */
-async function onStage(p: Person, code: string): Promise<void> {
-  await expect(p.page).toHaveURL(new RegExp(`/play/squat-flap/\\?(.*&)?room=${code}`), { timeout: 30_000 });
+async function onStage(p: Person, code: string, slug = 'squat-flap'): Promise<void> {
+  await expect(p.page).toHaveURL(new RegExp(`/play/${slug}/\\?(.*&)?room=${code}`), { timeout: 30_000 });
   const layer = p.page.locator('[data-live-race]');
   const explainer = p.page.locator('[data-action="camera-continue"]');
   await expect(layer.or(explainer).first()).toBeAttached({ timeout: 30_000 });
@@ -309,6 +315,139 @@ for (const e of ENGINES) {
     }
   });
 }
+
+/** Makes the profile of a player whose page is already open on the site: the friends services up, an adult, the name. */
+async function profile(p: Person, name: string): Promise<void> {
+  await go(p, '/friends/');
+  await ready(p.page);
+  await signUp(p.page, { band: 'adult', name });
+  await online(p.page);
+}
+
+for (const e of ENGINES) {
+  test(`${e.id}: a Pro host picks Reaction Tag in the room, a friend without Pro joins, and the same race of lights runs on both stages to the results`, async () => {
+    test.skip(e.id === 'webkit' && process.env['BA_RACE_WEBKIT'] !== '1', 'WebKit on Windows is a core-only build (no RTCPeerConnection, no MediaStream); BA_RACE_WEBKIT=1 runs its row over the Room alone');
+    test.setTimeout(420_000);
+    await stack.db.prepare('DELETE FROM soc_lobbies').run();
+    const browser = await e.type.launch(e.launch);
+    const people: Person[] = [];
+    let ended = false;
+    try {
+      const ada = await person(browser, e, 'Ada', { pro: true });
+      const bo = await person(browser, e, 'Bo', { phone: true });
+      people.push(ada, bo);
+      await profile(ada, 'Ada');
+      await profile(bo, 'Bo');
+
+      // ── Ada makes a room from the game she knows, and picks Reaction Tag (a Pro game, which she has the Pro for) in the room's picker ──
+      await go(ada, '/games/squat-flap/');
+      await ada.page.locator('[data-action="race.new"]').click();
+      await ada.page.waitForURL(/\/r\/[A-Z0-9]{6}/, { timeout: 30_000 });
+      const code = roomCode(ada.page.url());
+      await expect(ada.page.locator('.k-seat[data-seat]')).toHaveCount(1, { timeout: 20_000 });
+      await expect(ada.page.locator('[data-pro-game]')).toHaveCount(0);
+      await ada.page.locator('[data-action="room.game"]').click();
+      const choice = ada.page.locator('dialog[open] [data-dialog-close="reaction-tag"]');
+      await expect(choice).toContainText('Reaction Tag');
+      await expect(choice.locator('.k-protag--pill')).toHaveText('Pro');
+      await choice.click();
+      await expect(ada.page.locator('.k-gamepick')).toContainText('Reaction Tag', { timeout: 20_000 });
+      await expect(ada.page.locator('[data-pro-game]')).toBeVisible({ timeout: 20_000 });
+      await expect(ada.page.locator('[data-banner="pro-waiting"], .k-pronote')).toHaveCount(0);
+
+      // ── Bo has no Pro: he opens the room's link and is in the room, the Pro game named; he is not the host, so no picker ──
+      await go(bo, `/r/${code}`);
+      await expect(bo.page.locator('.k-seat[data-seat]')).toHaveCount(2, { timeout: 30_000 });
+      await expect(ada.page.locator('.k-seat[data-seat]')).toHaveCount(2, { timeout: 20_000 });
+      await expect(bo.page.locator('.k-gamepick')).toContainText('Reaction Tag');
+      await expect(bo.page.locator('[data-action="room.game"]')).toHaveCount(0);
+      await expect(bo.page.locator('.k-pronote, [data-banner="pro-waiting"]')).toHaveCount(0);
+
+      // ── both press Ready: one race of lights starts for both, on the stage of Reaction Tag ──
+      await ada.page.locator('[data-action="room.ready"][data-ready="1"]').click();
+      await onStage(ada, code, 'reaction-tag');
+      await expect(bo.page.locator('.k-seat[data-seat]', { hasText: 'Ada' }).locator('.k-state.ready')).toBeVisible({ timeout: 20_000 });
+      await bo.page.locator('[data-action="room.ready"][data-ready="1"]').click();
+      await onStage(bo, code, 'reaction-tag');
+      await sameRace(ada, bo);
+      await expect.poll(async () => (await stageOf(ada)).phase, { timeout: 30_000 }).toBe('run');
+      await expect.poll(() => overHud(ada), { timeout: 3_000 }).toEqual([]);
+      await expect.poll(() => overHud(bo), { timeout: 3_000 }).toEqual([]);
+      await seesTheOther(ada, 'Bo');
+      await seesTheOther(bo, 'Ada');
+      for (const x of await inspect(ada.page, { axe: false, crowding: false })) ada.problems.push(`stage layout: ${x}`);
+      await shot(ada.page, `race-${e.id}-reaction-tag-stage`, { full: false });
+      await shot(bo.page, `race-${e.id}-reaction-tag-stage-phone`, { full: false });
+
+      // ── the results: both players on both pages, the same places and points ──
+      const [ra, rb] = await Promise.all([results(ada, code), results(bo, code)]);
+      expect(ra).toEqual(rb);
+      for (const row of ra) expect(pointsOf(row)).toBeGreaterThan(0);
+      await expect(ada.page.locator('[data-live-result] li[data-you]')).toContainText('Ada (you)');
+      await expect(bo.page.locator('[data-live-result] li[data-you]')).toContainText('Bo (you)');
+      await expect(ada.page.locator('[data-room-back]')).toHaveAttribute('href', new RegExp(`/r/${code}`));
+      for (const x of await inspect(ada.page, { axe: false, crowding: false })) ada.problems.push(`results layout: ${x}`);
+      for (const x of await inspect(bo.page, { axe: false, crowding: false })) bo.problems.push(`results layout: ${x}`);
+
+      // ── and back in the room the Pro game is still the room's, for the rematch ──
+      await bo.page.locator('[data-room-back]').click();
+      await expect(bo.page.locator('.k-gamepick')).toContainText('Reaction Tag', { timeout: 20_000 });
+      await expect(bo.page.locator('[data-pro-game]')).toBeVisible();
+      ended = true;
+    } finally {
+      const problems = people.flatMap((p) => p.problems);
+      await keepEvidence(people, problems, ended);
+      await browser.close().catch(() => undefined);
+      expect(problems).toEqual([]);
+    }
+  });
+}
+
+test("chromium: a player without Pro cannot start a room of a Pro game, from the game's page or from the room's picker, and says so in a window; the room goes on with its free game", async () => {
+  test.setTimeout(300_000);
+  await stack.db.prepare('DELETE FROM soc_lobbies').run();
+  const e = ENGINES[0] as Engine;
+  const browser = await e.type.launch(e.launch);
+  const people: Person[] = [];
+  let ended = false;
+  try {
+    const bo = await person(browser, e, 'Bo', { phone: true });
+    people.push(bo);
+    await profile(bo, 'Bo');
+
+    // the game's page of Reaction Tag shows the race button (one free round of a Pro game); the Worker refuses the room, and the window says why
+    await go(bo, '/games/reaction-tag/');
+    await bo.page.locator('[data-action="race.new"]').click();
+    const sheet = bo.page.locator('dialog[open]');
+    await expect(sheet).toContainText('This game needs Pro', { timeout: 30_000 });
+    await expect(sheet).toContainText('Reaction Tag');
+    await expect(sheet.getByRole('button', { name: 'See Pro' })).toBeVisible();
+    for (const x of await inspect(bo.page, { axe: false, crowding: false })) bo.problems.push(`pro window layout: ${x}`);
+    await shot(bo.page, 'race-chromium-reaction-tag-needs-pro-phone', { full: false });
+    await sheet.getByRole('button', { name: 'Not now' }).click();
+    await expect(bo.page.locator('dialog')).toHaveCount(0);
+    expect(new URL(bo.page.url()).pathname).toBe('/games/reaction-tag/');
+
+    // a room of a free game is his; the picker offers Reaction Tag (tagged Pro) and a pick of it ends in the same window, the room unchanged
+    await go(bo, '/games/squat-flap/');
+    await bo.page.locator('[data-action="race.new"]').click();
+    await bo.page.waitForURL(/\/r\/[A-Z0-9]{6}/, { timeout: 30_000 });
+    await expect(bo.page.locator('.k-seat[data-seat]')).toHaveCount(1, { timeout: 20_000 });
+    await bo.page.locator('[data-action="room.game"]').click();
+    await bo.page.locator('dialog[open] [data-dialog-close="reaction-tag"]').click();
+    await expect(bo.page.locator('dialog[open]')).toContainText('This game needs Pro');
+    await bo.page.locator('dialog[open]').getByRole('button', { name: 'Not now' }).click();
+    await expect(bo.page.locator('dialog')).toHaveCount(0);
+    await expect(bo.page.locator('.k-gamepick')).toContainText('Squat Flap');
+    await expect(bo.page.locator('[data-pro-game]')).toHaveCount(0);
+    ended = true;
+  } finally {
+    const problems = people.flatMap((p) => p.problems);
+    await keepEvidence(people, problems, ended);
+    await browser.close().catch(() => undefined);
+    expect(problems).toEqual([]);
+  }
+});
 
 test('chromium: a stage that reloads in the middle of a race joins the room again and races on; both pages end with the same result', async () => {
   test.setTimeout(300_000);

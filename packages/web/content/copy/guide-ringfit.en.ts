@@ -32,7 +32,7 @@ export function guideRingfitEn(): PageSpec {
         ['How it tracks you', 'Motion sensors in the Joy-Con, plus a force sensor in the Ring-Con that detects squeezing and pulling', `The camera and an on-device pose model that finds ${F.MODEL_POINTS} points on your body`],
         ['Type of game', 'Role-playing adventure with battles, levels and mini-games', `${c.total} short arcade games for legs, arms, core and balance`],
         ['Session length', 'As long as you like; the adventure levels suit longer sessions', `Rounds from ${roundLength(c.shortest, 'en')} to ${roundLength(c.longest, 'en')}`],
-        ['Cost', 'A one-time purchase of the game, plus the console', `${c.free} of ${c.total} games are free, with no ads. Pro is ${$(F.PRICE.proMonthly)} a month, ${$(F.PRICE.proYearly)} a year or ${$(F.PRICE.lifetime)} once`],
+        ['Cost', 'A one-time purchase of the game, plus the console', `${c.free} of ${c.total} games are free, with no ads.<span data-web-pay> Pro is ${$(F.PRICE.proMonthly)} a month, ${$(F.PRICE.proYearly)} a year or ${$(F.PRICE.lifetime)} once</span>`],
       ]),
     },
     {

@@ -1,0 +1,52 @@
+{
+  "packageId": "com.peakapps.bodyarcade",
+  "host": "bodyarcade.com",
+  "name": "BodyArcade",
+  "launcherName": "BodyArcade",
+  "display": "fullscreen-sticky",
+  "themeColor": "#1A1430",
+  "themeColorDark": "#1A1430",
+  "navigationColor": "#1A1430",
+  "navigationColorDark": "#1A1430",
+  "navigationDividerColor": "#1A1430",
+  "navigationDividerColorDark": "#1A1430",
+  "backgroundColor": "#1A1430",
+  "enableNotifications": true,
+  "startUrl": "/?src=twa",
+  "iconUrl": "https://bodyarcade.com/icon-512.png",
+  "maskableIconUrl": "https://bodyarcade.com/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "C:/Users/doruk/.claude/skills/store-deploy/secrets/bodyarcade/upload-keystore.jks",
+    "alias": "upload"
+  },
+  "appVersionCode": 2,
+  "appVersionName": "1.0.0",
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://bodyarcade.com/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "playBilling": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://bodyarcade.com/",
+  "minSdkVersion": 24,
+  "orientation": "any",
+  "fingerprints": [
+    {
+      "name": "upload",
+      "value": "2A:31:24:0C:A2:EC:AC:B6:A3:FE:68:CA:82:71:AF:DA:92:9C:6C:E8:02:09:D7:DD:10:B9:77:B3:F2:D9:93:52"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "1.0.0"
+}

@@ -82,7 +82,7 @@ ${ul([
       id: 'try',
       title: 'Try one now',
       html: `<p>BodyArcade has ${c.total} short games, ${c.free} of them free, with rounds from ${roundLength(c.shortest, 'en')} to ${roundLength(c.longest, 'en')}. You can play alone, two people side by side on one camera on a big screen, or with friends in an online room. The pose model runs on your device, and the video stays there.</p>
-<p>Related: <a href="/ring-fit-adventure-alternative">a Ring Fit Adventure alternative you can play in a browser</a>, and <a href="/blog/why-browser-fitness-games-are-the-future">why browser fitness games are the future of home workouts</a>.</p>`,
+<p>Related: <a href="/fitness-games">all ${c.total} games and which to start with</a>, <a href="/seated-exercise-games">playing every game from a chair</a>, <a href="/ring-fit-adventure-alternative">a Ring Fit Adventure alternative you can play in a browser</a>, and <a href="/blog/why-browser-fitness-games-are-the-future">why browser fitness games are the future of home workouts</a>.</p>`,
     },
   ];
   const title = 'How webcam fitness games work, and how to set up your room';

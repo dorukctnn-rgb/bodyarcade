@@ -4,7 +4,7 @@
 // whether a game can start (TwoPlayerCalibrator).
 import type { Capabilities, CapabilitiesFn, DeviceKind, DeviceSignals, Unsubscribe, WatchCapabilitiesFn } from '../types/index.ts';
 
-/** The Play package of the Android app (android/twa-manifest.json on play/cloudflare-twa). */
+/** The Play package of the Android app (android/twa-manifest.json). */
 export const ANDROID_PACKAGE = 'com.peakapps.bodyarcade';
 const STORAGE_KEY = 'ba.androidApp';
 
@@ -19,7 +19,8 @@ const PHONE_UA = /\b(iPhone|iPod|Windows Phone)\b|Android.+Mobile/i;
 export function isAndroidApp(s: Pick<DeviceSignals, 'referrer' | 'search' | 'storedAndroidApp' | 'digitalGoods' | 'userAgent'>): boolean {
   if (s.storedAndroidApp) return true;
   if (s.referrer.startsWith(`android-app://${ANDROID_PACKAGE}`)) return true;
-  if (/[?&](source|utm_source)=(twa|android-app)\b/i.test(s.search)) return true;
+  // The app's start address is /?src=twa (android/twa-manifest.json; entitlements/billing-env.ts reads the same marker); source= and utm_source= are older spellings.
+  if (/[?&](src|source|utm_source)=(twa|android-app)\b/i.test(s.search)) return true;
   // Play Billing's Digital Goods API is only there in a Trusted Web Activity.
   return s.digitalGoods && /Android/i.test(s.userAgent);
 }

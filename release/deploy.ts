@@ -12,7 +12,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TARGETS, type TargetId } from './site.ts';
-import { SECRETS, readSecrets, secretsFile } from './secrets.ts';
+import { SECRETS, isRequired, readSecrets, secretsFile } from './secrets.ts';
 import { bridgeProblems, gatesFor, readShellSources, runGates, secretProblems, shellSignsRoomCalls } from './gates.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -37,13 +37,17 @@ const run = (cmd: string, cmdArgs: string[], env: NodeJS.ProcessEnv = process.en
 const failedGate = runGates(gatesFor(id, root), root);
 if (failedGate) { console.error(`stopped by the ${failedGate.name} gate: ${failedGate.why}`); process.exit(1); }
 
-// 1. Secrets: every required one present (names only are printed).
+// 1. Secrets: every required one present (names only are printed; PLAY_SA_JSON is required for production: see release/secrets.ts).
 const secrets = readSecrets(id);
-const missing = SECRETS.filter((s) => s.required && !secrets[s.name]).map((s) => s.name);
-if (missing.length) { console.error(`missing secrets in ${secretsFile(id)}: ${missing.join(', ')} (node release/secrets.ts init ${id})`); process.exit(1); }
+const missing = SECRETS.filter((s) => isRequired(s, id) && !secrets[s.name]);
+if (missing.length) {
+  const lines = missing.map((s) => `  ${s.name}: ${s.why}`);
+  console.error(`missing secrets in ${secretsFile(id)}:\n${lines.join('\n')}\n(node release/secrets.ts init ${id} makes the ones that can be generated; the others come from a person or a dashboard)`);
+  process.exit(1);
+}
 const together = secretProblems(secrets);
 if (together.length) { console.error(`${secretsFile(id)}: ${together.join('; ')}`); process.exit(1); }
-const optional = SECRETS.filter((s) => !s.required && !secrets[s.name]).map((s) => s.name);
+const optional = SECRETS.filter((s) => !isRequired(s, id) && !secrets[s.name]).map((s) => s.name);
 if (optional.length) console.warn(`not set (features off): ${optional.join(', ')}`);
 
 // 2. The config must not carry placeholders.

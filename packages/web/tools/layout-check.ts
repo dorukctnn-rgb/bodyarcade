@@ -56,8 +56,10 @@ export async function checkPage(page: Page): Promise<string[]> {
         const a = inView[i] as { el: Element; r: DOMRect };
         const b = inView[j] as { el: Element; r: DOMRect };
         if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
-        // Fixed bars sit over the page by design; what scrolls under them is checked at the end of the page below.
-        if (a.el.closest('.ba-tabbar, .ba-topbar, .k-close, .k-actionbar') || b.el.closest('.ba-tabbar, .ba-topbar, .k-close, .k-actionbar')) continue;
+        // Fixed bars sit over the page by design; what scrolls under them is checked at the end of the page below. The buttons at the
+        // foot of a window (.k-sheet > .btns) are such a bar for the window's own content (page check's probe checks them with the window at its end).
+        const BARS = '.ba-tabbar, .ba-topbar, .k-close, .k-actionbar, dialog .k-sheet > .btns';
+        if (a.el.closest(BARS) || b.el.closest(BARS)) continue;
         const w = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
         const h = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
         if (w > 2 && h > 2) problems.push(`${label(a.el)} overlaps ${label(b.el)}`);

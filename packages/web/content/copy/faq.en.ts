@@ -12,6 +12,10 @@ export function faqEn(): PageSpec {
   const W = F.ROAD_RUN_WORLDS;
   const proTitles = titlesOf((g) => !g.free, 'en');
   const liveTitles = titlesOf((g) => g.live, 'en');
+  const proLive = c.proLive;
+  const proLiveTitles = titlesOf((g) => g.live && !g.free, 'en');
+  // only said while some Pro game can be raced: a room holds it when its host has Pro, and the friends who join need none
+  const proRooms = proLive > 0 ? ` ${proLiveTitles} ${proLive > 1 ? 'are Pro games' : 'is a Pro game'}: a room can hold ${proLive > 1 ? 'one' : 'it'} when its host has Pro, and the friends who join do not need Pro.` : '';
   const $ = (n: number): string => F.usd(n, 'en');
   const memberships = F.FAMILY_PLAN ? 'a Pro monthly, Pro yearly or Family yearly' : 'a Pro monthly or Pro yearly';
   const app = F.ANDROID_APP_LIVE
@@ -81,7 +85,7 @@ export function faqEn(): PageSpec {
       items: [
         {
           q: 'How do I play online with a friend?',
-          a: `<p>Open Friends and make a profile. The app asks your age group once and gives you a friend code that looks like BA-7K2Q4X. Send your friend code or your invite link; when your friend accepts, you are friends. To play, start a room, pick a game and send the invite link, the ${F.ROOM_CODE_CHARS}-character code or the QR code. A room holds ${F.SEATS.min} to ${F.SEATS.max} players. Everyone gets ready, and the round starts for all of you at once. Live races are in ${liveTitles}.</p>`,
+          a: `<p>Open Friends and make a profile. The app asks your age group once and gives you a friend code that looks like BA-7K2Q4X. Send your friend code or your invite link; when your friend accepts, you are friends. To play, start a room, pick a game and send the invite link, the ${F.ROOM_CODE_CHARS}-character code or the QR code. A room holds ${F.SEATS.min} to ${F.SEATS.max} players. Everyone gets ready, and the round starts for all of you at once. Live races are in ${liveTitles}.${proRooms}</p>`,
         },
         {
           q: 'Can two of us play on one camera?',
@@ -123,7 +127,7 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'How much do the plans cost?',
-          a: `<p>On the web: Pro monthly ${$(F.PRICE.proMonthly)} a month, Pro yearly ${$(F.PRICE.proYearly)} a year with a ${F.TRIAL_DAYS}-day free trial, ${F.FAMILY_PLAN ? `Family yearly ${$(F.PRICE.familyYearly)} a year, ` : ''}and Lifetime ${$(F.PRICE.lifetime)} once. In the Android app, Google Play sets the price and the currency for your country. The details are in the <a href="/terms">terms</a>.</p>`,
+          a: `<p><span data-web-pay>On the web: Pro monthly ${$(F.PRICE.proMonthly)} a month, Pro yearly ${$(F.PRICE.proYearly)} a year with a ${F.TRIAL_DAYS}-day free trial, ${F.FAMILY_PLAN ? `Family yearly ${$(F.PRICE.familyYearly)} a year, ` : ''}and Lifetime ${$(F.PRICE.lifetime)} once. </span>In the Android app, Google Play sets the price and the currency for your country. The details are in the <a href="/terms">terms</a>.</p>`,
         },
         {
           q: 'What does Lifetime mean?',
@@ -131,23 +135,23 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'How does the free trial work?',
-          a: `<p>Pro yearly starts with ${F.TRIAL_DAYS} days free. Nothing is charged during the trial. If you do not cancel before it ends, the first year is charged. We remind you ${F.REMINDER_DAYS} days before the end: the app shows a notice on every open, and on the web we send one e-mail if you leave an address. Google Play sends its own reminder too.</p>`,
+          a: `<p>Pro yearly starts with ${F.TRIAL_DAYS} days free. Nothing is charged during the trial. If you do not cancel before it ends, the first year is charged. We remind you ${F.REMINDER_DAYS} days before the end: the app shows a notice on every open${F.REMINDER_MAIL ? ', and on the web we send one e-mail if you leave an address' : ''}. Google Play sends its own reminder too.</p>`,
         },
         {
           q: 'How do I cancel?',
-          a: '<p>On the web, open your Gumroad library, choose BodyArcade and select Manage membership; the receipt e-mail has the same link. In the Android app, cancel in Google Play subscriptions. Pro stays on until the end of the period you already paid for.</p>',
+          a: '<p><span data-web-pay>On the web, open your Gumroad library, choose BodyArcade and select Manage membership; the receipt e-mail has the same link. </span>In the Android app, cancel in Google Play subscriptions. Pro stays on until the end of the period you already paid for.</p>',
         },
         {
           q: 'How do I get a refund?',
-          a: `<p>Refunds follow the rules of the store that sold the plan. On the web, every plan can be refunded within ${F.REFUND_DAYS} days of buying it. Gumroad makes the refund; the refund period is also on the product page and your receipt, and you can write to ${mail()} for help. On Google Play, Google&rsquo;s rules apply. A refunded plan ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>`,
+          a: `<p>Refunds follow the rules of the store that sold the plan. <span data-web-pay>On the web, every plan can be refunded within ${F.REFUND_DAYS} days of buying it. Gumroad makes the refund; the refund period is also on the product page and your receipt, and you can write to ${mail()} for help. </span>On Google Play, Google&rsquo;s rules apply. A refunded plan ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>`,
         },
         {
           q: 'How do I turn Pro on with my license key?',
-          a: '<p>After you pay on Gumroad, you get an e-mail with a license key. Open the Pro screen, find &ldquo;Already have a license key?&rdquo;, paste the key and press Activate. In the Android app, press Restore purchases if Pro is not on yet.</p>',
+          a: '<p><span data-web-pay>After you pay on Gumroad, you get an e-mail with a license key. </span>Open the Pro screen, find &ldquo;Already have a license key?&rdquo;, paste the key and press Activate. In the Android app, press Restore purchases if Pro is not on yet.</p>',
         },
         {
           q: 'I lost my license key.',
-          a: '<p>Gumroad e-mailed it to you when you paid, and it is also in your Gumroad library. If you cannot find it, write to us from the address you paid with.</p>',
+          a: '<p><span data-web-pay>Gumroad e-mailed it to you when you paid, and it is also in your Gumroad library. </span>If you cannot find it, write to us from the address you paid with.</p>',
         },
         {
           q: 'On how many devices can I use Pro?',

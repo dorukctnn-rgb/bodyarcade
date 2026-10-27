@@ -9,9 +9,13 @@
 // - snapshot()/restore(): the engine's plain data; restore(snapshot()) continues identically.
 // - local2: each player gets their own lane (engine.ts), their own score and reason strip in the split HUD when the HUD has
 //   them (PlayHud.setPlayer), and their half of the mirror.
+// - mode 'duel' (a live race, for a game whose rules have `planDuel`): one player, one continuous round of the match's length, the lights
+//   of the Room's course on the match's own seed; the shell's race wrapper (web/src/app/duel.ts) writes the score and the combo, so this
+//   game leaves those two plates alone, and a duel event says how every obstacle ended.
 import type {
   BodyProfile, Game, GameContext, GameEvent, GameManifest, Hud, InputFrame, PlayerSlot, PoseFrame, PoseService, RunSummary, StartOptions, StepResult,
 } from '../../core/types/index.ts';
+import { rngStream } from '../../core/loop/rng.ts';
 import type { CallId } from './coach.ts';
 import { browserSpeech, createCoachVoice, pickVoiceLang, type CoachVoice, type SpeechLike, type VoiceAudio, type VoicePack } from './coach-voice.ts';
 import { TargetEngine, type EngineConfig } from './engine.ts';
@@ -102,9 +106,11 @@ export function createTargetGame<S extends BaseSpec>(manifest: GameManifest, rul
   };
 
   function config(): EngineConfig {
-    const c: EngineConfig = { durationSec: manifest.durationSec, met: manifest.met };
-    if (o.rounds !== undefined) c.rounds = o.rounds;
-    if (o.restSec !== undefined) c.restSec = o.restSec;
+    const duel = opts?.mode === 'duel' ? opts.duel : undefined;
+    // A race is one round of the match's length: no rounds, no breather.
+    const c: EngineConfig = duel ? { durationSec: duel.durationMs / 1000, rounds: 1, restSec: 0, met: manifest.met } : { durationSec: manifest.durationSec, met: manifest.met };
+    if (!duel && o.rounds !== undefined) c.rounds = o.rounds;
+    if (!duel && o.restSec !== undefined) c.restSec = o.restSec;
     if (o.latencyMs !== undefined) c.latencyMs = o.latencyMs;
     return c;
   }
@@ -160,12 +166,20 @@ export function createTargetGame<S extends BaseSpec>(manifest: GameManifest, rul
       if (!c) throw new Error('Call init() before start().');
       opts = { ...s };
       coach?.setQuiet(c.flags.silent);
+      const duel = s.mode === 'duel' ? s.duel : undefined;
+      if (s.mode === 'duel' && !duel) throw new Error("Mode 'duel' needs the Room's course (StartOptions.duel).");
+      if (duel && !rules.planDuel) throw new Error(`${rules.id} cannot be raced.`);
       const two = s.mode === 'local2';
       const seated = s.seated || c.flags.seated;
       const p1 = two ? (s.profiles?.[1] ?? s.profile ?? nominalProfile({ seated })) : s.profile;
       const profiles: StartInput['profiles'] = two ? [p1, s.profiles?.[2] ?? p1] : [p1];
       engine = new TargetEngine<S>(rules, config());
-      engine.start({ rng: c.rng('course'), level: levelOf(s.difficulty), seated, quiet: c.flags.silent, profiles });
+      // A race is played on the match's seed: the Room's seed reaches the page after the session began, so the session's own 'course'
+      // stream is not the one every player shares.
+      engine.start({
+        rng: duel ? rngStream(s.seed, 'course') : c.rng('course'), level: levelOf(s.difficulty), seated, quiet: c.flags.silent, profiles,
+        ...(duel ? { duel } : {}),
+      });
       pending = [];
       shown.clear();
       view?.begin({
@@ -193,7 +207,7 @@ export function createTargetGame<S extends BaseSpec>(manifest: GameManifest, rul
 
       // announcements the player's screen reader gets: round starts and rests, nothing per target
       for (const ev of pending) {
-        if (ev.type === 'round') c.hud.announce(say('announce_round', { n: ev.n as number, of: ev.of as number }));
+        if (ev.type === 'round') { if (!e.raced) c.hud.announce(say('announce_round', { n: ev.n as number, of: ev.of as number })); }
         else if (ev.type === 'rest') c.hud.announce(say('announce_rest'));
         // the coach's calls: spoken now (a call that is far too late is dropped, never queued), and drawn as a caption by the view
         else if (ev.type === 'call' && coach) {
@@ -216,8 +230,11 @@ export function createTargetGame<S extends BaseSpec>(manifest: GameManifest, rul
           if (shown.get(`score${slot}`) !== score) { shown.set(`score${slot}`, score); duo.setPlayer(slot, 'score', score); }
           if (shown.get(`hint${slot}`) !== hint) { shown.set(`hint${slot}`, hint); duo.setPlayer(slot, 'hint', hint); }
         } else if (i === 0) {
-          hudSet('score', String(score), score);
-          hudSet('combo', String(lane.state.stats.streak), lane.state.stats.streak);
+          // In a race the score and the combo are the race's (the Room's formula, written by the shell).
+          if (!e.raced) {
+            hudSet('score', String(score), score);
+            hudSet('combo', String(lane.state.stats.streak), lane.state.stats.streak);
+          }
           hudSet('hint', hint, hint);
         }
       }

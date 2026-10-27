@@ -60,6 +60,8 @@ const CAMERA_CONTINUE: Step[] = [{ waitFor: '[data-action="camera-continue"]' },
 const PRACTICE: Record<string, unknown> = { timeScale: 40, roundSeconds: 6, forceDemo: true, keyboard: true };
 /** Players added to a fresh device that has the Family plan (a child, two more); `active` is the one that plays. */
 const FAMILY_PLAYERS = [{ name: 'Defne', kid: true, avatar: 'fox' }, { name: 'Mert', avatar: 'robot' }, { name: 'Elif', avatar: 'rocket' }];
+/** The main action of Home: the play button of the hero (today's game). */
+const HOME_MAIN = '.k-today .ba-btn--primary';
 const TOUR_READY: Step = { waitFor: '[data-welcome][data-ready="1"]', timeout: 40000 };
 const MAIN_READY: Step = { waitFor: 'main h1', timeout: 20000 };
 
@@ -97,7 +99,8 @@ export function webTargets(prefix: string): Target[] {
   const games = catalogue.games;
   const paid = games.find((g) => !g.free);
   const out: Target[] = [
-    { id: 'web:home', server: 'web', path: `${prefix}/` },
+    // The main action of Home is the hero's play button; the challenge of the day under it has its own (also accent) button, a second card that is not the first screen's to show on a phone.
+    { id: 'web:home', server: 'web', path: `${prefix}/`, primary: [HOME_MAIN] },
     { id: 'web:region', server: 'web', path: `${prefix}/workouts/legs/` },
     { id: 'web:settings', server: 'web', path: `${prefix}/settings/` },
     { id: 'web:pro', server: 'web', path: `${prefix}/pro/` },
@@ -112,7 +115,7 @@ export function webTargets(prefix: string): Target[] {
     { id: 'web:plans:pro', server: 'web', path: `${prefix}/plans/`, hooks: { ...PRACTICE, plan: 'pro' }, note: 'workout plans, Pro player' },
     { id: 'web:pro:trial', server: 'web', path: `${prefix}/pro/`, hooks: { ...PRACTICE, plan: 'pro', trial: { endsInHours: 30 } }, note: 'the paywall for a player in the last days of the trial' },
     { id: 'web:pro:unavailable', server: 'web', path: `${prefix}/pro/`, hooks: { ...PRACTICE, billing: 'unavailable' }, note: 'a build where nothing can be bought' },
-    { id: 'web:home:trial', server: 'web', path: `${prefix}/`, hooks: { ...PRACTICE, trial: { endsInHours: 30 } }, note: 'the notice of the last days of a trial' },
+    { id: 'web:home:trial', server: 'web', path: `${prefix}/`, hooks: { ...PRACTICE, trial: { endsInHours: 30 } }, primary: [HOME_MAIN], note: 'the notice of the last days of a trial' },
   );
   // The players of the Family plan: the list, the manage state, the form, a child's settings, and the parent gate.
   const family = { ...PRACTICE, plan: 'family', players: FAMILY_PLAYERS };

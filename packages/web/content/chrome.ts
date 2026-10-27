@@ -60,6 +60,7 @@ interface Words {
   terms: string;
   faq: string;
   delete: string;
+  guides: string;
   contact: string;
   language: string;
   otherName: string;
@@ -74,7 +75,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Games', '/'], pro: ['Pro', '/pro/'], faq: ['FAQ', '/faq'], blog: ['Blog', '/blog/'] },
     play: 'Play a game', toc: 'On this page', crumbs: 'Breadcrumb',
     made: `BodyArcade is made by ${STUDIO}.`, camera: 'Camera video is read on your device and never recorded.',
-    privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', delete: 'Delete account', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
+    privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', delete: 'Delete account', guides: 'Guides', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
     studio: STUDIO,
   },
   tr: {
@@ -82,7 +83,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Oyunlar', '/tr/'], pro: ['Pro', '/tr/pro/'], faq: ['SSS', '/tr/faq'], blog: null },
     play: 'Bir oyun oyna', toc: 'Bu sayfada', crumbs: 'Sayfa yolu',
     made: `BodyArcade, ${STUDIO} tarafından yapılır.`, camera: 'Kamera görüntüsü cihazında okunur, hiçbir zaman kaydedilmez.',
-    privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', delete: 'Hesabı sil', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
+    privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', delete: 'Hesabı sil', guides: 'Rehberler', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
     studio: STUDIO,
   },
 };
@@ -90,6 +91,15 @@ const WORDS: Readonly<Record<Lang, Words>> = {
 const PAGES: Readonly<Record<Lang, { privacy: string; terms: string; faq: string; delete: string }>> = {
   en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account' },
   tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account' },
+};
+
+/**
+ * The search pages and the first guide, linked from the footer of every content page (and, in the app, from its own footer): the way a
+ * visitor and a crawler find them from anywhere on the site. copy/seo-shared.ts has the same addresses; content.test.ts compares them.
+ */
+export const FOOTER_GUIDES: Readonly<Record<Lang, readonly (readonly [string, string])[]>> = {
+  en: [['Fitness games', '/fitness-games'], ['Seated games', '/seated-exercise-games'], ['Games with friends', '/workout-games-with-friends'], ['By body area', '/workout-games-by-body-area'], ['How it works', '/webcam-fitness-games']],
+  tr: [['Evde spor oyunları', '/tr/evde-spor-oyunlari'], ['Oturarak oyunlar', '/tr/oturarak-egzersiz-oyunlari'], ['Arkadaşlarla oyunlar', '/tr/arkadaslarla-spor-oyunlari'], ['Bölgeye göre', '/tr/bolgeye-gore-spor-oyunlari'], ['Nasıl çalışır', '/tr/kamera-ile-spor-oyunlari']],
 };
 
 /** The picture every content page shows when a link to it is shared (the Play feature graphic: 1024 by 500). */
@@ -119,7 +129,8 @@ function footer(spec: PageSpec, w: Words): string {
   const langs = o
     ? `<ul aria-label="${esc(w.language)}"><li><a href="${spec.lang === 'en' ? spec.url : o.url}" hreflang="en" lang="en"${spec.lang === 'en' ? ' aria-current="true"' : ''}>English</a></li><li><a href="${spec.lang === 'tr' ? spec.url : o.url}" hreflang="tr" lang="tr"${spec.lang === 'tr' ? ' aria-current="true"' : ''}>Türkçe</a></li></ul>`
     : '';
-  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p><ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="${p.delete}">${esc(w.delete)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
+  const guides = `<ul aria-label="${esc(w.guides)}">${FOOTER_GUIDES[spec.lang].map(([name, href]) => `<li><a href="${href}"${href === spec.url ? ' aria-current="page"' : ''}>${esc(name)}</a></li>`).join('')}</ul>`;
+  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p>${guides}<ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="${p.delete}">${esc(w.delete)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
 }
 
 function crumbs(spec: PageSpec, w: Words): string {
@@ -146,6 +157,8 @@ function head(spec: PageSpec, w: Words): string {
   return [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
+    // before anything is drawn: marks the page when it is open in the Android app (content.css hides paying on the web there)
+    '<script src="/assets/twa.js"></script>',
     `<title>${esc(title)}</title>`,
     `<meta name="description" content="${esc(spec.description)}">`,
     `<link rel="canonical" href="${url}">`,
