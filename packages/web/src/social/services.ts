@@ -2,9 +2,11 @@
 // signed as the same profile. Started when the page opens, in the background; the shell draws the Friends tab only when
 // this answers with services.
 //
-// Whether the social service exists is asked once, with a plain unsigned GET: a Worker that has it answers 401 with a JSON
-// error, a static host answers 404 or its start page. A device that already has a registered profile does not ask (it has
-// talked to the service before; the page will say so if it is down), and a device that said "under 16" sends nothing at all.
+// Whether the social service exists is asked once, with a plain unsigned GET of /api/social/status: a Worker that has it answers
+// 200 {"service":"social"}, a static host answers 404 or its start page. (Until release 3 the question was an unsigned GET of
+// /api/social/me and the answer its 401, which the browser printed as a console error on every page.) A device that already has a
+// registered profile does not ask (it has talked to the service before; the page will say so if it is down), and a device that said
+// "under 16" sends nothing at all.
 //
 // Room calls are signed: `createLiveRoomPort` gets the client's own `fetcher` and `roomIdentity()`, so the Worker knows which
 // profile opens and joins a room (age band, name and the blocks of that profile) and never takes it from the page's say-so.
@@ -23,18 +25,21 @@ export type Probe = 'answers' | 'absent' | 'unreachable';
 /** How long the question waits for an answer before the service counts as unreachable. */
 export const PROBE_TIMEOUT_MS = 4000;
 
+/** The address the question goes to (packages/server/src/social/routes.ts socialStatus). */
+export const PROBE_PATH = '/api/social/status';
+
 /**
- * Does this site have the social service? 'answers': a JSON error from the service itself (an unsigned call is refused with 401).
- * 'absent': an answer that is not the service's (a static host: 404, or the start page). 'unreachable': no answer at all.
+ * Does this site have the social service? 'answers': the Worker's own answer {"service":"social"}. 'absent': an answer that is not
+ * the service's (a static host: 404 or the start page; a Worker without the module: 404 JSON). 'unreachable': no answer at all.
  */
 export async function probeSocial(fetchFn: typeof fetch = (i, n) => fetch(i, n), origin = ''): Promise<Probe> {
   const ctl = typeof AbortController === 'undefined' ? null : new AbortController();
   const timer = ctl ? setTimeout(() => ctl.abort(), PROBE_TIMEOUT_MS) : null;
   try {
-    const res = await fetchFn(`${origin}/api/social/me`, { cache: 'no-store', credentials: 'omit', ...(ctl ? { signal: ctl.signal } : {}) });
-    if (!/json/i.test(res.headers.get('content-type') ?? '')) return 'absent';
+    const res = await fetchFn(`${origin}${PROBE_PATH}`, { cache: 'no-store', credentials: 'omit', ...(ctl ? { signal: ctl.signal } : {}) });
+    if (!res.ok || !/json/i.test(res.headers.get('content-type') ?? '')) return 'absent';
     const body: unknown = await res.json().catch(() => null);
-    return typeof (body as { error?: unknown } | null)?.error === 'string' ? 'answers' : 'absent';
+    return (body as { service?: unknown } | null)?.service === 'social' ? 'answers' : 'absent';
   } catch {
     return 'unreachable';
   } finally {

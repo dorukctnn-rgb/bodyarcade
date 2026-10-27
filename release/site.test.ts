@@ -67,6 +67,11 @@ describe('targets and headers', () => {
     for (const [from, to] of STATIC_REDIRECTS) expect(r).toContain(`${from} ${to} 301`);
     expect(r).not.toMatch(/^\/bodyarcade|^\/play |^\/app /m);
   });
+
+  it('the support address of the store listings opens the FAQ of its language', () => {
+    const r = redirectsFile();
+    for (const line of ['/support /faq 301', '/support/ /faq 301', '/tr/destek /tr/faq 301', '/tr/sss /tr/faq 301']) expect(r).toContain(line);
+  });
 });
 
 describe('pages, manifest, sitemap', () => {

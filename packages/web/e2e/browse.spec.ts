@@ -18,7 +18,7 @@ test.describe('finding a game', () => {
     await expect(page).toHaveURL(/\/workouts\/legs\/$/);
     await expect(page.locator('a.ba-tile')).toHaveCount(3);
     await expect(page.locator('h1')).toContainText('Legs and hips');
-    await expect(page).toHaveTitle(/Legs and hips: camera workout games/);
+    await expect(page).toHaveTitle(/Legs and hips fitness games for your webcam/);
     expect(await page.evaluate(() => (window as unknown as { __marker?: number }).__marker)).toBe(1);
 
     await page.goBack();

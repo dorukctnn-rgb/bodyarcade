@@ -81,6 +81,8 @@ test('the old addresses move with a 301 to the right place, keeping the query', 
     ['/privacy.html', '/privacy'], ['/terms.html', '/terms'], ['/webcam-fitness-games.html', '/webcam-fitness-games'],
     ['/ring-fit-adventure-alternative.html', '/ring-fit-adventure-alternative'], ['/blog/why-browser-fitness-games-are-the-future.html', '/blog/why-browser-fitness-games-are-the-future'],
     ['/blog', '/blog/'], ['/uploads/old.png', '/'], ['/BodyArcade%20v1.html', '/'], ['/BodyArcade%20v2-neon.html', '/'],
+    // the support address of the store listings
+    ['/support', '/faq'], ['/support/', '/faq'], ['/support?from=appstore', '/faq?from=appstore'], ['/tr/destek', '/tr/faq'], ['/tr/sss', '/tr/faq'],
   ];
   for (const [from, to] of cases) {
     const res = await get(from);
@@ -124,6 +126,10 @@ test('the social module is deployed: an unsigned call is refused with 401, and t
   // 401 is the edge refusing a call with no signature; 503 means the Worker has no SOCIAL binding, 404 or 500 a build from before the module
   const me = await get('/api/social/me');
   expect(me.status(), 'GET /api/social/me with no signature (redeploy the preview when this is not 401)').toBe(401);
+  // the question every page asks before it has a profile: answered by the Worker with 200, so no browser prints an error for it
+  const status = await get('/api/social/status');
+  expect(status.status(), 'GET /api/social/status').toBe(200);
+  expect(await status.json()).toEqual({ service: 'social' });
   const friend = await get('/f/BA-ABCDEF');
   expect(friend.status(), '/f/BA-ABCDEF').toBe(200);
   expect(friend.headers()['x-robots-tag'] ?? '', '/f/BA-ABCDEF stays out of search').toContain('noindex');

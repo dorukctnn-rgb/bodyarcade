@@ -10,6 +10,8 @@ import { describeOffer, yearlySavingsPercent, type PlanId, type PlanOffer } from
 import { proGames } from '../../catalogue/filter.ts';
 import { canRace } from '../app/duel.ts';
 import { hasPro, titleOf, type ViewContext } from '../context.ts';
+import { FREE_PLAN_ID, WORKOUT_PLANS } from '../../../core/store/workout-plans.ts';
+import { localized } from '../../../core/ui/i18n/localized.ts';
 
 export type KeyStatus = 'idle' | 'busy' | 'ok' | 'not_found' | 'refunded' | 'ended' | 'limit' | 'network' | 'server';
 
@@ -54,12 +56,18 @@ function benefits(ctx: ViewContext): SafeHtml {
   const pro = proGames(ctx.games);
   const items: SafeHtml[] = [];
   if (pro.length > 0) items.push(html`<li>${icon('arcade')}<span>${t.t('paywall.benefit.gamesList', { n: pro.length, names: t.list(pro.map((g) => titleOf(ctx, g))) })}</span></li>`);
+  // The workout plans that are Pro: every plan but the free one (core/store/workout-plans.ts FREE_PLAN_ID, the rule the entitlements read).
+  const plans = WORKOUT_PLANS.filter((p) => p.id !== FREE_PLAN_ID);
+  if (plans.length > 0) items.push(html`<li>${icon('programs')}<span>${t.t('paywall.benefit.plans', { n: plans.length, names: t.list(plans.map((p) => localized(p.title, ctx.lang))) })}</span></li>`);
   items.push(html`<li>${icon('trophy')}<span>${t.t('paywall.benefit.levels')}</span></li>`);
   // Road Run has ten worlds and three are free: Pro is the other seven (the same numbers as the terms and the FAQ).
   if (hasRoadRun(ctx)) items.push(html`<li>${icon('sparkle')}<span>${t.t('paywall.benefit.worlds', { n: ROAD_RUN_WORLDS.total - ROAD_RUN_WORLDS.free })}</span></li>`);
   // Only a promise the Room keeps: the server verifies the host's Pro before a Pro game starts (ROOM_PRO_ON in app/boot.ts), and a room
   // holds only the games that have the duel mode, so some Pro game must have it. The line waits for the first one, by itself.
   if (ctx.flags.social && ctx.flags.roomsPro && ctx.games.some((g) => !g.free && canRace(g))) items.push(html`<li>${icon('friends')}<span>${t.t('paywall.benefit.rooms')}</span></li>`);
+  // The games added later come with every plan for as long as it runs (the terms and the FAQ say the same: while a membership is
+  // active, and on the Lifetime plan).
+  items.push(html`<li>${icon('plus')}<span>${t.t('paywall.benefit.later')}</span></li>`);
   return html`<ul class="k-benefits">${items}</ul>`;
 }
 
@@ -160,12 +168,13 @@ export function paywallPage(ctx: ViewContext, st: PaywallState): SafeHtml {
 
   const offers = shown.length > 0
     ? html`<div class="k-plans" role="radiogroup" aria-label="${t.t('paywall.plans')}">${shown.map((o) => planRow(ctx, o, o.id === (sel?.id ?? st.selected)))}</div>
-        <div class="k-actionbar"><div class="k-actions">
+        <div class="k-buy"><div class="k-actionbar"><div class="k-actions">
           <button type="button" class="ba-btn ba-btn--primary ba-btn--lg" data-action="buy" data-plan="${sel?.id ?? ''}">${d?.cta ?? t.t('paywall.cta.buy')}</button>
           <a class="ba-btn ba-btn--quiet" href="${ctx.href('home')}" data-action="close-paywall">${t.t('paywall.continueFree')}</a>
-        </div><p class="k-note">${d?.trialLine ? `${d.trialLine}. ` : ''}${inPlay ? t.t('paywall.cancel.play') : info.mode === 'web' ? t.t('paywall.cancel.web') : ''}${ctx.plans.trialReminder && d?.trialLine ? ` ${reminderText(ctx)}` : ''}</p>${info.preview ? html`<p class="k-note k-preview" data-paywall-preview>${t.t('paywall.preview')}</p>` : ''}</div>`
+        </div></div>
+        <p class="k-note k-pw-note">${d?.trialLine ? `${d.trialLine}. ` : ''}${inPlay ? t.t('paywall.cancel.play') : info.mode === 'web' ? t.t('paywall.cancel.web') : ''}${ctx.plans.trialReminder && d?.trialLine ? ` ${reminderText(ctx)}` : ''}</p>${info.preview ? html`<p class="k-note k-pw-note k-preview" data-paywall-preview>${t.t('paywall.preview')}</p>` : ''}</div>`
     // Nothing can be bought here: no plan, no buy button, and the way back stays.
-    : html`<div class="k-actionbar"><p class="k-note k-soon" role="status" data-paywall-note>${noOffersText(ctx)}</p><div class="k-actions"><a class="ba-btn ba-btn--quiet" href="${ctx.href('home')}" data-action="close-paywall">${t.t('paywall.continueFree')}</a></div></div>`;
+    : html`<div class="k-buy"><div class="k-actionbar"><p class="k-note k-soon" role="status" data-paywall-note>${noOffersText(ctx)}</p><div class="k-actions"><a class="ba-btn ba-btn--quiet" href="${ctx.href('home')}" data-action="close-paywall">${t.t('paywall.continueFree')}</a></div></div></div>`;
 
   const key = !info.keyEntry.visible ? ''
     : html`<details class="k-keybox"${attr('open', st.keyOpen)}><summary>${icon('key')}<span>${t.t('paywall.key.title')}</span></summary>
@@ -182,7 +191,7 @@ export function paywallPage(ctx: ViewContext, st: PaywallState): SafeHtml {
         <div class="k-stack">
           <div class="k-pw-art" aria-hidden="true">${pro.slice(0, 3).map((g) => html`<img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="400" height="300">`)}</div>
           <h1 data-main-heading>${t.t('paywall.title')}</h1>
-          <p class="lead">${game ? t.t('paywall.locked', { game: titleOf(ctx, game) }) : t.t('paywall.lead')}</p>
+          <p class="lead${game ? ' lead--game' : ''}">${game ? t.t('paywall.locked', { game: titleOf(ctx, game) }) : t.t('paywall.lead')}</p>
           ${benefits(ctx)}
           <p class="free">${icon('check')}<span>${freeLine(ctx, freeCount)}</span></p>
         </div>

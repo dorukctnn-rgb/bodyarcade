@@ -78,7 +78,7 @@ test('under 16: nothing is made and nothing is sent, the answer is remembered on
   await kid.page.locator('[data-dialog-close="games"]').click();
   await expect(kid.page).toHaveURL(/\/$/);
   // only the question whether the service is there was ever asked (an unsigned GET), never a registration
-  expect(requests.filter((r) => !r.startsWith('GET /api/social/me'))).toEqual([]);
+  expect(requests.filter((r) => r !== 'GET /api/social/status')).toEqual([]);
   const idb = await kid.page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name));
   expect(idb).not.toContain('bodyarcade-social');                                         // not even an empty database of the device key
   // the answer stays: a reload of the Friends page says so and asks for nothing, and the page sends nothing at all

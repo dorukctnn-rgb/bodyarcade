@@ -75,13 +75,18 @@ function variants(ctx: ViewContext, g: ShellGame): SafeHtml {
   return html`<section class="ba-block" aria-labelledby="g-variants"><h2 id="g-variants">${t.t('game.section.variants')}</h2><ul class="ba-variants">${items}</ul></section>`;
 }
 
-/** The part of the page that starts a round: the lock for a Pro game without a free round, else the setup and Play. */
+/**
+ * The part of the page that starts a round: the lock for a Pro game without a free round, else the setup and Play. On a phone only
+ * Play stays at the foot of the screen (the action bar); the races and the note follow it in the page, so the bar never lies over the
+ * game's name and facts (release 3, 27 Oct: at 360 x 640 the bar of three buttons and a paragraph was 43 % of the screen).
+ */
 function play(ctx: ViewContext, g: ShellGame, data: GameData, access: Access): SafeHtml {
   const t = ctx.i18n;
   if (access === 'locked') {
     const pro = proGames(ctx.games).length;
     return html`<div class="k-block k-card k-lockcard"><span class="ico">${icon('lock')}</span><div><b>${t.t('paywall.locked', { game: titleOf(ctx, g) })}</b><p>${t.t('game.lock.body', { n: pro, free: ctx.games.length - pro })}</p></div></div>
-      <div class="k-actionbar"><div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('pro', { query: { game: g.id } })}">${icon('lock')}<span>${t.t('settings.pro.see')}</span></a><a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${t.t('game.lock.free')}</a></div></div>`;
+      <div class="k-actionbar"><div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('pro', { query: { game: g.id } })}">${icon('lock')}<span>${t.t('settings.pro.see')}</span></a></div></div>
+      <div class="k-actions k-moreplay"><a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${t.t('game.lock.free')}</a></div>`;
   }
   const state = data.setup ?? defaultSetup(ctx, g);
   // A race with a friend: only where the game can be raced and the friends side exists in this build.
@@ -93,8 +98,9 @@ function play(ctx: ViewContext, g: ShellGame, data: GameData, access: Access): S
   return html`${data.ghostOffer ? ghostOffer(ctx, data.ghostOffer) : ''}<form data-form="setup" data-game="${g.id}" method="get" action="${ctx.href('play', { params: { slug: g.seo.slug } })}" novalidate>
     <div data-setup-fields>${setupFields(ctx, g, state)}</div>
     ${data.best !== null ? html`<div class="k-block k-best">${icon('star')}<span>${t.t('game.best', { score: ctx.i18n.number(data.best) })}</span></div>` : ''}
-    <div class="k-actionbar"><div class="k-actions"><button type="submit" class="ba-btn ba-btn--primary ba-btn--lg" data-key="play">${icon('play')}<span>${startLabel(ctx, g)}</span></button>${race}${ghost}</div>
-      <p class="k-note">${access === 'once' ? `${t.t('setup.note.once')} ` : ''}${t.t('game.cameraNote')}${race ? html` ${t.t('game.race.note')}` : ''}${ghost ? html` ${t.t('game.ghost.note')}` : ''}</p></div>
+    <div class="k-actionbar"><div class="k-actions"><button type="submit" class="ba-btn ba-btn--primary ba-btn--lg" data-key="play">${icon('play')}<span>${startLabel(ctx, g)}</span></button></div></div>
+    ${race || ghost ? html`<div class="k-actions k-moreplay">${race}${ghost}</div>` : ''}
+    <p class="k-note k-playnote">${access === 'once' ? `${t.t('setup.note.once')} ` : ''}${t.t('game.cameraNote')}${race ? html` ${t.t('game.race.note')}` : ''}${ghost ? html` ${t.t('game.ghost.note')}` : ''}</p>
   </form>`;
 }
 

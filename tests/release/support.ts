@@ -73,10 +73,13 @@ export function sitemapUrls(): string[] {
  */
 export const LEGAL_EXTRA: [string, string][] = [
   ['faq', '/faq'], ['privacy-tr', '/tr/privacy'], ['terms-tr', '/tr/terms'], ['faq-tr', '/tr/faq'], ['delete-account', '/delete-account'], ['delete-account-tr', '/tr/delete-account'],
+  // release 3: the prices, the release notes and the Active Arcade comparison (checked where the build has them)
+  ['pricing', '/pricing'], ['pricing-tr', '/tr/fiyatlar'], ['changelog', '/changelog'], ['changelog-tr', '/tr/guncellemeler'],
+  ['active-arcade', '/active-arcade-alternative'], ['active-arcade-tr', '/tr/active-arcade-alternatifi'],
 ];
 export function legalPages(known: Iterable<string> | null = existsSync(join(ROOT, 'dist', 'sitemap.xml')) ? sitemapUrls() : null): [string, string][] {
   // no local build to ask (a run against a deployed address from a machine that did not build it): the pages every build since the content pages have
-  if (!known) return LEGAL_EXTRA.filter(([name]) => !name.startsWith('delete-account'));
+  if (!known) return LEGAL_EXTRA.filter(([name]) => !/^(delete-account|pricing|changelog|active-arcade)/.test(name));
   const set = new Set(known);
   return LEGAL_EXTRA.filter(([, path]) => set.has(path));
 }
@@ -91,27 +94,20 @@ interface Watched {
 }
 
 /**
- * The errors of a page that are the page's own: uncaught errors and console errors. Two kinds of console line are not:
- * - "Failed to load resource: ... 404": the page of an unknown address answers 404 by design (the 404 page itself);
- * - the answer of the friends probe: the shell asks the friends service whether it is there with a GET of /api/social/me that has no
- *   signature, and the Worker's 401 with a JSON error is the service saying yes (social/services.ts; QA's tools/browsers/support/page.ts
- *   takes it the same way). Chromium logs that answer as "Failed to load resource: ... 401" without its address, so one such line is
- *   dropped for each 401 of that probe the page really got; any other 401 still counts.
+ * The errors of a page that are the page's own: uncaught errors and console errors. One kind of console line is not: "Failed to load
+ * resource: ... 404", the page of an unknown address answering 404 by design (the 404 page itself). Every other failed load counts, a
+ * 401 included: since release 3 the shell asks whether the friends service is there with GET /api/social/status, which answers 200,
+ * so a visitor without a profile sees no 401 at all (until then the question was an unsigned GET /api/social/me and its 401 was
+ * forgiven here).
  */
 export function watchErrors(page: Watched): { list(): string[] } {
   const errors: string[] = [];
-  const said401: string[] = [];
-  let probes = 0;
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const text = m.text();
     if (/Failed to load resource: the server responded with a status of 404/.test(text)) return;
-    if (/Failed to load resource: the server responded with a status of 401/.test(text)) { said401.push(`console: ${text.slice(0, 200)}`); return; }
     errors.push(`console: ${text.slice(0, 200)}`);
   });
-  page.on('response', (r) => {
-    if (r.status() === 401 && r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/social/me') probes++;
-  });
-  return { list: () => [...errors, ...said401.slice(probes)] };
+  return { list: () => [...errors] };
 }

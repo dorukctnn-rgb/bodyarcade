@@ -1,6 +1,7 @@
 // The blog index (English): the posts and guides, newest first, each with the summary the page itself gives to search engines.
 import { esc, type PageSpec } from '../chrome.ts';
 import * as F from '../facts.ts';
+import { ACTIVE_ARCADE_DATES, activeArcadeEn } from './active-arcade.ts';
 import { GUIDE_RINGFIT_EN, guideRingfitEn } from './guide-ringfit.en.ts';
 import { GUIDE_WEBCAM_EN, guideWebcamEn } from './guide-webcam.en.ts';
 import { POST_BROWSER_EN, postBrowserEn } from './post-browser.en.ts';
@@ -8,6 +9,7 @@ import { POST_PRIVACY_EN, postPrivacyEn } from './post-privacy.en.ts';
 
 export function blogEn(): PageSpec {
   const posts = [
+    { spec: activeArcadeEn(), date: ACTIVE_ARCADE_DATES.published },
     { spec: postPrivacyEn(), date: POST_PRIVACY_EN.published },
     { spec: guideWebcamEn(), date: GUIDE_WEBCAM_EN.published },
     { spec: guideRingfitEn(), date: GUIDE_RINGFIT_EN.published },

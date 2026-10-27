@@ -71,7 +71,8 @@ ${table(null, ['Game', 'What you do', 'Round', 'Plan'], gameList('en').map((g) =
   '<strong>Stability.</strong> Put the laptop or phone on a table or shelf so it does not move while you do.',
   '<strong>Footwear and floor.</strong> Trainers on a floor that is not slippery, with about 2 metres clear around you.',
 ])}
-<p>More on this in <a href="/webcam-fitness-games">how webcam fitness games work, and how to set up your room</a>.</p>`,
+<p>More on this in <a href="/webcam-fitness-games">how webcam fitness games work, and how to set up your room</a>.</p>
+<p>If you are looking at camera games on an iPhone or iPad, see <a href="/active-arcade-alternative">BodyArcade next to Active Arcade</a>.</p>`,
     },
     {
       id: 'faq',
@@ -80,7 +81,7 @@ ${table(null, ['Game', 'What you do', 'Round', 'Plan'], gameList('en').map((g) =
     },
   ];
   const title = 'A Ring Fit Adventure alternative you can play in a browser';
-  const description = 'An honest comparison of Ring Fit Adventure and BodyArcade: what you need, how each tracks you, the kind of workout, and what each costs.';
+  const description = 'How Ring Fit Adventure and BodyArcade compare: what you need, how each tracks you, the kind of workout and what each costs.';
   const lead = 'Ring Fit Adventure is one of the best-loved fitness games ever made. It also needs a Nintendo Switch, its Joy-Con controllers, and the Ring-Con and Leg Strap that come in the box. If you do not own a Switch, or you want something you can start on a laptop you already have, you will want a different kind of game.';
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {
@@ -94,7 +95,7 @@ ${table(null, ['Game', 'What you do', 'Round', 'Plan'], gameList('en').map((g) =
     description,
     h1: title,
     when: `Updated ${F.longDate(GUIDE_RINGFIT_EN.modified, 'en')} &middot; ${minutes} min read`,
-    lead: `${lead} BodyArcade is our answer to that. It is a set of short camera games and makes no attempt to copy Ring Fit. Here is an honest comparison, so you can decide which one fits you.`,
+    lead: `${lead} BodyArcade is our answer to that. It is a set of short camera games and makes no attempt to copy Ring Fit. Here is how they compare.`,
     sections,
     toc: true,
     after: cta('A round takes a couple of minutes and needs nothing but a camera.', '/', 'Play a game'),

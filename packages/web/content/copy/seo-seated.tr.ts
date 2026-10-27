@@ -99,7 +99,9 @@ ${table(null, ['Oyun', 'Oturarak nasıl oynanır', 'Tur', 'Ücretsiz mi, Pro mu'
   ];
   sections.push({ id: 'sss', title: 'Sık sorulanlar', html: faq.map((i) => qa(i.q, i.a)).join('\n') }, moreSection(lang, 'seated'));
 
-  const title = 'Yaşlılar için oturarak egzersiz oyunları, kamerayla oynanır';
+  const h1 = 'Yaşlılar için oturarak egzersiz oyunları, kamerayla oynanır';
+  // the title of a search result fits in 60 characters (release 3); the heading of the page keeps its words
+  const title = 'Yaşlılar için kamerayla oturarak egzersiz oyunları';
   const description = `${c.total} BodyArcade oyununun hepsinin oturarak sürümü var. Sandalyeden web kameranla oyna: kurulum, her oyunun senden istediği ve 60 yaş ve üzeri için rahat bir plan.`;
   const lead = `BodyArcade’in ${c.total} kamera oyununun hepsi sandalyeden oynanabilir. Bir dizüstü, tablet ya da telefonun karşısına oturursun; kamera başını, omuzlarını ve kollarını izler, oyun onların yaptığına karşılık verir. Oyunların ${c.free} tanesi ücretsiz, ${c.quiet} tanesinde de sessiz mod var. Bu sayfa oturarak bir turun nasıl kurulduğunu, her oyunun senden ne istediğini ve nelere dikkat etmen gerektiğini anlatır.`;
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
@@ -111,7 +113,7 @@ ${table(null, ['Oyun', 'Oturarak nasıl oynanır', 'Tur', 'Ücretsiz mi, Pro mu'
     og: 'article',
     title,
     description,
-    h1: title,
+    h1,
     when: `Güncelleme: ${F.longDate(SEO_DATES.modified, lang)} &middot; ${minutes} dk okuma`,
     lead,
     sections,
@@ -119,7 +121,7 @@ ${table(null, ['Oyun', 'Oturarak nasıl oynanır', 'Tur', 'Ücretsiz mi, Pro mu'
     after: cta('Bir oyun aç, Ayarlar’dan Oturarak modunu aç ve ekrandan biraz geri otur. İlk tur birkaç dakika sürer.', '/tr/', 'Bir oyun oyna'),
     crumbs: [{ name: 'BodyArcade', url: '/tr/' }, { name: SEO_NAME[lang].seated.name, url: SEO_URL[lang].seated }],
     jsonLd: [
-      articleLd({ headline: title, description, url: SEO_URL[lang].seated, published: SEO_DATES.published, modified: SEO_DATES.modified, lang }),
+      articleLd({ headline: h1, description, url: SEO_URL[lang].seated, published: SEO_DATES.published, modified: SEO_DATES.modified, lang }),
       faqLd(faq),
     ],
   };

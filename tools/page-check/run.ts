@@ -1,4 +1,4 @@
-// page-check: opens pages at the ten screen sizes of the layout rule (BUILD-PLAN "Screen layout rule"), saves a picture of
+// page-check: opens pages at the ten screen sizes of the layout rule (BUILD-PLAN "Screen layout rule") and a short phone (targets.ts PAGE_SIZES), saves a picture of
 // each and fails on layout bugs (see probe.ts) and on console errors, uncaught errors and failed requests.
 // Headless only; starts the servers it needs on free ports and stops them at the end.
 //
@@ -19,9 +19,8 @@ import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { baseLaunchOptions, withFakeVideo } from '../../tests/e2e/support/browser.ts';
 import { convertVideo, probeSeconds } from '../fake-camera/convert.ts';
-import { BREAKPOINTS } from '../../packages/core/ui/layout.ts';
 import { startDev, startStatic, startWeb, repoRoot, type Served } from './servers.ts';
-import { builtinTargets, type Step, type Target } from './targets.ts';
+import { builtinTargets, PAGE_SIZES, type Step, type Target } from './targets.ts';
 import { layoutProbe, type Finding, type ProbeResult } from './probe.ts';
 import { mergeReports, type Report } from './summarize.ts';
 import { analyseScene, decodePng, isBlank, type Rect } from './scene.ts';
@@ -68,12 +67,12 @@ const groups = list('groups').length ? list('groups') : ['web', 'site'];
 
 const sizes = (() => {
   const wanted = list('sizes');
-  if (!wanted.length) return BREAKPOINTS.map((b) => ({ id: b.id, w: b.w, h: b.h }));
+  if (!wanted.length) return PAGE_SIZES.map((b) => ({ id: b.id, w: b.w, h: b.h }));
   return wanted.map((s) => {
-    const bp = BREAKPOINTS.find((b) => b.id === s);
+    const bp = PAGE_SIZES.find((b) => b.id === s);
     if (bp) return { id: bp.id, w: bp.w, h: bp.h };
     const m = /^(\d+)x(\d+)$/.exec(s);
-    if (!m) throw new Error(`unknown size ${s}: use WIDTHxHEIGHT or one of ${BREAKPOINTS.map((b) => b.id).join(', ')}`);
+    if (!m) throw new Error(`unknown size ${s}: use WIDTHxHEIGHT or one of ${PAGE_SIZES.map((b) => b.id).join(', ')}`);
     return { id: s, w: Number(m[1]), h: Number(m[2]) };
   });
 })();

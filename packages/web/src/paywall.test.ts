@@ -7,6 +7,8 @@ import { checkoutOf, type GumroadListing } from '../../core/entitlements/catalog
 import { paywallModel, type PaywallMode, type PaywallModel } from '../../core/entitlements/paywall.ts';
 import { PLANS, SOLD_PLAN_IDS, playProductOf, type PlayItemDetails } from '../../core/entitlements/plans.ts';
 import { textOf } from '../../core/ui/html.ts';
+import { localized } from '../../core/ui/i18n/localized.ts';
+import { FREE_PLAN_ID, WORKOUT_PLANS } from '../../core/store/workout-plans.ts';
 import type { Lang } from '../../core/ui/i18n/index.ts';
 import type { PaywallInfo, PlanId } from '../../core/ui/plans.ts';
 import { loadCatalogue } from '../catalogue/load.ts';
@@ -158,6 +160,22 @@ describe('Google Play policy: nothing in the app names another way to pay', () =
     expect(textOf(html)).toContain('€39.99');
     expect(html).toContain('play.google.com/store/account/subscriptions');
     expect(actions(html)).toContain('restore');
+  });
+});
+
+describe('what Pro adds: the workout plans and every game added later are on the list (release 3)', () => {
+  it.each(LANGS)('the plans that are not free, by name, and the games added later, in %s', (lang) => {
+    const m = web();
+    const url = lang === 'en' ? '/pro/' : `/${lang}/pro/`;
+    const ctx = makeContext({ lang, games, url, plans: m.plans, paywall: infoOf(m) });
+    const list = textOf(paywallPage(ctx, defaultPaywallState(ctx)).value.match(/<ul class="k-benefits">[\s\S]*?<\/ul>/)?.[0] ?? '');
+    const paid = WORKOUT_PLANS.filter((p) => p.id !== FREE_PLAN_ID);
+    expect(paid.length).toBeGreaterThan(0);
+    expect(list).toContain(lang === 'en' ? `${paid.length} more workout plans` : `${paid.length} antrenman planı daha`);
+    for (const p of paid) expect(list, p.id).toContain(localized(p.title, lang));
+    const free = WORKOUT_PLANS.find((p) => p.id === FREE_PLAN_ID);
+    if (free) expect(list, 'the free plan is not sold as Pro').not.toContain(localized(free.title, lang));
+    expect(list).toContain(lang === 'en' ? 'Every game we add later, for as long as your plan runs' : 'Sonradan eklediğimiz her oyun, planın sürdüğü sürece');
   });
 });
 

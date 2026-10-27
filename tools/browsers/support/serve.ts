@@ -55,8 +55,9 @@ const isDir = (p: string): boolean => { try { return statSync(p).isDirectory(); 
 /**
  * `headersFile`: the site's `_headers` file, applied to every response the way the host does it (the release build's Content-Security-Policy-Report-Only
  * among them: an engine that does not allow what the page does, a worker from a blob or an inline style, says so on its console).
- * `workerStandIn`: the release site on the host has the Worker behind /api/social/: it answers a call with no signature with 401 and a JSON error, which is how the
- * page finds out the friends service is there (packages/web/src/social/services.ts probeSocial); a plain static folder answers 404 and the page would take the service for absent.
+ * `workerStandIn`: the release site on the host has the Worker behind /api/social/: GET /api/social/status answers 200 {"service":"social"}, which is how the page
+ * finds out the friends service is there (packages/web/src/social/services.ts probeSocial), and any other call with no signature answers 401 and a JSON error; a plain
+ * static folder answers 404 and the page would take the service for absent.
  */
 export function startSite(dirArg: string, port: number, fallback: Fallback, headersFile?: string, workerStandIn = false): Promise<Server> {
   const rules = headersFile && existsSync(headersFile) ? parseHeaders(readFileSync(headersFile, 'utf8')) : [];
@@ -85,6 +86,7 @@ export function startSite(dirArg: string, port: number, fallback: Fallback, head
     let path: string;
     try { path = decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/'); } catch { res.writeHead(400).end(); return; }
     if (path === '/__ready') { res.writeHead(200, { 'content-type': 'text/plain' }).end('ok'); return; }
+    if (workerStandIn && path === '/api/social/status') { res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }).end('{"service":"social"}'); return; }
     if (workerStandIn && path.startsWith('/api/social/')) { res.writeHead(401, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }).end('{"error":"unauthorized"}'); return; }
     const abs = normalize(join(root, path));
     if (!inside(abs)) { res.writeHead(403).end(); return; }

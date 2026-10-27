@@ -129,6 +129,15 @@ function shapeOf(id: SoldPlanId, price: { amount: number; currency: string }, ch
   return offer;
 }
 
+/**
+ * The four plans at their web list prices, with no checkout address: what a page drawn without a visitor states (the home page as a
+ * crawler reads it before the app runs). Nothing on such a page can be bought; the app draws the plans of where it runs instead.
+ */
+export function listPricePlans(): PlansShape {
+  const offers = WEB_ORDER.map((id) => shapeOf(id, { amount: PLANS[id].price, currency: 'USD' }, {}, PLANS[id].trialDays));
+  return { offers, trialEligible: true, trialReminder: true };
+}
+
 /** The web paywall: list prices in USD, one checkout address per plan. Only plans that can really be bought are listed. */
 export function webPlans(o: WebPlansOptions): PlansShape {
   const offers: OfferShape[] = [];

@@ -61,6 +61,8 @@ interface Words {
   faq: string;
   delete: string;
   guides: string;
+  pricing: string;
+  changelog: string;
   contact: string;
   language: string;
   otherName: string;
@@ -75,7 +77,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Games', '/'], pro: ['Pro', '/pro/'], faq: ['FAQ', '/faq'], blog: ['Blog', '/blog/'] },
     play: 'Play a game', toc: 'On this page', crumbs: 'Breadcrumb',
     made: `BodyArcade is made by ${STUDIO}.`, camera: 'Camera video is read on your device and never recorded.',
-    privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', delete: 'Delete account', guides: 'Guides', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
+    privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', delete: 'Delete account', guides: 'Guides', pricing: 'Prices', changelog: 'Updates', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
     studio: STUDIO,
   },
   tr: {
@@ -83,15 +85,25 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Oyunlar', '/tr/'], pro: ['Pro', '/tr/pro/'], faq: ['SSS', '/tr/faq'], blog: null },
     play: 'Bir oyun oyna', toc: 'Bu sayfada', crumbs: 'Sayfa yolu',
     made: `BodyArcade, ${STUDIO} tarafından yapılır.`, camera: 'Kamera görüntüsü cihazında okunur, hiçbir zaman kaydedilmez.',
-    privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', delete: 'Hesabı sil', guides: 'Rehberler', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
+    privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', delete: 'Hesabı sil', guides: 'Rehberler', pricing: 'Fiyatlar', changelog: 'Güncellemeler', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
     studio: STUDIO,
   },
 };
 
-const PAGES: Readonly<Record<Lang, { privacy: string; terms: string; faq: string; delete: string }>> = {
-  en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account' },
-  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account' },
+/** The site's own pages in each language (the app's footer has the same addresses: packages/web/src/views/chrome.ts SITE_PAGES). */
+export const PAGES: Readonly<Record<Lang, { privacy: string; terms: string; faq: string; delete: string; pricing: string; changelog: string }>> = {
+  en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account', pricing: '/pricing', changelog: '/changelog' },
+  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account', pricing: '/tr/fiyatlar', changelog: '/tr/guncellemeler' },
 };
+
+/** The longest <title> a page gets: about what a search result shows before it cuts the line. */
+export const TITLE_MAX = 60;
+
+/** The <title> of a page: its title and the brand after it when both fit, else the title alone (a long title keeps its words, not the brand). */
+export function documentTitle(title: string): string {
+  const full = `${title} | BodyArcade`;
+  return full.length <= TITLE_MAX && !title.includes('BodyArcade') ? full : title;
+}
 
 /**
  * The search pages and the first guide, linked from the footer of every content page (and, in the app, from its own footer): the way a
@@ -130,7 +142,9 @@ function footer(spec: PageSpec, w: Words): string {
     ? `<ul aria-label="${esc(w.language)}"><li><a href="${spec.lang === 'en' ? spec.url : o.url}" hreflang="en" lang="en"${spec.lang === 'en' ? ' aria-current="true"' : ''}>English</a></li><li><a href="${spec.lang === 'tr' ? spec.url : o.url}" hreflang="tr" lang="tr"${spec.lang === 'tr' ? ' aria-current="true"' : ''}>Türkçe</a></li></ul>`
     : '';
   const guides = `<ul aria-label="${esc(w.guides)}">${FOOTER_GUIDES[spec.lang].map(([name, href]) => `<li><a href="${href}"${href === spec.url ? ' aria-current="page"' : ''}>${esc(name)}</a></li>`).join('')}</ul>`;
-  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p>${guides}<ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="${p.delete}">${esc(w.delete)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
+  const cur = (href: string): string => (href === spec.url ? ' aria-current="page"' : '');
+  // the prices are the web's: inside the Android app (twa.js) the link is hidden with the other words about paying on the web
+  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p>${guides}<ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="${p.delete}">${esc(w.delete)}</a></li><li data-web-pay><a href="${p.pricing}"${cur(p.pricing)}>${esc(w.pricing)}</a></li><li><a href="${p.changelog}"${cur(p.changelog)}>${esc(w.changelog)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
 }
 
 function crumbs(spec: PageSpec, w: Words): string {
@@ -144,7 +158,7 @@ function tocLinks(sections: readonly Section[]): string {
 
 function head(spec: PageSpec, w: Words): string {
   const url = `${SITE}${spec.url}`;
-  const title = `${spec.title} | BodyArcade`;
+  const title = documentTitle(spec.title);
   const alt: string[] = [];
   if (spec.other) {
     const en = spec.lang === 'en' ? spec.url : spec.other.url;

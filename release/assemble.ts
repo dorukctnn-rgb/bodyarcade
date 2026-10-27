@@ -42,10 +42,17 @@ export const LEGACY_PAGES: readonly { file: string; url: string }[] = [
   { file: 'tr/arkadaslarla-spor-oyunlari.html', url: '/tr/arkadaslarla-spor-oyunlari' },
   { file: 'workout-games-by-body-area.html', url: '/workout-games-by-body-area' },
   { file: 'tr/bolgeye-gore-spor-oyunlari.html', url: '/tr/bolgeye-gore-spor-oyunlari' },
+  // Release 3: the prices, the release notes and the Active Arcade comparison (copy/pricing.*.ts, changelog.ts, active-arcade.ts).
+  { file: 'pricing.html', url: '/pricing' },
+  { file: 'tr/fiyatlar.html', url: '/tr/fiyatlar' },
+  { file: 'changelog.html', url: '/changelog' },
+  { file: 'tr/guncellemeler.html', url: '/tr/guncellemeler' },
+  { file: 'active-arcade-alternative.html', url: '/active-arcade-alternative' },
+  { file: 'tr/active-arcade-alternatifi.html', url: '/tr/active-arcade-alternatifi' },
 ];
 
-/** Other files of the live site that keep their addresses: the content pages' styles, fonts and pictures, the IndexNow key. */
-const LEGACY_FILES: readonly string[] = ['assets', '06bb4e63d6d4983eed0ac457e2d4a483.txt', 'og-image.png'];
+/** Other files of the live site that keep their addresses: the content pages' styles, fonts and pictures, the IndexNow key, /llms.txt. */
+const LEGACY_FILES: readonly string[] = ['assets', '06bb4e63d6d4983eed0ac457e2d4a483.txt', 'og-image.png', 'llms.txt'];
 
 /** The new brand's icons, at the addresses browsers and the old pages ask for. */
 const ICONS: readonly [string, string][] = [
@@ -60,7 +67,7 @@ const ICONS: readonly [string, string][] = [
 /** What the site must contain whatever else changes. */
 export const MUST_HAVE: readonly string[] = [
   'index.html', 'tr/index.html', '404.html', 'sitemap.xml', 'robots.txt', '_headers', '_redirects', 'manifest.json', 'sw.js', 'sw-register.js',
-  'version.json', '.well-known/assetlinks.json', '06bb4e63d6d4983eed0ac457e2d4a483.txt', 'favicon.ico', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png',
+  'version.json', '.well-known/assetlinks.json', '06bb4e63d6d4983eed0ac457e2d4a483.txt', 'llms.txt', 'favicon.ico', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png',
   ...LEGACY_PAGES.map((p) => p.file),
 ];
 

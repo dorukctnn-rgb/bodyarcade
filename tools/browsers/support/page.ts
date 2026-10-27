@@ -42,9 +42,8 @@ export function watch(page: Page, allow: RegExp[] = []): Watch {
     const url = r.url();
     if (r.status() >= 400 && url.startsWith(origin())) {
       const m = `HTTP ${r.status()}: ${url.slice(origin().length)}`;
-      // the page asks the friends service whether it is there with a call that has no signature; the 401 with a JSON error is the service saying yes (probeSocial)
-      if (r.status() === 401 && r.request().method() === 'GET' && url.slice(origin().length) === '/api/social/me') w.noise.push(m);
-      else if (!skip(m)) w.errors.push(m);
+      // every failed answer counts: the question whether the friends service is there (GET /api/social/status, probeSocial) answers 200 since release 3
+      if (!skip(m)) w.errors.push(m);
     }
   });
   page.on('requestfailed', (r) => {
