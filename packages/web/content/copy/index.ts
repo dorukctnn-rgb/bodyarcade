@@ -1,6 +1,8 @@
 // Every content page, in the order the sitemap and the checks list them.
 import type { PageSpec } from '../chrome.ts';
+import { activeArcadeEn, activeArcadeTr } from './active-arcade.ts';
 import { blogEn } from './blog.en.ts';
+import { changelogEn, changelogTr } from './changelog.ts';
 import { deleteAccountEn } from './delete-account.en.ts';
 import { deleteAccountTr } from './delete-account.tr.ts';
 import { faqEn } from './faq.en.ts';
@@ -11,6 +13,8 @@ import { guideWebcamEn } from './guide-webcam.en.ts';
 import { guideWebcamTr } from './guide-webcam.tr.ts';
 import { postBrowserEn } from './post-browser.en.ts';
 import { postPrivacyEn } from './post-privacy.en.ts';
+import { pricingEn } from './pricing.en.ts';
+import { pricingTr } from './pricing.tr.ts';
 import { privacyEn } from './privacy.en.ts';
 import { privacyTr } from './privacy.tr.ts';
 import { termsEn } from './terms.en.ts';
@@ -30,5 +34,6 @@ export function allPages(): PageSpec[] {
     guideWebcamEn(), guideWebcamTr(), guideRingfitEn(), guideRingfitTr(),
     blogEn(), postBrowserEn(), postPrivacyEn(),
     seoHubEn(), seoHubTr(), seoSeatedEn(), seoSeatedTr(), seoFriendsEn(), seoFriendsTr(), seoAreasEn(), seoAreasTr(),
+    pricingEn(), pricingTr(), changelogEn(), changelogTr(), activeArcadeEn(), activeArcadeTr(),
   ];
 }

@@ -13,6 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { OG_IMAGE, renderPage, type PageSpec } from './chrome.ts';
 import { allPages } from './copy/index.ts';
+import { llmsTxt } from './llms.ts';
 import { refreshSnapshot, snapshotIsCurrent } from './copy/games.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -41,6 +42,8 @@ export function pages(): PageSpec[] {
 
 export function build(root: string = REPO_ROOT): Output[] {
   const out: Output[] = pages().map((p) => ({ file: p.file, content: Buffer.from(renderPage(p), 'utf8'), text: true }));
+  // the plain-text map of the site for AI assistants, from the same facts as the pages
+  out.push({ file: 'llms.txt', content: Buffer.from(llmsTxt(), 'utf8'), text: true });
   for (const s of SHARED) out.push({ file: s.to, content: readFileSync(join(root, s.from)), text: s.text });
   return out;
 }

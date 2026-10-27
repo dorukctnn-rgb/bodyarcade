@@ -70,7 +70,7 @@ ${table(null, ['Oyun', 'Ne yaparsın', 'Tur', 'Plan'], gameList('tr').map((g) =>
   '<strong>Sabitlik.</strong> Dizüstünü ya da telefonu bir masaya ya da rafa koy; sen hareket ederken kımıldamasın.',
   '<strong>Ayakkabı ve zemin.</strong> Kaygan olmayan bir zeminde spor ayakkabı, çevrende yaklaşık 2 metre boş alan.',
 ])}
-<p>Daha fazlası için <a href="/tr/kamera-ile-spor-oyunlari">kamera ile spor oyunları nasıl çalışır ve odanı nasıl hazırlarsın</a> rehberine bak.</p>`,
+<p>Daha fazlası için <a href="/tr/kamera-ile-spor-oyunlari">kamera ile spor oyunları nasıl çalışır ve odanı nasıl hazırlarsın</a> rehberine bak. iPhone ya da iPad’de kameralı oyunlara bakıyorsan <a href="/tr/active-arcade-alternatifi">Active Arcade ile BodyArcade yan yana</a> sayfasına da göz at.</p>`,
     },
     {
       id: 'sss',
@@ -78,8 +78,10 @@ ${table(null, ['Oyun', 'Ne yaparsın', 'Tur', 'Plan'], gameList('tr').map((g) =>
       html: faq.map((i) => qa(i.q, i.a)).join('\n'),
     },
   ];
-  const title = 'Tarayıcıda oynayabileceğin bir Ring Fit Adventure alternatifi';
-  const description = 'Ring Fit Adventure ile BodyArcade’in dürüst bir karşılaştırması: ne gerekir, her biri seni nasıl takip eder, antrenman türü ve maliyet.';
+  const h1 = 'Tarayıcıda oynayabileceğin bir Ring Fit Adventure alternatifi';
+  // the title of a search result fits in 60 characters (release 3); the heading of the page keeps its words
+  const title = 'Tarayıcıda oynanan bir Ring Fit Adventure alternatifi';
+  const description = 'Ring Fit Adventure ile BodyArcade yan yana: ne gerekir, her biri seni nasıl takip eder, antrenman türü ve maliyet.';
   const lead = 'Ring Fit Adventure, şimdiye kadar yapılmış en sevilen spor oyunlarından biri. Ayrıca bir Nintendo Switch, Joy-Con kumandaları ve kutuda gelen Ring-Con ile Leg Strap ister. Bir Switch’in yoksa ya da elindeki bir dizüstünde hemen başlayabileceğin bir şey istiyorsan, farklı türde bir oyun isteyeceksin.';
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {
@@ -90,15 +92,15 @@ ${table(null, ['Oyun', 'Ne yaparsın', 'Tur', 'Plan'], gameList('tr').map((g) =>
     og: 'article',
     title,
     description,
-    h1: title,
+    h1,
     when: `Güncelleme: ${F.longDate(GUIDE_RINGFIT_EN.modified, 'tr')} &middot; ${minutes} dk okuma`,
-    lead: `${lead} BodyArcade bizim yanıtımız. Kısa kameralı oyunlardan oluşur ve Ring Fit’i kopyalamaya çalışmaz. Hangisinin sana uyduğuna karar verebilmen için dürüst bir karşılaştırma burada.`,
+    lead: `${lead} BodyArcade bizim yanıtımız. Kısa kameralı oyunlardan oluşur ve Ring Fit’i kopyalamaya çalışmaz. Aşağıda ikisini yan yana koyduk.`,
     sections,
     toc: true,
     after: cta('Bir tur birkaç dakika sürer ve bir kameradan başka bir şey gerektirmez.', '/tr/', 'Bir oyun oyna'),
     crumbs: [{ name: 'BodyArcade', url: '/tr/' }, { name: 'Ring Fit Adventure alternatifi', url: '/tr/ring-fit-adventure-alternatifi' }],
     jsonLd: [
-      articleLd({ headline: title, description, url: '/tr/ring-fit-adventure-alternatifi', published: GUIDE_RINGFIT_EN.published, modified: GUIDE_RINGFIT_EN.modified, lang: 'tr' }),
+      articleLd({ headline: h1, description, url: '/tr/ring-fit-adventure-alternatifi', published: GUIDE_RINGFIT_EN.published, modified: GUIDE_RINGFIT_EN.modified, lang: 'tr' }),
       faqLd(faq),
     ],
   };

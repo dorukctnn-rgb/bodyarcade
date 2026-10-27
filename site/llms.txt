@@ -1,0 +1,32 @@
+# BodyArcade
+
+> BodyArcade is a set of 11 short fitness games you play with your body in a web browser, on a phone, tablet, laptop or desktop. A webcam or phone camera reads your moves on your own device and the video is not uploaded. 8 of the 11 games are free, every game has a seated version, and friends can race live in rooms of 2 to 4 players. Made by Doruk Çetin, trading as Peak Apps Studio (Türkiye). English and Turkish.
+
+## Main pages
+- [Games](https://bodyarcade.com/): the 11 games by body area, free and Pro
+- [Prices](https://bodyarcade.com/pricing): what is free, what Pro adds, the plans and their prices
+- [FAQ](https://bodyarcade.com/faq): set-up, privacy, friends and rooms, plans, the trial, refunds
+- [Fitness games](https://bodyarcade.com/fitness-games): every game, what it asks of you and which to start with
+- [Seated exercise games](https://bodyarcade.com/seated-exercise-games): every game from a chair
+- [Workout games with friends](https://bodyarcade.com/workout-games-with-friends): online rooms, two players on one camera, ghost races
+- [Workout games by body area](https://bodyarcade.com/workout-games-by-body-area): legs, arms, chest and back, core, cardio, mobility
+- [How webcam fitness games work](https://bodyarcade.com/webcam-fitness-games): how the camera reads your body and how to set up your room
+- [Ring Fit Adventure alternative](https://bodyarcade.com/ring-fit-adventure-alternative): a comparison
+- [Active Arcade alternative](https://bodyarcade.com/active-arcade-alternative): a comparison, with sources
+- [Workout plans](https://bodyarcade.com/plans/): ready sessions of games with rests; Desk break is free
+- [Release notes](https://bodyarcade.com/changelog): what changed and when; the last release was on 27 October 2026
+- [Privacy policy](https://bodyarcade.com/privacy), [Terms](https://bodyarcade.com/terms)
+
+## Plans on the web (US dollars, as of 27 October 2026)
+- Free: 8 of 11 games (Squat Flap, Knee Sprint, Star Catch, Firework Jacks, Twist Turbine, Summit Climb, Pose Wall and Road Run), with seated and quiet versions, no ads and no account
+- Pro monthly $7.99 a month
+- Pro yearly $39.99 a year, with a 7-day free trial
+- Family yearly $59.99 a year, 6 profiles on up to 4 devices
+- Lifetime $119.99 once
+- Pro adds Pad Work, Reaction Tag and Limbo Bend, 4 more workout plans, the Hard and Expert difficulties and the games added later. Refunds within 14 days of buying on the web. In the Android app, Google Play sets the price.
+
+## Türkçe
+- [Ana sayfa](https://bodyarcade.com/tr/), [Fiyatlar](https://bodyarcade.com/tr/fiyatlar), [Sık sorulan sorular](https://bodyarcade.com/tr/faq), [Evde spor oyunları](https://bodyarcade.com/tr/evde-spor-oyunlari), [Sürüm notları](https://bodyarcade.com/tr/surum-notlari)
+
+## Contact
+- info@peakappsstudio.com

@@ -84,7 +84,9 @@ ${ul([
 <p>İlgili: <a href="/tr/evde-spor-oyunlari">${c.total} oyunun hepsi ve hangisiyle başlayacağın</a>, <a href="/tr/oturarak-egzersiz-oyunlari">her oyunu sandalyeden oynamak</a>, <a href="/tr/ring-fit-adventure-alternatifi">tarayıcıda oynayabileceğin bir Ring Fit Adventure alternatifi</a>.</p>`,
     },
   ];
-  const title = 'Kamera ile spor oyunları nasıl çalışır ve odanı nasıl hazırlarsın';
+  const h1 = 'Kamera ile spor oyunları nasıl çalışır ve odanı nasıl hazırlarsın';
+  // the title of a search result fits in 60 characters (release 3); the heading of the page keeps the whole question
+  const title = 'Kamera ile spor oyunları: nasıl çalışır, oda nasıl kurulur';
   const description = 'Bir tarayıcının sıradan bir kamerayla bedenini nasıl okuduğu, neyi iyi okuduğu ve odanı bir kameralı spor oyunu ilk seferde çalışacak biçimde nasıl hazırlayacağın.';
   const lead = 'Kamera ile spor oyunu, sıradan bir kameranın önünde hareket ederek kontrol ettiğin bir oyundur: dizüstünün kapağındaki, monitörünün üstündeki ya da telefonunun önündeki kamera. Kumanda, bileklik ya da konsol yok. Kamera izler, yazılım gördüğünü birkaç vücut konumuna çevirir ve oyun bunlara, bir düğmeye basılmış gibi tepki verir.';
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
@@ -96,13 +98,13 @@ ${ul([
     og: 'article',
     title,
     description,
-    h1: title,
+    h1,
     when: `Güncelleme: ${F.longDate(GUIDE_WEBCAM_EN.modified, 'tr')} &middot; ${minutes} dk okuma`,
     lead: `${lead} Bu rehber bunun bir tarayıcıda nasıl çalıştığını, neyi okuyup neyi okuyamadığını ve bir odanın nasıl hazırlanacağını anlatır. BodyArcade’i biz yapıyoruz, bu yüzden onu örnek olarak kullanıyoruz; öğütler kamera kullanan her oyun için geçerlidir.`,
     sections,
     toc: true,
     after: cta('Bir oyun aç, kameraya izin ver, geri çekil ve hareket et. İlk tur birkaç dakika sürer.', '/tr/', 'Bir oyun oyna'),
     crumbs: [{ name: 'BodyArcade', url: '/tr/' }, { name: 'Kamera ile spor oyunları', url: '/tr/kamera-ile-spor-oyunlari' }],
-    jsonLd: [articleLd({ headline: title, description, url: '/tr/kamera-ile-spor-oyunlari', published: GUIDE_WEBCAM_EN.published, modified: GUIDE_WEBCAM_EN.modified, lang: 'tr' })],
+    jsonLd: [articleLd({ headline: h1, description, url: '/tr/kamera-ile-spor-oyunlari', published: GUIDE_WEBCAM_EN.published, modified: GUIDE_WEBCAM_EN.modified, lang: 'tr' })],
   };
 }

@@ -35,7 +35,11 @@ import { COMMUNITY_RULES_ANCHOR, SITE_GUIDE_IDS, siteGuideHref, sitePageHref } f
 import { REGION_ORDER, ROUTES, router } from '../src/routes.ts';
 import { AUDIT_KEEP_MS, LOBBY_GONE_MS, ORPHAN_REPORT_KEEP_MS, RESOLVED_REPORT_KEEP_MS, UNUSED_PROFILE_DAYS } from '../../server/src/social/sweep.ts';
 import { REPO_ROOT, build, outOfDate, pages } from './build.ts';
-import { FOOTER_GUIDES, OG_IMAGE, renderPage, type PageSpec } from './chrome.ts';
+import { FOOTER_GUIDES, OG_IMAGE, PAGES as SITE_PAGES, TITLE_MAX, documentTitle, esc, renderPage, type PageSpec } from './chrome.ts';
+import { ACTIVE_ARCADE, ACTIVE_ARCADE_DATES, SOURCES } from './copy/active-arcade.ts';
+import { ACTIVE_ARCADE_URL, LATEST_RELEASE, RELEASES } from './copy/changelog.ts';
+import { PAGES_CHANGELOG, PRICING_DATES, PRICING_URL, perMonthOf, yearlySaves } from './copy/pricing.en.ts';
+import { llmsTxt } from './llms.ts';
 import { gameCounts, gameList, snapshotGames, snapshotIsCurrent } from './copy/games.ts';
 import { GUIDE_URL, MOVE, SEO_URL, type SeoPage } from './copy/seo-shared.ts';
 import * as F from './facts.ts';
@@ -361,12 +365,16 @@ describe.each(all.map((p) => [p.file, p] as const))('%s', (_file, spec) => {
   const html = renderPage(spec);
   const text = visible(html);
 
-  it('is a whole document with the right language, one h1, a canonical link and a title with the brand', () => {
+  it('is a whole document with the right language, one h1, a canonical link and a title that fits a search result, with the brand where it fits', () => {
     expect(html.startsWith('<!doctype html>')).toBe(true);
     expect(html).toContain(`<html lang="${spec.lang}">`);
     expect(html.match(/<h1[ >]/g)?.length).toBe(1);
     expect(html).toContain(`<link rel="canonical" href="${F.SITE}${spec.url}">`);
-    expect(html).toMatch(/<title>[^<]+ \| BodyArcade<\/title>/);
+    const title = documentTitle(spec.title);
+    expect(html).toContain(`<title>${esc(title)}</title>`);
+    // release 3: a search result shows about 60 characters; the brand goes after the title only when both fit
+    expect(title.length, title).toBeLessThanOrEqual(TITLE_MAX);
+    expect(title.includes('BodyArcade') || `${spec.title} | BodyArcade`.length > TITLE_MAX, title).toBe(true);
     expect(spec.description.length).toBeGreaterThan(60);
     expect(spec.description.length).toBeLessThanOrEqual(165);
     expect(text.length).toBeGreaterThan(600);
@@ -452,7 +460,8 @@ describe('English and Turkish say the same numbers', () => {
       .replace(/(\d),(\d)/g, '$1.$2');
     return [...new Set(t.match(/\d+(?:\.\d+)?/g) ?? [])].sort((a, b) => Number(a) - Number(b));
   };
-  for (const [en, tr] of [['privacy.html', 'tr/privacy.html'], ['terms.html', 'tr/terms.html'], ['faq.html', 'tr/faq.html'], ['delete-account.html', 'tr/delete-account.html']] as const) {
+  for (const [en, tr] of [['privacy.html', 'tr/privacy.html'], ['terms.html', 'tr/terms.html'], ['faq.html', 'tr/faq.html'], ['delete-account.html', 'tr/delete-account.html'],
+    ['pricing.html', 'tr/fiyatlar.html'], ['changelog.html', 'tr/surum-notlari.html'], ['active-arcade-alternative.html', 'tr/active-arcade-alternatifi.html']] as const) {
     it(`${en} and ${tr}`, () => {
       expect(numbers(byFile.get(tr) as PageSpec)).toEqual(numbers(byFile.get(en) as PageSpec));
     });
@@ -658,7 +667,7 @@ describe('the page on deleting the account is what the app and the server do', (
 describe('inside the Android app the pages say nothing about paying on the web', () => {
   const twa = read('packages/web/content/twa.js');
   const css = read('packages/web/content/content.css');
-  const withoutMarked = (html: string): string => html.replace(/<span data-web-pay>[\s\S]*?<\/span>/g, ' ');
+  const withoutMarked = (html: string): string => html.replace(/<(span|div|li) data-web-pay>[\s\S]*?<\/\1>/g, ' ');
   const sold = (lang: 'en' | 'tr'): string[] => [F.PRICE.proMonthly, F.PRICE.proYearly, F.PRICE.familyYearly, F.PRICE.lifetime].map((n) => F.usd(n, lang));
   const run = (search: string, referrer: string, flag: boolean): { twa: boolean; flag: string | undefined } => {
     const classes = new Set<string>();
@@ -704,8 +713,9 @@ describe('inside the Android app the pages say nothing about paying on the web',
     expect(css.split('[data-web-pay]').length).toBe(css.split('.twa [data-web-pay]').length);
   });
 
-  it('with the marked sentences gone, the FAQ and the Ring Fit guide name no web shop and no price of a plan on sale, and still say how Google Play does it', () => {
-    for (const [file, lang] of [['faq.html', 'en'], ['tr/faq.html', 'tr'], ['ring-fit-adventure-alternative.html', 'en'], ['tr/ring-fit-adventure-alternatifi.html', 'tr']] as const) {
+  it('with the marked sentences gone, the FAQ, the Ring Fit and Active Arcade pages and the prices name no web shop and no price of a plan on sale, and still say how Google Play does it', () => {
+    for (const [file, lang] of [['faq.html', 'en'], ['tr/faq.html', 'tr'], ['ring-fit-adventure-alternative.html', 'en'], ['tr/ring-fit-adventure-alternatifi.html', 'tr'],
+      ['pricing.html', 'en'], ['tr/fiyatlar.html', 'tr'], ['active-arcade-alternative.html', 'en'], ['tr/active-arcade-alternatifi.html', 'tr']] as const) {
       const html = renderPage(byFile.get(file) as PageSpec);
       const marked = [...html.matchAll(/<span data-web-pay>([\s\S]*?)<\/span>/g)].map((m) => m[1] as string);
       expect(marked.length, file).toBeGreaterThan(0);
@@ -713,8 +723,10 @@ describe('inside the Android app the pages say nothing about paying on the web',
       const shown = visible(withoutMarked(html));
       expect(shown, file).not.toMatch(/gumroad/i);
       for (const price of sold(lang)) expect(shown, `${file} ${price}`).not.toContain(price);
-      if (file.endsWith('faq.html')) expect(shown, file).toContain('Google Play');
+      if (file.endsWith('faq.html') || file.includes('pricing') || file.includes('fiyatlar')) expect(shown, file).toContain('Google Play');
     }
+    // the footer's link to the prices is web words too
+    for (const p of all) expect(renderPage(p), p.file).toContain(`<li data-web-pay><a href="${SITE_PAGES[p.lang].pricing}"`);
   });
 
   it('on the web every sentence is still there', () => {
@@ -1140,6 +1152,88 @@ describe('the stylesheet uses the design tokens', () => {
 });
 
 // ───────── the release gate (BA_RELEASE=1) ─────────
+
+// Release 3: the prices, the release notes, the Active Arcade comparison and /llms.txt say the numbers of the code, in both languages.
+describe('the prices, the release notes, the Active Arcade page and llms.txt (release 3)', () => {
+  const textOf = (file: string): string => visible(renderPage(byFile.get(file) as PageSpec));
+  const c = gameCounts();
+  const prices = [F.PRICE.proMonthly, F.PRICE.proYearly, F.PRICE.familyYearly, F.PRICE.lifetime];
+
+  it('the prices pages are at /pricing and /tr/fiyatlar, the app footer and the content footer name the same addresses, and so do the release notes', () => {
+    for (const lang of ['en', 'tr'] as const) {
+      expect(sitePageHref(lang, 'pricing')).toBe(PRICING_URL[lang]);
+      expect(sitePageHref(lang, 'changelog')).toBe(PAGES_CHANGELOG[lang]);
+      expect(SITE_PAGES[lang].pricing).toBe(PRICING_URL[lang]);
+      expect(SITE_PAGES[lang].changelog).toBe(PAGES_CHANGELOG[lang]);
+      for (const url of [PRICING_URL[lang], PAGES_CHANGELOG[lang], ACTIVE_ARCADE_URL[lang]]) expect(all.some((p) => p.url === url && p.lang === lang), url).toBe(true);
+    }
+  });
+
+  it('every price, trial, device count and saving on the prices pages is the code’s, with the day the prices were read', () => {
+    for (const [file, lang] of [['pricing.html', 'en'], ['tr/fiyatlar.html', 'tr']] as const) {
+      const t = textOf(file);
+      for (const n of prices) expect(t, `${file} ${n}`).toContain(F.usd(n, lang));
+      expect(t).toContain(F.usd(perMonthOf(F.PRICE.proYearly), lang));
+      expect(yearlySaves(F.PRICE.proMonthly, F.PRICE.proYearly)).toBe(Math.round((1 - PLANS['pro-yearly'].price / (PLANS['pro-monthly'].price * 12)) * 100));
+      expect(t).toContain(lang === 'en' ? `${yearlySaves(F.PRICE.proMonthly, F.PRICE.proYearly)}% less` : `%${yearlySaves(F.PRICE.proMonthly, F.PRICE.proYearly)} daha az`);
+      expect(t).toContain(lang === 'en' ? `${F.TRIAL_DAYS} days` : `${F.TRIAL_DAYS} gün`);
+      expect(t).toContain(lang === 'en' ? `within ${F.REFUND_DAYS} days` : `${F.REFUND_DAYS} gün içinde`);
+      expect(t).toContain(lang === 'en' ? `${c.free} of the ${c.total} games` : `${c.total} oyunun ${c.free} tanesi`);
+      expect(t).toContain(F.longDate(PRICING_DATES.modified, lang));
+      expect(t, 'Pro lists its workout plans').toContain(lang === 'en' ? `${WORKOUT_PLANS.length - 1} more workout plans` : `${WORKOUT_PLANS.length - 1} antrenman planı daha`);
+      const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(renderPage(byFile.get(file) as PageSpec))?.[1] ?? '{}') as { '@graph': { '@type': string; offers?: { price: string; priceCurrency: string }[] }[] };
+      const app = ld['@graph'].find((g) => g['@type'] === 'WebApplication');
+      expect(app?.offers?.map((o) => Number(o.price))).toEqual([0, ...prices]);
+      expect(new Set(app?.offers?.map((o) => o.priceCurrency))).toEqual(new Set(['USD']));
+    }
+  });
+
+  it('the release notes are newest first, the newest is the one the pages call the last release, and the first release says what it had on its day', () => {
+    const days = RELEASES.map((r) => r.day);
+    expect([...days].sort().reverse()).toEqual(days);
+    expect(LATEST_RELEASE).toBe(RELEASES[0]);
+    for (const r of RELEASES) {
+      expect(r.items.length).toBeGreaterThan(0);
+      for (const i of r.items) { expect(i.en.length).toBeGreaterThan(20); expect(i.tr.length).toBeGreaterThan(20); }
+    }
+    for (const [file, lang] of [['changelog.html', 'en'], ['tr/surum-notlari.html', 'tr']] as const) {
+      const t = textOf(file);
+      for (const r of RELEASES) expect(t, r.day).toContain(F.longDate(r.day, lang));
+    }
+  });
+
+  it('every fact about Active Arcade names its source and the day it was read; the sources are public pages', () => {
+    for (const [file, lang] of [['active-arcade-alternative.html', 'en'], ['tr/active-arcade-alternatifi.html', 'tr']] as const) {
+      const html = renderPage(byFile.get(file) as PageSpec);
+      const t = visible(html);
+      for (const src of Object.values(SOURCES)) {
+        expect(src.url).toMatch(/^https:\/\//);
+        expect(html, src.url).toContain(`href="${src.url}"`);
+        expect(t).toContain(F.longDate(src.read, lang));
+      }
+      // the column of Active Arcade in the table: each cell ends with the mark of its source
+      const rows = [...(/<table class="tbl">[\s\S]*?<\/table>/.exec(html)?.[0] ?? '').matchAll(/<tr><th scope="row">[\s\S]*?<\/th><td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => m[1] as string);
+      expect(rows.length).toBeGreaterThanOrEqual(6);
+      for (const cell of rows) expect(cell, cell).toMatch(/\[1\]$/);
+      expect(t).toContain(ACTIVE_ARCADE.version);
+      expect(t).toContain(F.longDate(ACTIVE_ARCADE.updated, lang));
+      expect(t).toContain(String(ACTIVE_ARCADE.sizeMb));
+      expect(t).toContain(F.longDate(LATEST_RELEASE.day, lang));
+      expect(ACTIVE_ARCADE_DATES.modified >= SOURCES.appStore.read).toBe(true);
+    }
+  });
+
+  it('llms.txt is built with the pages, says the prices, the counts and the addresses of the site, and goes out with the release', async () => {
+    const t = llmsTxt();
+    expect(build().find((o) => o.file === 'llms.txt')?.content.toString('utf8')).toBe(t);
+    for (const n of prices) expect(t).toContain(F.usd(n, 'en'));
+    expect(t).toContain(`${c.free} of the ${c.total} games are free`);
+    expect(t).toContain(`${F.TRIAL_DAYS}-day free trial`);
+    for (const url of [PRICING_URL.en, PAGES_CHANGELOG.en, ACTIVE_ARCADE_URL.en, '/faq', '/plans/']) expect(t, url).toContain(`${F.SITE}${url}`);
+    const { MUST_HAVE } = await import('../../../release/assemble.ts');
+    expect(MUST_HAVE).toContain('llms.txt');
+  });
+});
 
 describe.runIf(process.env['BA_RELEASE'] === '1')('release gate: the pages promise only what the product has', () => {
   it('the Family plan is on the paywall (boot.ts FAMILY_ON)', () => {
