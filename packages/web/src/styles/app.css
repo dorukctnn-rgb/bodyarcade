@@ -306,12 +306,12 @@ ul.ba-grid { list-style: none; margin: 0; padding: 0; }
 form[data-form="setup"] { display: contents; }
 /* Only Play rides at the foot of a phone's screen; the two races and the note come after it in the page (release 3: the bar of three
    buttons and a paragraph lay over the game's name and its facts at 360 x 640). */
-.k-info > form > .k-moreplay { order: 11; margin-top: 10px; }
+.k-info > .k-moreplay, .k-info > form > .k-moreplay { order: 11; margin-top: 10px; }
 .k-info > form > .k-playnote { order: 12; margin: 10px 0 0; font-size: var(--ba-text-xs); color: var(--ba-text-muted); line-height: 1.45; }
 .k-moreplay .ba-btn { flex: 1 1 0; min-width: max-content; }
 @media (min-width: 900px) and (min-height: 501px) {
   .k-info > .k-actionbar, .k-info > form > .k-actionbar { order: 2; margin-top: 20px; } .k-info > .k-lockcard { order: 2; }
-  .k-info > form > .k-moreplay, .k-info > form > .k-playnote { order: 2; }
+  .k-info > .k-moreplay, .k-info > form > .k-moreplay, .k-info > form > .k-playnote { order: 2; }
   .k-moreplay .ba-btn { flex: none; }
 }
 /* A short phone (an iPhone SE or a small Android, 640 to 700 px tall): the picture of the game is less tall, so its name and facts
@@ -775,6 +775,11 @@ html:has(.ba-stage), html:has(.ba-stage) body { overscroll-behavior: none; }
   .k-plancard > .k-steps, .k-plancard > .k-steps ~ p { order: 2; }
   .k-plancard > .ba-actions { margin: 4px 0; }
   /* Pro, for a member: "See all games" under the line that Pro is on, the trial and its reminder under the button. */
+  .ba-page--pro > .k-stack > .k-actions { order: 1; }
+  .ba-page--pro > .k-stack > :not(h1, .ba-callout, .k-actions) { order: 2; }
+}
+/* Pro, for a member, on a short phone held upright (360 x 640, release 3): "See all games" under the line that Pro is on, like sideways. */
+@media (orientation: portrait) and (max-height: 700px) {
   .ba-page--pro > .k-stack > .k-actions { order: 1; }
   .ba-page--pro > .k-stack > :not(h1, .ba-callout, .k-actions) { order: 2; }
 }

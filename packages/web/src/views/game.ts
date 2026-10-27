@@ -85,7 +85,8 @@ function play(ctx: ViewContext, g: ShellGame, data: GameData, access: Access): S
   if (access === 'locked') {
     const pro = proGames(ctx.games).length;
     return html`<div class="k-block k-card k-lockcard"><span class="ico">${icon('lock')}</span><div><b>${t.t('paywall.locked', { game: titleOf(ctx, g) })}</b><p>${t.t('game.lock.body', { n: pro, free: ctx.games.length - pro })}</p></div></div>
-      <div class="k-actionbar"><div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('pro', { query: { game: g.id } })}">${icon('lock')}<span>${t.t('settings.pro.see')}</span></a><a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${t.t('game.lock.free')}</a></div></div>`;
+      <div class="k-actionbar"><div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('pro', { query: { game: g.id } })}">${icon('lock')}<span>${t.t('settings.pro.see')}</span></a></div></div>
+      <div class="k-actions k-moreplay"><a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${t.t('game.lock.free')}</a></div>`;
   }
   const state = data.setup ?? defaultSetup(ctx, g);
   // A race with a friend: only where the game can be raced and the friends side exists in this build.

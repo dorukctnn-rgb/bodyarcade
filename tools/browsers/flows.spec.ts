@@ -640,6 +640,50 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     expect(w.errors).toEqual([]);
   });
 
+  test('a phone held upright (360 x 640 and 390 x 844): the Pro plans start on the first screen above the one-row bar, and on a game page only Play rides over the page, never over the name or the facts', async ({ page }, info) => {
+    const w = watch(page);
+    // the plans and the bar: the first plan cards are whole above the bar (its first 22 px are a fade); the next one may run under it, as a hint to scroll
+    const firstScreen = (): Promise<{ whole: string[]; bar: number; rows: number }> => page.evaluate(() => {
+      const bar = document.querySelector('.k-pw .k-actionbar');
+      if (!bar) return { whole: ['no action bar'], bar: 0, rows: 0 };
+      const b = bar.getBoundingClientRect();
+      const whole: string[] = [];
+      for (const plan of document.querySelectorAll('.k-plan')) {
+        const r = plan.getBoundingClientRect();
+        if (r.top >= 0 && r.bottom <= b.top + 22) whole.push(plan.querySelector('b')?.textContent?.trim() ?? '?');
+        else break;
+      }
+      const tops = new Set([...bar.querySelectorAll('.ba-btn')].map((x) => Math.round(x.getBoundingClientRect().top / 12)));
+      return { whole, bar: Math.round(b.height), rows: tops.size };
+    });
+    for (const [width, height, least] of [[360, 640, 2], [390, 844, 3]] as const) {
+      await page.setViewportSize({ width, height });
+      await page.goto(`${DEMO_URL}/pro/`, { waitUntil: 'networkidle' });
+      await settle(page);
+      await shot(page, info, `paywall-upright-${height}`);
+      const r = await firstScreen();
+      // in the order they are shown: Pro yearly, Pro monthly (the one the bar covered at 390 x 844 before release 3), then the others
+      expect(r.whole.length, `${width}x${height}: whole plan cards on the first screen, above the bar (${r.whole.join(', ')})`).toBeGreaterThanOrEqual(least);
+      expect(r.rows, `${width}x${height}: the buy button and Continue free share one row`).toBe(1);
+      expect(r.bar, `${width}x${height}: the bar's height`).toBeLessThanOrEqual(96);
+      expect(await problemsOfLayout(page), `layout of the paywall at ${width}x${height}`).toEqual([]);
+
+      await page.goto(`${DEMO_URL}/games/squat-flap/`, { waitUntil: 'networkidle' });
+      await settle(page);
+      await shot(page, info, `game-upright-${height}`);
+      const g = await page.evaluate(() => {
+        const bar = document.querySelector('.k-info .k-actionbar')?.getBoundingClientRect();
+        const covered = [...document.querySelectorAll('.k-detail h1, .k-facts li')].map((e) => ({ t: (e.textContent ?? '').trim(), r: e.getBoundingClientRect() }))
+          .filter((x) => bar && x.r.bottom > bar.top + 22 && x.r.top < bar.bottom).map((x) => x.t);
+        return { covered, inBar: [...document.querySelectorAll('.k-info .k-actionbar .ba-btn')].map((e) => e.getAttribute('data-key') ?? e.getAttribute('data-action')), note: !!document.querySelector('.k-info .k-actionbar .k-note') };
+      });
+      expect(g.covered, `${width}x${height}: the name and the facts of the game are clear of the Play bar`).toEqual([]);
+      expect(g.inBar, `${width}x${height}: only Play rides in the bar`).toEqual(['play']);
+      expect(g.note, 'the note is in the page, not in the bar').toBe(false);
+    }
+    expect(w.errors).toEqual([]);
+  });
+
   test('family: the players screen, a player added, a child chosen and the parent gate', async ({ page }, info) => {
     const w = watch(page);
     const hooks: Hooks = { ...FAST, plan: 'family', players: [{ name: 'Defne', kid: true, avatar: 'fox' }, { name: 'Mert', avatar: 'robot' }, { name: 'Elif', avatar: 'rocket' }] };

@@ -67,6 +67,8 @@ export const COMMUNITY_RULES_ANCHOR = { en: 'conduct', tr: 'davranis' } as const
 
 function footer(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
+  // The prices page is the web's: linked from the page made for crawlers and on the web, never inside the Android app (Google Play's prices
+  // are the only ones there) or while the app does not know yet where it runs.
   return html`<footer class="ba-footer">
     <div class="ba-footer-inner">
       <p class="ba-footer-made">${t.t('footer.made')} ${t.t('footer.camera')}</p>
@@ -75,7 +77,7 @@ function footer(ctx: ViewContext): SafeHtml {
         <li><a href="${sitePageHref(ctx.lang, 'terms')}" data-native>${t.t('footer.terms')}</a></li>
         <li><a href="${sitePageHref(ctx.lang, 'faq')}" data-native>${t.t('footer.faq')}</a></li>
         <li><a href="${sitePageHref(ctx.lang, 'delete')}" data-native>${t.t('footer.delete')}</a></li>
-        ${ctx.paywall.mode === 'play' ? '' : html`<li><a href="${sitePageHref(ctx.lang, 'pricing')}" data-native>${t.t('footer.pricing')}</a></li>`}
+        ${ctx.server || ctx.paywall.mode === 'web' ? html`<li><a href="${sitePageHref(ctx.lang, 'pricing')}" data-native>${t.t('footer.pricing')}</a></li>` : ''}
         <li><a href="${sitePageHref(ctx.lang, 'changelog')}" data-native>${t.t('footer.changelog')}</a></li>
         <li><a href="mailto:info@peakappsstudio.com">${t.t('footer.contact')}</a></li>
       </ul>
