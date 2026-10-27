@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_title">Çevrimdışısın</string>
+    <string name="offline_body">BodyArcade ilk açılışta bağlantı ister. Wi-Fi ya da mobil veriye bağlan, sonra tekrar dene. Ondan sonra açtığın oyunlar bağlantısız da çalışır.</string>
+    <string name="offline_retry">Tekrar dene</string>
+    <string name="offline_still">Bağlantı hâlâ yok.</string>
+</resources>
