@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_title">You are offline</string>
+    <string name="offline_body">BodyArcade needs a connection the first time it opens. Connect to Wi-Fi or mobile data, then try again. After that, the games you have opened work without a connection.</string>
+    <string name="offline_retry">Try again</string>
+    <string name="offline_still">Still no connection.</string>
+</resources>

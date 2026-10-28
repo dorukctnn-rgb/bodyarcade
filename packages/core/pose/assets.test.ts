@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { MEDIAPIPE_VERSION, POSE_MODEL, WASM_BASE, WASM_FILES } from './assets.ts';
+import { MEDIAPIPE_VERSION, POSE_CACHE, POSE_MODEL, POSE_OFFLINE_FILES, WASM_BASE, WASM_FILES } from './assets.ts';
 import { poseAssetFiles } from './vite-plugin.ts';
 
 describe('pose assets', () => {
@@ -30,5 +30,18 @@ describe('pose assets', () => {
     }
     expect([...files.keys()].filter((u) => u.startsWith(WASM_BASE)).length).toBe(WASM_FILES.length);
     expect(WASM_BASE).toContain(MEDIAPIPE_VERSION);
+  });
+
+  it('"save for offline" stores exactly the files a round loads in the worker, with their real sizes', () => {
+    const files = poseAssetFiles();
+    expect(POSE_CACHE).toBe(`ba-lib-mediapipe-${MEDIAPIPE_VERSION}`);
+    // the model and the module build of the WASM: pose.worker.ts creates the landmarker with useModule: true
+    expect(POSE_OFFLINE_FILES.map((f) => f.url)).toEqual([POSE_MODEL.url, `${WASM_BASE}/vision_wasm_module_internal.js`, `${WASM_BASE}/vision_wasm_module_internal.wasm`]);
+    for (const f of POSE_OFFLINE_FILES) {
+      const path = files.get(f.url);
+      expect(path, f.url).toBeTruthy();
+      expect(statSync(path as string).size, f.url).toBe(f.bytes);
+    }
+    expect(readFileSync(new URL('./pose.worker.ts', import.meta.url), 'utf8')).toContain('useModule: true');
   });
 });

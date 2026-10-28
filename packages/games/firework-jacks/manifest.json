@@ -33,6 +33,7 @@
     ],
     "move": "jackOpen",
     "tile": "firework-jacks",
+    "kind": { "en": "a jumping jack game" },
     "order": 6,
     "related": ["twist-turbine", "knee-sprint"],
     "seatedNote": { "en": "Arm jacks: open and close your arms overhead from a chair.", "tr": "Kol jackleri: sandalyede otururken kollarını baş üstünde açıp kapat." },

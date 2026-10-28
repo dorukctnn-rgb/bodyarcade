@@ -31,6 +31,7 @@
     ],
     "move": "squat",
     "tile": "squat-flap",
+    "kind": { "en": "a squat workout game" },
     "order": 1,
     "related": ["knee-sprint", "road-run"],
     "seatedNote": { "en": "Stand up from a chair to flap and sit back down to glide.", "tr": "Sandalyeden kalkarak kanat çırpın, oturarak süzülün." },

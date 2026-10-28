@@ -32,6 +32,7 @@
     ],
     "move": "punch",
     "tile": "pad-work",
+    "kind": { "en": "a boxing workout game" },
     "order": 4,
     "related": ["star-catch", "reaction-tag"],
     "seatedNote": { "en": "Seated boxing: every punch from a chair, with leans but no ducks.", "tr": "Oturarak boks: bütün yumruklar sandalyeden, eğilmek var, çömelmek yok." },

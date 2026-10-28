@@ -10,7 +10,7 @@ import {
   CANONICAL_ORIGIN, STATIC_REDIRECTS, headersFile, injectHead, mergeSitemap, precacheList, redirectsFile, robotsFile,
   serviceWorkerSource, webManifest, type SitemapEntry, type Target,
 } from './site.ts';
-import { MEDIAPIPE_VERSION } from '../packages/core/pose/assets.ts';
+import { POSE_CACHE } from '../packages/core/pose/assets.ts';
 
 /**
  * The content pages: the policies, the FAQ, the guides and the blog, in English and Turkish. packages/web/content/build.ts writes
@@ -159,7 +159,7 @@ export function assemble(o: AssembleOptions): AssembleReport {
   }
   const precache = precacheList(files, Object.values(startPages));
   writeFileSync(join(out, 'sw.js'), serviceWorkerSource(readFileSync(join(root, 'release', 'sw.template.js'), 'utf8'), {
-    build, precache, startPages, libPrefixes: ['/vendor/mediapipe/'], libCache: `ba-lib-mediapipe-${MEDIAPIPE_VERSION}`, navTimeoutMs: 3500,
+    build, precache, startPages, libPrefixes: ['/vendor/mediapipe/'], libCache: POSE_CACHE, navTimeoutMs: 3500,
   }));
   copyFileSync(join(root, 'release', 'sw-register.js'), join(out, 'sw-register.js'));
   const commit = git(root, ['rev-parse', '--short=10', 'HEAD']);

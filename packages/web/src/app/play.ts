@@ -19,6 +19,14 @@ import type { StageHandles } from './ports.ts';
 import { plateName, type RaceOutcome, type RaceRival, type RaceSource } from './race.ts';
 import type { ClipFile, ClipRecorder } from './clip.ts';
 
+/**
+ * The string key of the sentence for an error code. Body tracking that could not load while the phone has no connection says so and what to do
+ * (the generic sentence would send the player to check a connection that is known to be out).
+ */
+export function playErrorKey(code: string, offline: boolean): string {
+  return code === 'pose_load' && offline ? 'play.err.pose_offline' : `play.err.${code}`;
+}
+
 export interface PlayHost {
   document: Document;
   /** Fresh every call: the language or the settings may have changed. */
@@ -455,7 +463,7 @@ export class PlayController {
     const t = this.ctx().i18n;
     const own = t.t('play.error.scene');
     if (message !== '' && message === own) return own;
-    const key = `play.err.${code}`;
+    const key = playErrorKey(code, this.host.document.defaultView?.navigator?.onLine === false);
     return t.has(key) ? t.tx(key) : t.t('play.error.title');
   }
 

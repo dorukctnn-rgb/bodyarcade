@@ -23,3 +23,21 @@ export const WASM_FILES = [
   'vision_wasm_module_internal.js', 'vision_wasm_module_internal.wasm',
   'vision_wasm_nosimd_internal.js', 'vision_wasm_nosimd_internal.wasm',
 ] as const;
+
+/**
+ * The Cache Storage name of the pose engine. The service worker (release/sw.template.js) keeps the model and the WASM in it after the first
+ * round and across builds (the files are pinned); "save for offline" in the Android app fills the same cache before the first round.
+ * release/assemble.ts and the page read this one line, so they cannot name two different caches.
+ */
+export const POSE_CACHE = `ba-lib-mediapipe-${MEDIAPIPE_VERSION}`;
+
+/**
+ * What "save for offline" stores: the model and the module build of the WASM, which is what the pose worker loads on every phone with
+ * WebAssembly SIMD (Chrome 91 and later). The other builds are the main-thread fallback and stay online-only. `bytes` are the sizes on
+ * disk (a test compares them), used for the progress and the "about N MB" sentence when the server sends no length.
+ */
+export const POSE_OFFLINE_FILES: readonly { url: string; bytes: number }[] = [
+  { url: POSE_MODEL.url, bytes: POSE_MODEL.bytes },
+  { url: `${WASM_BASE}/vision_wasm_module_internal.js`, bytes: 334_166 },
+  { url: `${WASM_BASE}/vision_wasm_module_internal.wasm`, bytes: 13_519_940 },
+];

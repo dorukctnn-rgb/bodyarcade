@@ -6,6 +6,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { LEGACY_PAGES, MUST_HAVE, assemble, resolvePath } from './assemble.ts';
 import { HEAD_TAGS, TARGETS } from './site.ts';
 import { REGION_IDS } from '../packages/core/ui/settings.ts';
+import { POSE_CACHE } from '../packages/core/pose/assets.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const tmp = mkdtempSync(join(tmpdir(), 'ba-release-'));
@@ -85,8 +86,10 @@ describe('assemble', { timeout: 60_000 }, () => {
 
   it('precaches the start pages of both languages and the hashed files, and stamps the build', () => {
     const sw = read('sw.js');
-    const cfg = JSON.parse(/^const CONFIG = (.*);$/m.exec(sw)?.[1] ?? '{}') as { build: string; precache: string[]; startPages: Record<string, string> };
+    const cfg = JSON.parse(/^const CONFIG = (.*);$/m.exec(sw)?.[1] ?? '{}') as { build: string; precache: string[]; startPages: Record<string, string>; libCache: string };
     expect(cfg.precache).toEqual(['/', '/tr/', '/static/main-a1.js', '/static/main-b2.css']);
+    // the cache the worker keeps the pose engine in is the one "save for offline" in the Android app writes to
+    expect(cfg.libCache).toBe(POSE_CACHE);
     expect(cfg.startPages).toEqual({ en: '/', tr: '/tr/' });
     const stamp = JSON.parse(read('version.json')) as { build: string; target: string };
     expect(stamp).toMatchObject({ build: cfg.build, target: 'production' });

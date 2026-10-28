@@ -41,6 +41,8 @@ import { localEntitlements } from './entitlements.ts';
 import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
 import { hudModeFor, PlayController, type PlayHost } from './play.ts';
 import { clipAllowed, createClipRecorder, type ClipFile } from './clip.ts';
+import { browserPorts, OfflineController } from './offline.ts';
+import { DEFAULT_REMINDER_TIME, parseTime, REMINDER_FILE, reminderCalendar } from '../../../core/ui/reminder.ts';
 import { ReplayRecorder, type ReplayClip } from './replay.ts';
 import { mountReplay, type ReplayPlayer } from './replay-view.ts';
 import { WelcomeController, type WelcomeHost } from './welcome.ts';
@@ -138,6 +140,10 @@ export class App {
   private readonly book: ProfileBook | null;
   private space: ProfileSpace | null;
   private readonly profiles: ProfilesController | null;
+  /** Offline play of the Android app (settings, "This app"): what body tracking is saved on this phone. Null on the web. */
+  private readonly offline: OfflineController | null;
+  /** The time in the daily reminder's field, kept while the page is drawn again. */
+  private reminderTime = DEFAULT_REMINDER_TIME;
   private entitlements: EntitlementsPort;
   private billing: BillingPort;
   private offEntitlements: (() => void) | null = null;
@@ -218,6 +224,7 @@ export class App {
     if (first && this.space) this.applyDefaults(this.space.profile.defaults);
     this.syncSeated(true);
     this.profiles = this.book ? new ProfilesController(this.profilesHost()) : null;
+    this.offline = this.caps.platform === 'android-app' ? new OfflineController(browserPorts(this.win), this.offlineHost()) : null;
     this.entitlements = o.entitlements ?? localEntitlements({
       demo: o.demo,
       isFreeGame: (id) => this.games.find((g) => g.id === id)?.free === true,
@@ -419,6 +426,7 @@ export class App {
     this.on(this.win, 'resize', () => this.onResize());
     this.on(this.win, 'orientationchange', () => this.onResize());
     this.watchEntitlements();
+    void this.offline?.refresh();
     this.offSettings = this.settings.subscribe(() => this.apply());
     if (this.book) this.cleanups.push(this.book.onChange((e) => this.onBookChange(e)));
     this.social?.start();
@@ -700,6 +708,7 @@ export class App {
       social: this.social && route && SOCIAL_ROUTES.has(route.id) ? this.social.pageState(route) : null,
       welcome: this.tour?.tour() ?? null,
       profiles: route?.id === 'profiles' && this.profiles ? this.profiles.state() : null,
+      app: route?.id === 'settings' && this.caps.platform === 'android-app' ? { offline: this.offline?.get() ?? null, reminderTime: this.reminderTime } : null,
     };
     const page = renderPage(ctx, route, state);
     this.shown = this.shownOfPlayers();
@@ -709,6 +718,7 @@ export class App {
     if (route?.id === 'play' && page.status === 200) this.beginPlay(route);
     if (route?.id === 'welcome') void this.tour?.begin();
     if (route?.id === 'results') { this.startRestTimer(); this.watchRoom(); this.mountReplay(); }
+    if (route?.id === 'settings') void this.offline?.refresh();
   }
 
   // ---- the welcome tour -------------------------------------------------------------------------------------------------
@@ -1317,6 +1327,7 @@ export class App {
     if (this.tour?.action(action, el)) { e.preventDefault(); return; }
     if (this.profiles?.action(action, el)) { e.preventDefault(); return; }
     if (this.social?.click(action, el)) { e.preventDefault(); return; }
+    if (this.offline?.action(action)) { e.preventDefault(); return; }
     switch (action) {
       case 'mode':
         this.toggleMode(el.dataset['mode'] ?? '');
@@ -1334,6 +1345,10 @@ export class App {
       case 'clear-data':
         e.preventDefault();
         void this.clearData();
+        break;
+      case 'reminder-add':
+        e.preventDefault();
+        this.addReminder();
         break;
       case 'buy':
         e.preventDefault();
@@ -1492,6 +1507,7 @@ export class App {
       case 'motion': s.set({ motion: checked ? 'reduce' : 'full' }); break;
       case 'theme': s.set({ theme: t.value as Settings['theme'] }); break;
       case 'pipCorner': s.set({ pipCorner: t.value as Settings['pipCorner'] }); break;
+      case 'reminderTime': if (parseTime(t.value)) this.reminderTime = t.value.trim(); return;
       case 'weightKg': {
         const v = t.value.trim() === '' ? null : Number.parseFloat(t.value.replace(',', '.'));
         if (v === null || (Number.isFinite(v) && v >= 25 && v <= 300)) s.set({ weightKg: v });
@@ -1506,6 +1522,48 @@ export class App {
       default: return;
     }
     this.live.announce(ctx.i18n.t('settings.saved'));
+  }
+
+  // ---- the Android app's own rows (settings, "This app") ---------------------------------------------------------------
+
+  private offlineHost(): ConstructorParameters<typeof OfflineController>[1] {
+    return {
+      redraw: () => { if (this.route?.id === 'settings') this.render(); },
+      // A running save moves the number in place: drawing the page again for every percent would cost the button its focus.
+      progress: (pct) => {
+        const t = this.ctx().i18n;
+        const status = this.doc.querySelector('[data-offline-status]');
+        if (status) status.textContent = t.t('settings.offline.saving', { pct });
+        const bar = this.doc.querySelector<HTMLProgressElement>('[data-offline-bar]');
+        if (bar) bar.value = pct;
+      },
+      announce: (kind) => this.live.announce(this.ctx().i18n.t(kind === 'saved' ? 'settings.offline.announce.saved' : 'settings.offline.announce.failed')),
+    };
+  }
+
+  /**
+   * The daily reminder: a calendar file with one repeating event at the player's time, handed to the phone, whose calendar app then does the
+   * reminding (core/ui/reminder.ts says why this and not a push message). Nothing is sent anywhere.
+   */
+  private addReminder(): void {
+    const t = this.ctx().i18n;
+    const typed = this.doc.querySelector<HTMLInputElement>('[data-reminder-time]')?.value ?? this.reminderTime;
+    const ics = reminderCalendar({ time: typed, now: new Date(Date.now()), title: t.t('reminder.title'), body: t.t('reminder.body'), url: `${SITE_ORIGIN}/` });
+    if (!ics) { this.toaster.show(t.t('settings.reminder.failed'), { kind: 'warn' }); return; }
+    this.reminderTime = typed.trim();
+    try {
+      const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+      const a = this.doc.createElement('a');
+      a.href = url;
+      a.download = REMINDER_FILE;
+      this.doc.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      this.toaster.show(t.t('settings.reminder.done'));
+    } catch {
+      this.toaster.show(t.t('settings.reminder.failed'), { kind: 'warn' });
+    }
   }
 
   private chooseLang(l: Lang): void {

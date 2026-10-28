@@ -62,6 +62,13 @@ check(JSON.stringify(perms) === JSON.stringify(expected), `permissions are exact
 const launch = /\[STR\] "([^"]*)"/.exec(javaJar(['dump', 'resources', `--bundle=${aab}`, '--resource=string/launchUrl', '--values']))?.[1];
 check(/<meta-data[^>]*DEFAULT_URL[^>]*@string\/launchUrl/.test(xml) && launch === 'https://bodyarcade.com/?src=twa', `the launch address is ${launch} (expected https://bodyarcade.com/?src=twa)`);
 check(xml.includes('com.google.androidbrowserhelper.playbilling.provider.PaymentActivity'), 'the Play Billing payment activity (Digital Goods API) is in the manifest');
+// Release 4. The web manifest address is read by Chrome OS (Chromebooks) to open the site's own page: the first generated project carried the address of a local test server.
+const manifestUrl = /\[STR\] "([^"]*)"/.exec(javaJar(['dump', 'resources', `--bundle=${aab}`, '--resource=string/webManifestUrl', '--values']))?.[1];
+check(manifestUrl === 'https://bodyarcade.com/manifest.json', `the web manifest address is ${manifestUrl} (expected https://bodyarcade.com/manifest.json, never a local test server)`);
+// The first launch with no connection shows the app's own screen instead of Chrome's error page (LauncherActivity, offline-first pattern of Google's TWA guide).
+let offlineScreen = false;
+try { offlineScreen = javaJar(['dump', 'resources', `--bundle=${aab}`, '--resource=layout/activity_offline_first']).includes('layout/activity_offline_first'); } catch { offlineScreen = false; }
+check(offlineScreen, 'the offline first-launch screen (layout/activity_offline_first) is in the bundle');
 
 // The signature on the bundle is a jar signature (Bubblewrap signs it with jarsigner and the upload key).
 let sha: string | undefined;

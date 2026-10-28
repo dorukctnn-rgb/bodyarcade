@@ -10,6 +10,12 @@ export interface CatalogueBlock {
   tagline: LocalizedString;
   /** Two or three sentences for the game page and the search snippet. Says only what the game really does. */
   about: LocalizedString;
+  /**
+   * What the game is, with its article, in the words people search with ("a boxing workout game"): the game page's title says it
+   * ("Pad Work: a boxing workout game for your webcam"). Per language, English required; a language without text keeps the
+   * general title ("{game}: a webcam fitness game in your browser"). Optional.
+   */
+  kind?: LocalizedString;
   /** Three to five steps. */
   how: LocalizedString[];
   /** What the camera reads, in plain words. One to four lines. Never heart rate or anything medical. */

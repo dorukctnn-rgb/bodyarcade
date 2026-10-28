@@ -5,7 +5,7 @@ import { html, type SafeHtml } from '../../core/ui/html.ts';
 import { localized } from '../../core/ui/i18n/localized.ts';
 import type { Matched } from '../../core/ui/router.ts';
 import { gameBySlug } from '../catalogue/filter.ts';
-import { aboutOf, regionLabel, titleOf, type ViewContext } from './context.ts';
+import { aboutOf, kindOf, regionLabel, titleOf, type ViewContext } from './context.ts';
 import { INDEXABLE, isRegion, type RouteId } from './routes.ts';
 import { homePage, NO_HOME_DATA, regionGames, type HomeData } from './views/home.ts';
 import { gamePage, NO_GAME_DATA, type GameData } from './views/game.ts';
@@ -17,11 +17,19 @@ import { defaultPaywallState, paywallPage, type PaywallState } from './views/pay
 import { NO_PLANS_DATA, plansPage, type PlansData } from './views/plans.ts';
 import { playPage } from './views/play.ts';
 import { resultsPage, type RoundResult } from './views/results.ts';
-import { settingsPage } from './views/settings.ts';
+import { settingsPage, type AppRows } from './views/settings.ts';
 import type { TourState } from './app/welcome-model.ts';
 import { FIRST_TOUR, welcomePage } from './views/welcome.ts';
 
 export const SITE_ORIGIN = 'https://bodyarcade.com';
+
+/**
+ * The picture a link to a page without a game of its own shows when it is shared: the brand card the content pages share
+ * (packages/web/content/chrome.ts OG_IMAGE; a test keeps the two equal), 1024 by 500.
+ */
+export const BRAND_CARD = { path: '/assets/brand/og.png', width: 1024, height: 500 } as const;
+/** A game tile as the link preview picture: tile(..., 800) is 800 by 600. */
+export const TILE_PREVIEW = { width: 800, height: 600 } as const;
 
 /** What the browser app knows beyond the catalogue; the generator uses the defaults. */
 export interface PageState {
@@ -38,9 +46,11 @@ export interface PageState {
   welcome: TourState | null;
   /** What the players screen draws; null in the page generator, which never draws it. */
   profiles: ProfilesPageState | null;
+  /** The Android app's own rows of the settings page (offline play, the daily reminder); null on the web and in the page generator. */
+  app: AppRows | null;
 }
 
-export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null, welcome: null, profiles: null };
+export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null, welcome: null, profiles: null, app: null };
 
 export interface Rendered {
   body: SafeHtml;
@@ -50,8 +60,10 @@ export interface Rendered {
   status: 200 | 404;
   /** schema.org blocks (BreadcrumbList, WebSite). */
   jsonLd: object[];
-  /** The page's picture for link previews, as a path the asset resolver produced. */
+  /** The page's picture for link previews, as a path the asset resolver produced (or the brand card's own path). */
   image?: string;
+  /** Its size in pixels, so a link preview can be laid out before the picture arrives. */
+  imageSize?: { width: number; height: number };
 }
 
 /** A meta description from running text: whole sentences up to the limit, else cut at a word. */
@@ -83,6 +95,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
 
   if (!route) return notFound();
   const noindex = !INDEXABLE.has(route.id);
+  const brandCard = { image: BRAND_CARD.path, imageSize: { width: BRAND_CARD.width, height: BRAND_CARD.height } };
 
   switch (route.id) {
     case 'home': {
@@ -90,7 +103,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       return {
         body: homePage(ctx, { region: null, data: state.home }), title: t.t('home.title'), description: t.t('home.description', { n: ctx.games.length, free: ctx.games.filter((g) => g.free).length }), noindex: false, status: 200,
         jsonLd: [{ '@context': 'https://schema.org', '@type': 'WebSite', name: brand, url: `${SITE_ORIGIN}${home}`, inLanguage: t.tag }],
-        ...(ctx.games[0] ? { image: ctx.assets.tile(ctx.games[0].catalogue.tile, 800) } : {}),
+        ...brandCard,
       };
     }
     case 'region': {
@@ -100,15 +113,20 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       return {
         body: homePage(ctx, { region, data: state.home }), title: t.t('workouts.title', { region: label }), description: t.t('workouts.description', { region: label, ...regionGames(ctx.games, region) }), noindex: false, status: 200,
         jsonLd: [crumbs(ctx, [{ name: brand, path: ctx.href('home') }, { name: label, path: ctx.href('region', { params: { region } }) }])],
+        ...brandCard,
       };
     }
     case 'game': {
       const g = gameBySlug(ctx.games, route.params['slug'] ?? '');
       if (!g) return notFound();
+      // What the game is, in the words people search with ("Pad Work: a boxing workout game for your webcam"); a language without
+      // those words for the game keeps the general title.
+      const kind = kindOf(ctx, g);
       return {
-        body: gamePage(ctx, g, state.game), title: t.t('game.title', { game: titleOf(ctx, g) }), description: snippet(aboutOf(ctx, g)), noindex: false, status: 200,
+        body: gamePage(ctx, g, state.game), title: kind ? t.t('game.title.kind', { game: titleOf(ctx, g), kind }) : t.t('game.title', { game: titleOf(ctx, g) }), description: snippet(aboutOf(ctx, g)), noindex: false, status: 200,
         jsonLd: [crumbs(ctx, [{ name: brand, path: ctx.href('home') }, { name: titleOf(ctx, g), path: ctx.href('game', { params: { slug: g.seo.slug } }) }])],
         image: ctx.assets.tile(g.catalogue.tile, 800),
+        imageSize: TILE_PREVIEW,
       };
     }
     case 'play': {
@@ -122,11 +140,12 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       return {
         body: plansPage(ctx, state.plans), title: named(t.t('plans.title')), description: t.t('plans.description'), noindex: false, status: 200,
         jsonLd: [crumbs(ctx, [{ name: brand, path: ctx.href('home') }, { name: t.t('plans.title'), path: ctx.href('plans') }])],
+        ...brandCard,
       };
     case 'pro':
-      return { body: paywallPage(ctx, state.paywall ?? defaultPaywallState(ctx, route.query.get('game') ?? undefined)), title: named(t.t('paywall.title')), description: t.t('paywall.lead'), noindex, status: 200, jsonLd: [] };
+      return { body: paywallPage(ctx, state.paywall ?? defaultPaywallState(ctx, route.query.get('game') ?? undefined)), title: named(t.t('paywall.title')), description: t.t('paywall.lead'), noindex, status: 200, jsonLd: [], ...brandCard };
     case 'settings':
-      return { body: settingsPage(ctx, { reducedMotion: state.reducedMotion || ctx.settings.motion === 'reduce' }), title: named(t.t('settings.title')), description: t.t('settings.title'), noindex, status: 200, jsonLd: [] };
+      return { body: settingsPage(ctx, { reducedMotion: state.reducedMotion || ctx.settings.motion === 'reduce', app: state.app }), title: named(t.t('settings.title')), description: t.t('settings.title'), noindex, status: 200, jsonLd: [] };
     case 'friends':
     case 'lobbies':
     case 'room':

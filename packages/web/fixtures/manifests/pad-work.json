@@ -31,6 +31,7 @@
     ],
     "move": "punch",
     "tile": "pad-work",
+    "kind": { "en": "a boxing workout game" },
     "order": 4,
     "related": ["star-catch", "reaction-tag"],
     "seatedNote": { "en": "Seated boxing: throw every punch from a chair.", "tr": "Oturarak boks: bütün yumrukları sandalyeden atın." },

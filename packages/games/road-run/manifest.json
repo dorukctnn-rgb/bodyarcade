@@ -68,6 +68,7 @@
     ],
     "move": "leanLeft",
     "tile": "road-run",
+    "kind": { "en": "a running workout game" },
     "order": 11,
     "seatedNote": {
       "en": "Lean and duck from a chair. No jumping needed.",

@@ -510,6 +510,12 @@ progress.k-linebar::-moz-progress-bar { background: var(--ba-go-400); border-rad
 .k-set .chev { color: var(--ba-text-muted); flex: none; }
 @media (max-width: 520px) { .k-set .ba-seg-opt span { padding: 8px 10px; font-size: 0.875rem; } .k-pipwrap { justify-items: start; } }
 .k-danger { color: var(--ba-flush-700); }
+/* The Android app's own rows: offline play and the daily reminder */
+.k-reminder { display: flex; align-items: center; gap: 10px; flex: none; flex-wrap: wrap; }
+.k-reminder .ba-input { width: 132px; height: 44px; text-align: center; }
+.k-offline-bar { width: 120px; height: 10px; flex: none; accent-color: var(--ba-accent); }
+.k-offline-ok { display: inline-flex; align-items: center; gap: 6px; flex: none; font-weight: 700; }
+.k-offline-ok svg { width: 18px; height: 18px; }
 [data-theme="dark"] .k-danger { color: var(--ba-flush-500); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .k-danger { color: var(--ba-flush-500); } }
 

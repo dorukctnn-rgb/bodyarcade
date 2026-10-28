@@ -228,6 +228,48 @@ describe('service worker', () => {
     expect(await s.stores.get('ba-shell-b1')?.match('/gone/')).toBeUndefined();
   });
 
+  it('last resort: nothing stored for the page and no network gives a page of our own, status 200, never the browser\'s error page', async () => {
+    const s = sandbox(async () => { throw new TypeError('offline'); });
+    const en = await s.request('/games/road-run/', { mode: 'navigate' });
+    expect(en?.status).toBe(200);
+    expect(en?.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+    expect(en?.headers.get('Cache-Control')).toBe('no-store');
+    const html = (await en?.text()) as string;
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain('<h1>You are offline</h1>');
+    expect(html).toContain('<a href="">Try again</a>');
+    expect(html).toContain('name="robots" content="noindex"');
+    expect(html).not.toMatch(/<script/i);
+  });
+
+  it('last resort: the page speaks Turkish under /tr/ and for a phone set to Turkish, English under the draft languages', async () => {
+    const s = sandbox(async () => { throw new TypeError('offline'); });
+    const tr = (await (await s.request('/tr/games/road-run/', { mode: 'navigate' }))?.text()) as string;
+    expect(tr).toContain('<html lang="tr">');
+    expect(tr).toContain('<h1>\u00c7evrimd\u0131\u015f\u0131s\u0131n</h1>');
+    expect(tr).toContain('>Tekrar dene</a>');
+    for (const p of ['/de/', '/es/games/road-run/', '/fr']) expect(await (await s.request(p, { mode: 'navigate' }))?.text(), p).toContain('<html lang="en">');
+    // an address without a prefix follows the phone
+    (s.self as unknown as { navigator: unknown }).navigator = { languages: ['tr-TR', 'en'], language: 'tr-TR' };
+    expect(await (await s.request('/games/road-run/', { mode: 'navigate' }))?.text()).toContain('<html lang="tr">');
+    (s.self as unknown as { navigator: unknown }).navigator = { languages: ['de-DE'], language: 'de-DE' };
+    expect(await (await s.request('/games/road-run/', { mode: 'navigate' }))?.text()).toContain('<html lang="en">');
+  });
+
+  it('last resort: a cached page or a cached start page still comes first, and an invitation link gets the start page', async () => {
+    let online = true;
+    const s = sandbox(async (url) => { if (!online) throw new TypeError('offline'); return ok(`page ${new URL(url).pathname}`); });
+    await s.lifecycle('install');
+    online = false;
+    expect(await (await s.request('/games/star-catch/', { mode: 'navigate' }))?.text()).toBe('page /');
+    expect(await (await s.request('/r/K7Q2MX', { mode: 'navigate' }))?.text()).toBe('page /');
+    // storage cleared: now the start page is gone too, and the player still gets an answer
+    for (const name of [...s.stores.keys()]) s.stores.delete(name);
+    const res = await s.request('/', { mode: 'navigate' });
+    expect(res?.status).toBe(200);
+    expect(await res?.text()).toContain('You are offline');
+  });
+
   it('the generated source carries this build\'s settings', () => {
     const s = sandbox(async () => ok('x'));
     expect(s.src).toContain('"build":"b1"');
