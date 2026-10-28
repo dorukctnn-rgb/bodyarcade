@@ -31,6 +31,8 @@ export interface PaywallInputs {
   checkout?: Partial<Record<SoldPlanId, string>>;
   /** Google's description of the products (getDetails), once it has answered. */
   details?: readonly PlayItemDetails[];
+  /** Play mode: Google has not answered yet and the app is still asking, so "no plans" is not a verdict: the page says it is checking. */
+  detailsPending?: boolean;
   family?: boolean;
   /** False once this person used a trial. */
   trialEligible?: boolean;
@@ -50,7 +52,7 @@ export function paywallModel(mode: PaywallMode, i: PaywallInputs = {}): PaywallM
     case 'play': {
       const plans = playPlans(i.details ?? [], i.family !== undefined ? { family: i.family } : {});
       const sells = plans.offers.length > 0;
-      return { mode, plans, purchase: sells ? 'play' : 'none', keyEntry: { visible: true, wording: 'neutral' }, note: sells ? null : 'unavailable', manageUrl: PLAY_MANAGE_URL };
+      return { mode, plans, purchase: sells ? 'play' : 'none', keyEntry: { visible: true, wording: 'neutral' }, note: sells ? null : i.detailsPending ? 'checking' : 'unavailable', manageUrl: PLAY_MANAGE_URL };
     }
     case 'play-unsupported':
       return { mode, plans: EMPTY, purchase: 'none', keyEntry: { visible: true, wording: 'neutral' }, note: 'play-only', manageUrl: null };

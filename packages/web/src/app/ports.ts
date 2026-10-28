@@ -1,5 +1,6 @@
 // What the shell needs from the other parts of the platform, as small interfaces. Each one has a stand-in here or in
 // the demo code until the real module is wired; swapping it in is a change in boot.ts only.
+import type { RestoreOutcome } from '../../../core/entitlements/port.ts';
 import type { TrialService } from '../../../core/entitlements/trial.ts';
 import type { ActivateFailureCode, Hud, Plan, Session, Unsubscribe } from '../../../core/types/index.ts';
 import type { HudLayoutInfo } from '../../../core/ui/hud/hud.ts';
@@ -19,6 +20,8 @@ export interface EntitlementsPort {
   activate(key: string): Promise<{ ok: true; plan: Plan } | { ok: false; code: ActivateFailureCode }>;
   /** Android only: ask Google Play for the purchases again. */
   restore?(): Promise<boolean>;
+  /** Android only: the same look as restore, with the reason when it found nothing to restore ('none': this Google account owns no purchase here). */
+  restoreOutcome?(): Promise<RestoreOutcome>;
   /** Android only: start a purchase for a Play product id. */
   purchase?(productId: string): Promise<boolean>;
 }
@@ -31,6 +34,13 @@ export interface BillingPort {
   /** Fresh every call: Google's answers and a trial that was just bought change it. */
   paywall(): { plans: PlansConfig; info: PaywallInfo };
   trial: Pick<TrialService, 'notice' | 'view' | 'setEmail' | 'clearEmail'>;
+  /**
+   * Android only: Google Play's description of the plans can come late or not at all. Called when the Pro screen opens and when the app
+   * comes back to the front: looks again if no plan is there yet. True when a new look started (the page shows "checking" until it ends).
+   */
+  refresh?(): boolean;
+  /** Android only: the plans on the page changed (Google answered, or the looks ended without an answer): draw the Pro page again. */
+  onChange?(cb: () => void): Unsubscribe;
 }
 
 /** What the stage hands a session so it can draw the game and the player's own view. */

@@ -44,6 +44,15 @@ describe('Google Play', () => {
   it('offers nothing until Google has described the products, and says so', () => {
     expect(paywallModel('play')).toMatchObject({ purchase: 'none', note: 'unavailable', keyEntry: { visible: true } });
   });
+
+  it('while the app is still asking Google it says it is checking, not that Pro cannot be bought; products win over the wait', () => {
+    const asking = paywallModel('play', { detailsPending: true, family: true });
+    expect(asking).toMatchObject({ mode: 'play', purchase: 'none', note: 'checking', keyEntry: { visible: true, wording: 'neutral' }, manageUrl: PLAY_MANAGE_URL, plans: { offers: [] } });
+    expect(paywallModel('play', { details, detailsPending: true })).toMatchObject({ purchase: 'play', note: null });
+    // the wait is a Play matter: the web and the app that cannot sell never say "checking" because of it
+    expect(paywallModel('web', { checkout: {}, detailsPending: true })).toMatchObject({ note: 'unavailable' });
+    expect(paywallModel('play-unsupported', { detailsPending: true })).toMatchObject({ note: 'play-only' });
+  });
 });
 
 describe('the app that cannot sell, and the moment before the proof', () => {
