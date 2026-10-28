@@ -37,6 +37,7 @@
     ],
     "move": "highKnee",
     "tile": "knee-sprint",
+    "kind": { "en": "a high knees workout game" },
     "order": 2,
     "related": ["road-run", "firework-jacks"],
     "seatedNote": { "en": "Sit and swing your arms while you march your knees. You race on a ranking of your own, with no hurdles.", "tr": "Otur, dizlerini yürütürken kollarını salla. Ayrı bir sıralamada yarışırsın, engel yok." },

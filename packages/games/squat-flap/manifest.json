@@ -36,6 +36,7 @@
     ],
     "move": "squat",
     "tile": "squat-flap",
+    "kind": { "en": "a squat workout game" },
     "order": 1,
     "related": ["road-run"],
     "seatedNote": { "en": "Sit and flap with your arms: raise both, bring them down, hold them level to glide.", "tr": "Otur ve kollarınla kanat çırp: ikisini kaldır, aşağı indir, süzülmek için yatay tut." },

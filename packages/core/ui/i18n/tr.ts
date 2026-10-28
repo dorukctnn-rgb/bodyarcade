@@ -194,6 +194,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'game.measures.not': 'Kalp atışını ölçmez ve tıbbi tavsiye vermez.',
   'game.lowImpact.note': 'Ayaklarınız yerden kesilmez. Zıplama yok.',
   'game.title': '{game}: kamera ile oynanan spor oyunu',
+  'game.title.kind': '{game}: kamera ile oynanan {kind}',
   'game.video': 'Kamerayla egzersiz oyunu, tarayıcında oynanır',
 
   'setup.title': 'Turunu ayarla',

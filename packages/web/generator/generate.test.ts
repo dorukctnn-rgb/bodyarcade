@@ -3,6 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { OG_IMAGE } from '../content/chrome.ts';
+import { BRAND_CARD } from '../src/pages.ts';
 import { loadCatalogue } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import { gameHasLanguage, generate, type GenerateReport } from './generate.ts';
@@ -80,9 +82,30 @@ describe('the generated site', () => {
     const map = JSON.parse(/<script type="application\/json" id="ba-assets">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '{}') as Record<string, string>;
     expect(map['/assets/tiles/squat-flap-400.webp']).toMatch(/^\/static\/tiles\/squat-flap-400\.[0-9a-f]{8}\.webp$/);
     expect(html).toContain(map['/assets/tiles/squat-flap-400.webp'] as string);
-    // Outside the map itself, no page points at a development address.
-    expect(html.replace(/<script type="application\/json" id="ba-assets">[\s\S]*?<\/script>/, '')).not.toContain('/assets/');
+    // Outside the map itself, no page points at a development address (the brand card of the link preview is the site's own file, the one the content pages share).
+    expect(html.replace(/<script type="application\/json" id="ba-assets">[\s\S]*?<\/script>/, '').replace(`content="https://bodyarcade.com/assets/brand/${OG_IMAGE.file}"`, '')).not.toContain('/assets/');
     expect(report.assets).toBe(Object.keys(map).length);
+  });
+
+  it('shows the brand card when the home page, a region, the plans or the Pro page is shared, and the tile of the game for a game page, each with its size', () => {
+    const card = [
+      `<meta property="og:image" content="https://bodyarcade.com/assets/brand/${OG_IMAGE.file}">`,
+      `<meta property="og:image:width" content="${OG_IMAGE.width}">`,
+      `<meta property="og:image:height" content="${OG_IMAGE.height}">`,
+      '<meta name="twitter:card" content="summary_large_image">',
+    ];
+    for (const p of ['index.html', 'tr/index.html', 'workouts/legs/index.html', 'tr/workouts/legs/index.html', 'plans/index.html', 'tr/plans/index.html', 'pro/index.html']) {
+      const html = read(p);
+      for (const line of card) expect(html, `${p}: ${line}`).toContain(line);
+    }
+    // The app's card and the content pages' card are one file (content.test.ts reads its real size).
+    expect(BRAND_CARD).toEqual({ path: `/assets/brand/${OG_IMAGE.file}`, width: OG_IMAGE.width, height: OG_IMAGE.height });
+    for (const p of ['games/squat-flap/index.html', 'tr/games/squat-flap/index.html']) {
+      const html = read(p);
+      expect(html, p).toMatch(/<meta property="og:image" content="https:\/\/bodyarcade\.com\/static\/tiles\/squat-flap\.[0-9a-f]{8}\.webp">/);
+      expect(html, p).toContain('<meta property="og:image:width" content="800">');
+      expect(html, p).toContain('<meta property="og:image:height" content="600">');
+    }
   });
 
   it('writes header rules: long cache for the hashed files and the camera for this site only', () => {

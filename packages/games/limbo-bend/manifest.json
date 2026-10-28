@@ -33,6 +33,7 @@
     ],
     "move": "sideBend",
     "tile": "limbo-bend",
+    "kind": { "en": "a side bend exercise game" },
     "order": 9,
     "related": ["twist-turbine", "pose-wall"],
     "seatedNote": { "en": "Seated bend: lean from the waist while you sit, same gates.", "tr": "Oturarak eğilme: otururken belinden eğil, kapılar aynı." },

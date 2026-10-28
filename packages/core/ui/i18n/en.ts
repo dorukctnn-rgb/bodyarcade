@@ -194,6 +194,7 @@ export const en = {
   'game.measures.not': 'It does not measure heart rate or give medical advice.',
   'game.lowImpact.note': 'Your feet stay on the floor. No jumping.',
   'game.title': '{game}: a webcam fitness game in your browser',
+  'game.title.kind': '{game}: {kind} for your webcam',
   'game.video': 'Camera workout game, plays in your browser',
 
   'setup.title': 'Set up your round',

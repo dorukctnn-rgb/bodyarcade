@@ -58,6 +58,8 @@ export function renderDocument(d: DocumentInput): string {
     `<meta property="og:url" content="${e(canonical)}">`,
     `<meta property="og:locale" content="${OG_LOCALE[d.lang]}">`,
     image ? `<meta property="og:image" content="${e(image)}">` : '',
+    image && page.imageSize ? `<meta property="og:image:width" content="${page.imageSize.width}">` : '',
+    image && page.imageSize ? `<meta property="og:image:height" content="${page.imageSize.height}">` : '',
     `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">`,
     '<meta name="theme-color" content="#F4F2F8" media="(prefers-color-scheme: light)">',
     '<meta name="theme-color" content="#1A1430" media="(prefers-color-scheme: dark)">',

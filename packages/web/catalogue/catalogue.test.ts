@@ -77,6 +77,13 @@ describe('no real manifests yet is fine, and a published build never reads fixtu
     expect(real.problems).toEqual([]);
     expect(real.catalogue.source).toBe('games');
   });
+
+  it('every real game says what it is in the words of its page title, in English, and two games do not claim the same words', () => {
+    const real = loadCatalogue({ fixtures: 'none', requiredLangs: ['en', 'tr'] }).catalogue.games;
+    const kinds = real.map((g) => (typeof g.catalogue.kind === 'string' ? '' : g.catalogue.kind?.['en'] ?? ''));
+    real.forEach((g, i) => expect(kinds[i], `${g.id} has a kind`).toMatch(/^(a|an) [a-z ]+ game$/));
+    expect(new Set(kinds).size, 'each game its own words').toBe(real.length);
+  });
 });
 
 describe('the schema and the rules refuse bad manifests', () => {
@@ -120,6 +127,16 @@ describe('the schema and the rules refuse bad manifests', () => {
     e.catalogue.tagline = { en: 'Squat and fly.' };
     expect(checkEntry(e, 'x.json', { requiredLangs: ['en'] }).problems).toEqual([]);
     expect(checkEntry(e, 'x.json', { requiredLangs: ['en', 'tr'] }).problems.map((p) => p.message)).toContain('tagline has no tr text');
+  });
+
+  it('takes the words of the page title ("a boxing workout game") per language, English alone required, with its article, and not too long', () => {
+    const e = raw() as unknown as { catalogue: { kind?: unknown } };
+    e.catalogue.kind = { en: 'a squat workout game' };
+    expect(checkEntry(e, 'x.json', { requiredLangs: ['en', 'tr'] }).problems, 'English alone is enough, a language without its own words keeps the general title').toEqual([]);
+    bad((x) => { (x['catalogue'] as Record<string, unknown>)['kind'] = 'a squat workout game'; }, /kind must say its words per language/);
+    bad((x) => { (x['catalogue'] as Record<string, unknown>)['kind'] = { en: 'squat workout game' }; }, /starts with its article/);
+    bad((x) => { (x['catalogue'] as Record<string, unknown>)['kind'] = { en: `a ${'squat '.repeat(8)}game` }; }, /kind \(en\) is \d+ characters, the limit is 36/);
+    bad((x) => { (x['catalogue'] as Record<string, unknown>)['kind'] = { en: 'a squat workout game!' }; }, /exclamation/);
   });
 
   it('keeps variants honest', () => {
