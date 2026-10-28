@@ -32,6 +32,7 @@
     ],
     "move": "twist",
     "tile": "twist-turbine",
+    "kind": { "en": "a core workout game" },
     "order": 7,
     "related": ["limbo-bend", "summit-climb"],
     "seatedNote": { "en": "Seated twist: turn from the waist while you sit, with the same pace band.", "tr": "Oturarak dönüş: otururken belinden dön, tempo bandı aynı." },

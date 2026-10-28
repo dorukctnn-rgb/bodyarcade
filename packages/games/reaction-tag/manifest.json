@@ -32,6 +32,7 @@
     ],
     "move": "reach",
     "tile": "reaction-tag",
+    "kind": { "en": "a reaction time game" },
     "order": 5,
     "related": ["star-catch", "pad-work"],
     "seatedNote": { "en": "Hands only: the whole game plays from a chair.", "tr": "Yalnızca eller: oyunun tamamı sandalyeden oynanır." },

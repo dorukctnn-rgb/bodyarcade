@@ -54,6 +54,11 @@ export interface ViewContext {
 export const titleOf = (ctx: Pick<ViewContext, 'lang'>, g: ShellGame): string => localized(g.title, ctx.lang);
 export const taglineOf = (ctx: Pick<ViewContext, 'lang'>, g: ShellGame): string => localized(g.catalogue.tagline, ctx.lang);
 export const aboutOf = (ctx: Pick<ViewContext, 'lang'>, g: ShellGame): string => localized(g.catalogue.about, ctx.lang);
+/** What the game is, in the words of the page's language ("a boxing workout game"); null when the game has none in that language (never another language's words). */
+export const kindOf = (ctx: Pick<ViewContext, 'lang'>, g: ShellGame): string | null => {
+  const k = g.catalogue.kind;
+  return k && typeof k !== 'string' && k[ctx.lang] ? k[ctx.lang] ?? null : null;
+};
 
 export const regionLabel = (ctx: Pick<ViewContext, 'i18n'>, r: BodyRegion): string => ctx.i18n.tx(`region.${r}`);
 

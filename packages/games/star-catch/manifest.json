@@ -32,6 +32,7 @@
     ],
     "move": "reach",
     "tile": "star-catch",
+    "kind": { "en": "an arm exercise game" },
     "order": 3,
     "related": ["pad-work", "reaction-tag"],
     "seatedNote": { "en": "Seated play: every star stays within reach of a chair.", "tr": "Oturarak oynama: bütün yıldızlar sandalyeden uzanılacak mesafede kalır." },

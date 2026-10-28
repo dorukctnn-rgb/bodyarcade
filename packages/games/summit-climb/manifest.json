@@ -37,6 +37,7 @@
     ],
     "move": "pull",
     "tile": "summit-climb",
+    "kind": { "en": "an upper body workout game" },
     "order": 8,
     "related": ["twist-turbine", "knee-sprint"],
     "seatedNote": { "en": "Sit tall and climb with your arms only. The wall is a little lower, with no ledges.", "tr": "Dik otur ve yalnız kollarınla tırman. Duvar biraz daha alçak, çıkıntı yok." },

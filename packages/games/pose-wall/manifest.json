@@ -70,6 +70,7 @@
     ],
     "move": "tPose",
     "tile": "pose-wall",
+    "kind": { "en": "a pose matching game" },
     "order": 10,
     "related": [
       "limbo-bend",

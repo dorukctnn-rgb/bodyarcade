@@ -19,7 +19,7 @@ export interface ValidateOptions {
   tilesDir?: string;
 }
 
-const MAX = { title: 40, tagline: 90, about: 420, how: 170, measures: 140, note: 170, unit: 24 } as const;
+const MAX = { title: 40, tagline: 90, about: 420, how: 170, measures: 140, note: 170, unit: 24, kind: 36 } as const;
 
 function texts(ls: LocalizedString): [string, string][] {
   return typeof ls === 'string' ? [['en', ls]] : Object.entries(ls);
@@ -55,6 +55,15 @@ export function checkEntry(raw: unknown, label: string, o: ValidateOptions = {})
   if (e.silentSafe && !c.quietNote) problems.push({ where: label, message: 'the game can be played quietly but has no quietNote' });
   if (!e.silentSafe && c.quietNote) problems.push({ where: label, message: 'quietNote on a game that cannot be played quietly' });
   if (c.unit) checkText(label, 'unit', c.unit, MAX.unit, langs, problems);
+  if (c.kind) {
+    // Per language, English alone is required (a language without words of its own keeps the general title); one text for every
+    // language would put English words on a Turkish page.
+    if (typeof c.kind === 'string') problems.push({ where: label, message: 'kind must say its words per language ({ "en": "..." }), not one text for all' });
+    else {
+      checkText(label, 'kind', c.kind, MAX.kind, ['en'], problems);
+      if (!/^(a|an) /.test(c.kind['en'] ?? '')) problems.push({ where: label, message: 'kind (en) starts with its article: "a squat workout game"' });
+    }
+  }
   if (c.seatedNote) checkText(label, 'seatedNote', c.seatedNote, MAX.note, langs, problems);
   if (c.quietNote) checkText(label, 'quietNote', c.quietNote, MAX.note, langs, problems);
   if (c.related?.includes(e.id)) problems.push({ where: label, message: 'related lists the game itself' });

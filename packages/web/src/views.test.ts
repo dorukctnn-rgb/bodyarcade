@@ -9,7 +9,7 @@ import { loadCatalogue } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import { copyProblems } from '../catalogue/copy.ts';
 import { makeContext, type ContextInit } from './make-context.ts';
-import { EMPTY_STATE, renderPage, snippet, type Rendered } from './pages.ts';
+import { BRAND_CARD, EMPTY_STATE, renderPage, snippet, type Rendered } from './pages.ts';
 import { REGION_ORDER, router, type RouteId } from './routes.ts';
 import type { RoundResult } from './views/results.ts';
 import { overlayHtml } from './views/play.ts';
@@ -236,7 +236,10 @@ describe('game pages', () => {
     for (const g of games) {
       const { html, r } = draw('en', `/games/${g.seo.slug}/`, { caps: bigScreen });
       const text = textOf(html.match(/<ul class="k-facts"[\s\S]*?<\/ul>/)?.[0] ?? '');
-      expect(r.title).toBe(`${typeof g.title === 'string' ? g.title : g.title['en']}: a webcam fitness game in your browser`);
+      const name = typeof g.title === 'string' ? g.title : g.title['en'];
+      const kind = typeof g.catalogue.kind === 'string' ? undefined : g.catalogue.kind?.['en'];
+      // What the game is, in the words people search with, when the manifest says it; else the general title.
+      expect(r.title).toBe(kind ? `${name}: ${kind} for your webcam` : `${name}: a webcam fitness game in your browser`);
       expect(r.title.length, g.id).toBeLessThanOrEqual(60);
       expect(html.match(/<ol class="k-how">[\s\S]*?<\/ol>/)?.[0].match(/<li>/g)?.length, g.id).toBe(g.catalogue.how.length);
       expect(text.includes('2 players'), `${g.id} two players`).toBe(g.modes.includes('local2'));
@@ -246,6 +249,19 @@ describe('game pages', () => {
       expect(r.description.length, g.id).toBeLessThanOrEqual(160);
       expect(r.noindex).toBe(false);
     }
+  });
+
+  it('titles the page of every real game with what it is ("Pad Work: a boxing workout game for your webcam"): at most 60 characters, a different title each, the general Turkish title where there are no Turkish words', () => {
+    const real = loadCatalogue({ fixtures: 'none', requiredLangs: ['en', 'tr'] }).catalogue.games;
+    const titles = real.map((g) => draw('en', `/games/${g.seo.slug}/`, { games: real }).r.title);
+    real.forEach((g, i) => {
+      expect(titles[i], g.id).toMatch(/^[A-Za-z ]+: an? [a-z ]+ game for your webcam$/);
+      expect((titles[i] as string).length, g.id).toBeLessThanOrEqual(60);
+      expect(draw('tr', `/tr/games/${g.seo.slug}/`, { games: real }).r.title, `${g.id} Turkish`).toMatch(/: kamera ile oynanan spor oyunu$/);
+    });
+    expect(new Set(titles).size).toBe(real.length);
+    expect(titles).toContain('Pad Work: a boxing workout game for your webcam');
+    expect(titles).toContain('Firework Jacks: a jumping jack game for your webcam');
   });
 
   it('says "2 players" only where two players on one camera are offered: not on a phone, not in the Android app, not in the page made for a crawler', () => {
@@ -288,6 +304,24 @@ describe('game pages', () => {
     const { r } = draw('en', '/games/squat-flap/');
     expect(JSON.stringify(r.jsonLd)).toContain('BreadcrumbList');
     expect(r.image).toBe('/assets/tiles/squat-flap.webp');
+    expect(r.imageSize, 'the game tile is 800 by 600').toEqual({ width: 800, height: 600 });
+  });
+
+  it('shows the brand card, with its size, when the home page, a body region, the plans or the Pro page is shared, in both languages', () => {
+    for (const lang of LANGS) {
+      const p = lang === 'en' ? '' : `/${lang}`;
+      for (const url of [`${p}/`, `${p}/workouts/legs/`, `${p}/workouts/seated/`, `${p}/plans/`, `${p}/pro/`]) {
+        const { r } = draw(lang, url);
+        expect(r.image, url).toBe(BRAND_CARD.path);
+        expect(r.imageSize, url).toEqual({ width: BRAND_CARD.width, height: BRAND_CARD.height });
+      }
+    }
+  });
+
+  it('titles the home page with the search words: free fitness games (Turkish: ücretsiz spor oyunları), at most 60 characters', () => {
+    expect(draw('en', '/').r.title).toBe('BodyArcade: free fitness games for your webcam or phone');
+    expect(draw('tr', '/tr/').r.title).toBe('BodyArcade: kamera ile oynanan ücretsiz spor oyunları');
+    for (const lang of LANGS) expect(draw(lang, lang === 'en' ? '/' : '/tr/').r.title.length).toBeLessThanOrEqual(60);
   });
 
   it('answers 404 for a game that does not exist and for a region without games', () => {
