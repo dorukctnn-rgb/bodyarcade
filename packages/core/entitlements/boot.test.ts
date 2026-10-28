@@ -1,9 +1,9 @@
 // bootEntitlements: the page that is running decides which providers exist. In the Android app Gumroad does not exist at
 // all, not even as a request.
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createStore, memoryStorage } from '../store/index.ts';
 import { API } from './api.ts';
-import { bootEntitlements, type BootWindow } from './boot.ts';
+import { PLAY_RECOVER_EVERY_MS, bootEntitlements, type BootWindow } from './boot.ts';
 import { PLAY_BILLING_URL } from './billing-env.ts';
 import { GUMROAD_CHECKOUT } from './catalog.ts';
 import type { DigitalGoodsService, PaymentRequestLike } from './providers/play.ts';
@@ -173,5 +173,105 @@ describe('in the Android app', () => {
     const p = pieces();
     const boot = await bootEntitlements({ store: p.store, keys: [keys.pub], window: appWindow({ PaymentRequest: undefined }), fetch: p.fetch, now: p.clock.now, autoRefresh: false });
     expect(boot.service.hasProvider('play')).toBe(false);
+  });
+});
+
+describe('in the Android app, a purchase the server could not confirm', () => {
+  const TOKEN = 'purchase-token-bbbbbbbbbbbbbbbbbbbb';
+  const YEARLY = 'bodyarcade_pro_yearly';
+
+  /** Google Play's side: what the account owns, and how often the app asked for the list. */
+  function play(owned: { itemId: string; purchaseToken: string }[]) {
+    const seen = { lists: 0 };
+    const service: DigitalGoodsService = {
+      getDetails: async (ids) => ids.map((itemId) => ({ itemId, price: { currency: 'EUR', value: '9.99' } })),
+      listPurchases: async () => { seen.lists++; return [...owned]; },
+    };
+    return { service, seen };
+  }
+  class Pay implements PaymentRequestLike {
+    async show() { return { details: { purchaseToken: TOKEN }, complete: async () => undefined }; }
+  }
+  /** A page that can be sent to the back and brought to the front again. */
+  function page(service: DigitalGoodsService) {
+    let onVisible: (() => void) | null = null;
+    const doc = {
+      referrer: '', visibilityState: 'visible',
+      addEventListener: (type: 'visibilitychange', cb: () => void) => { if (type === 'visibilitychange') onVisible = cb; },
+    };
+    const win: BootWindow = { location: { search: '?src=twa' }, document: doc, sessionStorage: null, getDigitalGoodsService: async () => service, PaymentRequest: Pay };
+    return { win, toFront: () => { doc.visibilityState = 'visible'; onVisible?.(); }, toBack: () => { doc.visibilityState = 'hidden'; onVisible?.(); } };
+  }
+  const playCalls = (p: ReturnType<typeof pieces>) => p.server.calls.filter((c) => c.path === API.play).length;
+
+  it('turns into Pro at the next start without a tap, once the server can confirm it', async () => {
+    const p = pieces();
+    const g = play([{ itemId: YEARLY, purchaseToken: TOKEN }]);
+    p.server.playPurchases.set(TOKEN, { productId: YEARLY, plan: 'pro-yearly', status: 'active' });
+    p.server.fault = 'status503';                                             // Google charged, our server could not check it
+    const first = await bootEntitlements({ store: p.store, keys: [keys.pub], window: page(g.service).win, fetch: p.fetch, now: p.clock.now, autoRefresh: false });
+    expect(await first.port.purchase?.(YEARLY)).toBe(false);
+    expect(first.port.plan()).toBe('free');
+    first.service.dispose();
+
+    p.server.fault = null;                                                    // the server can check now (the Console permission is in)
+    p.clock.advance(3_600_000);
+    const next = await bootEntitlements({ store: p.store, keys: [keys.pub], window: page(g.service).win, fetch: p.fetch, now: p.clock.now });
+    await vi.waitFor(() => expect(next.port.plan()).toBe('pro'));
+    expect(p.server.calls.filter((c) => c.path === API.play).at(-1)?.body['purchases']).toEqual([{ productId: YEARLY, purchaseToken: TOKEN }]);
+    next.service.dispose();
+  });
+
+  it('turns into Pro when the app comes back to the front, without a restart, and asks at most once a minute', async () => {
+    const p = pieces();
+    const g = play([{ itemId: YEARLY, purchaseToken: TOKEN }]);
+    p.server.playPurchases.set(TOKEN, { productId: YEARLY, plan: 'pro-yearly', status: 'active' });
+    p.server.fault = 'status503';
+    const pg = page(g.service);
+    const boot = await bootEntitlements({ store: p.store, keys: [keys.pub], window: pg.win, fetch: p.fetch, now: p.clock.now });
+    await vi.waitFor(() => expect(playCalls(p)).toBe(1));                      // the look at start, answered "try later"
+    expect(boot.port.plan()).toBe('free');
+
+    p.server.fault = null;
+    pg.toBack(); pg.toFront();                                                // within the minute: no new look
+    await new Promise((r) => setTimeout(r, 20));
+    expect(g.seen.lists).toBe(1);
+
+    p.clock.advance(PLAY_RECOVER_EVERY_MS);
+    pg.toBack();                                                              // going to the back is not a reason to look
+    expect(g.seen.lists).toBe(1);
+    pg.toFront();
+    await vi.waitFor(() => expect(boot.port.plan()).toBe('pro'));
+    expect(playCalls(p)).toBe(2);
+
+    p.clock.advance(PLAY_RECOVER_EVERY_MS);
+    pg.toFront();                                                             // Pro is here: Google is not asked again
+    await new Promise((r) => setTimeout(r, 20));
+    expect(g.seen.lists).toBe(2);
+    boot.service.dispose();
+  });
+
+  it('costs no request to our server when the account owns nothing, and never shows anything', async () => {
+    const p = pieces();
+    const g = play([]);
+    const boot = await bootEntitlements({ store: p.store, keys: [keys.pub], window: page(g.service).win, fetch: p.fetch, now: p.clock.now });
+    await vi.waitFor(() => expect(g.seen.lists).toBe(1));
+    expect(playCalls(p)).toBe(0);
+    expect(boot.port.plan()).toBe('free');
+    boot.service.dispose();
+  });
+
+  it('does not look when the renewals are off (tests, tools), nor in the browser', async () => {
+    const p = pieces();
+    const g = play([{ itemId: YEARLY, purchaseToken: TOKEN }]);
+    const off = await bootEntitlements({ store: p.store, keys: [keys.pub], window: page(g.service).win, fetch: p.fetch, now: p.clock.now, autoRefresh: false });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(g.seen.lists).toBe(0);
+    off.service.dispose();
+    const web = await bootEntitlements({ store: p.store, keys: [keys.pub], window: browserWindow(), fetch: p.fetch, now: p.clock.now, legacyStorage: null });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(g.seen.lists).toBe(0);
+    expect(playCalls(p)).toBe(0);
+    web.service.dispose();
   });
 });

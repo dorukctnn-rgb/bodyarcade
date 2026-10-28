@@ -23,7 +23,35 @@ import type { TokenKey } from './token.ts';
 
 export interface BootWindow extends WindowLike {
   location: { search: string; hostname?: string };
+  document: WindowLike['document'] & { visibilityState?: string; addEventListener?(type: 'visibilitychange', cb: () => void): void };
   PaymentRequest?: new (methods: unknown, details: unknown) => PaymentRequestLike;
+}
+
+/** The least time between two quiet looks at Google Play's list of this account's purchases (recoverPlayPurchases). */
+export const PLAY_RECOVER_EVERY_MS = 60_000;
+
+/**
+ * A Play purchase that Google charged but our server could not confirm (Google unreachable, or the service account not yet
+ * allowed to read this app's orders) leaves nothing on this device: no renewal ever looks at it again, the Pro screen's
+ * "Restore purchases" button was the only way back, and Play refunds a purchase nobody acknowledges within three days.
+ * So while this device has no Pro, the app asks Google Play's own list once at start and again each time it comes back to
+ * the front, at most once a minute. An empty list costs no request to our server; a purchase found goes to the server,
+ * which confirms and acknowledges it exactly as the Restore button would. Quiet: nothing is shown, a Pro that arrives
+ * redraws the page through onChange.
+ */
+function recoverPlayPurchases(service: EntitlementsService, doc: BootWindow['document'] | undefined, now: () => number): void {
+  let last: number | null = null;
+  const look = (): void => {
+    const t = now();
+    if (last !== null && t >= last && t - last < PLAY_RECOVER_EVERY_MS) return;
+    if (service.current().plan !== 'free') return;
+    last = t;
+    void service.restore().catch(() => undefined);
+  };
+  look();
+  try {
+    doc?.addEventListener?.('visibilitychange', () => { if (doc?.visibilityState !== 'hidden') look(); });
+  } catch { /* a document without events: the start alone */ }
 }
 
 export interface BootOptions {
@@ -94,6 +122,7 @@ export async function bootEntitlements(o: BootOptions): Promise<BootResult> {
   });
   didOf = service.deviceId;
   await service.ready();
+  if (service.hasProvider('play') && o.autoRefresh !== false) recoverPlayPurchases(service, w?.document, o.now ?? Date.now);
 
   // The e-mail is for the browser only: in the Android app Google Play sends its own reminder.
   const trial = createTrial({ service, store: o.store, mode: env.mode === 'web' ? 'web' : 'play', ...common });
