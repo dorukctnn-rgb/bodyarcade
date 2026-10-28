@@ -435,8 +435,8 @@ export class App {
     void this.arcade.sync.sync();
     this.on(this.win, 'resize', () => this.onResize());
     this.on(this.win, 'orientationchange', () => this.onResize());
-    this.watchEntitlements();
     this.watchBilling();
+    this.watchEntitlements();
     this.offSettings = this.settings.subscribe(() => this.apply());
     if (this.book) this.cleanups.push(this.book.onChange((e) => this.onBookChange(e)));
     this.social?.start();
