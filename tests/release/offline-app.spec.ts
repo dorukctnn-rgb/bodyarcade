@@ -204,7 +204,7 @@ test('the app rows keep the layout rule at every size, in English and Turkish', 
       const page = await context.newPage();
       await page.route(/plausible\.io/, (r) => r.abort());
       await page.goto(`${BASE}${lang === 'tr' ? '/tr' : ''}/settings/?src=twa`, { waitUntil: 'load' });
-      await expect(page.locator('[data-offline]')).toBeVisible();
+      await expect(page.locator('[data-offline="missing"]')).toBeVisible();
       await page.locator('[data-reminder-time]').scrollIntoViewIfNeeded();
       const problems = await checkPage(page);
       for (const p of problems) found.push(`${lang} ${s.id}: ${p}`);
