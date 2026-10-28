@@ -3,7 +3,7 @@
 import type { Plan, Session } from '../../../core/types/index.ts';
 import { detectUiCapabilities, type UiCapabilities } from '../../../core/ui/capabilities.ts';
 import { openDialog } from '../../../core/ui/dialog.ts';
-import { detectLang, isLang, LANG_INFO, type I18n, type Lang } from '../../../core/ui/i18n/index.ts';
+import { detectLang, isLang, LANG_INFO, type I18n, type Lang, type StringKey } from '../../../core/ui/i18n/index.ts';
 import { createLiveRegion, type LiveRegion } from '../../../core/ui/live-region.ts';
 import { createNavigation, type Matched, type Navigation, type RouteChange } from '../../../core/ui/router.ts';
 import { shouldShowPaywallAfterRound } from '../../../core/ui/plans.ts';
@@ -55,6 +55,7 @@ import { openGhostDialog, type GhostDialogHost } from './ghost-dialog.ts';
 import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceStageMount, type RaceWorld } from './race.ts';
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
+import type { RestoreOutcome } from '../../../core/entitlements/port.ts';
 import { roomOfRoute, SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
 import { liveSource } from './live-race.ts';
 import { mountLiveStage } from './live-stage.ts';
@@ -119,6 +120,16 @@ export interface AppOptions {
 
 const PIP_ORDER = ['bottom-right', 'bottom-left', 'top-left', 'top-right', 'hidden'] as const;
 
+/** What "Restore purchases" says when it found nothing to restore: the reason, not "checkout is not open". */
+const RESTORE_FAILURE: Readonly<Record<Exclude<RestoreOutcome, 'restored'>, StringKey>> = {
+  none: 'paywall.restore.none',
+  network: 'paywall.restore.network',
+  server: 'paywall.restore.server',
+  refunded: 'paywall.key.err.refunded',
+  ended: 'paywall.key.err.ended',
+  limit: 'paywall.restore.limit',
+};
+
 /** The language a visitor gets when the address has no language and they never chose one: only complete translations. */
 export function autoLang(preferred: readonly string[] | undefined): Lang {
   const l = detectLang(preferred);
@@ -141,6 +152,7 @@ export class App {
   private entitlements: EntitlementsPort;
   private billing: BillingPort;
   private offEntitlements: (() => void) | null = null;
+  private offBilling: (() => void) | null = null;
   /** The notice of a free trial was closed for this visit: the next open shows it again. */
   private trialDismissed = false;
   private trialLoading = false;
@@ -414,11 +426,17 @@ export class App {
     this.on(this.doc, 'input', (e) => this.onInput(e));
     this.on(this.doc, 'submit', (e) => this.onSubmit(e));
     this.on(this.win, 'offline', () => this.toaster.show(this.ctx().i18n.t('toast.offline'), { kind: 'warn' }));
-    this.on(this.doc, 'visibilitychange', () => { if (!this.doc.hidden) void this.arcade.sync.sync(); });
+    this.on(this.doc, 'visibilitychange', () => {
+      if (this.doc.hidden) return;
+      void this.arcade.sync.sync();
+      // Back at the front: Google Play's plans may have been missing on the Pro page (it asks again, and the page says it is checking).
+      if (this.plan === 'free' && this.billing.refresh?.() && this.route?.id === 'pro') this.render();
+    });
     void this.arcade.sync.sync();
     this.on(this.win, 'resize', () => this.onResize());
     this.on(this.win, 'orientationchange', () => this.onResize());
     this.watchEntitlements();
+    this.watchBilling();
     this.offSettings = this.settings.subscribe(() => this.apply());
     if (this.book) this.cleanups.push(this.book.onChange((e) => this.onBookChange(e)));
     this.social?.start();
@@ -451,6 +469,29 @@ export class App {
     this.offEntitlements = this.entitlements.onChange((p) => { this.plan = p; this.state = { ...this.state, paywall: null }; this.rerender(); });
   }
 
+  /** Google Play's plans arrive (or the looks for them end) after the Pro page was drawn: the Pro page is drawn again, and nothing else is. */
+  private watchBilling(): void {
+    this.offBilling?.();
+    this.offBilling = this.billing.onChange?.(() => this.billingChanged()) ?? null;
+  }
+
+  private billingChanged(): void {
+    if (this.route?.id !== 'pro') return;                    // the other pages ask the billing afresh whenever they are drawn
+    // A redraw must not take away what someone is typing: the licence key box stays open with its text.
+    const box = this.doc.querySelector<HTMLDetailsElement>('details.k-keybox');
+    const typed = this.doc.querySelector<HTMLInputElement>('#pw-key')?.value ?? '';
+    const showedPlans = this.doc.querySelector('[data-action="buy"]') !== null;
+    const st = this.state.paywall;
+    if (st) {
+      // The plan "selected" before any plan was there is only the page's own guess: take the one the plans recommend now.
+      const selected = showedPlans ? st.selected : defaultPaywallState(this.ctx(), st.gameId).selected;
+      this.state = { ...this.state, paywall: { ...st, selected, keyOpen: st.keyOpen || box?.open === true } };
+    }
+    this.render();
+    const field = this.doc.querySelector<HTMLInputElement>('#pw-key');
+    if (field && typed) field.value = typed;
+  }
+
   /**
    * The real entitlements arrive after the page started (checking a licence kept from the old site can take a moment): the
    * page was drawn from what was kept on the device, and is drawn again with the answer.
@@ -460,6 +501,7 @@ export class App {
     this.billing = o.billing;
     this.plan = this.entitlements.plan();
     this.watchEntitlements();
+    this.watchBilling();
     this.state = { ...this.state, paywall: null };
     this.rerender();
   }
@@ -477,6 +519,7 @@ export class App {
     for (const c of this.cleanups.splice(0)) c();
     this.offSettings?.();
     this.offEntitlements?.();
+    this.offBilling?.();
     this.stopRestTimer();
     this.live.dispose();
     this.toaster.dispose();
@@ -530,6 +573,9 @@ export class App {
     if (!change.initial && !change.replaced) this.moves += 1;
     this.endPlay();
     this.route = route;
+    // The Pro page opens: when Google Play's plans are not there yet (a slow first answer, or the looks ended with none) ask again now.
+    // Only here, not in render(): the page is drawn again when the plans arrive or the looks end, and that must not start another look.
+    if (route?.id === 'pro' && this.plan === 'free') this.billing.refresh?.();
     if (route?.id === 'profiles') this.profiles?.enter(route);
     this.lang = route && route.lang !== 'en' ? route.lang : (route ? 'en' : this.lang);
     this.social?.enter(route);
@@ -1625,9 +1671,12 @@ export class App {
   }
 
   private async restore(): Promise<void> {
-    const ok = (await this.entitlements.restore?.()) ?? false;
+    const e = this.entitlements;
+    // The port says why a look found nothing; one that only says yes or no gets the plain "no purchase found".
+    const outcome: RestoreOutcome = e.restoreOutcome ? await e.restoreOutcome() : (await e.restore?.()) ? 'restored' : 'none';
     const t = this.ctx().i18n;
-    this.toaster.show(ok ? t.t('paywall.active') : t.t('paywall.unavailable'), ok ? {} : { kind: 'warn' });
+    if (outcome === 'restored') { this.toaster.show(t.t('paywall.active')); return; }
+    this.toaster.show(t.t(RESTORE_FAILURE[outcome]), { kind: 'warn' });
   }
 
   /** For tests and tools: where the app is and what it holds. Development and test builds only. */

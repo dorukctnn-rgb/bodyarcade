@@ -1,12 +1,13 @@
 // What the paywall gets from the entitlements: the real one on a pretend server and a pretend browser window, the practice
 // one that development and test builds use, and the two stand-ins for the moment before the real one has answered.
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { bootEntitlements, type BootWindow } from '../../../core/entitlements/boot.ts';
 import { checkoutOf, GUMROAD_CHECKOUT, placeholdersIn, type GumroadListing } from '../../../core/entitlements/catalog.ts';
-import { SOLD_PLAN_IDS, type SoldPlanId } from '../../../core/entitlements/plans.ts';
+import { paywallModel } from '../../../core/entitlements/paywall.ts';
+import { PLANS, SOLD_PLAN_IDS, playProductOf, type PlayItemDetails, type SoldPlanId } from '../../../core/entitlements/plans.ts';
 import { Clock, FakeServer, makeKeys } from '../../../core/entitlements/testkit.ts';
 import { createStore, memoryStorage } from '../../../core/store/store.ts';
-import { loadPlayDetails, pendingBilling, practiceBilling, PREVIEW_CHECKOUT, realBilling, withPreviewOffers } from './billing.ts';
+import { createPlayDetails, pendingBilling, practiceBilling, PREVIEW_CHECKOUT, realBilling, withPreviewOffers } from './billing.ts';
 
 const HOUR = 3_600_000;
 const win = (search = ''): BootWindow => ({ location: { search, hostname: 'bodyarcade.test' }, document: { referrer: '' }, sessionStorage: null });
@@ -63,13 +64,192 @@ describe('the real billing', () => {
     boot.service.dispose();
   });
 
-  it('asks Google Play for its products once and never throws, with or without an answer', async () => {
-    const answer = [{ itemId: 'bodyarcade_pro_yearly', price: { currency: 'EUR', value: '39.99' } }];
-    const service = { getDetails: async (ids: string[]) => { expect(ids).toContain('bodyarcade_pro_monthly'); return answer; }, listPurchases: async () => [] };
-    expect(await loadPlayDetails({ mode: 'play', service })).toEqual(answer);
-    expect(await loadPlayDetails({ mode: 'web', service: null })).toEqual([]);
-    expect(await loadPlayDetails({ mode: 'play', service: { getDetails: async () => { throw new Error('no'); }, listPurchases: async () => [] } })).toEqual([]);
-    expect(await loadPlayDetails({ mode: 'play', service: { getDetails: () => new Promise(() => undefined), listPurchases: async () => [] } }, 20)).toEqual([]);
+});
+
+// ---- Google Play's products on a cold start (28 Oct phone test: the first open showed "Pro cannot be bought here right now") ----------
+
+const PRODUCTS: PlayItemDetails[] = SOLD_PLAN_IDS.map((id) => ({
+  itemId: playProductOf(id),
+  price: { currency: 'TRY', value: String(PLANS[id].price) },
+  ...(id === 'pro-yearly' ? { freeTrialPeriod: 'P7D' } : {}),
+}));
+
+/** The Digital Goods service of a phone: each call is answered by the script, and the calls are counted. */
+function digitalGoods(script: (call: number) => Promise<PlayItemDetails[]> | PlayItemDetails[]) {
+  const seen = { calls: 0 };
+  return { seen, mode: 'play' as const, service: { getDetails: async (_ids: string[]) => script(++seen.calls), listPurchases: async () => [] } };
+}
+const never = (): Promise<PlayItemDetails[]> => new Promise(() => undefined);
+const tick = (ms: number) => vi.advanceTimersByTimeAsync(ms);
+
+/** What the Pro page is given by the real billing in the Android app while Google is asked (the paywall model of mode 'play'). */
+const proPage = (loader: ReturnType<typeof createPlayDetails>) => realBilling(
+  { paywall: (inputs) => paywallModel('play', { family: true, ...inputs }), trial: pendingBilling('checking').trial },
+  { family: true, details: loader },
+).paywall();
+
+describe("Google Play's products: the looks do not end with one slow or empty answer", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('a first answer that takes longer than its wait is not the end: the Pro page says it is checking, and shows the plans once they come', async () => {
+    vi.useFakeTimers();
+    const dg = digitalGoods((n) => (n === 1 ? never() : PRODUCTS));        // the cold connection: nothing for the first ask, fine for the next
+    const loader = createPlayDetails(dg);
+    const changes = vi.fn();
+    loader.onChange(changes);
+    await tick(3000);                                                      // the old code had settled on "nothing" at 2.5 s and never asked again
+    expect(loader.status()).toBe('loading');
+    expect(proPage(loader).info).toMatchObject({ mode: 'play', note: 'checking' });
+    expect(proPage(loader).plans.offers).toEqual([]);
+    await tick(2500);                                                      // first wait over at 4 s, second ask at 5 s
+    expect(dg.seen.calls).toBe(2);
+    expect(loader.status()).toBe('ready');
+    expect(changes).toHaveBeenCalledTimes(1);                              // the page is drawn again once, with the plans
+    const page = proPage(loader);
+    expect(page.info.note).toBeNull();
+    expect(page.plans.offers.map((o) => o.checkout.play)).toEqual(PRODUCTS.map((p) => p.itemId));
+    expect(vi.getTimerCount()).toBe(0);                                    // nothing keeps asking once the products are there
+    loader.dispose();
+  });
+
+  it('a late answer to the first ask is taken even after the next ask has started', async () => {
+    vi.useFakeTimers();
+    let late: (d: PlayItemDetails[]) => void = () => undefined;
+    const dg = digitalGoods((n) => (n === 1 ? new Promise<PlayItemDetails[]>((r) => { late = r; }) : never()));
+    const loader = createPlayDetails(dg);
+    await tick(6000);
+    expect(dg.seen.calls).toBe(2);
+    expect(loader.status()).toBe('loading');
+    late(PRODUCTS);
+    await tick(0);
+    expect(loader.status()).toBe('ready');
+    expect(loader.get()).toEqual(PRODUCTS);
+    loader.dispose();
+  });
+
+  it('an empty or failed answer is asked again with growing pauses, and "cannot be bought" comes only after the last look', async () => {
+    vi.useFakeTimers();
+    const dg = digitalGoods((n) => { if (n === 2) throw new Error('service not connected'); return []; });
+    const loader = createPlayDetails(dg);
+    const changes = vi.fn();
+    loader.onChange(changes);
+    await tick(0);
+    expect(dg.seen.calls).toBe(1);
+    await tick(1000);                                                      // pauses of 1 s, 2.5 s and 5 s: looks at 0, 1, 3.5 and 8.5 s
+    expect(dg.seen.calls).toBe(2);
+    await tick(2500);
+    expect(dg.seen.calls).toBe(3);
+    await tick(4900);
+    expect(dg.seen.calls).toBe(3);
+    expect(proPage(loader).info.note).toBe('checking');                    // still not a verdict
+    expect(changes).not.toHaveBeenCalled();
+    await tick(200);
+    expect(dg.seen.calls).toBe(4);
+    expect(loader.status()).toBe('none');
+    expect(proPage(loader).info.note).toBe('unavailable');
+    expect(proPage(loader).plans.offers).toEqual([]);
+    expect(changes).toHaveBeenCalledTimes(1);                              // drawn again once, now with the honest note
+    await tick(60_000);
+    expect(dg.seen.calls).toBe(4);                                         // and then it leaves Google alone
+    loader.dispose();
+  });
+
+  it('when the Pro page opens (or the app comes back to the front) after the looks ended, it looks again and finds the plans', async () => {
+    vi.useFakeTimers();
+    let healthy = false;
+    const dg = digitalGoods(() => (healthy ? PRODUCTS : []));
+    const loader = createPlayDetails(dg);
+    const changes = vi.fn();
+    loader.onChange(changes);
+    await tick(10_000);
+    expect(loader.status()).toBe('none');
+    const asked = dg.seen.calls;
+    healthy = true;
+    expect(loader.refresh()).toBe(true);                                   // the page is drawn next: it says "checking" for this look
+    expect(loader.status()).toBe('loading');
+    expect(proPage(loader).info.note).toBe('checking');
+    expect(loader.refresh()).toBe(false);                                  // a second call while a look runs asks nothing more
+    await tick(0);
+    expect(dg.seen.calls).toBe(asked + 1);
+    expect(loader.status()).toBe('ready');
+    expect(proPage(loader).plans.offers).toHaveLength(SOLD_PLAN_IDS.length);
+    expect(changes).toHaveBeenCalledTimes(2);                              // the end of the first looks, and the products
+    expect(loader.refresh()).toBe(false);                                  // with the plans there Google is not asked again
+    await tick(60_000);
+    expect(dg.seen.calls).toBe(asked + 1);
+    loader.dispose();
+  });
+
+  it('a look that ends empty again leaves the page honest, and the next open can look once more', async () => {
+    vi.useFakeTimers();
+    const dg = digitalGoods(() => []);
+    const loader = createPlayDetails(dg);
+    await tick(10_000);
+    expect(loader.refresh()).toBe(true);
+    await tick(10_000);
+    expect(loader.status()).toBe('none');
+    expect(dg.seen.calls).toBe(8);
+    expect(loader.refresh()).toBe(true);
+    loader.dispose();
+  });
+
+  it('keeps only what it asked for and can show: a product that is not ours, or one without a price, is not "ready"', async () => {
+    vi.useFakeTimers();
+    const junk = [{ itemId: 'someone_elses_product', price: { currency: 'USD', value: '1.00' } }, { itemId: 'bodyarcade_lifetime' }] as unknown as PlayItemDetails[];
+    const dg = digitalGoods(() => junk);
+    const loader = createPlayDetails(dg);
+    await tick(10_000);
+    expect(loader.status()).toBe('none');
+    expect(loader.get()).toEqual([]);
+    expect(proPage(loader).info.note).toBe('unavailable');                // and the paywall never meets a product without a price
+    loader.dispose();
+  });
+
+  it('never throws and never leaves a timer behind: a service that throws at once, one that returns garbage, one that is missing', async () => {
+    vi.useFakeTimers();
+    const throwing = createPlayDetails({ mode: 'play', service: { getDetails: () => { throw new Error('sync'); }, listPurchases: async () => [] } });
+    const garbage = createPlayDetails(digitalGoods(() => 'nonsense' as unknown as PlayItemDetails[]));
+    await tick(30_000);
+    expect(throwing.status()).toBe('none');
+    expect(garbage.status()).toBe('none');
+    const missing = createPlayDetails({ mode: 'play', service: null });
+    expect(missing.status()).toBe('none');
+    expect(missing.refresh()).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('the web is untouched: nothing is asked, no timer runs, the status is "none" and the web paywall never says "checking"', async () => {
+    vi.useFakeTimers();
+    const dg = digitalGoods(() => PRODUCTS);
+    const loader = createPlayDetails({ mode: 'web', service: dg.service });
+    expect(loader.status()).toBe('none');
+    expect(loader.refresh()).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+    await tick(30_000);
+    expect(dg.seen.calls).toBe(0);
+    const web = realBilling({ paywall: (inputs) => paywallModel('web', { checkout: {}, ...inputs }), trial: pendingBilling('checking').trial }, { family: true, details: loader }).paywall();
+    expect(web.info).toMatchObject({ mode: 'web', note: 'unavailable' });
+    // and the old shape of the options still works for a caller that only has a list
+    expect(realBilling({ paywall: (inputs) => paywallModel('play', inputs), trial: pendingBilling('checking').trial }, { family: true, details: () => PRODUCTS }).paywall().plans.offers).toHaveLength(SOLD_PLAN_IDS.length);
+  });
+
+  it('a listener that breaks does not stop the others, and a disposed loader is silent', async () => {
+    vi.useFakeTimers();
+    const loader = createPlayDetails(digitalGoods(() => PRODUCTS));
+    loader.onChange(() => { throw new Error('a listener that breaks'); });
+    const second = vi.fn();
+    loader.onChange(second);
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await tick(0);
+    expect(second).toHaveBeenCalledTimes(1);
+    quiet.mockRestore();
+    const gone = createPlayDetails(digitalGoods(() => PRODUCTS));
+    const heard = vi.fn();
+    gone.onChange(heard);
+    gone.dispose();
+    await tick(60_000);
+    expect(heard).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 

@@ -3,6 +3,9 @@
 import type { ActivateFailureCode, Plan, Unsubscribe } from '../types/index.ts';
 import type { EntitlementsService } from './manager.ts';
 
+/** Why a look at Google Play's purchases ended as it did: 'none' is "this account owns nothing here", the rest are the reasons of ActivateFailureCode. */
+export type RestoreOutcome = 'restored' | 'none' | Exclude<ActivateFailureCode, 'not_found'>;
+
 export interface ShellEntitlementsPort {
   plan(): Plan;
   onChange(cb: (plan: Plan) => void): Unsubscribe;
@@ -10,6 +13,8 @@ export interface ShellEntitlementsPort {
   activate(key: string): Promise<{ ok: true; plan: Plan } | { ok: false; code: ActivateFailureCode }>;
   /** Android only. */
   restore?(): Promise<boolean>;
+  /** Android only: the same look as restore, with the reason when it found nothing to restore. Never throws. */
+  restoreOutcome?(): Promise<RestoreOutcome>;
   /** Android only: `productId` is the Play product id of the offer (checkout.play). */
   purchase?(productId: string): Promise<boolean>;
 }
@@ -42,6 +47,12 @@ export function toShellPort(s: EntitlementsService, o: PortOptions): ShellEntitl
   if (o.play) {
     port.restore = async () => {
       try { return (await s.restore()).ok; } catch { return false; }
+    };
+    port.restoreOutcome = async () => {
+      try {
+        const r = await s.restore();
+        return r.ok ? 'restored' : r.code === 'not_found' ? 'none' : r.code;
+      } catch { return 'server'; }
     };
     port.purchase = async (productId) => {
       try { return (await s.purchase(productId)).ok; } catch { return false; }

@@ -13,7 +13,7 @@ import { createI18n } from '../../../core/ui/i18n/index.ts';
 import type { Catalogue } from '../../catalogue/types.ts';
 import { App, autoLang, type AppServices } from './app.ts';
 import { localEntitlements } from './entitlements.ts';
-import { loadPlayDetails, pendingBilling, practiceBilling, realBilling, withPreviewOffers } from './billing.ts';
+import { createPlayDetails, pendingBilling, practiceBilling, realBilling, withPreviewOffers } from './billing.ts';
 import { createDemoSession } from './demo-session.ts';
 import { isLinkEntry, startSocial } from '../social/services.ts';
 import type { SocialServices } from '../social/port.ts';
@@ -69,8 +69,9 @@ async function startEntitlements(o: BootOptions, book: ProfileBook, booted: (b: 
       rules: { isFreeGame: (id) => o.catalogue.games.find((g) => g.id === id)?.free === true },
     });
     booted(boot);
-    const details = await loadPlayDetails(boot.env);
-    const real = realBilling(boot, { family: FAMILY_ON, details: () => details });
+    // Google Play's description of the products is not waited for: the Pro page says "checking" while it is asked (and asked again when
+    // the first answer is slow or empty), and is drawn again when the products arrive (billing.ts: createPlayDetails).
+    const real = realBilling(boot, { family: FAMILY_ON, details: createPlayDetails(boot.env) });
     return { port: { ...boot.port, can: (feature) => boot.service.can(feature) }, billing: o.placeholderPlans ? withPreviewOffers(real) : real };
   } catch (e) {
     console.error(e);

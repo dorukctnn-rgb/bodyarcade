@@ -82,4 +82,16 @@ describe('the Android port', () => {
     expect(await p2.purchase?.('bodyarcade_pro_yearly')).toBe(false);
     expect(await p2.restore?.()).toBe(false);
   });
+
+  it('says why a restore found nothing: no purchase on the account is not the same as a service that could not answer', async () => {
+    const { service } = await world();
+    const answer = (r: unknown) => toShellPort({ ...service, restore: async () => r } as unknown as EntitlementsService, { play: true });
+    const e = { plan: 'pro' } as never;
+    expect(await answer({ ok: true, e }).restoreOutcome?.()).toBe('restored');
+    expect(await answer({ ok: false, code: 'not_found', message: '' }).restoreOutcome?.()).toBe('none');
+    for (const code of ['network', 'server', 'refunded', 'ended', 'limit'] as const) expect(await answer({ ok: false, code, message: '' }).restoreOutcome?.()).toBe(code);
+    const throwing = toShellPort({ ...service, restore: () => Promise.reject(new Error('y')) } as unknown as EntitlementsService, { play: true });
+    expect(await throwing.restoreOutcome?.()).toBe('server');
+    expect(toShellPort(service, { play: false }).restoreOutcome).toBeUndefined();
+  });
 });
