@@ -5,8 +5,8 @@
 // referral or direct.
 //  1. A tag on the address the visitor landed on (utm_source, then ref, then source; for example ChatGPT's
 //     utm_source=chatgpt.com) wins over the referrer. A tag naming a site this script does not know counts as referral.
-//  2. Otherwise the host of document.referrer is sorted. This site, Gumroad and the BodyArcade Android app are ignored,
-//     and other android-app://<package> referrers are sorted by app.
+//  2. Otherwise the host of document.referrer is sorted. This site and Gumroad are ignored, and android-app://<package>
+//     referrers are sorted by app. Inside the BodyArcade Android app nothing is kept at all.
 //  3. Only the word is kept, never an address: for this tab in sessionStorage (pro-source:visit, the first word of the
 //     visit), and in localStorage (pro-source:first) the first word other than direct ever seen in this browser, written
 //     once and never replaced.
@@ -113,8 +113,17 @@
     try { var v = window[area].getItem(key); return own(MEDIUM, v) ? v : ''; } catch (e) { return ''; }
   }
 
+  // Inside the Android app nothing is kept: it sells through Google Play only. The same three hints as twa.js and
+  // packages/core/entitlements/billing-env.ts: the start address ?src=twa, the app's referrer, the flag of this session.
+  function inApp() {
+    try { if (/[?&]src=twa(?:&|$)/.test(location.search)) return true; } catch (e) { /* no location */ }
+    try { if (String(document.referrer).indexOf('android-app://' + APP) === 0) return true; } catch (e) { /* no referrer */ }
+    try { if (window.sessionStorage.getItem('ba_twa') === '1') return true; } catch (e) { /* storage blocked */ }
+    return false;
+  }
+
   var here = '';
-  try { here = fromTags(location.search, location.hostname) || classify(document.referrer, location.hostname); } catch (e) { here = ''; }
+  try { here = inApp() ? '' : (fromTags(location.search, location.hostname) || classify(document.referrer, location.hostname)); } catch (e) { here = ''; }
   function remember() {
     try { if (here && !read('sessionStorage', VISIT)) window.sessionStorage.setItem(VISIT, here); } catch (e) { /* storage blocked */ }
     try {

@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import { GUMROAD_CATALOG } from '../../../core/entitlements/catalog.ts';
+import { SESSION_FLAG, TWA_REFERRER } from '../../../core/entitlements/billing-env.ts';
 import { checkoutWithSource, isSourceWord, SOURCE_CAMPAIGN, SOURCE_KEYS, SOURCE_MEDIUM, sourceOf, withSource, type SourceWindow, type SourceWord } from './pro-source.ts';
 
 const SCRIPT_URL = new URL('../../content/pro-source.js', import.meta.url);
@@ -98,6 +99,20 @@ describe('pro-source.js: where a visitor came from, as one word', () => {
     }
     // the Android app opens /?src=twa from the launcher: no word at all
     expect(visitWord({ search: '?src=twa', referrer: 'android-app://com.peakapps.bodyarcade/' })).toBe('');
+  });
+
+  it('keeps nothing inside the Android app, on any of the hints the app itself goes by (billing-env.ts, twa.js)', () => {
+    for (const o of [
+      { search: '?src=twa', referrer: '' },
+      { search: '?src=twa&utm_source=chatgpt.com', referrer: 'https://www.google.com/' },
+      { search: '', referrer: `${TWA_REFERRER}/` },
+      { search: '?utm_source=reddit', referrer: 'https://www.reddit.com/', session: new Map([[SESSION_FLAG, '1']]) },
+    ]) {
+      const p = load(o);
+      expect(p.writes, JSON.stringify({ ...o, session: undefined })).toEqual([]);
+    }
+    expect(SCRIPT).toContain(`var APP = '${TWA_REFERRER.replace('android-app://', '')}';`);
+    expect(SCRIPT).toContain(`getItem('${SESSION_FLAG}')`);
   });
 
   it('keeps the first word other than direct for good, and this visit\'s first word for the tab', () => {
