@@ -5,7 +5,7 @@ import { mail, table, ul, type PageSpec } from '../chrome.ts';
 import * as F from '../facts.ts';
 
 export function privacyTr(): PageSpec {
-  const date = F.longDate(F.UPDATED, 'tr');
+  const date = F.longDate(F.PRIVACY_UPDATED, 'tr');
   const video = F.RELAY_ON
     ? 'Cihazlarınız birbirine doğrudan ulaşamazsa şifreli görüntü Cloudflare’in işlettiği bir aktarım sunucusundan geçebilir. Aktarım sunucusu veriyi yalnızca iletir, kopyasını tutmaz.'
     : 'Cihazlarınız birbirine doğrudan ulaşamazsa görüntü gösterilmez ve oyun iskeletinle devam eder.';
@@ -53,6 +53,7 @@ ${ul([
   ...(F.REMINDER_MAIL ? ['Deneme hatırlatması için: yazdığın e-posta adresinin maskelenmiş kopyası (örneğin a***@example.com); adresin kendisi değil.'] : []),
   'Çevrimiçi profil için: cihazının profil için ürettiği gizli anahtar (tarayıcının, sayfaların okuyamayacağı biçimde sakladığı bir anahtar), sunucumuzun gönderdiği son profil bilgileri ve engellediğin oyuncuların listesi.',
   'Oyunun kendi dosyalarının kopyaları; böylece ağ olmadan açılır. Poz modeli de buna dahildir.',
+  'Seni buraya gönderen sitenin türü, tek kelime olarak: google, bing, other-search, ai-assistant, pinterest, social, referral ya da hiçbir site göndermediyse direct. Geldiğin adresteki bir etiket, örneğin ChatGPT’nin bağlantılarına eklediği utm_source=chatgpt.com, geldiğin siteden önce sayılır. Bu ziyaretin kelimesi sekmeyi kapatana kadar, direct dışındaki ilk kelime ise sitenin verilerini temizleyene kadar tutulur. O sitenin adresi hiç tutulmaz. Kelime cihazından yalnızca web’de bir satın almayla çıkar (<a href="#odeme">Ödemeler, Pro ve lisanslar</a> bölümüne bak).',
 ])}
 <p>Ayarlar ekranında bu cihazdaki ayarları ve sonuçları temizleyen bir düğme vardır. Bu düğme çevrimiçi profili silmez; onun için profil ekranının kendi düğmesi vardır. Tarayıcında sitenin verilerini temizlemek yukarıdaki her şeyi, profilinin anahtarı dahil siler; bu yüzden kurtarma kodunu sakla (aşağıya bak).</p>`,
       },
@@ -146,6 +147,7 @@ ${table(F.REMINDER_MAIL ? 'Odalar, lisanslar ve hatırlatma' : 'Odalar ve lisans
         id: 'odeme',
         title: 'Ödemeler, Pro ve lisanslar',
         html: `<p><strong>Web’de</strong> Pro’yu Gumroad satar. Gumroad’ın sayfasında ödersin ve Gumroad kayıtlı satıcıdır: KDV’yi ya da satış vergisini o toplar. Kart bilgilerini biz almayız. Satıcı olarak e-posta adresini ve siparişinin ayrıntılarını (ne aldığın, ne zaman ve ne kadara) Gumroad’dan alırız; bunları sorulara yanıt vermek ve iade yapmak için kullanırız. Gumroad sana bir lisans anahtarı e-postalar.</p>
+<p>Web’de bir satın alma düğmesine bastığında Gumroad sayfasının adresi üç etiket taşır: seni gönderen sitenin türünü söyleyen kelime (tarayıcının tuttuğu ilk kelime, yoksa bu ziyaretinki), onun grubu (arama, yönlendirme, sosyal ya da yok) ve oyunun adı. Gumroad bunları siparişle birlikte saklar; böylece alıcıları hangi tür sitelerin getirdiğini görebiliriz. Gumroad yalnızca sitenin türünü öğrenir, adresini asla öğrenmez.</p>
 <p>Anahtarı Pro ekranına yapıştırdığında lisans hizmetimize gönderilir; o da Gumroad’a geçerli olup olmadığını sorar. Anahtarın bir parmak izini, planı, tarihleri ve cihazın için rastgele bir numarayı saklarız; böylece cihaz sınırını uygulayabiliriz: Pro ve Ömür boyu için ${F.DEVICES.pro} cihaz${F.FAMILY_PLAN ? `, Aile için ${F.DEVICES.family}` : ''} ve Kurucular için ${F.DEVICES.founder}. Hizmet, en çok ${F.LICENCE_DAYS} gün geçerli imzalı bir lisansla yanıt verir ve uygulama yaklaşık günde bir kez yeniden sorar. Hizmetimize ulaşılamazsa tarayıcın Gumroad’a doğrudan sorabilir; Gumroad bu durumda ağ adresini görür ve böyle yapılan bir kontrol ağ olmadan ${F.DIRECT_GRACE_DAYS} gün geçerlidir.</p>
 <p><strong>Android uygulamasında</strong> ödemeyi ödeme verilerini işleyen Google Play üzerinden yaparsın. Uygulama, Google’ın verdiği satın alma jetonunu lisans hizmetimize gönderir; o da jetonu Google’la doğrular. Jetonun yalnızca bir parmak izini saklarız.</p>`,
       },
@@ -161,7 +163,7 @@ ${table(F.REMINDER_MAIL ? 'Odalar, lisanslar ve hatırlatma' : 'Odalar ve lisans
       {
         id: 'analitik',
         title: 'Analitik, çerezler ve günlükler',
-        html: `<p>BodyArcade’de reklam izleyicisi ve bizim kendi analitik kodumuz yoktur. Kendi kodu çerez koymaz; yukarıda sıralanan şeyler için tarayıcının depolama alanını kullanır. Siteyi sunan Cloudflare, insanları otomatik trafikten ayırmak için bir güvenlik çerezi koyabilir; Gumroad’ın sayfaları da kendi çerezlerini koyar.</p>
+        html: `<p>BodyArcade’de reklam izleyicisi ve ziyaretleri sayan kendi kodumuz yoktur. Siteyi nasıl bulduğuna dair tek not, <a href="#cihaz">Cihazında kalanlar</a> bölümünde anlatılan kelimedir; o da Gumroad’a yalnızca bir satın almayla gider. Kendi kodu çerez koymaz; yukarıda sıralanan şeyler için tarayıcının depolama alanını kullanır. Siteyi sunan Cloudflare, insanları otomatik trafikten ayırmak için bir güvenlik çerezi koyabilir; Gumroad’ın sayfaları da kendi çerezlerini koyar.</p>
 ${analytics}
 <p>Kendi kodumuz hizmetin günlüklerine kısa teknik satırlar yazar: olay adları, oda kodları, sayılar, bir lisans parmak izinin ilk sekiz karakteri ve hata iletileri. Bunlarda görünen ad, mesaj, görüntü ve ağ adresi olmaz. Tarayıcı güvenlik raporları (bir tarayıcının hangi dosyayı yüklemeyi reddettiği) aynı biçimde günlüğe yazılır. Cloudflare ayrıca hizmet için kendi politikası uyarınca istek günlükleri tutar.</p>`,
       },
@@ -200,6 +202,7 @@ ${ul([
   `İstediğin hizmeti sağlamak için: oyun, profilin, odalar${F.REMINDER_MAIL ? ', lisansın ve sipariş ettiğin hatırlatma' : ' ve lisansın'}. (Sözleşme; KVKK madde 5/2-c.)`,
   `Rızanla: tarayıcının sorduğu kamera izni${F.REMINDER_MAIL ? ', isteğe bağlı arkadaş görüntüsü ve hatırlatma e-postası' : ' ve isteğe bağlı arkadaş görüntüsü'}. Rızanı istediğin an geri çekebilirsin. (Açık rıza; KVKK madde 5/1.)`,
   'Hizmeti güvenli ve adil tutmak için: istismara karşı sınırlar, bildirimler, güvenlik günlüğü ve haftalık skorların denetimi. (Meşru menfaat; KVKK madde 5/2-f.)',
+  'Alıcıları hangi tür sitelerin getirdiğini görmek için: web’deki bir satın almayla giden, nereden geldiğini söyleyen kelime. (Meşru menfaat; KVKK madde 5/2-f.)',
   'Vergi ve muhasebe için sipariş kayıtlarını yasanın gerektirdiği süre boyunca tutmak gibi yasal yükümlülükleri yerine getirmek için. (Hukuki yükümlülük; KVKK madde 5/2-ç.)',
 ])}`,
       },

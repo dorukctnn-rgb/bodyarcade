@@ -31,6 +31,7 @@ export interface Output {
 const SHARED: readonly { from: string; to: string; text: boolean }[] = [
   { from: 'packages/web/content/content.css', to: 'assets/content.css', text: true },
   { from: 'packages/web/content/twa.js', to: 'assets/twa.js', text: true },
+  { from: 'packages/web/content/pro-source.js', to: 'assets/pro-source.js', text: true },
   { from: 'design/brand/logo.svg', to: 'assets/brand/logo.svg', text: true },
   { from: 'design/brand/logo-dark.svg', to: 'assets/brand/logo-dark.svg', text: true },
   { from: 'design/store/export/en/feature-graphic.png', to: `assets/brand/${OG_IMAGE.file}`, text: false },

@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { LEGACY_PAGES, MUST_HAVE, assemble, resolvePath } from './assemble.ts';
-import { HEAD_TAGS, TARGETS } from './site.ts';
+import { HEAD_TAGS, SOURCE_TAG, TARGETS } from './site.ts';
 import { REGION_IDS } from '../packages/core/ui/settings.ts';
 import { POSE_CACHE } from '../packages/core/pose/assets.ts';
 
@@ -82,6 +82,19 @@ describe('assemble', { timeout: 60_000 }, () => {
   it('gives every app page the manifest, the icon and the worker loader, and leaves the old pages as they are', () => {
     for (const f of ['index.html', 'tr/index.html', 'games/road-run/index.html', '404.html']) for (const t of HEAD_TAGS) expect(read(f), f).toContain(t);
     expect(read('privacy.html')).not.toContain('/sw-register.js');
+  });
+
+  it('loads the sale attribution script once in the head of every page, the app pages and the content pages, and ships the script', () => {
+    const once = (f: string): void => {
+      const html = read(f);
+      expect(html.split(SOURCE_TAG).length - 1, f).toBe(1);
+      expect(html.indexOf(SOURCE_TAG), f).toBeLessThan(html.indexOf('</head>'));
+    };
+    for (const f of ['index.html', 'tr/index.html', 'games/road-run/index.html', 'pro/index.html', 'tr/pro/index.html', '404.html']) once(f);
+    for (const p of LEGACY_PAGES) once(p.file);
+    expect(read('assets/pro-source.js')).toBe(readFileSync(join(root, 'site', 'assets', 'pro-source.js'), 'utf8'));
+    // site/ keeps its pages as they are: the script goes in at release time only
+    expect(readFileSync(join(root, 'site', 'privacy.html'), 'utf8')).not.toContain(SOURCE_TAG);
   });
 
   it('precaches the start pages of both languages and the hashed files, and stamps the build', () => {

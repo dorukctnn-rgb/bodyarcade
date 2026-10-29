@@ -6,7 +6,7 @@ import { mail, table, ul, type PageSpec } from '../chrome.ts';
 import * as F from '../facts.ts';
 
 export function privacyEn(): PageSpec {
-  const date = F.longDate(F.UPDATED, 'en');
+  const date = F.longDate(F.PRIVACY_UPDATED, 'en');
   const video = F.RELAY_ON
     ? 'If your devices cannot reach each other directly, the encrypted picture can pass through a relay server run by Cloudflare. A relay only forwards the data and keeps no copy.'
     : 'If your devices cannot reach each other directly, no picture is shown and the game goes on with your skeleton.';
@@ -54,6 +54,7 @@ ${ul([
   ...(F.REMINDER_MAIL ? ['For the trial reminder: a masked copy of the e-mail address you typed, such as a***@example.com, not the address itself.'] : []),
   'For an online profile: the secret key your device made for it (kept by the browser in a way that does not let pages read it), the last profile details our server sent back, and your list of blocked players.',
   'Copies of the game&rsquo;s own files, so it opens without a network. This includes the pose model.',
+  'The kind of site that sent you here, as one word: google, bing, other-search, ai-assistant, pinterest, social, referral, or direct when no site did. A tag in the address you arrived at, such as the utm_source=chatgpt.com that ChatGPT adds to its links, counts before the site you came from. The word of this visit is kept until you close the tab, and the first word other than direct until you clear the site&rsquo;s data. The address of that site is never kept. The word leaves your device only with a purchase on the web (see <a href="#pro">Payments, Pro and licenses</a>).',
 ])}
 <p>The Settings screen has a button that clears the settings and results on this device. It does not delete an online profile: the profile screen has its own button for that. Clearing the site&rsquo;s data in your browser removes everything listed above, including the key of your profile, so keep your recovery code (see below).</p>`,
       },
@@ -147,6 +148,7 @@ ${table(F.REMINDER_MAIL ? 'Rooms, licenses and the reminder' : 'Rooms and licens
         id: 'pro',
         title: 'Payments, Pro and licenses',
         html: `<p><strong>On the web</strong>, Pro is sold by Gumroad. You pay on Gumroad&rsquo;s page, and Gumroad is the seller of record: it collects any VAT or sales tax. We do not receive your card details. As the seller we receive your e-mail address and the details of your order (what you bought, when and for how much), and we use them to answer questions and make refunds. Gumroad e-mails you a license key.</p>
+<p>When you press a buy button on the web, the address of Gumroad&rsquo;s page carries three labels: the word for the kind of site that sent you (the first one your browser kept, or else this visit&rsquo;s), its group (search, referral, social or none) and the name of the game. Gumroad keeps them with the order, so we can see which kinds of sites bring buyers. Gumroad learns only the kind of site, never its address.</p>
 <p>When you paste the key into the Pro screen, it is sent to our license service, which asks Gumroad whether it is valid. We keep a fingerprint of the key, the plan, the dates and a random number for your device, so that we can enforce the device limit: ${F.DEVICES.pro} devices for Pro and Lifetime${F.FAMILY_PLAN ? `, ${F.DEVICES.family} for Family` : ''} and ${F.DEVICES.founder} for Founders. The service answers with a signed license that lasts at most ${F.LICENCE_DAYS} days, and the app asks again about once a day. If our service cannot be reached, your browser can ask Gumroad directly. Gumroad then sees your network address, and a check made that way is good for ${F.DIRECT_GRACE_DAYS} days without a network.</p>
 <p><strong>In the Android app</strong> you pay through Google Play, which handles your payment data. The app sends the purchase token that Google gives it to our license service, which checks it with Google. We keep only a fingerprint of the token.</p>`,
       },
@@ -162,7 +164,7 @@ ${table(F.REMINDER_MAIL ? 'Rooms, licenses and the reminder' : 'Rooms and licens
       {
         id: 'analytics',
         title: 'Analytics, cookies and logs',
-        html: `<p>BodyArcade has no advertising trackers and no analytics code of our own. Its own code sets no cookies; it uses your browser&rsquo;s storage for the things listed above. Cloudflare, which delivers the site, may set a security cookie that tells people from automated traffic, and Gumroad&rsquo;s pages set their own cookies.</p>
+        html: `<p>BodyArcade has no advertising trackers and no code of our own that counts visits. The one note about how you found the site is the word described under <a href="#device">What stays on your device</a>, and it goes to Gumroad only with a purchase. Its own code sets no cookies; it uses your browser&rsquo;s storage for the things listed above. Cloudflare, which delivers the site, may set a security cookie that tells people from automated traffic, and Gumroad&rsquo;s pages set their own cookies.</p>
 ${analytics}
 <p>Our own code writes short technical lines to the logs of the service: event names, room codes, counts, the first eight characters of a license fingerprint, and error messages. They hold no display names, no messages, no video and no network addresses. Browser security reports (which file a browser refused to load) are logged the same way. Cloudflare also keeps request logs for the service under its own policy.</p>`,
       },
@@ -191,6 +193,7 @@ ${ul([
   `To give you the service you asked for: the game, your profile, rooms${F.REMINDER_MAIL ? ', your license and the reminder you ordered' : ' and your license'}. (Contract; KVKK Article 5/2-c.)`,
   `With your consent: camera access, which your browser asks for, ${F.REMINDER_MAIL ? 'the optional friend video, and the reminder e-mail' : 'and the optional friend video'}. You can withdraw it at any time. (Consent; KVKK Article 5/1.)`,
   'To keep the service safe and fair: limits against abuse, reports, the safety log and the checks on weekly scores. (Legitimate interest; KVKK Article 5/2-f.)',
+  'To see which kinds of sites bring buyers: the word about where you came from that goes with a purchase on the web. (Legitimate interest; KVKK Article 5/2-f.)',
   'To meet legal duties, such as keeping order records for tax and accounting for as long as the law requires. (Legal obligation; KVKK Article 5/2-ç.)',
 ])}`,
       },

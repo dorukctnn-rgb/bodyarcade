@@ -7,7 +7,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync,
 import { dirname, join, relative, sep } from 'node:path';
 import { GAME_ALIASES } from '../packages/server/src/site/routes.ts';
 import {
-  CANONICAL_ORIGIN, STATIC_REDIRECTS, headersFile, injectHead, mergeSitemap, precacheList, redirectsFile, robotsFile,
+  CANONICAL_ORIGIN, STATIC_REDIRECTS, headersFile, injectHead, injectSource, mergeSitemap, precacheList, redirectsFile, robotsFile,
   serviceWorkerSource, webManifest, type SitemapEntry, type Target,
 } from './site.ts';
 import { POSE_CACHE } from '../packages/core/pose/assets.ts';
@@ -121,7 +121,7 @@ export function assemble(o: AssembleOptions): AssembleReport {
   const appPages = appFiles.filter((f) => f.endsWith('.html'));
   for (const f of appPages) {
     const p = join(out, f);
-    writeFileSync(p, injectHead(readFileSync(p, 'utf8')));
+    writeFileSync(p, injectSource(injectHead(readFileSync(p, 'utf8'))));
   }
 
   // 2. The live site's content pages and their files.
@@ -130,7 +130,8 @@ export function assemble(o: AssembleOptions): AssembleReport {
     const to = join(out, file);
     if (existsSync(to)) problems.push(`the app and the old site both have ${file}`);
     mkdirSync(dirname(to), { recursive: true });
-    copyFileSync(join(site, file), to);
+    // the page as it is in site/, with the sale attribution script (the files in site/ stay as they are, so do their sitemap dates)
+    writeFileSync(to, injectSource(readFileSync(join(site, file), 'utf8')));
   }
   for (const f of LEGACY_FILES) cpSync(join(site, f), join(out, f), { recursive: true });
 
