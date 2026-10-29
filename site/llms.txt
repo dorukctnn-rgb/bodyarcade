@@ -13,6 +13,8 @@
 - [How webcam fitness games work](https://bodyarcade.com/webcam-fitness-games): how the camera reads your body and how to set up your room
 - [Ring Fit Adventure alternative](https://bodyarcade.com/ring-fit-adventure-alternative): a comparison
 - [Active Arcade alternative for Android and PC](https://bodyarcade.com/active-arcade-alternative): a comparison, with sources
+- [Exercise games for PC](https://bodyarcade.com/exercise-games-for-pc): what a laptop or desktop needs, the games for a desk and the ones that need floor space
+- [A Kinect alternative for PC](https://bodyarcade.com/kinect-alternative-pc): what a webcam reads next to a depth sensor, and the games it runs
 - [Workout plans](https://bodyarcade.com/plans/): ready sessions of games with rests; Desk break is free
 - [Updates](https://bodyarcade.com/changelog): new games and changes, release by release; the last release was on 27 October 2026
 - [Privacy policy](https://bodyarcade.com/privacy), [Terms](https://bodyarcade.com/terms)

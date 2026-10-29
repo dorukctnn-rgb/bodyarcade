@@ -3,6 +3,7 @@
 import { articleLd, cta, faqLd, qa, readMinutes, table, ul, type PageSpec, type Section } from '../chrome.ts';
 import * as F from '../facts.ts';
 import { gameCounts, gameList, roundLength } from './games.ts';
+import { extraLink } from './seo-shared.ts';
 
 export const GUIDE_RINGFIT_EN = { published: '2026-09-24', modified: F.UPDATED };
 
@@ -21,6 +22,10 @@ export function guideRingfitEn(): PageSpec {
     {
       q: 'Which is the better workout?',
       a: '<p>They train different things. Ring Fit adds resistance through the Ring-Con and has a wide range of strength and yoga-style moves. BodyArcade is short rounds of whole-body movement without resistance. Many people will enjoy both.</p>',
+    },
+    {
+      q: 'What if I do not have the Ring-Con?',
+      a: `<p>Ring Fit Adventure is built around the Ring-Con and the Leg Strap that come in the box with the game, so they are the parts you would miss. BodyArcade needs no ring and no console: it reads you through the camera of a laptop, desktop, tablet or phone. If you are on a PC, see ${extraLink('pc', 'exercise games for PC')} or ${extraLink('kinect', 'a Kinect alternative for PC')}.</p>`,
     },
   ];
   const sections: Section[] = [
@@ -80,8 +85,9 @@ ${table(null, ['Game', 'What you do', 'Round', 'Plan'], gameList('en').map((g) =
       html: faq.map((i) => qa(i.q, i.a)).join('\n'),
     },
   ];
-  const title = 'A Ring Fit Adventure alternative you can play in a browser';
-  const description = 'How Ring Fit Adventure and BodyArcade compare: what you need, how each tracks you, the kind of workout and what each costs.';
+  // release 5 (SEO, 29 Oct): ranked 10.4 for 39 impressions (Search Console, 28 days), the queries were switch fitness games, ring fit adventure online and without the ring; Google suggest completes the phrase with pc, free and download
+  const title = 'Ring Fit Adventure alternative for PC, free in a browser';
+  const description = `How Ring Fit Adventure and BodyArcade compare: what you need, how each tracks you, the kind of workout and what each costs. ${c.free} of ${c.total} BodyArcade games are free.`;
   const lead = 'Ring Fit Adventure is one of the best-loved fitness games ever made. It also needs a Nintendo Switch, its Joy-Con controllers, and the Ring-Con and Leg Strap that come in the box. If you do not own a Switch, or you want something you can start on a laptop you already have, you will want a different kind of game.';
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {
@@ -93,7 +99,7 @@ ${table(null, ['Game', 'What you do', 'Round', 'Plan'], gameList('en').map((g) =
     og: 'article',
     title,
     description,
-    h1: title,
+    h1: 'A Ring Fit Adventure alternative for PC that runs in a browser',
     when: `Updated ${F.longDate(GUIDE_RINGFIT_EN.modified, 'en')} &middot; ${minutes} min read`,
     lead: `${lead} BodyArcade is our answer to that. It is a set of short camera games and makes no attempt to copy Ring Fit. Here is how they compare.`,
     sections,

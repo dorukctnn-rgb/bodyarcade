@@ -52,6 +52,44 @@ export const otherOf = (lang: Lang, page: SeoPage): { lang: Lang; url: string } 
 /** The guide that was there first (how a webcam game works). */
 export const GUIDE_URL: Readonly<Record<Lang, string>> = { en: '/webcam-fitness-games', tr: '/tr/kamera-ile-spor-oyunlari' };
 
+// ───────── the pages that answer one question each (English only) ─────────
+// Release 5 (SEO, 29 Oct): two pages for questions the search pages did not answer, found in Google suggest: a PC and Kinect. Each is one
+// English page with no Turkish twin (the Turkish pages are the search pages above); copy/seo-extra-*.ts have the texts, content.test.ts the checks.
+// Pages for children and classrooms are left out on purpose (decision of 29 Oct, as on 27 Oct): the app is a camera app with a Google Play listing.
+
+export type ExtraPage = 'pc' | 'kinect';
+
+/** The day these pages were written and last changed in substance (ISO). */
+export const EXTRA_DATES = { published: '2026-10-29', modified: '2026-10-29' } as const;
+
+export const EXTRA_URL: Readonly<Record<ExtraPage, string>> = {
+  pc: '/exercise-games-for-pc',
+  kinect: '/kinect-alternative-pc',
+};
+
+export const extraFile = (page: ExtraPage): string => `${EXTRA_URL[page].slice(1)}.html`;
+
+export const EXTRA_NAME: Readonly<Record<ExtraPage, { name: string; about: string }>> = {
+  pc: { name: 'Exercise games for PC', about: 'what a laptop or desktop needs, the games you can play at a desk and the ones that need floor space' },
+  kinect: { name: 'A Kinect alternative for PC', about: 'what a webcam can read next to a depth sensor, and the games it runs' },
+};
+
+/** The screens of the game the extra pages show (site/assets/shots, taken headless from the app itself by tools/seo-shots/run.ts). */
+export const SHOT = {
+  desktop: { width: 1200, height: 750 },
+} as const;
+export const shotSrc = (name: string): string => `/assets/shots/${name}.webp`;
+
+export const extraLink = (page: ExtraPage, text: string = EXTRA_NAME[page].name): string => link(EXTRA_URL[page], text);
+
+/** The section "Keep reading" of an extra page: the other extra pages, the fitness games page and the guide, one line each. */
+export function extraMore(self: ExtraPage): Section {
+  const items = (Object.keys(EXTRA_URL) as ExtraPage[]).filter((p) => p !== self).map((p) => `${extraLink(p)}: ${EXTRA_NAME[p].about}.`);
+  items.push(`${seoLink('en', 'hub')}: ${SEO_NAME.en.hub.about}.`);
+  items.push(`${link(GUIDE_URL.en, GUIDE_NAME.en.name)}: ${GUIDE_NAME.en.about}.`);
+  return { id: 'more', title: MORE_TITLE.en, html: ul(items) };
+}
+
 const prefix = (lang: Lang): string => (lang === 'tr' ? '/tr' : '');
 export const gameHref = (g: Pick<GameInfo, 'slug'>, lang: Lang): string => `${prefix(lang)}/games/${g.slug}/`;
 export const gameLink = (g: GameInfo, lang: Lang): string => link(gameHref(g, lang), esc(g.title));
@@ -145,6 +183,8 @@ export function moreSection(lang: Lang, self: SeoPage): Section {
   const items = (['hub', 'seated', 'friends', 'areas'] as const).filter((p) => p !== self)
     .map((p) => `${seoLink(lang, p)}: ${SEO_NAME[lang][p].about}.`);
   items.push(`${link(GUIDE_URL[lang], GUIDE_NAME[lang].name)}: ${GUIDE_NAME[lang].about}.`);
+  // the pages that answer one question each exist in English only
+  if (lang === 'en') for (const p of Object.keys(EXTRA_URL) as ExtraPage[]) items.push(`${extraLink(p)}: ${EXTRA_NAME[p].about}.`);
   return { id: 'more', title: MORE_TITLE[lang], html: ul(items) };
 }
 

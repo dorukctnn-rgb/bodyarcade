@@ -274,6 +274,11 @@ export function qa(q: string, answer: string): string {
 export const mail = (text: string = EMAIL): string => `<a href="mailto:${EMAIL}">${text}</a>`;
 export const link = (href: string, text: string): string => `<a href="${href}">${text}</a>`;
 
+/** A screen of the game itself: its own size (so the page does not jump while it loads), a text that says what is on it, and a caption. */
+export function figure(o: { src: string; alt: string; caption: string; width: number; height: number }): string {
+  return `<figure class="fig"><img src="${o.src}" alt="${esc(o.alt)}" width="${o.width}" height="${o.height}" loading="lazy" decoding="async"><figcaption>${o.caption}</figcaption></figure>`;
+}
+
 /** A call to play: one sentence and the one button. */
 export const cta = (text: string, href: string, label: string): string => `<div class="cta"><p>${text}</p><a class="btn" href="${href}">${esc(label)}</a></div>`;
 

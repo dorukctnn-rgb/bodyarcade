@@ -3,6 +3,7 @@
 import { articleLd, cta, readMinutes, table, ul, type PageSpec, type Section } from '../chrome.ts';
 import * as F from '../facts.ts';
 import { gameCounts, roundLength } from './games.ts';
+import { extraLink } from './seo-shared.ts';
 
 export const GUIDE_WEBCAM_EN = { published: '2026-10-07', modified: F.UPDATED };
 
@@ -82,11 +83,12 @@ ${ul([
       id: 'try',
       title: 'Try one now',
       html: `<p>BodyArcade has ${c.total} short games, ${c.free} of them free, with rounds from ${roundLength(c.shortest, 'en')} to ${roundLength(c.longest, 'en')}. You can play alone, two people side by side on one camera on a big screen, or with friends in an online room. The pose model runs on your device, and the video stays there.</p>
-<p>Related: <a href="/fitness-games">all ${c.total} games and which to start with</a>, <a href="/seated-exercise-games">playing every game from a chair</a>, <a href="/ring-fit-adventure-alternative">a Ring Fit Adventure alternative you can play in a browser</a>, and <a href="/blog/why-browser-fitness-games-are-the-future">why browser fitness games are the future of home workouts</a>.</p>`,
+<p>Related: <a href="/fitness-games">all ${c.total} games and which to start with</a>, <a href="/seated-exercise-games">playing every game from a chair</a>, ${extraLink('pc', 'exercise games for a PC')}, ${extraLink('kinect', 'a Kinect alternative for PC')}, <a href="/ring-fit-adventure-alternative">a Ring Fit Adventure alternative you can play in a browser</a>, and <a href="/blog/why-browser-fitness-games-are-the-future">why browser fitness games are the future of home workouts</a>.</p>`,
     },
   ];
-  const title = 'How webcam fitness games work, and how to set up your room';
-  const description = 'How a browser reads your body with an ordinary camera, what it reads well, and how to set up your room so a webcam fitness game works the first time.';
+  // release 5 (SEO, 29 Oct): this page ranked 5.7 for 99 impressions at a 2% click rate (Search Console, 28 days); Google suggest completes "webcam fitness games" with online, free, for pc
+  const title = 'Webcam fitness games online: how they work and how to start';
+  const description = `How a browser reads your body with an ordinary webcam, what it reads well and how to set up your room. ${c.free} of BodyArcade's ${c.total} webcam fitness games are free.`;
   const lead = 'A webcam fitness game is a game you control by moving in front of an ordinary camera: the one in your laptop lid, on top of your monitor or on the front of your phone. There is no controller, no wristband and no console. The camera watches, software turns what it sees into a few body positions, and the game reacts to them the way it would react to a button press.';
   const minutes = readMinutes(lead + sections.map((s) => s.html).join(' '));
   return {
@@ -98,7 +100,7 @@ ${ul([
     og: 'article',
     title,
     description,
-    h1: title,
+    h1: 'Webcam fitness games: how they work, and how to set up your room',
     when: `Updated ${F.longDate(GUIDE_WEBCAM_EN.modified, 'en')} &middot; ${minutes} min read`,
     lead: `${lead} This guide explains how that works in a browser, what it can and cannot read, and how to set up a room. We make BodyArcade, so we use it as the example; the advice applies to any game that uses a camera.`,
     sections,

@@ -7,7 +7,7 @@ import * as F from './facts.ts';
 import { ACTIVE_ARCADE_URL, LATEST_RELEASE } from './copy/changelog.ts';
 import { gameCounts, titlesOf } from './copy/games.ts';
 import { PAGES_CHANGELOG, PRICING_DATES, PRICING_URL } from './copy/pricing.en.ts';
-import { GUIDE_URL, SEO_URL } from './copy/seo-shared.ts';
+import { EXTRA_NAME, EXTRA_URL, GUIDE_URL, SEO_URL } from './copy/seo-shared.ts';
 
 export function llmsTxt(): string {
   const c = gameCounts();
@@ -30,6 +30,8 @@ export function llmsTxt(): string {
     `- [How webcam fitness games work](${u(GUIDE_URL.en)}): how the camera reads your body and how to set up your room`,
     `- [Ring Fit Adventure alternative](${u('/ring-fit-adventure-alternative')}): a comparison`,
     `- [Active Arcade alternative for Android and PC](${u(ACTIVE_ARCADE_URL.en)}): a comparison, with sources`,
+    `- [${EXTRA_NAME.pc.name}](${u(EXTRA_URL.pc)}): what a laptop or desktop needs, the games for a desk and the ones that need floor space`,
+    `- [${EXTRA_NAME.kinect.name}](${u(EXTRA_URL.kinect)}): what a webcam reads next to a depth sensor, and the games it runs`,
     `- [Workout plans](${u('/plans/')}): ready sessions of games with rests; ${free ? localized(free.title, 'en') : 'one'} is free`,
     `- [Updates](${u(PAGES_CHANGELOG.en)}): new games and changes, release by release; the last release was on ${F.longDate(LATEST_RELEASE.day, 'en')}`,
     `- [Privacy policy](${u('/privacy')}), [Terms](${u('/terms')})`,

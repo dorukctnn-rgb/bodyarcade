@@ -49,6 +49,9 @@ export const LEGACY_PAGES: readonly { file: string; url: string }[] = [
   { file: 'tr/guncellemeler.html', url: '/tr/guncellemeler' },
   { file: 'active-arcade-alternative.html', url: '/active-arcade-alternative' },
   { file: 'tr/active-arcade-alternatifi.html', url: '/tr/active-arcade-alternatifi' },
+  // Release 5 (SEO): two English pages that answer one question each (packages/web/content/copy/seo-extra-*.ts).
+  { file: 'exercise-games-for-pc.html', url: '/exercise-games-for-pc' },
+  { file: 'kinect-alternative-pc.html', url: '/kinect-alternative-pc' },
 ];
 
 /** Other files of the live site that keep their addresses: the content pages' styles, fonts and pictures, the IndexNow key, /llms.txt. */

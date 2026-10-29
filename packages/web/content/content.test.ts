@@ -4,7 +4,7 @@
 //   3. every page is a good page: one h1, a canonical link, hreflang pairs, links that exist, no characters the style forbids,
 //      Turkish with Turkish letters, and the same numbers in English and Turkish.
 // With BA_RELEASE=1 (the production check) a last group asks whether the shell and the release have what the pages promise.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FREE_FEATURES, ROAD_RUN_WORLDS, canUse } from '../../core/entitlements/features.ts';
@@ -41,7 +41,8 @@ import { ACTIVE_ARCADE_URL, LATEST_RELEASE, RELEASES } from './copy/changelog.ts
 import { PAGES_CHANGELOG, PRICING_DATES, PRICING_URL, perMonthOf, yearlySaves } from './copy/pricing.en.ts';
 import { llmsTxt } from './llms.ts';
 import { gameCounts, gameList, snapshotGames, snapshotIsCurrent } from './copy/games.ts';
-import { GUIDE_URL, MOVE, SEO_URL, type SeoPage } from './copy/seo-shared.ts';
+import { EXTRA_DATES, EXTRA_NAME, EXTRA_URL, GUIDE_URL, MOVE, SEO_URL, extraFile, planFacts, type ExtraPage, type SeoPage } from './copy/seo-shared.ts';
+import { KINECT_SOURCES } from './copy/seo-extra-kinect.en.ts';
 import * as F from './facts.ts';
 
 const read = (rel: string): string => readFileSync(join(REPO_ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -1148,6 +1149,171 @@ describe('the stylesheet uses the design tokens', () => {
   it('loads no font file and names none of the faces the style forbids', () => {
     expect(css).not.toMatch(/@font-face|fonts\.googleapis/);
     expect(css).not.toMatch(/font-family:[^;]*\b(Inter|Poppins|Manrope|Montserrat|Open Sans|Lato|Nunito|Raleway|Space Grotesk)\b/);
+  });
+});
+
+// ───────── release 5 (SEO, 29 Oct): two English pages that answer one question each ─────────
+
+describe('the pages that answer one question each (English only)', () => {
+  const kinds = Object.keys(EXTRA_URL) as ExtraPage[];
+  const key: Record<ExtraPage, string> = { pc: 'exercise games for pc', kinect: 'kinect alternative' };
+  const spec = (k: ExtraPage): PageSpec => byFile.get(extraFile(k)) as PageSpec;
+  const htmlOf = (k: ExtraPage): string => renderPage(spec(k));
+  const textOf = (k: ExtraPage): string => visible(htmlOf(k));
+  const more = (html: string): string => /<section id="more"[^>]*>([\s\S]*?)<\/section>/.exec(html)?.[1] ?? '';
+  const c = gameCounts();
+
+  it('there are two, at the addresses of EXTRA_URL, with no Turkish twin, each with its own title and description, and the title and the heading say what it answers', () => {
+    expect([...kinds].sort()).toEqual(['kinect', 'pc']);
+    const titles = new Set<string>();
+    const descriptions = new Set<string>();
+    for (const k of kinds) {
+      const sp = spec(k);
+      expect(sp, k).toBeDefined();
+      expect(sp.url).toBe(EXTRA_URL[k]);
+      expect(sp.lang).toBe('en');
+      expect(sp.other).toBeUndefined();
+      expect(sp.crumbs.at(-1)?.name).toBe(EXTRA_NAME[k].name);
+      expect(documentTitle(sp.title).length, sp.file).toBeLessThanOrEqual(TITLE_MAX);
+      expect(sp.description.length, sp.file).toBeGreaterThanOrEqual(100);
+      expect(sp.description.length, sp.file).toBeLessThanOrEqual(165);
+      expect(sp.title.toLowerCase(), `${sp.file} title`).toContain(key[k]);
+      expect(sp.h1.toLowerCase(), `${sp.file} h1`).toContain(key[k]);
+      titles.add(sp.title);
+      descriptions.add(sp.description);
+      // the phrase of the title is not said more often than a person would say it
+      const text = textOf(k).toLowerCase();
+      const uses = text.split(key[k]).length - 1;
+      expect(uses / text.split(/\s+/).length, `${sp.file}: "${key[k]}" ${uses} times`).toBeLessThan(0.02);
+    }
+    expect(titles.size).toBe(2);
+    expect(descriptions.size).toBe(2);
+    for (const p of all.filter((x) => !kinds.some((k) => spec(k) === x))) expect(titles.has(p.title), `${p.file} has the title of one of them`).toBe(false);
+  });
+
+  it('no page is aimed at children, classrooms or schools: the decision of 27 and 29 Oct for a camera app with a Google Play listing', () => {
+    // the pages of this group carry none of the words, and no page of the site links to a page of that kind
+    const aimed = /\b(kids?|child|children|classrooms?|teachers?|schools?|students?|brain breaks?|pe games|physical education|parents?|toddlers?|preschool\w*)\b/i;
+    for (const k of kinds) expect(textOf(k), k).not.toMatch(aimed);
+    for (const p of all) expect(renderPage(p), p.file).not.toMatch(/href="\/(brain-break-games|indoor-motion-games-for-kids)"/);
+  });
+
+  it('they are in the sitemap (LEGACY_PAGES) and in llms.txt, and the blog index lists them', async () => {
+    const { LEGACY_PAGES } = await import('../../../release/assemble.ts');
+    const t = llmsTxt();
+    const blog = renderPage(byFile.get('blog/index.html') as PageSpec);
+    for (const k of kinds) {
+      expect(LEGACY_PAGES.some((p) => p.file === extraFile(k) && p.url === EXTRA_URL[k]), k).toBe(true);
+      expect(t, k).toContain(`${F.SITE}${EXTRA_URL[k]}`);
+      expect(blog, k).toContain(`href="${EXTRA_URL[k]}"`);
+    }
+  });
+
+  it('they are linked from the four search pages, the webcam guide and the Ring Fit page, and each links to the other one, to the fitness games page and to the guide', () => {
+    for (const file of ['fitness-games.html', 'seated-exercise-games.html', 'workout-games-with-friends.html', 'workout-games-by-body-area.html']) {
+      for (const k of kinds) expect(more(renderPage(byFile.get(file) as PageSpec)), `${file} -> ${k}`).toContain(`href="${EXTRA_URL[k]}"`);
+    }
+    const guide = renderPage(byFile.get('webcam-fitness-games.html') as PageSpec);
+    for (const k of kinds) expect(guide, `guide -> ${k}`).toContain(`href="${EXTRA_URL[k]}"`);
+    const ring = renderPage(byFile.get('ring-fit-adventure-alternative.html') as PageSpec);
+    expect(ring).toContain(`href="${EXTRA_URL.pc}"`);
+    expect(ring).toContain(`href="${EXTRA_URL.kinect}"`);
+    for (const k of kinds) {
+      for (const other of kinds.filter((x) => x !== k)) expect(more(htmlOf(k)), `${k} -> ${other}`).toContain(`href="${EXTRA_URL[other]}"`);
+      expect(more(htmlOf(k)), k).toContain(`href="${SEO_URL.en.hub}"`);
+      expect(more(htmlOf(k)), k).toContain(`href="${GUIDE_URL.en}"`);
+    }
+  });
+
+  it('the structured data names this page, and its questions are the ones the page shows (at least four)', () => {
+    for (const k of kinds) {
+      const html = htmlOf(k);
+      const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '{}') as { '@graph': { '@type': string; mainEntity?: { name: string }[]; mainEntityOfPage?: string }[] };
+      expect(ld['@graph'].map((g) => g['@type']).sort(), k).toEqual(['Article', 'BreadcrumbList', 'FAQPage']);
+      expect(ld['@graph'].find((g) => g['@type'] === 'Article')?.mainEntityOfPage, k).toBe(`${F.SITE}${EXTRA_URL[k]}`);
+      const shown = [...html.matchAll(/<details class="qa"><summary>([\s\S]*?)<\/summary>/g)].map((m) => (m[1] as string).replace(/<[^>]+>/g, '').trim());
+      expect((ld['@graph'].find((g) => g['@type'] === 'FAQPage')?.mainEntity ?? []).map((q) => q.name), k).toEqual(shown);
+      expect(shown.length, k).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it('every picture is a webp of site/assets/shots at the size the page states, has a text for it and a caption, is used by a page, and a page carries at most 400 KB of pictures', () => {
+    const dir = join(REPO_ROOT, 'site/assets/shots');
+    const size = (file: string): { w: number; h: number } => {
+      const b = readFileSync(file);
+      expect(b.subarray(0, 4).toString('latin1'), file).toBe('RIFF');
+      expect(b.subarray(8, 12).toString('latin1'), file).toBe('WEBP');
+      const kind = b.subarray(12, 16).toString('latin1');
+      if (kind === 'VP8 ') return { w: b.readUInt16LE(26) & 0x3fff, h: b.readUInt16LE(28) & 0x3fff };
+      if (kind === 'VP8X') return { w: 1 + b.readUIntLE(24, 3), h: 1 + b.readUIntLE(27, 3) };
+      throw new Error(`${file}: a webp of kind ${kind} is not read here`);
+    };
+    const used = new Set<string>();
+    for (const k of kinds) {
+      let bytes = 0;
+      const imgs = [...htmlOf(k).matchAll(/<img src="(\/assets\/shots\/[^"]+)" alt="([^"]*)" width="(\d+)" height="(\d+)"/g)];
+      expect(imgs.length, k).toBeGreaterThanOrEqual(2);
+      for (const m of imgs) {
+        const file = join(REPO_ROOT, 'site', m[1] as string);
+        expect(m[1], k).toMatch(/\.webp$/);
+        expect((m[2] as string).length, `${k}: the text of ${m[1]}`).toBeGreaterThanOrEqual(40);
+        expect(size(file), `${k}: ${m[1]}`).toEqual({ w: Number(m[3]), h: Number(m[4]) });
+        bytes += readFileSync(file).length;
+        used.add((m[1] as string).split('/').pop() as string);
+      }
+      expect(bytes, k).toBeLessThanOrEqual(400_000);
+      expect(htmlOf(k).match(/<figcaption>/g)?.length, `${k}: a caption for each picture`).toBe(imgs.length);
+    }
+    for (const f of readdirSync(dir)) expect(used.has(f), `site/assets/shots/${f} is used by a page`).toBe(true);
+  });
+
+  it('the counts and the plan are the code: games, free, shared camera and the Desk break', () => {
+    const desk = planFacts('desk-break', 'en');
+    expect(desk.free).toBe(true);
+    for (const k of kinds) expect(textOf(k), k).toContain(`${c.free} of the ${c.total}`);
+    expect(textOf('pc')).toContain(`${desk.title} is ${desk.steps.length} seated games`);
+    expect(textOf('pc')).toContain(`about ${desk.minutes} minutes`);
+    expect(textOf('pc')).toContain(`${c.local2} of the games`);
+    expect(textOf('kinect')).toContain(`${c.local2} of the games`);
+  });
+
+  it('the words of the app are the app\'s: Play at the desk', () => {
+    expect(textOf('pc')).toContain(createI18n('en').tx('calib.desk.cta'));
+  });
+
+  it('the Kinect sentences are the ones two public pages say, and the page names them with the day they were read', () => {
+    const t = textOf('kinect');
+    expect(KINECT_SOURCES.read).toBe(EXTRA_DATES.modified);
+    expect(KINECT_SOURCES.wikipedia.url).toBe('https://en.wikipedia.org/wiki/Kinect');
+    expect(KINECT_SOURCES.learn.url).toMatch(/^https:\/\/learn\.microsoft\.com\//);
+    expect(KINECT_SOURCES.wikipedia.says).toContain('25 October 2017');
+    expect(KINECT_SOURCES.wikipedia.says).toContain('October 2023');
+    expect(KINECT_SOURCES.learn.says).toContain('depth sensor');
+    expect(t).toContain('Microsoft announced on 25 October 2017 that it would stop making Kinect for Xbox One');
+    expect(t).toContain('the Azure Kinect developer kit was discontinued in October 2023');
+    expect(t).toContain(`read on ${F.longDate(KINECT_SOURCES.read, 'en')}`);
+    expect(htmlOf('kinect')).toContain(`href="${KINECT_SOURCES.wikipedia.url}"`);
+    expect(htmlOf('kinect')).toContain(`href="${KINECT_SOURCES.learn.url}"`);
+    // nothing else is said about a maker's hardware: no comparison of accuracy, range or price
+    expect(t).not.toMatch(/\b(more accurate|less accurate|better than|worse than|same as kinect|cheaper than)\b/i);
+    expect(t).toContain('None of them is a copy of a Kinect title');
+  });
+
+  it('claims no health effect, no rating, no user count and no review', () => {
+    const banned = /\b(cures?|heals?|prevents? (falls|injur)|fall prevention|lowers? (the |your )?risk|reduces? (the |your )?risk|clinically|proven|improves? (your )?(balance|health|fitness|focus)|rehabilitates?|burns? \d+|best|#1|top-rated|loved by|trusted by|\d+ (million|thousand|k) (players|users|downloads)|\d(\.\d)? stars?)\b/i;
+    for (const k of kinds) expect(textOf(k), k).not.toMatch(banned);
+    // the app's own words on health: the camera does not measure heart rate, and a doctor first
+    expect(textOf('pc')).toContain('Check with a doctor first');
+  });
+
+  it('a table row calls a game free or Pro as the catalogue does', () => {
+    for (const k of kinds) {
+      for (const g of gameList('en')) {
+        const m = new RegExp(`<tr><th scope="row"><a href="/games/${g.slug}/">${g.title}</a></th>([\\s\\S]*?)</tr>`).exec(htmlOf(k));
+        expect(m, `${k}: ${g.title}`).not.toBeNull();
+        expect(m?.[1], `${k}: ${g.title}`).toContain(`>${g.free ? 'Free' : 'Pro'}</td>`);
+      }
+    }
   });
 });
 
