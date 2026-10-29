@@ -25,22 +25,14 @@ interface Shot {
   size: [number, number];
   /** The width of the webp (the height follows). */
   width: number;
-  /** Keep only this many pixels from the top (a screen taller than the picture wanted). */
-  crop?: number;
 }
 
 const DESKTOP: [number, number] = [1440, 900];
-const PHONE: [number, number] = [390, 844];
 const SHOTS: Shot[] = [
   { name: 'road-run-desktop', kind: { game: 'road-run' }, size: DESKTOP, width: 1200 },
-  { name: 'star-catch-desktop', kind: { game: 'star-catch' }, size: DESKTOP, width: 1200 },
   { name: 'firework-jacks-desktop', kind: { game: 'firework-jacks' }, size: DESKTOP, width: 1200 },
-  { name: 'pose-wall-desktop', kind: { game: 'pose-wall' }, size: DESKTOP, width: 1200 },
-  { name: 'pose-wall-phone', kind: { game: 'pose-wall' }, size: PHONE, width: 390 },
   { name: 'camera-check-desktop', kind: { scenario: 'calibrate' }, size: DESKTOP, width: 1200 },
   { name: 'desk-offer-desktop', kind: { scenario: 'calibrate-desk' }, size: DESKTOP, width: 1200 },
-  { name: 'settings-desktop', kind: { scenario: 'settings' }, size: DESKTOP, width: 1200 },
-  { name: 'plans-desktop', kind: { scenario: 'plans' }, size: [1440, 1250], width: 1200, crop: 1120 },
 ];
 
 const args = process.argv.slice(2);
@@ -82,8 +74,7 @@ try {
         await o.page.screenshot({ path: png });
         await o.context.close();
       }
-      const crop = s.crop ? `crop=${s.size[0]}:${s.crop}:0:0,` : '';
-      execFileSync(ffmpeg, ['-y', '-loglevel', 'error', '-i', png, '-vf', `${crop}scale=${s.width}:-1:flags=lanczos`, '-c:v', 'libwebp', '-quality', '82', '-compression_level', '6', join(out, `${s.name}.webp`)], { stdio: 'inherit', windowsHide: true });
+      execFileSync(ffmpeg, ['-y', '-loglevel', 'error', '-i', png, '-vf', `scale=${s.width}:-1:flags=lanczos`, '-c:v', 'libwebp', '-quality', '82', '-compression_level', '6', join(out, `${s.name}.webp`)], { stdio: 'inherit', windowsHide: true });
       console.log(`ok ${s.name}`);
     } catch (e) {
       failed += 1;

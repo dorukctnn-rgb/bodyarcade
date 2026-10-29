@@ -76,8 +76,8 @@ export const LEGAL_EXTRA: [string, string][] = [
   // release 3: the prices, the release notes and the Active Arcade comparison (checked where the build has them)
   ['pricing', '/pricing'], ['pricing-tr', '/tr/fiyatlar'], ['changelog', '/changelog'], ['changelog-tr', '/tr/guncellemeler'],
   ['active-arcade', '/active-arcade-alternative'], ['active-arcade-tr', '/tr/active-arcade-alternatifi'],
-  // release 5 (SEO): the four English pages that answer one question each
-  ['seo5-pc', '/exercise-games-for-pc'], ['seo5-kinect', '/kinect-alternative-pc'], ['seo5-classroom', '/brain-break-games'], ['seo5-kids', '/indoor-motion-games-for-kids'],
+  // release 5 (SEO): the two English pages that answer one question each
+  ['seo5-pc', '/exercise-games-for-pc'], ['seo5-kinect', '/kinect-alternative-pc'],
 ];
 export function legalPages(known: Iterable<string> | null = existsSync(join(ROOT, 'dist', 'sitemap.xml')) ? sitemapUrls() : null): [string, string][] {
   // no local build to ask (a run against a deployed address from a machine that did not build it): the pages every build since the content pages have

@@ -32,8 +32,6 @@ export function llmsTxt(): string {
     `- [Active Arcade alternative for Android and PC](${u(ACTIVE_ARCADE_URL.en)}): a comparison, with sources`,
     `- [${EXTRA_NAME.pc.name}](${u(EXTRA_URL.pc)}): what a laptop or desktop needs, the games for a desk and the ones that need floor space`,
     `- [${EXTRA_NAME.kinect.name}](${u(EXTRA_URL.kinect)}): what a webcam reads next to a depth sensor, and the games it runs`,
-    `- [Brain break and PE games for the classroom](${u(EXTRA_URL.classroom)}): a movement break from one screen, quiet and seated, and what the app does not do for a class`,
-    `- [${EXTRA_NAME.kids.name}](${u(EXTRA_URL.kids)}): which games have no jumping, what the room needs and what the app keeps about a child`,
     `- [Workout plans](${u('/plans/')}): ready sessions of games with rests; ${free ? localized(free.title, 'en') : 'one'} is free`,
     `- [Updates](${u(PAGES_CHANGELOG.en)}): new games and changes, release by release; the last release was on ${F.longDate(LATEST_RELEASE.day, 'en')}`,
     `- [Privacy policy](${u('/privacy')}), [Terms](${u('/terms')})`,

@@ -1152,18 +1152,19 @@ describe('the stylesheet uses the design tokens', () => {
   });
 });
 
-// ───────── release 5 (SEO, 29 Oct): four English pages that answer one question each ─────────
+// ───────── release 5 (SEO, 29 Oct): two English pages that answer one question each ─────────
 
 describe('the pages that answer one question each (English only)', () => {
   const kinds = Object.keys(EXTRA_URL) as ExtraPage[];
-  const key: Record<ExtraPage, string> = { pc: 'exercise games for pc', kinect: 'kinect alternative', classroom: 'brain break', kids: 'motion games for kids' };
+  const key: Record<ExtraPage, string> = { pc: 'exercise games for pc', kinect: 'kinect alternative' };
   const spec = (k: ExtraPage): PageSpec => byFile.get(extraFile(k)) as PageSpec;
   const htmlOf = (k: ExtraPage): string => renderPage(spec(k));
   const textOf = (k: ExtraPage): string => visible(htmlOf(k));
   const more = (html: string): string => /<section id="more"[^>]*>([\s\S]*?)<\/section>/.exec(html)?.[1] ?? '';
   const c = gameCounts();
 
-  it('there are four, at the addresses of EXTRA_URL, with no Turkish twin, each with its own title and description, and the title and the heading say what it answers', () => {
+  it('there are two, at the addresses of EXTRA_URL, with no Turkish twin, each with its own title and description, and the title and the heading say what it answers', () => {
+    expect([...kinds].sort()).toEqual(['kinect', 'pc']);
     const titles = new Set<string>();
     const descriptions = new Set<string>();
     for (const k of kinds) {
@@ -1185,9 +1186,16 @@ describe('the pages that answer one question each (English only)', () => {
       const uses = text.split(key[k]).length - 1;
       expect(uses / text.split(/\s+/).length, `${sp.file}: "${key[k]}" ${uses} times`).toBeLessThan(0.02);
     }
-    expect(titles.size).toBe(4);
-    expect(descriptions.size).toBe(4);
+    expect(titles.size).toBe(2);
+    expect(descriptions.size).toBe(2);
     for (const p of all.filter((x) => !kinds.some((k) => spec(k) === x))) expect(titles.has(p.title), `${p.file} has the title of one of them`).toBe(false);
+  });
+
+  it('no page is aimed at children, classrooms or schools: the decision of 27 and 29 Oct for a camera app with a Google Play listing', () => {
+    // the pages of this group carry none of the words, and no page of the site links to a page of that kind
+    const aimed = /\b(kids?|child|children|classrooms?|teachers?|schools?|students?|brain breaks?|pe games|physical education|parents?|toddlers?|preschool\w*)\b/i;
+    for (const k of kinds) expect(textOf(k), k).not.toMatch(aimed);
+    for (const p of all) expect(renderPage(p), p.file).not.toMatch(/href="\/(brain-break-games|indoor-motion-games-for-kids)"/);
   });
 
   it('they are in the sitemap (LEGACY_PAGES) and in llms.txt, and the blog index lists them', async () => {
@@ -1201,7 +1209,7 @@ describe('the pages that answer one question each (English only)', () => {
     }
   });
 
-  it('they are linked from the four search pages, the webcam guide, the Ring Fit page and the FAQ, and each links to the other three, to the fitness games page and to the guide', () => {
+  it('they are linked from the four search pages, the webcam guide and the Ring Fit page, and each links to the other one, to the fitness games page and to the guide', () => {
     for (const file of ['fitness-games.html', 'seated-exercise-games.html', 'workout-games-with-friends.html', 'workout-games-by-body-area.html']) {
       for (const k of kinds) expect(more(renderPage(byFile.get(file) as PageSpec)), `${file} -> ${k}`).toContain(`href="${EXTRA_URL[k]}"`);
     }
@@ -1210,7 +1218,6 @@ describe('the pages that answer one question each (English only)', () => {
     const ring = renderPage(byFile.get('ring-fit-adventure-alternative.html') as PageSpec);
     expect(ring).toContain(`href="${EXTRA_URL.pc}"`);
     expect(ring).toContain(`href="${EXTRA_URL.kinect}"`);
-    expect(renderPage(byFile.get('faq.html') as PageSpec)).toContain(`href="${EXTRA_URL.kids}"`);
     for (const k of kinds) {
       for (const other of kinds.filter((x) => x !== k)) expect(more(htmlOf(k)), `${k} -> ${other}`).toContain(`href="${EXTRA_URL[other]}"`);
       expect(more(htmlOf(k)), k).toContain(`href="${SEO_URL.en.hub}"`);
@@ -1260,49 +1267,18 @@ describe('the pages that answer one question each (English only)', () => {
     for (const f of readdirSync(dir)) expect(used.has(f), `site/assets/shots/${f} is used by a page`).toBe(true);
   });
 
-  it('the counts and the plans are the code: games, free, quiet, shared camera, the Desk break and the Kids active break', () => {
+  it('the counts and the plan are the code: games, free, shared camera and the Desk break', () => {
     const desk = planFacts('desk-break', 'en');
-    const kids = planFacts('kids-break', 'en');
-    expect(kids.plan.audience).toBe('kids');
-    expect(kids.free).toBe(false);
     expect(desk.free).toBe(true);
     for (const k of kinds) expect(textOf(k), k).toContain(`${c.free} of the ${c.total}`);
     expect(textOf('pc')).toContain(`${desk.title} is ${desk.steps.length} seated games`);
     expect(textOf('pc')).toContain(`about ${desk.minutes} minutes`);
     expect(textOf('pc')).toContain(`${c.local2} of the games`);
-    expect(textOf('classroom')).toContain(`${kids.title} (Pro): ${kids.steps.length} short games with no jumping`);
-    expect(textOf('classroom')).toContain(`about ${kids.minutes} minutes`);
-    expect(textOf('classroom')).toContain(`${c.quiet} of the ${c.total} have a quiet mode`);
-    expect(textOf('classroom')).toContain(`${c.local2} games that allow it`);
-    expect(textOf('kids')).toContain(`${c.quiet} of the ${c.total} games have a quiet mode`);
-    expect(textOf('kids')).toContain(`${kids.title}, one of the Pro plans`);
-    expect(textOf('kids')).toContain(`${c.local2} of the ${c.total} games`);
     expect(textOf('kinect')).toContain(`${c.local2} of the games`);
   });
 
-  it('the words of the app are the app\'s: Seated mode, Quiet mode and Play at the desk', () => {
-    const en = createI18n('en');
-    expect(textOf('classroom')).toContain(en.tx('settings.seated'));
-    expect(textOf('classroom')).toContain(en.tx('settings.quiet'));
-    expect(textOf('pc')).toContain(en.tx('calib.desk.cta'));
-    expect(en.tx('settings.quiet.hint')).toBe('No jumping or stamping. Kind to the neighbours below.');
-    expect(textOf('classroom')).toContain('no jumping and no stamping');
-  });
-
-  it('the ages and the data are the policy: nothing online under 16, no video kept, no ads, and the classroom page says what the app does not do for a class', () => {
-    expect(POLICY.child.online).toBe(false);
-    for (const k of ['classroom', 'kids'] as const) {
-      expect(textOf(k), k).toContain(`Under ${F.AGE.online}`);
-      expect(textOf(k), k).toMatch(/never uploaded, recorded or saved/);
-      expect(textOf(k), k).toMatch(/no ads/i);
-    }
-    expect(textOf('kids')).toContain(`players ${F.AGE.online} and older`);
-    expect(textOf('classroom')).toContain('There is no roster, teacher dashboard or school licence');
-    expect(textOf('classroom')).toContain('It is not a PE curriculum');
-    expect(textOf('classroom')).toContain('personal right to use BodyArcade');
-    expect(textOf('classroom')).toContain(F.EMAIL);
-    expect(textOf('classroom')).toContain('Children play with an adult nearby');
-    expect(textOf('kids')).toContain(`up to ${F.FAMILY_PROFILES} people on one device`);
+  it('the words of the app are the app\'s: Play at the desk', () => {
+    expect(textOf('pc')).toContain(createI18n('en').tx('calib.desk.cta'));
   });
 
   it('the Kinect sentences are the ones two public pages say, and the page names them with the day they were read', () => {
@@ -1324,28 +1300,20 @@ describe('the pages that answer one question each (English only)', () => {
   });
 
   it('claims no health effect, no rating, no user count and no review', () => {
-    const banned = /\b(cures?|heals?|prevents? (falls|injur)|fall prevention|lowers? (the |your )?risk|reduces? (the |your )?risk|clinically|proven|improves? (your |a child's )?(balance|health|fitness|focus|grades)|rehabilitates?|burns? \d+|best|#1|top-rated|loved by|trusted by|\d+ (million|thousand|k) (players|users|downloads)|\d(\.\d)? stars?)\b/i;
+    const banned = /\b(cures?|heals?|prevents? (falls|injur)|fall prevention|lowers? (the |your )?risk|reduces? (the |your )?risk|clinically|proven|improves? (your )?(balance|health|fitness|focus)|rehabilitates?|burns? \d+|best|#1|top-rated|loved by|trusted by|\d+ (million|thousand|k) (players|users|downloads)|\d(\.\d)? stars?)\b/i;
     for (const k of kinds) expect(textOf(k), k).not.toMatch(banned);
     // the app's own words on health: the camera does not measure heart rate, and a doctor first
     expect(textOf('pc')).toContain('Check with a doctor first');
-    expect(textOf('kids')).toContain('makes no claim about a child');
   });
 
   it('a table row calls a game free or Pro as the catalogue does', () => {
-    const rowsOf = (k: ExtraPage, ids: string[]): void => {
-      for (const id of ids) {
-        const g = gameList('en').find((x) => x.id === id) as ReturnType<typeof gameList>[number];
+    for (const k of kinds) {
+      for (const g of gameList('en')) {
         const m = new RegExp(`<tr><th scope="row"><a href="/games/${g.slug}/">${g.title}</a></th>([\\s\\S]*?)</tr>`).exec(htmlOf(k));
         expect(m, `${k}: ${g.title}`).not.toBeNull();
         expect(m?.[1], `${k}: ${g.title}`).toContain(`>${g.free ? 'Free' : 'Pro'}</td>`);
       }
-    };
-    const ids = gameList('en').map((g) => g.id);
-    rowsOf('pc', ids);
-    rowsOf('kinect', ids);
-    // the parents' table lists only the free games
-    const freeIds = gameList('en').filter((g) => g.free).map((g) => g.id);
-    for (const id of freeIds) expect(htmlOf('kids')).toContain(`href="/games/${gameList('en').find((g) => g.id === id)?.slug}/"`);
+    }
   });
 });
 

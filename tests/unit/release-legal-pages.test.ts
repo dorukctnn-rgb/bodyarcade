@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { LEGAL_EXTRA, legalPages } from '../release/support.ts';
 
 describe('legalPages', () => {
-  it('names the FAQ and the Turkish legal pages, the delete-account page, and (release 3) the prices, the release notes and the Active Arcade page in both languages, and (release 5) the four English pages of one question each', () => {
+  it('names the FAQ and the Turkish legal pages, the delete-account page, and (release 3) the prices, the release notes and the Active Arcade page in both languages, and (release 5) the two English pages of one question each', () => {
     expect(LEGAL_EXTRA.map(([, path]) => path)).toEqual(['/faq', '/tr/privacy', '/tr/terms', '/tr/faq', '/delete-account', '/tr/delete-account',
       '/pricing', '/tr/fiyatlar', '/changelog', '/tr/guncellemeler', '/active-arcade-alternative', '/tr/active-arcade-alternatifi',
-      '/exercise-games-for-pc', '/kinect-alternative-pc', '/brain-break-games', '/indoor-motion-games-for-kids']);
+      '/exercise-games-for-pc', '/kinect-alternative-pc']);
   });
   it('keeps the ones the sitemap lists and drops the ones it does not (a build from before the delete-account page)', () => {
     const before = legalPages(['/', '/privacy', '/faq', '/tr/privacy', '/tr/terms', '/tr/faq']);

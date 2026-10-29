@@ -53,11 +53,11 @@ export const otherOf = (lang: Lang, page: SeoPage): { lang: Lang; url: string } 
 export const GUIDE_URL: Readonly<Record<Lang, string>> = { en: '/webcam-fitness-games', tr: '/tr/kamera-ile-spor-oyunlari' };
 
 // ───────── the pages that answer one question each (English only) ─────────
-// Release 5 (SEO, 30 Oct): four pages for questions the search pages did not answer, found in Google suggest: a PC, Kinect, a class
-// that wants a movement break and a parent with a rainy day. Each is one English page with no Turkish twin (the Turkish pages are
-// the search pages above); copy/seo-extra-*.ts have the texts, content.test.ts the checks.
+// Release 5 (SEO, 29 Oct): two pages for questions the search pages did not answer, found in Google suggest: a PC and Kinect. Each is one
+// English page with no Turkish twin (the Turkish pages are the search pages above); copy/seo-extra-*.ts have the texts, content.test.ts the checks.
+// Pages for children and classrooms are left out on purpose (decision of 29 Oct, as on 27 Oct): the app is a camera app with a Google Play listing.
 
-export type ExtraPage = 'pc' | 'kinect' | 'classroom' | 'kids';
+export type ExtraPage = 'pc' | 'kinect';
 
 /** The day these pages were written and last changed in substance (ISO). */
 export const EXTRA_DATES = { published: '2026-10-29', modified: '2026-10-29' } as const;
@@ -65,8 +65,6 @@ export const EXTRA_DATES = { published: '2026-10-29', modified: '2026-10-29' } a
 export const EXTRA_URL: Readonly<Record<ExtraPage, string>> = {
   pc: '/exercise-games-for-pc',
   kinect: '/kinect-alternative-pc',
-  classroom: '/brain-break-games',
-  kids: '/indoor-motion-games-for-kids',
 };
 
 export const extraFile = (page: ExtraPage): string => `${EXTRA_URL[page].slice(1)}.html`;
@@ -74,15 +72,11 @@ export const extraFile = (page: ExtraPage): string => `${EXTRA_URL[page].slice(1
 export const EXTRA_NAME: Readonly<Record<ExtraPage, { name: string; about: string }>> = {
   pc: { name: 'Exercise games for PC', about: 'what a laptop or desktop needs, the games you can play at a desk and the ones that need floor space' },
   kinect: { name: 'A Kinect alternative for PC', about: 'what a webcam can read next to a depth sensor, and the games it runs' },
-  classroom: { name: 'Brain break and PE games for the classroom', about: 'how a teacher runs a movement break from one screen, quiet and seated, and what the app does not do for a class' },
-  kids: { name: 'Indoor motion games for kids', about: 'which games have no jumping, what the room needs and what the app keeps about a child' },
 };
 
 /** The screens of the game the extra pages show (site/assets/shots, taken headless from the app itself by tools/seo-shots/run.ts). */
 export const SHOT = {
   desktop: { width: 1200, height: 750 },
-  phone: { width: 390, height: 844 },
-  plans: { width: 1200, height: 933 },
 } as const;
 export const shotSrc = (name: string): string => `/assets/shots/${name}.webp`;
 
