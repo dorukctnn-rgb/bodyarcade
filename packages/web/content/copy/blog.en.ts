@@ -6,6 +6,11 @@ import { GUIDE_RINGFIT_EN, guideRingfitEn } from './guide-ringfit.en.ts';
 import { GUIDE_WEBCAM_EN, guideWebcamEn } from './guide-webcam.en.ts';
 import { POST_BROWSER_EN, postBrowserEn } from './post-browser.en.ts';
 import { POST_PRIVACY_EN, postPrivacyEn } from './post-privacy.en.ts';
+import { seoClassroomEn } from './seo-extra-classroom.en.ts';
+import { seoKidsEn } from './seo-extra-kids.en.ts';
+import { seoKinectEn } from './seo-extra-kinect.en.ts';
+import { seoPcEn } from './seo-extra-pc.en.ts';
+import { EXTRA_DATES } from './seo-shared.ts';
 
 export function blogEn(): PageSpec {
   const posts = [
@@ -14,6 +19,11 @@ export function blogEn(): PageSpec {
     { spec: guideWebcamEn(), date: GUIDE_WEBCAM_EN.published },
     { spec: guideRingfitEn(), date: GUIDE_RINGFIT_EN.published },
     { spec: postBrowserEn(), date: POST_BROWSER_EN.published },
+    // Release 5 (SEO): the four pages that answer one question each
+    { spec: seoPcEn(), date: EXTRA_DATES.published },
+    { spec: seoKinectEn(), date: EXTRA_DATES.published },
+    { spec: seoClassroomEn(), date: EXTRA_DATES.published },
+    { spec: seoKidsEn(), date: EXTRA_DATES.published },
   ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const list = `<ul class="posts">${posts.map((p) => `<li><h2><a href="${p.spec.url}">${esc(p.spec.h1)}</a></h2><p>${esc(p.spec.description)}</p><p class="when">${F.longDate(p.date, 'en')}</p></li>`).join('')}</ul>`;
   return {

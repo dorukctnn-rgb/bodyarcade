@@ -26,6 +26,10 @@ import { seoFriendsTr } from './seo-friends.tr.ts';
 import { seoHubEn } from './seo-hub.en.ts';
 import { seoHubTr } from './seo-hub.tr.ts';
 import { seoSeatedEn } from './seo-seated.en.ts';
+import { seoClassroomEn } from './seo-extra-classroom.en.ts';
+import { seoKidsEn } from './seo-extra-kids.en.ts';
+import { seoKinectEn } from './seo-extra-kinect.en.ts';
+import { seoPcEn } from './seo-extra-pc.en.ts';
 import { seoSeatedTr } from './seo-seated.tr.ts';
 
 export function allPages(): PageSpec[] {
@@ -35,5 +39,6 @@ export function allPages(): PageSpec[] {
     blogEn(), postBrowserEn(), postPrivacyEn(),
     seoHubEn(), seoHubTr(), seoSeatedEn(), seoSeatedTr(), seoFriendsEn(), seoFriendsTr(), seoAreasEn(), seoAreasTr(),
     pricingEn(), pricingTr(), changelogEn(), changelogTr(), activeArcadeEn(), activeArcadeTr(),
+    seoPcEn(), seoKinectEn(), seoClassroomEn(), seoKidsEn(),
   ];
 }
