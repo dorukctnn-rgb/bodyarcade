@@ -38,6 +38,7 @@ import { defaultSetup, lockedChoice, playHref, sanitizeSetup, setupFields, setup
 import { worldAllowed } from '../views/worlds.ts';
 import { applyHead, readAssetMap, swap } from './dom.ts';
 import { localEntitlements } from './entitlements.ts';
+import { checkoutWithSource } from './pro-source.ts';
 import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
 import { hudModeFor, PlayController, type PlayHost } from './play.ts';
 import { clipAllowed, createClipRecorder, type ClipFile } from './clip.ts';
@@ -1675,7 +1676,8 @@ export class App {
       this.toaster.show(t.t('paywall.preview'), { kind: 'warn' });
       return;
     } else if (offer.checkout.web) {
-      this.win.open(offer.checkout.web, '_blank', 'noopener,noreferrer');
+      // the address carries the kind of site that sent this browser, so the sale shows its channel in Gumroad (pro-source.ts)
+      this.win.open(checkoutWithSource(offer.checkout.web, this.win), '_blank', 'noopener,noreferrer');
       return;
     }
     this.toaster.show(t.t('paywall.unavailable'), { kind: 'warn' });

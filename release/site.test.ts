@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  CANONICAL_ORIGIN, HEAD_TAGS, STATIC_REDIRECTS, TARGETS, contentSecurityPolicy, headersFile, injectHead, mergeSitemap, precacheList,
+  CANONICAL_ORIGIN, HEAD_TAGS, SOURCE_TAG, STATIC_REDIRECTS, TARGETS, contentSecurityPolicy, headersFile, injectHead, injectSource, mergeSitemap, precacheList,
   redirectsFile, robotsFile, serviceWorkerSource, webManifest, type SwConfig,
 } from './site.ts';
 
@@ -82,6 +82,17 @@ describe('pages, manifest, sitemap', () => {
     expect(injectHead(once)).toBe(once);
     expect(once.indexOf(HEAD_TAGS[2])).toBeLessThan(once.indexOf('</head>'));
     expect(() => injectHead('<html><body></body></html>')).toThrow();
+  });
+
+  it('adds the sale attribution script once, before </head>, from this site (the policy allows only own scripts)', () => {
+    const page = '<!doctype html><html><head><title>x</title></head><body></body></html>';
+    const once = injectSource(page);
+    expect(once.split(SOURCE_TAG).length - 1).toBe(1);
+    expect(once.indexOf(SOURCE_TAG)).toBeLessThan(once.indexOf('</head>'));
+    expect(injectSource(once)).toBe(once);
+    expect(injectSource(injectHead(page)).split(SOURCE_TAG).length - 1).toBe(1);
+    expect(SOURCE_TAG).toMatch(/^<script src="\/assets\/pro-source\.js" defer><\/script>$/);
+    expect(() => injectSource('<html><body></body></html>')).toThrow();
   });
 
   it('the manifest starts at the app home with separate any and maskable icons', () => {

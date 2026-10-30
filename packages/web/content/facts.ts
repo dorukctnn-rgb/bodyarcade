@@ -19,8 +19,14 @@ export const OWNER = 'Doruk Çetin';
 export const STUDIO = 'Peak Apps Studio';
 export const COUNTRY = 'Türkiye';
 
-/** When the privacy policy and the terms were last changed in substance (ISO day). Change it with the text. */
+/** When the terms were last changed in substance (ISO day), and the date the pages that follow them show. Change it with the text. */
 export const UPDATED = '2026-10-26';
+
+/**
+ * When the privacy policy was last changed in substance (ISO day). It has its own date since 29 October 2026, when it began to
+ * say what the one-word source of a web purchase is (assets/pro-source.js, app/pro-source.ts); the terms did not change then.
+ */
+export const PRIVACY_UPDATED = '2026-10-29';
 
 /** Web list prices in US dollars (core/entitlements/plans.ts). On Google Play the price and the currency are Google Play's. */
 export const PRICE = {

@@ -168,6 +168,22 @@ export const HEAD_TAGS = [
   '<script src="/sw-register.js" defer></script>',
 ] as const;
 
+/**
+ * The sale attribution script (packages/web/content/pro-source.js, served from site/assets/): sorts the site that sent the visitor
+ * into one word and keeps it in the browser; the web paywall's buy button adds it to the Gumroad address (app/pro-source.ts).
+ * Every page of the release gets it, the app's and the content pages, so the word is the one of the page the visitor landed on.
+ */
+export const SOURCE_TAG = '<script src="/assets/pro-source.js" defer></script>';
+
+/** Puts SOURCE_TAG at the end of the head, once. */
+export function injectSource(html: string): string {
+  const at = html.indexOf('</head>');
+  if (at < 0) throw new Error('page without </head>');
+  if (html.includes(SOURCE_TAG)) return html;
+  return `${html.slice(0, at)}${SOURCE_TAG}
+${html.slice(at)}`;
+}
+
 export function injectHead(html: string): string {
   const at = html.indexOf('</head>');
   if (at < 0) throw new Error('page without </head>');
