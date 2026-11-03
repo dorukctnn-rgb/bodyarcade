@@ -27,6 +27,7 @@
 .hm-wrap { width: 100%; max-width: calc(1240px + 2 * var(--g)); margin: 0 auto; padding: 0 var(--g); }
 @media (min-width: 1680px) { .hm-wrap { max-width: calc(1440px + 2 * var(--g)); } }
 .hm { position: relative; overflow-x: clip; margin: 0; padding-block: clamp(56px, 8vw, 116px); }
+.hm-root .hm { margin: 0; } /* the worlds touch: no page colour between them (.k-about and .ba-section carry their own margins) */
 
 /* Light-theme tokens inside the light worlds, whatever the page theme is. */
 .hm-games, .hm-reel, .hm-duo, .hm-today, .hm-about {
@@ -275,13 +276,18 @@
 .hm-private { background: var(--hm-night); color: #fff; }
 .hm-lock { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 22px; background: var(--hm-coral); color: var(--hm-ink); margin-bottom: clamp(18px, 3vw, 32px); transform: rotate(-6deg); }
 .hm-lock svg { width: 38px; height: 38px; }
-.hm-private .hm-mega { max-width: 13em; }
-.hm-facts { list-style: none; margin: clamp(26px, 4vw, 48px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2vw, 28px); }
-.hm-facts li { display: grid; gap: 14px; align-content: start; padding: 22px; border-radius: 22px; background: #241A48; box-shadow: inset 0 0 0 2px #3B2F70; font-weight: 750; font-size: clamp(1.05rem, 0.98rem + 0.3vw, 1.25rem); line-height: 1.35; }
+.hm-private .hm-wrap { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr); grid-template-areas: "lock facts" "title facts" "links facts"; column-gap: clamp(28px, 6vw, 96px); align-items: start; }
+.hm-private .hm-lock { grid-area: lock; }
+.hm-private .hm-mega { grid-area: title; max-width: 12em; }
+.hm-private .hm-links { grid-area: links; }
+/* three plain statements under one another, an editorial list rather than a row of boxes */
+.hm-facts { grid-area: facts; align-self: end; list-style: none; margin: 0; padding: 0; display: grid; }
+.hm-facts li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 16px; align-items: start; padding: 20px 0; border-top: 2px solid #3B2F70; font-weight: 750; font-size: clamp(1.1rem, 1rem + 0.45vw, 1.4rem); line-height: 1.32; }
+.hm-facts li:last-child { border-bottom: 2px solid #3B2F70; }
 .hm-facts svg { width: 32px; height: 32px; color: var(--hm-sun); }
 .hm-links { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: clamp(24px, 3vw, 36px) 0 0; }
 .hm-private .hm-link { color: #fff; text-decoration-color: var(--hm-coral); }
-@media (max-width: 760px) { .hm-facts { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .hm-private .hm-wrap { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lock" "title" "facts" "links"; } .hm-facts { margin-top: clamp(24px, 4vw, 40px); } }
 
 /* ---------- 8. What BodyArcade is (lilac) ---------- */
 .hm-about { background: var(--hm-lilac); }
