@@ -65,7 +65,7 @@ export const siteGuideHref = (lang: Lang, page: SiteGuide): string => SITE_GUIDE
 /** The id of the community rules (conduct and fair play) on the terms page of each language; content.test.ts checks that the page has it. */
 export const COMMUNITY_RULES_ANCHOR = { en: 'conduct', tr: 'davranis' } as const;
 
-function footer(ctx: ViewContext): SafeHtml {
+function footer(ctx: ViewContext, extra: SafeHtml | null = null): SafeHtml {
   const t = ctx.i18n;
   // The prices page is the web's: linked from the page made for crawlers and on the web, never inside the Android app (Google Play's prices
   // are the only ones there) or while the app does not know yet where it runs.
@@ -85,6 +85,7 @@ function footer(ctx: ViewContext): SafeHtml {
         ${SITE_GUIDE_IDS.map((g) => html`<li><a href="${siteGuideHref(ctx.lang, g)}" data-native>${t.t(`footer.guide.${g}` as StringKey)}</a></li>`)}
       </ul>
       ${languageLinks(ctx)}
+      ${extra ?? ''}
     </div>
   </footer>`;
 }
@@ -111,6 +112,8 @@ export interface ChromeOptions {
   mainClass?: string;
   /** A screen reached from another (a game, the results): back button in its own header, no tab bar. */
   pushed?: boolean;
+  /** Something of this page's own at the end of the footer (the home page's motion switch). */
+  footerExtra?: SafeHtml;
 }
 
 /** The whole page body. */
@@ -133,7 +136,7 @@ export function chrome(ctx: ViewContext, o: ChromeOptions): SafeHtml {
       ${o.pushed ? '' : html`<div class="ba-mobilehead"><a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 28)}</a><span class="ba-me">${switcherLink(ctx)}${proBadge}</span></div>`}
       ${o.main}
     </main>
-    ${footer(ctx)}
+    ${footer(ctx, o.footerExtra ?? null)}
     <nav class="ba-tabbar ba-tabbar--${tabs.length}" aria-label="${t.t('nav.label')}">${tabLinks}</nav>
   </div>`;
 }

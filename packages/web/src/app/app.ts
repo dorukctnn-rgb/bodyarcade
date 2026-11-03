@@ -767,7 +767,8 @@ export class App {
     this.offHome?.();
     this.offHome = null;
     swap(this.host, page.body.value);
-    if (route?.id === 'home' && page.status === 200) this.offHome = mountHomeMotion(this.host, this.win, { reduced: this.reducedMotion() });
+    // The home page moves unless the player switched its motion off (its footer switch, or Settings): the device's reduced-motion wish alone does not still it.
+    if (route?.id === 'home' && page.status === 200) this.offHome = mountHomeMotion(this.host, this.win, { reduced: this.currentSettings().motion === 'reduce' });
     const info = LANG_INFO.find((l) => l.code === this.lang);
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });
     if (route?.id === 'play' && page.status === 200) this.beginPlay(route);
@@ -1388,6 +1389,14 @@ export class App {
     if (this.social?.click(action, el)) { e.preventDefault(); return; }
     if (this.offline?.action(action)) { e.preventDefault(); return; }
     switch (action) {
+      case 'home-motion': {
+        // the home page's footer switch: motion off is the same setting as Settings, "Reduce motion"; on is motion whatever the device says
+        e.preventDefault();
+        this.settings.set({ motion: this.currentSettings().motion === 'reduce' ? 'full' : 'reduce' });
+        this.render();
+        this.doc.querySelector<HTMLElement>('[data-action="home-motion"]')?.focus({ preventScroll: true });
+        break;
+      }
       case 'play-now':
         // the home page's Play: straight into a round (the link does the going); the sound may start with this tap
         this.o.onPlayGesture?.();

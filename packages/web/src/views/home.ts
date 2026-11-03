@@ -108,10 +108,16 @@ function hero(ctx: ViewContext): SafeHtml {
         </div>
         <p class="hm-assure">${icon('shield')}<span>${t.t('footer.camera')}</span></p>
       </div>
-      <div class="hm-hero-stage">
-        <span class="hm-burst hm-burst--a" aria-hidden="true"><span>${t.t('home.sticker.games', { n })}</span></span>
-        <span class="hm-burst hm-burst--b" aria-hidden="true"><span>${t.t('home.sticker.free', { free })}</span></span>
-        <div class="hm-phone hm-phone--hero"><div class="hm-screen">${clip(ctx, 'squat', { alt: t.t('home.hero.clip'), sizes: '(min-width: 1100px) 360px, (min-width: 761px) 30vw, 62vw', first: true })}</div></div>
+      <div class="hm-hero-stage" data-sync>
+        <div class="hm-camframe">
+          <span class="hm-camtag" aria-hidden="true"><i></i>${t.t('home.cam.camera')}</span>
+          <div class="hm-camscreen">${clip(ctx, 'squat-cam', { alt: t.t('home.hero.cam'), sizes: '(min-width: 1100px) 300px, (min-width: 761px) 24vw, 46vw', first: true, className: 'hm-clip--cam' })}</div>
+          <span class="hm-burst hm-burst--b" aria-hidden="true"><span>${t.t('home.sticker.free', { free })}</span></span>
+        </div>
+        <div class="hm-phone hm-phone--hero">
+          <div class="hm-screen">${clip(ctx, 'squat', { alt: t.t('home.hero.clip'), sizes: '(min-width: 1100px) 280px, (min-width: 761px) 22vw, 42vw', first: true, className: 'hm-clip--game' })}</div>
+          <span class="hm-burst hm-burst--a" aria-hidden="true"><span>${t.t('home.sticker.games', { n })}</span></span>
+        </div>
       </div>
     </div>
     <div class="hm-band" aria-hidden="true"><div class="hm-band-track"><div class="hm-band-run">${band}</div><div class="hm-band-run">${band}</div></div></div>
@@ -132,12 +138,13 @@ function cameraStage(ctx: ViewContext): SafeHtml {
             <h2 id="cam-h" class="hm-h2">${t.t('home.cam.title')}</h2>
             <ol class="hm-steps">${steps.map((s) => html`<li data-step="${s}"${attr('class', s === 1 && 'on')}><b>${t.tx(`home.cam.step${s}.title`)}</b><span>${t.tx(`home.cam.step${s}.body`)}</span></li>`)}</ol>
           </div>
-          <div class="hm-cam-device">
+          <div class="hm-cam-device" data-sync>
             <div class="hm-phone hm-phone--stage">
               <div class="hm-screen">
                 ${clip(ctx, 'squat', { alt: t.t('home.cam.alt'), sizes: '(min-width: 761px) 380px, 60vw', className: 'hm-clip--game' })}
-                <div class="hm-camlayer">${clip(ctx, 'squat-cam', { alt: '', sizes: '(min-width: 761px) 380px, 60vw', className: 'hm-clip--cam' })}<span class="hm-camtag"><i></i>${t.t('home.cam.camera')}</span></div>
+                <div class="hm-camlayer">${clip(ctx, 'squat-cam', { alt: '', sizes: '(min-width: 761px) 380px, 60vw', className: 'hm-clip--cam' })}</div>
               </div>
+              <span class="hm-camtag" aria-hidden="true"><i></i>${t.t('home.cam.camera')}</span>
             </div>
           </div>
         </div>
@@ -460,7 +467,11 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
   const main = back
     ? html`${hero(ctx)}${today(ctx, data, { week: true })}${gamesWall(ctx, data)}${cameraStage(ctx)}${reel(ctx)}${together(ctx)}${privacy(ctx)}${aboutSection(ctx)}`
     : html`${hero(ctx)}${cameraStage(ctx)}${gamesWall(ctx, data)}${reel(ctx)}${together(ctx)}${today(ctx, data, { week: false })}${privacy(ctx)}${aboutSection(ctx)}`;
-  return chrome(ctx, { tab: 'games', main, mainClass: 'ba-page--home hm-root' });
+  // The motion switch: the home page moves by default (whatever the device's reduced-motion wish); this calms it, and is the same setting as
+  // Settings, "Reduce motion". A page drawn without a visitor offers to reduce it.
+  const off = ctx.settings.motion === 'reduce';
+  const motion = html`<p class="hm-motion-row"><button type="button" class="hm-motion" data-action="home-motion">${off ? ctx.i18n.t('home.motion.on') : ctx.i18n.t('settings.motion')}</button></p>`;
+  return chrome(ctx, { tab: 'games', main, mainClass: `ba-page--home hm-root${off ? ' hm-still' : ''}`, footerExtra: motion });
 }
 
 export const regionHeading = (ctx: Pick<ViewContext, 'i18n'>, region: BodyRegion): string => ctx.i18n.t('workouts.title', { region: ctx.i18n.tx(`region.${region}`) });

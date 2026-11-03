@@ -1,6 +1,7 @@
 // The moving parts of the home page (views/home.ts): the loops of real play, the scroll stage where the camera picture shrinks into
 // the corner of the game, the reel that leans as it passes, and the game tiles that tilt under the mouse. Everything here is extra:
-// the page is complete with its posters, so with reduced motion, Save-Data or no scripts nothing below runs and nothing is missing.
+// the page is complete with its posters, so with motion switched off (the footer switch), Save-Data (no videos) or no scripts nothing
+// is missing.
 // Videos start after the page has loaded (the poster is the first picture, so the loop never holds up the first paint), only near
 // the screen, and they pause when they leave it. mountHomeMotion() returns the function that undoes all of it (the app calls it
 // before it draws another page).
@@ -9,7 +10,8 @@
 export type MotionWindow = Window & typeof globalThis;
 
 export interface HomeMotionOptions {
-  /** The player's or the system's reduced motion: no loops, no scroll stage, no tilt. */
+  /** The player switched motion off (the footer switch or Settings): no loops, no scroll stage, no tilt. The device's own
+   *  reduced-motion wish does not count here: the home page moves by default and says how to calm it. */
   reduced: boolean;
 }
 
@@ -39,8 +41,9 @@ export function mountHomeMotion(root: HTMLElement, win: MotionWindow, o: HomeMot
   const page = root.querySelector<HTMLElement>('.hm-root');
   if (!page) return () => undefined;
   const nav = win.navigator as Navigator & { connection?: { saveData?: boolean } };
+  // Save-Data keeps the stage and the tilt but loads no video: the posters stay.
   const saveData = nav.connection?.saveData === true;
-  if (o.reduced || saveData) {
+  if (o.reduced) {
     page.classList.add('hm-still');
     return () => page.classList.remove('hm-still');
   }
@@ -85,7 +88,7 @@ export function mountHomeMotion(root: HTMLElement, win: MotionWindow, o: HomeMot
   const IO = win.IntersectionObserver;
   let armed = false;
   const arm = (): void => {
-    if (armed || disposed || !IO) return;
+    if (armed || disposed || !IO || saveData) return;
     armed = true;
     const near = new IO((es) => { for (const e of es) if (e.isIntersecting) { start(e.target as HTMLElement); near.unobserve(e.target); } }, { rootMargin: '400px 0px' });
     const vis = new IO((es) => {
@@ -106,17 +109,19 @@ export function mountHomeMotion(root: HTMLElement, win: MotionWindow, o: HomeMot
   const cam = page.querySelector<HTMLElement>('.hm-cam');
   const track = cam?.querySelector<HTMLElement>('.hm-cam-track') ?? null;
   const stick = cam?.querySelector<HTMLElement>('.hm-cam-stick') ?? null;
-  // The camera picture and the game are two loops of the same moment: the camera one follows the game's clock.
-  const gameVideo = cam?.querySelector<HTMLVideoElement>('.hm-clip--game video') ?? null;
-  const camVideo = cam?.querySelector<HTMLVideoElement>('.hm-clip--cam video') ?? null;
-  if (gameVideo && camVideo) {
+  // The camera picture and the game are two loops of the same moment (the hero and the stage): the camera one follows the game's clock.
+  for (const box of Array.from(page.querySelectorAll<HTMLElement>('[data-sync]'))) {
+    const gameVideo = box.querySelector<HTMLVideoElement>('.hm-clip--game video');
+    const camVideo = box.querySelector<HTMLVideoElement>('.hm-clip--cam video');
+    if (!gameVideo || !camVideo) continue;
     const sync = (): void => {
       if (camVideo.readyState < 2 || gameVideo.readyState < 2) return;
       if (Math.abs(camVideo.currentTime - gameVideo.currentTime) > 0.12) camVideo.currentTime = gameVideo.currentTime;
     };
     gameVideo.addEventListener('timeupdate', sync);
     gameVideo.addEventListener('seeked', sync);
-    offs.push(() => { gameVideo.removeEventListener('timeupdate', sync); gameVideo.removeEventListener('seeked', sync); });
+    camVideo.addEventListener('playing', sync);
+    offs.push(() => { gameVideo.removeEventListener('timeupdate', sync); gameVideo.removeEventListener('seeked', sync); camVideo.removeEventListener('playing', sync); });
   }
 
   // Geometry is read on load and resize only; scrolling writes styles.

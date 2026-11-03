@@ -161,6 +161,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'home.sticker.games': '{n} oyun',
   'home.sticker.free': '{free} ücretsiz',
   'home.hero.clip': 'Squat Flap’i kameranın önünde gerçek bir kişi oynuyor: çömeliyor, kalkıyor ve kuş kanat çırpıyor.',
+  'home.hero.cam': 'Kameranın gördüğü: direnç bandıyla çömelen bir kadın, yanındaki oyunla aynı anda.',
   'home.band': 'Çömel,Zıpla,Yumruk at,Uzan,Dön,Eğil,Tırman,Yürü',
   'home.cam.title': 'Kumanda senin vücudun.',
   'home.cam.step1.title': 'Kameranın seni gördüğü yerde dur.',
@@ -198,6 +199,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'home.private.policy': 'Gizlilik politikası',
   'home.android': 'Android uygulaması Google Play’de kapalı testte.',
   'home.android.join': 'Android testine katıl',
+  'home.motion.on': 'Hareketi aç',
 
   'workouts.title': '{region}: kamera ile oynanan spor oyunları',
   'workouts.description': '{region}: {n} kısa spor oyunu, {free} tanesi ücretsiz. Tarayıcıda web kameranla ya da telefon kameranla oynanır; görüntün hiçbir yere gönderilmez.',

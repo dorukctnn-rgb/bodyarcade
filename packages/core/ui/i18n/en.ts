@@ -161,6 +161,7 @@ export const en = {
   'home.sticker.games': '{n, plural, one {# game} other {# games}}',
   'home.sticker.free': '{free} free',
   'home.hero.clip': 'Squat Flap played by a real person in front of the camera: she squats, stands up and the bird flaps.',
+  'home.hero.cam': 'What the camera sees: a woman squatting with a resistance band, at the same moment as the game beside it.',
   'home.band': 'Squat,Jump,Punch,Reach,Twist,Lean,Climb,March',
   'home.cam.title': 'Your body is the controller.',
   'home.cam.step1.title': 'Stand where the camera sees you.',
@@ -198,6 +199,7 @@ export const en = {
   'home.private.policy': 'Privacy policy',
   'home.android': 'The Android app is in a closed test on Google Play.',
   'home.android.join': 'Join the Android test',
+  'home.motion.on': 'Turn motion on',
 
   'workouts.title': '{region} fitness games for your webcam',
   'workouts.description': '{region}: {n, plural, one {# short fitness game} other {# short fitness games}}, {free} free. Play them with your webcam or phone camera in the browser; nothing is uploaded.',

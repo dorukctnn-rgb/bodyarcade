@@ -63,8 +63,13 @@
 .hm-root :focus-visible { outline: 3px solid currentColor; outline-offset: 4px; box-shadow: none; }
 
 /* ---------- Phones and screens around the loops ---------- */
-.hm-phone { display: block; position: relative; padding: 9px; border-radius: 46px; background: #0D0920; box-shadow: inset 0 0 0 2px #2B2350; }
-.hm-screen { display: block; position: relative; aspect-ratio: 9 / 16; border-radius: 37px; overflow: hidden; background: #2B2152; isolation: isolate; }
+.hm-phone { --edge: var(--hm-violet-edge); --off: 16px; display: block; position: relative; container-type: inline-size; padding: 9px; }
+/* the phone's body is drawn around the screen (a spread shadow follows the screen's corners), and its corners scale with the phone, so a
+   small phone keeps the player in its corner window */
+.hm-screen {
+  display: block; position: relative; aspect-ratio: 9 / 16; border-radius: clamp(11px, 10.5cqw, 37px); overflow: hidden; background: #2B2152; isolation: isolate;
+  box-shadow: 0 0 0 9px #0D0920, 0 0 0 11px #2B2350, var(--off) calc(var(--off) + 2px) 0 11px var(--edge);
+}
 .hm-clip { position: absolute; inset: 0; margin: 0; }
 .hm-clip img { display: block; width: 100%; height: 100%; object-fit: cover; }
 /* the loop sits just inside its poster, so it is never a larger first-paint candidate than the poster */
@@ -72,25 +77,34 @@
 .hm-clip.playing video { opacity: 1; }
 .hm-clip.playing img { visibility: hidden; }
 
-/* ---------- 1. Hero (violet) ---------- */
-.hm-hero { background: var(--hm-violet); color: #fff; padding-block: clamp(26px, 5vw, 76px) 0; }
-.hm-hero-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr); gap: clamp(24px, 4vw, 72px); align-items: center; }
+/* ---------- 1. Hero (violet): the real player and the game, side by side, moving together ---------- */
+.hm-hero { background: var(--hm-violet); color: #fff; padding-block: clamp(26px, 4vw, 64px) 0; }
+.hm-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 72px); align-items: center; }
+.hm-hero .hm-h1 { font-size: clamp(2.4rem, 0.9rem + 3.9vw, 5.6rem); }
+:lang(tr) .hm-hero .hm-h1 { font-size: clamp(2.2rem, 0.85rem + 3.4vw, 5rem); }
 .hm-hero-copy .hm-lead { color: #F1EDFF; }
 .hm-assure { display: flex; align-items: center; gap: 10px; margin: 22px 0 0; font-weight: 700; color: #F1EDFF; }
 .hm-assure svg { width: 24px; height: 24px; flex: none; }
-.hm-hero-stage { position: relative; display: grid; place-items: center; padding: 30px 0 46px; perspective: 1400px; }
-.hm-phone--hero {
-  width: min(350px, 100%); box-shadow: inset 0 0 0 2px #2B2350, 22px 24px 0 var(--hm-violet-edge);
-  transform: rotateY(calc(-9deg + var(--ry, 0deg))) rotateX(calc(4deg + var(--rx, 0deg))) rotateZ(2.5deg); transition: transform 0.5s cubic-bezier(.2, .7, .2, 1);
+/* --cap: the height the two frames may take, so both stay whole on the first screen */
+.hm-hero-stage {
+  --k: 0; --cap: calc(100vh - var(--hm-top) - var(--hm-bottom) - 170px); --cap: calc(100svh - var(--hm-top) - var(--hm-bottom) - 170px);
+  position: relative; display: flex; align-items: flex-start; justify-content: center; padding: 30px 0 52px;
 }
+.hm-camframe { position: relative; z-index: 1; flex: none; width: min(52%, 300px, calc(var(--cap) * 0.5625)); transform: rotate(-3deg); }
+.hm-camscreen { position: relative; aspect-ratio: 9 / 16; border-radius: 22px; overflow: hidden; background: #D9D6DF; box-shadow: 0 0 0 7px #fff, 12px 14px 0 7px var(--hm-violet-edge); }
+.hm-phone--hero {
+  z-index: 2; flex: none; width: min(46%, 270px, calc(var(--cap) * 0.52)); margin: 9% 0 0 -3%;
+  transform: perspective(1400px) rotateY(var(--ry, 0deg)) rotateX(var(--rx, 0deg)) rotate(3deg); transition: transform 0.5s cubic-bezier(.2, .7, .2, 1);
+}
+/* stickers sit on the edges of the frames, clear of the player and the bird */
 .hm-burst {
-  position: absolute; z-index: 3; display: grid; place-items: center; width: clamp(104px, 10.5vw, 150px); aspect-ratio: 1;
+  position: absolute; z-index: 3; display: grid; place-items: center; aspect-ratio: 1;
   clip-path: polygon(50% 0%, 61% 12%, 78% 6%, 80% 23%, 96% 28%, 88% 43%, 100% 56%, 85% 65%, 89% 83%, 71% 83%, 63% 99%, 50% 89%, 37% 99%, 29% 83%, 11% 83%, 15% 65%, 0% 56%, 12% 43%, 4% 28%, 20% 23%, 22% 6%, 39% 12%);
   font-weight: 900; text-align: center; line-height: 1; animation: hm-wobble 7s ease-in-out infinite;
 }
-.hm-burst > span { max-width: 60%; font-size: clamp(1rem, 0.7rem + 0.9vw, 1.45rem); letter-spacing: -0.02em; text-wrap: balance; }
-.hm-burst--a { background: var(--hm-sun); color: var(--hm-ink); left: -4%; top: 4%; --rot: -10deg; }
-.hm-burst--b { background: var(--hm-coral); color: var(--hm-ink); right: -5%; top: 34%; --rot: 9deg; animation-delay: -3s; }
+.hm-burst > span { max-width: 62%; font-size: clamp(0.82rem, 0.55rem + 0.75vw, 1.35rem); letter-spacing: -0.02em; text-wrap: balance; }
+.hm-burst--a { background: var(--hm-sun); color: var(--hm-ink); width: max(78px, 46%); right: -16%; top: -6%; --rot: -10deg; }
+.hm-burst--b { background: var(--hm-coral); color: var(--hm-ink); width: max(78px, 42%); left: -17%; bottom: 2%; --rot: 9deg; animation-delay: -3s; }
 @keyframes hm-wobble { 0%, 100% { transform: rotate(var(--rot)) scale(1); } 50% { transform: rotate(calc(var(--rot) * -0.4)) scale(1.06); } }
 
 /* the band of moves: one long line that runs sideways */
@@ -103,13 +117,15 @@
 .hm-hero + * { margin-top: 0; }
 
 @media (max-width: 760px) {
-  .hm-hero-grid { grid-template-columns: minmax(0, 1fr); }
-  .hm-hero-stage { padding: 14px 0 34px; }
-  .hm-phone--hero { width: min(62vw, 300px); }
-  .hm-burst { width: clamp(92px, 26vw, 118px); }
-  .hm-burst--a { left: 0; top: 2%; }
-  .hm-burst--b { right: 0; top: 30%; }
-  .hm-btn { width: 100%; }
+  /* on a phone the player comes first: the two frames, then the heading and the buttons, all on the first screen */
+  .hm-hero-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .hm-hero-copy { display: contents; }
+  .hm-hero-stage { order: -1; padding: 18px 0 30px; --cap: clamp(200px, calc(100svh - var(--hm-bottom) - 480px), 360px); }
+  .hm-hero .hm-h1 { order: 0; }
+  .hm-hero .hm-actions { order: 1; margin-top: 18px; gap: 12px; }
+  .hm-hero .hm-lead { order: 2; }
+  .hm-hero .hm-assure { order: 3; }
+  .hm-btn { width: 100%; min-height: 54px; }
 }
 
 /* ---------- 2. The camera picture becomes the game (night) ---------- */
@@ -138,7 +154,7 @@
 .hm-cam:not([data-step]) .hm-cam-words [data-w="2"], .hm-cam[data-step="1"] [data-w="1"], .hm-cam[data-step="2"] [data-w="2"], .hm-cam[data-step="3"] [data-w="3"] { opacity: 1; }
 .hm-cam-device { display: grid; place-items: center; perspective: 1600px; }
 .hm-phone--stage {
-  width: min(400px, 100%); box-shadow: inset 0 0 0 2px #2B2350, 20px 22px 0 #2C1F63;
+  --edge: #2C1F63; --off: 20px; width: min(400px, 100%);
   transform: rotateY(calc((0.5 - var(--p)) * 22deg)) rotateX(calc((var(--p) - 0.5) * -6deg));
 }
 /* The camera picture: full screen at first, then it shrinks into the game's own corner window and hands over to it. The window is
@@ -151,41 +167,38 @@
 }
 .hm-camlayer .hm-clip--cam { transform-origin: 0 0; transform: translate(calc(var(--k) * 58.06%), calc(var(--k) * 59.14%)) scale(calc(1 - var(--k) * 0.5528)); }
 .hm-camtag {
-  position: absolute; z-index: 3; left: 14px; top: 14px; display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border-radius: 999px;
+  position: absolute; z-index: 4; left: 16px; top: -15px; display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border-radius: 999px;
   background: rgba(22, 15, 44, 0.86); color: #fff; font-weight: 800; font-size: 0.95rem; opacity: clamp(0, calc(1 - var(--k) * 3), 1);
 }
 .hm-camtag i { width: 10px; height: 10px; border-radius: 50%; background: var(--hm-coral); }
 
-/* With motion: a tall track and a stage that stays while the picture changes. */
-@media (prefers-reduced-motion: no-preference) {
-  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-track { height: 330vh; }
-  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-stick {
-    position: sticky; top: var(--hm-top); height: calc(100vh - var(--hm-top) - var(--hm-bottom)); height: calc(100svh - var(--hm-top) - var(--hm-bottom));
-    padding-block: clamp(16px, 3vh, 40px); overflow: hidden;
-  }
-  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-device { height: 100%; min-height: 0; container-type: size; }
-  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-grid { height: 100%; }
-  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-phone--stage { width: min(100cqw, calc((100cqh - 18px) * 9 / 16 + 18px)); }
+/* With motion (the default, whatever the device says; the footer switch turns it off with .hm-still): a tall track and a stage
+   that stays while the picture changes. */
+.hm-root:not(.hm-still) .hm-cam-track { height: 330vh; }
+.hm-root:not(.hm-still) .hm-cam-stick {
+  position: sticky; top: var(--hm-top); height: calc(100vh - var(--hm-top) - var(--hm-bottom)); height: calc(100svh - var(--hm-top) - var(--hm-bottom));
+  padding-block: clamp(16px, 3vh, 40px); overflow: hidden;
 }
-/* Reduced motion: an open composition, the game with the player in its corner, nothing pinned. */
+.hm-root:not(.hm-still) .hm-cam-device { height: 100%; min-height: 0; container-type: size; }
+.hm-root:not(.hm-still) .hm-cam-grid { height: 100%; }
+.hm-root:not(.hm-still) .hm-phone--stage { width: min(100cqw, calc((100cqh - 18px) * 9 / 16 + 18px)); }
+/* Motion off: an open composition, the game with the player in its corner, nothing pinned. */
 .hm-still .hm-camlayer, .hm-still .hm-cam-words { display: none; }
-@media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .hm-camlayer, :root:not([data-motion="full"]) .hm-cam-words { display: none; } }
-:root[data-motion="reduce"] .hm-camlayer, :root[data-motion="reduce"] .hm-cam-words { display: none; }
 
 @media (max-width: 760px) {
   .hm-cam-grid { grid-template-columns: minmax(0, 1fr); align-content: start; gap: 18px; }
   .hm-steps li { grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; }
   .hm-steps li::before { width: 40px; height: 40px; font-size: 1.15rem; }
   .hm-phone--stage { width: min(72vw, 330px); }
-  @media (prefers-reduced-motion: no-preference) {
-    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-grid { grid-template-rows: auto minmax(0, 1fr); }
-    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-copy .hm-h2 { font-size: clamp(1.7rem, 1.1rem + 3.4vw, 2.4rem); }
+  @media all {
+    .hm-root:not(.hm-still) .hm-cam-grid { grid-template-rows: auto minmax(0, 1fr); }
+    .hm-root:not(.hm-still) .hm-cam-copy .hm-h2 { font-size: clamp(1.7rem, 1.1rem + 3.4vw, 2.4rem); }
     /* one step at a time on a phone: the three share one place */
-    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam[data-step] .hm-steps { margin-top: 14px; }
-    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam[data-step] .hm-steps li { grid-area: 1 / 1; opacity: 0; }
-    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam[data-step] .hm-steps li.on { opacity: 1; }
-    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-steps b { font-size: 1.1rem; }
-    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-steps span { font-size: 0.95rem; margin-top: 3px; }
+    .hm-root:not(.hm-still) .hm-cam[data-step] .hm-steps { margin-top: 14px; }
+    .hm-root:not(.hm-still) .hm-cam[data-step] .hm-steps li { grid-area: 1 / 1; opacity: 0; }
+    .hm-root:not(.hm-still) .hm-cam[data-step] .hm-steps li.on { opacity: 1; }
+    .hm-root:not(.hm-still) .hm-steps b { font-size: 1.1rem; }
+    .hm-root:not(.hm-still) .hm-steps span { font-size: 0.95rem; margin-top: 3px; }
   }
 }
 /* A phone on its side has no room for a pinned stage. */
@@ -234,7 +247,7 @@
 }
 .hm-rcard { --r: 0; transform: translateY(calc(var(--r) * (var(--i) - 1) * 46px)) rotate(calc((var(--i) - 1) * 1.5deg)); }
 .hm-rcard > a { display: grid; gap: 14px; text-decoration: none; color: var(--hm-ink); }
-.hm-rcard .hm-phone { box-shadow: inset 0 0 0 2px #2B2350, 12px 14px 0 var(--hm-ink); transition: transform 0.3s cubic-bezier(.2, .7, .2, 1); }
+.hm-rcard .hm-phone { width: min(100%, calc((100vh - var(--hm-top) - var(--hm-bottom) - 120px) * 0.5625)); width: min(100%, calc((100svh - var(--hm-top) - var(--hm-bottom) - 120px) * 0.5625)); margin-inline: auto; --edge: var(--hm-ink); --off: 12px; transition: transform 0.3s cubic-bezier(.2, .7, .2, 1); }
 .hm-rcard > a:hover .hm-phone { transform: translateY(-6px) rotate(-1deg); }
 .hm-rcard-text { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 14px 16px; border-radius: 18px; background: var(--c); box-shadow: inset 0 0 0 2px var(--hm-ink); }
 .hm-rcard-text b { font-weight: 900; font-size: clamp(1.2rem, 1rem + 0.6vw, 1.55rem); letter-spacing: -0.01em; }
@@ -242,9 +255,9 @@
 .hm-tag { flex-basis: 100%; font-size: 0.95rem; line-height: 1.4; color: var(--hm-ink); }
 .hm-credit { margin: clamp(26px, 3vw, 40px) 0 0; font-size: 0.92rem; font-weight: 600; max-width: 46em; }
 @media (max-width: 760px) {
-  .hm-reel-row { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: min(68vw, 280px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 18px; scrollbar-width: none; overscroll-behavior-x: contain; }
-  .hm-reel-row::-webkit-scrollbar { display: none; }
-  .hm-rcard { transform: none; scroll-snap-align: start; }
+  /* one card under the other, each whole on the screen (a sideways row would cut the next player in half) */
+  .hm-reel-row { grid-template-columns: minmax(0, 1fr); gap: 36px; justify-items: center; }
+  .hm-rcard { transform: none; width: min(100%, 330px); }
 }
 
 /* ---------- 5. Together (sky) ---------- */
@@ -299,11 +312,18 @@
 .hm-about .ba-teaser { margin-top: clamp(24px, 3vw, 40px); }
 .hm-about + .ba-footer, .hm-root + .ba-footer { margin-top: 0; }
 
-/* ---------- Motion off ---------- */
-@media (prefers-reduced-motion: reduce) {
-  :root:not([data-motion="full"]) .hm-band-track, :root:not([data-motion="full"]) .hm-burst { animation: none; }
-  :root:not([data-motion="full"]) .hm-phone--hero, :root:not([data-motion="full"]) .hm-rcard { transition: none; }
-}
-:root[data-motion="reduce"] .hm-band-track, :root[data-motion="reduce"] .hm-burst { animation: none; }
+/* ---------- Motion off: the footer switch (settings.motion reduce) or Save-Data ---------- */
 .hm-still .hm-band-track, .hm-still .hm-burst { animation: none; }
 .hm-still .hm-rcard { transform: none; }
+.hm-still .hm-phone--hero, .hm-still .hm-phone--stage { transition: none; }
+/* The kit cuts every animation and transition to 1 ms when the device asks for reduced motion (kit.css). The home page follows the
+   site's own switch instead, so its moving parts get their timing back while the switch is on. */
+.hm-root:not(.hm-still) .hm-band-track { animation-duration: 30s !important; animation-iteration-count: infinite !important; }
+.hm-root:not(.hm-still) .hm-burst { animation-duration: 7s !important; animation-iteration-count: infinite !important; }
+.hm-root:not(.hm-still) .hm-clip video { transition-duration: 0.3s !important; }
+.hm-root:not(.hm-still) .hm-phone--hero, .hm-root:not(.hm-still) .hm-rcard .hm-phone { transition-duration: 0.5s !important; }
+.hm-root:not(.hm-still) .hm-games .ba-tile, .hm-root:not(.hm-still) .hm-btn { transition-duration: 0.2s !important; }
+.hm-root:not(.hm-still) .hm-steps li, .hm-root:not(.hm-still) .hm-steps b, .hm-root:not(.hm-still) .hm-steps span, .hm-root:not(.hm-still) .hm-steps li::before, .hm-root:not(.hm-still) .hm-cam-words span { transition-duration: 0.35s !important; }
+/* the footer switch */
+.hm-motion-row { margin: 0; }
+.hm-motion { min-height: 44px; padding: 0 2px; background: none; border: 0; font: inherit; font-size: var(--ba-text-sm); font-weight: 700; color: var(--ba-text); text-decoration: underline; text-decoration-color: var(--ba-accent); text-decoration-thickness: 2px; text-underline-offset: 4px; cursor: pointer; justify-self: start; }
