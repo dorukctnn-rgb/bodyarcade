@@ -57,6 +57,7 @@ import { canRace } from './duel.ts';
 import { openGhostDialog, type GhostDialogHost } from './ghost-dialog.ts';
 import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceStageMount, type RaceWorld } from './race.ts';
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
+import { mountHomeMotion } from './home-motion.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import type { RestoreOutcome } from '../../../core/entitlements/port.ts';
 import { roomOfRoute, SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
@@ -207,6 +208,8 @@ export class App {
   private stageToken = 0;
   /** The results of a room's race follow the room (who wants a rematch, who left) while they are on the screen. */
   private offRoomWatch: (() => void) | null = null;
+  /** Undoes the moving parts of the home page (its loops, the scroll stage); set while the home page is drawn. */
+  private offHome: (() => void) | null = null;
   /** Back during a round: the page goes forward again and asks ('restoring'); a yes goes back for real ('leaving'). */
   private backGuard: 'idle' | 'restoring' | 'leaving' = 'idle';
   private social: SocialController | null;
@@ -532,6 +535,8 @@ export class App {
     this.stopRestTimer();
     this.live.dispose();
     this.toaster.dispose();
+    this.offHome?.();
+    this.offHome = null;
   }
 
   // ---- routes ------------------------------------------------------------------------------------------------------
@@ -759,7 +764,10 @@ export class App {
     };
     const page = renderPage(ctx, route, state);
     this.shown = this.shownOfPlayers();
+    this.offHome?.();
+    this.offHome = null;
     swap(this.host, page.body.value);
+    if (route?.id === 'home' && page.status === 200) this.offHome = mountHomeMotion(this.host, this.win, { reduced: this.reducedMotion() });
     const info = LANG_INFO.find((l) => l.code === this.lang);
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });
     if (route?.id === 'play' && page.status === 200) this.beginPlay(route);
@@ -772,9 +780,13 @@ export class App {
 
   private tourHook(): 'static' | 'fallback' | 'first' | undefined { return this.o.demo ? this.win.__BA_TEST__?.tour : undefined; }
 
-  /** The home page, the first time this device opens it: no tour seen, no round played, no script or crawler. */
+  /**
+   * The home page, the first time the Android app opens it: no tour seen, no round played, no script or crawler. On the web the home
+   * page is the landing page itself (its Play button starts a round, "How it works" opens the tour), so a first visit stays on it.
+   */
   private firstVisit(change: RouteChange<RouteId>): boolean {
     const forced = this.tourHook() === 'first';
+    if (!forced && this.caps.platform !== 'android-app') return false;
     return takeToTour({
       initial: change.initial, atHome: true, onboardingDone: this.currentSettings().onboardingDone, rounds: this.rounds(),
       automated: !forced && isAutomated({ userAgent: this.win.navigator.userAgent, webdriver: this.win.navigator.webdriver }),
@@ -1376,6 +1388,10 @@ export class App {
     if (this.social?.click(action, el)) { e.preventDefault(); return; }
     if (this.offline?.action(action)) { e.preventDefault(); return; }
     switch (action) {
+      case 'play-now':
+        // the home page's Play: straight into a round (the link does the going); the sound may start with this tap
+        this.o.onPlayGesture?.();
+        break;
       case 'mode':
         this.toggleMode(el.dataset['mode'] ?? '');
         break;

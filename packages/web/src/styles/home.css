@@ -1,0 +1,301 @@
+/* The home page (views/home.ts): colour worlds in the style of peakappsstudio.com. System type only, made loud by size, weight
+   and colour; real play in every world; solid offset shadows instead of blur. The moving parts are app/home-motion.ts. Every
+   section sets its own colours and the light-theme tokens its cards use, so it looks the same in a dark theme. */
+
+.hm-root {
+  --hm-ink: #1C1433;
+  --hm-violet: #5B3DF5;
+  --hm-violet-edge: #3518B8;
+  --hm-night: #160F2C;
+  --hm-sun: #FFC53A;
+  --hm-coral: #FF4F6E;
+  --hm-sky: #46B4FF;
+  --hm-mint: #2ED6A0;
+  --hm-lilac: #EDE8FF;
+  --hm-chalk: #F4F2F8;
+  --g: var(--ba-gutter, 16px);
+  /* what the sticky stage leaves free: the top bar from 900 px, the tab bar below that */
+  --hm-top: 0px;
+  --hm-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 900px) and (min-height: 501px) { .hm-root { --hm-top: 72px; --hm-bottom: 0px; } }
+@media (max-height: 500px) and (orientation: landscape) { .hm-root { --hm-bottom: 0px; } }
+
+.ba-page.hm-root { max-width: none; padding: 0; }
+@media (max-height: 500px) and (orientation: landscape) { .ba-page.hm-root { padding-left: 76px; } }
+.hm-root > .ba-mobilehead { padding-inline: var(--g); }
+.hm-wrap { width: 100%; max-width: calc(1240px + 2 * var(--g)); margin: 0 auto; padding: 0 var(--g); }
+@media (min-width: 1680px) { .hm-wrap { max-width: calc(1440px + 2 * var(--g)); } }
+.hm { position: relative; overflow-x: clip; margin: 0; padding-block: clamp(56px, 8vw, 116px); }
+
+/* Light-theme tokens inside the light worlds, whatever the page theme is. */
+.hm-games, .hm-reel, .hm-duo, .hm-today, .hm-about {
+  --ba-bg: #F4F2F8; --ba-surface: #FFFFFF; --ba-surface-sunken: #ECE9F3; --ba-text: #1C1433; --ba-text-muted: #4A4263;
+  --ba-border: #D9D4E5; --ba-border-strong: #1C1433; --ba-accent-text: #B81E40; --ba-accent-tint: #FFE3E9; --ba-focus: #1C1433;
+  color: var(--hm-ink);
+}
+
+/* ---------- Type: the system face, made loud ---------- */
+.hm-h1, .hm-h2, .hm-mega { font-family: var(--ba-font-display); font-weight: 900; margin: 0; text-wrap: balance; overflow-wrap: break-word; }
+.hm-h1 { font-size: clamp(2.5rem, 1.25rem + 5.4vw, 6.1rem); line-height: 0.93; letter-spacing: -0.035em; }
+:lang(tr) .hm-h1 { font-size: clamp(2.3rem, 1.15rem + 4.6vw, 5.3rem); }
+.hm-h2 { font-size: clamp(2.1rem, 1.05rem + 4.2vw, 4.9rem); line-height: 0.95; letter-spacing: -0.03em; }
+.hm-mega { font-size: clamp(2.5rem, 0.9rem + 6.6vw, 7.4rem); line-height: 0.92; letter-spacing: -0.04em; }
+.hm-lead { font-size: clamp(1.05rem, 0.95rem + 0.42vw, 1.32rem); line-height: 1.45; max-width: 36em; margin: 18px 0 0; }
+
+/* ---------- Buttons: arcade buttons with a solid edge ---------- */
+.hm-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: clamp(22px, 3vw, 34px); }
+.hm-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 60px; padding: 10px 26px; border-radius: 18px;
+  font-weight: 800; font-size: 1.15rem; line-height: 1.15; text-decoration: none; text-align: center; max-width: 100%;
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+.hm-btn svg { width: 22px; height: 22px; flex: none; }
+.hm-btn--light { background: #fff; color: var(--hm-ink); box-shadow: 0 6px 0 var(--hm-ink); }
+.hm-btn--light:hover { transform: translateY(-2px); box-shadow: 0 8px 0 var(--hm-ink); }
+.hm-btn--light:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--hm-ink); }
+.hm-btn--ghost { color: #fff; box-shadow: inset 0 0 0 2.5px #fff; }
+.hm-btn--ghost:hover { background: rgba(255, 255, 255, 0.12); }
+.hm-btn--ink { background: var(--hm-ink); color: #fff; box-shadow: 0 5px 0 rgba(28, 20, 51, 0.35); min-height: 54px; font-size: 1.05rem; }
+.hm-btn--ink:hover { transform: translateY(-2px); }
+.hm-link { color: inherit; font-weight: 800; text-decoration: underline; text-decoration-thickness: 2.5px; text-underline-offset: 5px; }
+.hm-root :focus-visible { outline: 3px solid currentColor; outline-offset: 4px; box-shadow: none; }
+
+/* ---------- Phones and screens around the loops ---------- */
+.hm-phone { display: block; position: relative; padding: 9px; border-radius: 46px; background: #0D0920; box-shadow: inset 0 0 0 2px #2B2350; }
+.hm-screen { display: block; position: relative; aspect-ratio: 9 / 16; border-radius: 37px; overflow: hidden; background: #2B2152; isolation: isolate; }
+.hm-clip { position: absolute; inset: 0; margin: 0; }
+.hm-clip img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* the loop sits just inside its poster, so it is never a larger first-paint candidate than the poster */
+.hm-clip video { position: absolute; left: 0.75%; top: 0.75%; width: 98.5%; height: 98.5%; object-fit: cover; opacity: 0; transition: opacity 0.3s ease-out; pointer-events: none; }
+.hm-clip.playing video { opacity: 1; }
+.hm-clip.playing img { visibility: hidden; }
+
+/* ---------- 1. Hero (violet) ---------- */
+.hm-hero { background: var(--hm-violet); color: #fff; padding-block: clamp(26px, 5vw, 76px) 0; }
+.hm-hero-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr); gap: clamp(24px, 4vw, 72px); align-items: center; }
+.hm-hero-copy .hm-lead { color: #F1EDFF; }
+.hm-assure { display: flex; align-items: center; gap: 10px; margin: 22px 0 0; font-weight: 700; color: #F1EDFF; }
+.hm-assure svg { width: 24px; height: 24px; flex: none; }
+.hm-hero-stage { position: relative; display: grid; place-items: center; padding: 30px 0 46px; perspective: 1400px; }
+.hm-phone--hero {
+  width: min(350px, 100%); box-shadow: inset 0 0 0 2px #2B2350, 22px 24px 0 var(--hm-violet-edge);
+  transform: rotateY(calc(-9deg + var(--ry, 0deg))) rotateX(calc(4deg + var(--rx, 0deg))) rotateZ(2.5deg); transition: transform 0.5s cubic-bezier(.2, .7, .2, 1);
+}
+.hm-burst {
+  position: absolute; z-index: 3; display: grid; place-items: center; width: clamp(104px, 10.5vw, 150px); aspect-ratio: 1;
+  clip-path: polygon(50% 0%, 61% 12%, 78% 6%, 80% 23%, 96% 28%, 88% 43%, 100% 56%, 85% 65%, 89% 83%, 71% 83%, 63% 99%, 50% 89%, 37% 99%, 29% 83%, 11% 83%, 15% 65%, 0% 56%, 12% 43%, 4% 28%, 20% 23%, 22% 6%, 39% 12%);
+  font-weight: 900; text-align: center; line-height: 1; animation: hm-wobble 7s ease-in-out infinite;
+}
+.hm-burst > span { max-width: 60%; font-size: clamp(1rem, 0.7rem + 0.9vw, 1.45rem); letter-spacing: -0.02em; text-wrap: balance; }
+.hm-burst--a { background: var(--hm-sun); color: var(--hm-ink); left: -4%; top: 4%; --rot: -10deg; }
+.hm-burst--b { background: var(--hm-coral); color: var(--hm-ink); right: -5%; top: 34%; --rot: 9deg; animation-delay: -3s; }
+@keyframes hm-wobble { 0%, 100% { transform: rotate(var(--rot)) scale(1); } 50% { transform: rotate(calc(var(--rot) * -0.4)) scale(1.06); } }
+
+/* the band of moves: one long line that runs sideways */
+.hm-band { margin-top: clamp(22px, 4vw, 52px); background: var(--hm-sun); color: var(--hm-ink); transform: rotate(-2deg); width: 106%; margin-left: -3%; overflow: hidden; padding: 10px 0 14px; box-shadow: 0 7px 0 var(--hm-ink); }
+.hm-band-track { display: flex; width: max-content; animation: hm-run 30s linear infinite; }
+.hm-band-run { display: flex; flex: none; gap: clamp(22px, 3vw, 44px); padding-right: clamp(22px, 3vw, 44px); }
+.hm-band span { font-weight: 900; font-size: clamp(2.2rem, 1.2rem + 4.4vw, 5rem); line-height: 1; letter-spacing: -0.03em; white-space: nowrap; }
+.hm-band span.o { color: transparent; -webkit-text-stroke: 2.5px var(--hm-ink); }
+@keyframes hm-run { to { transform: translateX(-50%); } }
+.hm-hero + * { margin-top: 0; }
+
+@media (max-width: 760px) {
+  .hm-hero-grid { grid-template-columns: minmax(0, 1fr); }
+  .hm-hero-stage { padding: 14px 0 34px; }
+  .hm-phone--hero { width: min(62vw, 300px); }
+  .hm-burst { width: clamp(92px, 26vw, 118px); }
+  .hm-burst--a { left: 0; top: 2%; }
+  .hm-burst--b { right: 0; top: 30%; }
+  .hm-btn { width: 100%; }
+}
+
+/* ---------- 2. The camera picture becomes the game (night) ---------- */
+.hm-cam { background: var(--hm-night); color: var(--hm-chalk); padding: 0; }
+.hm-cam-track { position: relative; }
+.hm-cam-stick { position: relative; display: grid; align-items: center; padding-block: clamp(56px, 8vw, 110px); --p: 0.5; --k: 1; }
+.hm-cam-grid { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); gap: clamp(24px, 5vw, 80px); align-items: center; }
+.hm-cam-copy .hm-h2 { color: #fff; }
+.hm-steps { list-style: none; margin: clamp(22px, 3vw, 40px) 0 0; padding: 0; display: grid; gap: 18px; counter-reset: s; }
+.hm-steps li { counter-increment: s; display: grid; grid-template-columns: 52px minmax(0, 1fr); column-gap: 16px; align-items: start; transition: opacity 0.35s ease-out; }
+.hm-steps li::before {
+  content: counter(s); grid-row: span 2; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+  background: var(--hm-coral); color: var(--hm-ink); font-weight: 900; font-size: 1.5rem;
+}
+.hm-steps b { font-weight: 850; font-size: clamp(1.2rem, 1rem + 0.7vw, 1.6rem); line-height: 1.15; color: #fff; }
+.hm-steps span { margin-top: 6px; color: #CFC7EE; line-height: 1.45; max-width: 30em; }
+.hm-cam[data-step] .hm-steps li { opacity: 0.32; }
+.hm-cam[data-step] .hm-steps li.on { opacity: 1; }
+.hm-cam-words { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.hm-cam-words span {
+  position: absolute; left: 50%; top: 50%; font-weight: 900; font-size: clamp(6rem, 22vw, 24rem); line-height: 0.8; letter-spacing: -0.05em; white-space: nowrap;
+  color: transparent; -webkit-text-stroke: 2px rgba(244, 242, 248, 0.11); transform: translate(-50%, -50%) translateX(calc((0.5 - var(--p)) * 26vw)); opacity: 0; transition: opacity 0.5s ease-out;
+}
+.hm-cam:not([data-step]) .hm-cam-words [data-w="2"], .hm-cam[data-step="1"] [data-w="1"], .hm-cam[data-step="2"] [data-w="2"], .hm-cam[data-step="3"] [data-w="3"] { opacity: 1; }
+.hm-cam-device { display: grid; place-items: center; perspective: 1600px; }
+.hm-phone--stage {
+  width: min(400px, 100%); box-shadow: inset 0 0 0 2px #2B2350, 20px 22px 0 #2C1F63;
+  transform: rotateY(calc((0.5 - var(--p)) * 22deg)) rotateX(calc((var(--p) - 0.5) * -6deg));
+}
+/* The camera picture: full screen at first, then it shrinks into the game's own corner window and hands over to it. The window is
+   right 12, bottom 14, 144 by 256 of the 432 by 768 capture; inside it the game shows the camera picture 44.7 % as large as the
+   screen, its corner at 58.06 % and 59.14 % (measured on the capture), so the picture lands exactly where the game draws it. */
+.hm-camlayer {
+  position: absolute; inset: 0; z-index: 2; overflow: hidden;
+  clip-path: inset(calc(var(--k) * 64.844%) calc(var(--k) * 2.778%) calc(var(--k) * 1.823%) calc(var(--k) * 63.889%) round calc(var(--k) * 11px));
+  opacity: clamp(0, calc((1 - var(--k)) * 14), 1);
+}
+.hm-camlayer .hm-clip--cam { transform-origin: 0 0; transform: translate(calc(var(--k) * 58.06%), calc(var(--k) * 59.14%)) scale(calc(1 - var(--k) * 0.5528)); }
+.hm-camtag {
+  position: absolute; z-index: 3; left: 14px; top: 14px; display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border-radius: 999px;
+  background: rgba(22, 15, 44, 0.86); color: #fff; font-weight: 800; font-size: 0.95rem; opacity: clamp(0, calc(1 - var(--k) * 3), 1);
+}
+.hm-camtag i { width: 10px; height: 10px; border-radius: 50%; background: var(--hm-coral); }
+
+/* With motion: a tall track and a stage that stays while the picture changes. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-track { height: 330vh; }
+  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-stick {
+    position: sticky; top: var(--hm-top); height: calc(100vh - var(--hm-top) - var(--hm-bottom)); height: calc(100svh - var(--hm-top) - var(--hm-bottom));
+    padding-block: clamp(16px, 3vh, 40px); overflow: hidden;
+  }
+  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-device { height: 100%; min-height: 0; container-type: size; }
+  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-grid { height: 100%; }
+  :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-phone--stage { width: min(100cqw, calc((100cqh - 18px) * 9 / 16 + 18px)); }
+}
+/* Reduced motion: an open composition, the game with the player in its corner, nothing pinned. */
+.hm-still .hm-camlayer, .hm-still .hm-cam-words { display: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .hm-camlayer, :root:not([data-motion="full"]) .hm-cam-words { display: none; } }
+:root[data-motion="reduce"] .hm-camlayer, :root[data-motion="reduce"] .hm-cam-words { display: none; }
+
+@media (max-width: 760px) {
+  .hm-cam-grid { grid-template-columns: minmax(0, 1fr); align-content: start; gap: 18px; }
+  .hm-steps li { grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; }
+  .hm-steps li::before { width: 40px; height: 40px; font-size: 1.15rem; }
+  .hm-phone--stage { width: min(72vw, 330px); }
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-grid { grid-template-rows: auto minmax(0, 1fr); }
+    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam-copy .hm-h2 { font-size: clamp(1.7rem, 1.1rem + 3.4vw, 2.4rem); }
+    /* one step at a time on a phone: the three share one place */
+    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam[data-step] .hm-steps { margin-top: 14px; }
+    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam[data-step] .hm-steps li { grid-area: 1 / 1; opacity: 0; }
+    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-cam[data-step] .hm-steps li.on { opacity: 1; }
+    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-steps b { font-size: 1.1rem; }
+    :root:not([data-motion="reduce"]) .hm-root:not(.hm-still) .hm-steps span { font-size: 0.95rem; margin-top: 3px; }
+  }
+}
+/* A phone on its side has no room for a pinned stage. */
+@media (max-height: 560px) {
+  .hm-root .hm-cam-track { height: auto !important; }
+  .hm-root .hm-cam-stick { position: relative !important; height: auto !important; padding-block: 48px !important; }
+  .hm-root .hm-cam-device { height: auto !important; container-type: normal !important; }
+  .hm-root .hm-phone--stage { width: min(300px, 70vw) !important; }
+  .hm-root .hm-camlayer, .hm-root .hm-cam-words { display: none; }
+}
+
+/* ---------- 3. Every game (sun) ---------- */
+.hm-games { background: var(--hm-sun); }
+.hm-games-head { display: grid; gap: 12px; margin: 0 0 clamp(18px, 2.4vw, 30px); }
+.hm-games-lead { margin: 0; font-size: clamp(1.02rem, 0.95rem + 0.3vw, 1.2rem); font-weight: 650; }
+.hm-count { white-space: nowrap; font-weight: 800; }
+.hm-games .ba-filters { margin-bottom: clamp(18px, 2.4vw, 28px); }
+.hm-games .ba-chip { background: #fff; color: var(--hm-ink); box-shadow: inset 0 0 0 2px var(--hm-ink); font-weight: 750; }
+.hm-games .ba-chip[aria-current="page"], .hm-games .ba-chip[aria-pressed="true"] { background: var(--hm-ink); color: #fff; }
+.hm-games .ba-chip:hover:not([aria-current="page"]):not([aria-pressed="true"]) { box-shadow: inset 0 0 0 3px var(--hm-ink); }
+.hm-games .ba-filters .sep { background: var(--hm-ink); opacity: 0.4; }
+@media (min-width: 900px) {
+  .hm-games .k-modes { position: static; display: contents; }
+  .hm-games .ba-filters .sep { display: block; }
+}
+.hm-games .ba-grid { gap: clamp(14px, 2vw, 26px); }
+.hm-games .ba-tile {
+  background: #fff; border-radius: 24px; padding: 10px 10px 14px; gap: 10px; color: var(--hm-ink);
+  box-shadow: inset 0 0 0 2px var(--hm-ink), 6px 7px 0 var(--hm-ink);
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform 0.25s ease-out, box-shadow 0.2s ease-out, translate 0.2s ease-out;
+}
+.hm-games .ba-tile:hover { translate: 0 -4px; box-shadow: inset 0 0 0 2px var(--hm-ink), 9px 11px 0 var(--hm-ink); }
+.hm-games .ba-tile:hover .art { transform: none; box-shadow: none; }
+.hm-games .ba-tile .art { border-radius: 16px; }
+.hm-games .ba-tile .t { font-weight: 900; font-size: clamp(1.1rem, 1rem + 0.45vw, 1.4rem); letter-spacing: -0.01em; padding-inline: 4px; }
+.hm-games .ba-tile .meta { color: #4A4263; padding-inline: 4px; }
+.hm-games .ba-tile .meta svg { color: var(--hm-ink); }
+.hm-games .ba-hiddennote { color: var(--hm-ink); font-weight: 650; }
+
+/* ---------- 4. Real people, three more games (coral) ---------- */
+.hm-reel { background: var(--hm-coral); }
+.hm-reel-head { display: grid; gap: 4px; }
+.hm-reel-row {
+  list-style: none; margin: clamp(28px, 4vw, 56px) auto 0; padding: 0 var(--g); max-width: calc(1240px + 2 * var(--g));
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(18px, 3vw, 44px); align-items: start;
+}
+.hm-rcard { --r: 0; transform: translateY(calc(var(--r) * (var(--i) - 1) * 46px)) rotate(calc((var(--i) - 1) * 1.5deg)); }
+.hm-rcard > a { display: grid; gap: 14px; text-decoration: none; color: var(--hm-ink); }
+.hm-rcard .hm-phone { box-shadow: inset 0 0 0 2px #2B2350, 12px 14px 0 var(--hm-ink); transition: transform 0.3s cubic-bezier(.2, .7, .2, 1); }
+.hm-rcard > a:hover .hm-phone { transform: translateY(-6px) rotate(-1deg); }
+.hm-rcard-text { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 14px 16px; border-radius: 18px; background: var(--c); box-shadow: inset 0 0 0 2px var(--hm-ink); }
+.hm-rcard-text b { font-weight: 900; font-size: clamp(1.2rem, 1rem + 0.6vw, 1.55rem); letter-spacing: -0.01em; }
+.hm-move { margin-left: auto; padding: 4px 11px; border-radius: 999px; background: var(--hm-ink); color: #fff; font-weight: 750; font-size: 0.88rem; }
+.hm-tag { flex-basis: 100%; font-size: 0.95rem; line-height: 1.4; color: var(--hm-ink); }
+.hm-credit { margin: clamp(26px, 3vw, 40px) 0 0; font-size: 0.92rem; font-weight: 600; max-width: 46em; }
+@media (max-width: 760px) {
+  .hm-reel-row { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: min(68vw, 280px); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 18px; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .hm-reel-row::-webkit-scrollbar { display: none; }
+  .hm-rcard { transform: none; scroll-snap-align: start; }
+}
+
+/* ---------- 5. Together (sky) ---------- */
+.hm-duo { background: var(--hm-sky); }
+.hm-duo-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(28px, 5vw, 80px); align-items: center; }
+.hm-tv { position: relative; padding-bottom: 34px; }
+.hm-tv-screen { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 20px; overflow: hidden; background: #1A1430; box-shadow: 0 0 0 12px #0D0920, 16px 18px 0 12px var(--hm-ink); }
+.hm-tv-foot { position: absolute; left: 50%; bottom: 0; width: 34%; height: 16px; translate: -50% 0; border-radius: 10px; background: #0D0920; }
+.hm-tv-foot::before { content: ""; position: absolute; left: 50%; bottom: 14px; width: 18%; height: 24px; translate: -50% 0; background: #0D0920; }
+.hm-duo-copy { display: grid; gap: 18px; align-content: start; }
+.hm-duo-item { display: grid; gap: 8px; padding-top: 18px; border-top: 2.5px solid var(--hm-ink); }
+.hm-duo-item h3 { display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 900; font-size: clamp(1.3rem, 1.05rem + 0.8vw, 1.75rem); line-height: 1.1; }
+.hm-duo-item h3 svg { width: 30px; height: 30px; flex: none; }
+.hm-duo-item p, .hm-duo-copy > p { margin: 0; line-height: 1.5; font-size: 1.05rem; }
+@media (max-width: 900px) { .hm-duo-grid { grid-template-columns: minmax(0, 1fr); } .hm-tv-screen { box-shadow: 0 0 0 8px #0D0920, 10px 12px 0 8px var(--hm-ink); } }
+
+/* ---------- 6. Today: the challenge of the day and the plans (mint) ---------- */
+.hm-today { background: var(--hm-mint); padding-block: clamp(40px, 6vw, 80px); }
+.hm-today-grid { display: grid; gap: clamp(16px, 2.4vw, 28px); align-items: start; }
+@media (min-width: 900px) { .hm-today-grid.has-week { grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr); } }
+.hm-today-main { display: grid; gap: clamp(16px, 2.4vw, 28px); }
+.hm-today .k-card { box-shadow: inset 0 0 0 2px var(--hm-ink), 6px 7px 0 var(--hm-ink); border-radius: 22px; }
+.hm-today .k-challenge { margin: 0; }
+.hm-today .k-planstrip { margin: 0; }
+.hm-today .k-planstrip h2 { font-weight: 900; font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.4rem); letter-spacing: -0.02em; }
+.hm-today .ba-link { color: var(--hm-ink); text-decoration-color: var(--hm-ink); }
+
+/* ---------- 7. The camera video (night) ---------- */
+.hm-private { background: var(--hm-night); color: #fff; }
+.hm-lock { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 22px; background: var(--hm-coral); color: var(--hm-ink); margin-bottom: clamp(18px, 3vw, 32px); transform: rotate(-6deg); }
+.hm-lock svg { width: 38px; height: 38px; }
+.hm-private .hm-mega { max-width: 13em; }
+.hm-facts { list-style: none; margin: clamp(26px, 4vw, 48px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2vw, 28px); }
+.hm-facts li { display: grid; gap: 14px; align-content: start; padding: 22px; border-radius: 22px; background: #241A48; box-shadow: inset 0 0 0 2px #3B2F70; font-weight: 750; font-size: clamp(1.05rem, 0.98rem + 0.3vw, 1.25rem); line-height: 1.35; }
+.hm-facts svg { width: 32px; height: 32px; color: var(--hm-sun); }
+.hm-links { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: clamp(24px, 3vw, 36px) 0 0; }
+.hm-private .hm-link { color: #fff; text-decoration-color: var(--hm-coral); }
+@media (max-width: 760px) { .hm-facts { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- 8. What BodyArcade is (lilac) ---------- */
+.hm-about { background: var(--hm-lilac); }
+.hm-about header { margin-bottom: clamp(20px, 3vw, 36px); }
+.hm-about .k-about-lead { font-size: clamp(1.05rem, 0.98rem + 0.3vw, 1.25rem); color: var(--hm-ink); }
+.hm-about .k-about-facts li { color: #3D3557; font-size: 1rem; }
+.hm-about .k-about-facts .ba-link { white-space: normal; }
+.hm-about .k-card { box-shadow: inset 0 0 0 2px var(--hm-ink), 6px 7px 0 var(--hm-ink); border-radius: 22px; }
+.hm-about .ba-teaser { margin-top: clamp(24px, 3vw, 40px); }
+.hm-about + .ba-footer, .hm-root + .ba-footer { margin-top: 0; }
+
+/* ---------- Motion off ---------- */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .hm-band-track, :root:not([data-motion="full"]) .hm-burst { animation: none; }
+  :root:not([data-motion="full"]) .hm-phone--hero, :root:not([data-motion="full"]) .hm-rcard { transition: none; }
+}
+:root[data-motion="reduce"] .hm-band-track, :root[data-motion="reduce"] .hm-burst { animation: none; }
+.hm-still .hm-band-track, .hm-still .hm-burst { animation: none; }
+.hm-still .hm-rcard { transform: none; }

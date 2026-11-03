@@ -207,8 +207,12 @@ export function serviceWorkerSource(template: string, cfg: SwConfig): string {
   return template.replace(marker, `${JSON.stringify(cfg)};`);
 }
 
-/** The files a new service worker stores at install: every hashed build file but source maps, and the start pages. */
+/**
+ * The files a new service worker stores at install: every hashed build file but source maps and the home page's loops, and the start
+ * pages. The loops (static/home/*.webm, *.mp4) are only worth their weight on a page that is open and online: their posters are stored,
+ * so the home page opened offline shows the posters instead.
+ */
 export function precacheList(files: readonly string[], startPages: readonly string[]): string[] {
-  const build = files.filter((f) => f.startsWith('/static/') && !f.endsWith('.map')).sort();
+  const build = files.filter((f) => f.startsWith('/static/') && !f.endsWith('.map') && !/^\/static\/home\/.+\.(?:webm|mp4)$/.test(f)).sort();
   return [...startPages, ...build];
 }

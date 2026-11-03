@@ -367,4 +367,9 @@ describe('precache list', () => {
   it('takes every hashed build file but source maps, after the start pages', () => {
     expect(precacheList(['/static/a.js', '/static/a.js.map', '/index.html', '/static/b.css', '/vendor/x.wasm'], ['/', '/tr/'])).toEqual(['/', '/tr/', '/static/a.js', '/static/b.css']);
   });
+
+  it('keeps the posters of the home page loops and leaves their videos to the network', () => {
+    const files = ['/static/home/squat-720.ab12cd34.webp', '/static/home/squat-720.ab12cd34.webm', '/static/home/squat-720.ab12cd34.mp4', '/static/onboarding/hero-loop-light.12345678.webm'];
+    expect(precacheList(files, ['/'])).toEqual(['/', '/static/home/squat-720.ab12cd34.webp', '/static/onboarding/hero-loop-light.12345678.webm']);
+  });
 });

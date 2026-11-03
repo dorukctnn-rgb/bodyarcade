@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SERVER_CAPABILITIES } from '../../core/ui/capabilities.ts';
 import { LANG_INFO, type Lang } from '../../core/ui/i18n/index.ts';
 import { hasLanguage } from '../../core/ui/i18n/localized.ts';
-import { devAssets, mappedAssets, ONBOARDING_FILES, type TileSize } from '../src/assets.ts';
+import { devAssets, HOME_FILES, mappedAssets, ONBOARDING_FILES, type TileSize } from '../src/assets.ts';
 import { loadCatalogue, repoRoot, tilesDir, type FixtureMode } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import { renderDocument, type Alternate, type BuildAssets } from '../src/document.ts';
@@ -93,6 +93,7 @@ function copyAssets(out: string, games: readonly ShellGame[], root: string): Rec
     put(url, join(root, 'design', 'brand', name), 'brand');
   }
   for (const file of ONBOARDING_FILES) put(devAssets.onboarding(file), join(root, 'design', 'onboarding', 'fallback', file), 'onboarding');
+  for (const file of HOME_FILES) put(devAssets.home(file), join(root, 'design', 'home', file), 'home');
   return map;
 }
 

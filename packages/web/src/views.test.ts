@@ -110,7 +110,11 @@ describe.each(LANGS)('every page in %s', (lang) => {
       '/fitness-games', '/seated-exercise-games', '/workout-games-with-friends', '/workout-games-by-body-area',
       '/tr/evde-spor-oyunlari', '/tr/oturarak-egzersiz-oyunlari', '/tr/arkadaslarla-spor-oyunlari', '/tr/bolgeye-gore-spor-oyunlari',
       // the prices and the release notes (content/copy/pricing.*.ts, changelog.*.ts)
-      '/pricing', '/changelog', '/tr/fiyatlar', '/tr/guncellemeler']);
+      '/pricing', '/changelog', '/tr/fiyatlar', '/tr/guncellemeler',
+      // the blog post the home page links from its camera video chapter (English only)
+      '/blog/what-happens-to-your-camera-video',
+      // the one page of another site: where the Android test is joined (the maker's tester page)
+      'https://peakappsstudio.com/testers/']);
     for (const url of urls) {
       const { html } = draw(lang, url);
       for (const h of hrefs(html)) {
@@ -200,7 +204,7 @@ describe('home and region pages', () => {
     for (const lang of LANGS) {
       const home = lang === 'en' ? '/' : '/tr/';
       const { html } = draw(lang, home, { server: true });
-      const about = html.match(/<section class="ba-section k-about"[\s\S]*<\/section>/)?.[0] ?? '';
+      const about = html.match(/<section class="[^"]*k-about[^"]*"[\s\S]*<\/section>/)?.[0] ?? '';
       const text = textOf(about);
       const free = games.filter((g) => g.free).length;
       expect(text).toContain(lang === 'en' ? `${free} of the ${games.length} games are free` : `${games.length} oyunun ${free} tanesi ücretsiz`);
