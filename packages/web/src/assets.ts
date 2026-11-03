@@ -36,18 +36,25 @@ export const ONBOARDING_FILES: readonly string[] = [
  * (H.264), with a still of its first picture in each width as the poster. `aspect` is width / height.
  */
 export const HOME_CLIPS = {
-  squat: { widths: [540, 720], aspect: 9 / 16 },
-  'squat-cam': { widths: [540, 720], aspect: 9 / 16 },
-  knee: { widths: [432, 576], aspect: 9 / 16 },
-  jacks: { widths: [432, 576], aspect: 9 / 16 },
-  pad: { widths: [432, 576], aspect: 9 / 16 },
-  duo: { widths: [960, 1280], aspect: 16 / 9 },
+  squat: { widths: [540, 720], aspect: 9 / 16, tr: true },
+  'squat-cam': { widths: [540, 720], aspect: 9 / 16, tr: false },
+  knee: { widths: [432, 576], aspect: 9 / 16, tr: true },
+  jacks: { widths: [432, 576], aspect: 9 / 16, tr: true },
+  pad: { widths: [432, 576], aspect: 9 / 16, tr: true },
+  duo: { widths: [960, 1280], aspect: 16 / 9, tr: true },
 } as const;
 export type HomeClip = keyof typeof HOME_CLIPS;
 
-/** The files of design/home, by name: for each loop and width, the poster and the two videos. */
+/**
+ * The name of a loop's files in a language: a loop whose game shows words on screen (the commands, "You") was recorded again with the
+ * game in Turkish (`<id>-tr`), so the Turkish page shows the game as a Turkish player sees it. The camera picture has no words.
+ */
+export const homeClipName = (id: HomeClip, lang: string): string => (HOME_CLIPS[id].tr && lang === 'tr' ? `${id}-tr` : id);
+
+/** The files of design/home, by name: for each loop (and its Turkish recording) and width, the poster and the two videos. */
 export const HOME_FILES: readonly string[] = (Object.keys(HOME_CLIPS) as HomeClip[]).flatMap((id) =>
-  HOME_CLIPS[id].widths.flatMap((w) => [`${id}-${w}.webp`, `${id}-${w}.webm`, `${id}-${w}.mp4`]));
+  (HOME_CLIPS[id].tr ? [id, `${id}-tr`] : [id]).flatMap((name) =>
+    HOME_CLIPS[id].widths.flatMap((w) => [`${name}-${w}.webp`, `${name}-${w}.webm`, `${name}-${w}.mp4`])));
 
 /** A resolver for built files: `map` goes from a development URL to the built URL; anything missing keeps its development URL. */
 export function mappedAssets(map: Readonly<Record<string, string>>): AssetResolver {

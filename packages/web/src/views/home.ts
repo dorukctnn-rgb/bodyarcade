@@ -17,7 +17,7 @@ import { FREE_PLAN_ID, WORKOUT_PLANS } from '../../../core/store/workout-plans.t
 import { localized } from '../../../core/ui/i18n/localized.ts';
 import { describeOffer, type PlansConfig } from '../../../core/ui/plans.ts';
 import { MAX_SEATS, MIN_SEATS } from '../../../core/types/net.ts';
-import { HOME_CLIPS, type HomeClip } from '../assets.ts';
+import { HOME_CLIPS, homeClipName, type HomeClip } from '../assets.ts';
 import { hasPro, regionLabel, taglineOf, titleOf, type ViewContext } from '../context.ts';
 import { canRace } from '../app/duel.ts';
 import { chrome, siteGuideHref, sitePageHref } from './chrome.ts';
@@ -70,14 +70,15 @@ interface ClipOptions {
  */
 function clip(ctx: ViewContext, id: HomeClip, o: ClipOptions): SafeHtml {
   const spec = HOME_CLIPS[id];
+  const name = homeClipName(id, ctx.lang);
   const widths = [...spec.widths];
   const [w0, w1] = [widths[0] ?? 540, widths[widths.length - 1] ?? 720];
   const h1 = Math.round(w1 / spec.aspect);
   const srcs: Record<string, [string, string]> = {};
-  for (const w of widths) srcs[String(w)] = [ctx.assets.home(`${id}-${w}.webm`), ctx.assets.home(`${id}-${w}.mp4`)];
-  const srcset = widths.map((w) => `${ctx.assets.home(`${id}-${w}.webp`)} ${w}w`).join(', ');
+  for (const w of widths) srcs[String(w)] = [ctx.assets.home(`${name}-${w}.webm`), ctx.assets.home(`${name}-${w}.mp4`)];
+  const srcset = widths.map((w) => `${ctx.assets.home(`${name}-${w}.webp`)} ${w}w`).join(', ');
   return html`<figure class="hm-clip${o.className ? ` ${o.className}` : ''}" data-clip="${id}" data-srcs="${JSON.stringify(srcs)}">
-    <img src="${ctx.assets.home(`${id}-${w0}.webp`)}" srcset="${srcset}" sizes="${o.sizes}" width="${w1}" height="${h1}" alt="${o.alt}"${o.first ? html` fetchpriority="high"` : html` loading="lazy"`} decoding="async">
+    <img src="${ctx.assets.home(`${name}-${w0}.webp`)}" srcset="${srcset}" sizes="${o.sizes}" width="${w1}" height="${h1}" alt="${o.alt}"${o.first ? html` fetchpriority="high"` : html` loading="lazy"`} decoding="async">
     <video muted playsinline loop preload="none" aria-hidden="true" tabindex="-1" disablepictureinpicture></video>
   </figure>`;
 }

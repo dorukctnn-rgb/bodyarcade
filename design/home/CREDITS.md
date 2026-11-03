@@ -23,4 +23,6 @@ How they were made (3 November 2026):
   and the player's own camera window made larger, then cut to a 6.5 to 7.5 second window with a 0.4 second cross-fade at the seam.
 - `squat-cam-*` is the camera picture of the same moment as `squat-*` (the source at the same speed and time), for the scroll stage
   where the camera picture shrinks into the game's corner window.
+- The loops whose game shows words (`squat`, `knee`, `jacks`, `pad`, `duo`) were recorded again with the game in Turkish
+  (`<loop>-tr-*`) for the Turkish page, from the same sources.
 - Encoded as VP9 WebM and H.264 MP4 in two widths each, with a WebP poster of the first picture.

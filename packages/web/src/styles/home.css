@@ -125,8 +125,10 @@
 }
 .hm-steps b { font-weight: 850; font-size: clamp(1.2rem, 1rem + 0.7vw, 1.6rem); line-height: 1.15; color: #fff; }
 .hm-steps span { margin-top: 6px; color: #CFC7EE; line-height: 1.45; max-width: 30em; }
-.hm-cam[data-step] .hm-steps li { opacity: 0.32; }
-.hm-cam[data-step] .hm-steps li.on { opacity: 1; }
+/* the steps not playing now step back by colour (still 5:1 on the night), the one playing is white with its coral number */
+.hm-steps li::before, .hm-steps b, .hm-steps span { transition: color 0.35s ease-out, background-color 0.35s ease-out; }
+.hm-cam[data-step] .hm-steps li:not(.on) b, .hm-cam[data-step] .hm-steps li:not(.on) span { color: #948DB0; }
+.hm-cam[data-step] .hm-steps li:not(.on)::before { background: #3A2D66; color: #CFC7EE; }
 .hm-cam-words { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 .hm-cam-words span {
   position: absolute; left: 50%; top: 50%; font-weight: 900; font-size: clamp(6rem, 22vw, 24rem); line-height: 0.8; letter-spacing: -0.05em; white-space: nowrap;
