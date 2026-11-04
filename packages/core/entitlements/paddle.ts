@@ -20,7 +20,8 @@ import type { PlanId, SoldPlanId } from './plans.ts';
  * open https://bodyarcade.com/pro/#paddle-preview (and #paddle-preview-off to end it; paddle-checkout.ts: paddlePreview), or
  * make a build with BA_PADDLE=1 (vite define __BA_PADDLE__).
  */
-export const PADDLE_WEB_CHECKOUT: boolean = false;
+// ON since 5 Nov 2026: the Gumroad balance reached $100.52 (the condition above); old Gumroad keys keep working.
+export const PADDLE_WEB_CHECKOUT: boolean = true;
 
 /** Paddle price id of each sold plan (product pro_01m6kxtr4ryryyyxngdgny12q9 "BodyArcade", created 4 Nov 2026). */
 export const PADDLE_PRICES: Readonly<Record<SoldPlanId, string>> = {
