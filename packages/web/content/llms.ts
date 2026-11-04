@@ -34,7 +34,7 @@ export function llmsTxt(): string {
     `- [${EXTRA_NAME.kinect.name}](${u(EXTRA_URL.kinect)}): what a webcam reads next to a depth sensor, and the games it runs`,
     `- [Workout plans](${u('/plans/')}): ready sessions of games with rests; ${free ? localized(free.title, 'en') : 'one'} is free`,
     `- [Updates](${u(PAGES_CHANGELOG.en)}): new games and changes, release by release; the last release was on ${F.longDate(LATEST_RELEASE.day, 'en')}`,
-    `- [Privacy policy](${u('/privacy')}), [Terms](${u('/terms')})`,
+    `- [Privacy policy](${u('/privacy')}), [Terms](${u('/terms')}), [Refund policy](${u('/refund')})`,
     '',
     `## Plans on the web (US dollars, as of ${F.longDate(PRICING_DATES.modified, 'en')})`,
     `- Free: ${c.free} of ${c.total} games (${titlesOf((g) => g.free, 'en')}), with seated and quiet versions, no ads and no account`,

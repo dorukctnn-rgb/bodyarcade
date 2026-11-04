@@ -19,8 +19,15 @@ export const OWNER = 'Doruk Çetin';
 export const STUDIO = 'Peak Apps Studio';
 export const COUNTRY = 'Türkiye';
 
-/** When the terms were last changed in substance (ISO day), and the date the pages that follow them show. Change it with the text. */
+/** The date the guides and the delete-account page show (the terms had it too until 4 November 2026, see TERMS_UPDATED). */
 export const UPDATED = '2026-10-26';
+
+/**
+ * When the terms of use, and the refund policy that repeats their refund section, were last changed in substance (ISO day). It is the
+ * version the sign-up sends (packages/core/social/rules.ts TERMS_VERSION; content.test.ts keeps the two equal). 4 November 2026: the
+ * resellers Paddle.com and Gumroad are named as the Merchant of Record, and the refund policy has a page of its own.
+ */
+export const TERMS_UPDATED = '2026-11-04';
 
 /**
  * When the privacy policy was last changed in substance (ISO day). It has its own date since 29 October 2026, when it began to

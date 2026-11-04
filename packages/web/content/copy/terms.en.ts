@@ -5,7 +5,7 @@ import * as F from '../facts.ts';
 import { gameCounts, titlesOf } from './games.ts';
 
 export function termsEn(): PageSpec {
-  const date = F.longDate(F.UPDATED, 'en');
+  const date = F.longDate(F.TERMS_UPDATED, 'en');
   const c = gameCounts();
   const W = F.ROAD_RUN_WORLDS;
   const free = titlesOf((g) => g.free, 'en');
@@ -28,7 +28,7 @@ export function termsEn(): PageSpec {
         `<strong>Free to play.</strong> ${c.free} of ${c.total} games are free, with their seated and quiet versions, and there are no ads. In Road Run, ${W.free} of its ${W.total} worlds are free. You can play each Pro game once for free.`,
         '<strong>Exercise at your own pace.</strong> Clear some space, warm up, and stop if something hurts. Read the safety notice below.',
         '<strong>Be kind and play fair.</strong> We can mute, suspend or ban profiles that harass other players or cheat.',
-        `<strong>Pro is paid for through Gumroad on the web and Google Play in the Android app.</strong> They take the payment and handle tax. A plan bought on the web can be refunded within ${F.REFUND_DAYS} days.`,
+        `<strong>Pro is paid for through our online resellers Paddle.com and Gumroad on the web and Google Play in the Android app.</strong> They take the payment and handle tax. A plan bought on the web can be refunded within ${F.REFUND_DAYS} days.`,
         `<strong>Earlier buyers keep what they paid.</strong> ${$(F.PRICE.legacyMonthly)} monthly members stay at ${$(F.PRICE.legacyMonthly)}, and ${$(F.PRICE.founder)} Lifetime buyers are Founders.`,
       ],
     },
@@ -113,21 +113,21 @@ ${ul([
 <p><strong>What Lifetime means.</strong> You pay once and Pro has no renewals for as long as BodyArcade is offered. It is not a promise to offer BodyArcade for ever. If we ever close it, Lifetime and the other plans end with it, we will tell you ahead of time where we can, and we will stop any renewal payments. Your rights as a consumer under the law are not affected.</p>
 <p><strong>Earlier plans.</strong> If you bought Pro monthly at ${$(F.PRICE.legacyMonthly)} a month before the plans above went on sale, you keep Pro at ${$(F.PRICE.legacyMonthly)} a month for as long as that membership runs without a break. If you bought Lifetime for ${$(F.PRICE.founder)} before then, you are a Founder: Pro for as long as BodyArcade is offered, every game added later, ${F.FAMILY_PROFILES} profiles and up to ${F.DEVICES.founder} devices.</p>
 <p><strong>The Android app.</strong> Prices, currencies and the free trial there are set by Google Play and can differ by country. The prices above are the list prices on the web, in US dollars. Taxes are included or added at checkout as the seller requires.</p>
-<p>We may change the prices of plans for new buyers. We will not raise the price of a membership that is running without the notice and consent that Gumroad or Google Play require.</p>`,
+<p>We may change the prices of plans for new buyers. We will not raise the price of a membership that is running without the notice and consent that the reseller you paid or Google Play require.</p>`,
       },
       {
         id: 'paying',
         title: 'Paying, renewing and cancelling',
-        html: `<p><strong>On the web</strong>, Gumroad sells Pro. You pay on Gumroad&rsquo;s page, and Gumroad is the seller of record: it collects any VAT or sales tax, and its own terms also apply to your purchase. After you pay, Gumroad e-mails you a license key. Paste it into the Pro screen of the app to turn Pro on.</p>
+        html: `<p><strong>On the web</strong>, our order process is conducted by our online resellers Paddle.com and Gumroad. They are the Merchant of Record for all our orders, handle payment, sales tax/VAT and refunds, and their own terms also apply to your purchase. After you pay on Gumroad, Gumroad e-mails you a license key. Paste it into the Pro screen of the app to turn Pro on.</p>
 <p><strong>In the Android app</strong>, Google Play sells Pro and its terms apply.</p>
-<p><strong>Memberships</strong> (Pro monthly, Pro yearly and Family yearly) renew until you cancel. On the web, cancel in your Gumroad library (choose BodyArcade, then Manage membership); the receipt e-mail has the same link. In the Android app, cancel in Google Play subscriptions. Cancelling stops future payments, and Pro stays on until the end of the period you already paid for. If a renewal payment fails, Pro ends when Gumroad or Google Play ends the membership.</p>
+<p><strong>Memberships</strong> (Pro monthly, Pro yearly and Family yearly) renew until you cancel. On the web, cancel with the reseller you paid. On Gumroad, that is your Gumroad library (choose BodyArcade, then Manage membership); the receipt e-mail has the same link. In the Android app, cancel in Google Play subscriptions. Cancelling stops future payments, and Pro stays on until the end of the period you already paid for. If a renewal payment fails, Pro ends when the reseller or Google Play ends the membership.</p>
 <p><strong>The free trial</strong> of Pro yearly lasts ${F.TRIAL_DAYS} days. Nothing is charged during the trial. If you do not cancel before it ends, the first year is charged and the plan renews every year. A trial is given once per person and subscription, and the store decides who is eligible. We remind you ${F.REMINDER_DAYS} days before the trial ends: the app shows a notice on every open${F.REMINDER_MAIL ? ', and on the web we send one e-mail if you leave an address (see the privacy policy)' : ''}. Google Play sends its own reminder too.</p>`,
       },
       {
         id: 'refunds',
         title: 'Refunds',
         html: `<p>Refunds follow the rules of the store that sold the plan.</p>
-<p>On the web, every plan can be refunded within ${F.REFUND_DAYS} days of buying it. Gumroad makes the refund, and the refund period is also shown on the product&rsquo;s Gumroad page and on your receipt. To ask for a refund, use the link in your receipt, or write to ${mail()} and we will ask Gumroad to refund it. A refunded purchase ends Pro on your devices at the next check, which the app makes about once a day while you use it.</p>
+<p>On the web, every plan can be refunded within ${F.REFUND_DAYS} days of buying it. Refunds are paid back through the reseller you paid, and the refund period is also shown on your receipt and, for Gumroad, on the product&rsquo;s Gumroad page. To ask for a refund, use the link in your receipt, or write to ${mail()} and we will ask the reseller to refund it. A refunded purchase ends Pro on your devices at the next check, which the app makes about once a day while you use it. The steps are also on our <a href="/refund">refund policy</a> page.</p>
 <p>In the Android app, Google Play&rsquo;s refund rules apply and Google decides. Write to us if you need help.</p>
 <p>Nothing in these terms takes away a right to a refund or to cancel that the law of your country gives you as a consumer.</p>`,
       },
