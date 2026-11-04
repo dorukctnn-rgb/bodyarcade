@@ -1729,7 +1729,7 @@ export class App {
       // Gumroad page still sells the plan, and a Gumroad key still activates here.
       const d = describeOffer(offer, t, ctx.plans);
       const gumroad = checkoutWithSource(offer.checkout.web, this.win);
-      void this.paddle.open({ id: offer.id, name: d.name, priceLine: d.priceLine, trialLine: d.trialLine, recurring: offer.period !== 'once' }).then((opened) => {
+      void this.paddle.open({ id: offer.id, name: d.name, priceLine: d.priceLine, trialLine: d.trialLine, recurring: offer.period !== 'once', period: offer.period }).then((opened) => {
         if (!opened) this.win.location.assign(gumroad);
       });
       return;

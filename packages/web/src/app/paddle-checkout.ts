@@ -49,6 +49,8 @@ export interface CheckoutOffer {
   priceLine: string;
   trialLine: string | null;
   recurring: boolean;
+  /** How often it is paid: the price line Paddle's answer replaces says "a month" or "a year" (or nothing, once). */
+  period?: 'month' | 'year' | 'once';
 }
 
 interface PaddleTotals { total?: number | string; tax?: number | string }
@@ -185,6 +187,7 @@ export function createPaddleCheckout(o: PaddleCheckoutOptions): PaddleCheckout {
       </div>
       <p class="pdl-price"><strong data-pdl-total>${offer.priceLine}</strong></p>
       ${offer.trialLine ? html`<p class="pdl-trial">${offer.trialLine}</p>` : ''}
+      <p class="pdl-today" data-pdl-today hidden></p>
       <p class="pdl-tax" data-pdl-tax>${o.t('paddle.sheet.taxIncluded')}</p>
       <p class="pdl-trust">${icon('lock', { size: 16 })}<span>${trust}</span></p>
       <p class="pdl-status" data-pdl-status role="status" aria-live="polite">${o.t('paddle.sheet.loading')}</p>
@@ -204,14 +207,22 @@ export function createPaddleCheckout(o: PaddleCheckoutOptions): PaddleCheckout {
     try { return new Intl.NumberFormat(o.lang(), { style: 'currency', currency }).format(n); } catch { return null; }
   };
 
-  /** The price in the buyer's own currency once Paddle knows where they are (a trial shows what is charged after it). */
+  /**
+   * The price in the buyer's own currency once Paddle knows where they are. A membership shows what each period costs ("€7.99 a
+   * month") and, when today's payment differs (a free trial, a discount code), one more line with today's amount.
+   */
   function showTotals(d: PaddleEventData): void {
-    const t = d.recurring_totals && current?.trialLine ? d.recurring_totals : d.totals;
+    const per = current && current.recurring && (current.period === 'month' || current.period === 'year') ? current.period : null;
+    const t = per && d.recurring_totals ? d.recurring_totals : d.totals;
     const total = money(t?.total, d.currency_code);
     const totalEl = $<HTMLElement>('[data-pdl-total]');
-    if (total && totalEl && current) {
-      const period = current.priceLine.replace(/^[^\d]*[\d.,\s]+[^\d\s]*\s*/, '');
-      totalEl.textContent = current.recurring && period && period !== current.priceLine ? `${total} ${period}` : total;
+    if (total && totalEl) totalEl.textContent = per ? o.t(per === 'month' ? 'paddle.sheet.perMonth' : 'paddle.sheet.perYear', { amount: total }) : total;
+    const todayEl = $<HTMLElement>('[data-pdl-today]');
+    const now = money(d.totals?.total, d.currency_code);
+    if (todayEl) {
+      const differs = !!per && !!d.recurring_totals && Number(d.totals?.total ?? 0) !== Number(d.recurring_totals.total ?? 0);
+      todayEl.textContent = differs && now ? o.t('paddle.sheet.today', { amount: now }) : '';
+      todayEl.hidden = !(differs && now);
     }
     const tax = Number(t?.tax ?? 0);
     const taxEl = $<HTMLElement>('[data-pdl-tax]');

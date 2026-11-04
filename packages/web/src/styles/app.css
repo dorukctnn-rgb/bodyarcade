@@ -464,6 +464,8 @@ dialog.pdl-sheet::backdrop { background: rgba(255, 255, 255, 0.42); -webkit-back
 .pdl-close { flex: none; margin: -6px -6px 0 0; }
 .pdl-price { margin: 10px 0 0; font-size: 1.5rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .pdl-trial, .pdl-tax { margin: 2px 0 0; font-size: var(--ba-text-sm); color: var(--ba-text-muted); }
+.pdl-today { margin: 2px 0 0; font-size: var(--ba-text-sm); font-weight: 700; color: var(--ba-text); }
+.pdl-today[hidden] { display: none; }
 .pdl-trial { color: var(--ba-accent-text); font-weight: 600; }
 .pdl-trust { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; padding: 9px 12px; border-radius: var(--ba-radius-md); background: var(--ba-surface-sunken); font-size: var(--ba-text-xs); font-weight: 600; line-height: 1.35; }
 .pdl-trust svg { flex: none; }
