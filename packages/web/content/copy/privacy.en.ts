@@ -11,8 +11,10 @@ export function privacyEn(): PageSpec {
     ? 'If your devices cannot reach each other directly, the encrypted picture can pass through a relay server run by Cloudflare. A relay only forwards the data and keeps no copy.'
     : 'If your devices cannot reach each other directly, no picture is shown and the game goes on with your skeleton.';
   const analytics = F.ANALYTICS_ON
-    ? `<p>We count visits to this website with Cloudflare Web Analytics, which counts page views and page speed. Cloudflare says that it uses no cookies or local storage for this and does not fingerprint visitors.</p>`
+    ? `<p>We count visits to this website with Cloudflare Web Analytics, which works without cookies. It counts page views, visits and page speed, and shows us totals by page, by the site that sent the visitor, by country and by kind of browser and device. Cloudflare says that it uses no cookies or local storage for this, does not fingerprint visitors and does not follow them across other sites.</p>`
     : `<p>We do not measure visits to the site with any script. Cloudflare counts the requests it serves on its own side, for example how many pages were asked for and from which countries.</p>`;
+  // The game signal is in every build of the site (packages/web/src/app/signal.ts, packages/server/src/site/ping.ts).
+  const signal = `<p><strong>The game signal.</strong> When a round played with the camera really starts (the camera and the body tracking are ready and the countdown is over) and when it finishes, the page sends our server one small message, without any cookie: the kind of event (started or finished) and the id of the game, for example road-run. Nothing else goes with it: no name, no profile, no score and no picture, and our server keeps no network address, browser details or country with it. We add the messages up to see which games are played and finished. Rounds played with the keyboard or by touch send nothing, and neither do browsers that tell us they are automated. To keep one sender from flooding the count, the server holds each sender to a set number of messages a minute, using a scrambled form of the network address that lives only in the memory of the running server and is never written anywhere.</p>`;
   return {
     file: 'privacy.html',
     url: '/privacy',
@@ -30,6 +32,7 @@ export function privacyEn(): PageSpec {
         `<strong>You can play without a profile.</strong> A profile is needed only for friends, rooms with other people, public lobbies and weekly boards. It has no password and no e-mail address. Players under ${F.AGE.online} do not get an online profile.`,
         `<strong>Live rooms clear themselves.</strong> A room is deleted ${F.ROOM_EMPTY_MINUTES} minutes after the last player leaves, and in any case ${F.ROOM_IDLE_HOURS} hours after its last activity, together with its chat and results.`,
         '<strong>No ads, no advertising trackers, no sale of data.</strong> Payments go through Gumroad on the web and Google Play in the Android app, so we never see card details.',
+        `<strong>Counts, not profiles.</strong> ${F.ANALYTICS_ON ? 'Visits are counted without cookies. ' : ''}When a round with the camera starts or finishes, the page sends the name of the game and which of the two happened, and nothing else.`,
         '<strong>Your data is yours to take or erase.</strong> The profile screen of the app downloads your profile data as one file and deletes your account. The page <a href="/delete-account">Delete your account and data</a> has the steps, and says what stays.',
       ],
     },
@@ -164,9 +167,10 @@ ${table(F.REMINDER_MAIL ? 'Rooms, licenses and the reminder' : 'Rooms and licens
       {
         id: 'analytics',
         title: 'Analytics, cookies and logs',
-        html: `<p>BodyArcade has no advertising trackers and no code of our own that counts visits. The one note about how you found the site is the word described under <a href="#device">What stays on your device</a>, and it goes to Gumroad only with a purchase. Its own code sets no cookies; it uses your browser&rsquo;s storage for the things listed above. Cloudflare, which delivers the site, may set a security cookie that tells people from automated traffic, and Gumroad&rsquo;s pages set their own cookies.</p>
+        html: `<p>BodyArcade has no advertising trackers. The one note about how you found the site is the word described under <a href="#device">What stays on your device</a>, and it goes to Gumroad only with a purchase. Its own code sets no cookies; it uses your browser&rsquo;s storage for the things listed above. Cloudflare, which delivers the site, may set a security cookie that tells people from automated traffic, and Gumroad&rsquo;s pages set their own cookies.</p>
 ${analytics}
-<p>Our own code writes short technical lines to the logs of the service: event names, room codes, counts, the first eight characters of a license fingerprint, and error messages. They hold no display names, no messages, no video and no network addresses. Browser security reports (which file a browser refused to load) are logged the same way. Cloudflare also keeps request logs for the service under its own policy.</p>`,
+${signal}
+<p>Our own code writes short technical lines to the logs of the service: event names, room codes, counts, the game signal described above, the first eight characters of a license fingerprint, and error messages. They hold no display names, no messages, no video and no network addresses. Browser security reports (which file a browser refused to load) are logged the same way. Cloudflare also keeps request logs for the service under its own policy.</p>`,
       },
       {
         id: 'others',
@@ -194,6 +198,7 @@ ${ul([
   `With your consent: camera access, which your browser asks for, ${F.REMINDER_MAIL ? 'the optional friend video, and the reminder e-mail' : 'and the optional friend video'}. You can withdraw it at any time. (Consent; KVKK Article 5/1.)`,
   'To keep the service safe and fair: limits against abuse, reports, the safety log and the checks on weekly scores. (Legitimate interest; KVKK Article 5/2-f.)',
   'To see which kinds of sites bring buyers: the word about where you came from that goes with a purchase on the web. (Legitimate interest; KVKK Article 5/2-f.)',
+  `To see how the site and the games are used: ${F.ANALYTICS_ON ? 'the cookieless count of visits and ' : ''}the anonymous game signal. (Legitimate interest; KVKK Article 5/2-f.)`,
   'To meet legal duties, such as keeping order records for tax and accounting for as long as the law requires. (Legal obligation; KVKK Article 5/2-ç.)',
 ])}`,
       },

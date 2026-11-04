@@ -58,6 +58,7 @@ import { openGhostDialog, type GhostDialogHost } from './ghost-dialog.ts';
 import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceStageMount, type RaceWorld } from './race.ts';
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
+import { sendSignal } from './signal.ts';
 import type { RestoreOutcome } from '../../../core/entitlements/port.ts';
 import { roomOfRoute, SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
 import { liveSource } from './live-race.ts';
@@ -1051,6 +1052,7 @@ export class App {
           this.settings.set({ playedOnce: [...this.currentSettings().playedOnce, game.id] });
         }
       },
+      signal: (event, game) => { sendSignal(this.win, event, game.id, { allowAutomated: this.win.__BA_TEST__?.signals === true }); },
       setupChanged: (s) => {
         const c = this.ctx();
         this.setups.set(g.id, s);

@@ -21,7 +21,7 @@ test('no page and no camera round breaks the policy', async () => {
     w.__csp = [];
     document.addEventListener('securitypolicyviolation', (e) => w.__csp.push(`${e.effectiveDirective} ${e.blockedURI} ${e.sourceFile}:${e.lineNumber}`));
   });
-  await context.route(/plausible\.io/, (r) => r.abort());
+  await context.route(/plausible\.io|cloudflareinsights\.com/, (r) => r.abort());
   const page = await context.newPage();
   page.on('console', (m) => { if (/Content.Security.Policy|\[Report Only\]/i.test(m.text())) console.push(m.text().slice(0, 300)); });
   page.on('worker', (w) => w.on('console', (m) => { if (/Content.Security.Policy|\[Report Only\]/i.test(m.text())) console.push(`worker: ${m.text().slice(0, 300)}`); }));

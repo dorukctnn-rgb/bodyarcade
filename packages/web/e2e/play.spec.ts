@@ -12,6 +12,43 @@ async function inRound(page: Page): Promise<void> {
   await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal') && !document.querySelector('.ba-loading'), undefined, { timeout: 30_000 });
 }
 
+/** What the page posts to /api/ping, as the text of each body; the answers are 204 so nothing reaches a server. */
+async function recordSignals(page: Page): Promise<string[]> {
+  const sent: string[] = [];
+  await page.route('**/api/ping', async (route) => { sent.push(route.request().postData() ?? ''); await route.fulfill({ status: 204 }); });
+  return sent;
+}
+
+test.describe('the game signal', () => {
+  test('a round with the camera sends one start when it really begins and one finish when it ends, with the game id and nothing else', async ({ page }) => {
+    const errors = collectErrors(page);
+    const sent = await recordSignals(page);
+    await page.context().grantPermissions(['camera']);
+    await page.addInitScript(() => { localStorage.setItem('ba2.shell.cameraExplained', JSON.stringify({ v: 1, d: true })); });
+    // slow enough that the round is still running when the first signal is looked at
+    await withHooks(page, { timeScale: 6, roundSeconds: 60, forceDemo: true, signals: true });
+    await page.goto(`${WEB_DEV_URL}/games/squat-flap/`);
+    await page.getByRole('button', { name: /^Play/ }).click();
+    await inRound(page);
+    expect(sent).toEqual(['{"e":"game_start","g":"squat-flap"}']);
+    await expect(page).toHaveURL(/\/results\/$/, { timeout: 30_000 });
+    await expect.poll(() => sent.length).toBe(2);
+    expect(sent).toEqual(['{"e":"game_start","g":"squat-flap"}', '{"e":"run_finished","g":"squat-flap"}']);
+    expect(errors).toEqual([]);
+  });
+
+  test('an automated browser sends nothing unless the test hook lets it', async ({ page }) => {
+    const sent = await recordSignals(page);
+    await page.context().grantPermissions(['camera']);
+    await page.addInitScript(() => { localStorage.setItem('ba2.shell.cameraExplained', JSON.stringify({ v: 1, d: true })); });
+    await withHooks(page, { timeScale: 40, roundSeconds: 30, forceDemo: true });
+    await page.goto(`${WEB_DEV_URL}/games/squat-flap/`);
+    await page.getByRole('button', { name: /^Play/ }).click();
+    await expect(page).toHaveURL(/\/results\/$/, { timeout: 30_000 });
+    expect(sent).toEqual([]);
+  });
+});
+
 test.describe('pause and leave', () => {
   test('Escape pauses, Escape again resumes, and leaving asks first and saves nothing', async ({ page }) => {
     const errors = collectErrors(page);

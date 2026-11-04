@@ -24,9 +24,10 @@ export const UPDATED = '2026-10-26';
 
 /**
  * When the privacy policy was last changed in substance (ISO day). It has its own date since 29 October 2026, when it began to
- * say what the one-word source of a web purchase is (assets/pro-source.js, app/pro-source.ts); the terms did not change then.
+ * say what the one-word source of a web purchase is (assets/pro-source.js, app/pro-source.ts); the terms did not change then. 4 November 2026: the
+ * game signal (app/signal.ts) and, once ANALYTICS_ON is true, the cookieless visit count.
  */
-export const PRIVACY_UPDATED = '2026-10-29';
+export const PRIVACY_UPDATED = '2026-11-04';
 
 /** Web list prices in US dollars (core/entitlements/plans.ts). On Google Play the price and the currency are Google Play's. */
 export const PRICE = {
@@ -85,10 +86,20 @@ export const ROAD_RUN_WORLDS = { total: 10, free: 3 } as const;
 export const ANDROID_APP_LIVE = false;
 
 /**
- * Does the site load an analytics script? False: no page of the app or of these pages loads one. The day Cloudflare Web Analytics (cookieless)
- * is switched on for the site, set this to true: the privacy policy then says that visits are counted, in the same release.
+ * Does the site count visits with Cloudflare Web Analytics (cookieless: no cookie, no local storage, no fingerprint)? False: no page of the app or
+ * of these pages loads an analytics script. True: the privacy policy says that visits are counted, in the same release, and the release build adds
+ * the beacon's host to the Content-Security-Policy (release/site.ts). Set it with the switch in the Cloudflare dashboard (Web Analytics, the
+ * site bodyarcade.com): either the automatic setup (Cloudflare adds the beacon at its edge; leave the token empty) or the JS snippet (put its
+ * token in ANALYTICS_BEACON_TOKEN and the release build adds the script to every page).
  */
 export const ANALYTICS_ON = false;
+
+/**
+ * The token of the Web Analytics site, the 32 hexadecimal characters in `data-cf-beacon='{"token": "..."}'` that the dashboard shows under
+ * "Manage site" (it is public: every visitor's page source has it). Empty: the release build adds no beacon of its own. Only the production
+ * build uses it, and only while ANALYTICS_ON is true (content.test.ts checks both).
+ */
+export const ANALYTICS_BEACON_TOKEN = '';
 
 // ───────── Pro licences (the licence service) ─────────
 /** The longest a licence handed to a device lasts, in days. */

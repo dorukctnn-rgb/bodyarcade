@@ -10,8 +10,10 @@ export function privacyTr(): PageSpec {
     ? 'Cihazlarınız birbirine doğrudan ulaşamazsa şifreli görüntü Cloudflare’in işlettiği bir aktarım sunucusundan geçebilir. Aktarım sunucusu veriyi yalnızca iletir, kopyasını tutmaz.'
     : 'Cihazlarınız birbirine doğrudan ulaşamazsa görüntü gösterilmez ve oyun iskeletinle devam eder.';
   const analytics = F.ANALYTICS_ON
-    ? '<p>Bu web sitesine yapılan ziyaretleri, sayfa görüntülemelerini ve sayfa hızını sayan Cloudflare Web Analytics ile sayıyoruz. Cloudflare, bunun için çerez ya da yerel depolama kullanmadığını ve ziyaretçilerin parmak izini çıkarmadığını söylüyor.</p>'
+    ? '<p>Bu web sitesine yapılan ziyaretleri çerezsiz çalışan Cloudflare Web Analytics ile sayıyoruz. Sayfa görüntülemelerini, ziyaretleri ve sayfa hızını sayar; bize sayfaya, ziyaretçiyi gönderen siteye, ülkeye ve tarayıcı ile cihaz türüne göre toplamları gösterir. Cloudflare, bunun için çerez ya da yerel depolama kullanmadığını, ziyaretçilerin parmak izini çıkarmadığını ve onları başka sitelerde izlemediğini söylüyor.</p>'
     : '<p>Siteye yapılan ziyaretleri hiçbir betikle ölçmüyoruz. Cloudflare, sunduğu istekleri kendi tarafında sayar; örneğin kaç sayfanın hangi ülkelerden istendiğini.</p>';
+  // Oyun sinyali sitenin her sürümünde vardır (packages/web/src/app/signal.ts, packages/server/src/site/ping.ts).
+  const signal = `<p><strong>Oyun sinyali.</strong> Kamerayla oynanan bir tur gerçekten başladığında (kamera ve vücut takibi hazır, geri sayım bitmiş) ve bittiğinde sayfa sunucumuza çerezsiz tek bir küçük ileti gönderir: olayın türü (başladı ya da bitti) ve oyunun kimliği, örneğin road-run. İletiyle birlikte başka hiçbir şey gitmez: ad, profil, skor ve görüntü yoktur; sunucumuz da onunla birlikte ağ adresi, tarayıcı bilgisi ya da ülke saklamaz. İletileri, hangi oyunların oynandığını ve bitirildiğini görmek için topluyoruz. Klavye ya da dokunmayla oynanan turlar bir şey göndermez; kendini otomatik olarak tanıtan tarayıcılar da göndermez. Tek bir göndericinin sayımı şişirmesini önlemek için sunucu, ağ adresinin yalnızca çalışan sunucunun belleğinde duran ve hiçbir yere yazılmayan karıştırılmış biçimini kullanarak her göndericiyi dakikada belirli sayıda iletiyle sınırlar.</p>`;
   return {
     file: 'tr/privacy.html',
     url: '/tr/privacy',
@@ -29,6 +31,7 @@ export function privacyTr(): PageSpec {
         `<strong>Profil olmadan oynayabilirsin.</strong> Profil yalnızca arkadaşlar, başkalarıyla odalar, herkese açık lobiler ve haftalık sıralamalar için gerekir. Parola ve e-posta adresi yoktur; ${F.AGE.online} yaşından küçük oyuncuların çevrimiçi profili olmaz.`,
         `<strong>Canlı odalar kendiliğinden temizlenir.</strong> Bir oda, son oyuncu ayrıldıktan ${F.ROOM_EMPTY_MINUTES} dakika sonra, her durumda da son hareketinden ${F.ROOM_IDLE_HOURS} saat sonra; sohbeti ve sonuçlarıyla birlikte silinir.`,
         '<strong>Reklam yok, reklam izleyicisi yok, veri satışı yok.</strong> Ödemeler web’de Gumroad, Android uygulamasında Google Play üzerinden yapılır; kart bilgilerini biz hiç görmeyiz.',
+        `<strong>Profil değil, sayı.</strong> ${F.ANALYTICS_ON ? 'Ziyaretler çerezsiz sayılır. ' : ''}Kamerayla oynanan bir tur başladığında ya da bittiğinde sayfa yalnızca oyunun adını ve bu ikisinden hangisinin olduğunu gönderir, başka hiçbir şey göndermez.`,
         '<strong>Verin senin: indirebilir ya da silebilirsin.</strong> Uygulamadaki profil ekranı profil verini tek dosya olarak indirir ve hesabını siler. <a href="/tr/delete-account">Hesabını ve verilerini sil</a> sayfası adımları anlatır ve neyin kaldığını söyler.',
       ],
     },
@@ -163,9 +166,10 @@ ${table(F.REMINDER_MAIL ? 'Odalar, lisanslar ve hatırlatma' : 'Odalar ve lisans
       {
         id: 'analitik',
         title: 'Analitik, çerezler ve günlükler',
-        html: `<p>BodyArcade’de reklam izleyicisi ve ziyaretleri sayan kendi kodumuz yoktur. Siteyi nasıl bulduğuna dair tek not, <a href="#cihaz">Cihazında kalanlar</a> bölümünde anlatılan kelimedir; o da Gumroad’a yalnızca bir satın almayla gider. Kendi kodu çerez koymaz; yukarıda sıralanan şeyler için tarayıcının depolama alanını kullanır. Siteyi sunan Cloudflare, insanları otomatik trafikten ayırmak için bir güvenlik çerezi koyabilir; Gumroad’ın sayfaları da kendi çerezlerini koyar.</p>
+        html: `<p>BodyArcade’de reklam izleyicisi yoktur. Siteyi nasıl bulduğuna dair tek not, <a href="#cihaz">Cihazında kalanlar</a> bölümünde anlatılan kelimedir; o da Gumroad’a yalnızca bir satın almayla gider. Kendi kodu çerez koymaz; yukarıda sıralanan şeyler için tarayıcının depolama alanını kullanır. Siteyi sunan Cloudflare, insanları otomatik trafikten ayırmak için bir güvenlik çerezi koyabilir; Gumroad’ın sayfaları da kendi çerezlerini koyar.</p>
 ${analytics}
-<p>Kendi kodumuz hizmetin günlüklerine kısa teknik satırlar yazar: olay adları, oda kodları, sayılar, bir lisans parmak izinin ilk sekiz karakteri ve hata iletileri. Bunlarda görünen ad, mesaj, görüntü ve ağ adresi olmaz. Tarayıcı güvenlik raporları (bir tarayıcının hangi dosyayı yüklemeyi reddettiği) aynı biçimde günlüğe yazılır. Cloudflare ayrıca hizmet için kendi politikası uyarınca istek günlükleri tutar.</p>`,
+${signal}
+<p>Kendi kodumuz hizmetin günlüklerine kısa teknik satırlar yazar: olay adları, oda kodları, sayılar, yukarıda anlatılan oyun sinyali, bir lisans parmak izinin ilk sekiz karakteri ve hata iletileri. Bunlarda görünen ad, mesaj, görüntü ve ağ adresi olmaz. Tarayıcı güvenlik raporları (bir tarayıcının hangi dosyayı yüklemeyi reddettiği) aynı biçimde günlüğe yazılır. Cloudflare ayrıca hizmet için kendi politikası uyarınca istek günlükleri tutar.</p>`,
       },
       {
         id: 'baskalari',
@@ -203,6 +207,7 @@ ${ul([
   `Rızanla: tarayıcının sorduğu kamera izni${F.REMINDER_MAIL ? ', isteğe bağlı arkadaş görüntüsü ve hatırlatma e-postası' : ' ve isteğe bağlı arkadaş görüntüsü'}. Rızanı istediğin an geri çekebilirsin. (Açık rıza; KVKK madde 5/1.)`,
   'Hizmeti güvenli ve adil tutmak için: istismara karşı sınırlar, bildirimler, güvenlik günlüğü ve haftalık skorların denetimi. (Meşru menfaat; KVKK madde 5/2-f.)',
   'Alıcıları hangi tür sitelerin getirdiğini görmek için: web’deki bir satın almayla giden, nereden geldiğini söyleyen kelime. (Meşru menfaat; KVKK madde 5/2-f.)',
+  `Sitenin ve oyunların nasıl kullanıldığını görmek için: ${F.ANALYTICS_ON ? 'çerezsiz ziyaret sayımı ve ' : ''}ad vermeyen oyun sinyali. (Meşru menfaat; KVKK madde 5/2-f.)`,
   'Vergi ve muhasebe için sipariş kayıtlarını yasanın gerektirdiği süre boyunca tutmak gibi yasal yükümlülükleri yerine getirmek için. (Hukuki yükümlülük; KVKK madde 5/2-ç.)',
 ])}`,
       },

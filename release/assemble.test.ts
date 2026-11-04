@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { LEGACY_PAGES, MUST_HAVE, assemble, resolvePath } from './assemble.ts';
-import { HEAD_TAGS, SOURCE_TAG, TARGETS } from './site.ts';
+import { HEAD_TAGS, SOURCE_TAG, TARGETS, analyticsTag } from './site.ts';
 import { REGION_IDS } from '../packages/core/ui/settings.ts';
 import { POSE_CACHE } from '../packages/core/pose/assets.ts';
 
@@ -95,6 +95,38 @@ describe('assemble', { timeout: 60_000 }, () => {
     expect(read('assets/pro-source.js')).toBe(readFileSync(join(root, 'site', 'assets', 'pro-source.js'), 'utf8'));
     // site/ keeps its pages as they are: the script goes in at release time only
     expect(readFileSync(join(root, 'site', 'privacy.html'), 'utf8')).not.toContain(SOURCE_TAG);
+  });
+
+  it('adds no analytics beacon while visits are not counted (the release as it ships today)', () => {
+    for (const f of ['index.html', 'privacy.html', '404.html']) expect(read(f), f).not.toContain('cloudflareinsights');
+    expect(read('_headers')).not.toContain('cloudflareinsights');
+  });
+
+  it('with visits counted and a token, puts the beacon once in the head of every page of the production release and names its host in the policy', () => {
+    const token = 'fedcba9876543210fedcba9876543210';
+    const counted = join(tmp, 'out-prod-counted');
+    const r = assemble({ root, web, out: counted, target: TARGETS.production, analytics: { on: true, token } });
+    expect(r.problems).toEqual([]);
+    const tag = analyticsTag(token);
+    const readCounted = (f: string): string => readFileSync(join(counted, f), 'utf8');
+    for (const f of ['index.html', 'tr/index.html', 'games/road-run/index.html', '404.html', ...LEGACY_PAGES.map((p) => p.file)]) {
+      const html = readCounted(f);
+      expect(html.split(tag).length - 1, f).toBe(1);
+      expect(html.indexOf(tag), f).toBeLessThan(html.indexOf('</head>'));
+    }
+    expect(readCounted('_headers')).toMatch(/Content-Security-Policy-Report-Only: [^\n]*script-src [^;]*static\.cloudflareinsights\.com/);
+    // automatic setup (no token): the pages stay as they are, the policy still allows what Cloudflare adds
+    const auto = join(tmp, 'out-prod-auto');
+    assemble({ root, web, out: auto, target: TARGETS.production, analytics: { on: true, token: '' } });
+    expect(readFileSync(join(auto, 'index.html'), 'utf8')).not.toContain('beacon.min.js');
+    expect(readFileSync(join(auto, '_headers'), 'utf8')).toContain('static.cloudflareinsights.com');
+  });
+
+  it('never counts visits on the preview, whatever the switch says', () => {
+    const prev = join(tmp, 'out-preview-counted');
+    assemble({ root, web, out: prev, target: TARGETS.preview, analytics: { on: true, token: 'fedcba9876543210fedcba9876543210' } });
+    expect(readFileSync(join(prev, 'index.html'), 'utf8')).not.toContain('cloudflareinsights');
+    expect(readFileSync(join(prev, '_headers'), 'utf8')).not.toContain('cloudflareinsights');
   });
 
   it('precaches the start pages of both languages and the hashed files, and stamps the build', () => {

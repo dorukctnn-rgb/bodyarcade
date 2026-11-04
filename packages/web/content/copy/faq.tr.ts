@@ -67,7 +67,7 @@ export function faqTr(): PageSpec {
         },
         {
           q: 'BodyArcade benim hakkımda ne saklar?',
-          a: '<p>Ayarların ve sonuçların cihazında kalır. Sunucularımız çevrimiçi bir profili yalnızca sen yaparsan, odaları yalnızca var oldukları sürece, Pro için lisans kayıtlarını tutar; her biri için <a href="/tr/privacy">gizlilik politikasında</a> yazan süre kadar. Reklam yok, reklam izleyicisi yok.</p>',
+          a: '<p>Ayarların ve sonuçların cihazında kalır. Sunucularımız çevrimiçi bir profili yalnızca sen yaparsan, odaları yalnızca var oldukları sürece, Pro için lisans kayıtlarını tutar; her biri için <a href="/tr/privacy">gizlilik politikasında</a> yazan süre kadar. Ayrıca seni belli edecek hiçbir şey olmadan, her oyunun kaç turunun başlayıp bittiğini sayarlar. Reklam yok, reklam izleyicisi yok.</p>',
         },
         {
           q: 'Verilerimi nasıl silerim?',

@@ -25,6 +25,8 @@ export interface StackOptions {
   vars?: Record<string, string>;
   /** Keeps the Durable Object storage in this folder (a restart test); memory when absent. */
   persistTo?: string;
+  /** Workers Analytics Engine datasets to bind, by binding name (the game signal's PING_START and PING_FINISH). */
+  analyticsDatasets?: Record<string, { dataset: string }>;
 }
 
 /**
@@ -126,6 +128,7 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
     },
     ...(opts.assetsDir ? { assets: { directory: opts.assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, static_routing: { user_worker: ['/api/*', '/f/*', '/r/*'] } }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'single-page-application' } } } : {}),
     ...(opts.persistTo ? { resourcePersistencePath: opts.persistTo } : {}),
+    ...(opts.analyticsDatasets ? { analyticsEngineDatasets: opts.analyticsDatasets } : {}),
     handleStructuredLogs: (l: { message: string }) => { for (const line of String(l.message).split('\n')) logs.push(line); },
   } as Parameters<typeof convertV4MiniflareOptions>[0]));
   const url = await mf.ready;

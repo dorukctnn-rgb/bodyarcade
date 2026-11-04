@@ -49,6 +49,8 @@ interface Window {
   __BA_TEST__?: { timeScale?: number; roundSeconds?: number; social?: boolean | string;
     /** What a quick match finds in the practice friends port: a lobby at once, or nobody. */
     socialQuick?: 'lobby' | 'never'; plan?: 'free' | 'pro' | 'family'; forceDemo?: boolean; keyboard?: boolean; desk?: boolean;
+    /** Let the game signal (app/signal.ts) go out from an automated browser too: the signal tests, which look at what a round sends. */
+    signals?: boolean;
     /** The player is in the last days of a free trial: it ends this many hours from now. */
     trial?: { endsInHours: number; where?: 'web' | 'play'; cancelled?: boolean; email?: 'offer' | 'none' };
     /** What a published build shows while nothing can be bought: no offers, a note. */

@@ -14,6 +14,7 @@ interface Cfg {
   durable_objects?: { bindings: { name: string; class_name: string }[] };
   migrations?: { tag: string; new_sqlite_classes?: string[] }[];
   d1_databases?: { binding: string; database_name: string; database_id: string }[];
+  analytics_engine_datasets?: { binding: string; dataset: string }[];
   assets?: { directory: string; binding: string; not_found_handling: string };
   compatibility_date: string;
 }
@@ -40,6 +41,15 @@ for (const file of ['wrangler.jsonc', 'wrangler.prod.jsonc']) {
       expect(bound).toEqual([...exported].sort());
       expect(cfg.durable_objects?.bindings).toEqual(server.durable_objects?.bindings);
       expect(cfg.migrations).toEqual(server.migrations);
+    });
+
+    it('binds the two Analytics Engine datasets of the game signal, with names of their own (the preview and the dev config never write into the production datasets)', () => {
+      const sets = cfg.analytics_engine_datasets ?? [];
+      expect(sets.map((d) => d.binding).sort()).toEqual(['PING_FINISH', 'PING_START']);
+      expect(sets.every((d) => /^bodyarcade_(game_start|run_finished)(_preview|_dev)?$/.test(d.dataset))).toBe(true);
+      const production = file === 'wrangler.prod.jsonc';
+      expect(sets.every((d) => /_(preview|dev)$/.test(d.dataset)), file).toBe(!production);
+      expect(new Set(sets.map((d) => d.dataset)).size).toBe(2);
     });
 
     it('binds every database of the server config (or lists why not yet)', () => {
