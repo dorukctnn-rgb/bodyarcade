@@ -522,6 +522,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'trial.notice.2': 'Ücretsiz denemen öbür gün bitiyor.',
   'trial.notice.cancelled': 'Üyeliğini zaten iptal ettin, bu yüzden ücret alınmayacak.',
   'trial.notice.web': 'Devam etmesini istemiyorsan Pro sayfasında “Aboneliği yönet”i aç.',
+  'trial.notice.gumroad': 'Devam etmesini istemiyorsan Gumroad kütüphanenden iptal et.',
   'trial.notice.play': 'Devam etmesini istemiyorsan Google Play aboneliklerinden iptal et.',
   'trial.notice.label': 'Ücretsiz deneme',
   'trial.notice.manage': 'Hatırlatma ve plan',

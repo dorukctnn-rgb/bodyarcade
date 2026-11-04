@@ -75,6 +75,8 @@ export default defineConfig(({ command }) => {
       __BA_DEMO__: JSON.stringify(dev || fixtures !== 'none'),
       // Made-up offers where the Gumroad products are not made yet: only for a build whose job is to show the design.
       __BA_PLACEHOLDER_PLANS__: JSON.stringify(process.env['BA_PLACEHOLDER_PLANS'] === '1'),
+      // Paddle's checkout in a build made to test it before the switch is on (core/entitlements/paddle.ts: PADDLE_WEB_CHECKOUT).
+      __BA_PADDLE__: JSON.stringify(process.env['BA_PADDLE'] === '1'),
     },
     server: { host: '127.0.0.1', port: Number(process.env['BA_WEB_PORT'] ?? 5174), strictPort: true, open: false, fs: { allow: [repo] } },
     preview: { host: '127.0.0.1', port: Number(process.env['BA_WEB_PREVIEW_PORT'] ?? 4174), strictPort: true, open: false },

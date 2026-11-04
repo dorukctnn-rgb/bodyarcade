@@ -317,6 +317,19 @@ describe('a second purchase of a plan the buyer already has (double payment)', (
     expect(paddle.refunds).toHaveLength(1);
   });
 
+  it('a second purchase that cost nothing (a 100% code) is the first one again: no refund, no "will be refunded" message', async () => {
+    const { paddle, claim } = await world();
+    const first = txnOf({ id: `txn_${id26('1')}`, details: { totals: { grand_total: '0' } } });
+    const second = txnOf({ id: `txn_${id26('2')}`, details: { totals: { grand_total: '0' } } });
+    paddle.txns.set(first.id, first);
+    paddle.txns.set(second.id, second);
+    const a = await claim(second.id, D0);
+    expect(a.status).toBe(200);
+    expect(a.body['duplicate']).toBeUndefined();
+    expect(String(a.body['key'])).toMatch(/^pdl-t-1{26}-/);
+    expect(paddle.refunds).toHaveLength(0);
+  });
+
   it('a refunded earlier purchase does not count, and an unreadable list refunds nothing', async () => {
     const { paddle, claim } = await world();
     const refunded = txnOf({ id: `txn_${id26('1')}`, adjustments: [{ action: 'refund', status: 'approved', type: 'full' }] });

@@ -522,6 +522,7 @@ export const en = {
   'trial.notice.2': 'Your free trial ends the day after tomorrow.',
   'trial.notice.cancelled': 'You already cancelled, so nothing will be charged.',
   'trial.notice.web': 'To stop it, open Manage subscription on the Pro page.',
+  'trial.notice.gumroad': 'To stop it, cancel in your Gumroad library.',
   'trial.notice.play': 'To stop it, cancel in Google Play subscriptions.',
   'trial.notice.label': 'Free trial',
   'trial.notice.manage': 'Reminder and plan',

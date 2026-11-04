@@ -12,8 +12,15 @@
 // taxes included; Paddle shows each buyer the local currency). catalog.test.ts checks that every sold plan has a price id.
 import type { PlanId, SoldPlanId } from './plans.ts';
 
-/** The web checkout is Paddle's (true) or the Gumroad product pages' (false). The one switch. */
-export const PADDLE_WEB_CHECKOUT = true;
+/**
+ * THE SWITCH. false: the web checkout stays on the Gumroad product pages and every page says what it said before Paddle (the Pro
+ * page, its cancel line, the trial notice). true: the web checkout is Paddle's, in our own panel on the page. It stays false until
+ * the Gumroad balance can be paid out (Doruk, 4 Nov 2026: products with Gumroad sales switch together once it is >= $100); the
+ * switch is this one line. Before that, Paddle can be turned on for one browser only, to test it on bodyarcade.com itself:
+ * open https://bodyarcade.com/pro/#paddle-preview (and #paddle-preview-off to end it; paddle-checkout.ts: paddlePreview), or
+ * make a build with BA_PADDLE=1 (vite define __BA_PADDLE__).
+ */
+export const PADDLE_WEB_CHECKOUT: boolean = false;
 
 /** Paddle price id of each sold plan (product pro_01m6kxtr4ryryyyxngdgny12q9 "BodyArcade", created 4 Nov 2026). */
 export const PADDLE_PRICES: Readonly<Record<SoldPlanId, string>> = {

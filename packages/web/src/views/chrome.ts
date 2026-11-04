@@ -100,7 +100,7 @@ export function trialNotice(ctx: ViewContext): SafeHtml {
   if (!n) return html``;
   const t = ctx.i18n;
   const day = t.tx(`trial.notice.${Math.min(2, Math.max(0, n.dayOffset))}`);
-  const rest = n.cancelled ? t.t('trial.notice.cancelled') : n.where === 'play' ? t.t('trial.notice.play') : t.t('trial.notice.web');
+  const rest = n.cancelled ? t.t('trial.notice.cancelled') : n.where === 'play' ? t.t('trial.notice.play') : t.t(ctx.paywall.paddle?.purchase ? 'trial.notice.web' : 'trial.notice.gumroad');
   return html`<aside class="ba-trialnote" aria-label="${t.t('trial.notice.label')}" data-trial-notice><p><b>${day}</b> ${rest}</p>
     <div class="ba-trialnote-actions"><a class="ba-link" href="${ctx.href('pro')}">${t.t('trial.notice.manage')}</a><button type="button" class="ba-link" data-action="trial-dismiss">${t.t('trial.notice.dismiss')}</button></div></aside>`;
 }

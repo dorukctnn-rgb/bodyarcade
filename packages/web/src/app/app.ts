@@ -8,7 +8,7 @@ import { createLiveRegion, type LiveRegion } from '../../../core/ui/live-region.
 import { createNavigation, type Matched, type Navigation, type RouteChange } from '../../../core/ui/router.ts';
 import { describeOffer, shouldShowPaywallAfterRound, type PaywallInfo } from '../../../core/ui/plans.ts';
 import { PADDLE_WEB_CHECKOUT, isPaddleKey } from '../../../core/entitlements/paddle.ts';
-import { createPaddleCheckout, type PaddleCheckout } from './paddle-checkout.ts';
+import { createPaddleCheckout, paddlePreview, type PaddleCheckout } from './paddle-checkout.ts';
 import { applySettingsToDocument, createSettingsStore, type Settings, type SettingsStore } from '../../../core/ui/settings.ts';
 import { createToaster, type Toaster } from '../../../core/ui/toast.ts';
 import { createStore, type BodyArcadeStore, type StorageLike, type StoreNamespace } from '../../../core/store/store.ts';
@@ -93,6 +93,8 @@ export interface AppOptions {
   family?: boolean;
   /** The Room verifies the host's Pro before a Pro game starts: the paywall may say that rooms play the host's Pro games. */
   roomsPro?: boolean;
+  /** Paddle's checkout in a build made to test it (BA_PADDLE=1); the published switch is PADDLE_WEB_CHECKOUT, and one browser can try it with #paddle-preview. */
+  paddle?: boolean;
   /**
    * A round on this game is played by a stand-in for a person (the practice session of development and test builds): what it keeps is
    * kept like a camera round's, so the tests of the record, the habit and the plans do not need a camera. A published build has none.
@@ -168,6 +170,8 @@ export class App {
   private trialLoading = false;
   /** The Paddle checkout of the web build (paddle-checkout.ts); its restore link and unfinished claim are taken up once the real entitlements are there. */
   private readonly paddle: PaddleCheckout;
+  /** Paddle sells here: the published switch, a test build (BA_PADDLE=1) or this browser's preview (#paddle-preview). */
+  private readonly paddleSwitch: boolean;
   private paddleResumed = false;
   private readonly live: LiveRegion;
   private readonly toaster: Toaster;
@@ -257,6 +261,7 @@ export class App {
     this.arcade = this.buildArcade();
     this.live = createLiveRegion(this.doc as never);
     this.toaster = createToaster(this.doc as never, this.live);
+    this.paddleSwitch = PADDLE_WEB_CHECKOUT || o.paddle === true || paddlePreview(this.win);
     this.paddle = createPaddleCheckout({
       win: this.win,
       t: (k, v) => this.ctx().i18n.t(k, v),
@@ -539,7 +544,7 @@ export class App {
 
   /** Paddle sells Pro here: the web build, a real checkout (not a preview), the switch on. */
   private paddleOn(info: PaywallInfo): boolean {
-    return PADDLE_WEB_CHECKOUT && info.mode === 'web' && !info.preview;
+    return this.paddleSwitch && info.mode === 'web' && !info.preview;
   }
 
   private on(target: EventTarget, type: string, cb: (e: Event) => void): void {

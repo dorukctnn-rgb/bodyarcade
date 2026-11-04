@@ -27,6 +27,8 @@ export interface BootOptions {
   demo: boolean;
   /** A build made to look at the design before the Gumroad products exist: made-up offers where the real ones are missing. */
   placeholderPlans?: boolean;
+  /** A build made to test Paddle's checkout before its switch is on (BA_PADDLE=1). */
+  paddle?: boolean;
   /** Replaces the choice of session (tests of the shell itself). */
   sessionFactory?: SessionFactory;
   /** Where the players of this device are kept, and the gate's questions (tests: memory, and a question whose answer is known). */
@@ -199,7 +201,7 @@ export async function boot(o: BootOptions): Promise<App> {
   }
 
   const app = new App({
-    win: o.win, catalogue: o.catalogue, version: o.version, demo: o.demo, profiles: book, family: FAMILY_ON, roomsPro: ROOM_PRO_ON, billing,
+    win: o.win, catalogue: o.catalogue, version: o.version, demo: o.demo, profiles: book, family: FAMILY_ON, roomsPro: ROOM_PRO_ON, billing, paddle: o.paddle === true,
     // The practice session of development and test builds plays a body that is not there: its rounds are kept like a camera's.
     bodyIsSimulated: (id) => o.demo && (hooks.forceDemo === true || !playable.has(id)),
     ...(entitlements ? { entitlements } : {}),

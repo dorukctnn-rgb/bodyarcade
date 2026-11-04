@@ -66,6 +66,25 @@ type PaddleWindow = Window & typeof globalThis & { Paddle?: PaddleJs };
 
 type Phase = 'idle' | 'loading' | 'ready' | 'paying' | 'claiming' | 'done';
 
+const PREVIEW_SLOT = 'ba2.paddle.preview';
+
+/**
+ * Paddle for this one browser while the published switch is off (core/entitlements/paddle.ts): /pro/#paddle-preview turns it on
+ * and remembers it, #paddle-preview-off forgets it. The hash leaves the address bar at once. Everyone else keeps the Gumroad pages.
+ */
+export function paddlePreview(win: Window & typeof globalThis): boolean {
+  const ls = (): Storage | null => { try { return win.localStorage; } catch { return null; } };
+  const hash = win.location.hash;
+  const off = /(?:^#|&)paddle-preview-off(?:&|$)/.test(hash);
+  const on = !off && /(?:^#|&)paddle-preview(?:&|$)/.test(hash);
+  if (on || off) {
+    try { if (on) ls()?.setItem(PREVIEW_SLOT, '1'); else ls()?.removeItem(PREVIEW_SLOT); } catch { /* private mode: this visit only */ }
+    try { win.history.replaceState(win.history.state, '', win.location.pathname + win.location.search); } catch { /* ignore */ }
+    return on;
+  }
+  try { return ls()?.getItem(PREVIEW_SLOT) === '1'; } catch { return false; }
+}
+
 export interface PaddleCheckout {
   /** Opens the panel for a plan. False when Paddle cannot be used here right now (the caller then offers the Gumroad page). */
   open(offer: CheckoutOffer): Promise<boolean>;

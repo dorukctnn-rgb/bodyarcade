@@ -270,7 +270,7 @@ describe('the notice in the last two days of a trial', () => {
     expect(textOf(draw('en', notice({ dayOffset: 0 })))).toContain('Your free trial ends today.');
     expect(textOf(draw('en', notice({ dayOffset: 1 })))).toContain('Your free trial ends tomorrow.');
     expect(textOf(draw('en', notice({ dayOffset: 2 })))).toContain('Your free trial ends the day after tomorrow.');
-    expect(textOf(draw('en', notice()))).toContain('open Manage subscription on the Pro page');
+    expect(textOf(draw('en', notice()))).toContain('cancel in your Gumroad library');
     expect(textOf(draw('en', notice({ where: 'play' })))).toContain('cancel in Google Play subscriptions');
     expect(textOf(draw('tr', notice({ dayOffset: 1 })))).toContain('Ücretsiz denemen yarın bitiyor.');
     expect(textOf(draw('tr', notice({ where: 'play' })))).toContain('Google Play aboneliklerinden iptal et');

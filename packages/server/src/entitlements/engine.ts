@@ -648,13 +648,18 @@ export function createEngine(deps: EngineDeps): Engine {
     }
     let anchor = anchorOfTxn(t.value);
     const dup = await findDuplicate(t.value, j.facts.plan);
+    // A second purchase that cost nothing (a 100% discount code) has nothing to give back: it is simply the first one again.
+    let refunded = false;
     if (dup) {
       // The buyer already had this plan (bought on another device, or twice by mistake): keep the first purchase, give the
       // money of this one back, and stop a second membership before it renews.
       log('paddle_duplicate', { plan: j.facts.plan, kept: dup.kind });
       if (t.value.subscription_id && !(await pd.upstream.cancelNow(t.value.subscription_id))) log('paddle_duplicate_cancel_failed', {});
       const total = Number(t.value.details?.totals?.grand_total ?? t.value.details?.totals?.total ?? '0');
-      if (total > 0 && !(await pd.upstream.refund(t.value.id, 'Duplicate purchase: the buyer already has this BodyArcade plan, so this payment is refunded in full.'))) log('paddle_duplicate_refund_failed', {});
+      if (total > 0) {
+        refunded = true;
+        if (!(await pd.upstream.refund(t.value.id, 'Duplicate purchase: the buyer already has this BodyArcade plan, so this payment is refunded in full.'))) log('paddle_duplicate_refund_failed', {});
+      }
       anchor = dup;
     }
     // The purchase is looked at once more as the key names it (a membership: its subscription, with the trial and the period)
@@ -669,7 +674,7 @@ export function createEngine(deps: EngineDeps): Engine {
     const nowS = sec(deps.now());
     db.tx(() => writeRow(rowFrom(sub, 'paddle', judged.facts, getRow(sub), nowS)));
     log('paddle_claim', { plan: judged.facts.plan, kind: anchor.kind, duplicate: !!dup });
-    return ok({ key, plan: judged.facts.plan, ...(dup ? { duplicate: true } : {}) });
+    return ok({ key, plan: judged.facts.plan, ...(refunded ? { duplicate: true } : {}) });
   }
 
   /** At most this many restore e-mails per address per hour (on top of the per-caller limit). */
