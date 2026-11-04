@@ -105,6 +105,8 @@
 .hm-burst > span { max-width: 62%; font-size: clamp(0.82rem, 0.55rem + 0.75vw, 1.35rem); letter-spacing: -0.02em; text-wrap: balance; }
 .hm-burst--a { background: var(--hm-sun); color: var(--hm-ink); width: max(78px, 46%); right: -16%; top: -6%; --rot: -10deg; }
 .hm-burst--b { background: var(--hm-coral); color: var(--hm-ink); width: max(78px, 42%); left: -17%; bottom: 2%; --rot: 9deg; animation-delay: -3s; }
+/* a short phone keeps both frames small: there the stickers would sit on the player and the bird, so they stay out */
+@media (max-width: 760px) and (max-height: 760px) { .hm-hero .hm-burst { display: none; } }
 @keyframes hm-wobble { 0%, 100% { transform: rotate(var(--rot)) scale(1); } 50% { transform: rotate(calc(var(--rot) * -0.4)) scale(1.06); } }
 
 /* the band of moves: one long line that runs sideways */
@@ -121,6 +123,11 @@
   .hm-hero-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .hm-hero-copy { display: contents; }
   .hm-hero-stage { order: -1; padding: 18px 0 30px; --cap: clamp(200px, calc(100svh - var(--hm-bottom) - 480px), 360px); }
+  /* the sticker on the left frame sits further out, clear of the player's legs */
+  .hm-burst--b { left: -22%; }
+  /* the camera tag stays on one line, small, on the frame's top edge (never down over the player's head) */
+  .hm-root .hm-camtag { top: -12px; left: 10px; padding: 5px 10px; gap: 6px; font-size: 0.8rem; white-space: nowrap; }
+  .hm-root .hm-camtag i { width: 8px; height: 8px; }
   .hm-hero .hm-h1 { order: 0; }
   .hm-hero .hm-actions { order: 1; margin-top: 18px; gap: 12px; }
   .hm-hero .hm-lead { order: 2; }
