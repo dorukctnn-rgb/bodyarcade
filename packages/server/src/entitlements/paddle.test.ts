@@ -498,6 +498,11 @@ describe('the page\'s Paddle settings', () => {
     const r = await w.call('GET', API.paddleConfig);
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ token: 'live_0123456789abcdefghijklmnopq', environment: 'production', prices: PADDLE_PRICES });
+    // the dashboard's current form, "ctkn_" + 26
+    w.env['PADDLE_CLIENT_TOKEN'] = 'ctkn_01m6kxgnz85rydbf3fkzq0zc7a';
+    expect(await (await w.call('GET', API.paddleConfig)).json()).toMatchObject({ token: 'ctkn_01m6kxgnz85rydbf3fkzq0zc7a', environment: 'production' });
+    w.env['PADDLE_CLIENT_TOKEN'] = 'pdl_live_apikey_01abc';          // an API key is never handed to a page
+    expect((await w.call('GET', API.paddleConfig)).status).toBe(503);
     delete w.env['PADDLE_CLIENT_TOKEN'];
     expect((await w.call('GET', API.paddleConfig)).status).toBe(503);
   });

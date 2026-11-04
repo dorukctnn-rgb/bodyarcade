@@ -64,8 +64,10 @@ export function registerEntitlementRoutes(router: Router): void {
   router.add('GET', API.paddleConfig, (_req, env) => {
     // Paddle's client-side token is public by design (it only opens checkouts); it lives in the Worker's settings, not in the code.
     const token = env['PADDLE_CLIENT_TOKEN'];
-    if (typeof token !== 'string' || !/^(live|test)_[A-Za-z0-9]{10,64}$/.test(token)) return fail('unavailable', 503);
-    return json({ token, environment: token.startsWith('test_') ? 'sandbox' : 'production', prices: PADDLE_PRICES }, 200, { 'Cache-Control': 'public, max-age=300' });
+    // "ctkn_" + 26 (the dashboard's tokens since 2026) or the older live_/test_ form; the environment is PADDLE_ENV's (an old test_ token is the sandbox).
+    if (typeof token !== 'string' || !PADDLE_CLIENT_TOKEN_RE.test(token)) return fail('unavailable', 503);
+    const environment = env['PADDLE_ENV'] === 'sandbox' || token.startsWith('test_') ? 'sandbox' : 'production';
+    return json({ token, environment, prices: PADDLE_PRICES }, 200, { 'Cache-Control': 'public, max-age=300' });
   });
   router.add('POST', PADDLE_WEBHOOK_PATH, async (req, env) => {
     const secret = env['PADDLE_WEBHOOK_SECRET'];
@@ -81,6 +83,9 @@ export function registerEntitlementRoutes(router: Router): void {
     return callDo(env, 'paddle-event', { raw }, req);
   });
 }
+
+/** A Paddle client-side token: public by design (it can only open checkouts). */
+export const PADDLE_CLIENT_TOKEN_RE = /^(?:ctkn_[0-9a-z]{26}|(?:live|test)_[A-Za-z0-9]{10,64})$/;
 
 /** Paddle's notifications are small; a bigger body is not one of them. */
 const PADDLE_BODY = 256 * 1024;
