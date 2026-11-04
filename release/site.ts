@@ -39,14 +39,25 @@ export const LEGACY_INLINE_SCRIPT_HASH = "'sha256-Du+OJKJSbdUgz5nrHeWWINvez6XKDD
  *               Gumroad's licence check (the direct fallback of the entitlements); with `analytics` the beacon's report
  *               address (a site that Cloudflare proxies gets it on its own host, which is 'self'; the rest goes here)
  *   worker-src  the pose worker (a module worker from 'self'); blob: for the WASM loader's helper
+ *   Paddle      the web checkout (core/entitlements/paddle.ts): its script from cdn.paddle.com, its checkout frame from
+ *               buy.paddle.com, and its own calls and images under paddle.com
  */
+/** The hosts Paddle's checkout needs (report-only today, so a host missing here shows up in the CSP reports first). */
+export const PADDLE_CSP = {
+  script: ['https://cdn.paddle.com'],
+  connect: ['https://*.paddle.com'],
+  frame: ['https://buy.paddle.com', 'https://sandbox-buy.paddle.com'],
+  img: ['https://*.paddle.com'],
+} as const;
+
 export function contentSecurityPolicy(t: Target, analytics = false): string {
   const host = new URL(t.origin).host;
   const directives: [string, string[]][] = [
     ['default-src', ["'self'"]],
-    ['script-src', ["'self'", "'wasm-unsafe-eval'", LEGACY_INLINE_SCRIPT_HASH, ...(analytics ? [BEACON_SCRIPT_HOST] : [])]],
-    ['connect-src', ["'self'", `wss://${host}`, 'https://api.gumroad.com', ...(analytics ? [BEACON_REPORT_HOST] : [])]],
-    ['img-src', ["'self'", 'data:', 'blob:']],
+    ['script-src', ["'self'", "'wasm-unsafe-eval'", LEGACY_INLINE_SCRIPT_HASH, ...PADDLE_CSP.script, ...(analytics ? [BEACON_SCRIPT_HOST] : [])]],
+    ['connect-src', ["'self'", `wss://${host}`, 'https://api.gumroad.com', ...PADDLE_CSP.connect, ...(analytics ? [BEACON_REPORT_HOST] : [])]],
+    ['frame-src', [...PADDLE_CSP.frame]],
+    ['img-src', ["'self'", 'data:', 'blob:', ...PADDLE_CSP.img]],
     ['media-src', ["'self'", 'blob:']],
     ['worker-src', ["'self'", 'blob:']],
     ['style-src', ["'self'", "'unsafe-inline'"]],

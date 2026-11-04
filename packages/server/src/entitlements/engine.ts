@@ -23,6 +23,13 @@ import {
   claimsFor, normalizeKey, seatLimit, sec, sha256Hex, timeToSec, trialEndFor, type PurchaseRow, type PurchaseStatus,
 } from './rules.ts';
 import type { GumroadUpstream } from './upstream/gumroad.ts';
+import { isPaddleKey, PADDLE_PRICES, restoreLink } from '../../../core/entitlements/paddle.ts';
+import { EMAIL_RE, REMINDER_LANGS } from '../../../core/entitlements/api.ts';
+import type { SoldPlanId } from '../../../core/entitlements/plans.ts';
+import {
+  anchorOfTxn, judgeSubscription, judgeTransaction, paddleIdOf, paddleKeyFor, planOfItems, readPaddleKey, restoreMail, wasRefunded,
+  type PaddleAnchor, type PaddleEvent, type PaddleFacts, type PaddleJudged, type PaddleSub, type PaddleTxn, type PaddleUpstream,
+} from './paddle.ts';
 import type { PlayUpstream } from './upstream/play.ts';
 
 export interface EngineResult {
@@ -53,7 +60,27 @@ export interface EngineDeps {
   /** Tests: lifts the per-address limits. */
   noLimits?: boolean;
   log?: LogFn;
+  /** Null or absent: Paddle purchases cannot be checked here (no API key or no key secret). */
+  paddle?: PaddleDeps | null;
 }
+
+export interface PaddleDeps {
+  upstream: PaddleUpstream;
+  /** The secret that makes and checks Paddle keys (HMAC). Changing it makes every Paddle key unknown: never rotate it. */
+  keySecret: string;
+  /** The site the restore links open (https://bodyarcade.com). */
+  site: string;
+  /** Sends the restore e-mail; null: no restore by e-mail. */
+  mail: MailSender | null;
+  /** A second purchase of a plan the buyer already has is refunded (and a second membership cancelled). Default true. */
+  refundDuplicates?: boolean;
+  /** Tests: other price ids. */
+  prices?: Readonly<Record<SoldPlanId, string>>;
+}
+
+export interface PaddleClaimBody { txn: string }
+export interface PaddleRestoreBody { email: string; lang: string }
+export interface PaddlePortalBody { key: string }
 
 export interface SweepReport {
   seatsFreed: number;
@@ -75,6 +102,14 @@ export interface Engine {
   sweep(): Promise<SweepReport>;
   /** When the next reminder is due, epoch ms, or null. */
   nextDue(): number | null;
+  /** A Paddle checkout that completed: its transaction id gives the Paddle key, which the app then activates as any key. */
+  claimPaddle(body: PaddleClaimBody, ip: string): Promise<EngineResult>;
+  /** E-mails the restore links of the Paddle purchases of an address (always the same answer, found or not). */
+  restorePaddle(body: PaddleRestoreBody, ip: string): Promise<EngineResult>;
+  /** A Paddle customer portal link for the purchase a Paddle key names. */
+  portalPaddle(body: PaddlePortalBody, ip: string): Promise<EngineResult>;
+  /** A notification from Paddle whose signature the Worker has checked. */
+  paddleEvent(evt: PaddleEvent): Promise<EngineResult>;
 }
 
 const ok = (body: Record<string, unknown>): EngineResult => ({ status: 200, body });
@@ -122,7 +157,8 @@ export function createEngine(deps: EngineDeps): Engine {
   const { db } = deps;
   const log: LogFn = deps.log ?? ((evt, data) => console.log(JSON.stringify({ evt: `ent_${evt}`, ...data })));
   const windows = new Map<string, Window>();
-  const breaker: Record<'gumroad' | 'play', number> = { gumroad: 0, play: 0 };
+  const breaker: Record<'gumroad' | 'play' | 'paddle', number> = { gumroad: 0, play: 0, paddle: 0 };
+  const paddlePrices: Readonly<Record<SoldPlanId, string>> = deps.paddle?.prices ?? PADDLE_PRICES;
 
   // The salt that makes an address hash useless outside this database; made once and kept.
   let salt = metaGet(db, 'salt');
@@ -186,7 +222,7 @@ export function createEngine(deps: EngineDeps): Engine {
     return { ok: true, used: used + 1 };
   }
 
-  function rowFrom(sub: string, src: 'gumroad' | 'play', f: Facts, prev: PurchaseRow | null, nowS: number): PurchaseRow {
+  function rowFrom(sub: string, src: PurchaseRow['src'], f: Facts, prev: PurchaseRow | null, nowS: number): PurchaseRow {
     const trialEnd = trialEndFor({ plan: f.plan, src, startedAt: f.startedAt, expiry: f.expiry, now: nowS, known: prev?.trial_end ?? null });
     return {
       sub, src, plan: f.plan, product: f.product, status: 'active', paid_until: f.paidUntil, checked_at: nowS,
@@ -233,8 +269,8 @@ export function createEngine(deps: EngineDeps): Engine {
     return grantRow(row, did, nowS, row.checked_at + STALE_GRACE_S);
   }
 
-  const breakerOpen = (which: 'gumroad' | 'play'): boolean => deps.now() < breaker[which];
-  const trip = (which: 'gumroad' | 'play'): void => { breaker[which] = deps.now() + BREAKER_S * 1000; log('upstream_down', { src: which }); };
+  const breakerOpen = (which: 'gumroad' | 'play' | 'paddle'): boolean => deps.now() < breaker[which];
+  const trip = (which: 'gumroad' | 'play' | 'paddle'): void => { breaker[which] = deps.now() + BREAKER_S * 1000; log('upstream_down', { src: which }); };
 
   // ───────── Gumroad ─────────
   /** The products to try for a key: the one this purchase was last found in first, then the rest in order. */
@@ -285,11 +321,13 @@ export function createEngine(deps: EngineDeps): Engine {
     if (wait) return limited(wait);
     const sub = await sha256Hex(normalizeKey(body.key));
     const prev = getRow(sub);
+    // A Paddle key names a Paddle purchase (paddle.ts); every other key is Gumroad's.
+    const src: 'gumroad' | 'paddle' = isPaddleKey(body.key) ? 'paddle' : 'gumroad';
 
     // A recent answer from the seller is used as it is.
-    if (prev && prev.src === 'gumroad' && prev.status === 'active' && nowS - prev.checked_at <= RECHECK_S && (prev.paid_until === null || prev.paid_until > nowS)) {
+    if (prev && prev.src === src && prev.status === 'active' && nowS - prev.checked_at <= RECHECK_S && (prev.paid_until === null || prev.paid_until > nowS)) {
       const r = await grantRow(prev, body.did, nowS);
-      if (r.status === 200) log('grant', { mode, src: 'gumroad', plan: prev.plan, sub: sub.slice(0, 8), cached: true });
+      if (r.status === 200) log('grant', { mode, src, plan: prev.plan, sub: sub.slice(0, 8), cached: true });
       return r;
     }
 
@@ -298,18 +336,18 @@ export function createEngine(deps: EngineDeps): Engine {
       if (wait2) return limited(wait2);
     }
 
-    let judged = await judgeGumroad(body.key, prev);
+    let judged = src === 'paddle' ? await judgePaddle(body.key) : await judgeGumroad(body.key, prev);
     if (judged.kind === 'refused' && judged.code === 'not_found' && prev && prev.status === 'active') {
       // A purchase the seller has told us about before cannot simply vanish: this is our setup (a product missing from the
       // list) or a hiccup, never a reason to take Pro away (B2).
-      log('known_missing', { src: 'gumroad', sub: sub.slice(0, 8) });
+      log('known_missing', { src, sub: sub.slice(0, 8) });
       judged = { kind: 'unreadable' };
     }
-    return finish(judged, prev, sub, 'gumroad', body.did, who, nowMs, mode);
+    return finish(judged, prev, sub, src, body.did, who, nowMs, mode);
   }
 
   /** What to answer for one judged purchase: a token, a refusal, or "try later". */
-  async function finish(judged: Judged, prev: PurchaseRow | null, sub: string, src: 'gumroad' | 'play', did: string, who: string, nowMs: number, mode: string): Promise<EngineResult> {
+  async function finish(judged: Judged, prev: PurchaseRow | null, sub: string, src: PurchaseRow['src'], did: string, who: string, nowMs: number, mode: string): Promise<EngineResult> {
     const nowS = sec(nowMs);
     switch (judged.kind) {
       case 'active': {
@@ -521,6 +559,8 @@ export function createEngine(deps: EngineDeps): Engine {
       db.run(`DELETE FROM purchases WHERE status != 'active' AND checked_at < ?1 AND NOT EXISTS (SELECT 1 FROM seats s WHERE s.sub = purchases.sub)`, nowS - FORGET_AFTER_S);
       // An address whose trial is over, or that could not be reached five times, is not kept.
       db.run('DELETE FROM reminders WHERE trial_end < ?1 OR tries >= ?2', nowS, REMINDER_MAX_TRIES);
+      // Paddle notifications are remembered only to drop a resent one; Paddle stops resending within days.
+      db.run('DELETE FROM paddle_events WHERE at < ?1', nowS - 30 * DAY_S);
     });
     for (const [k, e] of windows) {
       const bucket = k.split(':')[0] as string;
@@ -554,7 +594,186 @@ export function createEngine(deps: EngineDeps): Engine {
     return report;
   }
 
+  // ───────── Paddle ─────────
+  const factsOf = (f: PaddleFacts): Facts => ({ plan: f.plan, product: f.price, paidUntil: f.paidUntil, startedAt: f.startedAt, expiry: f.expiry, test: false });
+  const judgedOf = (j: PaddleJudged): Judged =>
+    j.kind === 'active' ? { kind: 'active', ack: false, facts: factsOf(j.facts) } : j.kind === 'pending' ? { kind: 'pending' } : { kind: 'refused', code: j.code };
+
+  /** What Paddle says now about the purchase a Paddle key names. */
+  async function judgePaddle(key: string): Promise<Judged> {
+    const pd = deps.paddle;
+    if (!pd || breakerOpen('paddle')) return { kind: 'unreadable' };
+    const anchor = await readPaddleKey(pd.keySecret, key);
+    if (!anchor) return { kind: 'refused', code: 'not_found' };
+    const a = anchor.kind === 's' ? await pd.upstream.subscription(paddleIdOf(anchor)) : await pd.upstream.transaction(paddleIdOf(anchor));
+    if (a.kind === 'unreadable') { trip('paddle'); return { kind: 'unreadable' }; }
+    if (a.kind === 'not_found') return { kind: 'refused', code: 'not_found' };
+    return judgedOf(anchor.kind === 's' ? judgeSubscription(a.value as PaddleSub, paddlePrices) : judgeTransaction(a.value as PaddleTxn, paddlePrices));
+  }
+
+  const LIVE_SUB = new Set(['active', 'trialing', 'past_due']);
+
+  /** Another purchase of the same plan by the same customer that is still running, or null (also when Paddle cannot tell). */
+  async function findDuplicate(txn: PaddleTxn, plan: PlanId): Promise<PaddleAnchor | null> {
+    const pd = deps.paddle as PaddleDeps;
+    if (pd.refundDuplicates === false || !txn.customer_id) return null;
+    if (PLANS[plan].period === 'once') {
+      const list = await pd.upstream.transactionsOf(txn.customer_id);
+      if (list.kind !== 'found' || !Array.isArray(list.value)) return null;
+      const other = list.value.find((t) => t.id !== txn.id && !t.subscription_id && t.status === 'completed' && planOfItems(t.items, paddlePrices)?.plan === plan && !wasRefunded(t.adjustments));
+      return other ? anchorOfTxn(other) : null;
+    }
+    const subs = await pd.upstream.subscriptionsOf(txn.customer_id);
+    if (subs.kind !== 'found' || !Array.isArray(subs.value)) return null;
+    const other = subs.value.find((s) => s.id !== txn.subscription_id && LIVE_SUB.has(s.status) && !s.scheduled_change && planOfItems(s.items, paddlePrices)?.plan === plan);
+    return other ? { kind: 's', id: other.id.replace(/^sub_/, '') } : null;
+  }
+
+  async function claimPaddle(body: PaddleClaimBody, ip: string): Promise<EngineResult> {
+    const pd = deps.paddle;
+    if (!deps.signer || !pd) return fail('unavailable');
+    const nowMs = deps.now();
+    const who = await ipKey(ip);
+    const wait = hit('grant', who, nowMs) || hit('miss', who, nowMs, false);
+    if (wait) return limited(wait);
+    const t = await pd.upstream.transaction(body.txn);
+    if (t.kind === 'unreadable') { log('upstream_error', { src: 'paddle', mode: 'claim' }); return fail('upstream'); }
+    if (t.kind === 'not_found') { hit('miss', who, nowMs); log('refused', { code: 'not_found', src: 'paddle', mode: 'claim' }); return fail('not_found'); }
+    const j = judgeTransaction(t.value, paddlePrices);
+    if (j.kind === 'pending') return fail('not_found', { pending: true });
+    if (j.kind === 'refused') {
+      if (j.code === 'not_found') hit('miss', who, nowMs);
+      log('refused', { code: j.code, src: 'paddle', mode: 'claim' });
+      return fail(j.code);
+    }
+    let anchor = anchorOfTxn(t.value);
+    const dup = await findDuplicate(t.value, j.facts.plan);
+    if (dup) {
+      // The buyer already had this plan (bought on another device, or twice by mistake): keep the first purchase, give the
+      // money of this one back, and stop a second membership before it renews.
+      log('paddle_duplicate', { plan: j.facts.plan, kept: dup.kind });
+      if (t.value.subscription_id && !(await pd.upstream.cancelNow(t.value.subscription_id))) log('paddle_duplicate_cancel_failed', {});
+      const total = Number(t.value.details?.totals?.grand_total ?? t.value.details?.totals?.total ?? '0');
+      if (total > 0 && !(await pd.upstream.refund(t.value.id, 'Duplicate purchase: the buyer already has this BodyArcade plan, so this payment is refunded in full.'))) log('paddle_duplicate_refund_failed', {});
+      anchor = dup;
+    }
+    // The purchase is looked at once more as the key names it (a membership: its subscription, with the trial and the period)
+    // and written down, so the app's activation with the key a moment later is answered from here without asking Paddle again.
+    // No seat is taken here: the app activates the key like any other, on its own device id.
+    const key = await paddleKeyFor(pd.keySecret, anchor);
+    const judged = await judgePaddle(key);
+    if (judged.kind === 'unreadable') return fail('upstream');
+    if (judged.kind === 'pending') return fail('not_found', { pending: true });
+    if (judged.kind === 'refused') return fail(judged.code);
+    const sub = await sha256Hex(normalizeKey(key));
+    const nowS = sec(deps.now());
+    db.tx(() => writeRow(rowFrom(sub, 'paddle', judged.facts, getRow(sub), nowS)));
+    log('paddle_claim', { plan: judged.facts.plan, kind: anchor.kind, duplicate: !!dup });
+    return ok({ key, plan: judged.facts.plan, ...(dup ? { duplicate: true } : {}) });
+  }
+
+  /** At most this many restore e-mails per address per hour (on top of the per-caller limit). */
+  const RESTORES_PER_HOUR = 3;
+
+  async function restorePaddle(body: PaddleRestoreBody, ip: string): Promise<EngineResult> {
+    const pd = deps.paddle;
+    if (!pd || !pd.mail) return fail('unavailable');
+    const email = body.email.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) return fail('bad_request');
+    const lang = (REMINDER_LANGS as readonly string[]).includes(body.lang) ? body.lang : 'en';
+    const nowMs = deps.now();
+    const who = await ipKey(ip);
+    const wait = hit('reminder', who, nowMs);
+    if (wait) return limited(wait);
+    if (!deps.noLimits) {
+      const k = `restore:${(await sha256Hex(`${salt}:${email}`)).slice(0, 16)}`;
+      const e = windows.get(k);
+      if (!e || nowMs - e.w >= 3_600_000) windows.set(k, { w: nowMs, n: 1 });
+      else if (e.n >= RESTORES_PER_HOUR) return limited(Math.ceil((e.w + 3_600_000 - nowMs) / 1000));
+      else e.n++;
+    }
+    const customers = await pd.upstream.customersByEmail(email);
+    if (customers.kind === 'unreadable') return fail('upstream');
+    const anchors: PaddleAnchor[] = [];
+    for (const c of customers.kind === 'found' && Array.isArray(customers.value) ? customers.value.slice(0, 3) : []) {
+      const subs = await pd.upstream.subscriptionsOf(c.id);
+      const txns = await pd.upstream.transactionsOf(c.id);
+      if (subs.kind === 'unreadable' || txns.kind === 'unreadable') return fail('upstream');
+      for (const s of subs.kind === 'found' ? subs.value : []) if (judgeSubscription(s, paddlePrices).kind === 'active') anchors.push({ kind: 's', id: s.id.replace(/^sub_/, '') });
+      for (const tx of txns.kind === 'found' ? txns.value : []) if (!tx.subscription_id && judgeTransaction(tx, paddlePrices).kind === 'active') anchors.push(anchorOfTxn(tx));
+    }
+    if (anchors.length > 0) {
+      const links = await Promise.all(anchors.slice(0, 5).map(async (a) => restoreLink(pd.site, lang, await paddleKeyFor(pd.keySecret, a))));
+      const m = restoreMail(lang, links);
+      const sent = await pd.mail.send({ to: email, subject: m.subject, text: m.text });
+      log('paddle_restore', { found: anchors.length, mail: sent });
+      if (sent !== 'sent') return fail('unavailable');
+    } else log('paddle_restore', { found: 0 });
+    // The same answer whether or not the address bought anything: the page never tells who is a customer.
+    return ok({ ok: true });
+  }
+
+  async function portalPaddle(body: PaddlePortalBody, ip: string): Promise<EngineResult> {
+    const pd = deps.paddle;
+    if (!pd) return fail('unavailable');
+    const nowMs = deps.now();
+    const wait = hit('reminder', await ipKey(ip), nowMs);
+    if (wait) return limited(wait);
+    const anchor = await readPaddleKey(pd.keySecret, body.key);
+    if (!anchor) return fail('not_found');
+    const a = anchor.kind === 's' ? await pd.upstream.subscription(paddleIdOf(anchor)) : await pd.upstream.transaction(paddleIdOf(anchor));
+    if (a.kind === 'unreadable') return fail('upstream');
+    if (a.kind === 'not_found' || !a.value.customer_id) return fail('not_found');
+    const p = await pd.upstream.portal(a.value.customer_id, anchor.kind === 's' ? [paddleIdOf(anchor)] : []);
+    if (p.kind !== 'found') return fail(p.kind === 'not_found' ? 'not_found' : 'upstream');
+    const view = p.value.subscriptions.find((s) => s.id === paddleIdOf(anchor))?.view;
+    return ok({ url: view || p.value.overview });
+  }
+
+  /** Writes what a notification says about one purchase, unless we have asked Paddle about it since the event happened. */
+  async function applyPaddle(anchor: PaddleAnchor, j: PaddleJudged, occurred: number): Promise<string> {
+    const pd = deps.paddle as PaddleDeps;
+    const sub = await sha256Hex(normalizeKey(await paddleKeyFor(pd.keySecret, anchor)));
+    const prev = getRow(sub);
+    if (prev && occurred < prev.checked_at) return 'stale';
+    if (j.kind === 'active') { db.tx(() => writeRow(rowFrom(sub, 'paddle', factsOf(j.facts), prev, occurred))); return 'active'; }
+    if (j.kind === 'refused' && j.code !== 'not_found') { db.tx(() => noteRefusal(prev, j.code === 'refunded' ? 'refunded' : 'ended', occurred)); return j.code; }
+    return 'ignored';
+  }
+
+  async function paddleEvent(evt: PaddleEvent): Promise<EngineResult> {
+    const pd = deps.paddle;
+    if (!pd) return fail('unavailable');
+    if (db.one('SELECT 1 AS x FROM paddle_events WHERE id = ?1', evt.event_id)) return ok({ ok: true, duplicate: true });
+    const nowS = sec(deps.now());
+    const occurred = Math.min(timeToSec(evt.occurred_at) ?? nowS, nowS);
+    const d = evt.data;
+    let applied = 'ignored';
+    if (evt.event_type.startsWith('subscription.') && typeof d['id'] === 'string' && /^sub_[0-9a-z]{26}$/.test(d['id'])) {
+      applied = await applyPaddle({ kind: 's', id: d['id'].slice(4) }, judgeSubscription(d as unknown as PaddleSub, paddlePrices), occurred);
+    } else if (evt.event_type === 'transaction.completed' && typeof d['id'] === 'string' && /^txn_[0-9a-z]{26}$/.test(d['id']) && !d['subscription_id']) {
+      applied = await applyPaddle(anchorOfTxn(d as unknown as PaddleTxn), judgeTransaction(d as unknown as PaddleTxn, paddlePrices), occurred);
+    } else if (evt.event_type.startsWith('adjustment.') && typeof d['transaction_id'] === 'string') {
+      // A refund or a chargeback. A lifetime purchase ends with it; a membership is asked again at its next check (its own
+      // status says whether it goes on), so nothing is taken away on a partial or pending refund.
+      const action = String(d['action'] ?? '');
+      const gone = wasRefunded([{ action, status: String(d['status'] ?? ''), type: String(d['type'] ?? '') }]);
+      const subId = typeof d['subscription_id'] === 'string' ? d['subscription_id'] : null;
+      const anchor: PaddleAnchor = subId ? { kind: 's', id: subId.replace(/^sub_/, '') } : { kind: 't', id: d['transaction_id'].replace(/^txn_/, '') };
+      const sub = await sha256Hex(normalizeKey(await paddleKeyFor(pd.keySecret, anchor)));
+      const prev = getRow(sub);
+      if (prev && (gone || action === 'chargeback_reverse')) {
+        if (gone && anchor.kind === 't') { db.tx(() => noteRefusal(prev, 'refunded', occurred)); applied = 'refunded'; }
+        else { db.run('UPDATE purchases SET checked_at = 0 WHERE sub = ?1', sub); applied = 'recheck'; }
+      }
+    }
+    db.run('INSERT INTO paddle_events (id, type, at) VALUES (?1, ?2, ?3) ON CONFLICT (id) DO NOTHING', evt.event_id, evt.event_type.slice(0, 60), nowS);
+    log('paddle_event', { type: evt.event_type, applied });
+    return ok({ ok: true, applied });
+  }
+
   return {
+    claimPaddle, restorePaddle, portalPaddle, paddleEvent,
     grantKey, grantPlay, deactivate, reset, reminder, sweep, nextDue,
     keys: () => ok({ keys: deps.publicKeys.map((k) => ({ kid: k.kid, jwk: k.jwk })), reminders: deps.mail !== null }),
   };

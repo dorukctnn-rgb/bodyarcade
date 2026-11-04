@@ -558,6 +558,6 @@ describe('the database', () => {
     await a.engine.grantKey({ key: KEY as string, did: D0 }, '');
     const b = await makeRig({ db, keys: a.keys, clock: a.clock });
     expect(b.db.all('SELECT * FROM purchases')).toHaveLength(1);
-    expect(b.db.one<{ v: string }>(`SELECT v FROM meta WHERE k = 'schema'`)?.v).toBe('1');
+    expect(b.db.one<{ v: string }>(`SELECT v FROM meta WHERE k = 'schema'`)?.v).toBe('2');
   });
 });

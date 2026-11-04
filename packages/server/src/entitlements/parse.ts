@@ -5,6 +5,7 @@ import {
   type PlayPurchaseRef, type ReminderLang,
 } from '../../../core/entitlements/api.ts';
 import { PLAY_PRODUCTS } from '../../../core/entitlements/plans.ts';
+import { PADDLE_TXN_RE, isPaddleKey } from '../../../core/entitlements/paddle.ts';
 
 const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
 
@@ -12,6 +13,28 @@ export type Parsed<T> = { ok: true; value: T } | { ok: false };
 const no = { ok: false } as const;
 
 const didOf = (x: unknown): string | null => (typeof x === 'string' && DID_RE.test(x) ? x : null);
+
+export interface PaddleClaimBody { txn: string }
+export function parsePaddleClaimBody(x: unknown): Parsed<PaddleClaimBody> {
+  if (!isRecord(x)) return no;
+  const txn = typeof x['txn'] === 'string' ? x['txn'].trim() : '';
+  return PADDLE_TXN_RE.test(txn) ? { ok: true, value: { txn } } : no;
+}
+
+export interface PaddleRestoreBody { email: string; lang: string }
+export function parsePaddleRestoreBody(x: unknown): Parsed<PaddleRestoreBody> {
+  if (!isRecord(x)) return no;
+  const email = typeof x['email'] === 'string' ? x['email'].trim() : '';
+  const lang = typeof x['lang'] === 'string' && (REMINDER_LANGS as readonly string[]).includes(x['lang']) ? x['lang'] : 'en';
+  return email.length <= MAX_EMAIL_LENGTH && EMAIL_RE.test(email) ? { ok: true, value: { email, lang } } : no;
+}
+
+export interface PaddlePortalBody { key: string }
+export function parsePaddlePortalBody(x: unknown): Parsed<PaddlePortalBody> {
+  if (!isRecord(x)) return no;
+  const key = typeof x['key'] === 'string' ? x['key'].trim() : '';
+  return isPaddleKey(key) ? { ok: true, value: { key } } : no;
+}
 
 export interface KeyBody { key: string; did: string }
 export function parseKeyBody(x: unknown): Parsed<KeyBody> {

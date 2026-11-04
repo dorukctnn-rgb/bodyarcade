@@ -360,7 +360,8 @@ describe('the pose model and the games', () => {
 
   it('how to cancel is where the app says it is', () => {
     const en = read('packages/core/ui/i18n/en.ts');
-    expect(en).toContain("'paywall.cancel.web': 'Cancel any time in your Gumroad library.'");
+    expect(en).toContain("'paywall.cancel.web': 'Cancel any time on the Pro page, under Manage subscription.'");
+    expect(en).toContain("'paddle.manage': 'Manage subscription, receipts and payment'");
     expect(en).toContain("'paywall.cancel.play': 'Cancel any time in Google Play subscriptions.'");
   });
 });

@@ -46,6 +46,12 @@ export const SECRETS: readonly SecretSpec[] = [
   { name: 'PLAY_SA_JSON', why: 'entitlements: Google Play purchase checks (service account JSON: client_email and private_key, with the Play permissions of the app). Without it no Play purchase can be verified, so the Android app must not reach a tester or a buyer without it (the production deploy stops)', required: true, productionOnly: true, generate: null },
   { name: 'ENT_MAIL_TOKEN', why: 'entitlements: the ForwardEmail API token that sends the one trial-reminder e-mail on the web (goes with ENT_MAIL_FROM; without both the reminder box stays off)', required: false, generate: null },
   { name: 'ENT_MAIL_FROM', why: 'entitlements: the sender of that e-mail, for example "BodyArcade <info@bodyarcade.com>" (goes with ENT_MAIL_TOKEN; without both the reminder box stays off)', required: false, generate: null },
+  { name: 'PADDLE_API_KEY', why: 'Paddle (web checkout, core/entitlements/paddle.ts): the API key that reads transactions and subscriptions, opens the customer portal and refunds a duplicate purchase (goes with PADDLE_KEY_SECRET; without both no Paddle purchase turns Pro on)', required: true, productionOnly: true, generate: null },
+  { name: 'PADDLE_KEY_SECRET', why: 'Paddle: the HMAC secret that makes the Paddle keys buyers hold. NEVER change it once a purchase exists: every key would stop working', required: true, productionOnly: true, generate: () => random(48) },
+  { name: 'PADDLE_WEBHOOK_SECRET', why: 'Paddle: the secret of the notification destination https://bodyarcade.com/api/paddle/webhook (checks the Paddle-Signature of every notification)', required: true, productionOnly: true, generate: null },
+  { name: 'PADDLE_CLIENT_TOKEN', why: 'Paddle: the client-side token the page opens the checkout with (public by design, kept out of the code; without it the web checkout falls back to Gumroad)', required: true, productionOnly: true, generate: null },
+  { name: 'PADDLE_MAIL_TOKEN', why: 'Paddle: ForwardEmail credentials ("info@peakappsstudio.com:<alias password>") that send the one-click restore link (goes with PADDLE_MAIL_FROM)', required: true, productionOnly: true, generate: null },
+  { name: 'PADDLE_MAIL_FROM', why: 'Paddle: the sender of the restore e-mail, "BodyArcade <info@peakappsstudio.com>" (goes with PADDLE_MAIL_TOKEN)', required: true, productionOnly: true, generate: null },
 ];
 
 export function secretsDir(): string {

@@ -13,8 +13,9 @@ import { migrate, sqlDbOfDurableObject, type DoSqlStorage, type SqlDb } from './
 import { createEngine, type Engine, type EngineResult, type LogFn } from './engine.ts';
 import { createForwardEmailSender } from './mail.ts';
 import {
-  parseDeactivateBody, parseKeyBody, parsePlayBody, parseReminderBody, parseResetBody,
+  parseDeactivateBody, parseKeyBody, parsePaddleClaimBody, parsePaddlePortalBody, parsePaddleRestoreBody, parsePlayBody, parseReminderBody, parseResetBody,
 } from './parse.ts';
+import { createPaddleUpstream, parsePaddleEvent } from './paddle.ts';
 import { createGumroadUpstream, type FetchFn } from './upstream/gumroad.ts';
 import { createPlayUpstream } from './upstream/play.ts';
 
@@ -67,6 +68,12 @@ export class EntitlementsDO {
         gumroad: createGumroadUpstream(f ? { fetch: f } : {}),
         play: cfg.playAccount ? createPlayUpstream({ account: cfg.playAccount, now: () => this.now(), ...(f ? { fetch: f } : {}) }) : null,
         mail: cfg.mail ? createForwardEmailSender({ ...cfg.mail, ...(f ? { fetch: f } : {}) }) : null,
+        paddle: cfg.paddle ? {
+          upstream: createPaddleUpstream({ apiKey: cfg.paddle.apiKey, environment: cfg.paddle.environment, ...(f ? { fetch: f } : {}) }),
+          keySecret: cfg.paddle.keySecret,
+          site: cfg.paddle.site,
+          mail: cfg.paddle.mail ? createForwardEmailSender({ ...cfg.paddle.mail, ...(f ? { fetch: f } : {}) }) : null,
+        } : null,
         noLimits: cfg.noLimits,
         log: (e, d) => this.log(e, d),
       });
@@ -134,6 +141,32 @@ export class EntitlementsDO {
           if (!p.ok) throw new HttpError(400, 'bad_request');
           result = await engine.reminder(p.value, ip);
           if (result.status === 200) await this.safeArm(engine);
+          break;
+        }
+        case 'paddle': {
+          const p = parsePaddleClaimBody(body);
+          if (!p.ok) throw new HttpError(400, 'bad_request');
+          result = await engine.claimPaddle(p.value, ip);
+          break;
+        }
+        case 'paddle-restore': {
+          const p = parsePaddleRestoreBody(body);
+          if (!p.ok) throw new HttpError(400, 'bad_request');
+          result = await engine.restorePaddle(p.value, ip);
+          break;
+        }
+        case 'paddle-portal': {
+          const p = parsePaddlePortalBody(body);
+          if (!p.ok) throw new HttpError(400, 'bad_request');
+          result = await engine.portalPaddle(p.value, ip);
+          break;
+        }
+        case 'paddle-event': {
+          // The Worker checked the signature before handing the event over (routes.ts).
+          const raw = isRecord(body) && typeof body['raw'] === 'string' ? body['raw'] : '';
+          const evt = parsePaddleEvent(raw);
+          if (!evt) throw new HttpError(400, 'bad_request');
+          result = await engine.paddleEvent(evt);
           break;
         }
         default:

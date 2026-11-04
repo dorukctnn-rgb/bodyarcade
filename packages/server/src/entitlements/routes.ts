@@ -8,12 +8,15 @@
 //   POST /api/entitlements/reset       give every other seat back
 //   POST /api/entitlements/reminder    one e-mail two days before a trial ends (or take the address back)
 //   GET  /api/entitlements/key         the public keys that verify tokens
-import { API } from '../../../core/entitlements/api.ts';
+import { API, PADDLE_WEBHOOK_PATH } from '../../../core/entitlements/api.ts';
+import { PADDLE_PRICES } from '../../../core/entitlements/paddle.ts';
+import { verifyPaddleSignature } from './paddle.ts';
 import type { Router } from '../router.ts';
-import { HttpError, clientIp, fail, readJson } from '../http.ts';
+import { HttpError, clientIp, fail, json, readJson } from '../http.ts';
 import { entitlementsEnv } from './env.ts';
 import {
-  parseDeactivateBody, parseKeyBody, parsePlayBody, parseReminderBody, parseResetBody, type Parsed,
+  parseDeactivateBody, parseKeyBody, parsePaddleClaimBody, parsePaddlePortalBody, parsePaddleRestoreBody, parsePlayBody, parseReminderBody, parseResetBody,
+  type Parsed,
 } from './parse.ts';
 
 const SMALL = 4096;
@@ -53,6 +56,41 @@ export function registerEntitlementRoutes(router: Router): void {
   router.add('POST', API.reset, post('reset', parseResetBody, PLAY_BODY));
   router.add('POST', API.reminder, post('reminder', parseReminderBody, SMALL));
   router.add('GET', API.key, (req, env) => callDo(env, 'key', null, req));
+
+  // Paddle Billing (paddle.ts): the checkout's completion, the restore e-mail, the customer portal, the page's settings.
+  router.add('POST', API.paddle, post('paddle', parsePaddleClaimBody, SMALL));
+  router.add('POST', API.paddleRestore, post('paddle-restore', parsePaddleRestoreBody, SMALL));
+  router.add('POST', API.paddlePortal, post('paddle-portal', parsePaddlePortalBody, SMALL));
+  router.add('GET', API.paddleConfig, (_req, env) => {
+    // Paddle's client-side token is public by design (it only opens checkouts); it lives in the Worker's settings, not in the code.
+    const token = env['PADDLE_CLIENT_TOKEN'];
+    if (typeof token !== 'string' || !/^(live|test)_[A-Za-z0-9]{10,64}$/.test(token)) return fail('unavailable', 503);
+    return json({ token, environment: token.startsWith('test_') ? 'sandbox' : 'production', prices: PADDLE_PRICES }, 200, { 'Cache-Control': 'public, max-age=300' });
+  });
+  router.add('POST', PADDLE_WEBHOOK_PATH, async (req, env) => {
+    const secret = env['PADDLE_WEBHOOK_SECRET'];
+    if (typeof secret !== 'string' || secret === '') return fail('unavailable', 503);
+    const raw = await readText(req, PADDLE_BODY);
+    if (raw === null) return fail('too_large', 413);
+    const v = await verifyPaddleSignature(req.headers.get('Paddle-Signature'), raw, secret, Math.floor(Date.now() / 1000));
+    if (!v.ok) {
+      console.log(JSON.stringify({ evt: 'paddle_webhook_refused', reason: v.reason }));
+      return fail('bad_signature', 401);
+    }
+    // A 5xx makes Paddle send it again later, which is what an unavailable store should do.
+    return callDo(env, 'paddle-event', { raw }, req);
+  });
+}
+
+/** Paddle's notifications are small; a bigger body is not one of them. */
+const PADDLE_BODY = 256 * 1024;
+
+/** The body as text, exactly as received (the signature covers these bytes), or null when it is larger than `max`. */
+async function readText(req: Request, max: number): Promise<string | null> {
+  if (Number(req.headers.get('Content-Length') ?? '0') > max) return null;
+  const buf = new Uint8Array(await req.arrayBuffer());
+  if (buf.byteLength > max) return null;
+  return new TextDecoder().decode(buf);
 }
 
 /** The one line src/index.ts needs. */

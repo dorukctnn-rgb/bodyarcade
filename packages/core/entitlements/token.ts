@@ -25,7 +25,7 @@ export interface TokenClaims {
   did: string;
   plan: PlanId;
   /** Where the purchase was made. */
-  src: 'gumroad' | 'play';
+  src: 'gumroad' | 'play' | 'paddle';
   /** Feature words: 'pro', 'family6'. */
   feat: string[];
   /** Epoch seconds of the last check with the seller (Gumroad or Google). */
@@ -94,7 +94,7 @@ export function readClaims(x: unknown): TokenClaims | null {
   if (typeof sub !== 'string' || !/^[0-9a-f]{64}$/.test(sub)) return null;
   if (typeof did !== 'string' || !DID_RE.test(did)) return null;
   if (!isPlanId(plan)) return null;
-  if (src !== 'gumroad' && src !== 'play') return null;
+  if (src !== 'gumroad' && src !== 'play' && src !== 'paddle') return null;
   if (!Array.isArray(feat) || feat.length > 8 || !feat.every((f) => typeof f === 'string' && /^[a-z0-9]{1,16}$/.test(f))) return null;
   if (!isInt(chk) || !isInt(iat) || !isInt(exp)) return null;
   if (pe !== undefined && !isInt(pe)) return null;

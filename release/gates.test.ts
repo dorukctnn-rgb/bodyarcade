@@ -143,7 +143,7 @@ describe('secrets', () => {
     const have: Record<string, string> = { TICKET_SECRET: 'x', ADMIN_TOKEN: 'y' };
     const lacking = (target: 'preview' | 'production'): string[] => SECRETS.filter((x) => isRequired(x, target) && !have[x.name]).map((x) => x.name);
     expect(lacking('preview')).toEqual([]);
-    expect(lacking('production')).toEqual(['PLAY_SA_JSON']);
+    expect(lacking('production')).toEqual(['PLAY_SA_JSON', 'PADDLE_API_KEY', 'PADDLE_KEY_SECRET', 'PADDLE_WEBHOOK_SECRET', 'PADDLE_CLIENT_TOKEN', 'PADDLE_MAIL_TOKEN', 'PADDLE_MAIL_FROM']);
     // release/deploy.ts counts the secrets with isRequired and names each missing one with its reason
     expect(text('release/deploy.ts')).toMatch(/isRequired\(s, id\) && !secrets\[s\.name\]/);
     expect(text('release/deploy.ts')).toMatch(/\$\{s\.name\}: \$\{s\.why\}/);

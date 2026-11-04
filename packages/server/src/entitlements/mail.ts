@@ -37,7 +37,8 @@ export function createForwardEmailSender(o: ForwardEmailOptions): MailSender {
       try {
         const res = await f(FORWARD_EMAIL_API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Basic ${btoa(`${o.token}:`)}` },
+          // An API token is the user name with no password; alias credentials ("info@peakappsstudio.com:<generated password>") are used as they are.
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Basic ${btoa(o.token.includes(':') ? o.token : `${o.token}:`)}` },
           body: JSON.stringify({ from: o.from, to: m.to, subject: m.subject, text: m.text }),
           signal: AbortSignal.timeout(o.timeoutMs ?? 10_000),
         });

@@ -6,6 +6,7 @@
 // Never present in the Android (Play) build.
 import type { ActivateFailureCode, ActivateResult, Entitlement } from '../../types/index.ts';
 import { LICENSE_KEY_RE } from '../api.ts';
+import { isPaddleKey } from '../paddle.ts';
 import { GUMROAD_VERIFY_URL, judgePurchase, readVerifyAnswer, type GumroadPurchase } from '../gumroad-rules.ts';
 import { GUMROAD_PRODUCTS } from '../catalog.ts';
 import { GUMROAD_LEGACY_PRODUCTS, entitlementFor, isPlanId, type PlanId } from '../plans.ts';
@@ -70,6 +71,8 @@ export function createGumroadProvider(o: GumroadProviderOptions = {}): ManagedPr
     async activate(input) {
       const key = typeof input === 'string' ? input.trim() : '';
       if (!LICENSE_KEY_RE.test(key)) return fail('not_found');
+      // A Paddle key is ours, not Gumroad's: only our server can judge it, so Gumroad says nothing about it either way.
+      if (isPaddleKey(key)) return fail('network');
       const r = await check(key);
       if (r.kind === 'found') return { ok: true, e: r.e };
       if (r.kind === 'refused') return fail(r.code);
@@ -77,7 +80,7 @@ export function createGumroadProvider(o: GumroadProviderOptions = {}): ManagedPr
     },
 
     async refresh(_e, ctx?: RefreshContext) {
-      if (!ctx || !ctx.proof || !LICENSE_KEY_RE.test(ctx.proof)) return 'keep';
+      if (!ctx || !ctx.proof || !LICENSE_KEY_RE.test(ctx.proof) || isPaddleKey(ctx.proof)) return 'keep';
       const r = await check(ctx.proof);
       if (r.kind === 'found') return r.e;
       return r.kind === 'unreachable' ? 'keep' : 'revoked';          // B2: only Gumroad's own "no" ends it

@@ -38,7 +38,7 @@ describe('starting up', () => {
   it('makes its tables, once, before it answers anything', async () => {
     const w = await make();
     const names = w.storage.db.all<{ name: string }>(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`).map((t) => t.name);
-    expect(names).toEqual(['meta', 'purchases', 'reminders', 'seats']);
+    expect(names).toEqual(['meta', 'paddle_events', 'purchases', 'reminders', 'seats']);
     expect(w.blocked()).toBe(1);
   });
 
@@ -51,7 +51,7 @@ describe('starting up', () => {
     expect((await again.fetch(new Request('https://entitlements.internal/key'))).status).toBe(200);
     expect(w.storage.db.all('SELECT * FROM purchases')).toHaveLength(1);
     expect(w.storage.db.all('SELECT * FROM seats')).toHaveLength(1);
-    expect(w.storage.db.one<{ v: string }>(`SELECT v FROM meta WHERE k = 'schema'`)?.v).toBe('1');
+    expect(w.storage.db.one<{ v: string }>(`SELECT v FROM meta WHERE k = 'schema'`)?.v).toBe('2');
     expect(salt).toMatch(/^[0-9a-f]{32}$/);
   });
 
@@ -195,6 +195,6 @@ describe('the alarm', () => {
 
 describe('the contract path the Worker uses', () => {
   it('is the one api.ts names, minus its prefix', () => {
-    expect(Object.values(API).map((p) => p.replace('/api/entitlements/', '')).sort()).toEqual(['activate', 'deactivate', 'key', 'play', 'refresh', 'reminder', 'reset']);
+    expect(Object.values(API).map((p) => p.replace('/api/entitlements/', '')).sort()).toEqual(['activate', 'deactivate', 'key', 'paddle', 'paddle/config', 'paddle/portal', 'paddle/restore', 'play', 'refresh', 'reminder', 'reset']);
   });
 });

@@ -42,7 +42,7 @@ export function sqlDbOfDurableObject(storage: DoSqlStorage): SqlDb {
 }
 
 /** Bumped when the tables change; `migrate` knows how to get from each older number to the next. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const SCHEMA_V1: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL) WITHOUT ROWID`,
@@ -82,6 +82,16 @@ const SCHEMA_V1: readonly string[] = [
   `CREATE INDEX IF NOT EXISTS reminders_due ON reminders (send_at)`,
 ];
 
+// Version 2 (4 Nov 2026): the Paddle notifications already handled, by Paddle's event id, so a resent one changes nothing.
+const SCHEMA_V2: readonly string[] = [
+  `CREATE TABLE IF NOT EXISTS paddle_events (
+     id TEXT PRIMARY KEY,
+     type TEXT NOT NULL,
+     at INTEGER NOT NULL
+   ) WITHOUT ROWID`,
+  `CREATE INDEX IF NOT EXISTS paddle_events_at ON paddle_events (at)`,
+];
+
 /** Creates or upgrades the tables. Safe to run at every start. */
 export function migrate(db: SqlDb): void {
   db.tx(() => {
@@ -90,6 +100,7 @@ export function migrate(db: SqlDb): void {
     const have = row ? Number(row.v) : 0;
     if (have > SCHEMA_VERSION) throw new Error(`the database is from a newer version (${have})`);
     if (have < 1) for (const stmt of SCHEMA_V1.slice(1)) db.run(stmt);
+    if (have < 2) for (const stmt of SCHEMA_V2) db.run(stmt);
     if (have !== SCHEMA_VERSION) db.run(`INSERT INTO meta (k, v) VALUES ('schema', ?1) ON CONFLICT (k) DO UPDATE SET v = excluded.v`, String(SCHEMA_VERSION));
   });
 }

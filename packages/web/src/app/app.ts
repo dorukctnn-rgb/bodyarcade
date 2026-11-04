@@ -6,7 +6,9 @@ import { openDialog } from '../../../core/ui/dialog.ts';
 import { detectLang, isLang, LANG_INFO, type I18n, type Lang, type StringKey } from '../../../core/ui/i18n/index.ts';
 import { createLiveRegion, type LiveRegion } from '../../../core/ui/live-region.ts';
 import { createNavigation, type Matched, type Navigation, type RouteChange } from '../../../core/ui/router.ts';
-import { shouldShowPaywallAfterRound } from '../../../core/ui/plans.ts';
+import { describeOffer, shouldShowPaywallAfterRound, type PaywallInfo } from '../../../core/ui/plans.ts';
+import { PADDLE_WEB_CHECKOUT, isPaddleKey } from '../../../core/entitlements/paddle.ts';
+import { createPaddleCheckout, type PaddleCheckout } from './paddle-checkout.ts';
 import { applySettingsToDocument, createSettingsStore, type Settings, type SettingsStore } from '../../../core/ui/settings.ts';
 import { createToaster, type Toaster } from '../../../core/ui/toast.ts';
 import { createStore, type BodyArcadeStore, type StorageLike, type StoreNamespace } from '../../../core/store/store.ts';
@@ -38,7 +40,7 @@ import { defaultSetup, lockedChoice, playHref, sanitizeSetup, setupFields, setup
 import { worldAllowed } from '../views/worlds.ts';
 import { applyHead, readAssetMap, swap } from './dom.ts';
 import { localEntitlements } from './entitlements.ts';
-import { checkoutWithSource } from './pro-source.ts';
+import { checkoutWithSource, sourceOf } from './pro-source.ts';
 import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
 import { hudModeFor, PlayController, type PlayHost } from './play.ts';
 import { clipAllowed, createClipRecorder, type ClipFile } from './clip.ts';
@@ -164,6 +166,9 @@ export class App {
   /** The notice of a free trial was closed for this visit: the next open shows it again. */
   private trialDismissed = false;
   private trialLoading = false;
+  /** The Paddle checkout of the web build (paddle-checkout.ts); its restore link and unfinished claim are taken up once the real entitlements are there. */
+  private readonly paddle: PaddleCheckout;
+  private paddleResumed = false;
   private readonly live: LiveRegion;
   private readonly toaster: Toaster;
   private readonly games: readonly ShellGame[];
@@ -252,6 +257,20 @@ export class App {
     this.arcade = this.buildArcade();
     this.live = createLiveRegion(this.doc as never);
     this.toaster = createToaster(this.doc as never, this.live);
+    this.paddle = createPaddleCheckout({
+      win: this.win,
+      t: (k, v) => this.ctx().i18n.t(k, v),
+      lang: () => this.lang,
+      activate: (key) => this.entitlements.activate(key),
+      onPro: (plan, via) => {
+        this.plan = plan as Plan;
+        this.state = { ...this.state, paywall: null };
+        this.rerender();
+        if (via !== 'checkout') this.toaster.show(this.ctx().i18n.t('paddle.restore.applied'));
+      },
+      onRestoreFailed: () => this.toaster.show(this.ctx().i18n.t('paddle.restore.failed'), { kind: 'warn' }),
+      source: () => sourceOf(this.win as never),
+    });
     this.social = o.social ? new SocialController(this.socialHost(), o.social) : null;
     this.socialComing = !this.social && o.socialComing === true;
     // The games keep their own records in the store of whoever plays: a getter, so a round after a change of player writes to the new one.
@@ -400,7 +419,7 @@ export class App {
   private context(url: string, lang: Lang = this.lang): ViewContext {
     const pay = this.billing.paywall();
     return makeContext({
-      lang, games: this.games, url, settings: this.currentSettings(), caps: this.caps, plan: this.plan, plans: pay.plans, paywall: pay.info,
+      lang, games: this.games, url, settings: this.currentSettings(), caps: this.caps, plan: this.plan, plans: pay.plans, paywall: this.paddleOn(pay.info) ? { ...pay.info, paddle: { on: true, purchase: this.paddle.hasPurchase() } } : pay.info,
       // The notice of a trial and its reminder are about buying: a child's screens say nothing of it unless a grown-up has opened them.
       trial: this.trialDismissed || this.rules().purchase !== 'open' ? null : this.billing.trial.notice(), assets: this.assets,
       player: this.playerFacts(),
@@ -514,6 +533,13 @@ export class App {
     this.watchBilling();
     this.state = { ...this.state, paywall: null };
     this.rerender();
+    // a restore link (#restore=...) or a payment whose Pro could not be turned on during the last visit
+    if (!this.paddleResumed && this.paddleOn(this.billing.paywall().info)) { this.paddleResumed = true; void this.paddle.resume(); }
+  }
+
+  /** Paddle sells Pro here: the web build, a real checkout (not a preview), the switch on. */
+  private paddleOn(info: PaywallInfo): boolean {
+    return PADDLE_WEB_CHECKOUT && info.mode === 'web' && !info.preview;
   }
 
   private on(target: EventTarget, type: string, cb: (e: Event) => void): void {
@@ -1411,6 +1437,14 @@ export class App {
         e.preventDefault();
         void this.restore();
         break;
+      case 'paddle-restore':
+        e.preventDefault();
+        void this.paddleRestore();
+        break;
+      case 'paddle-manage':
+        e.preventDefault();
+        void this.paddle.manage().then((ok) => { if (!ok) this.toaster.show(this.ctx().i18n.t('paddle.manage.error'), { kind: 'warn' }); });
+        break;
       case 'plan-start':
         e.preventDefault();
         this.startPlan(el.dataset['plan'] ?? '');
@@ -1677,6 +1711,15 @@ export class App {
     } else if (ctx.paywall.preview) {
       this.toaster.show(t.t('paywall.preview'), { kind: 'warn' });
       return;
+    } else if (offer.checkout.web && this.paddleOn(ctx.paywall)) {
+      // Paddle's checkout opens in a panel on this page; when it cannot (its script blocked, our settings unreachable), the
+      // Gumroad page still sells the plan, and a Gumroad key still activates here.
+      const d = describeOffer(offer, t, ctx.plans);
+      const gumroad = checkoutWithSource(offer.checkout.web, this.win);
+      void this.paddle.open({ id: offer.id, name: d.name, priceLine: d.priceLine, trialLine: d.trialLine, recurring: offer.period !== 'once' }).then((opened) => {
+        if (!opened) this.win.location.assign(gumroad);
+      });
+      return;
     } else if (offer.checkout.web) {
       // the address carries the kind of site that sent this browser, so the sale shows its channel in Gumroad (pro-source.ts)
       this.win.open(checkoutWithSource(offer.checkout.web, this.win), '_blank', 'noopener,noreferrer');
@@ -1726,10 +1769,22 @@ export class App {
     this.setPaywall({ keyOpen: true, keyStatus: 'busy' as KeyStatus });
     const r = await this.entitlements.activate(key);
     if (r.ok) {
+      if (isPaddleKey(key)) this.paddle.remember(key);
       this.plan = r.plan;
       this.setPaywall({ keyStatus: 'ok', trial: null });
       this.live.announce(this.ctx().i18n.t('paywall.key.ok'));
     } else this.setPaywall({ keyOpen: true, keyStatus: r.code });
+  }
+
+  /** E-mails a restore link for a Paddle purchase. The answer is the same whether or not the address bought anything. */
+  private async paddleRestore(): Promise<void> {
+    const email = this.doc.querySelector<HTMLInputElement>('#pdl-email')?.value ?? '';
+    this.setPaywall({ restoreOpen: true, restoreBusy: true, restoreNote: null });
+    const r = await this.paddle.restoreByEmail(email);
+    this.setPaywall({ restoreOpen: true, restoreBusy: false, restoreNote: r });
+    this.live.announce(this.ctx().i18n.t(r === 'sent' ? 'paddle.restore.sent' : 'paddle.restore.error'));
+    const field = this.doc.querySelector<HTMLInputElement>('#pdl-email');
+    if (field && !field.value) field.value = email;
   }
 
   private async restore(): Promise<void> {

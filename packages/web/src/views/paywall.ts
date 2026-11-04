@@ -12,11 +12,15 @@ import { canRace } from '../app/duel.ts';
 import { hasPro, titleOf, type ViewContext } from '../context.ts';
 import { FREE_PLAN_ID, WORKOUT_PLANS } from '../../../core/store/workout-plans.ts';
 import { localized } from '../../../core/ui/i18n/localized.ts';
+import { PADDLE_REFUND_DAYS } from '../../../core/entitlements/paddle.ts';
 
 export type KeyStatus = 'idle' | 'busy' | 'ok' | 'not_found' | 'refunded' | 'ended' | 'limit' | 'network' | 'server';
 
 /** What the box for the reminder e-mail last said. */
 export type EmailNote = null | { kind: 'saved' } | { kind: 'cleared' } | { kind: 'error'; code: string };
+
+/** What the restore box last said. */
+export type RestoreNote = null | 'sent' | 'error';
 
 export interface PaywallState {
   selected: PlanId;
@@ -28,6 +32,10 @@ export interface PaywallState {
   trial: TrialView | null;
   emailBusy: boolean;
   emailNote: EmailNote;
+  /** The box that e-mails a restore link for a Paddle purchase (web). */
+  restoreOpen?: boolean;
+  restoreBusy?: boolean;
+  restoreNote?: RestoreNote;
 }
 
 export const defaultPaywallState = (ctx: ViewContext, gameId?: string): PaywallState => ({
@@ -144,6 +152,19 @@ export function trialBlock(ctx: ViewContext, st: Pick<PaywallState, 'trial' | 'e
 }
 
 /** The page. It carries its own close button, so it is drawn without the site frame. */
+/** Pro bought with Paddle on another device: the address it was paid with gets a one-click restore link. */
+function restoreBox(ctx: ViewContext, st: PaywallState): SafeHtml {
+  const t = ctx.i18n;
+  const note = st.restoreNote === 'sent' ? t.t('paddle.restore.sent') : st.restoreNote === 'error' ? t.t('paddle.restore.error') : '';
+  return html`<details class="k-keybox" data-paddle-restore${attr('open', st.restoreOpen === true)}><summary>${icon('mail')}<span>${t.t('paddle.restore.title')}</span></summary>
+      <div class="k-keyform">
+        <div class="ba-field"><label for="pdl-email">${t.t('paddle.restore.label')}</label><input class="ba-input" id="pdl-email" name="restoreEmail" data-key="restoreEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" aria-describedby="pdl-email-note"></div>
+        <button type="button" class="ba-btn ba-btn--secondary" data-action="paddle-restore"${attr('disabled', st.restoreBusy === true)}>${t.t('paddle.restore.cta')}</button>
+      </div>
+      <p class="ba-small k-keystatus" id="pdl-email-note" role="status">${note}</p>
+    </details>`;
+}
+
 export function paywallPage(ctx: ViewContext, st: PaywallState): SafeHtml {
   const t = ctx.i18n;
   const info = ctx.paywall;
@@ -155,6 +176,7 @@ export function paywallPage(ctx: ViewContext, st: PaywallState): SafeHtml {
   const pro = proGames(ctx.games);
   const freeCount = ctx.games.length - pro.length;
   const inPlay = info.mode === 'play';
+  const paddleOn = info.mode === 'web' && info.paddle?.on === true;
   const status = keyStatusText(ctx, st.keyStatus);
   const close = html`<a class="ba-icon-btn k-close" href="${ctx.href('home')}" data-action="close-paywall" aria-label="${t.t('paywall.closeLabel')}">${icon('close')}</a>`;
 
@@ -163,6 +185,7 @@ export function paywallPage(ctx: ViewContext, st: PaywallState): SafeHtml {
       <main id="main" class="ba-page ba-page--pro" tabindex="-1">${close}<div class="k-stack"><h1 data-main-heading>${t.t('settings.section.pro')}</h1><p class="ba-callout">${icon('check')}<span>${t.t('paywall.active')}</span></p>
       ${trialBlock(ctx, st)}
       ${info.manageUrl ? html`<p><a class="ba-link" href="${info.manageUrl}" target="_blank" rel="noopener noreferrer">${t.t('paywall.manage')}</a></p>` : ''}
+      ${info.paddle?.purchase ? html`<p><button class="ba-link" type="button" data-action="paddle-manage">${t.t('paddle.manage')}</button></p>` : ''}
       <div class="k-actions"><a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('home')}">${t.t('notfound.cta')}</a></div></div></main></div>`;
   }
 
@@ -172,7 +195,8 @@ export function paywallPage(ctx: ViewContext, st: PaywallState): SafeHtml {
           <button type="button" class="ba-btn ba-btn--primary ba-btn--lg" data-action="buy" data-plan="${sel?.id ?? ''}">${d?.cta ?? t.t('paywall.cta.buy')}</button>
           <a class="ba-btn ba-btn--quiet" href="${ctx.href('home')}" data-action="close-paywall">${t.t('paywall.continueFree')}</a>
         </div></div>
-        <p class="k-note k-pw-note">${d?.trialLine ? `${d.trialLine}. ` : ''}${inPlay ? t.t('paywall.cancel.play') : info.mode === 'web' ? t.t('paywall.cancel.web') : ''}${ctx.plans.trialReminder && d?.trialLine ? ` ${reminderText(ctx)}` : ''}</p>${info.preview ? html`<p class="k-note k-pw-note k-preview" data-paywall-preview>${t.t('paywall.preview')}</p>` : ''}</div>`
+        ${paddleOn && sel ? html`<p class="k-note pdl-trustline" data-paddle-trust>${icon('lock', { size: 16 })}<span>${t.t(sel.period === 'once' ? 'paddle.trust.once' : 'paddle.trust.sub', { days: PADDLE_REFUND_DAYS })}</span></p>` : ''}
+        <p class="k-note k-pw-note">${d?.trialLine ? `${d.trialLine}. ` : ''}${inPlay ? t.t('paywall.cancel.play') : info.mode === 'web' ? t.t(paddleOn ? 'paywall.cancel.web' : 'paywall.cancel.gumroad') : ''}${ctx.plans.trialReminder && d?.trialLine ? ` ${reminderText(ctx)}` : ''}</p>${info.preview ? html`<p class="k-note k-pw-note k-preview" data-paywall-preview>${t.t('paywall.preview')}</p>` : ''}</div>`
     // Nothing can be bought here: no plan, no buy button, and the way back stays.
     : html`<div class="k-buy"><div class="k-actionbar"><p class="k-note k-soon" role="status" data-paywall-note>${noOffersText(ctx)}</p><div class="k-actions"><a class="ba-btn ba-btn--quiet" href="${ctx.href('home')}" data-action="close-paywall">${t.t('paywall.continueFree')}</a></div></div></div>`;
 
@@ -196,6 +220,7 @@ export function paywallPage(ctx: ViewContext, st: PaywallState): SafeHtml {
           <p class="free">${icon('check')}<span>${freeLine(ctx, freeCount)}</span></p>
         </div>
         ${offers}
+        ${paddleOn ? restoreBox(ctx, st) : ''}
         ${inPlay ? html`<div class="k-links"><button class="ba-link" type="button" data-action="restore">${t.t('paywall.restore')}</button>${info.manageUrl ? html` <a class="ba-link" href="${info.manageUrl}" target="_blank" rel="noopener noreferrer">${t.t('paywall.manage')}</a>` : ''}</div>` : ''}
         ${key}
       </div>
