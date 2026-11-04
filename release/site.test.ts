@@ -372,4 +372,9 @@ describe('precache list', () => {
     const files = ['/static/home/squat-720.ab12cd34.webp', '/static/home/squat-720.ab12cd34.webm', '/static/home/squat-720.ab12cd34.mp4', '/static/onboarding/hero-loop-light.12345678.webm'];
     expect(precacheList(files, ['/'])).toEqual(['/', '/static/home/squat-720.ab12cd34.webp', '/static/onboarding/hero-loop-light.12345678.webm']);
   });
+
+  it('leaves the scenes of "every move is a game" to the network, posters too', () => {
+    const files = ['/static/home/bx-squat-944.ab12cd34.webp', '/static/home/bx-squat-tr-1418.ab12cd34.webm', '/static/home/bx-road-944.ab12cd34.mp4', '/static/home/squat-cam-540.ab12cd34.webp'];
+    expect(precacheList(files, ['/'])).toEqual(['/', '/static/home/squat-cam-540.ab12cd34.webp']);
+  });
 });

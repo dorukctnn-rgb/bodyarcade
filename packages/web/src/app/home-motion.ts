@@ -1,5 +1,6 @@
 // The moving parts of the home page (views/home.ts): the loops of real play, the scroll stage where the camera picture shrinks into
-// the corner of the game, the reel that leans as it passes, and the game tiles that tilt under the mouse. Everything here is extra:
+// the corner of the game, the pinned stage of "every move is a game" where one scene per game comes as you scroll (only the scene on
+// screen plays, and its big words pulse on the person's moves), and the game tiles that tilt under the mouse. Everything here is extra:
 // the page is complete with its posters, so with motion switched off (the footer switch), Save-Data (no videos) or no scripts nothing
 // is missing.
 // Videos start after the page has loaded (the poster is the first picture, so the loop never holds up the first paint), only near
@@ -37,6 +38,19 @@ export function shrinkOf(p: number): number {
   return ease(clamp((p - 0.26) / 0.34));
 }
 
+/** Which of the scenes of the pinned stage shows at progress p (0 to 1 over the stage's track): equal stretches, the last one held. */
+export function sceneOf(p: number, n: number): number {
+  return n <= 0 ? -1 : Math.max(0, Math.min(n - 1, Math.floor(clamp(p) * n)));
+}
+
+/**
+ * Whether the loop's clock passed a beat between two looks: from `last` to `now` seconds inside a loop, which may have started again in
+ * between (now < last).
+ */
+export function beatCrossed(beats: readonly number[], last: number, now: number): boolean {
+  return beats.some((b) => (now >= last ? b > last && b <= now : b > last || b <= now));
+}
+
 export function mountHomeMotion(root: HTMLElement, win: MotionWindow, o: HomeMotionOptions): () => void {
   const page = root.querySelector<HTMLElement>('.hm-root');
   if (!page) return () => undefined;
@@ -53,12 +67,18 @@ export function mountHomeMotion(root: HTMLElement, win: MotionWindow, o: HomeMot
     offs.push(() => target.removeEventListener(type, cb as EventListener, opts));
   };
   const fine = win.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? false;
-  const narrow = (): boolean => win.innerWidth < 761;
   let disposed = false;
 
   // ---- loops ----------------------------------------------------------------------------------------------------------
   const figures = Array.from(page.querySelectorAll<HTMLElement>('figure.hm-clip[data-srcs]'));
   const videoOf = (f: HTMLElement): HTMLVideoElement | null => f.querySelector('video');
+  // The scenes of the pinned stage are all on screen at once (one above the other); while the stage is pinned it plays them itself.
+  const bxTrack = page.querySelector<HTMLElement>('.hm-bx-track');
+  const bxStage = bxTrack?.querySelector<HTMLElement>('.hm-bx-stage') ?? null;
+  const bxScenes = bxTrack ? Array.from(bxTrack.querySelectorAll<HTMLElement>('.hm-bx-scene')) : [];
+  const bxDots = bxTrack ? Array.from(bxTrack.querySelectorAll<HTMLElement>('.hm-bx-dots i')) : [];
+  const bxPinned = (): boolean => !!bxTrack && !!bxStage && bxTrack.offsetHeight > bxStage.offsetHeight + 4;
+  const staged = (f: HTMLElement): boolean => f.classList.contains('hm-bx-clip') && bxPinned();
   const visible = new Set<HTMLElement>();
   const start = (f: HTMLElement): void => {
     const v = videoOf(f);
@@ -90,15 +110,17 @@ export function mountHomeMotion(root: HTMLElement, win: MotionWindow, o: HomeMot
   const arm = (): void => {
     if (armed || disposed || !IO || saveData) return;
     armed = true;
-    const near = new IO((es) => { for (const e of es) if (e.isIntersecting) { start(e.target as HTMLElement); near.unobserve(e.target); } }, { rootMargin: '400px 0px' });
+    const near = new IO((es) => { for (const e of es) if (e.isIntersecting && !staged(e.target as HTMLElement)) { start(e.target as HTMLElement); near.unobserve(e.target); } }, { rootMargin: '400px 0px' });
     const vis = new IO((es) => {
       for (const e of es) {
         const f = e.target as HTMLElement;
+        if (staged(f)) continue;
         if (e.isIntersecting) { visible.add(f); start(f); play(f); } else { visible.delete(f); videoOf(f)?.pause(); }
       }
     }, { threshold: 0.15 });
     for (const f of figures) { near.observe(f); vis.observe(f); }
     offs.push(() => { near.disconnect(); vis.disconnect(); });
+    bxVideos();
   };
   // The first picture is the poster: loops wait for the page to load, then a moment more (or the first scroll or touch).
   const later = (): void => { const t = win.setTimeout(arm, 700); offs.push(() => win.clearTimeout(t)); };
@@ -125,19 +147,81 @@ export function mountHomeMotion(root: HTMLElement, win: MotionWindow, o: HomeMot
   }
 
   // Geometry is read on load and resize only; scrolling writes styles.
-  interface Geo { vh: number; trackTop: number; trackRoom: number; reel: { el: HTMLElement; mid: number }[] }
+  interface Geo { vh: number; trackTop: number; trackRoom: number; bx: { top: number; height: number; room: number; stick: number } | null }
   let geo: Geo | null = null;
-  const reelCards = Array.from(page.querySelectorAll<HTMLElement>('.hm-rcard'));
   const measure = (): Geo => {
     const sy = win.scrollY;
     const tr = track?.getBoundingClientRect();
+    const br = bxTrack?.getBoundingClientRect();
     return {
       vh: win.innerHeight,
       trackTop: tr ? tr.top + sy : 0,
       trackRoom: track && stick ? Math.max(1, track.offsetHeight - stick.offsetHeight) : 1,
-      reel: reelCards.map((el) => { const r = el.getBoundingClientRect(); return { el, mid: r.top + sy + r.height / 2 }; }),
+      bx: bxTrack && bxStage && br ? {
+        top: br.top + sy, height: bxTrack.offsetHeight, room: bxTrack.offsetHeight - bxStage.offsetHeight,
+        stick: parseFloat(win.getComputedStyle(bxStage).top) || 0,
+      } : null,
     };
   };
+
+  // ---- every move is a game: the pinned stage, one scene per game -------------------------------------------------------
+  let bxCur = -1;
+  let bxRaf = 0;
+  let bxLast = 0;
+  const bxBeats = new WeakMap<HTMLElement, number[]>();
+  const bxFigure = (li: HTMLElement): HTMLElement | null => li.querySelector<HTMLElement>('figure.hm-clip');
+  // The scene on screen plays; the ones next to it load, so the next one is ready when it comes; the rest wait.
+  function bxVideos(): void {
+    if (!bxPinned()) return;
+    bxScenes.forEach((li, k) => {
+      const f = bxFigure(li);
+      if (!f) return;
+      if (armed && !saveData && bxCur >= 0 && Math.abs(k - bxCur) <= 1) start(f);
+      if (k === bxCur && armed && !saveData) play(f); else videoOf(f)?.pause();
+    });
+  }
+  const bxTick = (): void => {
+    bxRaf = 0;
+    if (disposed || bxCur < 0) return;
+    const li = bxScenes[bxCur];
+    const f = li ? bxFigure(li) : null;
+    const v = f ? videoOf(f) : null;
+    if (li && v && !v.paused && v.readyState > 1) {
+      let beats = bxBeats.get(li);
+      if (!beats) { beats = (li.dataset['beats'] ?? '').split(',').filter(Boolean).map(Number); bxBeats.set(li, beats); }
+      const t = v.currentTime;
+      if (beatCrossed(beats, bxLast, t)) { li.classList.remove('hit'); void li.offsetWidth; li.classList.add('hit'); }
+      bxLast = t;
+    }
+    bxRaf = win.requestAnimationFrame(bxTick);
+  };
+  const bxSet = (i: number): void => {
+    if (i === bxCur) return;
+    bxCur = i;
+    if (i >= 0) {
+      bxScenes.forEach((li, k) => { li.classList.toggle('on', k === i); if (k !== i) li.classList.remove('hit'); });
+      bxDots.forEach((d, k) => d.classList.toggle('on', k === i));
+      const bg = bxScenes[i]?.style.getPropertyValue('--bg');
+      if (bg) bxStage?.style.setProperty('--sbg', bg);
+    }
+    bxLast = 0;
+    bxVideos();
+    if (i >= 0 && !bxRaf) bxRaf = win.requestAnimationFrame(bxTick);
+  };
+  // A keyboard user tabbing into a scene that is not on screen (its game link) is scrolled to it.
+  if (bxTrack) {
+    const focus = (e: FocusEvent): void => {
+      const li = (e.target as Element | null)?.closest?.('.hm-bx-scene') as HTMLElement | null;
+      const k = li ? bxScenes.indexOf(li) : -1;
+      if (k < 0 || k === bxCur || !bxPinned()) return;
+      geo ??= measure();
+      const g = geo.bx;
+      if (g) win.scrollTo({ top: g.top - g.stick + ((k + 0.5) / bxScenes.length) * g.room, behavior: 'instant' as ScrollBehavior });
+    };
+    bxTrack.addEventListener('focusin', focus);
+    offs.push(() => bxTrack.removeEventListener('focusin', focus));
+  }
+  offs.push(() => { if (bxRaf) win.cancelAnimationFrame(bxRaf); bxRaf = 0; });
   let lastStep = 0;
   const scene = (): void => {
     if (disposed) return;
@@ -155,12 +239,12 @@ export function mountHomeMotion(root: HTMLElement, win: MotionWindow, o: HomeMot
         for (const li of Array.from(cam.querySelectorAll<HTMLElement>('.hm-steps li'))) li.classList.toggle('on', li.dataset['step'] === String(step));
       }
     }
-    if (!narrow()) {
-      for (const c of geo.reel) {
-        const r = clamp((c.mid - sy - geo.vh / 2) / geo.vh, -1, 1);
-        c.el.style.setProperty('--r', r.toFixed(3));
-      }
-    }
+    const g = geo.bx;
+    if (g && g.room > 4) {
+      // on screen: the scene of the stretch of the track the stage is in (the first before it pins, the last after)
+      const near = sy + geo.vh > g.top && sy < g.top + g.height;
+      bxSet(near ? sceneOf((sy + g.stick - g.top) / g.room, bxScenes.length) : -1);
+    } else bxSet(-1);
   };
   let ticking = false;
   const onScroll = (): void => {

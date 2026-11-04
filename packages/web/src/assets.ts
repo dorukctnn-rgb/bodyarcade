@@ -38,10 +38,19 @@ export const ONBOARDING_FILES: readonly string[] = [
 export const HOME_CLIPS = {
   squat: { widths: [540, 720], aspect: 9 / 16, tr: true },
   'squat-cam': { widths: [540, 720], aspect: 9 / 16, tr: false },
-  knee: { widths: [432, 576], aspect: 9 / 16, tr: true },
-  jacks: { widths: [432, 576], aspect: 9 / 16, tr: true },
-  pad: { widths: [432, 576], aspect: 9 / 16, tr: true },
   duo: { widths: [960, 1280], aspect: 16 / 9, tr: true },
+  // The scenes of "every move is a game": in one picture, the camera picture the game got (left, mirrored as the game shows it) and
+  // the round the game played at that moment (right), so the two can never drift apart. 1418 by 1080: the person 810, the game 608.
+  'bx-squat': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
+  'bx-knee': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
+  'bx-jacks': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
+  'bx-pad': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
+  'bx-star': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
+  'bx-climb': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
+  'bx-limbo': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
+  'bx-pose': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
+  'bx-react': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
+  'bx-road': { widths: [944, 1418], aspect: 1418 / 1080, tr: true },
 } as const;
 export type HomeClip = keyof typeof HOME_CLIPS;
 

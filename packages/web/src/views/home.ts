@@ -1,8 +1,9 @@
 // The home page and the body region pages: one view, because a region page is the home page with a filter on.
 // The home page is also the landing page of the site (bodyarcade.com): colour worlds in the style of peakappsstudio.com, each with
-// real play on screen. A hero with Squat Flap played by a real person, a scroll stage that turns the camera picture into the game,
-// every game with its body-region filter and the modes, real people playing three more games, two players on one camera and live
-// races, the workout plans and the challenge of the day, what happens to the camera video, and what BodyArcade is and costs.
+// real play on screen. A hero with Squat Flap played by a real person, a scroll stage that turns the camera picture into the game, a
+// full-screen scene per game with a real person beside the round the game played (one recording, so the two never drift apart), every
+// game with its body-region filter and the modes, two players on one camera and live races, the workout plans and the challenge of the
+// day, what happens to the camera video, and what BodyArcade is and costs.
 // A returning player (a week to show) gets the week and the games first. The moving parts (loops, the scroll stage, tilting
 // tiles) are app/home-motion.ts; without scripts, with reduced motion or Save-Data the page is complete with its posters.
 import { attr, html, type SafeHtml } from '../../../core/ui/html.ts';
@@ -204,34 +205,78 @@ function gamesWall(ctx: ViewContext, data: HomeData): SafeHtml {
   </section>`;
 }
 
-// ---- real people, three more games ---------------------------------------------------------------------------------------
+// ---- every move is a game: one real round per game, the person and the game in one picture -----------------------------------
 
-const REEL: readonly { game: string; clip: HomeClip; move: 'knee' | 'jacks' | 'pad'; colour: string }[] = [
-  { game: 'knee-sprint', clip: 'knee', move: 'knee', colour: '#FFC53A' },
-  { game: 'firework-jacks', clip: 'jacks', move: 'jacks', colour: '#46B4FF' },
-  { game: 'pad-work', clip: 'pad', move: 'pad', colour: '#F4F2F8' },
+/**
+ * The scenes, in the order they come. Each is one recording (HOME_CLIPS 'bx-*'): the camera picture the game got, mirrored as the game
+ * shows it, beside the round it played at that moment. `beats` are the seconds inside the loop where the person's move peaks (measured on
+ * the loop's own person panel); the big words pulse on them. The Turkish recordings start on the same picture of the person, so the beats
+ * are the same. `bg` is the scene's colour (white text on it is at least 7:1).
+ */
+const SCENES: readonly { key: string; clip: HomeClip; game: string; bg: string; beats: readonly number[] }[] = [
+  { key: 'squat', clip: 'bx-squat', game: 'squat-flap', bg: '#4A2BD1', beats: [0.13, 1.1, 3.33, 4.7, 7.1] },
+  { key: 'knee', clip: 'bx-knee', game: 'knee-sprint', bg: '#B8321C', beats: [0.2, 0.8, 1.6, 2.4, 3, 4, 4.6, 5.4, 6, 7] },
+  { key: 'jacks', clip: 'bx-jacks', game: 'firework-jacks', bg: '#1E2A78', beats: [0.3, 1.33, 2.33, 3, 4.1, 5.07, 6.1, 7.17] },
+  { key: 'pad', clip: 'bx-pad', game: 'pad-work', bg: '#8E1E4D', beats: [0.2, 2, 2.8, 5.8, 7.3] },
+  { key: 'star', clip: 'bx-star', game: 'star-catch', bg: '#0F6656', beats: [1.27, 2.87, 7.2] },
+  { key: 'climb', clip: 'bx-climb', game: 'summit-climb', bg: '#2C4AA8', beats: [0.67, 1.27, 2.27, 3.07, 4.27, 4.87, 6.07, 6.67] },
+  { key: 'limbo', clip: 'bx-limbo', game: 'limbo-bend', bg: '#5F2697', beats: [0.5, 1.07, 3.5, 5.93, 7.4] },
+  { key: 'pose', clip: 'bx-pose', game: 'pose-wall', bg: '#9A1F5F', beats: [0.87, 1.43, 3.57, 4.9, 6.1, 6.7] },
+  { key: 'react', clip: 'bx-react', game: 'reaction-tag', bg: '#14573A', beats: [0.5, 2.1, 3.3, 5.3, 6.5] },
+  { key: 'road', clip: 'bx-road', game: 'road-run', bg: '#1B5784', beats: [0.27, 1.23, 2.27, 3.27, 3.93, 4.97] },
 ];
 
-function reel(ctx: ViewContext): SafeHtml {
+const ARROW = html`<svg class="hm-bx-arrow" viewBox="0 0 48 24" aria-hidden="true" focusable="false"><path d="M3 12h38M31 3l10 9-10 9" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+/**
+ * A full-screen scene per game that comes as you scroll (the stage stays while the scenes change; app/home-motion.ts), each with the
+ * move and what it does in the game in big words. Without scripts or with motion off it is a plain list of the same scenes with their
+ * posters. The Play button goes straight into a round; the camera is asked for there, never here.
+ */
+function explainer(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
-  const cards = REEL.flatMap((r, i) => {
-    const g = gameById(ctx.games, r.game);
-    if (!g) return [];
-    const pro = !g.free && !hasPro(ctx) ? html`<span class="ba-badge ba-badge--pro">${t.t('common.pro')}</span>` : '';
-    return [html`<li class="hm-rcard" style="--c:${r.colour};--i:${i}">
-      <a href="${ctx.href('game', { params: { slug: g.seo.slug } })}">
-        <span class="hm-phone hm-phone--card"><span class="hm-screen">${clip(ctx, r.clip, { alt: t.tx(`home.reel.alt.${r.move}`), sizes: '(min-width: 1100px) 300px, (min-width: 761px) 28vw, 64vw' })}</span></span>
-        <span class="hm-rcard-text"><b>${titleOf(ctx, g)}</b>${pro}<span class="hm-move">${t.tx(`home.reel.move.${r.move}`)}</span><span class="hm-tag">${taglineOf(ctx, g)}</span></span>
-      </a>
-    </li>`];
+  const scenes = SCENES.flatMap((s) => { const g = gameById(ctx.games, s.game); return g ? [{ s, g }] : []; });
+  if (!scenes.length) return html``;
+  const n = scenes.length;
+  const shown = new Set(scenes.map((x) => x.g.id));
+  const rest = ctx.games.filter((g) => !shown.has(g.id));
+  const twist = rest.length === 1 && rest[0]?.id === 'twist-turbine' ? rest[0] : undefined;
+  const play = featuredGame(ctx);
+  const items = scenes.map(({ s, g }, i) => {
+    const chip = g.free
+      ? html`<span class="hm-bx-chip hm-bx-chip--free">${t.t('common.free')}</span>`
+      : hasPro(ctx) ? '' : html`<span class="hm-bx-chip">${t.t('common.pro')}</span>`;
+    return html`<li class="hm-bx-scene${i === 0 ? ' on' : ''}" style="--bg:${s.bg}" data-beats="${s.beats.join(',')}">
+      <div class="hm-bx-media"><div class="hm-bx-box">
+        <p class="hm-bx-labels" aria-hidden="true"><span>${t.t('home.bx.you')}</span><span>${t.t('home.bx.game')}</span></p>
+        <div class="hm-bx-frame">${clip(ctx, s.clip, { alt: t.tx(`home.bx.${s.key}.alt`), sizes: '(max-width: 760px) 92vw, (max-aspect-ratio: 6/5) 92vw, 60vw', className: 'hm-bx-clip' })}</div>
+      </div></div>
+      <div class="hm-bx-type">
+        <p class="hm-bx-n"><span class="hm-bx-k">${t.t('home.bx.count', { i: i + 1, n })}</span><a class="hm-bx-g" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${titleOf(ctx, g)}</a>${chip}</p>
+        <p class="hm-bx-say"><span class="hm-bx-cause">${t.tx(`home.bx.${s.key}.cause`)}</span> ${ARROW}<span class="ba-visually-hidden">${t.t('home.bx.then')}</span> <span class="hm-bx-effect">${t.tx(`home.bx.${s.key}.effect`)}</span></p>
+        <p class="hm-bx-line">${taglineOf(ctx, g)}</p>
+      </div>
+    </li>`;
   });
-  if (!cards.length) return html``;
-  return html`<section class="hm hm-reel" aria-labelledby="reel-h">
-    <div class="hm-wrap">
-      <header class="hm-reel-head"><h2 id="reel-h" class="hm-h2">${t.t('home.reel.title')}</h2><p class="hm-lead">${t.t('home.reel.lead')}</p></header>
+  return html`<section class="hm hm-bx" id="every-move" aria-labelledby="bx-h">
+    <div class="hm-wrap hm-bx-intro">
+      <h2 id="bx-h" class="hm-h2">${t.t('home.bx.title')}</h2>
+      <p class="hm-lead">${t.t('home.bx.lead', { n })}</p>
     </div>
-    <ul class="hm-reel-row" role="list">${cards}</ul>
-    <div class="hm-wrap"><p class="hm-credit">${t.t('home.reel.credit')}</p></div>
+    <div class="hm-bx-track" style="--n:${n}">
+      <div class="hm-bx-stage" style="--sbg:${scenes[0]?.s.bg ?? '#4A2BD1'}">
+        <ol class="hm-bx-list">${items}</ol>
+        <div class="hm-bx-dots" aria-hidden="true">${scenes.map((_, i) => html`<i${attr('class', i === 0 && 'on')}></i>`)}</div>
+      </div>
+    </div>
+    <div class="hm-wrap hm-bx-outro">
+      ${twist ? html`<p class="hm-lead">${t.t('home.bx.twist', { game: titleOf(ctx, twist) })}</p>` : ''}
+      <p class="hm-credit">${t.t('home.bx.credit')}</p>
+      <div class="hm-actions">
+        ${play ? playNow(ctx, play, 'hm-btn hm-btn--light') : ''}
+        <a class="hm-btn hm-btn--ghost" href="#games">${t.t('home.bx.all', { n: ctx.games.length })}</a>
+      </div>
+    </div>
   </section>`;
 }
 
@@ -465,8 +510,8 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
   // A player who has played gets the week and the games before the story; a new visitor (and a crawler) gets the story first.
   const back = data.week !== null;
   const main = back
-    ? html`${hero(ctx)}${today(ctx, data, { week: true })}${gamesWall(ctx, data)}${cameraStage(ctx)}${reel(ctx)}${together(ctx)}${privacy(ctx)}${aboutSection(ctx)}`
-    : html`${hero(ctx)}${cameraStage(ctx)}${gamesWall(ctx, data)}${reel(ctx)}${together(ctx)}${today(ctx, data, { week: false })}${privacy(ctx)}${aboutSection(ctx)}`;
+    ? html`${hero(ctx)}${today(ctx, data, { week: true })}${gamesWall(ctx, data)}${cameraStage(ctx)}${explainer(ctx)}${together(ctx)}${privacy(ctx)}${aboutSection(ctx)}`
+    : html`${hero(ctx)}${cameraStage(ctx)}${explainer(ctx)}${gamesWall(ctx, data)}${together(ctx)}${today(ctx, data, { week: false })}${privacy(ctx)}${aboutSection(ctx)}`;
   // The motion switch: the home page moves by default (whatever the device's reduced-motion wish); this calms it, and is the same setting as
   // Settings, "Reduce motion". A page drawn without a visitor offers to reduce it.
   const off = ctx.settings.motion === 'reduce';

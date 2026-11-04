@@ -210,9 +210,10 @@ export function serviceWorkerSource(template: string, cfg: SwConfig): string {
 /**
  * The files a new service worker stores at install: every hashed build file but source maps and the home page's loops, and the start
  * pages. The loops (static/home/*.webm, *.mp4) are only worth their weight on a page that is open and online: their posters are stored,
- * so the home page opened offline shows the posters instead.
+ * so the home page opened offline shows the posters instead. The scenes of "every move is a game" (static/home/bx-*) are far down the
+ * page and many: not even their posters are stored at install (a poster that was on screen is kept by the worker like any build file).
  */
 export function precacheList(files: readonly string[], startPages: readonly string[]): string[] {
-  const build = files.filter((f) => f.startsWith('/static/') && !f.endsWith('.map') && !/^\/static\/home\/.+\.(?:webm|mp4)$/.test(f)).sort();
+  const build = files.filter((f) => f.startsWith('/static/') && !f.endsWith('.map') && !/^\/static\/home\/(?:.+\.(?:webm|mp4)|bx-.+)$/.test(f)).sort();
   return [...startPages, ...build];
 }
