@@ -112,11 +112,11 @@ function hero(ctx: ViewContext): SafeHtml {
       <div class="hm-hero-stage" data-sync>
         <div class="hm-camframe">
           <span class="hm-camtag" aria-hidden="true"><i></i>${t.t('home.cam.camera')}</span>
-          <div class="hm-camscreen">${clip(ctx, 'squat-cam', { alt: t.t('home.hero.cam'), sizes: '(min-width: 1100px) 300px, (min-width: 761px) 24vw, 46vw', first: true, className: 'hm-clip--cam' })}</div>
+          <div class="hm-camscreen">${clip(ctx, 'squat-cam', { alt: t.t('home.hero.cam'), sizes: '(min-width: 761px) 26vw, 46vw', first: true, className: 'hm-clip--cam' })}</div>
           <span class="hm-burst hm-burst--b" aria-hidden="true"><span>${t.t('home.sticker.free', { free })}</span></span>
         </div>
         <div class="hm-phone hm-phone--hero">
-          <div class="hm-screen">${clip(ctx, 'squat', { alt: t.t('home.hero.clip'), sizes: '(min-width: 1100px) 280px, (min-width: 761px) 22vw, 42vw', first: true, className: 'hm-clip--game' })}</div>
+          <div class="hm-screen">${clip(ctx, 'squat', { alt: t.t('home.hero.clip'), sizes: '(min-width: 761px) 24vw, 42vw', first: true, className: 'hm-clip--game' })}</div>
           <span class="hm-burst hm-burst--a" aria-hidden="true"><span>${t.t('home.sticker.games', { n })}</span></span>
         </div>
       </div>

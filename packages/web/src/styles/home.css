@@ -14,6 +14,8 @@
   --hm-lilac: #EDE8FF;
   --hm-chalk: #F4F2F8;
   --g: var(--ba-gutter, 16px);
+  /* the side room of the page: the worlds and their pictures use the whole width of any screen, text keeps its own measure */
+  --hm-pad: max(var(--g), min(4vw, 120px));
   /* what the sticky stage leaves free: the top bar from 900 px, the tab bar below that */
   --hm-top: 0px;
   --hm-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
@@ -24,8 +26,12 @@
 .ba-page.hm-root { max-width: none; padding: 0; }
 @media (max-height: 500px) and (orientation: landscape) { .ba-page.hm-root { padding-left: 76px; } }
 .hm-root > .ba-mobilehead { padding-inline: var(--g); }
-.hm-wrap { width: 100%; max-width: calc(1240px + 2 * var(--g)); margin: 0 auto; padding: 0 var(--g); }
-@media (min-width: 1680px) { .hm-wrap { max-width: calc(1440px + 2 * var(--g)); } }
+.hm-wrap { width: 100%; margin: 0; padding: 0 var(--hm-pad); }
+/* the bar and the footer of the home page line up with the same side room */
+@media (min-width: 900px) and (min-height: 501px) {
+  .ba-app:has(.hm-root) .ba-topbar { padding-inline: max(16px, min(4vw, 120px)); }
+  .ba-app:has(.hm-root) .ba-footer-inner { padding-inline: max(16px, min(4vw, 120px)); }
+}
 .hm { position: relative; overflow-x: clip; margin: 0; padding-block: clamp(56px, 8vw, 116px); }
 .hm-root .hm { margin: 0; } /* the worlds touch: no page colour between them (.k-about and .ba-section carry their own margins) */
 
@@ -40,8 +46,8 @@
 .hm-h1, .hm-h2, .hm-mega { font-family: var(--ba-font-display); font-weight: 900; margin: 0; text-wrap: balance; overflow-wrap: break-word; }
 .hm-h1 { font-size: clamp(2.5rem, 1.25rem + 5.4vw, 6.1rem); line-height: 0.93; letter-spacing: -0.035em; }
 :lang(tr) .hm-h1 { font-size: clamp(2.3rem, 1.15rem + 4.6vw, 5.3rem); }
-.hm-h2 { font-size: clamp(2.1rem, 1.05rem + 4.2vw, 4.9rem); line-height: 0.95; letter-spacing: -0.03em; }
-.hm-mega { font-size: clamp(2.5rem, 0.9rem + 6.6vw, 7.4rem); line-height: 0.92; letter-spacing: -0.04em; }
+.hm-h2 { font-size: clamp(2.1rem, 1.05rem + 4.2vw, 6rem); line-height: 0.95; letter-spacing: -0.03em; }
+.hm-mega { font-size: clamp(2.5rem, 0.9rem + 6.6vw, 8.6rem); line-height: 0.92; letter-spacing: -0.04em; }
 .hm-lead { font-size: clamp(1.05rem, 0.95rem + 0.42vw, 1.32rem); line-height: 1.45; max-width: 36em; margin: 18px 0 0; }
 
 /* ---------- Buttons: arcade buttons with a solid edge ---------- */
@@ -80,8 +86,8 @@
 /* ---------- 1. Hero (violet): the real player and the game, side by side, moving together ---------- */
 .hm-hero { background: var(--hm-violet); color: #fff; padding-block: clamp(26px, 4vw, 64px) 0; }
 .hm-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 72px); align-items: center; }
-.hm-hero .hm-h1 { font-size: clamp(2.4rem, 0.9rem + 3.9vw, 5.6rem); }
-:lang(tr) .hm-hero .hm-h1 { font-size: clamp(2.2rem, 0.85rem + 3.4vw, 5rem); }
+.hm-hero .hm-h1 { font-size: clamp(2.4rem, 0.9rem + 3.9vw, 7rem); }
+:lang(tr) .hm-hero .hm-h1 { font-size: clamp(2.2rem, 0.85rem + 3.4vw, 6.2rem); }
 .hm-hero-copy .hm-lead { color: #F1EDFF; }
 .hm-assure { display: flex; align-items: center; gap: 10px; margin: 22px 0 0; font-weight: 700; color: #F1EDFF; }
 .hm-assure svg { width: 24px; height: 24px; flex: none; }
@@ -90,10 +96,10 @@
   --k: 0; --cap: calc(100vh - var(--hm-top) - var(--hm-bottom) - 170px); --cap: calc(100svh - var(--hm-top) - var(--hm-bottom) - 170px);
   position: relative; display: flex; align-items: flex-start; justify-content: center; padding: 30px 0 52px;
 }
-.hm-camframe { position: relative; z-index: 1; flex: none; width: min(52%, 300px, calc(var(--cap) * 0.5625)); transform: rotate(-3deg); }
+.hm-camframe { position: relative; z-index: 1; flex: none; width: min(52%, calc(var(--cap) * 0.5625)); transform: rotate(-3deg); }
 .hm-camscreen { position: relative; aspect-ratio: 9 / 16; border-radius: 22px; overflow: hidden; background: #D9D6DF; box-shadow: 0 0 0 7px #fff, 12px 14px 0 7px var(--hm-violet-edge); }
 .hm-phone--hero {
-  z-index: 2; flex: none; width: min(46%, 270px, calc(var(--cap) * 0.52)); margin: 9% 0 0 -3%;
+  z-index: 2; flex: none; width: min(46%, calc(var(--cap) * 0.52)); margin: 9% 0 0 -3%;
   transform: perspective(1400px) rotateY(var(--ry, 0deg)) rotateX(var(--rx, 0deg)) rotate(3deg); transition: transform 0.5s cubic-bezier(.2, .7, .2, 1);
 }
 /* stickers sit on the edges of the frames, clear of the player and the bird */
@@ -257,7 +263,7 @@
 .hm-bx-list { list-style: none; margin: 0; padding: 0; }
 .hm-bx-scene {
   position: relative; display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); gap: clamp(20px, 3.4vw, 56px); align-items: center;
-  padding: clamp(36px, 5vw, 72px) max(var(--g), 4vw); background: var(--bg);
+  padding: clamp(36px, 5vw, 72px) var(--hm-pad); background: var(--bg);
 }
 .hm-bx-media { position: relative; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; }
 /* the picture and its two labels; without the pinned stage it still fits one screen */
@@ -353,7 +359,7 @@
 .hm-duo-item { display: grid; gap: 8px; padding-top: 18px; border-top: 2.5px solid var(--hm-ink); }
 .hm-duo-item h3 { display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 900; font-size: clamp(1.3rem, 1.05rem + 0.8vw, 1.75rem); line-height: 1.1; }
 .hm-duo-item h3 svg { width: 30px; height: 30px; flex: none; }
-.hm-duo-item p, .hm-duo-copy > p { margin: 0; line-height: 1.5; font-size: 1.05rem; }
+.hm-duo-item p, .hm-duo-copy > p { margin: 0; line-height: 1.5; font-size: 1.05rem; max-width: 36em; }
 @media (max-width: 900px) { .hm-duo-grid { grid-template-columns: minmax(0, 1fr); } .hm-tv-screen { box-shadow: 0 0 0 8px #0D0920, 10px 12px 0 8px var(--hm-ink); } }
 
 /* ---------- 6. Today: the challenge of the day and the plans (mint) ---------- */
@@ -388,6 +394,7 @@
 .hm-about { background: var(--hm-lilac); }
 .hm-about header { margin-bottom: clamp(20px, 3vw, 36px); }
 .hm-about .k-about-lead { font-size: clamp(1.05rem, 0.98rem + 0.3vw, 1.25rem); color: var(--hm-ink); }
+.hm-about .k-about-facts { max-width: 52em; }
 .hm-about .k-about-facts li { color: #3D3557; font-size: 1rem; }
 .hm-about .k-about-facts .ba-link { white-space: normal; }
 .hm-about .k-card { box-shadow: inset 0 0 0 2px var(--hm-ink), 6px 7px 0 var(--hm-ink); border-radius: 22px; }
