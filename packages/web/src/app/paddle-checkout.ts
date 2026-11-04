@@ -260,8 +260,13 @@ export function createPaddleCheckout(o: PaddleCheckoutOptions): PaddleCheckout {
         status('');
         showTotals(data);
         break;
+      // every change Paddle makes to the sum (a code, the buyer's country and its tax) is shown in our panel at once
       case 'checkout.updated':
       case 'checkout.items.updated':
+      case 'checkout.discount.applied':
+      case 'checkout.discount.removed':
+      case 'checkout.customer.created':
+      case 'checkout.customer.updated':
         showTotals(data);
         break;
       case 'checkout.payment.initiated':

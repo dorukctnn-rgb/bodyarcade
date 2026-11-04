@@ -476,6 +476,10 @@ export class App {
     this.social?.start();
     this.apply();
     this.nav.start();
+    // The real entitlements were there before the first page (the usual case): a restore link or an unfinished claim is taken
+    // up now; when they come late, attach() does it. A restore link opened in a tab already on the site arrives as a new hash.
+    if (this.o.entitlements) this.resumePaddle();
+    this.on(this.win, 'hashchange', () => { if (/[#&]restore=/.test(this.win.location.hash) && this.paddleOn(this.billing.paywall().info)) void this.paddle.resume(); });
   }
 
   /** The friends services arrived after the page started (the first page does not wait long for them): the Friends tab appears. */
@@ -538,7 +542,11 @@ export class App {
     this.watchBilling();
     this.state = { ...this.state, paywall: null };
     this.rerender();
-    // a restore link (#restore=...) or a payment whose Pro could not be turned on during the last visit
+    this.resumePaddle();
+  }
+
+  /** Once per visit: a restore link (#restore=...) or a payment whose Pro could not be turned on during the last visit. */
+  private resumePaddle(): void {
     if (!this.paddleResumed && this.paddleOn(this.billing.paywall().info)) { this.paddleResumed = true; void this.paddle.resume(); }
   }
 
