@@ -23,23 +23,29 @@ export const TARGETS: Readonly<Record<TargetId, Target>> = {
 /** The one origin search engines should know: canonical links, the sitemap and hreflang always use it. */
 export const CANONICAL_ORIGIN = 'https://bodyarcade.com';
 
+/** Where Cloudflare Web Analytics' beacon script loads from, and the host it reports to when the site is not proxied by Cloudflare. */
+export const BEACON_SCRIPT_HOST = 'https://static.cloudflareinsights.com';
+export const BEACON_REPORT_HOST = 'https://cloudflareinsights.com';
+
 /** The inline script of the old content pages (document.documentElement.classList.add('js')), allowed by its hash. */
 export const LEGACY_INLINE_SCRIPT_HASH = "'sha256-Du+OJKJSbdUgz5nrHeWWINvez6XKDDU/tyj/5c2uvwo='";
 
 /**
  * The Content-Security-Policy, report-only for now (code-audit 9.3 step 6). What each source is for:
  *   script-src  the app's own files; 'wasm-unsafe-eval' for the pose model's WebAssembly; the old content pages'
- *               one inline script by hash (nothing loads an analytics script: no third party is named here)
+ *               one inline script by hash; with `analytics` (the site counts visits with Cloudflare Web Analytics) the
+ *               beacon's host, and nothing else third-party
  *   connect-src the API and the live rooms (same origin, wss named for browsers that do not count it as 'self'),
- *               Gumroad's licence check (the direct fallback of the entitlements)
+ *               Gumroad's licence check (the direct fallback of the entitlements); with `analytics` the beacon's report
+ *               address (a site that Cloudflare proxies gets it on its own host, which is 'self'; the rest goes here)
  *   worker-src  the pose worker (a module worker from 'self'); blob: for the WASM loader's helper
  */
-export function contentSecurityPolicy(t: Target): string {
+export function contentSecurityPolicy(t: Target, analytics = false): string {
   const host = new URL(t.origin).host;
   const directives: [string, string[]][] = [
     ['default-src', ["'self'"]],
-    ['script-src', ["'self'", "'wasm-unsafe-eval'", LEGACY_INLINE_SCRIPT_HASH]],
-    ['connect-src', ["'self'", `wss://${host}`, 'https://api.gumroad.com']],
+    ['script-src', ["'self'", "'wasm-unsafe-eval'", LEGACY_INLINE_SCRIPT_HASH, ...(analytics ? [BEACON_SCRIPT_HOST] : [])]],
+    ['connect-src', ["'self'", `wss://${host}`, 'https://api.gumroad.com', ...(analytics ? [BEACON_REPORT_HOST] : [])]],
     ['img-src', ["'self'", 'data:', 'blob:']],
     ['media-src', ["'self'", 'blob:']],
     ['worker-src', ["'self'", 'blob:']],
@@ -57,7 +63,7 @@ export function contentSecurityPolicy(t: Target): string {
 }
 
 /** Cloudflare `_headers`: security headers on everything, then the cache rules per kind of file. */
-export function headersFile(t: Target): string {
+export function headersFile(t: Target, analytics = false): string {
   const block = (path: string, lines: string[]): string => [path, ...lines.map((l) => `  ${l}`)].join('\n');
   const revalidate = 'Cache-Control: public, max-age=0, must-revalidate';
   return [
@@ -68,7 +74,7 @@ export function headersFile(t: Target): string {
       'Referrer-Policy: strict-origin-when-cross-origin',
       'Permissions-Policy: camera=(self), microphone=(), geolocation=()',
       'Strict-Transport-Security: max-age=31536000',
-      `Content-Security-Policy-Report-Only: ${contentSecurityPolicy(t)}`,
+      `Content-Security-Policy-Report-Only: ${contentSecurityPolicy(t, analytics)}`,
       `Reporting-Endpoints: csp="${t.origin}/api/csp-report"`,
       ...(t.indexable ? [] : ['X-Robots-Tag: noindex, nofollow']),
     ]),
@@ -181,6 +187,23 @@ export function injectSource(html: string): string {
   if (at < 0) throw new Error('page without </head>');
   if (html.includes(SOURCE_TAG)) return html;
   return `${html.slice(0, at)}${SOURCE_TAG}
+${html.slice(at)}`;
+}
+
+/**
+ * The Cloudflare Web Analytics beacon (cookieless): the snippet the dashboard gives under "Manage site", with the site's token. It is a script
+ * with a source and a data attribute, no inline code, so the policy needs only the beacon's host. Put at the end of the head, once.
+ */
+export function analyticsTag(token: string): string {
+  if (!/^[0-9a-f]{32}$/.test(token)) throw new Error('the Web Analytics token is 32 hexadecimal characters');
+  return `<script defer src="${BEACON_SCRIPT_HOST}/beacon.min.js" data-cf-beacon='{"token": "${token}"}'></script>`;
+}
+
+export function injectAnalytics(html: string, token: string): string {
+  const at = html.indexOf('</head>');
+  if (at < 0) throw new Error('page without </head>');
+  if (html.includes(`${BEACON_SCRIPT_HOST}/beacon.min.js`)) return html;
+  return `${html.slice(0, at)}${analyticsTag(token)}
 ${html.slice(at)}`;
 }
 

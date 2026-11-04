@@ -27,6 +27,12 @@
   // migration v4): its SQLite storage holds every table and the players' sockets, so there is no database to create. HUB and
   // PlayerHub stay only because migration v2 made that class on the preview; nothing uses them. Optional secret: ADMIN_TOKEN
   // (the moderation API answers 404 without it); optional variable: SOCIAL_MAX_SIGNUPS_PER_DAY (default 4000).
+  // The game signal (POST /api/ping, packages/server/src/site/ping.ts): Workers Analytics Engine, free plan (100,000 data points a day).
+  // One dataset per event; the datasets are made by the first write. Read them with tools/signals/read.mjs.
+  "analytics_engine_datasets": [
+    { "binding": "PING_START", "dataset": "bodyarcade_game_start_preview" },
+    { "binding": "PING_FINISH", "dataset": "bodyarcade_run_finished_preview" }
+  ],
   "vars": { "PUBLIC_ORIGIN": "https://bodyarcade-v2-preview.railer-iot.workers.dev", "SITE_TARGET": "preview" },
   "observability": { "enabled": true },
   "upload_source_maps": false

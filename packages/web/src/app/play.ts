@@ -18,6 +18,7 @@ import {
 import type { StageHandles } from './ports.ts';
 import { plateName, type RaceOutcome, type RaceRival, type RaceSource } from './race.ts';
 import type { ClipFile, ClipRecorder } from './clip.ts';
+import { countsAsPlay, type SignalEvent } from './signal.ts';
 
 /**
  * The string key of the sentence for an error code. Body tracking that could not load while the phone has no connection says so and what to do
@@ -46,6 +47,11 @@ export interface PlayHost {
   setCameraExplained(): void;
   /** The first round of a Pro game has started: the free round is used. */
   usedFreeRound(game: ShellGame): void;
+  /**
+   * A round with a body has really started (the camera and the pose model are ready, the countdown is over) or finished: the anonymous game
+   * signal (signal.ts). Optional so a host that counts nothing (a test, a build without the server) needs no line for it.
+   */
+  signal?(event: SignalEvent, game: ShellGame): void;
   /** The setup changed during the round (keyboard instead of camera, seated instead): keep the address in step. */
   setupChanged(setup: SetupState): void;
   /** The player chose to play at the desk: the mode stays on for the next rounds too (Settings turns it off). */
@@ -112,6 +118,7 @@ export class PlayController {
   private clipTried = false;
   private disposed = false;
   private usedFree = false;
+  private signalled = false;
   private launching = false;
   private guideObserver: ResizeObserver | null = null;
   private guide: { ready: boolean; bands: CalibPart[] } = { ready: false, bands: [] };
@@ -222,6 +229,7 @@ export class PlayController {
     const race = this.o.race;
     const known = race?.outcome() ?? null;
     const outcome = !known && race?.settle ? race.settle() : Promise.resolve(known);
+    if (this.countsAsPlay()) this.host.signal?.('run_finished', this.game);
     const recorder = this.clip;
     this.clip = null;
     let clip: ClipFile | null = null;
@@ -230,6 +238,8 @@ export class PlayController {
     if (this.disposed) return;
     this.host.finish(this.game, this.setup, summary, settled, clip);
   }
+
+  private countsAsPlay(): boolean { return countsAsPlay(this.setup.input, this.o.simulatedBody === true); }
 
   /** The recording of the last seconds begins with the play, and waits when the round does. */
   private beginClip(): void {
@@ -298,6 +308,7 @@ export class PlayController {
         this.pauseReason = null;
         hud.setAway(null);
         if (!this.usedFree) { this.usedFree = true; this.host.usedFreeRound(this.game); }
+        if (!this.signalled) { this.signalled = true; if (this.countsAsPlay()) this.host.signal?.('game_start', this.game); }
         break;
       case 'results':
         this.show(null);

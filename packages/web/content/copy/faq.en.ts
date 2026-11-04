@@ -67,7 +67,7 @@ export function faqEn(): PageSpec {
         },
         {
           q: 'What does BodyArcade keep about me?',
-          a: '<p>Your settings and results stay on your device. Our servers keep an online profile only if you make one, rooms only while they exist, and license records for Pro, each for the time the <a href="/privacy">privacy policy</a> lists. There are no ads and no advertising trackers.</p>',
+          a: '<p>Your settings and results stay on your device. Our servers keep an online profile only if you make one, rooms only while they exist, and license records for Pro, each for the time the <a href="/privacy">privacy policy</a> lists. They also count, with nothing that identifies you, how many rounds of each game start and finish. There are no ads and no advertising trackers.</p>',
         },
         {
           q: 'How do I delete my data?',

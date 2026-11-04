@@ -321,10 +321,23 @@ describe('the pose model and the games', () => {
     expect(read('packages/core/pose/no-telemetry.ts')).toContain("'odml.pa.googleapis.com'");
   });
 
-  it('no code of ours sets a cookie, and no page loads an analytics script', () => {
-    for (const rel of ['packages/core/store/store.ts', 'packages/web/src/app/app.ts', 'packages/web/src/main.ts', 'packages/web/src/document.ts']) expect(read(rel), rel).not.toContain('document.cookie');
-    expect(F.ANALYTICS_ON).toBe(false);
+  it('no code of ours sets a cookie, and the sources of the pages load no analytics script (the release build adds the beacon, and only through the one switch)', () => {
+    for (const rel of ['packages/core/store/store.ts', 'packages/web/src/app/app.ts', 'packages/web/src/main.ts', 'packages/web/src/document.ts', 'packages/web/src/app/signal.ts']) expect(read(rel), rel).not.toContain('document.cookie');
     for (const p of pages()) expect(renderPage(p), p.file).not.toMatch(/<script[^>]+src="(?!\/assets\/twa\.js")/);
+  });
+
+  it('the visit count has one switch: the token only with the switch on, a well-formed token, and the policy says what the switch says', () => {
+    expect(typeof F.ANALYTICS_ON).toBe('boolean');
+    expect(F.ANALYTICS_BEACON_TOKEN === '' || /^[0-9a-f]{32}$/.test(F.ANALYTICS_BEACON_TOKEN)).toBe(true);
+    if (F.ANALYTICS_BEACON_TOKEN !== '') expect(F.ANALYTICS_ON, 'a token without the switch would be ignored by the release build').toBe(true);
+    const en = renderPage(pages().find((p) => p.file === 'privacy.html') as PageSpec);
+    const tr = renderPage(pages().find((p) => p.file === 'tr/privacy.html') as PageSpec);
+    expect(en.includes('Cloudflare Web Analytics')).toBe(F.ANALYTICS_ON);
+    expect(tr.includes('Cloudflare Web Analytics')).toBe(F.ANALYTICS_ON);
+    // the game signal is in every build, so the policy always describes it, in both languages, with what it carries and what it does not
+    expect(en).toContain('The game signal');
+    expect(en).toContain('road-run');
+    expect(tr).toContain('Oyun sinyali');
   });
 
   it('the catalogue the pages count: every game has a seated version, the free and Pro games are the manifests, the live races are the games whose manifest lists a duel', () => {

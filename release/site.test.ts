@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  CANONICAL_ORIGIN, HEAD_TAGS, SOURCE_TAG, STATIC_REDIRECTS, TARGETS, contentSecurityPolicy, headersFile, injectHead, injectSource, mergeSitemap, precacheList,
+  BEACON_REPORT_HOST, BEACON_SCRIPT_HOST, CANONICAL_ORIGIN, HEAD_TAGS, SOURCE_TAG, STATIC_REDIRECTS, TARGETS, analyticsTag, contentSecurityPolicy, headersFile, injectAnalytics, injectHead, injectSource, mergeSitemap, precacheList,
   redirectsFile, robotsFile, serviceWorkerSource, webManifest, type SwConfig,
 } from './site.ts';
 
@@ -32,6 +32,33 @@ describe('targets and headers', () => {
     expect(prod).toContain('Reporting-Endpoints: csp="https://bodyarcade.com/api/csp-report"');
     // the old third parties of the pose model are gone: it is self-hosted now
     expect(contentSecurityPolicy(TARGETS.production)).not.toMatch(/jsdelivr|storage\.googleapis/);
+  });
+
+  it('names the Web Analytics beacon in the policy only when visits are counted, and no other third party', () => {
+    const off = contentSecurityPolicy(TARGETS.production);
+    const on = contentSecurityPolicy(TARGETS.production, true);
+    expect(off).not.toMatch(/cloudflareinsights/);
+    expect(on).toMatch(/script-src [^;]*https:\/\/static\.cloudflareinsights\.com(?:[ ;]|$)/);
+    expect(on).toMatch(/connect-src [^;]*https:\/\/cloudflareinsights\.com(?:[ ;]|$)/);
+    expect(on).toContain(BEACON_SCRIPT_HOST);
+    expect(on).toContain(BEACON_REPORT_HOST);
+    // nothing else changes, and the policy stays report-only and reports to the Worker
+    expect(on.replace(` ${BEACON_SCRIPT_HOST}`, '').replace(` ${BEACON_REPORT_HOST}`, '')).toBe(off);
+    expect(headersFile(TARGETS.production, true)).toContain(`Content-Security-Policy-Report-Only: ${on}`);
+    expect(headersFile(TARGETS.production)).toContain(`Content-Security-Policy-Report-Only: ${off}`);
+    expect(headersFile(TARGETS.production, true)).not.toMatch(/^\s*Content-Security-Policy:/m);
+  });
+
+  it('the beacon is one script with a source and a data attribute (no inline code), added once before </head>, and only with a well-formed token', () => {
+    const token = '0123456789abcdef0123456789abcdef';
+    expect(analyticsTag(token)).toBe(`<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "${token}"}'></script>`);
+    const page = '<!doctype html><html><head><title>x</title></head><body></body></html>';
+    const once = injectAnalytics(page, token);
+    expect(once.split('beacon.min.js').length - 1).toBe(1);
+    expect(once.indexOf('beacon.min.js')).toBeLessThan(once.indexOf('</head>'));
+    expect(injectAnalytics(once, token)).toBe(once);
+    expect(() => injectAnalytics('<html><body></body></html>', token)).toThrow();
+    for (const bad of ['', 'abc', token.toUpperCase(), `${token}0`, `"${token.slice(1)}`, "x'}</script><script>alert(1)</script>"]) expect(() => analyticsTag(bad), bad).toThrow();
   });
 
   it('only the preview says noindex, and robots.txt agrees', () => {

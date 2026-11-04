@@ -9,6 +9,7 @@ import type { Fetcher, ExecutionContextLike } from './cf.ts';
 import { router } from './router.ts';
 import { registerLiveRoutes } from './live/routes.ts';
 import { registerSiteRoutes } from './site/routes.ts';
+import { registerPing } from './site/ping.ts';
 import { registerSocial } from './social/index.ts';
 import { registerEntitlements } from './entitlements/index.ts';
 
@@ -20,6 +21,7 @@ export { EntitlementsDO } from './entitlements/index.ts';
 // ───────── modules (one line each) ─────────
 registerLiveRoutes(router);
 registerSiteRoutes(router);
+registerPing(router);
 registerSocial(router);
 registerEntitlements(router);
 

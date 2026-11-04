@@ -24,7 +24,7 @@ for (const size of SIZES) {
     for (const [name, path] of PAGES) {
       const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, serviceWorkers: 'block' });
       const page = await context.newPage();
-      await page.route(/plausible\.io/, (r) => r.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
+      await page.route(/plausible\.io|cloudflareinsights\.com/, (r) => r.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
       try {
         await page.goto(`${BASE}${path}`, { waitUntil: 'load' });
         await page.waitForTimeout(800);

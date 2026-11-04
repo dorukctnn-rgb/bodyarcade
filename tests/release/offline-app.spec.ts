@@ -27,7 +27,7 @@ async function phone(browser: import('@playwright/test').Browser, lang = 'en-US'
   const page = await context.newPage();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
-  await page.route(/plausible\.io/, (r) => r.abort());
+  await page.route(/plausible\.io|cloudflareinsights\.com/, (r) => r.abort());
   return { context, page, errors };
 }
 
@@ -54,7 +54,7 @@ const stored = (page: Page): Promise<string[]> => page.evaluate(async (name) => 
 test('the web visitor\'s settings page has no app rows', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block', locale: 'en-US' });
   const page = await context.newPage();
-  await page.route(/plausible\.io/, (r) => r.abort());
+  await page.route(/plausible\.io|cloudflareinsights\.com/, (r) => r.abort());
   await page.goto(`${BASE}/settings/`);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.locator('[data-offline]')).toHaveCount(0);
@@ -202,7 +202,7 @@ test('the app rows keep the layout rule at every size, in English and Turkish', 
     for (const s of SIZES) {
       const context = await browser.newContext({ userAgent: PIXEL, viewport: { width: s.w, height: s.h }, deviceScaleFactor: 1, serviceWorkers: 'block', locale: lang === 'tr' ? 'tr-TR' : 'en-US' });
       const page = await context.newPage();
-      await page.route(/plausible\.io/, (r) => r.abort());
+      await page.route(/plausible\.io|cloudflareinsights\.com/, (r) => r.abort());
       await page.goto(`${BASE}${lang === 'tr' ? '/tr' : ''}/settings/?src=twa`, { waitUntil: 'load' });
       await expect(page.locator('[data-offline="missing"]')).toBeVisible();
       await page.locator('[data-reminder-time]').scrollIntoViewIfNeeded();
@@ -225,7 +225,7 @@ test('axe: the app rows have no violation in any state', async ({ browser }) => 
     for (const size of [{ w: 390, h: 844 }, { w: 1280, h: 800 }]) {
       const context = await browser.newContext({ userAgent: PIXEL, viewport: { width: size.w, height: size.h }, locale: lang === 'tr' ? 'tr-TR' : 'en-US', serviceWorkers: 'block' });
       const page = await context.newPage();
-      await page.route(/plausible\.io/, (r) => r.abort());
+      await page.route(/plausible\.io|cloudflareinsights\.com/, (r) => r.abort());
       await page.goto(`${BASE}${lang === 'tr' ? '/tr' : ''}/settings/?src=twa`, { waitUntil: 'load' });
       await expect(page.locator('[data-offline="missing"]')).toBeVisible();
       for (const f of await scan(page)) blocking.push(`${lang} ${size.w} missing: ${f}`);

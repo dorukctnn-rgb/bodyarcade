@@ -9,7 +9,7 @@ test('installs, precaches the build, deletes the old site\'s caches and opens of
   test.setTimeout(180_000);
   const context = await browser.newContext({ serviceWorkers: 'allow' });
   const page = await context.newPage();
-  await page.route(/plausible\.io/, (r) => r.abort());
+  await page.route(/plausible\.io|cloudflareinsights\.com/, (r) => r.abort());
   const evidence: Record<string, unknown> = {};
   // Offline. Playwright's Firefox offline mode (context.setOffline) fails every load of the page with NS_ERROR_OFFLINE before its service
   // worker sees it, even a fetch from the controlled page, which a visitor's Firefox does not do (final test rehearsal, 25 Oct: with the

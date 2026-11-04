@@ -6,8 +6,9 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { GAME_ALIASES } from '../packages/server/src/site/routes.ts';
+import { ANALYTICS_BEACON_TOKEN, ANALYTICS_ON } from '../packages/web/content/facts.ts';
 import {
-  CANONICAL_ORIGIN, STATIC_REDIRECTS, headersFile, injectHead, injectSource, mergeSitemap, precacheList, redirectsFile, robotsFile,
+  CANONICAL_ORIGIN, STATIC_REDIRECTS, headersFile, injectAnalytics, injectHead, injectSource, mergeSitemap, precacheList, redirectsFile, robotsFile,
   serviceWorkerSource, webManifest, type SitemapEntry, type Target,
 } from './site.ts';
 import { POSE_CACHE } from '../packages/core/pose/assets.ts';
@@ -80,6 +81,8 @@ export interface AssembleOptions {
   web: string;
   out: string;
   target: Target;
+  /** The visit count (facts.ts ANALYTICS_ON and ANALYTICS_BEACON_TOKEN unless a test says otherwise). */
+  analytics?: { on: boolean; token: string };
 }
 
 export interface AssembleReport {
@@ -104,8 +107,13 @@ const git = (root: string, args: string[]): string => {
 
 export function assemble(o: AssembleOptions): AssembleReport {
   const { root, web, out, target } = o;
+  const counting = o.analytics ?? { on: ANALYTICS_ON, token: ANALYTICS_BEACON_TOKEN };
   const problems: string[] = [];
   const warnings: string[] = [];
+  // Visits are counted on the real site only (facts.ts ANALYTICS_ON): the preview is a different host, noindex, and nobody's visit.
+  const analytics = target.indexable && counting.on;
+  // With a token the pages carry the beacon; without one Cloudflare's automatic setup (if it is on for the host) adds it at the edge.
+  const withBeacon = (html: string): string => (analytics && counting.token ? injectAnalytics(html, counting.token) : html);
   if (!existsSync(join(web, 'index.html'))) throw new Error(`no web build in ${web}: run node packages/web/tools/build.ts first`);
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
@@ -121,7 +129,7 @@ export function assemble(o: AssembleOptions): AssembleReport {
   const appPages = appFiles.filter((f) => f.endsWith('.html'));
   for (const f of appPages) {
     const p = join(out, f);
-    writeFileSync(p, injectSource(injectHead(readFileSync(p, 'utf8'))));
+    writeFileSync(p, withBeacon(injectSource(injectHead(readFileSync(p, 'utf8')))));
   }
 
   // 2. The live site's content pages and their files.
@@ -131,7 +139,7 @@ export function assemble(o: AssembleOptions): AssembleReport {
     if (existsSync(to)) problems.push(`the app and the old site both have ${file}`);
     mkdirSync(dirname(to), { recursive: true });
     // the page as it is in site/, with the sale attribution script (the files in site/ stay as they are, so do their sitemap dates)
-    writeFileSync(to, injectSource(readFileSync(join(site, file), 'utf8')));
+    writeFileSync(to, withBeacon(injectSource(readFileSync(join(site, file), 'utf8'))));
   }
   for (const f of LEGACY_FILES) cpSync(join(site, f), join(out, f), { recursive: true });
 
@@ -141,7 +149,7 @@ export function assemble(o: AssembleOptions): AssembleReport {
   writeFileSync(join(out, 'manifest.json'), webManifest());
 
   // 4. Site-wide rules.
-  writeFileSync(join(out, '_headers'), headersFile(target));
+  writeFileSync(join(out, '_headers'), headersFile(target, analytics));
   writeFileSync(join(out, '_redirects'), redirectsFile());
   writeFileSync(join(out, 'robots.txt'), robotsFile(target));
   const extra: SitemapEntry[] = LEGACY_PAGES.map((p) => {

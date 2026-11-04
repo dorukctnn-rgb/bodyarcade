@@ -34,7 +34,7 @@ for (const bp of BREAKPOINTS) {
       const page = await context.newPage();
       const errors = watchErrors(page);
       // the content pages count visits with Plausible: not from a test (an empty script, so nothing fails to load)
-      await page.route(/plausible\.io/, (r) => r.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
+      await page.route(/plausible\.io|cloudflareinsights\.com/, (r) => r.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
       try {
         await page.goto(`${BASE}${path}`, { waitUntil: 'load', timeout: 60_000 });
         await page.waitForTimeout(name === 'welcome' || name === 'play' ? 2500 : 600);
