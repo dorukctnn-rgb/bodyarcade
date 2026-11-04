@@ -462,7 +462,7 @@ describe('English and Turkish say the same numbers', () => {
     return [...new Set(t.match(/\d+(?:\.\d+)?/g) ?? [])].sort((a, b) => Number(a) - Number(b));
   };
   for (const [en, tr] of [['privacy.html', 'tr/privacy.html'], ['terms.html', 'tr/terms.html'], ['faq.html', 'tr/faq.html'], ['delete-account.html', 'tr/delete-account.html'],
-    ['pricing.html', 'tr/fiyatlar.html'], ['changelog.html', 'tr/guncellemeler.html'], ['active-arcade-alternative.html', 'tr/active-arcade-alternatifi.html']] as const) {
+    ['pricing.html', 'tr/fiyatlar.html'], ['changelog.html', 'tr/guncellemeler.html'], ['active-arcade-alternative.html', 'tr/active-arcade-alternatifi.html'], ['refund.html', 'tr/refund.html']] as const) {
     it(`${en} and ${tr}`, () => {
       expect(numbers(byFile.get(tr) as PageSpec)).toEqual(numbers(byFile.get(en) as PageSpec));
     });
@@ -568,7 +568,7 @@ describe('the sign-up asks for the terms and the community rules', () => {
   const html = (file: string): string => renderPage(byFile.get(file) as PageSpec);
 
   it('the version the sign-up sends is the date of the terms and of the privacy policy, and is a day', () => {
-    expect(TERMS_VERSION).toBe(F.UPDATED);
+    expect(TERMS_VERSION).toBe(F.TERMS_UPDATED);
     expect(isTermsVersion(TERMS_VERSION)).toBe(true);
     for (const bad of ['', 'yes', 20261025, '2026-13-45', '2026-10-25T10:00:00Z', null, undefined]) expect(isTermsVersion(bad), String(bad)).toBe(false);
   });
@@ -1439,5 +1439,63 @@ describe.runIf(process.env['BA_RELEASE'] === '1')('release gate: the pages promi
   it('the Android app flag says what Google Play says', () => {
     // set by the release that goes with the public listing; this test only makes the choice visible
     expect(typeof F.ANDROID_APP_LIVE).toBe('boolean');
+  });
+});
+
+// The refund policy (4 November 2026): a page of its own that repeats the refund and cancelling promises of the terms and adds none.
+describe('the refund policy page', () => {
+  const textOf = (file: string): string => visible(renderPage(byFile.get(file) as PageSpec));
+
+  it('is on the site in both languages, joined to its twin, and linked from the footer of every content page and of the app', () => {
+    const en = byFile.get('refund.html') as PageSpec;
+    const tr = byFile.get('tr/refund.html') as PageSpec;
+    expect([en.url, tr.url]).toEqual(['/refund', '/tr/refund']);
+    expect(en.other).toEqual({ lang: 'tr', url: '/tr/refund' });
+    expect(tr.other).toEqual({ lang: 'en', url: '/refund' });
+    expect(sitePageHref('en', 'refund')).toBe(en.url);
+    expect(sitePageHref('tr', 'refund')).toBe(tr.url);
+    expect(SITE_PAGES.en.refund).toBe(en.url);
+    expect(SITE_PAGES.tr.refund).toBe(tr.url);
+    for (const p of all) expect(renderPage(p), p.file).toContain(`<li><a href="${SITE_PAGES[p.lang].refund}"`);
+    expect(read('packages/web/src/views/chrome.ts')).toContain("sitePageHref(ctx.lang, 'refund')");
+    expect(llmsTxt()).toContain('/refund');
+  });
+
+  it('says what the terms say: the days, the address, both resellers, how it is paid back, how a membership is cancelled', () => {
+    for (const f of ['refund.html', 'terms.html']) {
+      const t = textOf(f);
+      expect(t, f).toContain(`refunded within ${F.REFUND_DAYS} days of buying it`);
+      expect(t, f).toContain('Paddle.com and Gumroad');
+      expect(t, f).toContain('Merchant of Record');
+      expect(t, f).toContain('paid back through the reseller you paid');
+      expect(t, f).toContain('Pro stays on until the end of the period you already paid for');
+      expect(renderPage(byFile.get(f) as PageSpec), f).toContain(`mailto:${F.EMAIL}`);
+    }
+    for (const f of ['tr/refund.html', 'tr/terms.html']) {
+      const t = textOf(f);
+      expect(t, f).toContain(`${F.REFUND_DAYS} gün içinde iade edilebilir`);
+      expect(t, f).toContain('Paddle.com ve Gumroad');
+      expect(t, f).toContain('Merchant of Record');
+      expect(t, f).toContain('ödeme yaptığın satıcı üzerinden geri ödenir');
+      expect(t, f).toContain('zaten ödediğin sürenin sonuna kadar açık kalır');
+      expect(renderPage(byFile.get(f) as PageSpec), f).toContain(`mailto:${F.EMAIL}`);
+    }
+    expect(textOf('refund.html')).toContain(`The free trial of Pro yearly lasts ${F.TRIAL_DAYS} days`);
+    expect(textOf('tr/refund.html')).toContain(`ücretsiz denemesi ${F.TRIAL_DAYS} gün sürer`);
+  });
+
+  it('the terms do not say any more that Gumroad alone sells Pro, is the seller of record or makes the refund, and they link to the refund policy', () => {
+    for (const f of ['terms.html', 'tr/terms.html']) {
+      expect(textOf(f), f).not.toMatch(/Gumroad sells Pro|Gumroad is the seller of record|Gumroad makes the refund|ask Gumroad to refund|Pro’yu Gumroad satar|Gumroad kayıtlı satıcıdır|İadeyi Gumroad yapar|Gumroad’dan iade etmesini/);
+    }
+    expect(renderPage(byFile.get('terms.html') as PageSpec)).toContain('<a href="/refund">refund policy</a>');
+    expect(renderPage(byFile.get('tr/terms.html') as PageSpec)).toContain('<a href="/tr/refund">iade politikası</a>');
+  });
+
+  it('has the date of the terms, which is the version the sign-up sends, and names no place and no person', () => {
+    expect(F.TERMS_UPDATED).toBe(TERMS_VERSION);
+    for (const f of ['refund.html', 'terms.html']) expect(textOf(f), f).toContain(F.longDate(F.TERMS_UPDATED, 'en'));
+    for (const f of ['tr/refund.html', 'tr/terms.html']) expect(textOf(f), f).toContain(F.longDate(F.TERMS_UPDATED, 'tr'));
+    for (const f of ['refund.html', 'tr/refund.html']) expect(textOf(f), f).not.toMatch(/Türkiye|Turkey|Türkei|Antalya|Çetin/);
   });
 });

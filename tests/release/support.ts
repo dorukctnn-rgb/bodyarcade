@@ -78,10 +78,12 @@ export const LEGAL_EXTRA: [string, string][] = [
   ['active-arcade', '/active-arcade-alternative'], ['active-arcade-tr', '/tr/active-arcade-alternatifi'],
   // release 5 (SEO): the two English pages that answer one question each
   ['seo5-pc', '/exercise-games-for-pc'], ['seo5-kinect', '/kinect-alternative-pc'],
+  // the refund policy (4 November 2026)
+  ['refund', '/refund'], ['refund-tr', '/tr/refund'],
 ];
 export function legalPages(known: Iterable<string> | null = existsSync(join(ROOT, 'dist', 'sitemap.xml')) ? sitemapUrls() : null): [string, string][] {
   // no local build to ask (a run against a deployed address from a machine that did not build it): the pages every build since the content pages have
-  if (!known) return LEGAL_EXTRA.filter(([name]) => !/^(delete-account|pricing|changelog|active-arcade|seo5)/.test(name));
+  if (!known) return LEGAL_EXTRA.filter(([name]) => !/^(delete-account|pricing|changelog|active-arcade|seo5|refund)/.test(name));
   const set = new Set(known);
   return LEGAL_EXTRA.filter(([, path]) => set.has(path));
 }

@@ -29,6 +29,8 @@ export const LEGACY_PAGES: readonly { file: string; url: string }[] = [
   { file: 'tr/privacy.html', url: '/tr/privacy' },
   { file: 'terms.html', url: '/terms' },
   { file: 'tr/terms.html', url: '/tr/terms' },
+  { file: 'refund.html', url: '/refund' },
+  { file: 'tr/refund.html', url: '/tr/refund' },
   { file: 'faq.html', url: '/faq' },
   { file: 'tr/faq.html', url: '/tr/faq' },
   { file: 'delete-account.html', url: '/delete-account' },

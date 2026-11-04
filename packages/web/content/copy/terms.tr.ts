@@ -5,7 +5,7 @@ import * as F from '../facts.ts';
 import { gameCounts, titlesOf } from './games.ts';
 
 export function termsTr(): PageSpec {
-  const date = F.longDate(F.UPDATED, 'tr');
+  const date = F.longDate(F.TERMS_UPDATED, 'tr');
   const c = gameCounts();
   const W = F.ROAD_RUN_WORLDS;
   const free = titlesOf((g) => g.free, 'tr');
@@ -28,7 +28,7 @@ export function termsTr(): PageSpec {
         `<strong>Oynaması ücretsiz.</strong> ${c.total} oyunun ${c.free} tanesi, oturarak ve sessiz sürümleriyle birlikte ücretsizdir ve reklam yoktur. Road Run’ın ${W.total} dünyasından ${W.free} tanesi ücretsizdir. Her Pro oyunu bir kez ücretsiz oynayabilirsin.`,
         '<strong>Kendi temponda egzersiz yap.</strong> Çevrene yer aç, ısın ve bir yerin ağrırsa dur. Aşağıdaki güvenlik uyarısını oku.',
         '<strong>Nazik ol ve adil oyna.</strong> Diğer oyuncuları rahatsız eden ya da hile yapan profilleri susturabilir, askıya alabilir ya da yasaklayabiliriz.',
-        `<strong>Pro’nun ödemesi web’de Gumroad, Android uygulamasında Google Play üzerinden yapılır.</strong> Ödemeyi onlar alır, vergiyi onlar halleder. Web’den alınan bir plan ${F.REFUND_DAYS} gün içinde iade edilebilir.`,
+        `<strong>Pro’nun ödemesi web’de çevrimiçi satıcılarımız Paddle.com ve Gumroad, Android uygulamasında Google Play üzerinden yapılır.</strong> Ödemeyi onlar alır, vergiyi onlar halleder. Web’den alınan bir plan ${F.REFUND_DAYS} gün içinde iade edilebilir.`,
         `<strong>Eski alıcılar ödedikleri fiyatı korur.</strong> ${$(F.PRICE.legacyMonthly)} aylık üyeler ${$(F.PRICE.legacyMonthly)} öder, ${$(F.PRICE.founder)} Ömür boyu alıcıları Kurucu olur.`,
       ],
     },
@@ -113,21 +113,21 @@ ${ul([
 <p><strong>Ömür boyu ne demek.</strong> Bir kez ödersin ve Pro, BodyArcade sunulduğu sürece yenileme olmadan sürer. BodyArcade’i sonsuza kadar sunacağımız anlamına gelmez. Bir gün kapatırsak Ömür boyu plan ve diğer planlar onunla birlikte biter; elimizden geldiğince önceden haber veririz ve yenileme ödemelerini durdururuz. Yasadan doğan tüketici haklarına bu durum dokunmaz.</p>
 <p><strong>Eski planlar.</strong> Yukarıdaki planlar satışa çıkmadan önce Pro aylığı ayda ${$(F.PRICE.legacyMonthly)} fiyatıyla aldıysan, o üyelik kesintisiz sürdüğü sürece Pro’yu ayda ${$(F.PRICE.legacyMonthly)} ile korursun. O tarihten önce Ömür boyu planını ${$(F.PRICE.founder)} karşılığında aldıysan Kurucu’sun: BodyArcade sunulduğu sürece Pro, daha sonra eklenen her oyun, ${F.FAMILY_PROFILES} profil ve en çok ${F.DEVICES.founder} cihaz.</p>
 <p><strong>Android uygulaması.</strong> Orada fiyatları, para birimlerini ve ücretsiz denemeyi Google Play belirler; ülkeye göre değişebilir. Yukarıdaki fiyatlar web’deki liste fiyatlarıdır, ABD doları cinsindendir. Vergiler, satıcının gerektirdiği biçimde fiyata dahil edilir ya da ödemede eklenir.</p>
-<p>Yeni alıcılar için plan fiyatlarını değiştirebiliriz. Süren bir üyeliğin fiyatını, Gumroad ya da Google Play’in gerektirdiği bildirim ve onay olmadan artırmayız.</p>`,
+<p>Yeni alıcılar için plan fiyatlarını değiştirebiliriz. Süren bir üyeliğin fiyatını, ödeme yaptığın satıcının ya da Google Play’in gerektirdiği bildirim ve onay olmadan artırmayız.</p>`,
       },
       {
         id: 'odeme',
         title: 'Ödeme, yenileme ve iptal',
-        html: `<p><strong>Web’de</strong> Pro’yu Gumroad satar. Gumroad’ın sayfasında ödersin ve Gumroad kayıtlı satıcıdır: KDV’yi ya da satış vergisini o toplar ve satın alman için kendi koşulları da geçerlidir. Ödedikten sonra Gumroad sana bir lisans anahtarı e-postalar. Pro’yu açmak için onu uygulamanın Pro ekranına yapıştır.</p>
+        html: `<p><strong>Web’de</strong> siparişlerimizi çevrimiçi satıcılarımız Paddle.com ve Gumroad yürütür. Bütün siparişlerimizde kayıtlı satıcı (Merchant of Record) onlardır: ödemeyi, satış vergisini ya da KDV’yi ve iadeleri onlar halleder ve satın alman için kendi koşulları da geçerlidir. Gumroad’da ödeme yaptıktan sonra Gumroad sana bir lisans anahtarı e-postalar. Pro’yu açmak için onu uygulamanın Pro ekranına yapıştır.</p>
 <p><strong>Android uygulamasında</strong> Pro’yu Google Play satar ve onun koşulları geçerlidir.</p>
-<p><strong>Üyelikler</strong> (Pro aylık, Pro yıllık ve Aile yıllık) sen iptal edene kadar yenilenir. Web’de Gumroad kütüphanenden iptal et (BodyArcade’i seç, sonra Manage membership); makbuz e-postasında da aynı bağlantı var. Android uygulamasında Google Play aboneliklerinden iptal et. İptal etmek gelecekteki ödemeleri durdurur ve Pro, zaten ödediğin sürenin sonuna kadar açık kalır. Bir yenileme ödemesi başarısız olursa Pro, Gumroad ya da Google Play üyeliği bitirdiğinde biter.</p>
+<p><strong>Üyelikler</strong> (Pro aylık, Pro yıllık ve Aile yıllık) sen iptal edene kadar yenilenir. Web’de ödeme yaptığın satıcıdan iptal et. Gumroad’da bu, Gumroad kütüphanendir (BodyArcade’i seç, sonra Manage membership); makbuz e-postasında da aynı bağlantı var. Android uygulamasında Google Play aboneliklerinden iptal et. İptal etmek gelecekteki ödemeleri durdurur ve Pro, zaten ödediğin sürenin sonuna kadar açık kalır. Bir yenileme ödemesi başarısız olursa Pro, satıcı ya da Google Play üyeliği bitirdiğinde biter.</p>
 <p>Pro yıllık planının <strong>ücretsiz denemesi</strong> ${F.TRIAL_DAYS} gün sürer. Deneme sırasında hiçbir şey tahsil edilmez. Deneme bitmeden iptal etmezsen ilk yıl tahsil edilir ve plan her yıl yenilenir. Deneme, kişi ve abonelik başına bir kez verilir; kimin uygun olduğuna mağaza karar verir. Deneme bitmeden ${F.REMINDER_DAYS} gün önce sana hatırlatırız: uygulama her açılışta bir bildirim gösterir${F.REMINDER_MAIL ? '; web’de bir adres bırakırsan tek bir e-posta göndeririz (gizlilik politikasına bak)' : ''}. Google Play da kendi hatırlatmasını gönderir.</p>`,
       },
       {
         id: 'iade',
         title: 'İadeler',
         html: `<p>İadeler, planı satan mağazanın kurallarına göre yapılır.</p>
-<p>Web’de her plan, satın alındığı günden başlayarak ${F.REFUND_DAYS} gün içinde iade edilebilir. İadeyi Gumroad yapar; iade süresi ürünün Gumroad sayfasında ve makbuzunda da yazar. İade istemek için makbuzundaki bağlantıyı kullan ya da ${mail()} adresine yaz; Gumroad’dan iade etmesini isteriz. İade edilen bir satın alma, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar.</p>
+<p>Web’de her plan, satın alındığı günden başlayarak ${F.REFUND_DAYS} gün içinde iade edilebilir. İade, ödeme yaptığın satıcı üzerinden geri ödenir; iade süresi makbuzunda ve Gumroad için ürünün Gumroad sayfasında da yazar. İade istemek için makbuzundaki bağlantıyı kullan ya da ${mail()} adresine yaz; satıcıdan iade etmesini isteriz. İade edilen bir satın alma, bir sonraki kontrolde cihazlarındaki Pro’yu bitirir; uygulama bu kontrolü sen kullandıkça yaklaşık günde bir kez yapar. Adımlar <a href="/tr/refund">iade politikası</a> sayfasında da var.</p>
 <p>Android uygulamasında Google Play’in iade kuralları geçerlidir ve kararı Google verir. Yardım gerekirse bize yaz.</p>
 <p>Bu koşullardaki hiçbir şey, ülkenin hukukunun sana tüketici olarak verdiği iade ya da cayma hakkını ortadan kaldırmaz.</p>`,
       },

@@ -58,6 +58,7 @@ interface Words {
   camera: string;
   privacy: string;
   terms: string;
+  refund: string;
   faq: string;
   delete: string;
   guides: string;
@@ -77,7 +78,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Games', '/'], pro: ['Pro', '/pro/'], faq: ['FAQ', '/faq'], blog: ['Blog', '/blog/'] },
     play: 'Play a game', toc: 'On this page', crumbs: 'Breadcrumb',
     made: `BodyArcade is made by ${STUDIO}.`, camera: 'Camera video is read on your device and never recorded.',
-    privacy: 'Privacy', terms: 'Terms', faq: 'FAQ', delete: 'Delete account', guides: 'Guides', pricing: 'Prices', changelog: 'Updates', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
+    privacy: 'Privacy', terms: 'Terms', refund: 'Refund policy', faq: 'FAQ', delete: 'Delete account', guides: 'Guides', pricing: 'Prices', changelog: 'Updates', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
     studio: STUDIO,
   },
   tr: {
@@ -85,15 +86,15 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Oyunlar', '/tr/'], pro: ['Pro', '/tr/pro/'], faq: ['SSS', '/tr/faq'], blog: null },
     play: 'Bir oyun oyna', toc: 'Bu sayfada', crumbs: 'Sayfa yolu',
     made: `BodyArcade, ${STUDIO} tarafından yapılır.`, camera: 'Kamera görüntüsü cihazında okunur, hiçbir zaman kaydedilmez.',
-    privacy: 'Gizlilik', terms: 'Koşullar', faq: 'SSS', delete: 'Hesabı sil', guides: 'Rehberler', pricing: 'Fiyatlar', changelog: 'Güncellemeler', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
+    privacy: 'Gizlilik', terms: 'Koşullar', refund: 'İade politikası', faq: 'SSS', delete: 'Hesabı sil', guides: 'Rehberler', pricing: 'Fiyatlar', changelog: 'Güncellemeler', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
     studio: STUDIO,
   },
 };
 
 /** The site's own pages in each language (the app's footer has the same addresses: packages/web/src/views/chrome.ts SITE_PAGES). */
-export const PAGES: Readonly<Record<Lang, { privacy: string; terms: string; faq: string; delete: string; pricing: string; changelog: string }>> = {
-  en: { privacy: '/privacy', terms: '/terms', faq: '/faq', delete: '/delete-account', pricing: '/pricing', changelog: '/changelog' },
-  tr: { privacy: '/tr/privacy', terms: '/tr/terms', faq: '/tr/faq', delete: '/tr/delete-account', pricing: '/tr/fiyatlar', changelog: '/tr/guncellemeler' },
+export const PAGES: Readonly<Record<Lang, { privacy: string; terms: string; refund: string; faq: string; delete: string; pricing: string; changelog: string }>> = {
+  en: { privacy: '/privacy', terms: '/terms', refund: '/refund', faq: '/faq', delete: '/delete-account', pricing: '/pricing', changelog: '/changelog' },
+  tr: { privacy: '/tr/privacy', terms: '/tr/terms', refund: '/tr/refund', faq: '/tr/faq', delete: '/tr/delete-account', pricing: '/tr/fiyatlar', changelog: '/tr/guncellemeler' },
 };
 
 /** The longest <title> a page gets: about what a search result shows before it cuts the line. */
@@ -144,7 +145,7 @@ function footer(spec: PageSpec, w: Words): string {
   const guides = `<ul aria-label="${esc(w.guides)}">${FOOTER_GUIDES[spec.lang].map(([name, href]) => `<li><a href="${href}"${href === spec.url ? ' aria-current="page"' : ''}>${esc(name)}</a></li>`).join('')}</ul>`;
   const cur = (href: string): string => (href === spec.url ? ' aria-current="page"' : '');
   // the prices are the web's: inside the Android app (twa.js) the link is hidden with the other words about paying on the web
-  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p>${guides}<ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="${p.delete}">${esc(w.delete)}</a></li><li data-web-pay><a href="${p.pricing}"${cur(p.pricing)}>${esc(w.pricing)}</a></li><li><a href="${p.changelog}"${cur(p.changelog)}>${esc(w.changelog)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
+  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p>${guides}<ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.refund}"${cur(p.refund)}>${esc(w.refund)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="${p.delete}">${esc(w.delete)}</a></li><li data-web-pay><a href="${p.pricing}"${cur(p.pricing)}>${esc(w.pricing)}</a></li><li><a href="${p.changelog}"${cur(p.changelog)}>${esc(w.changelog)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
 }
 
 function crumbs(spec: PageSpec, w: Words): string {
