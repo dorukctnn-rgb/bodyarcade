@@ -710,7 +710,13 @@ export function createEngine(deps: EngineDeps): Engine {
     if (anchors.length > 0) {
       const links = await Promise.all(anchors.slice(0, 5).map(async (a) => restoreLink(pd.site, lang, await paddleKeyFor(pd.keySecret, a))));
       const m = restoreMail(lang, links);
-      const sent = await pd.mail.send({ to: email, subject: m.subject, text: m.text });
+      // One more try after a slow or failing mail service (5 Nov 2026: peak-pay's restore e-mail failed once on the 10 s timeout and the
+      // buyer read "try again"). A second copy of the same links is harmless.
+      let sent = await pd.mail.send({ to: email, subject: m.subject, text: m.text });
+      if (sent === 'retry') {
+        await new Promise((r) => setTimeout(r, 1500));
+        sent = await pd.mail.send({ to: email, subject: m.subject, text: m.text });
+      }
       log('paddle_restore', { found: anchors.length, mail: sent });
       if (sent !== 'sent') return fail('unavailable');
     } else log('paddle_restore', { found: 0 });
