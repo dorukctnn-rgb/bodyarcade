@@ -255,7 +255,7 @@
 .hm-bx-media { position: relative; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; }
 /* the picture and its two labels; without the pinned stage it still fits one screen */
 .hm-bx-box { position: relative; width: min(100%, calc((100vh - var(--hm-top) - var(--hm-bottom) - 96px) * 1.313)); width: min(100%, calc((100svh - var(--hm-top) - var(--hm-bottom) - 96px) * 1.313)); }
-.hm-bx-labels { position: relative; height: 26px; margin: 0; font-weight: 800; font-size: clamp(0.68rem, 0.6rem + 0.3vw, 0.82rem); line-height: 1; letter-spacing: 0.05em; text-transform: uppercase; color: #F4F1FF; white-space: nowrap; }
+.hm-bx-labels { position: relative; height: 26px; margin: 0; font-weight: 800; font-size: clamp(0.62rem, 0.5rem + 0.45vw, 0.82rem); line-height: 1; letter-spacing: 0.05em; text-transform: uppercase; color: #F4F1FF; white-space: nowrap; }
 .hm-bx-labels span { position: absolute; top: 2px; left: 2px; }
 .hm-bx-labels span + span { left: calc(57.12% + 8px); }
 .hm-bx-frame { position: relative; aspect-ratio: 1418 / 1080; border-radius: clamp(14px, 2vw, 24px); overflow: hidden; background: #120C26; box-shadow: 12px 14px 0 rgba(13, 9, 32, 0.42); }

@@ -211,16 +211,17 @@ function gamesWall(ctx: ViewContext, data: HomeData): SafeHtml {
  * The scenes, in the order they come. Each is one recording (HOME_CLIPS 'bx-*'): the camera picture the game got, mirrored as the game
  * shows it, beside the round it played at that moment. `beats` are the seconds inside the loop where the person's move peaks (measured on
  * the loop's own person panel); the big words pulse on them. The Turkish recordings start on the same picture of the person, so the beats
- * are the same. `bg` is the scene's colour (white text on it is at least 7:1).
+ * are the same, except where `beatsTr` says otherwise (the Turkish round of Limbo Bend had no stretch with the same picture). `bg` is the
+ * scene's colour (white text on it is at least 7:1).
  */
-const SCENES: readonly { key: string; clip: HomeClip; game: string; bg: string; beats: readonly number[] }[] = [
+const SCENES: readonly { key: string; clip: HomeClip; game: string; bg: string; beats: readonly number[]; beatsTr?: readonly number[] }[] = [
   { key: 'squat', clip: 'bx-squat', game: 'squat-flap', bg: '#4A2BD1', beats: [0.13, 1.1, 3.33, 4.7, 7.1] },
   { key: 'knee', clip: 'bx-knee', game: 'knee-sprint', bg: '#B8321C', beats: [0.2, 0.8, 1.6, 2.4, 3, 4, 4.6, 5.4, 6, 7] },
   { key: 'jacks', clip: 'bx-jacks', game: 'firework-jacks', bg: '#1E2A78', beats: [0.3, 1.33, 2.33, 3, 4.1, 5.07, 6.1, 7.17] },
   { key: 'pad', clip: 'bx-pad', game: 'pad-work', bg: '#8E1E4D', beats: [0.2, 2, 2.8, 5.8, 7.3] },
   { key: 'star', clip: 'bx-star', game: 'star-catch', bg: '#0F6656', beats: [1.27, 2.87, 7.2] },
   { key: 'climb', clip: 'bx-climb', game: 'summit-climb', bg: '#2C4AA8', beats: [0.67, 1.27, 2.27, 3.07, 4.27, 4.87, 6.07, 6.67] },
-  { key: 'limbo', clip: 'bx-limbo', game: 'limbo-bend', bg: '#5F2697', beats: [0.5, 1.07, 3.5, 5.93, 7.4] },
+  { key: 'limbo', clip: 'bx-limbo', game: 'limbo-bend', bg: '#5F2697', beats: [0.5, 1.07, 3.5, 5.93, 7.4], beatsTr: [0.13, 1.47, 2.03, 4.43, 7.27] },
   { key: 'pose', clip: 'bx-pose', game: 'pose-wall', bg: '#9A1F5F', beats: [0.87, 1.43, 3.57, 4.9, 6.1, 6.7] },
   { key: 'react', clip: 'bx-react', game: 'reaction-tag', bg: '#14573A', beats: [0.5, 2.1, 3.3, 5.3, 6.5] },
   { key: 'road', clip: 'bx-road', game: 'road-run', bg: '#1B5784', beats: [0.27, 1.23, 2.27, 3.27, 3.93, 4.97] },
@@ -246,7 +247,7 @@ function explainer(ctx: ViewContext): SafeHtml {
     const chip = g.free
       ? html`<span class="hm-bx-chip hm-bx-chip--free">${t.t('common.free')}</span>`
       : hasPro(ctx) ? '' : html`<span class="hm-bx-chip">${t.t('common.pro')}</span>`;
-    return html`<li class="hm-bx-scene${i === 0 ? ' on' : ''}" style="--bg:${s.bg}" data-beats="${s.beats.join(',')}">
+    return html`<li class="hm-bx-scene${i === 0 ? ' on' : ''}" style="--bg:${s.bg}" data-beats="${(ctx.lang === 'tr' && s.beatsTr ? s.beatsTr : s.beats).join(',')}">
       <div class="hm-bx-media"><div class="hm-bx-box">
         <p class="hm-bx-labels" aria-hidden="true"><span>${t.t('home.bx.you')}</span><span>${t.t('home.bx.game')}</span></p>
         <div class="hm-bx-frame">${clip(ctx, s.clip, { alt: t.tx(`home.bx.${s.key}.alt`), sizes: '(max-width: 760px) 92vw, (max-aspect-ratio: 6/5) 92vw, 60vw', className: 'hm-bx-clip' })}</div>
