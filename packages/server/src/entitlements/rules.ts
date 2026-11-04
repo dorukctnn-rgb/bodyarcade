@@ -26,7 +26,7 @@ export type PurchaseStatus = 'active' | 'refunded' | 'ended';
 /** One row of the purchases table. Times are epoch seconds. */
 export interface PurchaseRow {
   sub: string;
-  src: 'gumroad' | 'play';
+  src: 'gumroad' | 'play' | 'paddle';
   plan: PlanId;
   product: string;
   status: PurchaseStatus;
@@ -62,7 +62,7 @@ export function timeToSec(x: unknown): number | null {
 
 export interface TrialInput {
   plan: PlanId;
-  src: 'gumroad' | 'play';
+  src: 'gumroad' | 'play' | 'paddle';
   /** When the purchase began, epoch seconds, if the seller said. */
   startedAt: number | null;
   /** When the current period ends (Play), epoch seconds. */

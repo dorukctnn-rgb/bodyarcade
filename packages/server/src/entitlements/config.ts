@@ -14,9 +14,38 @@ export interface LoadedConfig {
   products: Map<string, PlanId>;
   playAccount: ServiceAccount | null;
   mail: { token: string; from: string } | null;
+  /** Paddle Billing: null unless both the API key and the key secret are set. */
+  paddle: PaddleConfigLoaded | null;
   noLimits: boolean;
   /** Names of settings that were present but unusable, or that are missing and matter. Never values. */
   problems: string[];
+}
+
+export interface PaddleConfigLoaded {
+  apiKey: string;
+  keySecret: string;
+  environment: 'production' | 'sandbox';
+  site: string;
+  /** The sender of the restore e-mail (ForwardEmail: an API token, or alias credentials "address:password"). */
+  mail: { token: string; from: string } | null;
+}
+
+/** Paddle's settings from the env: PADDLE_API_KEY and PADDLE_KEY_SECRET (secrets), PADDLE_ENV, PUBLIC_ORIGIN, PADDLE_MAIL_TOKEN + PADDLE_MAIL_FROM. */
+export function loadPaddleConfig(env: Record<string, unknown>, problems: string[] = []): PaddleConfigLoaded | null {
+  const apiKey = env['PADDLE_API_KEY'];
+  const keySecret = env['PADDLE_KEY_SECRET'];
+  const hasKey = typeof apiKey === 'string' && apiKey !== '';
+  const hasSecret = typeof keySecret === 'string' && keySecret !== '';
+  if (hasKey !== hasSecret) problems.push('PADDLE_API_KEY and PADDLE_KEY_SECRET go together');
+  if (!hasKey || !hasSecret) return null;
+  if ((keySecret as string).length < 32) { problems.push('PADDLE_KEY_SECRET too short'); return null; }
+  const environment = env['PADDLE_ENV'] === 'sandbox' ? 'sandbox' : 'production';
+  const origin = typeof env['PUBLIC_ORIGIN'] === 'string' && /^https?:\/\/[^/]+$/.test(env['PUBLIC_ORIGIN']) ? env['PUBLIC_ORIGIN'] : 'https://bodyarcade.com';
+  const token = env['PADDLE_MAIL_TOKEN'];
+  const from = env['PADDLE_MAIL_FROM'];
+  const mail = typeof token === 'string' && token.length >= 8 && typeof from === 'string' && /@/.test(from) && from.length <= 200 ? { token, from } : null;
+  if ((typeof token === 'string' && token !== '') !== (typeof from === 'string' && from !== '')) problems.push('PADDLE_MAIL_TOKEN and PADDLE_MAIL_FROM go together');
+  return { apiKey: apiKey as string, keySecret: keySecret as string, environment, site: origin, mail };
 }
 
 const PRODUCT_ID_RE = /^[A-Za-z0-9_=-]{8,64}$/;
@@ -88,5 +117,7 @@ export async function loadConfig(env: Record<string, unknown>, o: { catalog?: Re
   const mail = typeof token === 'string' && token.length >= 8 && typeof from === 'string' && /@/.test(from) && from.length <= 200 ? { token, from } : null;
   if ((typeof token === 'string' && token !== '') !== (typeof from === 'string' && from !== '') ) problems.push('ENT_MAIL_TOKEN and ENT_MAIL_FROM go together');
 
-  return { signer, publicKeys, products, playAccount, mail, noLimits: env['ENT_NO_LIMITS'] === '1', problems };
+  const paddle = loadPaddleConfig(env, problems);
+
+  return { signer, publicKeys, products, playAccount, mail, paddle, noLimits: env['ENT_NO_LIMITS'] === '1', problems };
 }

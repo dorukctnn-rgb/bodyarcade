@@ -35,6 +35,8 @@ export interface PaywallInfo {
   keyEntry: { visible: boolean; wording: 'web' | 'neutral' };
   /** Play's own page for changing or cancelling a subscription (play mode only). */
   manageUrl: string | null;
+  /** Paddle on the web: the checkout is Paddle's (`on`), and this device holds a Paddle purchase (`purchase`: the billing portal link). */
+  paddle?: { on: boolean; purchase: boolean };
   /** The offers are made up for a preview (development and test builds, or a build made for a design review): the buy button says so. */
   preview: boolean;
 }

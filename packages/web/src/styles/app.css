@@ -445,6 +445,38 @@ dialog.ba-modal[open] { animation: ba-sheet-in var(--ba-dur-enter) var(--ba-ease
 .k-keyform .ba-field { flex: 1 1 200px; }
 .k-keystatus { margin: 0 0 12px; min-height: 1.2em; }
 .k-links button.ba-link { min-height: 44px; }
+/* Paddle (packages/web/src/app/paddle-checkout.ts): one quiet line under the buy button, then the payment in our own light panel
+   around Paddle's inline frame. A bottom sheet on a phone, a window in the middle on a wide screen; the page behind it only softens,
+   it never goes dark (Doruk, 4 Nov: "kullanıcı korkmamalı"). */
+.pdl-trustline { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 10px 0 0; font-size: var(--ba-text-xs); font-weight: 600; color: var(--ba-text-muted); line-height: 1.4; text-align: center; }
+.pdl-trustline svg { flex: none; }
+@media (min-width: 900px) { .pdl-trustline { justify-content: flex-start; text-align: left; } }
+@media (max-width: 899px) { .k-pw .pdl-trustline { order: 7; margin-top: -4px; } }
+dialog.pdl-sheet { width: min(100%, 500px); max-height: 96svh; padding: 18px 16px calc(14px + env(safe-area-inset-bottom, 0px)); }
+dialog.pdl-sheet::backdrop { background: rgba(255, 255, 255, 0.42); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+:root[data-theme="dark"] dialog.pdl-sheet::backdrop { background: rgba(10, 6, 22, 0.28); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) dialog.pdl-sheet::backdrop { background: rgba(10, 6, 22, 0.28); } }
+@media (min-width: 700px) and (min-height: 600px) { dialog.pdl-sheet { padding: 24px 24px 20px; max-height: 92svh; } }
+.pdl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pdl-what { min-width: 0; }
+.pdl-brand { margin: 0; font-size: var(--ba-text-xs); font-weight: 700; letter-spacing: var(--ba-tracking-caps, 0.06em); text-transform: uppercase; color: var(--ba-text-muted); }
+.pdl-what h2 { margin: 2px 0 0; font-size: var(--ba-text-lg); line-height: 1.25; text-wrap: balance; }
+.pdl-close { flex: none; margin: -6px -6px 0 0; }
+.pdl-price { margin: 10px 0 0; font-size: 1.5rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.pdl-trial, .pdl-tax { margin: 2px 0 0; font-size: var(--ba-text-sm); color: var(--ba-text-muted); }
+.pdl-today { margin: 2px 0 0; font-size: var(--ba-text-sm); font-weight: 700; color: var(--ba-text); }
+.pdl-today[hidden] { display: none; }
+.pdl-trial { color: var(--ba-accent-text); font-weight: 600; }
+.pdl-trust { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; padding: 9px 12px; border-radius: var(--ba-radius-md); background: var(--ba-surface-sunken); font-size: var(--ba-text-xs); font-weight: 600; line-height: 1.35; }
+.pdl-trust svg { flex: none; }
+.pdl-status { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--ba-radius-md); background: var(--ba-surface-sunken); font-size: var(--ba-text-sm); line-height: 1.4; }
+.pdl-status[hidden] { display: none; }
+.pdl-status[data-tone="ok"] { background: var(--ba-go-100); color: var(--ba-go-700); font-weight: 600; }
+.pdl-status[data-tone="warn"] { background: var(--ba-sun-100); color: var(--ba-sun-800); }
+:root[data-theme="dark"] .pdl-status[data-tone="ok"], :root[data-theme="dark"] .pdl-status[data-tone="warn"] { background: var(--ba-surface-sunken); color: var(--ba-text); }
+.pdl-frame { margin-top: 12px; min-height: 450px; }
+.pdl-frame iframe { display: block; width: 100%; }
+.pdl-done { display: grid; margin-top: 12px; }
 
 /* ---------- Results (D: results.html) ---------- */
 .k-game { display: inline-flex; align-items: center; gap: 10px; font-weight: 750; }

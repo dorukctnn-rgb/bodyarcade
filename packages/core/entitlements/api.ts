@@ -8,6 +8,11 @@
 //   POST /api/entitlements/reset       { did, key | purchases }      give every other seat back                -> { ok: true, removed }
 //   POST /api/entitlements/reminder    { token, did, email, lang }   one e-mail two days before the trial ends -> { ok: true, sendAt }
 //   GET  /api/entitlements/key                                       the public key(s) that verify tokens      -> { keys, reminders }
+//   POST /api/entitlements/paddle      { txn }                       a Paddle checkout that just completed     -> { key, plan } (then activate the key)
+//   POST /api/entitlements/paddle/restore { email, lang }            e-mails the restore link of that address's purchases -> { ok: true }
+//   POST /api/entitlements/paddle/portal  { key }                    a Paddle customer portal link             -> { url }
+//   GET  /api/entitlements/paddle/config                             what the page needs to open the checkout  -> PaddleConfig
+//   POST /api/paddle/webhook           (Paddle's own body, signed)   Paddle tells us what changed              -> { ok: true }
 //
 // The server stores no licence key and no purchase token, only their SHA-256, so the app sends the key (or the Play
 // purchases it lists) again whenever it renews. Errors are `{ "error": code }` with the status in ERROR_STATUS.
@@ -22,7 +27,13 @@ export const API = {
   reset: `${API_PREFIX}/reset`,
   reminder: `${API_PREFIX}/reminder`,
   key: `${API_PREFIX}/key`,
+  paddle: `${API_PREFIX}/paddle`,
+  paddleRestore: `${API_PREFIX}/paddle/restore`,
+  paddlePortal: `${API_PREFIX}/paddle/portal`,
+  paddleConfig: `${API_PREFIX}/paddle/config`,
 } as const;
+/** Where Paddle sends its notifications (a notification destination in the Paddle dashboard, signed with its secret). */
+export const PADDLE_WEBHOOK_PATH = '/api/paddle/webhook';
 
 /** The device's own random identifier: 16 random bytes in hex. Never derived from anything about the person. */
 export const DID_RE = /^[0-9a-f]{32}$/;
@@ -52,6 +63,14 @@ export interface KeyRequest { key: string; did: string }
 export interface PlayRequest { did: string; purchases: PlayPurchaseRef[] }
 export interface DeactivateRequest { token: string; did: string }
 export type ResetRequest = { did: string } & ({ key: string; purchases?: undefined } | { purchases: PlayPurchaseRef[]; key?: undefined });
+
+export interface PaddleClaimRequest { txn: string }
+export interface PaddleRestoreRequest { email: string; lang: string }
+export interface PaddlePortalRequest { key: string }
+/** `token`: Paddle's client-side token (public by design, kept out of the repository); `prices`: plan -> Paddle price id. */
+export interface PaddleConfig { token: string; environment: 'production' | 'sandbox'; prices: Record<string, string> }
+/** The answer to a completed checkout: the Paddle key (the app activates it like a licence key) and `duplicate` when the buyer already had this plan (the new payment is refunded). */
+export interface PaddleClaim { key: string; plan: PlanId; duplicate?: boolean }
 
 export interface Grant {
   /** The signed entitlement token (core/entitlements/token.ts). */

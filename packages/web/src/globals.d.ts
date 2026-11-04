@@ -3,6 +3,8 @@ declare const __BA_VERSION__: string;
 declare const __BA_DEMO__: boolean;
 /** A build made to look at the design before the Gumroad products exist: made-up offers where the real ones are missing (BA_PLACEHOLDER_PLANS=1). */
 declare const __BA_PLACEHOLDER_PLANS__: boolean;
+/** A build made to test Paddle's checkout before its switch is on (BA_PADDLE=1; core/entitlements/paddle.ts). */
+declare const __BA_PADDLE__: boolean;
 
 declare module 'virtual:catalogue' {
   import type { Catalogue } from '../catalogue/types.ts';
