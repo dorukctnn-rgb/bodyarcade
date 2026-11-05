@@ -109,6 +109,15 @@ describe('sendSignal', () => {
       expect(sent).toEqual([]);
     }
     expect(sendSignal(win({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1' }).w, 'game_start', 'road-run')).toBe(true);
+    // a phone whose maker's name ends in "bot" is a person's phone
+    expect(sendSignal(win({ userAgent: 'Mozilla/5.0 (Linux; Android 13; CUBOT KINGKONG 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36' }).w, 'game_start', 'road-run')).toBe(true);
+    for (const ua of ['Mozilla/5.0 (compatible; bingbot/2.0)', 'AdsBot-Google (+http://www.google.com/adsbot.html)', 'Mozilla/5.0 (compatible; Discordbot/2.0)', 'facebookexternalhit/1.1']) {
+      expect(sendSignal(win({ userAgent: ua }).w, 'game_start', 'road-run'), ua).toBe(false);
+    }
+    // the robot words are the same in the visit script (content/pro-source.js)
+    const visit = readFileSync(new URL('../../content/pro-source.js', import.meta.url), 'utf8');
+    const signal = readFileSync(new URL('./signal.ts', import.meta.url), 'utf8');
+    expect(/var ROBOT = (\/.*\/i);/.exec(visit)?.[1]).toBe(/const ROBOT = (\/.*\/i);/.exec(signal)?.[1]);
   });
 
   it('is quiet when the browser has no sendBeacon, refuses the message or throws', () => {

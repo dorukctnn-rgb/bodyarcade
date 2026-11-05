@@ -41,7 +41,7 @@ export function countsAsPlay(input: string, simulatedBody: boolean): boolean {
 }
 
 /** Crawlers that run pages (search engines, link previews, speed tests): what they do is not what people do. */
-const ROBOT = /bot\b|bot\/|crawl|spider|slurp|headless|lighthouse|pagespeed|facebookexternalhit/i;
+const ROBOT = /[a-z]bot\/|[^a-z]bot[^a-z]|^bot|adsbot|crawl|spider|slurp|headless|lighthouse|pagespeed|facebookexternalhit/i;
 
 /** The parts of the window this module touches (a test passes its own). */
 export interface SignalWindow {

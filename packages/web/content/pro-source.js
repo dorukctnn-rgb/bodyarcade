@@ -151,7 +151,8 @@
     word = lang + word;
     return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(word) && word.length <= 40 ? word : lang + 'other';
   }
-  var ROBOT = /bot\b|bot\/|crawl|spider|slurp|headless|lighthouse|pagespeed|facebookexternalhit/i;
+  // crawlers that run pages (the same words as packages/web/src/app/signal.ts; a phone maker whose name ends in "bot" is no crawler)
+  var ROBOT = /[a-z]bot\/|[^a-z]bot[^a-z]|^bot|adsbot|crawl|spider|slurp|headless|lighthouse|pagespeed|facebookexternalhit/i;
   var counted = false;
   function visit() {
     if (counted) return;

@@ -256,6 +256,7 @@ describe('pro-source.js: the visit, the first step of the game signal', () => {
       expect(load({ userAgent: ua }).beacons, ua).toEqual([]);
     }
     expect(load({ beacon: false }).beacons).toEqual([]);
+    expect(load({ userAgent: 'Mozilla/5.0 (Linux; Android 13; CUBOT KINGKONG 9) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36' }).beacons).toHaveLength(1);
     expect(() => load({ beacon: false, mode: 'access-throws' })).not.toThrow();
   });
 
