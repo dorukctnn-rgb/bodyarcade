@@ -52,6 +52,12 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'footer.guide.seated': 'Oturarak oyunlar',
   'footer.guide.friends': 'Arkadaşlarla oyunlar',
   'footer.guide.areas': 'Bölgeye göre',
+  'footer.compare': 'Karşılaştır',
+  'footer.compare.webcam': 'Kamera ile spor oyunları',
+  'footer.compare.ringfit': 'Ring Fit Adventure alternatifi',
+  'footer.compare.activearcade': 'Active Arcade alternatifi',
+  'footer.compare.kinect': 'PC için Kinect alternatifi',
+  'footer.compare.pc': 'PC için egzersiz oyunları',
 
   'region.legs': 'Bacak ve kalça',
   'region.arms': 'Kol ve omuz',

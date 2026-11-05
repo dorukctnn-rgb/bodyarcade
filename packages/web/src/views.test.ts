@@ -110,7 +110,10 @@ describe.each(LANGS)('every page in %s', (lang) => {
       '/fitness-games', '/seated-exercise-games', '/workout-games-with-friends', '/workout-games-by-body-area',
       '/tr/evde-spor-oyunlari', '/tr/oturarak-egzersiz-oyunlari', '/tr/arkadaslarla-spor-oyunlari', '/tr/bolgeye-gore-spor-oyunlari',
       // the prices and the release notes (content/copy/pricing.*.ts, changelog.*.ts)
-      '/pricing', '/changelog', '/tr/fiyatlar', '/tr/guncellemeler']);
+      '/pricing', '/changelog', '/tr/fiyatlar', '/tr/guncellemeler',
+      // the guide and the comparison pages the footer links to (views/chrome.ts SITE_COMPARE; content.test.ts checks they are pages)
+      '/webcam-fitness-games', '/ring-fit-adventure-alternative', '/active-arcade-alternative', '/kinect-alternative-pc', '/exercise-games-for-pc',
+      '/tr/kamera-ile-spor-oyunlari', '/tr/ring-fit-adventure-alternatifi', '/tr/active-arcade-alternatifi']);
     for (const url of urls) {
       const { html } = draw(lang, url);
       for (const h of hrefs(html)) {

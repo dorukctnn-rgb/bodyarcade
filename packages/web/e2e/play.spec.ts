@@ -30,11 +30,44 @@ test.describe('the game signal', () => {
     await page.goto(`${WEB_DEV_URL}/games/squat-flap/`);
     await page.getByRole('button', { name: /^Play/ }).click();
     await inRound(page);
-    expect(sent).toEqual(['{"e":"game_start","g":"squat-flap"}']);
+    // the steps up to the start: the play screen, the camera and tracking running, the round started; all on a device with no finished round yet
+    expect(sent).toEqual(['{"e":"play_open","g":"squat-flap","x":"first"}', '{"e":"tracking_ready","g":"squat-flap","x":"first"}', '{"e":"game_start","g":"squat-flap","x":"first"}']);
     await expect(page).toHaveURL(/\/results\/$/, { timeout: 30_000 });
-    await expect.poll(() => sent.length).toBe(2);
-    expect(sent).toEqual(['{"e":"game_start","g":"squat-flap"}', '{"e":"run_finished","g":"squat-flap"}']);
+    await expect.poll(() => sent.length).toBe(4);
+    expect(sent[3]).toBe('{"e":"run_finished","g":"squat-flap","x":"first"}');
     expect(errors).toEqual([]);
+  });
+
+  test('a round left in the middle says where it was left, once, and the next round on this device is "again"', async ({ page }) => {
+    const sent = await recordSignals(page);
+    await page.context().grantPermissions(['camera']);
+    await page.addInitScript(() => { localStorage.setItem('ba2.shell.cameraExplained', JSON.stringify({ v: 1, d: true })); localStorage.setItem('ba2.shell.rounds', JSON.stringify({ v: 1, d: 3 })); });
+    await withHooks(page, { timeScale: 1, roundSeconds: 120, forceDemo: true, signals: true });
+    await page.goto(`${WEB_DEV_URL}/games/squat-flap/`);
+    await page.getByRole('button', { name: /^Play/ }).click();
+    await inRound(page);
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog', { name: 'Paused' }).getByRole('button', { name: 'Leave round' }).click();
+    await page.getByRole('button', { name: 'Leave', exact: true }).click();
+    await expect(page).toHaveURL(/\/games\/squat-flap\/$/);
+    await expect.poll(() => sent.length).toBe(4);
+    expect(sent[0]).toBe('{"e":"play_open","g":"squat-flap","x":"again"}');
+    expect(sent[2]).toBe('{"e":"game_start","g":"squat-flap","x":"again"}');
+    expect(sent[3]).toBe('{"e":"play_left","g":"squat-flap","x":"paused"}');
+  });
+
+  test('the Pro screen and its buy button say they were seen and pressed', async ({ page }) => {
+    const sent = await recordSignals(page);
+    await withHooks(page, { forceDemo: true, signals: true });
+    await page.goto(`${WEB_DEV_URL}/pro/`);
+    await expect.poll(() => sent.length).toBe(1);
+    expect(sent[0]).toBe('{"e":"paywall_view","g":"direct"}');
+    const buy = page.locator('[data-action="buy"]').first();
+    if (await buy.count()) {
+      await buy.click();
+      await expect.poll(() => sent.length).toBeGreaterThanOrEqual(2);
+      expect(JSON.parse(sent[1] ?? '{}')).toMatchObject({ e: 'buy_click' });
+    }
   });
 
   test('an automated browser sends nothing unless the test hook lets it', async ({ page }) => {

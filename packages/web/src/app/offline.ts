@@ -87,6 +87,37 @@ export async function saveEngine(p: OfflinePorts, onProgress: (pct: number) => v
   onProgress(100);
 }
 
+/** What the browser says about the connection (navigator.connection, where there is one). */
+export interface ConnectionHint { saveData?: boolean; effectiveType?: string }
+
+/**
+ * May the engine be fetched ahead of the round? Not when the player asked the browser to save data, and not on a 2G connection:
+ * there the files are fetched only when the round needs them, as before.
+ */
+export function mayWarm(c: ConnectionHint | undefined | null): boolean {
+  if (!c) return true;
+  return c.saveData !== true && !/(^|-)2g$/.test(c.effectiveType ?? '');
+}
+
+/**
+ * The player pressed Play and is reading what the camera is for: the body-tracking files (about 9 MB over the network, 20 MB stored)
+ * start to download now, into the same cache the round reads, so the round does not wait for them after the camera is allowed. On
+ * a fast line it changes little; on a phone's mobile data it takes several seconds off "Loading the game". Never asks the browser
+ * to keep the storage (that question is the Android app's "save for offline"), and a failure only means the round fetches what is missing.
+ * Resolves true when the files are stored.
+ */
+export async function warmEngine(p: OfflinePorts | null, c?: ConnectionHint | null): Promise<boolean> {
+  if (!p || !mayWarm(c)) return false;
+  try {
+    if ((await missingFiles(p.caches)).length === 0) return true;
+    const { persist: _keep, ...quiet } = p;
+    await saveEngine(quiet, () => undefined);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface OfflineHost {
   /** The settings page is drawn again (a change of state). */
   redraw(): void;

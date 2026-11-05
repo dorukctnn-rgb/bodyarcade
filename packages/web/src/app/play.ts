@@ -18,7 +18,7 @@ import {
 import type { StageHandles } from './ports.ts';
 import { plateName, type RaceOutcome, type RaceRival, type RaceSource } from './race.ts';
 import type { ClipFile, ClipRecorder } from './clip.ts';
-import { countsAsPlay, type SignalEvent } from './signal.ts';
+import { countsAsPlay, errorWord, type LeftAt, type SignalEvent } from './signal.ts';
 
 /**
  * The string key of the sentence for an error code. Body tracking that could not load while the phone has no connection says so and what to do
@@ -48,10 +48,13 @@ export interface PlayHost {
   /** The first round of a Pro game has started: the free round is used. */
   usedFreeRound(game: ShellGame): void;
   /**
-   * A round with a body has really started (the camera and the pose model are ready, the countdown is over) or finished: the anonymous game
-   * signal (signal.ts). Optional so a host that counts nothing (a test, a build without the server) needs no line for it.
+   * A step of a round with a body (the play screen opened, the camera and the pose model run, the round really started after the countdown, finished,
+   * was left before its end, or could not start): the anonymous game signal (signal.ts), with the place or the error code where there is one.
+   * Optional so a host that counts nothing (a test, a build without the server) needs no line for it.
    */
-  signal?(event: SignalEvent, game: ShellGame): void;
+  signal?(event: SignalEvent, game: ShellGame, detail?: string): void;
+  /** The camera explainer is on the screen of a player who pressed Play: the body tracking may start to download now (offline.ts warmEngine). */
+  warmEngine?(): void;
   /** The setup changed during the round (keyboard instead of camera, seated instead): keep the address in step. */
   setupChanged(setup: SetupState): void;
   /** The player chose to play at the desk: the mode stays on for the next rounds too (Settings turns it off). */
@@ -119,6 +122,12 @@ export class PlayController {
   private disposed = false;
   private usedFree = false;
   private signalled = false;
+  /** The steps of the signal this round has sent: the play screen opened, the tracking ran, it finished or was left, the errors seen. */
+  private opened = false;
+  private tracked = false;
+  private ended = false;
+  private readonly errorsSent = new Set<string>();
+  private readonly pagehide: () => void;
   private launching = false;
   private guideObserver: ResizeObserver | null = null;
   private guide: { ready: boolean; bands: CalibPart[] } = { ready: false, bands: [] };
@@ -143,6 +152,8 @@ export class PlayController {
       else if (st === 'paused' && this.pauseReason === 'user') { e.preventDefault(); void this.session?.resume(); }
     };
     this.visibility = () => { if (this.doc.hidden) this.session?.pause('hidden'); };
+    // the tab is closed (or the browser goes elsewhere) in the middle: the round was left there
+    this.pagehide = () => this.left(this.leftAt());
   }
 
   /** The words of the panels come from the current language. */
@@ -164,6 +175,7 @@ export class PlayController {
     hud.setPhase('calibrate');
     this.doc.addEventListener('keydown', this.keys);
     this.doc.addEventListener('visibilitychange', this.visibility);
+    this.doc.defaultView?.addEventListener('pagehide', this.pagehide);
     this.videoHolder = this.doc.createElement('div');
     this.videoHolder.className = 'ba-video-holder';
     cameraHost.append(this.videoHolder);
@@ -174,8 +186,11 @@ export class PlayController {
     }
     this.wire(this.session);
     this.joinRace(this.session, hud);
+    if (this.countsAsPlay()) { this.opened = true; this.host.signal?.('play_open', this.game); }
     if (this.setup.input === 'camera' && this.o.explained !== true && !(await this.cameraReady())) {
       this.show({ kind: 'camera-explainer', two: this.setup.players === 2 });
+      // while the player reads this and answers the browser's question, the files of the body tracking come down
+      this.host.warmEngine?.();
       return;
     }
     await this.launch();
@@ -229,6 +244,7 @@ export class PlayController {
     const race = this.o.race;
     const known = race?.outcome() ?? null;
     const outcome = !known && race?.settle ? race.settle() : Promise.resolve(known);
+    this.ended = true;
     if (this.countsAsPlay()) this.host.signal?.('run_finished', this.game);
     const recorder = this.clip;
     this.clip = null;
@@ -240,6 +256,29 @@ export class PlayController {
   }
 
   private countsAsPlay(): boolean { return countsAsPlay(this.setup.input, this.o.simulatedBody === true); }
+
+  /** Where the player is on the play screen, in the words of the signal: the panel on the stage, else the state of the round. */
+  leftAt(): LeftAt {
+    switch (this.overlay?.kind) {
+      case 'camera-explainer': return 'explainer';
+      case 'loading': return 'loading';
+      case 'calibrating': return 'calibrating';
+      case 'countdown': return 'countdown';
+      case 'paused': return 'paused';
+      case 'camera-error':
+      case 'error': return 'error';
+      default: break;
+    }
+    const st = this.session?.state;
+    return st === 'running' ? 'running' : st === 'paused' ? 'paused' : st === 'countdown' ? 'countdown' : 'loading';
+  }
+
+  /** The round opened with a body ends here without being finished: said once, with the place. */
+  private left(where: LeftAt): void {
+    if (!this.opened || this.ended) return;
+    this.ended = true;
+    this.host.signal?.('play_left', this.game, where);
+  }
 
   /** The recording of the last seconds begins with the play, and waits when the round does. */
   private beginClip(): void {
@@ -279,6 +318,7 @@ export class PlayController {
         if (!this.overlay || this.overlay.kind === 'loading' || this.overlay.kind === 'countdown') this.show({ kind: 'loading' });
         break;
       case 'calibrating': {
+        if (!this.tracked) { this.tracked = true; if (this.countsAsPlay()) this.host.signal?.('tracking_ready', this.game); }
         this.clip?.pause();
         hud.setPhase('calibrate');
         this.lastCalib = '';
@@ -480,6 +520,8 @@ export class PlayController {
 
   private onError(code: string, message: string): void {
     if (this.disposed) return;
+    const word = errorWord(code);
+    if (this.countsAsPlay() && !this.errorsSent.has(word)) { this.errorsSent.add(word); this.host.signal?.('play_error', this.game, word); }
     if (CAMERA_CODES.has(code)) this.show({ kind: 'camera-error', code, two: this.setup.players === 2 });
     else this.show({ kind: 'error', message: this.errorText(code, message) });
     this.host.announce(this.ctx().i18n.t('play.error.title'), { assertive: true });
@@ -504,6 +546,8 @@ export class PlayController {
         void this.restart();
         return true;
       case 'use-keyboard':
+        // the round with a body ends here: the player chose the keyboard or touch (a practice round, which the signal does not count)
+        this.left('keyboard');
         // No camera from here on: nothing of the player is drawn, so the self view goes (a round of two players becomes one of one).
         if (this.setup.players === 2) this.hud?.setDuo(false);
         this.setup = { ...this.setup, input: 'keyboard', players: 1 };
@@ -611,9 +655,11 @@ export class PlayController {
 
   dispose(): void {
     if (this.disposed) return;
+    this.left(this.leftAt());
     this.disposed = true;
     this.doc.removeEventListener('keydown', this.keys);
     this.doc.removeEventListener('visibilitychange', this.visibility);
+    this.doc.defaultView?.removeEventListener('pagehide', this.pagehide);
     for (const off of this.offs.splice(0)) off();
     this.guideObserver?.disconnect();
     this.clip?.dispose();

@@ -62,6 +62,17 @@ export type SiteGuide = keyof (typeof SITE_GUIDES)['en'];
 export const SITE_GUIDE_IDS: readonly SiteGuide[] = ['hub', 'seated', 'friends', 'areas'];
 export const siteGuideHref = (lang: Lang, page: SiteGuide): string => SITE_GUIDES[lang === 'tr' ? 'tr' : 'en'][page];
 
+/**
+ * The guide and the pages that compare BodyArcade with a known product (content/chrome.ts FOOTER_COMPARE, plus the webcam guide, which the
+ * content pages link as "How it works"). The app's pages are the ones search engines send most visitors to, so they lead on to these.
+ */
+const SITE_COMPARE = {
+  en: [['webcam', '/webcam-fitness-games'], ['ringfit', '/ring-fit-adventure-alternative'], ['activearcade', '/active-arcade-alternative'], ['kinect', '/kinect-alternative-pc'], ['pc', '/exercise-games-for-pc']],
+  tr: [['webcam', '/tr/kamera-ile-spor-oyunlari'], ['ringfit', '/tr/ring-fit-adventure-alternatifi'], ['activearcade', '/tr/active-arcade-alternatifi']],
+} as const;
+export type SiteCompare = 'webcam' | 'ringfit' | 'activearcade' | 'kinect' | 'pc';
+export const siteCompareLinks = (lang: Lang): readonly (readonly [SiteCompare, string])[] => SITE_COMPARE[lang === 'tr' ? 'tr' : 'en'];
+
 /** The id of the community rules (conduct and fair play) on the terms page of each language; content.test.ts checks that the page has it. */
 export const COMMUNITY_RULES_ANCHOR = { en: 'conduct', tr: 'davranis' } as const;
 
@@ -84,6 +95,9 @@ function footer(ctx: ViewContext): SafeHtml {
       </ul>
       <ul class="ba-footer-links ba-footer-guides" aria-label="${t.t('footer.guides')}">
         ${SITE_GUIDE_IDS.map((g) => html`<li><a href="${siteGuideHref(ctx.lang, g)}" data-native>${t.t(`footer.guide.${g}` as StringKey)}</a></li>`)}
+      </ul>
+      <ul class="ba-footer-links ba-footer-guides" aria-label="${t.t('footer.compare')}">
+        ${siteCompareLinks(ctx.lang).map(([k, href]) => html`<li><a href="${href}" data-native>${t.t(`footer.compare.${k}` as StringKey)}</a></li>`)}
       </ul>
       ${languageLinks(ctx)}
     </div>

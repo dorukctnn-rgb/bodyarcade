@@ -44,7 +44,7 @@ import { checkoutWithSource, sourceOf } from './pro-source.ts';
 import { hasPlayed, makeArcade, recentBests, runInputOf, secondsByDay, weekStats } from './arcade.ts';
 import { hudModeFor, PlayController, type PlayHost } from './play.ts';
 import { clipAllowed, createClipRecorder, type ClipFile } from './clip.ts';
-import { browserPorts, OfflineController } from './offline.ts';
+import { browserPorts, OfflineController, warmEngine } from './offline.ts';
 import { DEFAULT_REMINDER_TIME, parseTime, REMINDER_FILE, reminderCalendar } from '../../../core/ui/reminder.ts';
 import { ReplayRecorder, type ReplayClip } from './replay.ts';
 import { mountReplay, type ReplayPlayer } from './replay-view.ts';
@@ -60,7 +60,7 @@ import { openGhostDialog, type GhostDialogHost } from './ghost-dialog.ts';
 import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceStageMount, type RaceWorld } from './race.ts';
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
-import { sendSignal } from './signal.ts';
+import { ROUND_WORD_EVENTS, roundWord, sendSignal, type SignalEvent } from './signal.ts';
 import type { RestoreOutcome } from '../../../core/entitlements/port.ts';
 import { roomOfRoute, SocialController, SOCIAL_ROUTES, type SocialHost } from './social.ts';
 import { liveSource } from './live-race.ts';
@@ -159,6 +159,7 @@ export class App {
   private readonly profiles: ProfilesController | null;
   /** Offline play of the Android app (settings, "This app"): what body tracking is saved on this phone. Null on the web. */
   private readonly offline: OfflineController | null;
+  private engineWarmed = false;
   /** The time in the daily reminder's field, kept while the page is drawn again. */
   private reminderTime = DEFAULT_REMINDER_TIME;
   private entitlements: EntitlementsPort;
@@ -275,6 +276,7 @@ export class App {
       },
       onRestoreFailed: () => this.toaster.show(this.ctx().i18n.t('paddle.restore.failed'), { kind: 'warn' }),
       source: () => sourceOf(this.win as never),
+      onStep: (step, plan) => this.signal(step, plan, 'paddle'),
     });
     this.social = o.social ? new SocialController(this.socialHost(), o.social) : null;
     this.socialComing = !this.social && o.socialComing === true;
@@ -782,7 +784,11 @@ export class App {
     const ctx = this.ctx();
     if (route?.id === 'pro') {
       const gameId = route.query.get('game') ?? undefined;
-      if (!this.state.paywall || this.state.paywall.gameId !== gameId) this.state = { ...this.state, paywall: defaultPaywallState(ctx, gameId) };
+      if (!this.state.paywall || this.state.paywall.gameId !== gameId) {
+        this.state = { ...this.state, paywall: defaultPaywallState(ctx, gameId) };
+        // the offer is on the screen of a player without Pro: what sent them (the results of a round, a locked game, the menu or a link)
+        if (!hasPro(ctx)) this.signal('paywall_view', route.query.get('from') === 'results' ? 'results' : gameId ? 'locked' : 'direct');
+      }
       if (hasPro(ctx) && !this.state.paywall?.trial) void this.loadTrial();
     }
     const game = route?.id === 'game' ? gameBySlug(this.games, route.params['slug'] ?? '') : undefined;
@@ -1091,7 +1097,8 @@ export class App {
           this.settings.set({ playedOnce: [...this.currentSettings().playedOnce, game.id] });
         }
       },
-      signal: (event, game) => { sendSignal(this.win, event, game.id, { allowAutomated: this.win.__BA_TEST__?.signals === true }); },
+      signal: (event, game, detail) => this.signal(event, game.id, detail ?? (ROUND_WORD_EVENTS.has(event) ? roundWord(this.rounds()) : undefined)),
+      warmEngine: () => this.warmEngine(),
       setupChanged: (s) => {
         const c = this.ctx();
         this.setups.set(g.id, s);
@@ -1140,6 +1147,24 @@ export class App {
       box.remove();
       return ok;
     } catch { return false; }
+  }
+
+  /**
+   * The body-tracking files start to download while the camera explainer is read (offline.ts warmEngine), once per page load. Not in the
+   * practice session of development and test builds, which runs without them.
+   */
+  private warmEngine(): void {
+    if (this.engineWarmed || this.o.demo) return;
+    this.engineWarmed = true;
+    let ports: ReturnType<typeof browserPorts> = null;
+    try { ports = browserPorts({ caches: this.win.caches, fetch: (u) => this.win.fetch(u) }); } catch { ports = null; }
+    const connection = (this.win.navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    void warmEngine(ports, connection);
+  }
+
+  /** One step of the anonymous game signal (signal.ts): the event, the game or plan or page, and a word where the event has one. */
+  private signal(event: SignalEvent, key: string, detail?: string): void {
+    sendSignal(this.win, event, key, { allowAutomated: this.win.__BA_TEST__?.signals === true, ...(detail ? { detail } : {}) });
   }
 
   private rounds(): number { return this.shell.get('rounds', { version: 1, parse: (r) => (typeof r === 'number' && r >= 0 ? r : null) }, 0); }
@@ -1715,6 +1740,10 @@ export class App {
     const t = ctx.i18n;
     const offer = selectedOffer(ctx, planId as PaywallState['selected']);
     if (!offer) return;
+    // what this button does here, for the signal: Google Play in the app, Paddle's panel or the Gumroad page on the web, or nothing
+    const via = ctx.paywall.mode === 'play' ? (offer.checkout.play && this.entitlements.purchase ? 'play' : 'none')
+      : ctx.paywall.preview || !offer.checkout.web ? 'none' : this.paddleOn(ctx.paywall) ? 'paddle' : 'gumroad';
+    this.signal('buy_click', offer.id, via);
     if (ctx.paywall.mode === 'play') {
       const id = offer.checkout.play;
       if (id && this.entitlements.purchase) {
@@ -1730,11 +1759,14 @@ export class App {
       const d = describeOffer(offer, t, ctx.plans);
       const gumroad = checkoutWithSource(offer.checkout.web, this.win);
       void this.paddle.open({ id: offer.id, name: d.name, priceLine: d.priceLine, trialLine: d.trialLine, recurring: offer.period !== 'once', period: offer.period }).then((opened) => {
-        if (!opened) this.win.location.assign(gumroad);
+        if (opened) return;
+        this.signal('checkout_open', offer.id, 'gumroad');
+        this.win.location.assign(gumroad);
       });
       return;
     } else if (offer.checkout.web) {
       // the address carries the kind of site that sent this browser, so the sale shows its channel in Gumroad (pro-source.ts)
+      this.signal('checkout_open', offer.id, 'gumroad');
       this.win.open(checkoutWithSource(offer.checkout.web, this.win), '_blank', 'noopener,noreferrer');
       return;
     }

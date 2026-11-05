@@ -1,33 +1,77 @@
-// The game signal: one small, unsigned POST that says "a round started" or "a round finished" for one game. Nothing else.
+// The game signal: one small, unsigned POST that says what just happened on the site, in a word, with the game, page or plan
+// it happened to and, for some events, one more word from a fixed list. Nothing else.
 //
-//   POST /api/ping   body {"e":"game_start"|"run_finished","g":"<game id>"}   204; 400 for any other body; 429 over the limit
+//   POST /api/ping   body {"e":"<event>","g":"<key>"} or {"e":"<event>","g":"<key>","x":"<detail>"}   204; 400 for any other body; 429 over the limit
 //
-// What is kept: the event, the game id and the moment (the platform stamps it). No cookie, no profile, no network address, no
-// user agent, no country: the handler never reads them except for the one thing below. A counter in the Worker's memory (a
-// scrambled form of the address, not written anywhere, gone with the isolate) holds each sender to a few signals a minute.
+// The events, in the order a new player meets them (the funnel):
+//   visit           a page of the site was opened          g = the page (home, game, webcam-fitness-games, tr-home ...)   x = the kind of site that sent the visitor (pro-source.js)
+//   play_open       the play screen of a game opened       g = the game    x = first | again (has this device finished a round before)
+//   tracking_ready  the camera and the body tracking run   g = the game    x = first | again
+//   game_start      the round really started               g = the game    x = first | again (optional: older pages send none)
+//   run_finished    the round finished                     g = the game    x = first | again (optional)
+//   play_left       the play screen was left unfinished    g = the game    x = where: explainer | loading | calibrating | countdown | running | paused | error | keyboard (chose keyboard or touch)
+//   play_error      a round could not start                g = the game    x = the error code (denied, not_found, pose_load ...)
+//   paywall_view    the Pro screen was shown               g = what sent the player: results | locked | direct
+//   buy_click       a buy button was pressed               g = the plan    x = paddle | gumroad | play | none (what the button does here)
+//   checkout_open   the checkout opened                    g = the plan    x = paddle | gumroad
+//   checkout_done   the checkout said the purchase is paid g = the plan    x = paddle
 //
-// Where it goes: Workers Analytics Engine (free plan: 100,000 data points a day), one dataset per event, so Cloudflare's own
-// totals (GraphQL, per dataset) work with a read-only analytics token and the SQL API gives the per-game numbers:
-//   PING_START  = dataset bodyarcade_game_start      PING_FINISH = dataset bodyarcade_run_finished   (the preview has _preview names)
+// What is kept: the event, the key, the detail and the moment (the platform stamps it). No cookie, no profile, no network address,
+// no user agent, no country, no timing: the handler never reads them except for the one thing below. A counter in the Worker's
+// memory (a scrambled form of the address, not written anywhere, gone with the isolate) holds each sender to a few signals a minute.
+//
+// Where it goes: Workers Analytics Engine (free plan: 100,000 data points a day). The two round events keep their own datasets
+// (since 4 Nov 2026), so Cloudflare's totals per dataset (GraphQL) still work with a read-only analytics token:
+//   PING_START  = dataset bodyarcade_game_start      PING_FINISH = dataset bodyarcade_run_finished
+// every other event goes to one dataset, blobs [event, key, detail] with the event as the index, read with the SQL API:
+//   PING_FUNNEL = dataset bodyarcade_funnel          (the preview and dev Workers have _preview and _dev names)
 // and one log line per signal ({"evt":"ping","e":...,"g":...}) for the Workers Logs query builder. Without a binding (a local
-// run, a test) only the log line is written. tools/signals/read.mjs reads the numbers back.
+// run, a test) only the log line is written. tools/signals/read.mjs reads the numbers back (--funnel for the whole path).
 import type { Router } from '../router.ts';
 import { HttpError, clientIp, isRecord, readJson } from '../http.ts';
 
-export const PING_EVENTS = ['game_start', 'run_finished'] as const;
-export type PingEvent = (typeof PING_EVENTS)[number];
+/** The two events of a round, each in its own dataset (the first signal, 4 Nov 2026). */
+export const ROUND_EVENTS = ['game_start', 'run_finished'] as const;
+/** The other steps of the path from a visit to a purchase, all in the funnel dataset. */
+export const FUNNEL_EVENTS = ['visit', 'play_open', 'tracking_ready', 'play_left', 'play_error', 'paywall_view', 'buy_click', 'checkout_open', 'checkout_done'] as const;
+export const PING_EVENTS = [...ROUND_EVENTS, ...FUNNEL_EVENTS] as const;
+export type RoundEvent = (typeof ROUND_EVENTS)[number];
+export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
+export type PingEvent = RoundEvent | FunnelEvent;
 
-/** The binding of each event's dataset (wrangler.jsonc and wrangler.prod.jsonc: analytics_engine_datasets). */
-export const PING_BINDINGS: Readonly<Record<PingEvent, string>> = { game_start: 'PING_START', run_finished: 'PING_FINISH' };
+/** The binding of each round event's dataset (wrangler.jsonc and wrangler.prod.jsonc: analytics_engine_datasets). */
+export const PING_BINDINGS: Readonly<Record<RoundEvent, string>> = { game_start: 'PING_START', run_finished: 'PING_FINISH' };
+/** The binding of the dataset every other event goes to. */
+export const FUNNEL_BINDING = 'PING_FUNNEL';
+/** Every binding the signal writes to: what each Worker config binds. */
+export const ALL_BINDINGS: readonly string[] = [...Object.values(PING_BINDINGS), FUNNEL_BINDING];
+
+const FIRST = ['first', 'again'] as const;
+/** The kinds of site pro-source.js sorts a visitor's source into, the Android app (whose pages keep no source), and internal: a page opened from another page of the site. */
+export const SOURCE_WORDS = ['google', 'bing', 'other-search', 'ai-assistant', 'pinterest', 'social', 'referral', 'direct', 'app', 'internal'] as const;
+/** Where a player can leave the play screen (packages/web/src/app/play.ts leftAt). */
+export const LEFT_AT = ['explainer', 'loading', 'calibrating', 'countdown', 'running', 'paused', 'error', 'keyboard'] as const;
+const CODE = 'code';
+/**
+ * The detail each event may carry: a fixed list, CODE (an error code: lowercase words joined by underscores), or null (none: a
+ * body with a detail is refused). A detail is always optional.
+ */
+export const DETAILS: Readonly<Record<PingEvent, readonly string[] | typeof CODE | null>> = {
+  game_start: FIRST, run_finished: FIRST, play_open: FIRST, tracking_ready: FIRST,
+  visit: SOURCE_WORDS, play_left: LEFT_AT, play_error: CODE, paywall_view: null,
+  buy_click: ['paddle', 'gumroad', 'play', 'none'], checkout_open: ['paddle', 'gumroad'], checkout_done: ['paddle'],
+};
+const ERROR_CODE = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
+const DETAIL_MAX = 24;
 
 /** The body of a signal is two short strings: 256 bytes is plenty and cheap to refuse beyond. */
 const MAX_BODY = 256;
-/** A game id is the folder name of a game: lowercase words joined by hyphens ("road-run", "knee-sprint"). */
+/** A key is written like the folder name of a game: lowercase words joined by hyphens ("road-run", "pro-yearly", "tr-home"). */
 const GAME_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const GAME_ID_MAX = 40;
 
-/** At most this many signals per sender and minute in one isolate (a real round sends two). */
-export const PINGS_PER_MINUTE = 30;
+/** At most this many signals per sender and minute in one isolate (a real round sends four or five, a visit one). */
+export const PINGS_PER_MINUTE = 40;
 /** The counter forgets everyone when it holds this many senders, so a flood of addresses cannot grow it. */
 const MAX_SENDERS = 5000;
 
@@ -64,18 +108,36 @@ export function createLimiter(perMinute = PINGS_PER_MINUTE, salt = (crypto.getRa
   };
 }
 
-export interface Signal { e: PingEvent; g: string }
+export interface Signal { e: PingEvent; g: string; x?: string }
 
-/** The signal in a parsed body, or null: exactly the two keys, a known event and a well-formed game id. */
+/** Is this a detail the event may carry? */
+function detailFits(e: PingEvent, x: unknown): x is string {
+  const rule = DETAILS[e];
+  if (typeof x !== 'string' || x.length === 0 || x.length > DETAIL_MAX || rule === null) return false;
+  return rule === CODE ? ERROR_CODE.test(x) : rule.includes(x);
+}
+
+/** The signal in a parsed body, or null: the keys e and g (and x where the event takes one), a known event, a well-formed key and detail. */
 export function parseSignal(body: unknown): Signal | null {
   if (!isRecord(body)) return null;
   const keys = Object.keys(body);
-  if (keys.length !== 2 || !keys.includes('e') || !keys.includes('g')) return null;
+  const withDetail = keys.length === 3 && keys.includes('x');
+  if ((keys.length !== 2 && !withDetail) || !keys.includes('e') || !keys.includes('g')) return null;
   const e = body['e'];
   const g = body['g'];
   if (typeof e !== 'string' || !(PING_EVENTS as readonly string[]).includes(e)) return null;
   if (typeof g !== 'string' || g.length === 0 || g.length > GAME_ID_MAX || !GAME_ID.test(g)) return null;
-  return { e: e as PingEvent, g };
+  if (!withDetail) return { e: e as PingEvent, g };
+  const x = body['x'];
+  return detailFits(e as PingEvent, x) ? { e: e as PingEvent, g, x } : null;
+}
+
+/** Where a signal is written: a round event in its own dataset (the game, then the detail), any other in the funnel dataset. */
+export function pointOf(s: Signal): { binding: string; point: { blobs: string[]; doubles: number[]; indexes: string[] } } {
+  if ((ROUND_EVENTS as readonly string[]).includes(s.e)) {
+    return { binding: PING_BINDINGS[s.e as RoundEvent], point: { blobs: s.x ? [s.g, s.x] : [s.g], doubles: [1], indexes: [s.g] } };
+  }
+  return { binding: FUNNEL_BINDING, point: { blobs: [s.e, s.g, s.x ?? ''], doubles: [1], indexes: [s.e] } };
 }
 
 /** A browser's own page sends the Origin of the site; a page of another site must not count games on ours. */
@@ -93,14 +155,15 @@ export async function ping(req: Request, env: Record<string, unknown>, limiter: 
   if (!limiter.allow(clientIp(req), now)) throw new HttpError(429, 'slow_down');
   const signal = parseSignal(await readJson(req, MAX_BODY));
   if (!signal) throw new HttpError(400, 'bad_signal');
-  const dataset = env[PING_BINDINGS[signal.e]] as DatasetLike | undefined;
+  const { binding, point } = pointOf(signal);
+  const dataset = env[binding] as DatasetLike | undefined;
   try {
-    dataset?.writeDataPoint({ blobs: [signal.g], doubles: [1], indexes: [signal.g] });
+    dataset?.writeDataPoint(point);
   } catch (e) {
     // a counter that cannot write is no reason to answer the player's page with an error
     console.error(JSON.stringify({ evt: 'ping_error', error: String(e) }));
   }
-  console.log(JSON.stringify({ evt: 'ping', e: signal.e, g: signal.g }));
+  console.log(JSON.stringify({ evt: 'ping', e: signal.e, g: signal.g, ...(signal.x ? { x: signal.x } : {}) }));
   return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 }
 

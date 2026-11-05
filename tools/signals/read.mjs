@@ -5,6 +5,9 @@
 //   node tools/signals/read.mjs --account <cloudflare account id> --token-file <file>          totals per day (GraphQL)
 //   node tools/signals/read.mjs --account <id> --token-file <file> --sql                       per game (SQL API)
 //   node tools/signals/read.mjs --account <id> --token-file <file> --visits                     also the visits and page views of Web Analytics (GraphQL)
+//   node tools/signals/read.mjs --account <id> --token-file <file> --funnel                     the whole path from a visit to a purchase (SQL API):
+//        visits by landing page and source, the play screen, tracking, start, finish (first-time players apart), where rounds were left,
+//        the errors, the Pro screen, the buy buttons and the checkout (bodyarcade_funnel, written since the release of 5 Nov 2026)
 //   options: --days 7 (1 to 90), --preview (the preview's datasets), --json (machine output)
 //   the token can also come from CF_API_TOKEN and the account from CF_ACCOUNT_ID; the token is never printed.
 //
@@ -24,6 +27,87 @@ export function datasetOf(event, preview = false) {
 }
 
 const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+
+/** The dataset of every step other than the two round events (ping.ts FUNNEL_BINDING). */
+export function funnelDataset(preview = false) {
+  return `bodyarcade_funnel${preview ? '_preview' : ''}`;
+}
+
+/** The SQL of the funnel: one row per day, step, key and word. */
+export function funnelSql(dataset, days) {
+  if (!/^bodyarcade_funnel(_preview|_dev)?$/.test(dataset)) throw new Error('not the funnel dataset');
+  const d = Math.min(90, Math.max(1, Math.trunc(days)));
+  return `SELECT toStartOfInterval(timestamp, INTERVAL '1' DAY) AS day, blob1 AS e, blob2 AS g, blob3 AS x, SUM(_sample_interval) AS n FROM ${dataset} WHERE timestamp > NOW() - INTERVAL '${d}' DAY GROUP BY day, e, g, x ORDER BY day, e LIMIT 5000 FORMAT JSON`;
+}
+
+/** The SQL of one round dataset split by its word (first or again; empty for the pages from before 5 Nov). */
+export function roundWordSql(dataset, days) {
+  if (!/^bodyarcade_(game_start|run_finished)(_preview|_dev)?$/.test(dataset)) throw new Error('not a round dataset');
+  const d = Math.min(90, Math.max(1, Math.trunc(days)));
+  return `SELECT blob2 AS x, SUM(_sample_interval) AS n FROM ${dataset} WHERE timestamp > NOW() - INTERVAL '${d}' DAY GROUP BY x FORMAT JSON`;
+}
+
+/** The rows of a funnel answer: [{ day, e, g, x, n }]. */
+export function funnelRowsOf(answer) {
+  return (answer?.data ?? []).map((r) => ({ day: String(r.day ?? '').slice(0, 10), e: String(r.e ?? ''), g: String(r.g ?? ''), x: String(r.x ?? ''), n: Number(r.n ?? 0) }));
+}
+
+/** The rows of a round-word answer: { first, again, none }. */
+export function wordsOf(answer) {
+  const out = { first: 0, again: 0, none: 0 };
+  for (const r of answer?.data ?? []) {
+    const x = String(r.x ?? '');
+    out[x === 'first' || x === 'again' ? x : 'none'] += Number(r.n ?? 0);
+  }
+  return out;
+}
+
+/**
+ * The funnel in plain text: each step's total and its share of the step before, then the details that say why.
+ * `rounds` are the two round datasets: { game_start: { first, again, none }, run_finished: {...} }.
+ */
+export function renderFunnel({ days, rows, rounds }) {
+  const sum = (f) => rows.filter(f).reduce((a, r) => a + r.n, 0);
+  const of = (e, extra = () => true) => sum((r) => r.e === e && extra(r));
+  const total = (w) => (w ? w.first + w.again + w.none : 0);
+  const steps = [
+    ['visits (landings)', of('visit', (r) => r.x !== 'internal')],
+    ['play screen opened', of('play_open')],
+    ['camera + tracking running', of('tracking_ready')],
+    ['round started', total(rounds?.game_start)],
+    ['round finished', total(rounds?.run_finished)],
+    ['Pro screen shown', of('paywall_view')],
+    ['buy pressed', of('buy_click')],
+    ['checkout opened', of('checkout_open')],
+    ['checkout paid', of('checkout_done')],
+  ];
+  const lines = [`Funnel, last ${days} day(s) (the paid count is the checkout's own word; Paddle's list of transactions is the truth)`, ''];
+  let prev = null;
+  for (const [name, n] of steps) {
+    const share = prev ? ` ${String(Math.round((n / prev) * 100)).padStart(4)}%` : '';
+    lines.push(`${name.padEnd(28)}${String(n).padStart(6)}${prev === null ? '' : share}`);
+    prev = n > 0 ? n : prev === null ? 0 : prev;
+  }
+  const firstOf = (e) => of(e, (r) => r.x === 'first');
+  lines.push('', 'first-time players (no finished round on the device before)');
+  lines.push(`  play screen ${firstOf('play_open')}, tracking ${firstOf('tracking_ready')}, started ${rounds?.game_start?.first ?? 0}, finished ${rounds?.run_finished?.first ?? 0}`);
+  const by = (e, key) => {
+    const m = new Map();
+    for (const r of rows.filter((x) => x.e === e)) m.set(r[key] || '-', (m.get(r[key] || '-') ?? 0) + r.n);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const list = (title, pairs) => { if (pairs.length) { lines.push('', title); for (const [k, n] of pairs.slice(0, 15)) lines.push(`  ${k.padEnd(34)}${String(n).padStart(6)}`); } };
+  list('landing page', by('visit', 'g').filter(() => true));
+  list('source of the visit', by('visit', 'x'));
+  list('left the play screen at', by('play_left', 'x'));
+  list('left, by game', by('play_left', 'g'));
+  list('could not start (error code)', by('play_error', 'x'));
+  list('Pro screen, sent by', by('paywall_view', 'g'));
+  list('buy pressed, by plan', by('buy_click', 'g'));
+  list('buy pressed, by way of paying', by('buy_click', 'x'));
+  if (rows.length === 0) lines.push('', 'no step of the funnel counted yet (the dataset is written since the release of 5 Nov 2026)');
+  return lines.join('\n');
+}
 
 /** The GraphQL query and variables for the daily totals of one dataset, over the last `days` days (today included). */
 export function totalsRequest(account, dataset, days, now = Date.now()) {
@@ -129,13 +213,14 @@ async function sql(token, account, text) {
 }
 
 export function parseArgs(argv, env = {}) {
-  const o = { days: 7, preview: false, sql: false, json: false, visits: false, host: 'bodyarcade.com', account: env.CF_ACCOUNT_ID ?? '', tokenFile: '' };
+  const o = { days: 7, preview: false, sql: false, json: false, visits: false, funnel: false, host: 'bodyarcade.com', account: env.CF_ACCOUNT_ID ?? '', tokenFile: '' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--preview') o.preview = true;
     else if (a === '--sql') o.sql = true;
     else if (a === '--json') o.json = true;
     else if (a === '--visits') o.visits = true;
+    else if (a === '--funnel') o.funnel = true;
     else if (a === '--host') o.host = String(argv[++i] ?? '');
     else if (a === '--days') o.days = Number(argv[++i]);
     else if (a === '--account') o.account = String(argv[++i] ?? '');
@@ -151,6 +236,13 @@ async function main() {
   const token = process.env.CF_API_TOKEN || (o.tokenFile ? readFileSync(o.tokenFile, 'utf8').trim() : '');
   if (!token) throw new Error('no token: set CF_API_TOKEN or pass --token-file <file with a read-only Cloudflare analytics token>');
   if (!o.account) throw new Error('no account: set CF_ACCOUNT_ID or pass --account <id>');
+  if (o.funnel) {
+    const rows = funnelRowsOf(await sql(token, o.account, funnelSql(funnelDataset(o.preview), o.days)));
+    const rounds = {};
+    for (const e of EVENTS) rounds[e] = wordsOf(await sql(token, o.account, roundWordSql(datasetOf(e, o.preview), o.days)));
+    console.log(o.json ? JSON.stringify({ days: o.days, preview: o.preview, rows, rounds }, null, 2) : renderFunnel({ days: o.days, rows, rounds }));
+    return;
+  }
   const totals = {};
   for (const e of EVENTS) totals[e] = totalsOf(await graphql(token, totalsRequest(o.account, datasetOf(e, o.preview), o.days)));
   let games;

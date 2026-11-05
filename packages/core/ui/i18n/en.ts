@@ -52,6 +52,12 @@ export const en = {
   'footer.guide.seated': 'Seated games',
   'footer.guide.friends': 'Games with friends',
   'footer.guide.areas': 'By body area',
+  'footer.compare': 'Compare',
+  'footer.compare.webcam': 'Webcam fitness games',
+  'footer.compare.ringfit': 'Ring Fit Adventure alternative',
+  'footer.compare.activearcade': 'Active Arcade alternative',
+  'footer.compare.kinect': 'Kinect alternative for PC',
+  'footer.compare.pc': 'Exercise games for PC',
 
   'region.legs': 'Legs and hips',
   'region.arms': 'Arms and shoulders',

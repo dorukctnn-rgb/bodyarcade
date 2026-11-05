@@ -31,11 +31,11 @@ import { LOBBY_STALE_MS } from '../../server/src/social/lobbies.ts';
 import { REPORTER_MIN_AGE_MS } from '../../server/src/social/moderation.ts';
 import { MAX_DEVICES } from '../../server/src/social/recovery.ts';
 import { uxTables } from '../src/social/strings.ts';
-import { COMMUNITY_RULES_ANCHOR, SITE_GUIDE_IDS, siteGuideHref, sitePageHref } from '../src/views/chrome.ts';
+import { COMMUNITY_RULES_ANCHOR, SITE_GUIDE_IDS, siteCompareLinks, siteGuideHref, sitePageHref } from '../src/views/chrome.ts';
 import { REGION_ORDER, ROUTES, router } from '../src/routes.ts';
 import { AUDIT_KEEP_MS, LOBBY_GONE_MS, ORPHAN_REPORT_KEEP_MS, RESOLVED_REPORT_KEEP_MS, UNUSED_PROFILE_DAYS } from '../../server/src/social/sweep.ts';
 import { REPO_ROOT, build, outOfDate, pages } from './build.ts';
-import { FOOTER_GUIDES, OG_IMAGE, PAGES as SITE_PAGES, TITLE_MAX, documentTitle, esc, renderPage, type PageSpec } from './chrome.ts';
+import { FOOTER_COMPARE, FOOTER_GUIDES, OG_IMAGE, PAGES as SITE_PAGES, TITLE_MAX, documentTitle, esc, renderPage, type PageSpec } from './chrome.ts';
 import { ACTIVE_ARCADE, ACTIVE_ARCADE_DATES, SOURCES } from './copy/active-arcade.ts';
 import { ACTIVE_ARCADE_URL, LATEST_RELEASE, RELEASES } from './copy/changelog.ts';
 import { PAGES_CHANGELOG, PRICING_DATES, PRICING_URL, perMonthOf, yearlySaves } from './copy/pricing.en.ts';
@@ -827,6 +827,21 @@ describe('the search pages say what the build does', () => {
       for (const page of SITE_GUIDE_IDS) expect(siteGuideHref(lang, page), `${lang} ${page}`).toBe(SEO_URL[lang][page]);
     }
     expect([...SITE_GUIDE_IDS].sort()).toEqual([...kinds].sort());
+  });
+
+  it('the footers of the content pages and of the app link the comparison pages, each one a page of the site in its own language', () => {
+    const urls = new Map(all.map((p) => [p.url, p.lang]));
+    for (const lang of LANGS2) {
+      const compare = FOOTER_COMPARE[lang].map(([, href]) => href);
+      expect(compare.length).toBeGreaterThan(0);
+      for (const href of compare) expect(urls.get(href), `${lang} ${href}`).toBe(lang);
+      // the app adds the webcam guide (the content footer has it among the guides, as "How it works")
+      expect(siteCompareLinks(lang).map(([, href]) => href)).toEqual([GUIDE_URL[lang], ...compare]);
+    }
+    for (const p of all) {
+      const h = renderPage(p);
+      for (const [, href] of FOOTER_COMPARE[p.lang]) expect(h, `${p.file} -> ${href}`).toContain(`<a href="${href}"`);
+    }
   });
 
   it('every page of the site links to all four from its footer, and each search page is also linked from the others and from the first guide', () => {
