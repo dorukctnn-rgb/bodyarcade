@@ -43,13 +43,13 @@ for (const file of ['wrangler.jsonc', 'wrangler.prod.jsonc']) {
       expect(cfg.migrations).toEqual(server.migrations);
     });
 
-    it('binds the two Analytics Engine datasets of the game signal, with names of their own (the preview and the dev config never write into the production datasets)', () => {
+    it('binds the three Analytics Engine datasets of the game signal, with names of their own (the preview and the dev config never write into the production datasets)', () => {
       const sets = cfg.analytics_engine_datasets ?? [];
-      expect(sets.map((d) => d.binding).sort()).toEqual(['PING_FINISH', 'PING_START']);
-      expect(sets.every((d) => /^bodyarcade_(game_start|run_finished)(_preview|_dev)?$/.test(d.dataset))).toBe(true);
+      expect(sets.map((d) => d.binding).sort()).toEqual(['PING_FINISH', 'PING_FUNNEL', 'PING_START']);
+      expect(sets.every((d) => /^bodyarcade_(game_start|run_finished|funnel)(_preview|_dev)?$/.test(d.dataset))).toBe(true);
       const production = file === 'wrangler.prod.jsonc';
       expect(sets.every((d) => /_(preview|dev)$/.test(d.dataset)), file).toBe(!production);
-      expect(new Set(sets.map((d) => d.dataset)).size).toBe(2);
+      expect(new Set(sets.map((d) => d.dataset)).size).toBe(3);
     });
 
     it('binds every database of the server config (or lists why not yet)', () => {

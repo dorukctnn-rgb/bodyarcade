@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { Router } from '../router.ts';
-import { PINGS_PER_MINUTE, PING_BINDINGS, createLimiter, parseSignal, ping, registerPing, type DatasetLike } from './ping.ts';
+import {
+  ALL_BINDINGS, DETAILS, FUNNEL_BINDING, FUNNEL_EVENTS, LEFT_AT, PINGS_PER_MINUTE, PING_BINDINGS, PING_EVENTS, SOURCE_WORDS, createLimiter, parseSignal, ping, pointOf, registerPing, type DatasetLike,
+} from './ping.ts';
 
 const ctx = { waitUntil: () => undefined };
 const ORIGIN = 'https://bodyarcade.com';
@@ -39,6 +41,47 @@ describe('parseSignal', () => {
     ]) expect(parseSignal(bad), JSON.stringify(bad)).toBeNull();
     expect(parseSignal({ e: 'game_start', g: 'a'.repeat(40) })).not.toBeNull();
   });
+
+  it('takes the steps of the funnel, each with the one detail it may carry from its own list', () => {
+    expect(parseSignal({ e: 'visit', g: 'home', x: 'google' })).toEqual({ e: 'visit', g: 'home', x: 'google' });
+    expect(parseSignal({ e: 'visit', g: 'tr-webcam-fitness-games', x: 'app' })).not.toBeNull();
+    expect(parseSignal({ e: 'visit', g: 'home' })).toEqual({ e: 'visit', g: 'home' });
+    expect(parseSignal({ e: 'play_open', g: 'squat-flap', x: 'first' })).not.toBeNull();
+    expect(parseSignal({ e: 'tracking_ready', g: 'squat-flap', x: 'again' })).not.toBeNull();
+    expect(parseSignal({ e: 'game_start', g: 'road-run', x: 'first' })).toEqual({ e: 'game_start', g: 'road-run', x: 'first' });
+    expect(parseSignal({ e: 'run_finished', g: 'road-run', x: 'again' })).not.toBeNull();
+    for (const where of LEFT_AT) expect(parseSignal({ e: 'play_left', g: 'star-catch', x: where }), where).not.toBeNull();
+    expect(parseSignal({ e: 'play_error', g: 'road-run', x: 'denied' })).not.toBeNull();
+    expect(parseSignal({ e: 'play_error', g: 'road-run', x: 'pose_load' })).not.toBeNull();
+    expect(parseSignal({ e: 'paywall_view', g: 'results' })).toEqual({ e: 'paywall_view', g: 'results' });
+    expect(parseSignal({ e: 'buy_click', g: 'pro-yearly', x: 'paddle' })).not.toBeNull();
+    expect(parseSignal({ e: 'checkout_open', g: 'lifetime', x: 'gumroad' })).not.toBeNull();
+    expect(parseSignal({ e: 'checkout_done', g: 'family-yearly', x: 'paddle' })).not.toBeNull();
+    // every event has a rule for its detail, and the events are the round's two plus the funnel's
+    expect(Object.keys(DETAILS).sort()).toEqual([...PING_EVENTS].sort());
+    expect(PING_EVENTS.length).toBe(2 + FUNNEL_EVENTS.length);
+    expect(SOURCE_WORDS).toContain('direct');
+  });
+
+  it('refuses a detail the event does not take, a word off its list, and anything that could carry more than a word', () => {
+    for (const bad of [
+      { e: 'visit', g: 'home', x: 'evil.example' }, { e: 'visit', g: 'home', x: 'https://t.co/x' }, { e: 'visit', g: 'home', x: 'Google' },
+      { e: 'paywall_view', g: 'results', x: 'first' }, { e: 'game_start', g: 'road-run', x: 'third' }, { e: 'game_start', g: 'road-run', x: '' },
+      { e: 'game_start', g: 'road-run', x: 1 }, { e: 'game_start', g: 'road-run', x: ['first'] }, { e: 'play_left', g: 'road-run', x: 'kitchen' },
+      { e: 'play_error', g: 'road-run', x: 'Denied' }, { e: 'play_error', g: 'road-run', x: 'not found' }, { e: 'play_error', g: 'road-run', x: 'x'.repeat(25) },
+      { e: 'play_error', g: 'road-run', x: 'ada@example.com' }, { e: 'buy_click', g: 'pro-yearly', x: 'stripe' }, { e: 'checkout_done', g: 'lifetime', x: 'gumroad' },
+      { e: 'game_start', g: 'road-run', y: 'first' }, { e: 'visit', g: 'home', x: 'google', n: 1 }, { e: 'visit', g: 'Home/Page' },
+    ]) expect(parseSignal(bad), JSON.stringify(bad)).toBeNull();
+  });
+});
+
+describe('pointOf', () => {
+  it('writes a round event to its own dataset as before (the game first) and every other event to the funnel dataset', () => {
+    expect(pointOf({ e: 'game_start', g: 'road-run' })).toEqual({ binding: 'PING_START', point: { blobs: ['road-run'], doubles: [1], indexes: ['road-run'] } });
+    expect(pointOf({ e: 'run_finished', g: 'road-run', x: 'first' })).toEqual({ binding: 'PING_FINISH', point: { blobs: ['road-run', 'first'], doubles: [1], indexes: ['road-run'] } });
+    expect(pointOf({ e: 'visit', g: 'home', x: 'google' })).toEqual({ binding: FUNNEL_BINDING, point: { blobs: ['visit', 'home', 'google'], doubles: [1], indexes: ['visit'] } });
+    expect(pointOf({ e: 'paywall_view', g: 'results' })).toEqual({ binding: FUNNEL_BINDING, point: { blobs: ['paywall_view', 'results', ''], doubles: [1], indexes: ['paywall_view'] } });
+  });
 });
 
 describe('POST /api/ping', () => {
@@ -62,6 +105,25 @@ describe('POST /api/ping', () => {
       const everything = JSON.stringify([start.points, finish.points, spy.mock.calls]);
       expect(everything).not.toContain('203.0.113.7');
       expect(spy.mock.calls.map((c) => JSON.parse(String(c[0])))).toEqual([{ evt: 'ping', e: 'game_start', g: 'road-run' }, { evt: 'ping', e: 'run_finished', g: 'knee-sprint' }]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('writes a funnel step to the funnel dataset with its detail, and logs the detail too', async () => {
+    const spy = log();
+    try {
+      const start = dataset();
+      const funnel = dataset();
+      const env = { PING_START: start.ds, PING_FUNNEL: funnel.ds };
+      expect((await ping(post({ e: 'visit', g: 'webcam-fitness-games', x: 'google' }, { ip: '203.0.113.8' }), env, createLimiter())).status).toBe(204);
+      expect((await ping(post({ e: 'game_start', g: 'squat-flap', x: 'first' }), env, createLimiter())).status).toBe(204);
+      expect(funnel.points).toEqual([{ blobs: ['visit', 'webcam-fitness-games', 'google'], doubles: [1], indexes: ['visit'] }]);
+      expect(start.points).toEqual([{ blobs: ['squat-flap', 'first'], doubles: [1], indexes: ['squat-flap'] }]);
+      expect(spy.mock.calls.map((c) => JSON.parse(String(c[0])))).toEqual([
+        { evt: 'ping', e: 'visit', g: 'webcam-fitness-games', x: 'google' }, { evt: 'ping', e: 'game_start', g: 'squat-flap', x: 'first' },
+      ]);
+      expect(JSON.stringify([funnel.points, start.points, spy.mock.calls])).not.toContain('203.0.113.8');
     } finally {
       spy.mockRestore();
     }
@@ -136,8 +198,8 @@ describe('POST /api/ping', () => {
     }
   });
 
-  it('allows a real round many times over (the limit is far above two signals a round)', () => {
-    expect(PINGS_PER_MINUTE).toBeGreaterThanOrEqual(20);
+  it('allows a real round many times over (the limit is far above the five signals of a round and the visit before it)', () => {
+    expect(PINGS_PER_MINUTE).toBeGreaterThanOrEqual(30);
   });
 });
 
@@ -177,7 +239,8 @@ describe('the route', () => {
     expect(entry).toContain('registerPing(router);');
     for (const file of ['wrangler.jsonc', 'wrangler.prod.jsonc', 'packages/server/wrangler.jsonc']) {
       const cfg = JSON.parse(readFileSync(new URL(file, ROOT), 'utf8').replace(/^\s*\/\/.*$/gm, '')) as { analytics_engine_datasets: { binding: string; dataset: string }[] };
-      expect(cfg.analytics_engine_datasets.map((d) => d.binding).sort(), file).toEqual(Object.values(PING_BINDINGS).sort());
+      expect(cfg.analytics_engine_datasets.map((d) => d.binding).sort(), file).toEqual([...ALL_BINDINGS].sort());
+      expect(ALL_BINDINGS).toEqual([...Object.values(PING_BINDINGS), FUNNEL_BINDING]);
     }
   });
 });

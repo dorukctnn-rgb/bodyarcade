@@ -25,7 +25,7 @@ export interface StackOptions {
   vars?: Record<string, string>;
   /** Keeps the Durable Object storage in this folder (a restart test); memory when absent. */
   persistTo?: string;
-  /** Workers Analytics Engine datasets to bind, by binding name (the game signal's PING_START and PING_FINISH). */
+  /** Workers Analytics Engine datasets to bind, by binding name (the game signal's PING_START, PING_FINISH and PING_FUNNEL). */
   analyticsDatasets?: Record<string, { dataset: string }>;
 }
 

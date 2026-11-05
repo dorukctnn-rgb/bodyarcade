@@ -1,21 +1,24 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { SIGNAL_URL, countsAsPlay, sendSignal, type SignalWindow } from './signal.ts';
+import { parseSignal } from '../../../server/src/site/ping.ts';
+import { ROUND_WORD_EVENTS, SIGNAL_URL, countsAsPlay, errorWord, roundWord, sendSignal, type SignalWindow } from './signal.ts';
 
 interface Sent { url: string; body: string; type: string }
 
 /** A window whose navigator remembers what sendBeacon was given. */
-function win(o: { webdriver?: boolean; beacon?: boolean; accepts?: boolean; throws?: boolean } = {}): { w: SignalWindow; sent: Sent[] } {
+function win(o: { webdriver?: boolean; beacon?: boolean; accepts?: boolean; throws?: boolean; userAgent?: string } = {}): { w: SignalWindow; sent: Sent[] } {
   const sent: Sent[] = [];
   const navigator = {
     ...(o.webdriver !== undefined ? { webdriver: o.webdriver } : {}),
+    ...(o.userAgent !== undefined ? { userAgent: o.userAgent } : {}),
     ...(o.beacon === false ? {} : {
       sendBeacon: (url: string, data?: BodyInit | null): boolean => {
         if (o.throws) throw new Error('blocked');
         const blob = data as Blob;
         // a Blob's text is async: the type and the size are what the browser sees; the body is read below through the stored blob
-        sent.push({ url, body: '', type: blob.type });
-        pending.push(blob.text().then((t) => { sent[sent.length - 1]!.body = t; }));
+        const item = { url, body: '', type: blob.type };
+        sent.push(item);
+        pending.push(blob.text().then((t) => { item.body = t; }));
         return o.accepts !== false;
       },
     }),
@@ -38,6 +41,9 @@ describe('countsAsPlay', () => {
     expect(play).toContain('countsAsPlay(this.setup.input, this.o.simulatedBody === true)');
     expect(play).toContain("if (this.countsAsPlay()) this.host.signal?.('run_finished', this.game);");
     expect(play).toContain("if (this.countsAsPlay()) this.host.signal?.('game_start', this.game);");
+    expect(play).toContain("if (this.countsAsPlay()) { this.opened = true; this.host.signal?.('play_open', this.game); }");
+    expect(play).toContain("if (this.countsAsPlay()) this.host.signal?.('tracking_ready', this.game);");
+    expect(play).toContain("if (this.countsAsPlay() && !this.errorsSent.has(word))");
   });
 });
 
@@ -65,6 +71,53 @@ describe('sendSignal', () => {
     const c = win({ webdriver: false });
     expect(sendSignal(c.w, 'run_finished', 'road-run')).toBe(true);
     await settle();
+  });
+
+  it('adds the one word of a step where there is one, and the server takes every step the page sends', async () => {
+    const { w, sent } = win();
+    expect(sendSignal(w, 'game_start', 'road-run', { detail: 'first' })).toBe(true);
+    expect(sendSignal(w, 'play_left', 'star-catch', { detail: 'calibrating' })).toBe(true);
+    expect(sendSignal(w, 'play_error', 'squat-flap', { detail: errorWord('denied') })).toBe(true);
+    expect(sendSignal(w, 'paywall_view', 'results')).toBe(true);
+    expect(sendSignal(w, 'buy_click', 'pro-yearly', { detail: 'paddle' })).toBe(true);
+    expect(sendSignal(w, 'checkout_open', 'pro-yearly', { detail: 'paddle' })).toBe(true);
+    expect(sendSignal(w, 'checkout_done', 'pro-yearly', { detail: 'paddle' })).toBe(true);
+    expect(sendSignal(w, 'play_left', 'squat-flap', { detail: 'keyboard' })).toBe(true);
+    await settle();
+    const bodies = sent.map((x) => JSON.parse(x.body) as Record<string, string>);
+    expect(bodies[0]).toEqual({ e: 'game_start', g: 'road-run', x: 'first' });
+    expect(bodies[3]).toEqual({ e: 'paywall_view', g: 'results' });
+    for (const b of bodies) expect(parseSignal(b), JSON.stringify(b)).not.toBeNull();
+  });
+
+  it('says first until this device has finished a round, and turns an odd error code into "other"', () => {
+    expect(roundWord(0)).toBe('first');
+    expect(roundWord(1)).toBe('again');
+    expect(roundWord(40)).toBe('again');
+    expect([...ROUND_WORD_EVENTS].sort()).toEqual(['game_start', 'play_open', 'run_finished', 'tracking_ready']);
+    expect(errorWord('not_found')).toBe('not_found');
+    expect(errorWord('pose_load')).toBe('pose_load');
+    expect(errorWord('NotAllowedError')).toBe('other');
+    expect(errorWord('camera failed: x')).toBe('other');
+    expect(errorWord('x'.repeat(25))).toBe('other');
+  });
+
+  it('sends nothing from a crawler that runs the page', () => {
+    for (const ua of ['Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'Mozilla/5.0 HeadlessChrome/141.0', 'Chrome-Lighthouse']) {
+      const { w, sent } = win({ userAgent: ua });
+      expect(sendSignal(w, 'game_start', 'road-run'), ua).toBe(false);
+      expect(sent).toEqual([]);
+    }
+    expect(sendSignal(win({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1' }).w, 'game_start', 'road-run')).toBe(true);
+    // a phone whose maker's name ends in "bot" is a person's phone
+    expect(sendSignal(win({ userAgent: 'Mozilla/5.0 (Linux; Android 13; CUBOT KINGKONG 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36' }).w, 'game_start', 'road-run')).toBe(true);
+    for (const ua of ['Mozilla/5.0 (compatible; bingbot/2.0)', 'AdsBot-Google (+http://www.google.com/adsbot.html)', 'Mozilla/5.0 (compatible; Discordbot/2.0)', 'facebookexternalhit/1.1']) {
+      expect(sendSignal(win({ userAgent: ua }).w, 'game_start', 'road-run'), ua).toBe(false);
+    }
+    // the robot words are the same in the visit script (content/pro-source.js)
+    const visit = readFileSync(new URL('../../content/pro-source.js', import.meta.url), 'utf8');
+    const signal = readFileSync(new URL('./signal.ts', import.meta.url), 'utf8');
+    expect(/var ROBOT = (\/.*\/i);/.exec(visit)?.[1]).toBe(/const ROBOT = (\/.*\/i);/.exec(signal)?.[1]);
   });
 
   it('is quiet when the browser has no sendBeacon, refuses the message or throws', () => {

@@ -62,6 +62,7 @@ interface Words {
   faq: string;
   delete: string;
   guides: string;
+  compare: string;
   pricing: string;
   changelog: string;
   contact: string;
@@ -78,7 +79,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Games', '/'], pro: ['Pro', '/pro/'], faq: ['FAQ', '/faq'], blog: ['Blog', '/blog/'] },
     play: 'Play a game', toc: 'On this page', crumbs: 'Breadcrumb',
     made: `BodyArcade is made by ${STUDIO}.`, camera: 'Camera video is read on your device and never recorded.',
-    privacy: 'Privacy', terms: 'Terms', refund: 'Refund policy', faq: 'FAQ', delete: 'Delete account', guides: 'Guides', pricing: 'Prices', changelog: 'Updates', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
+    privacy: 'Privacy', terms: 'Terms', refund: 'Refund policy', faq: 'FAQ', delete: 'Delete account', guides: 'Guides', compare: 'Compare', pricing: 'Prices', changelog: 'Updates', contact: 'Contact', language: 'Language', otherName: 'Türkçe', home: 'BodyArcade home', locale: 'en_US',
     studio: STUDIO,
   },
   tr: {
@@ -86,7 +87,7 @@ const WORDS: Readonly<Record<Lang, Words>> = {
     nav: { games: ['Oyunlar', '/tr/'], pro: ['Pro', '/tr/pro/'], faq: ['SSS', '/tr/faq'], blog: null },
     play: 'Bir oyun oyna', toc: 'Bu sayfada', crumbs: 'Sayfa yolu',
     made: `BodyArcade, ${STUDIO} tarafından yapılır.`, camera: 'Kamera görüntüsü cihazında okunur, hiçbir zaman kaydedilmez.',
-    privacy: 'Gizlilik', terms: 'Koşullar', refund: 'İade politikası', faq: 'SSS', delete: 'Hesabı sil', guides: 'Rehberler', pricing: 'Fiyatlar', changelog: 'Güncellemeler', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
+    privacy: 'Gizlilik', terms: 'Koşullar', refund: 'İade politikası', faq: 'SSS', delete: 'Hesabı sil', guides: 'Rehberler', compare: 'Karşılaştır', pricing: 'Fiyatlar', changelog: 'Güncellemeler', contact: 'İletişim', language: 'Dil', otherName: 'English', home: 'BodyArcade ana sayfa', locale: 'tr_TR',
     studio: STUDIO,
   },
 };
@@ -113,6 +114,16 @@ export function documentTitle(title: string): string {
 export const FOOTER_GUIDES: Readonly<Record<Lang, readonly (readonly [string, string])[]>> = {
   en: [['Fitness games', '/fitness-games'], ['Seated games', '/seated-exercise-games'], ['Games with friends', '/workout-games-with-friends'], ['By body area', '/workout-games-by-body-area'], ['How it works', '/webcam-fitness-games']],
   tr: [['Evde spor oyunları', '/tr/evde-spor-oyunlari'], ['Oturarak oyunlar', '/tr/oturarak-egzersiz-oyunlari'], ['Arkadaşlarla oyunlar', '/tr/arkadaslarla-spor-oyunlari'], ['Bölgeye göre', '/tr/bolgeye-gore-spor-oyunlari'], ['Nasıl çalışır', '/tr/kamera-ile-spor-oyunlari']],
+};
+
+/**
+ * The pages that compare BodyArcade with a known product or answer one search (5 Nov 2026: Search Console puts them on the first or second
+ * page, below the home page that gets the clicks). Every footer links to them, the app's too (views/chrome.ts SITE_COMPARE has the same
+ * addresses; content.test.ts compares them), so the strongest pages of the site lead to them with their own words.
+ */
+export const FOOTER_COMPARE: Readonly<Record<Lang, readonly (readonly [string, string])[]>> = {
+  en: [['Ring Fit Adventure alternative', '/ring-fit-adventure-alternative'], ['Active Arcade alternative', '/active-arcade-alternative'], ['Kinect alternative for PC', '/kinect-alternative-pc'], ['Exercise games for PC', '/exercise-games-for-pc']],
+  tr: [['Ring Fit Adventure alternatifi', '/tr/ring-fit-adventure-alternatifi'], ['Active Arcade alternatifi', '/tr/active-arcade-alternatifi']],
 };
 
 /** The picture every content page shows when a link to it is shared (the Play feature graphic: 1024 by 500). */
@@ -143,9 +154,10 @@ function footer(spec: PageSpec, w: Words): string {
     ? `<ul aria-label="${esc(w.language)}"><li><a href="${spec.lang === 'en' ? spec.url : o.url}" hreflang="en" lang="en"${spec.lang === 'en' ? ' aria-current="true"' : ''}>English</a></li><li><a href="${spec.lang === 'tr' ? spec.url : o.url}" hreflang="tr" lang="tr"${spec.lang === 'tr' ? ' aria-current="true"' : ''}>Türkçe</a></li></ul>`
     : '';
   const guides = `<ul aria-label="${esc(w.guides)}">${FOOTER_GUIDES[spec.lang].map(([name, href]) => `<li><a href="${href}"${href === spec.url ? ' aria-current="page"' : ''}>${esc(name)}</a></li>`).join('')}</ul>`;
+  const compare = `<ul aria-label="${esc(w.compare)}">${FOOTER_COMPARE[spec.lang].map(([name, href]) => `<li><a href="${href}"${href === spec.url ? ' aria-current="page"' : ''}>${esc(name)}</a></li>`).join('')}</ul>`;
   const cur = (href: string): string => (href === spec.url ? ' aria-current="page"' : '');
   // the prices are the web's: inside the Android app (twa.js) the link is hidden with the other words about paying on the web
-  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p>${guides}<ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.refund}"${cur(p.refund)}>${esc(w.refund)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="${p.delete}">${esc(w.delete)}</a></li><li data-web-pay><a href="${p.pricing}"${cur(p.pricing)}>${esc(w.pricing)}</a></li><li><a href="${p.changelog}"${cur(p.changelog)}>${esc(w.changelog)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
+  return `<footer class="foot"><div class="foot-in"><p>${esc(w.made)} ${esc(w.camera)}</p>${guides}${compare}<ul><li><a href="${p.privacy}">${esc(w.privacy)}</a></li><li><a href="${p.terms}">${esc(w.terms)}</a></li><li><a href="${p.refund}"${cur(p.refund)}>${esc(w.refund)}</a></li><li><a href="${p.faq}">${esc(w.faq)}</a></li><li><a href="${p.delete}">${esc(w.delete)}</a></li><li data-web-pay><a href="${p.pricing}"${cur(p.pricing)}>${esc(w.pricing)}</a></li><li><a href="${p.changelog}"${cur(p.changelog)}>${esc(w.changelog)}</a></li><li><a href="mailto:${EMAIL}">${esc(w.contact)}</a></li></ul>${langs}</div></footer>`;
 }
 
 function crumbs(spec: PageSpec, w: Words): string {

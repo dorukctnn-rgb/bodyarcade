@@ -7,28 +7,40 @@ import { describe, expect, it } from 'vitest';
 import { GUMROAD_CATALOG } from '../../../core/entitlements/catalog.ts';
 import { SESSION_FLAG, TWA_REFERRER } from '../../../core/entitlements/billing-env.ts';
 import { checkoutWithSource, isSourceWord, SOURCE_CAMPAIGN, SOURCE_KEYS, SOURCE_MEDIUM, sourceOf, withSource, type SourceWindow, type SourceWord } from './pro-source.ts';
+import { parseSignal, SOURCE_WORDS } from '../../../server/src/site/ping.ts';
 
 const SCRIPT_URL = new URL('../../content/pro-source.js', import.meta.url);
 const SCRIPT = readFileSync(SCRIPT_URL, 'utf8');
 const OWN = 'bodyarcade.com';
 
 type Area = Map<string, string>;
-interface Page { session: Area; local: Area; writes: [string, string, string][]; listeners: Record<string, (() => void)[]>; win: SourceWindow }
+interface Page { session: Area; local: Area; writes: [string, string, string][]; listeners: Record<string, (() => void)[]>; win: SourceWindow; beacons: { url: string; body: string }[] }
 
 function storage(m: Area, writes: [string, string, string][], name: string): Pick<Storage, 'getItem' | 'setItem'> {
   return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { writes.push([name, k, String(v)]); m.set(k, String(v)); } };
 }
 
 /** One page load. mode 'methods-throw' and 'access-throws' are site data blocked by the browser. */
-function load(o: { referrer?: string; search?: string; host?: string; session?: Area; local?: Area; mode?: 'ok' | 'methods-throw' | 'access-throws'; prerendering?: boolean } = {}): Page {
+function load(o: {
+  referrer?: string; search?: string; host?: string; session?: Area; local?: Area; mode?: 'ok' | 'methods-throw' | 'access-throws'; prerendering?: boolean;
+  path?: string; title?: string; webdriver?: boolean; userAgent?: string; beacon?: boolean;
+} = {}): Page {
   const session = o.session ?? new Map<string, string>();
   const local = o.local ?? new Map<string, string>();
   const writes: [string, string, string][] = [];
   const listeners: Record<string, (() => void)[]> = {};
+  const beacons: { url: string; body: string }[] = [];
+  // a Blob of the vm is read at once: the script only ever puts one JSON string in it
+  class TextBlob { readonly parts: string[]; constructor(parts: string[]) { this.parts = parts; } }
   const ctx: Record<string, unknown> = {
-    URLSearchParams,
-    location: { hostname: o.host ?? OWN, search: o.search ?? '' },
-    document: { referrer: o.referrer ?? '', prerendering: o.prerendering === true, addEventListener(type: string, fn: () => void) { (listeners[type] ??= []).push(fn); } },
+    URLSearchParams, URL, Blob: TextBlob,
+    location: { hostname: o.host ?? OWN, search: o.search ?? '', pathname: o.path ?? '/' },
+    document: { referrer: o.referrer ?? '', title: o.title ?? 'BodyArcade', prerendering: o.prerendering === true, addEventListener(type: string, fn: () => void) { (listeners[type] ??= []).push(fn); } },
+    navigator: {
+      userAgent: o.userAgent ?? 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36',
+      ...(o.webdriver ? { webdriver: true } : {}),
+      ...(o.beacon === false ? {} : { sendBeacon: (url: string, b: TextBlob) => { beacons.push({ url, body: b.parts.join('') }); return true; } }),
+    },
   };
   ctx['window'] = ctx;
   const mode = o.mode ?? 'ok';
@@ -44,8 +56,14 @@ function load(o: { referrer?: string; search?: string; host?: string; session?: 
   }
   vm.createContext(ctx);
   vm.runInContext(SCRIPT, ctx);
-  return { session, local, writes, listeners, win: ctx as unknown as SourceWindow };
+  return { session, local, writes, listeners, win: ctx as unknown as SourceWindow, beacons };
 }
+
+/** The visit signal one page load sends (null: none). */
+const visitOf = (o: Parameters<typeof load>[0]): Record<string, string> | null => {
+  const b = load(o).beacons;
+  return b.length ? (JSON.parse(b[0]!.body) as Record<string, string>) : null;
+};
 
 /** The word one landing leaves for this visit ('' when it leaves none). */
 const visitWord = (o: Parameters<typeof load>[0]): string => load(o).session.get(SOURCE_KEYS.visit) ?? '';
@@ -173,6 +191,88 @@ describe('pro-source.js: where a visitor came from, as one word', () => {
   it('the copy in site/assets is the script itself', () => {
     const copy = readFileSync(new URL('../../../../site/assets/pro-source.js', import.meta.url), 'utf8');
     expect(copy.replace(/\r\n/g, '\n')).toBe(SCRIPT.replace(/\r\n/g, '\n'));
+  });
+});
+
+describe('pro-source.js: the visit, the first step of the game signal', () => {
+  it('sends one visit to our own address with the page and this visit\'s word, and nothing else', () => {
+    const p = load({ referrer: 'https://www.google.com/', path: '/webcam-fitness-games' });
+    expect(p.beacons).toHaveLength(1);
+    expect(p.beacons[0]!.url).toBe('/api/ping');
+    expect(JSON.parse(p.beacons[0]!.body)).toEqual({ e: 'visit', g: 'webcam-fitness-games', x: 'google' });
+    expect(Object.keys(JSON.parse(p.beacons[0]!.body))).toEqual(['e', 'g', 'x']);
+  });
+
+  it('names the page by its address: the home, a game, a body area, the guides, Turkish pages; never a code of a room or a friend link', () => {
+    const page = (path: string, title?: string) => visitOf({ path, ...(title ? { title } : {}) })?.['g'];
+    expect(page('/')).toBe('home');
+    expect(page('/tr/')).toBe('tr-home');
+    expect(page('/games/squat-flap/')).toBe('game-squat-flap');
+    expect(page('/tr/games/star-catch/')).toBe('tr-game-star-catch');
+    expect(page('/games/')).toBe('game');
+    expect(page('/play/road-run/')).toBe('play');
+    expect(page('/workouts/legs/')).toBe('workouts-legs');
+    expect(page('/ring-fit-adventure-alternative')).toBe('ring-fit-adventure-alternative');
+    expect(page('/fitness-games.html')).toBe('fitness-games');
+    expect(page('/pricing')).toBe('pricing');
+    expect(page('/blog/why-browser-fitness-games-are-the-future')).toBe('blog');
+    expect(page('/r/ABCD12/')).toBe('room');
+    expect(page('/f/xyz-789')).toBe('friendlink');
+    expect(page('/pro/')).toBe('pro');
+    expect(page('/Some Odd/Path')).toBe('other');
+    expect(page('/' + 'a'.repeat(60))).toBe('other');
+    expect(page('/whatever', 'Page not found | BodyArcade')).toBe('notfound');
+    expect(page('/tr/x', 'Sayfa bulunamadı | BodyArcade')).toBe('notfound');
+  });
+
+  it('says where the visit came from: a search engine, a social site, a tag, nothing, the Android app, or another page of this site', () => {
+    const word = (o: Parameters<typeof load>[0]) => visitOf(o)?.['x'];
+    expect(word({})).toBe('direct');
+    expect(word({ referrer: 'https://www.reddit.com/r/x/' })).toBe('social');
+    expect(word({ search: '?utm_source=chatgpt.com' })).toBe('ai-assistant');
+    expect(word({ referrer: `https://${OWN}/` })).toBe('internal');
+    expect(word({ referrer: `https://${OWN}/pricing`, search: '?ref=reddit' })).toBe('social');
+    expect(word({ search: '?src=twa' })).toBe('app');
+    expect(word({ referrer: `${TWA_REFERRER}` })).toBe('app');
+  });
+
+  it('is a signal the server takes, for every page and word', () => {
+    const cases: Parameters<typeof load>[0][] = [
+      {}, { path: '/tr/games/pose-wall/' }, { referrer: 'https://www.bing.com/' }, { search: '?src=twa' }, { referrer: `https://${OWN}/x` },
+      { path: '/' + 'x-'.repeat(30) + 'y' }, { path: '/games/squat-flap/', title: 'Page not found' },
+    ];
+    for (const o of cases) {
+      const v = visitOf(o);
+      expect(v, JSON.stringify(o)).not.toBeNull();
+      expect(parseSignal(v), JSON.stringify(v)).not.toBeNull();
+      expect((SOURCE_WORDS as readonly string[]).includes(v?.['x'] ?? '')).toBe(true);
+    }
+  });
+
+  it('sends nothing from an automated browser or a crawler, or where the browser has no sendBeacon', () => {
+    expect(load({ webdriver: true }).beacons).toEqual([]);
+    for (const ua of ['Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0)',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0 Safari/537.36', 'Mozilla/5.0 Chrome-Lighthouse', 'facebookexternalhit/1.1']) {
+      expect(load({ userAgent: ua }).beacons, ua).toEqual([]);
+    }
+    expect(load({ beacon: false }).beacons).toEqual([]);
+    expect(load({ userAgent: 'Mozilla/5.0 (Linux; Android 13; CUBOT KINGKONG 9) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36' }).beacons).toHaveLength(1);
+    expect(() => load({ beacon: false, mode: 'access-throws' })).not.toThrow();
+  });
+
+  it('a prerendered page sends its visit only once the visitor opens it, and only once', () => {
+    const p = load({ prerendering: true, referrer: 'https://www.google.com/' });
+    expect(p.beacons).toEqual([]);
+    for (const fn of p.listeners['prerenderingchange'] ?? []) fn();
+    for (const fn of p.listeners['prerenderingchange'] ?? []) fn();
+    expect(p.beacons).toHaveLength(1);
+    expect(p.session.get(SOURCE_KEYS.visit)).toBe('google');
+  });
+
+  it('writes nothing to the storage for the visit: the stored keys are the two of the attribution only', () => {
+    const p = load({ referrer: `https://${OWN}/` });
+    expect(p.writes).toEqual([]);
+    expect(p.beacons).toHaveLength(1);
   });
 });
 

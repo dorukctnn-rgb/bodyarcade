@@ -36,6 +36,8 @@ export interface PaddleCheckoutOptions {
   onRestoreFailed?: () => void;
   /** Where the visit came from, for the sale's custom data (pro-source.ts). */
   source?: () => string;
+  /** Paddle's checkout opened for a plan (checkout.loaded), and said the plan is paid (checkout.completed): the anonymous signal (signal.ts). */
+  onStep?: (step: 'checkout_open' | 'checkout_done', plan: SoldPlanId) => void;
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
   scriptUrl?: string;
   /** Tests: shorter waits. */
@@ -276,6 +278,7 @@ export function createPaddleCheckout(o: PaddleCheckoutOptions): PaddleCheckout {
     const data = e?.data ?? {};
     switch (name) {
       case 'checkout.loaded':
+        if (phase === 'loading' && current) o.onStep?.('checkout_open', current.id);
         phase = 'ready';
         status('');
         showTotals(data);
@@ -305,6 +308,7 @@ export function createPaddleCheckout(o: PaddleCheckoutOptions): PaddleCheckout {
         break;
       case 'checkout.completed':
         if (phase === 'claiming' || phase === 'done' || !data.transaction_id) return;
+        if (current) o.onStep?.('checkout_done', current.id);
         phase = 'claiming';
         setBusy(true);
         status(o.t('paddle.sheet.activating'));

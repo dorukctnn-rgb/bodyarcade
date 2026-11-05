@@ -34,7 +34,7 @@ export const TERMS_UPDATED = '2026-11-04';
  * say what the one-word source of a web purchase is (assets/pro-source.js, app/pro-source.ts); the terms did not change then. 4 November 2026: the
  * game signal (app/signal.ts) and, once ANALYTICS_ON is true, the cookieless visit count.
  */
-export const PRIVACY_UPDATED = '2026-11-04';
+export const PRIVACY_UPDATED = '2026-11-05';
 
 /** Web list prices in US dollars (core/entitlements/plans.ts). On Google Play the price and the currency are Google Play's. */
 export const PRICE = {

@@ -10,10 +10,15 @@
 //  3. Only the word is kept, never an address: for this tab in sessionStorage (pro-source:visit, the first word of the
 //     visit), and in localStorage (pro-source:first) the first word other than direct ever seen in this browser, written
 //     once and never replaced.
-// This file sends nothing. When a player presses a buy button of the web paywall, the app (packages/web/src/app/pro-source.ts)
-// reads the word and adds utm_source=<the first word, else this visit's word, else direct>, utm_medium=<organic|referral|
-// social|none> and utm_campaign=bodyarcade to the Gumroad address it opens; Gumroad keeps the three with the order.
+// When a player presses a buy button of the web paywall, the app (packages/web/src/app/pro-source.ts) reads the word and adds
+// utm_source=<the first word, else this visit's word, else direct>, utm_medium=<organic|referral|social|none> and
+// utm_campaign=bodyarcade to the Gumroad address it opens; Gumroad keeps the three with the order.
 // If anything here fails, nothing is kept and the plain address is opened.
+// The visit: once per page load the page tells our own server which page was opened and this visit's word (the first step of
+// the game signal, packages/server/src/site/ping.ts): {"e":"visit","g":"webcam-fitness-games","x":"google"}. The page is a
+// word made from its address (never a room or friend code), "app" stands for the Android app and "internal" for a page opened
+// from another page of this site (a step inside the visit, not a new one), and nothing else goes with it:
+// no cookie, no address, no time. Automated browsers and crawlers send nothing, a page Chrome prerenders only once it is opened.
 (function () {
   'use strict';
   var CAMPAIGN = 'bodyarcade';
@@ -131,8 +136,44 @@
       if (here && here !== 'direct' && (!first || first === 'direct')) window.localStorage.setItem(FIRST, here);
     } catch (e) { /* storage blocked */ }
   }
+  // The page as one word: the first part of the address (the game's slug on a game page), with the language in front where the
+  // address has one. Codes of rooms and friend links are never part of it.
+  var APP_PAGES = { games: 'game', play: 'play', workouts: 'workouts', r: 'room', f: 'friendlink', blog: 'blog' };
+  function pageOf(path, title) {
+    if (/not found|bulunamad/i.test(String(title || ''))) return 'notfound';
+    var parts = String(path || '/').toLowerCase().replace(/\.html$/, '').split('/').filter(Boolean);
+    var lang = '';
+    if (parts.length && /^(tr|de|es|fr)$/.test(parts[0])) lang = parts.shift() + '-';
+    var head = parts[0] || 'home';
+    var word = own(APP_PAGES, head) || head;
+    if (head === 'games' && parts[1]) word = 'game-' + parts[1];
+    if (head === 'workouts' && parts[1]) word = 'workouts-' + parts[1];
+    word = lang + word;
+    return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(word) && word.length <= 40 ? word : lang + 'other';
+  }
+  // crawlers that run pages (the same words as packages/web/src/app/signal.ts; a phone maker whose name ends in "bot" is no crawler)
+  var ROBOT = /[a-z]bot\/|[^a-z]bot[^a-z]|^bot|adsbot|crawl|spider|slurp|headless|lighthouse|pagespeed|facebookexternalhit/i;
+  var counted = false;
+  function visit() {
+    if (counted) return;
+    counted = true;
+    try {
+      if (navigator.webdriver === true || ROBOT.test(navigator.userAgent || '') || typeof navigator.sendBeacon !== 'function') return;
+      // a page opened from another page of this site is a step inside the visit, not a new one
+      var inside = false;
+      try { inside = !!document.referrer && new URL(document.referrer).hostname === location.hostname; } catch (e) { inside = false; }
+      var word = inApp() ? 'app' : here && !(inside && here === 'direct') ? here : inside ? 'internal' : 'direct';
+      var body = JSON.stringify({ e: 'visit', g: pageOf(location.pathname, document.title), x: word });
+      navigator.sendBeacon('/api/ping', new Blob([body], { type: 'application/json' }));
+    } catch (e) { /* a count is never worth an error */ }
+  }
+
   // A page Chrome prerenders in the background is only counted once the visitor opens it.
   try {
-    if (here) { if (document.prerendering) document.addEventListener('prerenderingchange', remember, { once: true }); else remember(); }
+    if (document.prerendering) document.addEventListener('prerenderingchange', function () { if (here) remember(); visit(); }, { once: true });
+    else { if (here) remember(); visit(); }
   } catch (e) { /* nothing kept */ }
+
+  // for the tests (pro-source.test.ts): the page word, without sending anything
+  try { if (window.__BA_SOURCE_TEST__) window.__BA_SOURCE_TEST__.pageOf = pageOf; } catch (e) { /* none */ }
 })();

@@ -2,7 +2,7 @@
 // said so and leaves the files that did arrive. Run against a small fake Cache Storage and a fake network.
 import { describe, expect, it, vi } from 'vitest';
 import { POSE_CACHE, POSE_OFFLINE_FILES } from '../../../core/pose/assets.ts';
-import { OFFLINE_MB, OFFLINE_TOTAL_BYTES, OfflineController, browserPorts, missingFiles, saveEngine, type OfflinePorts, type OfflineView } from './offline.ts';
+import { OFFLINE_MB, OFFLINE_TOTAL_BYTES, OfflineController, browserPorts, mayWarm, missingFiles, saveEngine, warmEngine, type OfflinePorts, type OfflineView } from './offline.ts';
 
 const ORIGIN = 'https://bodyarcade.com';
 
@@ -139,6 +139,50 @@ describe('saveEngine and persistent storage', () => {
     expect(browserPorts({ ...base, navigator: { storage: { persist: async () => true } } })?.persist).toBeTypeOf('function');
     expect(browserPorts({ ...base, navigator: {} })?.persist).toBeUndefined();
     expect(browserPorts(base)?.persist).toBeUndefined();
+  });
+});
+
+describe('warmEngine: the files come down while the camera explainer is read', () => {
+  it('stores the files the round reads, in the cache the round reads, and never asks to keep the storage', async () => {
+    const f = fakes();
+    const persist = vi.fn(async () => true);
+    expect(await warmEngine({ ...f.ports, persist })).toBe(true);
+    expect(f.fetched).toEqual(POSE_OFFLINE_FILES.map((x) => x.url));
+    expect(await missingFiles(f.ports.caches)).toEqual([]);
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('fetches nothing when the files are there already (a player who has played once)', async () => {
+    const f = fakes();
+    await saveEngine(f.ports, () => undefined);
+    f.fetched.length = 0;
+    expect(await warmEngine(f.ports)).toBe(true);
+    expect(f.fetched).toEqual([]);
+  });
+
+  it('fetches nothing when the browser saves data or the line is 2G, or where there is no Cache Storage', async () => {
+    for (const c of [{ saveData: true }, { effectiveType: '2g' }, { effectiveType: 'slow-2g' }]) {
+      const f = fakes();
+      expect(await warmEngine(f.ports, c), JSON.stringify(c)).toBe(false);
+      expect(f.fetched).toEqual([]);
+    }
+    expect(await warmEngine(null)).toBe(false);
+    expect(mayWarm({ effectiveType: '4g' })).toBe(true);
+    expect(mayWarm({ effectiveType: '3g', saveData: false })).toBe(true);
+    expect(mayWarm(undefined)).toBe(true);
+  });
+
+  it('a failed download is no error: it says false and the round fetches what is missing', async () => {
+    const f = fakes(async () => new Response('gone', { status: 503 }));
+    await expect(warmEngine(f.ports)).resolves.toBe(false);
+  });
+
+  it('is started by the play screen when the camera explainer is shown, and only outside the practice session', async () => {
+    const { readFileSync } = await import('node:fs');
+    const play = readFileSync(new URL('./play.ts', import.meta.url), 'utf8');
+    expect(play).toMatch(/this\.show\(\{ kind: 'camera-explainer'[^\n]*\n[^\n]*\n\s*this\.host\.warmEngine\?\.\(\);/);
+    const app = readFileSync(new URL('./app.ts', import.meta.url), 'utf8');
+    expect(app).toContain('if (this.engineWarmed || this.o.demo) return;');
   });
 });
 
