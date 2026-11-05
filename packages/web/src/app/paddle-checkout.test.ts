@@ -2,10 +2,29 @@
 // left unfinished by the last visit (and its retries while Paddle finishes the payment), the restore e-mail and the portal.
 // The panel and Paddle's frame are covered by the live run on bodyarcade.com (takip/devir/paddle-gecis/NOTLAR.md).
 import { describe, expect, it } from 'vitest';
-import { createPaddleCheckout, paddlePreview } from './paddle-checkout.ts';
+import { createPaddleCheckout, paddlePreview, priceBlock } from './paddle-checkout.ts';
 
 const KEY = `pdl-t-${'a'.repeat(26)}-${'0'.repeat(24)}`;
 const TXN = `txn_${'b'.repeat(26)}`;
+
+describe('the price lines at the top of the panel', () => {
+  const t = (key: string) => (key === 'paddle.sheet.taxIncluded' ? 'Taxes included' : key);
+  it('during a free trial the tax line sits under the yearly price, never under "Today: $0.00"', () => {
+    const out = priceBlock({ id: 'pro-yearly', name: 'Pro yearly', priceLine: '$39.99 a year', trialLine: '7 days free, then $39.99 a year', recurring: true, period: 'year' }, t).value;
+    const at = (s: string) => out.indexOf(s);
+    for (const s of ['data-pdl-total', 'data-pdl-tax', 'class="pdl-trial"', 'data-pdl-today']) expect(at(s)).toBeGreaterThan(-1);
+    expect(at('data-pdl-total')).toBeLessThan(at('data-pdl-tax'));
+    expect(at('data-pdl-tax')).toBeLessThan(at('class="pdl-trial"'));
+    expect(at('class="pdl-trial"')).toBeLessThan(at('data-pdl-today'));
+    expect(out).toContain('>Taxes included<');
+  });
+  it('a one-time plan has no trial line, and the price is escaped', () => {
+    const out = priceBlock({ id: 'lifetime', name: 'Pro lifetime', priceLine: '<b>$119.99</b>', trialLine: null, recurring: false, period: 'once' }, t).value;
+    expect(out).not.toContain('pdl-trial');
+    expect(out).toContain('&lt;b&gt;$119.99&lt;/b&gt;');
+    expect(out.indexOf('data-pdl-tax')).toBeLessThan(out.indexOf('data-pdl-today'));
+  });
+});
 
 function fakeWin(hash = '', store: Record<string, string> = {}) {
   const calls: { path: string; body: unknown }[] = [];

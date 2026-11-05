@@ -87,6 +87,18 @@ export function paddlePreview(win: Window & typeof globalThis): boolean {
   try { return ls()?.getItem(PREVIEW_SLOT) === '1'; } catch { return false; }
 }
 
+/**
+ * The price lines at the top of the panel. The tax line sits right under the price it belongs to, so during a free trial the
+ * panel reads "$39.99 a year / Includes $6.66 tax / 7 days free ... / Today: $0.00" and never "Today: $0.00 / Includes $6.66 tax"
+ * (that read as tax charged today, on a payment of nothing). showTotals() fills these lines once Paddle answers.
+ */
+export function priceBlock(offer: CheckoutOffer, t: PaddleCheckoutOptions['t']) {
+  return html`<p class="pdl-price"><strong data-pdl-total>${offer.priceLine}</strong></p>
+      <p class="pdl-tax" data-pdl-tax>${t('paddle.sheet.taxIncluded')}</p>
+      ${offer.trialLine ? html`<p class="pdl-trial">${offer.trialLine}</p>` : ''}
+      <p class="pdl-today" data-pdl-today hidden></p>`;
+}
+
 export interface PaddleCheckout {
   /** Opens the panel for a plan. False when Paddle cannot be used here right now (the caller then offers the Gumroad page). */
   open(offer: CheckoutOffer): Promise<boolean>;
@@ -185,10 +197,7 @@ export function createPaddleCheckout(o: PaddleCheckoutOptions): PaddleCheckout {
         <div class="pdl-what"><p class="pdl-brand">BodyArcade</p><h2 id="pdl-title">${offer.name}</h2></div>
         <button type="button" class="ba-icon-btn pdl-close" data-pdl-close aria-label="${o.t('paddle.sheet.close')}">${icon('close')}</button>
       </div>
-      <p class="pdl-price"><strong data-pdl-total>${offer.priceLine}</strong></p>
-      ${offer.trialLine ? html`<p class="pdl-trial">${offer.trialLine}</p>` : ''}
-      <p class="pdl-today" data-pdl-today hidden></p>
-      <p class="pdl-tax" data-pdl-tax>${o.t('paddle.sheet.taxIncluded')}</p>
+      ${priceBlock(offer, o.t)}
       <p class="pdl-trust">${icon('lock', { size: 16 })}<span>${trust}</span></p>
       <p class="pdl-status" data-pdl-status role="status" aria-live="polite">${o.t('paddle.sheet.loading')}</p>
       <div class="${FRAME_CLASS}" data-pdl-frame></div>
