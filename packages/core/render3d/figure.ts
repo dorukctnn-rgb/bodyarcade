@@ -119,7 +119,8 @@ export function createFigure(asset: FigureAsset, colours: FigureColors, track: <
   let mesh: THREE.SkinnedMesh | null = null;
   body.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh && !mesh) mesh = o as THREE.SkinnedMesh; });
   const skinned = mesh as THREE.SkinnedMesh | null;
-  const material = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, metalness: 0, flatShading: true }));
+  // The camera mostly sees the runner's back, often against the sun: a stronger sky light keeps the shaded side readable.
+  const material = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, metalness: 0, flatShading: true, envMapIntensity: 1.7 }));
   if (skinned) {
     skinned.geometry = track(recolour(skinned.geometry, skinned.skeleton.bones, colours));
     skinned.material = material;
