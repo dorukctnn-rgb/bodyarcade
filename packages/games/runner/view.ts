@@ -15,6 +15,7 @@ import { ResourceTracker } from '../../core/render3d/dispose.ts';
 import type { Scene3DKit } from '../../core/render3d/scene3d.ts';
 import { arrowPixels, makeTexture, stripePixels } from '../../core/render3d/textures.ts';
 import { LANE_W, type Obstacle, type Run } from './sim.ts';
+import { defineModelled, familyOf, modelledKey, type ObstacleFamily } from './obstacles.ts';
 
 /** Road width of today's engine (engine.js ROAD_W). */
 export const ROAD_W = 5.6;
@@ -159,6 +160,18 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
   let shake = 0;
   let lastHits = 0;
   let disposed = false;
+  let family: ObstacleFamily = 'wild';
+  let modelled = false;
+  /** Modelled obstacles when the tier draws models and the file is loaded; new spawns use them, live ones finish as they are. */
+  const useModels = (): void => {
+    const m = kit.models;
+    modelled = !!m && defineModelled(kit, m, family);
+  };
+  const offModels = kit.on('models', useModels);
+  const keyOf = (ob: Obstacle): string => {
+    if (modelled && kit.models) { const k = modelledKey(ob, family); if (k) return k; }
+    return obstacleKey(ob);
+  };
 
   function releaseAll(): void {
     for (const obj of live.values()) kit.prototypes.release(obj);
@@ -170,6 +183,8 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
       releaseAll();
       kit.setTheme(world);
       defineObstacles(kit);
+      family = familyOf(kit.theme?.id ?? '');
+      useModels();
       lastT = null;
       lastDist = 0;
       shake = 0;
@@ -193,7 +208,7 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
       for (const ob of run.obstacles) {
         seen.add(ob.id);
         let obj = live.get(ob.id);
-        if (!obj) { obj = kit.prototypes.spawn(obstacleKey(ob)); kit.stage.add(obj); live.set(ob.id, obj); }
+        if (!obj) { obj = kit.prototypes.spawn(keyOf(ob)); kit.stage.add(obj); live.set(ob.id, obj); }
         obj.position.set(0, 0, ob.z - back);
         obj.visible = ob.z - back < 3.2;
       }
@@ -267,6 +282,7 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      offModels();
       releaseAll();
       kit.stage.remove(rig.root);
       tracker.release();

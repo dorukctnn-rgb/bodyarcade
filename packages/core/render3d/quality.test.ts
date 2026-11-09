@@ -209,6 +209,16 @@ describe('quality tiers (graphics-maps.md 3.3)', () => {
     expect(t0!.weatherHeavy).toBeLessThan(t1!.weatherHeavy);
   });
 
+  it('keeps the lowest tier free of extra passes, and adds the picture work tier by tier', () => {
+    const [t0, t1, t2] = QUALITY_TIERS;
+    expect([t0!.post, t1!.post, t2!.post]).toEqual(['none', 'grade', 'full']);
+    expect([t0!.environment, t1!.environment, t2!.environment]).toEqual([false, true, true]);
+    expect([t0!.models, t1!.models, t2!.models]).toEqual([false, true, true]);
+    expect(t0!.grassDensity).toBe(0);
+    expect(t1!.grassDensity).toBeLessThan(t2!.grassDensity);
+    expect([t0!.shadowFilter, t2!.shadowFilter]).toEqual(['pcf', 'soft']);
+  });
+
   it('tierFor clamps to the three levels', () => {
     expect(tierFor(0).label).toBe('T0');
     expect(tierFor(2).label).toBe('T2');

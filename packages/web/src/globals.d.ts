@@ -49,6 +49,8 @@ interface Window {
   /** Development and test builds only: the friends ports the app runs on (the real ones carry the social client as `client`). */
   __BA_SOCIAL_PORTS__?: import('./social/port.ts').SocialServices & { client?: unknown };
   __BA_TEST__?: { timeScale?: number; roundSeconds?: number; social?: boolean | string;
+    /** Pins the 3D quality tier (Settings' Low, Medium, High) instead of the governor's guess. */
+    quality?: 'low' | 'medium' | 'high';
     /** What a quick match finds in the practice friends port: a lobby at once, or nobody. */
     socialQuick?: 'lobby' | 'never'; plan?: 'free' | 'pro' | 'family'; forceDemo?: boolean; keyboard?: boolean; desk?: boolean;
     /** Let the game signal (app/signal.ts) go out from an automated browser too: the signal tests, which look at what a round sends. */

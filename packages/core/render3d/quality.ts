@@ -27,13 +27,26 @@ export interface QualityTier {
   tuftShare: number;
   fpsCap: 30 | 60;
   blobShadows: boolean;
+  /** Shadow filter: 'pcf' (hard, cheap) or 'soft' (PCFSoft, T2). */
+  shadowFilter: 'pcf' | 'soft';
+  /** Image-based light from the theme's own sky (PMREM), so lit materials pick up the sky colour. */
+  environment: boolean;
+  /**
+   * After the scene: 'none' draws straight to the screen (T0); 'grade' draws into a multisampled HDR target and one final
+   * pass tone-maps, grades and vignettes it (T1); 'full' adds ambient occlusion and a soft bloom before that pass (T2).
+   */
+  post: 'none' | 'grade' | 'full';
+  /** Modelled scenery (glTF props) instead of the built-in shapes, once loaded. */
+  models: boolean;
+  /** Blades of wind-blown grass per square metre beside the road in grassy worlds (0: none, the tufts stay). */
+  grassDensity: number;
 }
 
 /** Index = QualityLevel. T3 (desktop dGPU, 2048 map) of graphics-maps.md is not part of the contract. */
 export const QUALITY_TIERS: readonly [QualityTier, QualityTier, QualityTier] = [
-  { level: 0, label: 'T0', pixelRatioCap: { mobile: 1, desktop: 1 }, shadows: 'off', shadowMapSize: 0, propMaterial: 'lambert', weatherHeavy: 0.2, weatherLight: 0.4, tuftShare: 0.5, fpsCap: 30, blobShadows: true },
-  { level: 1, label: 'T1', pixelRatioCap: { mobile: 1.25, desktop: 1.25 }, shadows: 'actors', shadowMapSize: 1024, propMaterial: 'lambert', weatherHeavy: 1, weatherLight: 1, tuftShare: 0.5, fpsCap: 60, blobShadows: false },
-  { level: 2, label: 'T2', pixelRatioCap: { mobile: 1.6, desktop: 2 }, shadows: 'actors+trees', shadowMapSize: 1024, propMaterial: 'standard', weatherHeavy: 1, weatherLight: 1, tuftShare: 1, fpsCap: 60, blobShadows: false },
+  { level: 0, label: 'T0', pixelRatioCap: { mobile: 1, desktop: 1 }, shadows: 'off', shadowMapSize: 0, propMaterial: 'lambert', weatherHeavy: 0.2, weatherLight: 0.4, tuftShare: 0.5, fpsCap: 30, blobShadows: true, shadowFilter: 'pcf', environment: false, post: 'none', models: false, grassDensity: 0 },
+  { level: 1, label: 'T1', pixelRatioCap: { mobile: 1.25, desktop: 1.25 }, shadows: 'actors', shadowMapSize: 1024, propMaterial: 'lambert', weatherHeavy: 1, weatherLight: 1, tuftShare: 0.5, fpsCap: 60, blobShadows: false, shadowFilter: 'pcf', environment: true, post: 'grade', models: true, grassDensity: 10 },
+  { level: 2, label: 'T2', pixelRatioCap: { mobile: 1.6, desktop: 2 }, shadows: 'actors+trees', shadowMapSize: 1024, propMaterial: 'standard', weatherHeavy: 1, weatherLight: 1, tuftShare: 1, fpsCap: 60, blobShadows: false, shadowFilter: 'soft', environment: true, post: 'full', models: true, grassDensity: 22 },
 ];
 
 export function tierFor(level: QualityLevel): QualityTier {

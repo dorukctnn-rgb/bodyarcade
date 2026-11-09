@@ -17,6 +17,8 @@ import type { QualityTier } from './quality.ts';
 import { buildProp, extraKind, propStyle, variantsOf, type PropBuildKind } from './props.ts';
 import { triangleCount } from './geometry.ts';
 import type { PropDef, Theme } from './theme.ts';
+import { lampGlow, litWindows, modelFor, sizedModel, toneColors, type ModelSet } from './models.ts';
+import { lookOf } from './looks.ts';
 
 
 export const SLICE_LEN = 40;
@@ -102,6 +104,9 @@ export function makePropMaterials(kind: QualityTier['propMaterial']): Record<Mat
 interface SliceMesh {
   main: THREE.InstancedMesh;
   extra: THREE.InstancedMesh | null;
+  /** The built-in shapes, kept for the lowest tier and for a world whose models are not loaded. */
+  builtMain: THREE.BufferGeometry;
+  builtExtra: THREE.BufferGeometry | null;
   def: PropDef;
   defIndex: number;
   variant: number;
@@ -140,6 +145,15 @@ export interface SceneryKit {
   reset(): void;
   /** A quality tier: material family, shadow casting and tuft thinning. Cheap; refills only if the thinning changed. */
   applyTier(tier: QualityTier): void;
+  /**
+   * Draws the props that have a model with it (sized, tinted copies this world owns), or with the built-in shapes again
+   * (null). Only geometries change: the instance positions stay, nothing is refilled.
+   */
+  useModels(models: ModelSet | null): void;
+  /** Props drawn with a model now. */
+  readonly modelled: number;
+  /** Shows or hides the grass tufts (the wind-blown grass field takes their place at T1 and T2). */
+  setTufts(visible: boolean): void;
   stats(): SceneryStats;
 }
 
@@ -205,7 +219,7 @@ export function createScenery(theme: Theme, tracker: ResourceTracker, options: S
           extra.name = `${ex}${v ? `-${v}` : ''}`;
           group.add(extra);
         }
-        meshes.push({ main, extra, def, defIndex, variant: v, family: fam, extraFamily: extraFam, castsShadow: shadowFor(def.kind), trisPerInstance: triangleCount(geo) + (extra ? triangleCount(extra.geometry) : 0) });
+        meshes.push({ main, extra, builtMain: geo, builtExtra: extra ? extra.geometry : null, def, defIndex, variant: v, family: fam, extraFamily: extraFam, castsShadow: shadowFor(def.kind), trisPerInstance: triangleCount(geo) + (extra ? triangleCount(extra.geometry) : 0) });
       }
     });
     tracker.trackObject(group);
@@ -292,9 +306,46 @@ export function createScenery(theme: Theme, tracker: ResourceTracker, options: S
 
   reset();
 
+  // Modelled versions, made once per (prop, variant) when models are first used in this world.
+  const modelOf = new Map<string, { main: THREE.BufferGeometry; extra: THREE.BufferGeometry | null } | null>();
+  let modelled = 0;
+  function modelGeometry(sm: SliceMesh, models: ModelSet): { main: THREE.BufferGeometry; extra: THREE.BufferGeometry | null } | null {
+    const key = `${sm.defIndex}:${sm.variant}`;
+    if (modelOf.has(key)) return modelOf.get(key)!;
+    const fit = modelFor(sm.def.kind, { tint: sm.def.tint, snow: sm.def.snow, variant: sm.variant }, theme.id);
+    const main = fit ? sizedModel(models, fit, sm.def.tint) : null;
+    let made: { main: THREE.BufferGeometry; extra: THREE.BufferGeometry | null } | null = null;
+    if (main) {
+      tracker.track(main);
+      // The glow is found on the model's own colours, then the world's tone quiets the model.
+      const extra = sm.extra ? tracker.track(sm.def.kind === 'lamp' ? lampGlow(main) : litWindows(main)) : null;
+      toneColors(main, lookOf(theme.id).modelTone);
+      made = { main, extra };
+    }
+    modelOf.set(key, made);
+    return made;
+  }
+
   return {
     root,
     get distance() { return distance; },
+    get modelled() { return modelled; },
+    setTufts(visible) {
+      for (const s of slices) for (const sm of s.meshes) if (sm.def.kind === 'tuft') sm.main.visible = visible;
+    },
+    useModels(models) {
+      modelled = 0;
+      for (const s of slices) for (const sm of s.meshes) {
+        const m = models ? modelGeometry(sm, models) : null;
+        const main = m ? m.main : sm.builtMain;
+        const extra = m ? m.extra : sm.builtExtra;
+        if (sm.main.geometry !== main) { sm.main.geometry = main; sm.main.boundingSphere = null; sm.main.boundingBox = null; }
+        if (sm.extra && extra && sm.extra.geometry !== extra) { sm.extra.geometry = extra; sm.extra.boundingSphere = null; sm.extra.boundingBox = null; }
+        sm.trisPerInstance = triangleCount(main) + (sm.extra && extra ? triangleCount(extra) : 0);
+        if (m) modelled++;
+      }
+      update(distance, camZ);
+    },
     cut,
     update,
     reset,
