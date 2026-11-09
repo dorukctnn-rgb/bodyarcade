@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import type { Rng } from '../types/index.ts';
 import type { ResourceTracker } from './dispose.ts';
-import { makeTexture, noisePixels, roadPixels } from './textures.ts';
+import { foamPixels, makeTexture, noisePixels, roadPixels, waterNormalPixels } from './textures.ts';
 import type { Theme } from './theme.ts';
 
 export const GROUND_SIZE = 600;
@@ -17,6 +17,10 @@ export const ROAD_REPEATS = 12;
 /** Metres of ground per repeat of the noise texture, and the noise texture's repeat count over the plane. */
 export const GROUND_TILE_M = GROUND_SIZE / 60;
 export const BASE_COLOR = '#7b746a';
+/** Metres of sea per repeat of the ripple normal map. */
+export const WATER_TILE_M = 11;
+/** Width of the surf strip on each side of a causeway. */
+export const FOAM_WIDTH = 2.2;
 
 /** Soft patches of the two ground colours (the old engine's sine pattern); a water world uses the middle. Writes `out`. */
 export function groundColors(positions: ArrayLike<number>, count: number, ground: string, groundNoise: string, water: boolean, out: Float32Array): Float32Array {
@@ -44,6 +48,8 @@ export interface GroundKit {
   readonly groundTexture: THREE.DataTexture;
   /** Scrolls both textures by the distance the world moved this frame (metres). Offsets are kept in [0, 1). */
   scroll(moveZ: number): void;
+  /** Water worlds: the ripples drift and the surf moves with time (seconds). Nothing for dry worlds. */
+  tick(dt: number): void;
   reset(): void;
 }
 
@@ -55,8 +61,11 @@ export function buildGround(theme: Theme, tracker: ResourceTracker, roadRng: Rng
   const groundGeo = tracker.track(new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE, 48, 48));
   const pos = groundGeo.attributes['position'] as THREE.BufferAttribute;
   groundGeo.setAttribute('color', new THREE.BufferAttribute(groundColors(pos.array, pos.count, theme.ground, theme.groundNoise, theme.water, new Float32Array(pos.count * 3)), 3));
+  // A water world's sea: glossy, with a tileable ripple normal map that drifts, so the sky and the sun glint on it.
+  const ripples = theme.water ? tracker.track(makeTexture(waterNormalPixels(noiseRng), { srgb: false, repeat: [GROUND_SIZE / WATER_TILE_M, GROUND_SIZE / WATER_TILE_M] })) : null;
   const ground = new THREE.Mesh(groundGeo, tracker.track(new THREE.MeshStandardMaterial({
-    vertexColors: true, map: groundTexture, roughness: theme.water ? 0.25 : 1, metalness: theme.water ? 0.15 : 0,
+    vertexColors: true, map: groundTexture, roughness: theme.water ? 0.16 : 1, metalness: theme.water ? 0.05 : 0,
+    ...(ripples ? { normalMap: ripples, normalScale: new THREE.Vector2(0.42, 0.42) } : {}),
   })));
   ground.name = 'ground-plane';
   ground.rotation.x = -Math.PI / 2;
@@ -86,12 +95,48 @@ export function buildGround(theme: Theme, tracker: ResourceTracker, roadRng: Rng
     group.add(base);
   }
 
+  // Surf along both sides of the causeway: a strip of foam, densest at the stone and gone two metres out.
+  let foamTex: THREE.DataTexture | null = null;
+  if (theme.water) {
+    foamTex = tracker.track(makeTexture(foamPixels(noiseRng), { srgb: false, repeat: [1, ROAD_LENGTH / 5] }));
+    // Added light, not blended paint: grey foam blobs times a fade across the strip; black adds nothing.
+    const foamMat = tracker.track(new THREE.MeshBasicMaterial({ map: foamTex, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    const g = tracker.track(new THREE.PlaneGeometry(FOAM_WIDTH, ROAD_LENGTH, 4, 1));
+    const pa = g.attributes['position'] as THREE.BufferAttribute;
+    const col = new Float32Array(pa.count * 3);
+    for (let i = 0; i < pa.count; i++) {
+      const u = Math.min(1, Math.max(0, pa.getX(i) / FOAM_WIDTH + 0.5));   // 0: the causeway side (clamped: 1 - u must not go below 0 in pow)
+      const k = Math.pow(1 - u, 1.5) * 0.85;
+      col.set([k * 0.92, k * 0.97, k], i * 3);
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    for (const side of [-1, 1]) {
+      const foam = new THREE.Mesh(g, foamMat);
+      foam.name = 'surf';
+      foam.rotation.x = -Math.PI / 2;
+      // The texture's left edge is the dense side: the right strip as it is, the left one mirrored.
+      foam.scale.x = side;
+      foam.position.set(side * (theme.road.width / 2 + 0.6 + FOAM_WIDTH / 2), -0.56, ROAD_CENTER_Z);
+      foam.renderOrder = 1;
+      group.add(foam);
+    }
+  }
+  let time = 0;
+
   return {
     group, ground, road, base, roadTexture, groundTexture,
     scroll(moveZ) {
       roadTexture.offset.y = wrap01(roadTexture.offset.y - moveZ / (ROAD_LENGTH / ROAD_REPEATS));
       groundTexture.offset.y = wrap01(groundTexture.offset.y - moveZ / GROUND_TILE_M);
+      if (ripples) ripples.offset.y = wrap01(ripples.offset.y - moveZ / WATER_TILE_M);
+      if (foamTex) foamTex.offset.y = wrap01(foamTex.offset.y - moveZ / 5);
     },
-    reset() { roadTexture.offset.y = 0; groundTexture.offset.y = 0; },
+    tick(dt) {
+      if (!ripples) return;
+      time += dt;
+      ripples.offset.x = wrap01(time * 0.011);
+      if (foamTex) foamTex.offset.x = Math.sin(time * 0.9) * 0.04;
+    },
+    reset() { roadTexture.offset.y = 0; groundTexture.offset.y = 0; time = 0; if (ripples) ripples.offset.set(0, 0); if (foamTex) foamTex.offset.set(0, 0); },
   };
 }

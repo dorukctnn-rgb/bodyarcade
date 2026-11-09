@@ -59,6 +59,9 @@ vec3 baSrgb(vec3 c){ return mix(pow(c, vec3(0.41666)) * 1.055 - vec3(0.055), c *
 float baHash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 void main(){
   vec3 c = texture2D(tScene, vUv).rgb;
+  // One bad pixel (a NaN from any shader) must not turn the whole picture black through the bloom: drop it here.
+  if (any(isnan(c)) || any(isinf(c))) c = vec3(0.0);
+  c = max(c, vec3(0.0));
 #ifdef USE_AO
   float ao = texture2D(tAO, vUv).r;
   c *= mix(1.0, ao, uAO);

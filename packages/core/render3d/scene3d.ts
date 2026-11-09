@@ -468,6 +468,7 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
     w.scenery.update(distance);
     w.grass?.update(distance, reduced ? 0 : w.elapsed);
     w.ground.scroll(moveZ);
+    if (!reduced) w.ground.tick(dt);
     w.sky.update(dt, camera.position, focusX);
     if (w.weather && !reduced) w.weather.update(dt, moveZ);
 

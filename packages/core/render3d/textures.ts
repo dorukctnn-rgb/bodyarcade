@@ -356,3 +356,62 @@ export function makeTexture(px: Pixels, o: TextureOptions = {}): THREE.DataTextu
   t.needsUpdate = true;
   return t;
 }
+
+/**
+ * A tileable normal map of small water ripples (for the sea of a water world): a height field of a few wrapped sine waves
+ * plus seeded value noise, turned into tangent-space normals. Linear data, not colour (make it with srgb: false). Pure.
+ */
+export function waterNormalPixels(rng: Rng, size = 128): Pixels {
+  const h = new Float32Array(size * size);
+  const waves: [number, number, number, number][] = [];
+  for (let i = 0; i < 6; i++) waves.push([1 + Math.floor(rng() * 5), Math.floor(rng() * 7) - 3, rng() * Math.PI * 2, 0.5 + rng()]);
+  // A coarse noise lattice, wrapped, smoothly sampled.
+  const G = 16, lat = new Float32Array(G * G).map(() => rng());
+  const at = (x: number, y: number): number => lat[((y % G + G) % G) * G + ((x % G + G) % G)]!;
+  const smooth = (t: number): number => t * t * (3 - 2 * t);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = x / size, v = y / size;
+    let s = 0;
+    for (const [kx, ky, ph, a] of waves) s += Math.sin((u * kx + v * ky) * Math.PI * 2 + ph) * a;
+    const gx = u * G, gy = v * G, ix = Math.floor(gx), iy = Math.floor(gy), fx = smooth(gx - ix), fy = smooth(gy - iy);
+    const n = (at(ix, iy) * (1 - fx) + at(ix + 1, iy) * fx) * (1 - fy) + (at(ix, iy + 1) * (1 - fx) + at(ix + 1, iy + 1) * fx) * fy;
+    h[y * size + x] = s * 0.18 + n * 0.9;
+  }
+  const px = createPixels(size, size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const hx = h[y * size + ((x + 1) % size)]! - h[y * size + ((x - 1 + size) % size)]!;
+    const hy = h[((y + 1) % size) * size + x]! - h[((y - 1 + size) % size) * size + x]!;
+    const nx = -hx * 2.2, ny = -hy * 2.2, nz = 1;
+    const l = Math.hypot(nx, ny, nz);
+    const i = (y * size + x) * 4;
+    px.data[i] = Math.round((nx / l * 0.5 + 0.5) * 255);
+    px.data[i + 1] = Math.round((ny / l * 0.5 + 0.5) * 255);
+    px.data[i + 2] = Math.round((nz / l * 0.5 + 0.5) * 255);
+    px.data[i + 3] = 255;
+  }
+  return px;
+}
+
+/**
+ * Soft foam blobs, tileable along the strip (v), a bright line at u = 0 (the stone): the surf along a causeway, as grey
+ * levels (drawn as added light; the strip's own fade takes it out to nothing). Pure.
+ */
+export function foamPixels(rng: Rng, size = 128): Pixels {
+  const px = createPixels(size, size, [0, 0, 0, 255]);
+  const a = new Float32Array(size * size);
+  for (let k = 0; k < 90; k++) {
+    const cx = rng() * size, cy = rng() * size, r = 3 + rng() * 10, w = 0.35 + rng() * 0.6;
+    for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) {
+      const d = Math.hypot(x - cx, y - cy) / r;
+      if (d >= 1) continue;
+      const i = ((y % size + size) % size) * size + ((x % size + size) % size);
+      a[i] = Math.min(1, a[i]! + (1 - d * d) * w);
+    }
+  }
+  for (let i = 0; i < size * size; i++) {
+    const u = (i % size) / (size - 1);
+    const v = Math.round(Math.min(1, 0.18 + Math.pow(a[i]!, 1.2) * 0.9 + Math.pow(1 - u, 10) * 0.6) * 255);
+    px.data[i * 4] = v; px.data[i * 4 + 1] = v; px.data[i * 4 + 2] = v;
+  }
+  return px;
+}
