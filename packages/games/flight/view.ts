@@ -63,6 +63,65 @@ export const birdRadius = (lane: Rect): number => Math.max(14, 0.05 * lane.h);
 
 const hash = (n: number): number => { let h = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
 
+type Rgb = [number, number, number];
+const rgbOf = (hex: string): Rgb => { const n = Number.parseInt(hex.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const mixRgb = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const cssOf = (c: Rgb, alpha = 1): string => (alpha >= 1 ? `rgb(${c.map(Math.round).join(',')})` : `rgba(${c.map(Math.round).join(',')},${alpha})`);
+/** a mixed toward b by t (0..1), as a CSS colour. */
+const mix = (a: string, b: string, t: number, alpha = 1): string => cssOf(mixRgb(rgbOf(a), rgbOf(b), t), alpha);
+
+/** The colours a biome derives from its own tokens: depth, haze, shade and glow. Made once per biome. */
+export interface Look {
+  skyTop: string; skyMid: string; horizon: string;
+  glow: [string, string, string];
+  /** Far, middle and near hills: [colour at the top, colour at the foot]. */
+  hills: [[string, string], [string, string], [string, string]];
+  bush: string;
+  cloudLit: string; cloudShade: string;
+  colRim: string; colEdge: string; capRim: string; capShadow: string;
+  groundTop: string; groundDeep: string;
+}
+
+const LOOKS = new Map<Biome['id'], Look>();
+
+export function lookOf(b: Biome): Look {
+  let l = LOOKS.get(b.id);
+  if (l) return l;
+  const [top, low] = b.sky;
+  const midSky = mix(top, low, 0.5);
+  const hex = (c: string): string => { const m = /rgba?\((\d+),(\d+),(\d+)/.exec(c); return m ? `#${[m[1], m[2], m[3]].map((x) => Number(x).toString(16).padStart(2, '0')).join('')}` : c; };
+  const cloudLit = b.stars ? mix(midSky, b.cloud, 0.55) : mix(b.cloud, '#FFFFFF', 0.4);
+  l = {
+    skyTop: mix(top, b.hills[1], b.stars ? 0.12 : 0.2),
+    skyMid: mix(top, low, 0.35),
+    horizon: mix(low, b.orb, b.stars ? 0.2 : 0.4),
+    glow: [mix(b.orb, b.orb, 0, b.stars ? 0.34 : 0.5), mix(b.orb, b.orb, 0, b.stars ? 0.1 : 0.16), mix(b.orb, b.orb, 0, 0)],
+    hills: [
+      [mix(b.hills[0], low, 0.5), mix(b.hills[0], low, 0.78)],
+      [mix(b.hills[0], low, 0.1), mix(b.hills[0], low, 0.45)],
+      [b.hills[1], mix(b.hills[1], low, 0.22)],
+    ],
+    bush: mix(b.hills[1], b.ground, 0.38),
+    cloudLit,
+    cloudShade: mix(hex(cloudLit), b.hills[0], b.stars ? 0.3 : 0.16),
+    colRim: mix(b.pipe.body, b.pipe.shade, 0.6),
+    colEdge: mix(b.pipe.shade, b.ground, 0.28),
+    capRim: mix(b.pipe.cap, b.pipe.capShade, 0.7),
+    capShadow: mix(b.pipe.shade, b.ground, 0.35, 0.55),
+    groundTop: mix(b.ground, b.hills[1], 0.28),
+    groundDeep: mix(b.ground, '#000000', 0.3),
+  };
+  LOOKS.set(b.id, l);
+  return l;
+}
+
+/** The three layers of hills, far to near: parallax, height (share of the lane) and how wavy. */
+const HILLS = [
+  { par: 0.05, base: 0.8, amp: 0.13, f: 0.0012 },
+  { par: 0.12, base: 0.56, amp: 0.09, f: 0.0021 },
+  { par: 0.24, base: 0.34, amp: 0.06, f: 0.0034 },
+] as const;
+
 export function createFlightView(o: FlightViewOptions): FlightView {
   const { stage, say } = o;
   const ctx = stage.ctx;
@@ -77,7 +136,7 @@ export function createFlightView(o: FlightViewOptions): FlightView {
 
   const grad = (key: string, make: () => CanvasGradient): CanvasGradient => {
     let g = gradients.get(key);
-    if (!g) { g = make(); gradients.set(key, g); if (gradients.size > 24) gradients.delete(gradients.keys().next().value as string); }
+    if (!g) { g = make(); gradients.set(key, g); if (gradients.size > 40) gradients.delete(gradients.keys().next().value as string); }
     return g;
   };
 
@@ -101,93 +160,171 @@ export function createFlightView(o: FlightViewOptions): FlightView {
 
   // ───────── scenery ─────────
 
-  function sky(b: Biome, region: Rect, ground: number): void {
-    ctx.fillStyle = grad(`sky|${b.id}|${Math.round(region.h)}`, () => {
-      const g = ctx.createLinearGradient(0, 0, 0, ground);
-      g.addColorStop(0, b.sky[0]);
-      g.addColorStop(1, b.sky[1]);
+  function sky(b: Biome, L: Look, region: Rect, ground: number): void {
+    ctx.fillStyle = grad(`sky|${b.id}|${Math.round(region.y)}|${Math.round(ground)}`, () => {
+      const g = ctx.createLinearGradient(0, region.y, 0, ground);
+      g.addColorStop(0, L.skyTop);
+      g.addColorStop(0.5, L.skyMid);
+      g.addColorStop(0.86, b.sky[1]);
+      g.addColorStop(1, L.horizon);
       return g;
     });
     ctx.fillRect(region.x, region.y, region.w, region.h);
     if (b.stars) {
       ctx.fillStyle = '#F4F2F8';
-      for (let i = 0; i < 38; i++) {
+      for (let i = 0; i < 46; i++) {
         const sx = region.x + hash(i * 3 + 1) * region.w, sy = region.y + hash(i * 3 + 2) * ground * 0.7;
+        const big = hash(i * 3 + 4) > 0.86;
         ctx.globalAlpha = 0.25 + hash(i * 3 + 3) * 0.6;
-        ctx.fillRect(sx, sy, 2, 2);
+        ctx.fillRect(sx, sy, big ? 3 : 2, big ? 3 : 2);
       }
       ctx.globalAlpha = 1;
     }
   }
 
-  function orb(b: Biome, lane: Rect, ground: number): void {
-    ctx.globalAlpha = b.stars ? 0.95 : 0.85;
+  /** The sun or the moon, with a wide soft glow around it (one cached gradient, moved into place). */
+  function orb(b: Biome, L: Look, lane: Rect, ground: number): void {
+    const r = Math.max(16, lane.h * 0.07);
+    const R = r * 4;
+    ctx.save();
+    ctx.translate(lane.x + lane.w * 0.78, ground * 0.2);
+    ctx.fillStyle = grad(`glow|${b.id}|${Math.round(r)}`, () => {
+      const g = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, R);
+      g.addColorStop(0, L.glow[0]);
+      g.addColorStop(0.3, L.glow[1]);
+      g.addColorStop(1, L.glow[2]);
+      return g;
+    });
+    ctx.fillRect(-R, -R, R * 2, R * 2);
+    ctx.globalAlpha = b.stars ? 0.95 : 0.92;
     ctx.fillStyle = b.orb;
     ctx.beginPath();
-    ctx.arc(lane.x + lane.w * 0.78, ground * 0.2, Math.max(16, lane.h * 0.07), 0, TAU);
+    ctx.arc(0, 0, r, 0, TAU);
     ctx.fill();
+    ctx.restore();
     ctx.globalAlpha = 1;
   }
 
-  function hills(b: Biome, region: Rect, ground: number, h: number, scrollPx: number): void {
-    const layers = [{ color: b.hills[0], par: 0.1, base: 0.5, amp: 0.1, f: 0.0016 }, { color: b.hills[1], par: 0.22, base: 0.62, amp: 0.085, f: 0.0026 }];
-    for (const L of layers) {
-      ctx.fillStyle = L.color;
-      ctx.beginPath();
-      ctx.moveTo(region.x, ground);
-      for (let px = 0; px <= region.w + 12; px += 12) {
-        const wx = (px + scrollPx * L.par) * L.f * (h / 700 > 0 ? 700 / h : 1);
-        const y = ground - h * (L.base * 0.55 + L.amp * (0.6 * wave(wx) + 0.4 * wave(wx * 2.3 + 0.37)));
-        ctx.lineTo(region.x + px, y);
-      }
-      ctx.lineTo(region.x + region.w, ground);
-      ctx.closePath();
-      ctx.fill();
+  /**
+   * One layer of hills: the far ones paler and taller (there is air in between), the near ones lower and in the biome's
+   * own colour; each fades into the haze of the valley at its foot.
+   */
+  function hillLayer(b: Biome, L: Look, layer: 0 | 1 | 2, region: Rect, ground: number, h: number, scrollPx: number): void {
+    const H = HILLS[layer];
+    const peak = ground - h * (H.base * 0.55 + H.amp);
+    ctx.fillStyle = grad(`hill${layer}|${b.id}|${Math.round(ground)}|${Math.round(h)}`, () => {
+      const g = ctx.createLinearGradient(0, peak, 0, ground);
+      g.addColorStop(0, L.hills[layer][0]);
+      g.addColorStop(1, L.hills[layer][1]);
+      return g;
+    });
+    const k = 700 / h;
+    ctx.beginPath();
+    ctx.moveTo(region.x, ground);
+    for (let px = 0; px <= region.w + 12; px += 12) {
+      const wx = (px + scrollPx * H.par) * H.f * k;
+      const y = ground - h * (H.base * 0.55 + H.amp * (0.6 * wave(wx) + 0.4 * wave(wx * 2.3 + 0.37)));
+      ctx.lineTo(region.x + px, y);
     }
+    ctx.lineTo(region.x + region.w, ground);
+    ctx.closePath();
+    ctx.fill();
   }
 
-  function clouds(b: Biome, region: Rect, lane: Rect, scrollPx: number): void {
-    ctx.fillStyle = b.cloud;
-    ctx.globalAlpha = b.stars ? 0.5 : 0.8;
+  /** A row of round bushes (drifts, on the ice) standing on the ground between the hills and the columns. */
+  function bushes(L: Look, region: Rect, ground: number, h0: number, scrollPx: number): void {
+    const h = Math.min(h0, region.w);   // a phone held upright keeps small bushes
+    const step = h * 0.075;
+    const off = scrollPx * 0.5;
+    const first = Math.floor(off / step) - 1, last = Math.ceil((off + region.w) / step) + 1;
+    ctx.fillStyle = L.bush;
+    ctx.beginPath();
+    for (let i = first; i <= last; i++) {
+      if (hash(i * 7 + 5) < 0.28) continue;   // gaps, so that it reads as bushes and not as a wall
+      const x = region.x + i * step - off + hash(i * 7 + 1) * step * 0.4;
+      const r = h * (0.026 + hash(i * 7 + 2) * 0.034);
+      ctx.moveTo(x + r, ground);
+      ctx.arc(x, ground, r, 0, Math.PI, true);
+    }
+    ctx.fill();
+  }
+
+  /** A cloud is three overlapping ovals; each oval starts a sub-path of its own (no joining line, so no wedge at its side). */
+  function cloudPath(x: number, y: number, w: number): void {
+    ctx.moveTo(x + w, y);
+    ctx.ellipse(x, y, w, w * 0.34, 0, 0, TAU);
+    ctx.moveTo(x + w * 0.05, y + w * 0.1);
+    ctx.ellipse(x - w * 0.55, y + w * 0.1, w * 0.6, w * 0.26, 0, 0, TAU);
+    ctx.moveTo(x + w * 1.15, y + w * 0.12);
+    ctx.ellipse(x + w * 0.6, y + w * 0.12, w * 0.55, w * 0.24, 0, 0, TAU);
+  }
+
+  function clouds(L: Look, region: Rect, lane: Rect, scrollPx: number): void {
     for (let i = 0; i < 5; i++) {
       const span = region.w + 240;
       const x = region.x + ((((hash(i + 11) * span - scrollPx * (0.04 + 0.01 * i)) % span) + span) % span) - 120;
       const y = lane.y + lane.h * (0.12 + hash(i + 31) * 0.4);
       const w = lane.h * (0.12 + hash(i + 51) * 0.1);
+      // The shaded underside first, the lit body a little higher over it.
+      ctx.fillStyle = L.cloudShade;
       ctx.beginPath();
-      ctx.ellipse(x, y, w, w * 0.34, 0, 0, TAU);
-      ctx.ellipse(x - w * 0.55, y + w * 0.1, w * 0.6, w * 0.26, 0, 0, TAU);
-      ctx.ellipse(x + w * 0.6, y + w * 0.12, w * 0.55, w * 0.24, 0, 0, TAU);
+      cloudPath(x, y + w * 0.07, w);
+      ctx.fill();
+      ctx.fillStyle = L.cloudLit;
+      ctx.beginPath();
+      cloudPath(x, y - w * 0.02, w * 0.97);
       ctx.fill();
     }
-    ctx.globalAlpha = 1;
   }
 
-  function column(b: Biome, cx: number, w: number, yFrom: number, yTo: number, capEdge: 'top' | 'bottom', capH: number, moving: boolean): void {
+  function column(b: Biome, L: Look, cx: number, w: number, yFrom: number, yTo: number, capEdge: 'top' | 'bottom', capH: number, moving: boolean): void {
     if (yTo - yFrom < 1) return;
     const p = b.pipe;
-    const x = cx - w / 2;
-    ctx.fillStyle = p.body;
-    ctx.fillRect(x, yFrom, w, yTo - yFrom);
-    ctx.fillStyle = p.lit;
-    ctx.fillRect(x + w * 0.1, yFrom, w * 0.16, yTo - yFrom);
-    ctx.fillStyle = p.shade;
-    ctx.fillRect(x + w * 0.68, yFrom, w * 0.32, yTo - yFrom);
-    // The cap: wider, rounded, on the edge of the gap.
     const cw = w * 1.34;
     const cy = capEdge === 'top' ? yTo - capH : yFrom;
-    ctx.fillStyle = p.cap;
-    roundedRectPath(ctx, { x: cx - cw / 2, y: cy, w: cw, h: capH }, capH * 0.4);
+    ctx.save();
+    // The body: a round column lit from the left (one cached gradient across its width, moved into place).
+    ctx.translate(cx - w / 2, 0);
+    ctx.fillStyle = grad(`col|${b.id}|${Math.round(w)}`, () => {
+      const g = ctx.createLinearGradient(0, 0, w, 0);
+      g.addColorStop(0, L.colRim);
+      g.addColorStop(0.1, p.lit);
+      g.addColorStop(0.3, p.lit);
+      g.addColorStop(0.42, p.body);
+      g.addColorStop(0.64, p.body);
+      g.addColorStop(0.78, p.shade);
+      g.addColorStop(1, L.colEdge);
+      return g;
+    });
+    ctx.fillRect(0, yFrom, w, yTo - yFrom);
+    // The cap throws a soft shadow on the body under it (the light comes from above).
+    if (capEdge === 'bottom') {
+      ctx.fillStyle = L.capShadow;
+      ctx.fillRect(0, cy + capH, w, Math.min(capH * 0.55, Math.max(0, yTo - cy - capH)));
+    }
+    ctx.translate(-(cw - w) / 2, 0);
+    ctx.fillStyle = grad(`cap|${b.id}|${Math.round(cw)}`, () => {
+      const g = ctx.createLinearGradient(0, 0, cw, 0);
+      g.addColorStop(0, L.capRim);
+      g.addColorStop(0.08, p.cap);
+      g.addColorStop(0.62, p.cap);
+      g.addColorStop(0.76, p.capShade);
+      g.addColorStop(1, L.colEdge);
+      return g;
+    });
+    roundedRectPath(ctx, { x: 0, y: cy, w: cw, h: capH }, capH * 0.4);
     ctx.fill();
+    // The lower lip of the cap is in its own shade.
     ctx.fillStyle = p.capShade;
-    ctx.fillRect(cx - cw / 2 + cw * 0.7, cy + capH * 0.12, cw * 0.26, capH * 0.76);
+    ctx.fillRect(capH * 0.3, cy + capH * 0.78, cw - capH * 0.6, capH * 0.14);
     if (moving) {
       ctx.fillStyle = '#FF4F6E';
-      ctx.fillRect(cx - cw / 2 + capH * 0.3, cy + capH * 0.42, cw - capH * 0.6, Math.max(2, capH * 0.16));
+      ctx.fillRect(capH * 0.3, cy + capH * 0.42, cw - capH * 0.6, Math.max(2, capH * 0.16));
     }
+    ctx.restore();
   }
 
-  function columns(b: Biome, s: Readonly<FlightState>, lane: Rect, region: Rect, scroll: number, sx: number, birdX: number, ground: number): void {
+  function columns(b: Biome, L: Look, s: Readonly<FlightState>, lane: Rect, region: Rect, scroll: number, sx: number, birdX: number, ground: number): void {
     const capH = Math.max(10, 0.042 * lane.h);
     const w = Math.max(WORLD.pipeW * sx, 0.05 * lane.h);
     for (const p of s.pipes) {
@@ -196,14 +333,21 @@ export function createFlightView(o: FlightViewOptions): FlightView {
       const c = gapCentre(p, s.active);
       const top = lane.y + (c - p.h / 2) * lane.h;
       const bottom = lane.y + (c + p.h / 2) * lane.h;
-      column(b, cx, w, region.y - 4, top, 'top', capH, p.amp > 0);
-      column(b, cx, w, bottom, ground + 2, 'bottom', capH, p.amp > 0);
+      column(b, L, cx, w, region.y - 4, top, 'top', capH, p.amp > 0);
+      column(b, L, cx, w, bottom, ground + 2, 'bottom', capH, p.amp > 0);
     }
   }
 
-  function groundBand(b: Biome, region: Rect, ground: number, scrollPx: number): void {
-    ctx.fillStyle = b.ground;
-    ctx.fillRect(region.x, ground, region.w, region.y + region.h - ground);
+  function groundBand(b: Biome, L: Look, region: Rect, ground: number, scrollPx: number): void {
+    const bottom = region.y + region.h;
+    ctx.fillStyle = grad(`ground|${b.id}|${Math.round(ground)}|${Math.round(bottom)}`, () => {
+      const g = ctx.createLinearGradient(0, ground, 0, bottom);
+      g.addColorStop(0, L.groundTop);
+      g.addColorStop(0.3, b.ground);
+      g.addColorStop(1, L.groundDeep);
+      return g;
+    });
+    ctx.fillRect(region.x, ground, region.w, bottom - ground);
     ctx.fillStyle = b.groundLine;
     ctx.fillRect(region.x, ground, region.w, Math.max(3, region.h * 0.006));
     // Dashes slide past with the course.
@@ -213,6 +357,17 @@ export function createFlightView(o: FlightViewOptions): FlightView {
     const off = ((scrollPx % gap) + gap) % gap;
     const y = ground + Math.max(12, region.h * 0.03);
     for (let x = region.x - off; x < region.x + region.w; x += gap) ctx.fillRect(x, y, len, 3);
+    ctx.globalAlpha = 1;
+  }
+
+  /** The bird's shadow on the ground: dark and wide near it, small and faint high up (its height, at a glance). */
+  function birdShadow(x: number, y: number, r: number, ground: number, h: number): void {
+    const up = clamp((ground - y) / (h * 0.7), 0, 1);
+    ctx.globalAlpha = 0.07 + 0.26 * (1 - up);
+    ctx.fillStyle = '#0B0816';
+    ctx.beginPath();
+    ctx.ellipse(x, ground + Math.max(3, h * 0.006) + r * 0.08, r * (1.15 - 0.55 * up), r * (0.22 - 0.1 * up), 0, 0, TAU);
+    ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -253,6 +408,14 @@ export function createFlightView(o: FlightViewOptions): FlightView {
     ctx.beginPath();
     ctx.ellipse(r * 0.12, r * 0.38, r * 0.62, r * 0.42, -0.15, 0, TAU);
     ctx.fill();
+    // A soft light on the crown: the body reads round.
+    const a0 = ctx.globalAlpha;
+    ctx.globalAlpha = a0 * 0.3;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.28, -r * 0.5, r * 0.42, r * 0.2, -0.45, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = a0;
     // beak
     ctx.fillStyle = pal.beak;
     ctx.beginPath();
@@ -410,15 +573,21 @@ export function createFlightView(o: FlightViewOptions): FlightView {
     ctx.save();
     if (o.players === 2) { ctx.beginPath(); ctx.rect(region.x, region.y, region.w, region.h); ctx.clip(); }
     if (shake > 0.01 && !o.reducedMotion) ctx.translate((o.rng() - 0.5) * shake * lane.h * 0.03, (o.rng() - 0.5) * shake * lane.h * 0.03);
-    sky(b, region, ground);
-    orb(b, lane, ground);
-    hills(b, region, ground, lane.h, scrollPx);
-    clouds(b, region, lane, scrollPx);
-    columns(b, s, lane, region, f.scroll, sx, birdX, ground);
-    groundBand(b, region, ground, scrollPx);
+    const L = lookOf(b);
+    sky(b, L, region, ground);
+    orb(b, L, lane, ground);
+    // Far hills behind the clouds, the nearer ones in front of the low clouds: the sky gets its depth.
+    hillLayer(b, L, 0, region, ground, lane.h, scrollPx);
+    clouds(L, region, lane, scrollPx);
+    hillLayer(b, L, 1, region, ground, lane.h, scrollPx);
+    hillLayer(b, L, 2, region, ground, lane.h, scrollPx);
+    bushes(L, region, ground, lane.h, scrollPx);
+    columns(b, L, s, lane, region, f.scroll, sx, birdX, ground);
+    groundBand(b, L, region, ground, scrollPx);
     const r = birdRadius(lane);
     const by = lane.y + (f.y[laneNo] ?? l.y) * lane.h;
     birds[laneNo] = { x: birdX, y: by, r };
+    birdShadow(birdX, by, r, ground, lane.h);
     bird(laneNo, l, birdX, by, r, l.vy, f.time);
     if (!s.duel) feathers(lane, l.lives, lv.lives, laneNo === 1 ? '#46B4FF' : '#FF4F6E');
     setPips(lane, s);
