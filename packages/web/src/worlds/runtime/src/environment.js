@@ -44,31 +44,45 @@ export function addReflectingLake(w,sun){
  return water.material;
 }
 
-// Low islands out on the lake, one every 60-85 m: a mound of land with a rocky shore, crowned by pines (two stacked
-// cones) and rounded broadleaf trees, taller toward the middle; beyond them a far shore, pale in the haze. Instanced, no
-// shadows (they are 40 m and more away), fewer trees on the low tier.
+// Low islands out on the lake, 15-30 m off the boardwalk, one every 60-85 m. Each is its own piece of terrain: an uneven shoreline, a rocky rim that
+// slopes into the water, sand and stone at the waterline and grass on the crown, all in vertex colour; the same modelled
+// broadleaf trees as the bank (their far detail level), bushes along the tree line and boulders on the shore. Beyond them a
+// far shore, pale in the haze. No shadows (they are 40 m and more away); fewer trees and bushes on the low tier and phones.
 function addIslands(w){
- const r=w.rng,low=w.quality==='low',land=[],shore=[],pines=[],crowns=[],ridge=[];
- for(let z=30;z>-w.length-90;z-=60+r()*25){
-  const cx=40+r()*22,R=8+r()*7,H=1.6+r()*1.4;
-  land.push({x:cx,y:-.35,z,sx:R*.75,sy:H,sz:R,ry:r()*.4,color:['#5d6f46','#66774c','#56683f'][Math.floor(r()*3)]});
-  for(let k=0;k<12;k++){const a=k/12*Math.PI*2+r()*.4,s=.6+r()*1.3;shore.push({x:cx+Math.cos(a)*R*.7,y:s*.12,z:z+Math.sin(a)*R*.93,sx:s*1.3,sy:s*.6,sz:s,ry:r()*6,color:['#7f8274','#8d8d7f','#6d7268'][k%3]});}
-  const n=low?12:26;
-  for(let k=0;k<n;k++){
-   const a=r()*Math.PI*2,q=Math.sqrt(r())*.78,px=cx+Math.cos(a)*q*R*.75,pz=z+Math.sin(a)*q*R,g=H*Math.sqrt(Math.max(0,1-q*q))-.35;
-   if(r()<.62){const h=(4.5+r()*5)*(1.15-q*.5),s=.9+r()*.7,c=['#2c4634','#33503a','#294232','#3a5940'][k%4];
-    pines.push({x:px,y:g+h*.38,z:pz,sx:s,sy:h*.76,sz:s,ry:r()*6,color:c});
-    pines.push({x:px,y:g+h*.74,z:pz,sx:s*.62,sy:h*.52,sz:s*.62,ry:r()*6,color:c});}
-   else{const s=1.8+r()*1.6;crowns.push({x:px,y:g+2.2+s*.6,z:pz,sx:s*1.1,sy:s*.85,sz:s*1.1,ry:r()*6,color:['#43603e','#4b6a43','#3c5638'][k%3]});}
+ const r=w.rng,few=w.quality==='low'||matchMedia('(pointer: coarse)').matches,variants=w.woodland?.variants??[];
+ const RINGS=12,SEG=48,pos=[],col=[],idx=[],rocks=[],bushes=[],ridge=[],forest=variants.map(()=>[]);
+ const wet=new T.Color('#5c5a4c'),stone=new T.Color('#85836f'),sand=new T.Color('#a59b7a'),meadow=new T.Color('#6e7c45'),grass=new T.Color('#55693a'),shade=new T.Color('#425430'),c=new T.Color();
+ for(let z0=-40;z0>-w.length-90;z0-=60+r()*25){
+  const isl={x:30+r()*14,z:z0,R:10+r()*8,H:2+r()*1.6,p:r()*6.28,q:r()*6.28};
+  const edge=a=>1+.16*Math.sin(3*a+isl.p)+.09*Math.sin(5*a+isl.q)+.05*Math.sin(9*a+isl.p*2);
+  const at=(t,a)=>{const e=edge(a),k=Math.max(0,1-t*t),y=(isl.H+.55)*Math.pow(k,1.15)-.55+.32*t*(1-t)*Math.sin(4*a+isl.q)*Math.sin(7*t+isl.p);
+   return [isl.x+Math.cos(a)*t*isl.R*.75*e,y,isl.z+Math.sin(a)*t*isl.R*e];};
+  const base=pos.length/3;
+  for(let i=0;i<=RINGS;i++)for(let j=0;j<(i?SEG:1);j++){
+   const t=i/RINGS,a=j/SEG*Math.PI*2,[x,y,z]=at(t,a),n=(Math.sin(x*1.3+z*.7)*Math.sin(z*1.1-x*.5)+1)*.5;
+   if(y<.06)c.copy(wet).lerp(stone,n*.7);else if(y<.42)c.copy(stone).lerp(sand,n);else c.copy(meadow).lerp(n>.5?grass:shade,Math.min(1,(y-.42)*1.6)*(.45+n*.55));
+   pos.push(x,y,z);col.push(c.r,c.g,c.b);
   }
+  const ring=(i,j)=>base+(i?1+(i-1)*SEG+((j+SEG)%SEG):0);
+  for(let j=0;j<SEG;j++)idx.push(ring(0,0),ring(1,j+1),ring(1,j));
+  for(let i=1;i<RINGS;i++)for(let j=0;j<SEG;j++){const a=ring(i,j),b=ring(i,j+1),cc=ring(i+1,j),d=ring(i+1,j+1);idx.push(a,b,cc,b,d,cc);}
+  // Boulders where the land meets the water.
+  for(let k=0;k<(few?8:14);k++){const a=r()*Math.PI*2,[x,,z]=at(.8+r()*.12,a),s=.5+r()*1.1;rocks.push({x,y:-.1+s*.2,z,sx:s*1.25,sy:s*.62,sz:s,ry:r()*6,color:['#8a8d7d','#9c9b88','#747c70'][k%3]});}
+  // Bushes along the tree line, trees on the crown, taller toward the middle.
+  for(let k=0;k<(few?6:12);k++){const a=r()*Math.PI*2,[x,y,z]=at(.55+r()*.22,a),s=.7+r()*.9;bushes.push({x,y:y+s*.22,z,sx:s*1.3,sy:s*.75,sz:s*1.1,ry:r()*6,color:['#3f5530','#4a6234','#3a4f2c','#536a37'][k%4]});}
+  if(variants.length)for(let k=0;k<(few?10:22);k++){const t=Math.sqrt(r())*.66,a=r()*Math.PI*2,[x,y,z]=at(t,a),s=(.1+r()*.07)*(1.15-t*.5);
+   forest[k%variants.length].push({x,y:y-.15,z,sx:s*.85,sy:s*(.9+r()*.25),sz:s*.85,ry:r()*6.28,rz:(r()-.5)*.06});}
  }
+ const land=new T.BufferGeometry();land.setAttribute('position',new T.Float32BufferAttribute(pos,3));land.setAttribute('color',new T.Float32BufferAttribute(col,3));land.setIndex(idx);land.computeVertexNormals();
+ w.mesh(land,w.mat('#ffffff',{vertexColors:true,roughness:1})).castShadow=false;
+ w.batch(new T.IcosahedronGeometry(1,1),w.mat('#b2b2a4',{map:w.texture('rock.webp',1)}),rocks,false);
+ // A lumpy bush: an icosahedron pushed in and out so no two sides read the same, shaded round (normals point outward from
+ // the centre, so the shared corners of its faces get one normal).
+ const bush=new T.IcosahedronGeometry(1,2),bp=bush.attributes.position,bn=bush.attributes.normal;for(let i=0;i<bp.count;i++){const x=bp.getX(i),y=bp.getY(i),z=bp.getZ(i),k=1+.18*Math.sin(x*5.1+z*3.7)+.12*Math.sin(y*6.3-x*2.9);bp.setXYZ(i,x*k,Math.max(-.35,y)*k,z*k);bn.setXYZ(i,x,y,z);}
+ w.batch(bush,w.mat('#ffffff',{roughness:.95}),bushes,false);
+ const lod=w.quality==='low'?2:1;variants.forEach((v,i)=>{w.batch(v.geo[lod].branches,v.bark,forest[i],false);w.batch(v.geo[lod].leaves,v.leaf,forest[i],false);});
  for(let i=0;i<14;i++)ridge.push({x:104+r()*14,y:-2.5,z:50-i*30,sx:20+r()*16,sy:5+r()*6,sz:22,ry:r()*6,color:['#5d7466','#667d6c','#57705f'][i%3]});
- const soft=w.mat('#ffffff',{roughness:1}),facet=w.mat('#ffffff',{roughness:1,flatShading:true});
- w.batch(new T.IcosahedronGeometry(1,3),soft,land,false);
- w.batch(new T.IcosahedronGeometry(1,0),facet,shore,false);
- w.batch(new T.ConeGeometry(1,1,7),facet,pines,false);
- w.batch(new T.IcosahedronGeometry(1,1),facet,crowns,false);
- w.batch(new T.IcosahedronGeometry(1,2),soft,ridge,false);
+ w.batch(new T.IcosahedronGeometry(1,2),w.mat('#ffffff',{roughness:1}),ridge,false);
 }
 
 // Adapted mrdoob Codevember 05 geometry: solid leaves, not image cards.

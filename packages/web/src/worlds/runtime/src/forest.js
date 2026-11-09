@@ -28,7 +28,7 @@ export function buildWoodland(w,{treesOnly=false}={}){
    const a=variants[v],g=a.geo[lod];bands[lod].push(w.batch(g.branches,a.bark,positions[v],lod===0),w.batch(g.leaves,a.leaf,positions[v],lod===0));
   }chunks.push({center:cell*26+13,bands});
  }
- if(treesOnly)return{update(d,time){shaders.forEach(s=>s.uniforms.forestTime.value=time);for(const c of chunks){const dist=Math.abs(c.center-d),level=dist<24?0:dist<60?1:2;c.bands.forEach((ms,l)=>ms.forEach(m=>m.visible=dist<135&&l===level));}}};
+ if(treesOnly)return{variants,update(d,time){shaders.forEach(s=>s.uniforms.forestTime.value=time);for(const c of chunks){const dist=Math.abs(c.center-d),level=dist<24?0:dist<60?1:2;c.bands.forEach((ms,l)=>ms.forEach(m=>m.visible=dist<135&&l===level));}}};
  // Uneven forest floor; a narrow dirt footpath is left open by placement.
  const ground=new T.PlaneGeometry(100,w.length+90,100,340);ground.rotateX(-Math.PI/2);ground.translate(0,0,-w.length/2);const pos=ground.attributes.position;for(let i=0;i<pos.count;i++)pos.setY(i,forestHeight(pos.getX(i),pos.getZ(i)));ground.computeVertexNormals();
  const dirt=tex('floor'),floorNormal=tex('floorNormal',false),floorRough=tex('floorRough',false);for(const t of [dirt,floorNormal,floorRough])t.repeat.set(31.25,(w.length+90)/3.2);
