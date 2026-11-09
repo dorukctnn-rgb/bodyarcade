@@ -72,7 +72,11 @@ export const wallStart = (T: number): number => clamp(80 / (2 * WALL.halfW * T),
 
 const holeStyle = (rim: string): MoverStyle => ({ body: rim, head: rim, edge: null, bandL: rim, bandR: rim });
 const HOLE_DARK: MoverStyle = holeStyle(NIGHT.hole);
-const SLAB = { top: '#4B3D88', bottom: '#2D2356', lip: '#5A4A9E', edge: '#7567C8', seam: '#6A5BB0' } as const;
+const SLAB = { top: '#5A4A9E', mid: '#3D3176', bottom: '#251C4A', lip: '#6A59B4', edge: '#8A7BE0', seam: '#1E1640', shine: '#C9BEFF', shadow: '#05030F', sideShade: 'rgba(10, 6, 30, 0.42)', inner: '#2A2052' } as const;
+/** The inner faces of a hole: the slab's own stone, in shade. */
+const HOLE_INNER: MoverStyle = holeStyle(SLAB.inner);
+/** How deep the slab is: the far side of its hole is drawn at this share of the near side's size, toward the end of the corridor. */
+const SLAB_DEPTH = 0.93;
 const PLAYER_RING = [SUN, SKY] as const;
 
 type Look = 'pending' | 'locked' | 'passed' | 'missed' | 'skipped';
@@ -143,28 +147,57 @@ export function createPoseWallView(ctx: GameContext, stage: Stage, o: { reducedM
     const wd = 2 * WALL.halfW * T;
     const ht = (WALL.top + WALL.bottom) * T;
     c.save();
-    c.globalAlpha = alpha * fade;
-    // the slab: a lit top, seams, a lip
+    const a = alpha * fade;
+    // its shadow on the floor, where the slab stands
+    c.globalAlpha = a * 0.45;
+    c.fillStyle = SLAB.shadow;
+    c.beginPath();
+    c.ellipse(px, y + ht + 0.02 * T, wd * 0.56, 0.2 * T, 0, 0, Math.PI * 2);
+    c.fill();
+    c.globalAlpha = a;
+    // the slab: lit from the glow at the end of the corridor (a bright top fading down), darker toward its sides
     const g = c.createLinearGradient(0, y, 0, y + ht);
     g.addColorStop(0, SLAB.top);
+    g.addColorStop(0.55, SLAB.mid);
     g.addColorStop(1, SLAB.bottom);
     c.fillStyle = g;
     roundedRect(c, x, y, wd, ht, 0.22 * T);
     c.fill();
+    const side = c.createLinearGradient(x, 0, x + wd, 0);
+    side.addColorStop(0, SLAB.sideShade);
+    side.addColorStop(0.18, 'rgba(10, 6, 30, 0)');
+    side.addColorStop(0.82, 'rgba(10, 6, 30, 0)');
+    side.addColorStop(1, SLAB.sideShade);
+    c.fillStyle = side;
+    roundedRect(c, x, y, wd, ht, 0.22 * T);
+    c.fill();
+    // panels: a course of blocks, joints offset row by row
+    c.globalAlpha = a * 0.3;
+    c.strokeStyle = SLAB.seam;
+    c.lineWidth = Math.max(1, 0.03 * T);
+    c.beginPath();
+    const rows = 5;
+    for (let r = 1; r < rows; r++) { const yy = y + (ht * r) / rows; c.moveTo(x + 0.1 * T, yy); c.lineTo(x + wd - 0.1 * T, yy); }
+    for (let r = 0; r < rows; r++) {
+      const y0 = y + (ht * r) / rows, y1 = y + (ht * (r + 1)) / rows;
+      for (let k = r % 2 === 0 ? 1 : 0.5; k < 3; k += 1) { const xx = x + (wd * k) / 3; c.moveTo(xx, y0 + 1); c.lineTo(xx, y1 - 1); }
+    }
+    c.stroke();
+    // the rim of the slab: a bright top edge, a soft outline
+    c.globalAlpha = a * 0.7;
     c.strokeStyle = SLAB.edge;
     c.lineWidth = Math.max(1, 0.05 * T);
-    c.globalAlpha = alpha * fade * 0.7;
+    roundedRect(c, x, y, wd, ht, 0.22 * T);
     c.stroke();
-    c.globalAlpha = alpha * fade * 0.22;
-    c.strokeStyle = SLAB.seam;
-    c.lineWidth = Math.max(1, 0.035 * T);
-    c.beginPath();
-    for (const f of [0.28, 0.52, 0.76]) { c.moveTo(x + 0.12 * T, y + ht * f); c.lineTo(x + wd - 0.12 * T, y + ht * f); }
-    c.stroke();
-    c.globalAlpha = alpha * fade;
+    c.globalAlpha = a;
     c.fillStyle = SLAB.lip;
-    roundedRect(c, x + 0.1 * T, y + 0.1 * T, wd - 0.2 * T, 0.2 * T, 0.1 * T);
+    roundedRect(c, x + 0.1 * T, y + 0.08 * T, wd - 0.2 * T, 0.16 * T, 0.08 * T);
     c.fill();
+    c.globalAlpha = a * 0.55;
+    c.fillStyle = SLAB.shine;
+    roundedRect(c, x + 0.3 * T, y + 0.1 * T, wd - 0.6 * T, 0.05 * T, 0.025 * T);
+    c.fill();
+    c.globalAlpha = a;
     // the place in a series: one dot for each wall of it, filled up to this one
     if (w.of > 1) {
       for (let i = 0; i < w.of; i++) {
@@ -180,8 +213,13 @@ export function createPoseWallView(ctx: GameContext, stage: Stage, o: { reducedM
     const rim = state === 'locked' || state === 'passed' ? MINT : state === 'missed' ? FLUSH : state === 'skipped' ? NIGHT.line : mixHex(SUN, MINT, glow * glow);
     const hy = py + hole.down * T;
     const lit = state === 'locked' || state === 'passed' ? 1.5 * RIM_FAT : RIM_FAT;
-    drawFigure(c, { x: px, y: hy, T, limbs: hole.limbs, fat: HOLE_FAT + lit, upperOnly: seated, alpha: alpha * fade }, holeStyle(rim));
-    drawFigure(c, { x: px, y: hy, T, limbs: hole.limbs, fat: HOLE_FAT, upperOnly: seated, alpha: alpha * fade }, HOLE_DARK);
+    // the rim's glow, the rim, then the hole's inner faces (the slab is thick) and, deeper in, the opening onto the night
+    // beyond: the same shape a little smaller and nearer the end of the corridor, as the far side of a hole looks
+    drawFigure(c, { x: px, y: hy, T, limbs: hole.limbs, fat: HOLE_FAT + lit + 0.9, upperOnly: seated, alpha: a * 0.22 }, holeStyle(rim));
+    drawFigure(c, { x: px, y: hy, T, limbs: hole.limbs, fat: HOLE_FAT + lit, upperOnly: seated, alpha: a }, holeStyle(rim));
+    drawFigure(c, { x: px, y: hy, T, limbs: hole.limbs, fat: HOLE_FAT, upperOnly: seated, alpha: a }, HOLE_INNER);
+    const k = SLAB_DEPTH;
+    drawFigure(c, { x: z.vx + (px - z.vx) * k, y: z.vy + (hy - z.vy) * k, T: T * k, limbs: hole.limbs, fat: HOLE_FAT, upperOnly: seated, alpha: a }, HOLE_DARK);
     c.restore();
   }
 
@@ -298,6 +336,27 @@ export function createPoseWallView(ctx: GameContext, stage: Stage, o: { reducedM
           c.restore();
         }
         const away = !!p && !p.seen;
+        if (!seated) {
+          // a pool of light on the floor where the player stands, and the contact shadow of the feet
+          const fy = z.hipY + 1.95 * z.T;
+          c.save();
+          const pool = c.createRadialGradient(z.hipX, fy, 0, z.hipX, fy, 1.5 * z.T);
+          pool.addColorStop(0, 'rgba(201, 190, 255, 0.28)');
+          pool.addColorStop(1, 'rgba(201, 190, 255, 0)');
+          c.translate(z.hipX, fy);
+          c.scale(1, 0.22);
+          c.translate(-z.hipX, -fy);
+          c.fillStyle = pool;
+          c.fillRect(z.hipX - 1.5 * z.T, fy - 1.5 * z.T, 3 * z.T, 3 * z.T);
+          c.restore();
+          c.save();
+          c.globalAlpha = away ? 0.15 : 0.4;
+          c.fillStyle = SLAB.shadow;
+          c.beginPath();
+          c.ellipse(z.hipX, fy, 0.62 * z.T, 0.1 * z.T, 0, 0, Math.PI * 2);
+          c.fill();
+          c.restore();
+        }
         drawFigure(c, { x: z.hipX, y: z.hipY + dy, T: z.T, limbs, upperOnly: seated, alpha: away ? 0.3 : resting ? 0.75 : 1 }, MOVER_NIGHT);
       }
       c.restore();
@@ -337,6 +396,6 @@ export function createPoseWallView(ctx: GameContext, stage: Stage, o: { reducedM
       flash = 0;
       stage.clearParticles();
     },
-    dispose(): void { layout = null; rings.length = 0; },
+    dispose(): void { layout = null; rings.length = 0; backdrop.dispose(); },
   };
 }
