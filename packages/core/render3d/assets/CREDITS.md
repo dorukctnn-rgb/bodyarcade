@@ -1,4 +1,4 @@
-# Credits: 3D models in scenery.glb
+# Credits: 3D models in scenery.glb and runner.glb
 
 `scenery.glb` is built by `tools/models/build-kit.mjs` from free models by **Polyfork** (https://polyfork.dev), licensed
 under **Creative Commons Attribution 4.0 International (CC BY 4.0)**, https://creativecommons.org/licenses/by/4.0/.
@@ -30,9 +30,19 @@ Each line: the node name in `scenery.glb`, the model, its page, the licence and 
 - `bus`: City Bus by Polyfork (https://polyfork.dev/asset/city-bus-49fd97), CC BY 4.0 (changed: parts joined into one mesh, normals dropped, welded, quantized, meshopt-compressed; resized and recoloured in the game)
 - `truck`: Delivery Truck by Polyfork (https://polyfork.dev/asset/delivery-truck-a9537e), CC BY 4.0 (changed: parts joined into one mesh, normals dropped, welded, quantized, meshopt-compressed; resized and recoloured in the game)
 
+## runner.glb
+
+`runner.glb` (Road Run's modelled runner at the tiers that draw models) is built by `tools/models/runner-from-fbx.ts`
+and `tools/models/build-runner.mjs` from **Animated Human by Quaternius**
+(https://opengameart.org/content/animated-human-low-poly), released under **CC0 1.0 Universal (public domain
+dedication)**, https://creativecommons.org/publicdomain/zero/1.0/ (licence file in the download, read 9 Nov 2026).
+CC0 needs no credit; we give one anyway. Changed: the palette texture turned into vertex colours, recoloured per skin in
+the game, scaled to 1.8 m, only the run and jump clips kept (the jump without its own rise), normals dropped, welded,
+resampled, quantized, meshopt-compressed.
+
 Short credit for a page that lists the game's third-party material:
-"3D models by Polyfork (polyfork.dev), CC BY 4.0, changed."
+"3D models by Polyfork (polyfork.dev), CC BY 4.0, changed. Runner figure: Animated Human by Quaternius, CC0."
 
 No other model, texture or code from outside sources is in this folder. The wind-blown grass, the post-processing
-passes, the sky light and the lit windows are our own code; GTAOPass, UnrealBloomPass, GLTFLoader and the meshopt
-decoder come with three.js (MIT).
+passes, the sky light, the lit windows and the runner's crouch are our own code; GTAOPass, UnrealBloomPass, GLTFLoader,
+SkeletonUtils and the meshopt decoder come with three.js (MIT).

@@ -25,6 +25,7 @@ import { createWeather, type WeatherKit } from './weather.ts';
 import { canPost, createPost, sceneForDisplay, type PostKit } from './post.ts';
 import { lookOf } from './looks.ts';
 import { loadedModels, loadModels, type ModelSet } from './models.ts';
+import { loadedFigure, loadFigure, type FigureAsset } from './figure.ts';
 import { createGrass, type GrassKit } from './grass.ts';
 import { NO_AO_LAYER } from './post.ts';
 
@@ -94,7 +95,7 @@ export interface Scene3DStats {
   drawCalls: number;
 }
 
-/** models: the modelled scenery has just been loaded (a game may now define its modelled obstacles). */
+/** models: the modelled scenery or the modelled runner has just been loaded (a game may now use them). */
 export interface Scene3DEvents { contextlost: undefined; contextrestored: undefined; models: undefined }
 
 export interface Scene3DKit extends Scene3D {
@@ -115,6 +116,8 @@ export interface Scene3DKit extends Scene3D {
   readonly mode: QualityMode;
   /** The loaded models when the tier draws models (T1, T2), else null. Games use them for their obstacles. */
   readonly models: ModelSet | null;
+  /** The modelled runner (a skinned figure) when the tier draws models and its file is in, else null (games keep their own figure). */
+  readonly figure: FigureAsset | null;
   readonly disposed: boolean;
   /** Base field of view for the current shape of the screen (wider in portrait); games add a boost with setFovBoost. */
   readonly baseFov: number;
@@ -398,6 +401,7 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
   function applyModels(w: World): void {
     const m = tier.models ? loadedModels() : null;
     w.scenery.useModels(m);
+    askFigure();
     if (!tier.models || m || !real || modelsAsked) return;
     modelsAsked = true;
     loadModels().then(() => {
@@ -406,6 +410,18 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
       world.scenery.useModels(loadedModels());
       for (const cb of [...listeners.models]) cb();
     }, () => { modelsAsked = false; });
+  }
+
+  let figureAsked = false;
+  /** The modelled runner, fetched like the modelled props: at the tiers that draw models, real renderers only, once per page. */
+  function askFigure(): void {
+    if (!tier.models || !real || figureAsked || loadedFigure()) return;
+    figureAsked = true;
+    loadFigure().then(() => {
+      figureAsked = false;
+      if (disposed || !tier.models) return;
+      for (const cb of [...listeners.models]) cb();
+    }, () => { figureAsked = false; });
   }
 
   function lostOrNone(): 'none' | 'grade' | 'full' { return disposed ? 'none' : tier.post; }
@@ -518,6 +534,7 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
     get mode() { return mode; },
     get disposed() { return disposed; },
     get models() { return tier.models ? loadedModels() : null; },
+    get figure() { return tier.models ? loadedFigure() : null; },
     get baseFov() { return baseFov; },
 
     setTheme(t: ThemeData) {

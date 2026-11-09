@@ -8,6 +8,8 @@
 //   animation phase comes from the distance run, and the camera shake draws from ctx.rng('fx'). Only the frame cap
 //   reads the real clock, so a paused game draws nothing new and a replay looks the same.
 // - The rig's own geometries, materials and textures belong to this view's tracker and are freed by dispose().
+// - At the tiers that draw models (T1, T2) the runner is the modelled, skinned figure (core/render3d/figure.ts) once its
+//   file is in; at T0, in the Node tests and until then it is the built-in rig below. Both follow the same simulation.
 import * as THREE from 'three';
 import type { Rng, ThemeData } from '../../core/types/index.ts';
 import { FIXED_DT } from '../../core/types/index.ts';
@@ -16,6 +18,7 @@ import type { Scene3DKit } from '../../core/render3d/scene3d.ts';
 import { arrowPixels, makeTexture, stripePixels } from '../../core/render3d/textures.ts';
 import { LANE_W, type Obstacle, type Run } from './sim.ts';
 import { defineModelled, familyOf, modelledKey, type ObstacleFamily } from './obstacles.ts';
+import { createFigure, type Figure, type FigureColors } from '../../core/render3d/figure.ts';
 
 /** Road width of today's engine (engine.js ROAD_W). */
 export const ROAD_W = 5.6;
@@ -31,6 +34,15 @@ export const SKINS = {
   angel: { body: '#fff7e0', legs: '#e8dcc0', skin: '#e8b68a', accent: '#ffd36b', head: 'halo' },
 } as const;
 export type SkinId = keyof typeof SKINS;
+
+/** A skin's colours on the modelled figure: the shirt is the body, the shoes the accent; the hair is a dark brown. */
+export const figureColours = (id: SkinId): FigureColors => {
+  const sk = SKINS[id] ?? SKINS.runner;
+  return { shirt: sk.body, trousers: sk.legs, skin: sk.skin, hair: '#3a2617', shoes: sk.accent };
+};
+
+/** Run-cycle place of the modelled figure: the built-in rig's leg phase (dist * 1.15 rad) in whole strides. */
+export const strideOf = (dist: number): number => (dist * 1.15) / (Math.PI * 2);
 
 /** The runner between two steps (the view interpolates from this to the run's current state). */
 export interface RunnerPose { x: number; y: number; crouch: number; lean: number; jumpU: number; dist: number }
@@ -162,10 +174,20 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
   let disposed = false;
   let family: ObstacleFamily = 'wild';
   let modelled = false;
+  let figure: Figure | null = null;
+  const figureTracker = new ResourceTracker();
+  /** The modelled figure, made once per view the first time the tier draws models and its file is in. */
+  const useFigure = (): void => {
+    if (figure || disposed || !kit.figure) return;
+    figure = createFigure(kit.figure, figureColours(o.skin ?? 'runner'), (r) => figureTracker.track(r));
+    figure.root.visible = false;
+    kit.stage.add(figure.root);
+  };
   /** Modelled obstacles when the tier draws models and the file is loaded; new spawns use them, live ones finish as they are. */
   const useModels = (): void => {
     const m = kit.models;
     modelled = !!m && defineModelled(kit, m, family);
+    useFigure();
   };
   const offModels = kit.on('models', useModels);
   const keyOf = (ob: Obstacle): string => {
@@ -252,7 +274,17 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
       }
       const hitK = run.hitT > 0 ? Math.min(1, run.hitT * 2) : 0;
       for (const m of rig.mats) m.emissive.setRGB(hitK * 0.9, hitK * 0.1, hitK * 0.05);
-      rig.root.visible = run.invuln > 0 ? Math.floor(t * 14) % 2 === 0 : true;
+      const shown = run.invuln > 0 ? Math.floor(t * 14) % 2 === 0 : true;
+      // The modelled figure takes the rig's place while the tier draws models (a drop to T0 brings the rig back).
+      const fig = figure && kit.figure ? figure : null;
+      rig.root.visible = shown && !fig;
+      if (figure) figure.root.visible = shown && !!fig;
+      if (fig) {
+        fig.root.position.set(x, y, 0);
+        fig.root.rotation.set(run.hitT > 0 ? Math.sin(run.hitT * 20) * 0.12 : 0, -lean * 0.12, -lean * 0.18);
+        fig.pose({ stride: strideOf(dist), air: y > 0.01 ? Math.max(0, Math.min(1, lerp(prev.jumpU, run.jumpU, k))) : null, crouch });
+        fig.setHit(hitK);
+      }
 
       // camera: follows the runner sideways, a little bob, a shake on each hit
       if (run.hits > lastHits) shake = 1;
@@ -286,6 +318,8 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
       releaseAll();
       kit.stage.remove(rig.root);
       tracker.release();
+      if (figure) { kit.stage.remove(figure.root); figure.dispose(); figure = null; }
+      figureTracker.release();
     },
   };
 }
