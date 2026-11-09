@@ -93,6 +93,11 @@ export interface PostKit {
   setGrade(g: GradeLook | undefined): void;
   /** Draws the scene through the passes to the screen. Falls back to a plain render when the mode is 'none'. */
   render(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void;
+  /**
+   * Builds the scene's shaders for the target the passes draw into (three builds other shaders for a target than for the
+   * screen: no tone map, linear output). A warm-up against the screen would build shaders that are never used.
+   */
+  compile(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void;
   /** GPU objects this kit holds now (targets and materials), for the leak counts. */
   counts(): { targets: number; materials: number };
   dispose(): void;
@@ -122,8 +127,12 @@ export function createPost(renderer: PostRenderer): PostKit {
 
   function freeAll(): void {
     sceneRT?.dispose(); sceneRT = null;
-    gtao?.dispose(); gtao = null; gtaoScene = null; gtaoCamera = null;
-    bloom?.dispose(); bloom = null;
+    // three r170 leaves a material of each pass out of its dispose() (GTAO: the AO and blend materials; bloom: the bright
+    // pass): their shader programs would stay in the context after every tier change and every round.
+    if (gtao) { gtao.gtaoMaterial.dispose(); gtao.blendMaterial.dispose(); gtao.dispose(); }
+    gtao = null; gtaoScene = null; gtaoCamera = null;
+    if (bloom) { bloom.materialHighPassFilter.dispose(); bloom.dispose(); }
+    bloom = null;
     material?.dispose(); material = null;
     quad?.dispose(); quad = null;
   }
@@ -155,7 +164,7 @@ export function createPost(renderer: PostRenderer): PostKit {
     if (mode !== 'full') return;
     const [w, h] = px();
     if (!gtao || gtaoScene !== scene || gtaoCamera !== camera) {
-      gtao?.dispose();
+      if (gtao) { gtao.gtaoMaterial.dispose(); gtao.blendMaterial.dispose(); gtao.dispose(); }
       // Half resolution: contact shading is soft by nature, and the pass costs a quarter.
       gtao = new GTAOPass(scene, camera, Math.max(1, w >> 1), Math.max(1, h >> 1));
       gtao.output = GTAOPass.OUTPUT.Off;
@@ -217,6 +226,12 @@ export function createPost(renderer: PostRenderer): PostKit {
       u['uAspect']!.value = width / Math.max(1, height);
       renderer.setRenderTarget(prevTarget);
       quad.render(renderer);
+    },
+    compile(scene, camera) {
+      if (mode === 'none' || !sceneRT) { renderer.compile(scene, camera); return; }
+      const prevTarget = renderer.getRenderTarget();
+      renderer.setRenderTarget(sceneRT);
+      try { renderer.compile(scene, camera); } finally { renderer.setRenderTarget(prevTarget); }
     },
     counts() {
       const targets = (sceneRT ? 1 : 0) + (gtao ? 3 : 0) + (bloom ? 1 + 2 * bloom.nMips : 0);

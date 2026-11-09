@@ -459,7 +459,8 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
 
   function warm(): void {
     if (disposed) return;
-    renderer.compile(scene, camera);
+    if (post && post.mode !== 'none') post.compile(scene, camera);
+    else renderer.compile(scene, camera);
   }
 
   function updateWorld(w: World, dt: number, moveZ: number, focusX: number): void {
