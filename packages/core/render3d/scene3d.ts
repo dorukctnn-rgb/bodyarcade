@@ -189,6 +189,19 @@ function makeRenderer(canvas: HTMLCanvasElement): RendererLike {
   }
 }
 
+/** Renderer names of WebGL drawn in software (SwiftShader, Mesa llvmpipe and softpipe, Windows' Basic Render Driver). */
+export function isSoftwareRendererName(name: string): boolean {
+  return /swiftshader|llvmpipe|softpipe|basic render|software rasterizer/i.test(name);
+}
+
+function softwareGl(r: THREE.WebGLRenderer): boolean {
+  try {
+    const gl = r.getContext();
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    return isSoftwareRendererName(String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
+  } catch { return false; }
+}
+
 export function createScene3D(options: Scene3DOptions): Scene3DKit {
   const canvas = options.canvas;
   const renderer: RendererLike = options.renderer ?? (canvas ? makeRenderer(canvas) : (() => { throw new RenderUnavailableError('no canvas'); })());
@@ -220,7 +233,10 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
   kitTracker.trackObject(blobs.mesh);
 
   let mode: QualityMode = options.mode ?? 'auto';
-  const startLevel: QualityLevel = levelOfMode(mode) ?? options.level ?? 2;
+  // A browser that draws WebGL in software (a blocked graphics driver, a virtual machine) starts at the lowest tier: the
+  // passes of the higher tiers cost it seconds per frame, and the governor would need minutes of such frames to step down.
+  const software = renderer instanceof THREE.WebGLRenderer && softwareGl(renderer);
+  const startLevel: QualityLevel = levelOfMode(mode) ?? (software ? 0 : options.level ?? 2);
   const governor = createQualityGovernor({ level: startLevel });
   let level: QualityLevel = startLevel;
   let tier: QualityTier = tierFor(level);

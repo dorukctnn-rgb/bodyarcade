@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { tapFrames } from './frames.ts';
 import { QUALITY_TIERS } from './quality.ts';
-import { createScene3D, DAY_SECONDS, FOV_LANDSCAPE, FOV_PORTRAIT, type RendererLike, type Scene3DKit } from './scene3d.ts';
+import { createScene3D, isSoftwareRendererName, DAY_SECONDS, FOV_LANDSCAPE, FOV_PORTRAIT, type RendererLike, type Scene3DKit } from './scene3d.ts';
 import { ThemeError } from './theme.ts';
 import type { ThemeData } from '../types/index.ts';
 
@@ -462,5 +462,12 @@ describe('the context and the end', () => {
 
   it('without a canvas or a renderer it says WebGL is unavailable', () => {
     expect(() => createScene3D({})).toThrowError(/WebGL/);
+  });
+});
+
+describe('software WebGL', () => {
+  it('knows the renderers that draw in software (they start at the lowest tier) from real graphics chips', () => {
+    for (const n of ['ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)', 'llvmpipe (LLVM 15.0.7, 256 bits)', 'ANGLE (Microsoft, Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0)']) expect(isSoftwareRendererName(n)).toBe(true);
+    for (const n of ['ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)', 'Mali-G52', 'Adreno (TM) 610', 'Apple GPU']) expect(isSoftwareRendererName(n)).toBe(false);
   });
 });
