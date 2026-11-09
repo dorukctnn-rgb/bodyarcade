@@ -50,8 +50,8 @@ export class World {
   for(let i=0;i<2200;i++){const d=random()*(this.length+30)-10,side=id==='lake'?-1:(random()>.5?1:-1);grass.push({x:routeX(d,id)+side*(2.8+random()*12),y:0,z:-d,sx:.65+random()*.7,sy:.45+random()*.6,sz:1,ry:random()*Math.PI,color:['#7e8b50','#929768','#657840'][i%3]});}
   const grassGeo=new T.PlaneGeometry(1,1);grassGeo.translate(0,.5,0);
   this.batch(grassGeo,this.mat('#d3ceac',{map:this.texture('grass.webp'),alphaTest:.45,side:T.DoubleSide}),grass,false);
-  // Distant hills remain simple geometry, hidden partly by fog.
-  const hills=[];for(let i=0;i<16;i++)hills.push({x:(id==='lake'?70:65)*(i%2?1:-1),y:-3,z:30-i*28,sx:25+random()*25,sy:6+random()*9,sz:30});this.batch(new T.IcosahedronGeometry(1,2),this.mat('#829b79'),hills,false);
+  // Distant hills remain simple geometry, hidden partly by fog (on the lake only on the land side: the water has its islands).
+  const hills=[];for(let i=0;i<16;i++)hills.push({x:id==='lake'?-70:65*(i%2?1:-1),y:-3,z:30-i*28,sx:25+random()*25,sy:6+random()*9,sz:30});this.batch(new T.IcosahedronGeometry(1,2),this.mat('#829b79'),hills,false);
  }
  lake(){
   const reeds=[];for(let d=0;d<this.length;d+=1.7)for(let j=0;j<3;j++)reeds.push({x:8+this.rng()*2,y:.45,z:-d+this.rng(),sx:.035,sy:.6+this.rng(),sz:.035,rz:(this.rng()-.5)*.2});this.batch(new T.CylinderGeometry(1,1,1,4),this.mat('#7c8650'),reeds,false);

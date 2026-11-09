@@ -39,10 +39,36 @@ export function addReflectingLake(w,sun){
  // Mirror render cost is bounded; camera movement still refreshes the reflection.
  const reflect=water.onBeforeRender;let frame=0;
  water.onBeforeRender=function(...args){if(frame++%(w.quality==='low'?4:2)===0)reflect.apply(this,args);};
- // Far-bank landforms provide a silhouette and something meaningful to reflect.
- const banks=[];for(let i=0;i<18;i++)banks.push({x:70+w.rng()*20,y:-2,z:45-i*24,sx:18+w.rng()*18,sy:7+w.rng()*16,sz:24,ry:w.rng()*6,color:['#667b69','#7b8d76','#526c60'][i%3]});
- w.batch(new T.IcosahedronGeometry(1,3),w.mat('#ffffff',{vertexColors:false,roughness:1}),banks,false);
+ // Wooded islands and a far shore in the haze: a real silhouette to look at and to see mirrored in the water.
+ addIslands(w);
  return water.material;
+}
+
+// Low islands out on the lake, one every 60-85 m: a mound of land with a rocky shore, crowned by pines (two stacked
+// cones) and rounded broadleaf trees, taller toward the middle; beyond them a far shore, pale in the haze. Instanced, no
+// shadows (they are 40 m and more away), fewer trees on the low tier.
+function addIslands(w){
+ const r=w.rng,low=w.quality==='low',land=[],shore=[],pines=[],crowns=[],ridge=[];
+ for(let z=30;z>-w.length-90;z-=60+r()*25){
+  const cx=40+r()*22,R=8+r()*7,H=1.6+r()*1.4;
+  land.push({x:cx,y:-.35,z,sx:R*.75,sy:H,sz:R,ry:r()*.4,color:['#5d6f46','#66774c','#56683f'][Math.floor(r()*3)]});
+  for(let k=0;k<12;k++){const a=k/12*Math.PI*2+r()*.4,s=.6+r()*1.3;shore.push({x:cx+Math.cos(a)*R*.7,y:s*.12,z:z+Math.sin(a)*R*.93,sx:s*1.3,sy:s*.6,sz:s,ry:r()*6,color:['#7f8274','#8d8d7f','#6d7268'][k%3]});}
+  const n=low?12:26;
+  for(let k=0;k<n;k++){
+   const a=r()*Math.PI*2,q=Math.sqrt(r())*.78,px=cx+Math.cos(a)*q*R*.75,pz=z+Math.sin(a)*q*R,g=H*Math.sqrt(Math.max(0,1-q*q))-.35;
+   if(r()<.62){const h=(4.5+r()*5)*(1.15-q*.5),s=.9+r()*.7,c=['#2c4634','#33503a','#294232','#3a5940'][k%4];
+    pines.push({x:px,y:g+h*.38,z:pz,sx:s,sy:h*.76,sz:s,ry:r()*6,color:c});
+    pines.push({x:px,y:g+h*.74,z:pz,sx:s*.62,sy:h*.52,sz:s*.62,ry:r()*6,color:c});}
+   else{const s=1.8+r()*1.6;crowns.push({x:px,y:g+2.2+s*.6,z:pz,sx:s*1.1,sy:s*.85,sz:s*1.1,ry:r()*6,color:['#43603e','#4b6a43','#3c5638'][k%3]});}
+  }
+ }
+ for(let i=0;i<14;i++)ridge.push({x:104+r()*14,y:-2.5,z:50-i*30,sx:20+r()*16,sy:5+r()*6,sz:22,ry:r()*6,color:['#5d7466','#667d6c','#57705f'][i%3]});
+ const soft=w.mat('#ffffff',{roughness:1}),facet=w.mat('#ffffff',{roughness:1,flatShading:true});
+ w.batch(new T.IcosahedronGeometry(1,3),soft,land,false);
+ w.batch(new T.IcosahedronGeometry(1,0),facet,shore,false);
+ w.batch(new T.ConeGeometry(1,1,7),facet,pines,false);
+ w.batch(new T.IcosahedronGeometry(1,1),facet,crowns,false);
+ w.batch(new T.IcosahedronGeometry(1,2),soft,ridge,false);
 }
 
 // Adapted mrdoob Codevember 05 geometry: solid leaves, not image cards.
