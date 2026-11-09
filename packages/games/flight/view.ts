@@ -74,15 +74,26 @@ const mix = (a: string, b: string, t: number, alpha = 1): string => cssOf(mixRgb
 export interface Look {
   skyTop: string; skyMid: string; horizon: string;
   glow: [string, string, string];
-  /** Far, middle and near hills: [colour at the top, colour at the foot]. */
-  hills: [[string, string], [string, string], [string, string]];
+  /** Far, middle and near hills. */
+  hills: [string, string, string];
   bush: string;
+  /** The valley haze: clear at its top, the horizon's colour at the ground. */
+  haze: [string, string];
   cloudLit: string; cloudShade: string;
   colRim: string; colEdge: string; capRim: string; capShadow: string;
   groundTop: string; groundDeep: string;
 }
 
 const LOOKS = new Map<Biome['id'], Look>();
+
+/** A canvas to paint on off screen, or null where there is none (tests in Node draw straight to the screen). */
+function makeCanvas(w: number, h: number): (HTMLCanvasElement | OffscreenCanvas) | null {
+  try {
+    if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(Math.max(1, w), Math.max(1, h));
+    if (typeof document !== 'undefined') { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; }
+  } catch { /* fall through */ }
+  return null;
+}
 
 export function lookOf(b: Biome): Look {
   let l = LOOKS.get(b.id);
@@ -96,12 +107,9 @@ export function lookOf(b: Biome): Look {
     skyMid: mix(top, low, 0.35),
     horizon: mix(low, b.orb, b.stars ? 0.2 : 0.4),
     glow: [mix(b.orb, b.orb, 0, b.stars ? 0.34 : 0.5), mix(b.orb, b.orb, 0, b.stars ? 0.1 : 0.16), mix(b.orb, b.orb, 0, 0)],
-    hills: [
-      [mix(b.hills[0], low, 0.5), mix(b.hills[0], low, 0.78)],
-      [mix(b.hills[0], low, 0.1), mix(b.hills[0], low, 0.45)],
-      [b.hills[1], mix(b.hills[1], low, 0.22)],
-    ],
+    hills: [mix(b.hills[0], low, 0.5), mix(b.hills[0], low, 0.1), b.hills[1]],
     bush: mix(b.hills[1], b.ground, 0.38),
+    haze: [mix(low, low, 0, 0), mix(low, b.hills[0], 0.15, b.stars ? 0.4 : 0.6)],
     cloudLit,
     cloudShade: mix(hex(cloudLit), b.hills[0], b.stars ? 0.3 : 0.16),
     colRim: mix(b.pipe.body, b.pipe.shade, 0.6),
@@ -133,6 +141,8 @@ export function createFlightView(o: FlightViewOptions): FlightView {
   let shake = 0;
   let flash = [0, 0];
   let disposed = false;
+  /** The painted sky of each lane (see skyLayer). */
+  const skies: ({ key: string; canvas: { width: number } } | null)[] = [null, null];
 
   const grad = (key: string, make: () => CanvasGradient): CanvasGradient => {
     let g = gradients.get(key);
@@ -160,64 +170,69 @@ export function createFlightView(o: FlightViewOptions): FlightView {
 
   // ───────── scenery ─────────
 
-  function sky(b: Biome, L: Look, region: Rect, ground: number): void {
-    ctx.fillStyle = grad(`sky|${b.id}|${Math.round(region.y)}|${Math.round(ground)}`, () => {
-      const g = ctx.createLinearGradient(0, region.y, 0, ground);
-      g.addColorStop(0, L.skyTop);
-      g.addColorStop(0.5, L.skyMid);
-      g.addColorStop(0.86, b.sky[1]);
-      g.addColorStop(1, L.horizon);
-      return g;
-    });
-    ctx.fillRect(region.x, region.y, region.w, region.h);
+  /** The sky, its stars and the sun or moon with its glow, painted on `c` (once per biome and screen size, see skyLayer). */
+  function paintSky(c: CanvasRenderingContext2D, b: Biome, L: Look, region: Rect, lane: Rect, ground: number): void {
+    const g = c.createLinearGradient(0, region.y, 0, ground);
+    g.addColorStop(0, L.skyTop);
+    g.addColorStop(0.5, L.skyMid);
+    g.addColorStop(0.86, b.sky[1]);
+    g.addColorStop(1, L.horizon);
+    c.fillStyle = g;
+    c.fillRect(region.x, region.y, region.w, region.h);
     if (b.stars) {
-      ctx.fillStyle = '#F4F2F8';
+      c.fillStyle = '#F4F2F8';
       for (let i = 0; i < 46; i++) {
         const sx = region.x + hash(i * 3 + 1) * region.w, sy = region.y + hash(i * 3 + 2) * ground * 0.7;
         const big = hash(i * 3 + 4) > 0.86;
-        ctx.globalAlpha = 0.25 + hash(i * 3 + 3) * 0.6;
-        ctx.fillRect(sx, sy, big ? 3 : 2, big ? 3 : 2);
+        c.globalAlpha = 0.25 + hash(i * 3 + 3) * 0.6;
+        c.fillRect(sx, sy, big ? 3 : 2, big ? 3 : 2);
       }
-      ctx.globalAlpha = 1;
+      c.globalAlpha = 1;
     }
-  }
-
-  /** The sun or the moon, with a wide soft glow around it (one cached gradient, moved into place). */
-  function orb(b: Biome, L: Look, lane: Rect, ground: number): void {
     const r = Math.max(16, lane.h * 0.07);
     const R = r * 4;
-    ctx.save();
-    ctx.translate(lane.x + lane.w * 0.78, ground * 0.2);
-    ctx.fillStyle = grad(`glow|${b.id}|${Math.round(r)}`, () => {
-      const g = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, R);
-      g.addColorStop(0, L.glow[0]);
-      g.addColorStop(0.3, L.glow[1]);
-      g.addColorStop(1, L.glow[2]);
-      return g;
-    });
-    ctx.fillRect(-R, -R, R * 2, R * 2);
-    ctx.globalAlpha = b.stars ? 0.95 : 0.92;
-    ctx.fillStyle = b.orb;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
-    ctx.fill();
-    ctx.restore();
-    ctx.globalAlpha = 1;
+    const x = lane.x + lane.w * 0.78, y = ground * 0.2;
+    const glow = c.createRadialGradient(x, y, r * 0.6, x, y, R);
+    glow.addColorStop(0, L.glow[0]);
+    glow.addColorStop(0.3, L.glow[1]);
+    glow.addColorStop(1, L.glow[2]);
+    c.fillStyle = glow;
+    c.fillRect(x - R, y - R, R * 2, R * 2);
+    c.globalAlpha = b.stars ? 0.95 : 0.92;
+    c.fillStyle = b.orb;
+    c.beginPath();
+    c.arc(x, y, r, 0, TAU);
+    c.fill();
+    c.globalAlpha = 1;
   }
 
   /**
-   * One layer of hills: the far ones paler and taller (there is air in between), the near ones lower and in the biome's
-   * own colour; each fades into the haze of the valley at its foot.
+   * The sky does not move: it is painted once per biome and screen size into a canvas of its own and copied each frame
+   * (one copy instead of two gradients and the stars, which a phone without a graphics chip for the canvas draws itself).
    */
-  function hillLayer(b: Biome, L: Look, layer: 0 | 1 | 2, region: Rect, ground: number, h: number, scrollPx: number): void {
+  function skyLayer(laneNo: number, b: Biome, L: Look, region: Rect, lane: Rect, ground: number): void {
+    const t = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
+    const k = t ? Math.max(0.5, Math.hypot(t.a, t.b)) : 1;
+    const key = `${b.id}|${region.x}|${region.y}|${region.w}|${region.h}|${lane.x}|${lane.w}|${lane.h}|${Math.round(ground)}|${k.toFixed(3)}`;
+    let cache = skies[laneNo];
+    if (!cache || cache.key !== key) {
+      const canvas = makeCanvas(Math.ceil(region.w * k), Math.ceil(region.h * k));
+      const c = canvas?.getContext('2d') as CanvasRenderingContext2D | null | undefined;
+      if (!canvas || !c) { paintSky(ctx, b, L, region, lane, ground); return; }
+      c.scale(k, k);
+      c.translate(-region.x, -region.y);
+      paintSky(c, b, L, region, lane, ground);
+      if (cache) cache.canvas.width = 0;
+      cache = { key, canvas };
+      skies[laneNo] = cache;
+    }
+    ctx.drawImage(cache.canvas as CanvasImageSource, region.x, region.y, region.w, region.h);
+  }
+
+  /** One layer of hills: the far ones paler and taller (there is air in between), the near ones lower, in the biome's colour. */
+  function hillLayer(L: Look, layer: 0 | 1 | 2, region: Rect, ground: number, h: number, scrollPx: number): void {
     const H = HILLS[layer];
-    const peak = ground - h * (H.base * 0.55 + H.amp);
-    ctx.fillStyle = grad(`hill${layer}|${b.id}|${Math.round(ground)}|${Math.round(h)}`, () => {
-      const g = ctx.createLinearGradient(0, peak, 0, ground);
-      g.addColorStop(0, L.hills[layer][0]);
-      g.addColorStop(1, L.hills[layer][1]);
-      return g;
-    });
+    ctx.fillStyle = L.hills[layer];
     const k = 700 / h;
     ctx.beginPath();
     ctx.moveTo(region.x, ground);
@@ -229,6 +244,18 @@ export function createFlightView(o: FlightViewOptions): FlightView {
     ctx.lineTo(region.x + region.w, ground);
     ctx.closePath();
     ctx.fill();
+  }
+
+  /** Haze lying in the valley in front of the middle hills (one band, so the hills themselves stay flat fills). */
+  function haze(b: Biome, L: Look, region: Rect, ground: number, h: number): void {
+    const top = ground - h * 0.3;
+    ctx.fillStyle = grad(`haze|${b.id}|${Math.round(ground)}|${Math.round(h)}`, () => {
+      const g = ctx.createLinearGradient(0, top, 0, ground);
+      g.addColorStop(0, L.haze[0]);
+      g.addColorStop(1, L.haze[1]);
+      return g;
+    });
+    ctx.fillRect(region.x, top, region.w, ground - top);
   }
 
   /** A row of round bushes (drifts, on the ice) standing on the ground between the hills and the columns. */
@@ -574,13 +601,13 @@ export function createFlightView(o: FlightViewOptions): FlightView {
     if (o.players === 2) { ctx.beginPath(); ctx.rect(region.x, region.y, region.w, region.h); ctx.clip(); }
     if (shake > 0.01 && !o.reducedMotion) ctx.translate((o.rng() - 0.5) * shake * lane.h * 0.03, (o.rng() - 0.5) * shake * lane.h * 0.03);
     const L = lookOf(b);
-    sky(b, L, region, ground);
-    orb(b, L, lane, ground);
-    // Far hills behind the clouds, the nearer ones in front of the low clouds: the sky gets its depth.
-    hillLayer(b, L, 0, region, ground, lane.h, scrollPx);
+    skyLayer(laneNo, b, L, region, lane, ground);
+    // Far hills behind the clouds, the nearer ones in front of the low clouds, haze in the valley: the sky gets its depth.
+    hillLayer(L, 0, region, ground, lane.h, scrollPx);
     clouds(L, region, lane, scrollPx);
-    hillLayer(b, L, 1, region, ground, lane.h, scrollPx);
-    hillLayer(b, L, 2, region, ground, lane.h, scrollPx);
+    hillLayer(L, 1, region, ground, lane.h, scrollPx);
+    haze(b, L, region, ground, lane.h);
+    hillLayer(L, 2, region, ground, lane.h, scrollPx);
     bushes(L, region, ground, lane.h, scrollPx);
     columns(b, L, s, lane, region, f.scroll, sx, birdX, ground);
     groundBand(b, L, region, ground, scrollPx);
@@ -659,6 +686,8 @@ export function createFlightView(o: FlightViewOptions): FlightView {
     dispose() {
       disposed = true;
       gradients.clear();
+      for (const c of skies) if (c) c.canvas.width = 0;
+      skies.fill(null);
       pops.length = 0;
       stage.particles.clear();
     },
