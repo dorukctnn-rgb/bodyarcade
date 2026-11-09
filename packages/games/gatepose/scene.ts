@@ -281,7 +281,7 @@ export class Backdrop {
       for (let j = 0; j < 7; j++) {
         const f = ((((j + phase) % 7) + 7) % 7) / 7;
         const y = hz + (h - hz) * f * f;
-        c.globalAlpha = (0.12 + 0.5 * f) * (1 - 0.5 * dim);
+        c.globalAlpha = (0.08 + 0.36 * f) * (1 - 0.5 * dim);
         c.lineWidth = Math.max(1, (0.8 + 1.6 * f) * unit);
         c.beginPath();
         c.moveTo(0, y);
@@ -311,12 +311,11 @@ export class Backdrop {
           c.globalAlpha = fadeIn;
           if (this.lamp) c.drawImage(this.lamp, lx - g / 2, ly - g / 2, g, g);
           else { c.fillStyle = LAMP; c.fillRect(lx - 2, ly - 2, 4, 4); }
-          // the pool of light on the floor under the lamp
-          c.globalAlpha = 0.16 * fadeIn;
-          c.fillStyle = '#9C8BFF';
-          c.beginPath();
-          c.ellipse(lx, baseY, g * 0.55, g * 0.12, 0, 0, Math.PI * 2);
-          c.fill();
+          // the pool of light on the floor under the lamp (the lamp's glow, flattened onto the floor)
+          if (this.lamp) {
+            c.globalAlpha = 0.55 * fadeIn;
+            c.drawImage(this.lamp, lx - g * 0.75, baseY - g * 0.13, g * 1.5, g * 0.26);
+          }
         }
       }
       c.globalAlpha = 1;
