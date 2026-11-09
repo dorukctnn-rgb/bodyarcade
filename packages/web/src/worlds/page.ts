@@ -12,6 +12,8 @@ import {routeAction} from './movement-bridge.ts';
 /** Additive exploration page. Uses the SAME camera, pose model, calibration and movement detectors as existing games. */
 export function bootWorlds():()=>void{
  const body=document.body;body.innerHTML='';body.style.cssText='margin:0;background:#20352d';
+ // The shell keeps a scrollbar gutter on every page; this one is a full-bleed scene with nothing to scroll at its size.
+ document.documentElement.style.scrollbarGutter='auto';
  const host=document.createElement('div');host.style.cssText='height:100dvh;min-height:720px;width:100%';body.append(host);
  const query=new URLSearchParams(location.search);const route=['forest','lake','city'].includes(query.get('route')??'')?query.get('route')!:'forest';
  const app=mountBodyArcadeWorlds(host,{route,mode:'live',quality:query.get('quality')==='low'?'low':'balanced',onComplete:()=>stopCamera()});
