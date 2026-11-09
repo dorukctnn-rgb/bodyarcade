@@ -453,9 +453,9 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
       ctx.drawImage(halo, c.x - hs / 2, c.y + bob - hs / 2, hs, hs);
       ctx.translate(c.x, c.y + bob);
       ctx.rotate(rot * 0.5 + Math.PI / 4);
-      ctx.globalAlpha = 0.45 * alpha;
+      ctx.globalAlpha = 0.35 * alpha;
       ctx.fillStyle = COLORS.chalk;
-      const L = rad * 2.1, Wd = Math.max(1, rad * 0.06);
+      const L = rad * 1.6, Wd = Math.max(1, rad * 0.05);
       ctx.fillRect(-L, -Wd / 2, 2 * L, Wd);
       ctx.fillRect(-Wd / 2, -L, Wd, 2 * L);
       ctx.restore();
