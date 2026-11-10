@@ -250,6 +250,43 @@ describe('home and region pages', () => {
     expect(t).toContain('Tüm oyunlar');
     expect(draw('tr', '/tr/').html).toContain('href="/tr/games/squat-flap/"');
   });
+
+  it('names every game page and every body-area list in the text of the home page, in both languages, also without a visitor', () => {
+    for (const lang of LANGS) {
+      const p = lang === 'en' ? '' : '/tr';
+      const { html } = draw(lang, `${p}/`, { server: true });
+      const about = html.match(/<p class="k-about-pages">[\s\S]*?<\/p>/)?.[0] ?? '';
+      expect(about, lang).not.toBe('');
+      for (const g of games) expect(about, `${lang} ${g.id}`).toContain(`<a href="${p}/games/${g.seo.slug}/">`);
+      for (const r of REGION_ORDER) expect(about, `${lang} ${r}`).toContain(`<a href="${p}/workouts/${r}/">`);
+      expect(textOf(about)).toContain(lang === 'en' ? 'Every game has a page of its own' : 'Her oyunun kendi sayfası var');
+    }
+  });
+});
+
+describe('the language bar', () => {
+  it('offers the Turkish page on an English page, in Turkish, and leaves the links of the page English', () => {
+    const { html } = draw('en', '/', { langOffer: 'tr' });
+    const bar = html.match(/<aside class="ba-langnote"[\s\S]*?<\/aside>/)?.[0] ?? '';
+    expect(bar).toContain('lang="tr"');
+    expect(textOf(bar)).toContain('Bu sayfanın Türkçesi var.');
+    expect(bar).toContain('href="/tr/" hreflang="tr" data-action="lang" data-lang="tr"');
+    expect(bar).toContain('data-action="lang-keep"');
+    expect(html).toContain('href="/games/squat-flap/"');
+    expect(html).not.toMatch(/href="\/tr\/games\//);
+  });
+
+  it('keeps the address of the page it offers', () => {
+    const { html } = draw('en', '/games/squat-flap/', { langOffer: 'tr' });
+    expect(html).toContain('<aside class="ba-langnote"');
+    expect(html).toContain('href="/tr/games/squat-flap/" hreflang="tr" data-action="lang"');
+  });
+
+  it('is not drawn without an offer, on the page of the offered language, or by the page generator', () => {
+    expect(draw('en', '/').html).not.toContain('ba-langnote');
+    expect(draw('tr', '/tr/', { langOffer: 'tr' }).html).not.toContain('ba-langnote');
+    expect(draw('en', '/', { langOffer: 'tr', server: true }).html).not.toContain('ba-langnote');
+  });
 });
 
 describe('game pages', () => {

@@ -21,6 +21,7 @@ import { browserStorage } from '../../../core/store/store.ts';
 import type { SyncPort } from '../../../core/store/sync-docs.ts';
 import type { PlanProgress, PlanRunView, WorkoutPlan } from '../../../core/store/workout-plans.ts';
 import { localized } from '../../../core/ui/i18n/localized.ts';
+import { languageOffer } from './lang-offer.ts';
 import type { Catalogue, ShellGame } from '../../catalogue/types.ts';
 import { gameById, gameBySlug } from '../../catalogue/filter.ts';
 import { mappedAssets, devAssets, type AssetResolver } from '../assets.ts';
@@ -430,6 +431,8 @@ export class App {
       // The notice of a trial and its reminder are about buying: a child's screens say nothing of it unless a grown-up has opened them.
       trial: this.trialDismissed || this.rules().purchase !== 'open' ? null : this.billing.trial.notice(), assets: this.assets,
       player: this.playerFacts(),
+      // The bar that offers the Turkish page on an English one: only for a visitor who never chose a language.
+      langOffer: languageOffer(this.currentSettings().lang, this.preferredLang(), lang),
       // The friends pages exist when the services are there or on their way; whether the player may use them is the player's rules.
       flags: { social: this.hasSocial() && this.rules().online, family: this.o.family === true, socialChild: this.hasSocial() && !this.rules().online, roomsPro: this.o.roomsPro === true }, version: this.o.version, server: false,
     });
@@ -585,15 +588,9 @@ export class App {
 
   private async onRoute(change: RouteChange<RouteId>): Promise<void> {
     const route = change.route;
-    // An address without a language prefix is English; a visitor who prefers another complete language is moved to it
-    // once, on arrival, and a language in the address always wins.
-    if (change.initial && (!route || route.lang === 'en')) {
-      const want = this.preferredLang();
-      if (want !== 'en' && INDEXED_LANGS.includes(want)) {
-        this.nav.go(router.withLang(this.urlNow(), want), { replace: true });
-        return;
-      }
-    }
+    // An address without a language prefix is English, also for a visitor whose browser prefers Turkish: the page stays the
+    // one they opened, and the bar under the header offers the Turkish page (context(), lang-offer.ts). Until 10 November
+    // 2026 such a visitor was moved to the other language here, on arrival.
     // A device with two or more players asks who is playing when the app opens (and a child whose plan ended meets the gate first).
     if (change.initial && this.book && route && route.id !== 'profiles' && route.id !== 'play' && route.id !== 'welcome' && this.book.picker().ask) {
       this.nav.go(router.href('profiles', { lang: route.lang, query: { next: this.urlNow() } }), { replace: true });
@@ -1520,6 +1517,12 @@ export class App {
       case 'trial-dismiss':
         e.preventDefault();
         this.trialDismissed = true;
+        this.rerender();
+        break;
+      case 'lang-keep':
+        // "Keep English" on the language bar: the page language becomes the chosen one, so the bar is not offered again.
+        e.preventDefault();
+        this.settings.set({ lang: this.lang });
         this.rerender();
         break;
       case 'trial-email':
