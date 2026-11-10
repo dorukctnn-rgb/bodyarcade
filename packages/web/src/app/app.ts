@@ -60,6 +60,7 @@ import { canRace } from './duel.ts';
 import { openGhostDialog, type GhostDialogHost } from './ghost-dialog.ts';
 import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceStageMount, type RaceWorld } from './race.ts';
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
+import { startTileClips } from './tile-clips.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { ROUND_WORD_EVENTS, roundWord, sendSignal, type SignalEvent } from './signal.ts';
 import type { RestoreOutcome } from '../../../core/entitlements/port.ts';
@@ -219,6 +220,8 @@ export class App {
   private stageToken = 0;
   /** The results of a room's race follow the room (who wants a rematch, who left) while they are on the screen. */
   private offRoomWatch: (() => void) | null = null;
+  /** Stops the moving game tiles of the page on the screen (tile-clips.ts). */
+  private stopClips: (() => void) | null = null;
   /** Back during a round: the page goes forward again and asks ('restoring'); a yes goes back for real ('leaving'). */
   private backGuard: 'idle' | 'restoring' | 'leaving' = 'idle';
   private social: SocialController | null;
@@ -568,6 +571,7 @@ export class App {
   stop(): void {
     this.endPlay();
     this.endTour();
+    this.endClips();
     this.social?.stop();
     this.nav.stop();
     for (const c of this.cleanups.splice(0)) c();
@@ -777,6 +781,7 @@ export class App {
     this.replayPlayer = null;
     this.endPlay();
     this.endTour();
+    this.endClips();
     if (route?.id === 'welcome') this.tour = new WelcomeController(this.welcomeHost(), stepFrom(route.query.get('step')));
     const ctx = this.ctx();
     if (route?.id === 'pro') {
@@ -809,6 +814,23 @@ export class App {
     if (route?.id === 'welcome') void this.tour?.begin();
     if (route?.id === 'results') { this.startRestTimer(); this.watchRoom(); this.mountReplay(); }
     if (route?.id === 'settings') void this.offline?.refresh();
+    if (route?.id === 'home' || route?.id === 'region') this.startClips();
+  }
+
+  // ---- the moving game tiles ------------------------------------------------------------------------------------------
+
+  private startClips(): void {
+    this.stopClips = startTileClips(this.host, {
+      win: this.win,
+      reducedMotion: this.reducedMotion(),
+      automated: isAutomated({ userAgent: this.win.navigator.userAgent, webdriver: this.win.navigator.webdriver }),
+      forced: this.o.demo && this.win.__BA_TEST__?.clips === true,
+    });
+  }
+
+  private endClips(): void {
+    this.stopClips?.();
+    this.stopClips = null;
   }
 
   // ---- the welcome tour -------------------------------------------------------------------------------------------------

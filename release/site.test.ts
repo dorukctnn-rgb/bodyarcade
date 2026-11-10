@@ -213,6 +213,14 @@ describe('service worker', () => {
     expect(await s.request('/version.json')).toBeNull();
   });
 
+  it('leaves the clips of the moving game tiles to the network: a video asks for byte ranges, and they are never stored', async () => {
+    const s = sandbox(async () => ok('clip', 'video/webm'));
+    await s.lifecycle('install');
+    expect(await s.request('/static/clips/road-run-800.0a1b2c3d.webm', { headers: { range: 'bytes=0-' } })).toBeNull();
+    expect(await s.request('/static/clips/road-run-400.0a1b2c3d.mp4')).toBeNull();
+    expect(s.stores.get('ba-shell-b1')?.map.size).toBe(4);
+  });
+
   it('serves hashed build files from the cache without the network', async () => {
     const s = sandbox(async () => ok('fresh', 'text/javascript'));
     await s.lifecycle('install');
@@ -394,5 +402,6 @@ describe('precache list', () => {
   it('takes every hashed build file but source maps, after the start pages', () => {
     expect(precacheList(['/static/a.js', '/static/a.js.map', '/index.html', '/static/b.css', '/vendor/x.wasm'], ['/', '/tr/'])).toEqual(['/', '/tr/', '/static/a.js', '/static/b.css']);
     expect(precacheList(['/static/a.js', '/static/hero/coast-1920.0a1b2c3d.avif', '/static/tiles/road-run.0a1b2c3d.webp'], ['/'])).toEqual(['/', '/static/a.js', '/static/tiles/road-run.0a1b2c3d.webp']);
+    expect(precacheList(['/static/a.js', '/static/clips/road-run-800.0a1b2c3d.webm', '/static/clips/road-run-400.0a1b2c3d.mp4'], ['/'])).toEqual(['/', '/static/a.js']);
   });
 });

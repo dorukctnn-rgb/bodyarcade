@@ -242,10 +242,11 @@ export function serviceWorkerSource(template: string, cfg: SwConfig): string {
 }
 
 /**
- * The files a new service worker stores at install: every hashed build file but source maps and the home page's showcase
- * frames (/static/hero/: many sizes of a few pictures, of which a visitor's screen needs one each), and the start pages.
+ * The files a new service worker stores at install: every hashed build file but source maps, the home page's showcase frames
+ * (/static/hero/: many sizes of a few pictures, of which a visitor's screen needs one each) and the clips of the moving game tiles
+ * (/static/clips/: two sizes in two formats, fetched only when a tile plays), and the start pages.
  */
 export function precacheList(files: readonly string[], startPages: readonly string[]): string[] {
-  const build = files.filter((f) => f.startsWith('/static/') && !f.startsWith('/static/hero/') && !f.endsWith('.map')).sort();
+  const build = files.filter((f) => f.startsWith('/static/') && !f.startsWith('/static/hero/') && !f.startsWith('/static/clips/') && !f.endsWith('.map')).sort();
   return [...startPages, ...build];
 }

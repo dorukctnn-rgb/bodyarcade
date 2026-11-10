@@ -14,7 +14,7 @@ const TYPES = {
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.webp': 'image/webp', '.avif': 'image/avif', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.wasm': 'application/wasm',
-  '.task': 'application/octet-stream', '.y4m': 'application/octet-stream', '.mjpeg': 'video/x-motion-jpeg',
+  '.task': 'application/octet-stream', '.y4m': 'application/octet-stream', '.mjpeg': 'video/x-motion-jpeg', '.webm': 'video/webm', '.mp4': 'video/mp4',
 };
 
 function fileFor(urlPath) {

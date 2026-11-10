@@ -11,6 +11,8 @@ export interface AssetResolver {
   onboarding(file: string): string;
   /** A frame of the pictures at the top of the home page (src/showcase.ts), by file name. */
   hero(file: string): string;
+  /** A clip of a moving game tile (src/clips.ts), by file name. */
+  clip(file: string): string;
 }
 
 export const ASSET_BASE = '/assets';
@@ -22,6 +24,7 @@ export const devAssets: AssetResolver = {
   favicon: () => `${ASSET_BASE}/brand/favicon.svg`,
   onboarding: (file) => `${ASSET_BASE}/onboarding/${file}`,
   hero: (file) => `${ASSET_BASE}/hero/${file}`,
+  clip: (file) => `${ASSET_BASE}/clips/${file}`,
 };
 
 /** The files of design/onboarding/fallback, by name: the opening picture and loop of each theme, and a still for each page of the tour. */
@@ -40,5 +43,6 @@ export function mappedAssets(map: Readonly<Record<string, string>>): AssetResolv
     favicon: () => m(devAssets.favicon()),
     onboarding: (file) => m(devAssets.onboarding(file)),
     hero: (file) => m(devAssets.hero(file)),
+    clip: (file) => m(devAssets.clip(file)),
   };
 }
