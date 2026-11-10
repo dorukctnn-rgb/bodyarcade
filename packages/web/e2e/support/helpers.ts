@@ -26,6 +26,8 @@ export interface Hooks {
   raceSeconds?: number;
   /** Players added to a fresh device before the app starts (the plan must be 'family'); `active` is the one that plays. */
   players?: { name: string; kid?: boolean; avatar?: string; active?: boolean }[];
+  /** The moving game tiles of the home page play in this automated browser too. */
+  clips?: boolean;
 }
 
 /** Sets the test hooks before the page's own scripts run. Development builds only read them. */

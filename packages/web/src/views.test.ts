@@ -14,6 +14,7 @@ import { REGION_ORDER, router, type RouteId } from './routes.ts';
 import type { RoundResult } from './views/results.ts';
 import { overlayHtml } from './views/play.ts';
 import { defaultSetup, sanitizeSetup, setupFromQuery } from './views/setup.ts';
+import { CLIP_TILES } from './clips.ts';
 
 const games = loadCatalogue({ fixtures: 'only', requiredLangs: ['en', 'tr'] }).catalogue.games;
 const LANGS: Lang[] = ['en', 'tr'];
@@ -175,6 +176,30 @@ describe('home and region pages', () => {
     const region = draw('en', '/workouts/legs/');
     expect(region.html).not.toContain('k-reel');
     expect(region.r.preloads).toBeUndefined();
+  });
+
+  it('moves the tiles of the redrawn games: a silent clip round and round over the still, with no address until the app plays it', () => {
+    const tiles = (h: string): Map<string, string> => new Map([...h.matchAll(/<a class="ba-tile" href="[^"]*" data-game="([a-z0-9-]+)">[\s\S]*?<\/a>/g)].map((m) => [m[1] as string, m[0]]));
+    for (const url of ['/', '/tr/', '/workouts/legs/']) {
+      const html = draw(url.startsWith('/tr') ? 'tr' : 'en', url).html;
+      const shown = tiles(html);
+      expect(shown.size, url).toBeGreaterThan(0);
+      for (const [id, tile] of shown) {
+        const g = games.find((x) => x.id === id);
+        const stem = g?.catalogue.tile ?? '';
+        if (!CLIP_TILES.includes(stem)) { expect(tile, `${url} ${id}`).not.toContain('<video'); continue; }
+        // the still first (the poster, and what stays when motion is reduced), then the clip over it, then the marks on top
+        expect(tile).toMatch(/<span class="art"><img src="\/assets\/tiles\/[^"]+-400\.webp"[^>]*loading="lazy"[^>]*><video class="clip"/);
+        expect(tile).toContain(`<video class="clip" data-webm="/assets/clips/${stem}-400.webm 400w, /assets/clips/${stem}-800.webm 800w" data-mp4="/assets/clips/${stem}-400.mp4 400w, /assets/clips/${stem}-800.mp4 800w" width="400" height="300" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>`);
+      }
+      expect(html, url).not.toMatch(/<video[^>]*\ssrc=/);
+      expect(html, url).not.toMatch(/<video[^>]*\sautoplay/);
+      expect(html, url).not.toMatch(/<video[^>]*\scontrols/);
+    }
+    const home = draw('en', '/').html;
+    expect(home.match(/<video class="clip"/g)).toHaveLength(CLIP_TILES.length);
+    // a game hidden by the modes takes its clip with it
+    expect(draw('en', '/', { settings: { quiet: true } }).html).not.toContain('/assets/clips/road-run-');
   });
 
   it('marks the active region chip and lists only that region', () => {

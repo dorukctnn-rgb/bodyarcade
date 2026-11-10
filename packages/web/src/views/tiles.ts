@@ -8,6 +8,7 @@ import { regionCounts, supportsLocal2 } from '../../catalogue/filter.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
 import { durationLabel, hasPro, mainRegion, regionLabel, titleOf, type ViewContext } from '../context.ts';
 import { REGION_ORDER } from '../routes.ts';
+import { clipSet, hasClip } from '../clips.ts';
 
 export function tileImage(ctx: ViewContext, g: ShellGame, sizes: string): SafeHtml {
   const stem = g.catalogue.tile;
@@ -15,6 +16,18 @@ export function tileImage(ctx: ViewContext, g: ShellGame, sizes: string): SafeHt
 }
 
 const TILE_SIZES = '(min-width: 1680px) 300px, (min-width: 900px) 25vw, (min-width: 600px) 33vw, 50vw';
+
+/**
+ * The clip of a moving tile (src/clips.ts), over the still picture: no address yet, so nothing is fetched until the app decides to
+ * play it (app/tile-clips.ts reads the files from data-webm and data-mp4); hidden until then, and faded in once it plays. It lies over
+ * the picture by design, so the layout check takes it as a layer.
+ */
+export function tileClip(ctx: ViewContext, g: ShellGame): SafeHtml {
+  const stem = g.catalogue.tile;
+  if (!hasClip(stem)) return html``;
+  const url = (file: string): string => ctx.assets.clip(file);
+  return html`<video class="clip" data-webm="${clipSet(stem, 'webm', url)}" data-mp4="${clipSet(stem, 'mp4', url)}" width="400" height="300" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>`;
+}
 
 export function gameTile(ctx: ViewContext, g: ShellGame): SafeHtml {
   const t = ctx.i18n;
@@ -24,7 +37,7 @@ export function gameTile(ctx: ViewContext, g: ShellGame): SafeHtml {
   if (g.seated) marks.push(html`<span class="mark" role="img" aria-label="${t.t('game.badge.seated')}" title="${t.t('game.badge.seated')}">${icon('chair')}</span>`);
   if (ctx.caps.local2 && supportsLocal2(g)) marks.push(html`<span class="mark" role="img" aria-label="${t.t('game.badge.local2')}" title="${t.t('game.badge.local2')}">${icon('users')}</span>`);
   return html`<a class="ba-tile" href="${ctx.href('game', { params: { slug: g.seo.slug } })}" data-game="${g.id}">
-    <span class="art">${tileImage(ctx, g, TILE_SIZES)}${pro}${marks.length ? html`<span class="marks">${marks}</span>` : ''}</span>
+    <span class="art">${tileImage(ctx, g, TILE_SIZES)}${tileClip(ctx, g)}${pro}${marks.length ? html`<span class="marks">${marks}</span>` : ''}</span>
     <span class="t">${titleOf(ctx, g)}</span>
     <span class="meta">${glyph(g.catalogue.move, { decorative: true, floor: false, size: 24 })}<span class="meta-text"><span>${regionLabel(ctx, region)}</span><span class="meta-dur">${durationLabel(ctx, g.durationSec)}</span></span></span>
   </a>`;

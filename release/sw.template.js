@@ -30,6 +30,8 @@ const KEEP = new Set([SHELL, LIB, MEDIA]);
 const sameOrigin = (url) => url.origin === self.location.origin;
 const isLib = (path) => CONFIG.libPrefixes.some((p) => path.startsWith(p));
 const isBuildFile = (path) => path.startsWith('/static/');
+/** The clips of the moving game tiles: never stored (not precached), and a video asks for byte ranges, which the network answers. */
+const isClip = (path) => path.startsWith('/static/clips/');
 const isMedia = (path) => /\.(?:png|jpe?g|webp|avif|gif|svg|ico|woff2?)$/i.test(path);
 const never = (path) => path.startsWith('/api/') || path === '/sw.js' || path === '/sw-register.js' || path === '/version.json';
 /** /r/CODE and /f/BA-XXXXXX, with or without a language prefix such as /tr/. */
@@ -180,7 +182,7 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
-  if (!sameOrigin(url) || never(url.pathname)) return;
+  if (!sameOrigin(url) || never(url.pathname) || isClip(url.pathname)) return;
   if (request.mode === 'navigate') { event.respondWith(page(event)); return; }
   if (isLib(url.pathname)) { event.respondWith(cacheFirst(request, LIB)); return; }
   if (isBuildFile(url.pathname)) { event.respondWith(cacheFirst(request, SHELL)); return; }

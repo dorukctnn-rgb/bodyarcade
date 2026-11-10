@@ -326,6 +326,13 @@ ul.ba-grid { list-style: none; margin: 0; padding: 0; }
 .ba-tile .art { transition: transform var(--ba-dur-state) var(--ba-ease-out), box-shadow var(--ba-dur-state); }
 .ba-tile:hover .art { transform: translateY(-2px); }
 .ba-tile .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* A moving tile (app/tile-clips.ts): the clip lies over the still picture, out of the layout; it is not drawn at all until it has an
+   address, and it fades in once it plays. The badge and the marks come after it, so they stay on top. */
+.ba-tile .art .clip { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; opacity: 0; transition: opacity 280ms var(--ba-ease-out); pointer-events: none; }
+.ba-tile .art .clip[src] { display: block; }
+.ba-tile .art .clip.is-on { opacity: 1; }
+:root[data-motion="reduce"] .ba-tile .art .clip { display: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .ba-tile .art .clip { display: none; } }
 .ba-tile .meta { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: center; }
 .ba-tile .meta svg { width: 24px; height: 24px; }
 .ba-tile .meta-text { display: grid; line-height: 1.25; }
