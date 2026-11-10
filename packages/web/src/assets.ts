@@ -9,6 +9,8 @@ export interface AssetResolver {
   favicon(): string;
   /** A pre-rendered picture or loop of the welcome tour (a device that cannot draw its 3D stage shows these). */
   onboarding(file: string): string;
+  /** A frame of the pictures at the top of the home page (src/showcase.ts), by file name. */
+  hero(file: string): string;
 }
 
 export const ASSET_BASE = '/assets';
@@ -19,6 +21,7 @@ export const devAssets: AssetResolver = {
   mark: () => `${ASSET_BASE}/brand/mark.svg`,
   favicon: () => `${ASSET_BASE}/brand/favicon.svg`,
   onboarding: (file) => `${ASSET_BASE}/onboarding/${file}`,
+  hero: (file) => `${ASSET_BASE}/hero/${file}`,
 };
 
 /** The files of design/onboarding/fallback, by name: the opening picture and loop of each theme, and a still for each page of the tour. */
@@ -36,5 +39,6 @@ export function mappedAssets(map: Readonly<Record<string, string>>): AssetResolv
     mark: () => m(devAssets.mark()),
     favicon: () => m(devAssets.favicon()),
     onboarding: (file) => m(devAssets.onboarding(file)),
+    hero: (file) => m(devAssets.hero(file)),
   };
 }
