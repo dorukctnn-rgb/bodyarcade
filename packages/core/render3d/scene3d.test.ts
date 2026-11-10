@@ -435,8 +435,8 @@ describe('the context and the end', () => {
 
   it('stats come from the renderer', () => {
     const { kit, r } = make();
-    r.info.memory.geometries = 31; r.info.memory.textures = 6; r.info.render.calls = 72;
-    expect(kit.stats()).toEqual({ geometries: 31, textures: 6, drawCalls: 72 });
+    r.info.memory.geometries = 31; r.info.memory.textures = 6; r.info.render.calls = 72; r.info.render.triangles = 18_400;
+    expect(kit.stats()).toEqual({ geometries: 31, textures: 6, drawCalls: 72, triangles: 18_400 });
   });
 
   it('dispose frees every resource, stops listening, is safe twice, and gives the context back only on request', () => {

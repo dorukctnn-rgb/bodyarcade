@@ -92,7 +92,10 @@ export interface WorldFrame {
 export interface Scene3DStats {
   geometries: number;
   textures: number;
+  /** Draw calls of the scene in the last frame. At T1/T2 the full-screen passes come on top (GTAO at T2 also draws the scene's normals once more). */
   drawCalls: number;
+  /** Triangles of the scene in the last frame (same rule as drawCalls). */
+  triangles: number;
 }
 
 /** models: the modelled scenery or the modelled runner has just been loaded (a game may now use them). */
@@ -142,6 +145,8 @@ export interface Scene3DKit extends Scene3D {
   on<K extends keyof Scene3DEvents>(type: K, cb: () => void): Unsubscribe;
   /** CPU-side counts of what the kit owns (the renderer's own numbers are in stats()). */
   counts(): ResourceCounts;
+  /** The renderer's numbers: GPU memory, and what the scene cost to draw in the last frame. */
+  stats(): Scene3DStats;
   sceneryStats(): SceneryStats | null;
 }
 
@@ -564,7 +569,9 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
       listeners.contextlost.clear(); listeners.contextrestored.clear(); listeners.models.clear();
     },
     stats() {
-      return { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, drawCalls: renderer.info.render.calls };
+      // Through the passes the renderer's own numbers end with the last full-screen pass, so the scene pass is read from them.
+      const drawn = post && post.mode !== 'none' ? post.sceneInfo : renderer.info.render;
+      return { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, drawCalls: drawn.calls, triangles: drawn.triangles };
     },
 
     frameDue(nowMs) {

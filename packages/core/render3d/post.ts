@@ -100,6 +100,11 @@ export interface PostKit {
   compile(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void;
   /** GPU objects this kit holds now (targets and materials), for the leak counts. */
   counts(): { targets: number; materials: number };
+  /**
+   * Draw calls and triangles of the scene pass of the last frame drawn through the passes. The renderer's own numbers
+   * end with the last full-screen pass (one call, one triangle), so they say nothing about the scene.
+   */
+  readonly sceneInfo: { readonly calls: number; readonly triangles: number };
   dispose(): void;
 }
 
@@ -122,6 +127,7 @@ export function createPost(renderer: PostRenderer): PostKit {
   let material: THREE.ShaderMaterial | null = null;
   let gtaoScene: THREE.Scene | null = null;
   let gtaoCamera: THREE.Camera | null = null;
+  const sceneInfo = { calls: 0, triangles: 0 };
 
   const px = (): [number, number] => [Math.max(1, Math.floor(width * ratio)), Math.max(1, Math.floor(height * ratio))];
 
@@ -179,6 +185,7 @@ export function createPost(renderer: PostRenderer): PostKit {
 
   return {
     get mode() { return mode; },
+    sceneInfo,
     setMode(m) {
       if (m === mode) return;
       freeAll();
@@ -209,6 +216,8 @@ export function createPost(renderer: PostRenderer): PostKit {
       const prevTarget = renderer.getRenderTarget();
       renderer.setRenderTarget(sceneRT);
       renderer.render(scene, camera);
+      sceneInfo.calls = renderer.info.render.calls;
+      sceneInfo.triangles = renderer.info.render.triangles;
       const u = material.uniforms;
       if (mode === 'full' && gtao && bloom) {
         camera.layers.disable(NO_AO_LAYER);

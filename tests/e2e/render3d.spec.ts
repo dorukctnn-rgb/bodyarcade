@@ -31,9 +31,12 @@ function call<K extends keyof H>(page: Page, fn: K, arg: Parameters<H[K]>[0]): P
 /** Budgets (draw calls and triangles per frame at 390x844; CPU milliseconds per frame at 4x throttling). */
 const BUDGET = {
   // Measured on the ten worlds: 15 to 41 calls and 14k to 37k triangles at every tier (the old engine: 70 to 84 calls and
-  // 23k to 114k triangles at its top level). Headroom is about one third, so a regression shows.
+  // 23k to 114k triangles at its top level). Headroom is about one third, so a regression shows. Triangles without the grass.
   calls: { 0: 55, 1: 55, 2: 55 },
   triangles: { 0: 50_000, 1: 50_000, 2: 50_000 },
+  // The wind-blown grass of the grassy worlds (T1/T2): one instanced call, its own budget. quality.ts grassDensity x 420
+  // clumps x 9 blades x 3 triangles: T1 113k, T2 249k (small blades in one call, no shadow, no AO).
+  grassTriangles: { 0: 0, 1: 120_000, 2: 260_000 },
   // CPU side at 4x throttling, measured over four runs (with other builds running on the machine, so the tails are noisy):
   // update p50 0.1-0.4 ms, p95 0.4-6.1 ms; submit p50 2.4-9 ms. p95 of the submit is not judged: software GL stalls the page
   // now and then (6 to 43 ms), a phone's GPU driver does not.
@@ -92,7 +95,9 @@ test('dispose leaves nothing in the renderer', async ({ page }) => {
 });
 
 test('every world draws a real picture at every tier, portrait and landscape, within its draw budget', async ({ page }) => {
-  test.setTimeout(480_000);
+  // Software GL draws T1 (a multisampled half-float target and a final pass) about 3x and T2 (GTAO and bloom on top) about
+  // 4.5x slower than a plain render: about 12 minutes on a GitHub runner for the 40 pictures, 3 before the passes.
+  test.setTimeout(1_200_000);
   await open(page);
   const portrait = await call(page, 'shotRun', { worldIds: WORLDS, levels: [2, 1, 0], sizes: [[390, 844]], frames: 45 });
   const landscape = await call(page, 'shotRun', { worldIds: WORLDS, levels: [2], sizes: [[844, 390]], frames: 45 });
@@ -110,13 +115,16 @@ test('every world draws a real picture at every tier, portrait and landscape, wi
     // Draw budget: the old engine drew 70 to 84 calls per world at its top level and 45 to 56 at its lowest.
     expect(s.calls, `${tag} draw calls`).toBeGreaterThan(10);
     expect(s.calls, `${tag} draw calls`).toBeLessThanOrEqual(BUDGET.calls[s.level as 0 | 1 | 2]);
-    expect(s.triangles, `${tag} triangles`).toBeLessThanOrEqual(BUDGET.triangles[s.level as 0 | 1 | 2]);
+    expect(s.triangles - s.grass, `${tag} triangles without the grass`).toBeLessThanOrEqual(BUDGET.triangles[s.level as 0 | 1 | 2]);
+    expect(s.grass, `${tag} grass triangles`).toBeLessThanOrEqual(BUDGET.grassTriangles[s.level as 0 | 1 | 2]);
     if (dir) writeFileSync(join(dir, `${s.world}-T${s.level}-${s.width}x${s.height}.jpg`), Buffer.from(s.jpeg.split(',')[1]!, 'base64'));
   }
   for (const w of WORLDS) {
     const t = (l: number): (typeof shots)[number] => shots.find((x) => x.world === w && x.level === l && x.width === 390)!;
     expect(t(0).triangles, `${w}: T0 draws no more triangles than T2 (plus the blob shadows)`).toBeLessThanOrEqual(t(2).triangles + 12);
-    expect(t(0).calls, `${w}: T0 has no more calls than T2 (plus the blob shadows)`).toBeLessThanOrEqual(t(2).calls + 2);
+    // In a grassy world T0 draws the tufts (one batch per visible slice) where T1/T2 draw the one grass field instead.
+    const tufts = t(2).grass > 0 ? (t(2).scenery?.visibleSlices ?? 0) : 0;
+    expect(t(0).calls, `${w}: T0 has no more calls than T2 (plus the blob shadows and the tufts the grass replaces)`).toBeLessThanOrEqual(t(2).calls + 2 + tufts);
   }
   expect(errorsOf(page)).toEqual([]);
 });
