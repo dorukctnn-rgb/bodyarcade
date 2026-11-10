@@ -50,7 +50,7 @@ export function addReflectingLake(w,sun){
 // far shore, pale in the haze. No shadows (they are 40 m and more away); fewer trees and bushes on the low tier and phones.
 function addIslands(w){
  const r=w.rng,few=w.quality==='low'||matchMedia('(pointer: coarse)').matches,variants=w.woodland?.variants??[];
- const RINGS=12,SEG=48,pos=[],col=[],idx=[],rocks=[],bushes=[],ridge=[],forest=variants.map(()=>[]);
+ const RINGS=12,SEG=48,pos=[],col=[],idx=[],rocks=[],bushes=[],ridge=[],groves=[],kinds=variants.slice(0,3);
  const wet=new T.Color('#5c5a4c'),stone=new T.Color('#85836f'),sand=new T.Color('#a59b7a'),meadow=new T.Color('#6e7c45'),grass=new T.Color('#55693a'),shade=new T.Color('#425430'),c=new T.Color();
  for(let z0=-40;z0>-w.length-90;z0-=60+r()*25){
   const isl={x:30+r()*14,z:z0,R:10+r()*8,H:2+r()*1.6,p:r()*6.28,q:r()*6.28};
@@ -70,8 +70,10 @@ function addIslands(w){
   for(let k=0;k<(few?8:14);k++){const a=r()*Math.PI*2,[x,,z]=at(.8+r()*.12,a),s=.5+r()*1.1;rocks.push({x,y:-.1+s*.2,z,sx:s*1.25,sy:s*.62,sz:s,ry:r()*6,color:['#8a8d7d','#9c9b88','#747c70'][k%3]});}
   // Bushes along the tree line, trees on the crown, taller toward the middle.
   for(let k=0;k<(few?6:12);k++){const a=r()*Math.PI*2,[x,y,z]=at(.55+r()*.22,a),s=.7+r()*.9;bushes.push({x,y:y+s*.22,z,sx:s*1.3,sy:s*.75,sz:s*1.1,ry:r()*6,color:['#3f5530','#4a6234','#3a4f2c','#536a37'][k%4]});}
-  if(variants.length)for(let k=0;k<(few?10:22);k++){const t=Math.sqrt(r())*.66,a=r()*Math.PI*2,[x,y,z]=at(t,a),s=(.1+r()*.07)*(1.15-t*.5);
-   forest[k%variants.length].push({x,y:y-.15,z,sx:s*.85,sy:s*(.9+r()*.25),sz:s*.85,ry:r()*6.28,rz:(r()-.5)*.06});}
+  // One grove per island (oak, ash and aspen), so an island out of view or behind the camera is not drawn at all.
+  const grove=kinds.map(()=>[]);groves.push(grove);
+  if(kinds.length)for(let k=0;k<(few?10:22);k++){const t=Math.sqrt(r())*.66,a=r()*Math.PI*2,[x,y,z]=at(t,a),s=(.1+r()*.07)*(1.15-t*.5);
+   grove[k%kinds.length].push({x,y:y-.15,z,sx:s*.85,sy:s*(.9+r()*.25),sz:s*.85,ry:r()*6.28,rz:(r()-.5)*.06});}
  }
  const land=new T.BufferGeometry();land.setAttribute('position',new T.Float32BufferAttribute(pos,3));land.setAttribute('color',new T.Float32BufferAttribute(col,3));land.setIndex(idx);land.computeVertexNormals();
  w.mesh(land,w.mat('#ffffff',{vertexColors:true,roughness:1})).castShadow=false;
@@ -80,7 +82,7 @@ function addIslands(w){
  // the centre, so the shared corners of its faces get one normal).
  const bush=new T.IcosahedronGeometry(1,2),bp=bush.attributes.position,bn=bush.attributes.normal;for(let i=0;i<bp.count;i++){const x=bp.getX(i),y=bp.getY(i),z=bp.getZ(i),k=1+.18*Math.sin(x*5.1+z*3.7)+.12*Math.sin(y*6.3-x*2.9);bp.setXYZ(i,x*k,Math.max(-.35,y)*k,z*k);bn.setXYZ(i,x,y,z);}
  w.batch(bush,w.mat('#ffffff',{roughness:.95}),bushes,false);
- const lod=w.quality==='low'?2:1;variants.forEach((v,i)=>{w.batch(v.geo[lod].branches,v.bark,forest[i],false);w.batch(v.geo[lod].leaves,v.leaf,forest[i],false);});
+ const lod=w.quality==='low'?2:1;for(const grove of groves)kinds.forEach((v,i)=>{w.batch(v.geo[lod].branches,v.bark,grove[i],false);w.batch(v.geo[lod].leaves,v.leaf,grove[i],false);});
  for(let i=0;i<14;i++)ridge.push({x:104+r()*14,y:-2.5,z:50-i*30,sx:20+r()*16,sy:5+r()*6,sz:22,ry:r()*6,color:['#5d7466','#667d6c','#57705f'][i%3]});
  w.batch(new T.IcosahedronGeometry(1,2),w.mat('#ffffff',{roughness:1}),ridge,false);
 }
