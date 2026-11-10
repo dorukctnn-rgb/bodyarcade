@@ -55,7 +55,8 @@ function showcaseCaption(ctx: ViewContext, s: ShowcaseSlide): SafeHtml {
 /**
  * One frame of the showcase: the 21:9 crop from SHOWCASE_WIDE_MIN up, the 4:3 crop below it, AVIF first and one WebP size for the
  * rest. The first frame is the page's largest picture, so it is fetched first (and preloaded by the document head, showcasePreloads);
- * the others wait their turn.
+ * the others wait their turn. Frames 2 to 4 are drawn over the first one by design (they fade in over it): they carry data-qa-layer,
+ * so the layout check does not take the first caption under them for two captions on top of each other.
  */
 function showcaseFrame(ctx: ViewContext, s: ShowcaseSlide, first: boolean): SafeHtml {
   const a = (file: string): string => ctx.assets.hero(file);
@@ -63,7 +64,7 @@ function showcaseFrame(ctx: ViewContext, s: ShowcaseSlide, first: boolean): Safe
   const ww = SHOWCASE_WIDE_WEBP;
   const pw = SHOWCASE_PHONE_WEBP;
   const load = first ? html`fetchpriority="high"` : html`loading="lazy" fetchpriority="low"`;
-  return html`<div class="k-frame" data-frame="${s.id}"><picture>
+  return html`<div class="k-frame" data-frame="${s.id}"${first ? '' : html` data-qa-layer`}><picture>
       <source media="${media}" type="image/avif" srcset="${showcaseSrcset(s, 'wide', a)}" sizes="${SHOWCASE_SIZES_WIDE}" width="${ww}" height="${wideHeight(ww)}">
       <source media="${media}" type="image/webp" srcset="${a(`${s.id}-${ww}.webp`)} ${ww}w" sizes="${SHOWCASE_SIZES_WIDE}" width="${ww}" height="${wideHeight(ww)}">
       <source type="image/avif" srcset="${showcaseSrcset(s, 'phone', a)}" sizes="${SHOWCASE_SIZES_PHONE}" width="${pw}" height="${phoneHeight(pw)}">

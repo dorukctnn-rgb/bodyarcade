@@ -159,6 +159,9 @@ describe('home and region pages', () => {
   it('opens on four frames of the real games: the first fetched first, the others when their turn comes, the Pro mark on a Pro world', () => {
     const { r, html } = draw('en', '/');
     expect(html.match(/<div class="k-frame" data-frame=/g)).toHaveLength(4);
+    // frames 2 to 4 lie over the first by design: the layout check takes them as layers
+    expect(html.match(/<div class="k-frame" data-frame="[a-z]+" data-qa-layer>/g)).toHaveLength(3);
+    expect(html).toMatch(/<div class="k-frame" data-frame="coast"><picture>/);
     expect(html.match(/fetchpriority="high"/g)).toHaveLength(1);
     expect(html.match(/loading="lazy" fetchpriority="low"/g)).toHaveLength(3);
     expect(html).toMatch(/<div class="k-reel" aria-hidden="true">/);
