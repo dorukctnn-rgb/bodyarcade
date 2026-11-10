@@ -54,7 +54,9 @@ try {
   // The fake clock runs at the speed of the real one until it is paused.
   await page.clock.install();
   await page.addInitScript((q) => { window.__BA_TEST__ = { timeScale: 1, keyboard: true, ...(q ? { quality: q as 'low' | 'medium' | 'high' } : {}) }; }, quality ?? '');
-  await page.goto(`${web.url}/play/${game}/?input=keyboard&plan=pro${world ? `&world=${world}` : ''}${extra ? `&${extra}` : ''}`, { waitUntil: 'networkidle', timeout: 120_000 });
+  await page.goto(`${web.url}/play/${game}/?input=keyboard&plan=pro${world ? `&world=${world}` : ''}${extra ? `&${extra}` : ''}`, { waitUntil: 'load', timeout: 180_000 });
+  // The 3D worlds stream their models and textures after the load: give them time, but a busy machine does not fail the clip.
+  await page.waitForLoadState('networkidle', { timeout: 120_000 }).catch(() => undefined);
   await page.evaluate(() => document.fonts.ready);
   await page.waitForSelector('[data-hud="statusLeft"]', { timeout: 45_000 });
   await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal'), undefined, { timeout: 30_000 });

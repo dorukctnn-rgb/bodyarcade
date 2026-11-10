@@ -1,5 +1,5 @@
 // The moving game tiles of the home page: a short loop of each redrawn game in play (packages/web/src/clips.ts), made from the frames
-// of tools/gfx-shots/clip.ts. Each loop is LOOP seconds of the game; its last FADE seconds fade into its first ones, so it plays round
+// of tools/gfx-shots/clip.ts. Each loop is a few seconds of the game (CLIP_SHOTS); its last FADE seconds fade into its first ones, so it plays round
 // and round without a jump. Each comes as AV1 in WebM and as H.264 in MP4 (a browser without AV1, Safari on most devices), at the
 // tile's two sizes (400x300 and 800x600), silent, each under its budget: the best quality (lowest CRF) of the list that fits.
 //
@@ -27,7 +27,7 @@ const FFMPEG = opt('ffmpeg') ?? process.env.FFMPEG ?? 'ffmpeg';
 const only = opt('only');
 
 const FPS = 30;
-/** Seconds of the game in a loop, and of the fade from its end into its start. */
+/** Seconds of the game in a loop (unless a clip says otherwise), and of the fade from its end into its start. */
 const LOOP = 4;
 const FADE = 0.5;
 /** The tile's two sizes (packages/web/src/clips.ts CLIP_WIDTHS). */
@@ -38,14 +38,15 @@ const BUDGET = { 400: 170_000, 800: 390_000 };
 const CRF = { av1: [30, 33, 36, 39, 42, 45, 48, 52], h264: [22, 24, 26, 28, 30, 32, 34] };
 
 /**
- * The frames of each clip: the folder tools/gfx-shots/clip.ts wrote, and the first frame used (the most lively stretch of the
- * capture). The capture must hold LOOP + FADE seconds from there.
+ * The frames of each clip: the folder tools/gfx-shots/clip.ts wrote, the first frame used (the most lively stretch of the capture)
+ * and the seconds of the loop. The capture must hold loop + FADE seconds from there.
  */
 export const CLIP_SHOTS = {
-  'squat-flap': { dir: 'squat-flap', from: 0 },
-  'road-run': { dir: 'road-run', from: 0 },
-  'pose-wall': { dir: 'pose-wall', from: 0 },
-  'star-catch': { dir: 'star-catch', from: 0 },
+  'squat-flap': { dir: 'squat-flap', from: 0, loop: LOOP },
+  'road-run': { dir: 'road-run', from: 0, loop: LOOP },
+  // A wall every five seconds: the keyboard player does not make its shape, so the stretch between two verdicts (no red break).
+  'pose-wall': { dir: 'pose-wall', from: 38, loop: 3.5 },
+  'star-catch': { dir: 'star-catch', from: 0, loop: LOOP },
 };
 
 const out = path.join(repo, 'design', 'art', 'clips');
@@ -60,8 +61,8 @@ function encode(list, codec, w, h, crf, file) {
   const input = ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', String(FPS), '-i', path.join(list, 'l%04d.png')];
   const scale = ['-vf', `scale=${w}:${h}:flags=lanczos,format=yuv420p`, '-an'];
   const args = codec === 'av1'
-    ? [...input, ...scale, '-c:v', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-cpu-used', '5', '-row-mt', '1', '-g', String(LOOP * FPS), '-f', 'webm', file]
-    : [...input, ...scale, '-c:v', 'libx264', '-preset', 'veryslow', '-crf', String(crf), '-profile:v', 'high', '-level', '3.1', '-g', String(LOOP * FPS), '-tag:v', 'avc1', '-movflags', '+faststart', '-f', 'mp4', file];
+    ? [...input, ...scale, '-c:v', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-cpu-used', '5', '-row-mt', '1', '-g', '300', '-f', 'webm', file]
+    : [...input, ...scale, '-c:v', 'libx264', '-preset', 'veryslow', '-crf', String(crf), '-profile:v', 'high', '-level', '3.1', '-g', '300', '-tag:v', 'avc1', '-movflags', '+faststart', '-f', 'mp4', file];
   execFileSync(FFMPEG, args, { stdio: 'inherit' });
 }
 
@@ -69,7 +70,7 @@ for (const [id, spec] of Object.entries(CLIP_SHOTS)) {
   if (only && only !== id) continue;
   const src = path.join(frames, spec.dir);
   const names = (await readdir(src)).filter((f) => /^f\d{4}\.(jpg|png)$/.test(f)).sort();
-  const L = LOOP * FPS;
+  const L = Math.round(spec.loop * FPS);
   const F = Math.round(FADE * FPS);
   if (names.length < spec.from + L + F) throw new Error(`${id}: ${names.length} frames, ${spec.from + L + F} needed`);
   const at = (i) => rawFrame(path.join(src, names[spec.from + i]));
