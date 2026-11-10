@@ -60,8 +60,11 @@ try {
   await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal'), undefined, { timeout: 30_000 });
   await page.evaluate(() => { const s = new CSSStyleSheet(); s.replaceSync('.ba-hud, .ba-overlay, .ba-camera-host { visibility: hidden !important; }'); document.adoptedStyleSheets = [...document.adoptedStyleSheets, s]; });
   // From here on the game's time is ours: it moves only when the clock is run.
-  const start = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(start + 50);
+  // A moment ahead of the page's clock: on a loaded machine the page's time moves on while the call travels.
+  for (let tries = 0; ; tries += 1) {
+    const now = await page.evaluate(() => Date.now());
+    try { await page.clock.pauseAt(now + 1000); break; } catch (e) { if (tries >= 4) throw e; }
+  }
   let t = 0;
   let lastPilot = -1000;
   const step = async (ms: number): Promise<void> => {
