@@ -5,12 +5,16 @@
 //
 //   node design/tools/tile-clips.mjs <frames dir> [--only=<game>] [--ffmpeg=<path to ffmpeg>]
 //
-// The frames used on 10 Nov 2026 (one browser, one game after the other):
-//   node tools/gfx-shots/clip.ts <dir> squat-flap --size=2560x1440 --rect=380,288,1536,1152 --warm=8000 --seconds=4.5 --press=ArrowUp:900
-//   (the others: see CLIP_SHOTS below, the same rect as their tile in hero-frames.mjs TILE_SHOTS)
+// The frames used on 10 Nov 2026 (one browser, one game after the other; the same crops as the tiles, hero-frames.mjs TILE_SHOTS):
+//   node tools/gfx-shots/clip.ts <dir> squat-flap --size=2560x1440 --rect=380,288,1536,1152 --warm=9000 --seconds=9 --pilot=ArrowUp:Squat --query=difficulty=easy
+//   node tools/gfx-shots/clip.ts <dir> pose-wall --size=1280x960 --rect=128,110,1024,768 --warm=8000 --seconds=9
+//   node tools/gfx-shots/clip.ts <dir> star-catch --size=1280x960 --rect=130,60,960,720 --warm=8000 --seconds=9
+//   node tools/gfx-shots/clip.ts <dir> road-run --size=800x600 --quality=high --warm=4000 --seconds=4.6
+// (Road Run at the tile's own size: its high tier on software WebGL takes seconds a frame at 1280x960.)
 import path from 'node:path';
 import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { sharp } from './pw.mjs';
 
@@ -56,7 +60,7 @@ function encode(list, codec, w, h, crf, file) {
   const input = ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', String(FPS), '-i', path.join(list, 'l%04d.png')];
   const scale = ['-vf', `scale=${w}:${h}:flags=lanczos,format=yuv420p`, '-an'];
   const args = codec === 'av1'
-    ? [...input, ...scale, '-c:v', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-cpu-used', '3', '-row-mt', '1', '-g', String(LOOP * FPS), '-f', 'webm', file]
+    ? [...input, ...scale, '-c:v', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-cpu-used', '5', '-row-mt', '1', '-g', String(LOOP * FPS), '-f', 'webm', file]
     : [...input, ...scale, '-c:v', 'libx264', '-preset', 'veryslow', '-crf', String(crf), '-profile:v', 'high', '-level', '3.1', '-g', String(LOOP * FPS), '-tag:v', 'avc1', '-movflags', '+faststart', '-f', 'mp4', file];
   execFileSync(FFMPEG, args, { stdio: 'inherit' });
 }
@@ -70,7 +74,7 @@ for (const [id, spec] of Object.entries(CLIP_SHOTS)) {
   if (names.length < spec.from + L + F) throw new Error(`${id}: ${names.length} frames, ${spec.from + L + F} needed`);
   const at = (i) => rawFrame(path.join(src, names[spec.from + i]));
   // The loop: frames F .. L+F-1 of the stretch, where the last F of them fade into frames 0 .. F-1 (which come just before frame F).
-  const list = path.join(out, `.${id}-loop`);
+  const list = path.join(tmpdir(), `ba-tile-clip-${id}`);
   await rm(list, { recursive: true, force: true });
   await mkdir(list, { recursive: true });
   for (let j = 0; j < L; j += 1) {
