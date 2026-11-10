@@ -31,8 +31,8 @@ export const SHOWCASE_SHOTS = {
   coast: { wide: 'road-run-coast-2560x1440-b1.png', y: 0.55, phone: { file: 'road-run-coast-1280x960-b1.png' } },
   // Squat Flap draws its feathers and set dots on the canvas (top left, top centre): both crops leave them out.
   flap: { wide: 'squat-flap-2560x1440-b4.png', y: 1, phone: { file: 'squat-flap-2560x1440-b4.png', rect: [380, 288, 1536, 1152] } },
-  alps: { wide: 'road-run-alps-2560x1440-b0.png', y: 0.55, phone: { file: 'road-run-alps-1280x960-b0.png' } },
-  city: { wide: 'road-run-city-2560x1440-b0.png', y: 0.5, phone: { file: 'road-run-city-1280x960-b0.png' } },
+  alps: { wide: 'road-run-alps-2560x1440-b1.png', y: 0.4, phone: { file: 'road-run-alps-1280x960-b0.png' } },
+  city: { wide: 'road-run-city-2560x1440-b0.png', y: 0.35, phone: { file: 'road-run-city-1280x960-b1.png' } },
 };
 
 /**
