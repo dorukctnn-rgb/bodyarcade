@@ -5,6 +5,9 @@
 //
 // --quality pins the 3D tier (low, medium, high); without it the governor decides, which in a headless browser (software
 // WebGL) means the lowest tier soon. --world=<id> starts Road Run in that world. --suffix=<s> is added to the file names.
+// --clean hides the HUD, the overlays and the camera picture: a frame of the game alone (the home page's showcase and the
+// game tiles). --press=<key>:<ms> presses that key every <ms> milliseconds while waiting (ArrowUp: Squat Flap's wing beats;
+// not Space, which also presses the focused button). --burst=<n>:<ms> takes n pictures <ms> apart (<name>-b<i>.png).
 //
 // Each picture is <game>-<w>x<h>.png. A game that does not reach its HUD is reported and the rest carry on.
 import { mkdirSync } from 'node:fs';
@@ -30,6 +33,11 @@ const extra = flag('query');
 const quality = flag('quality');
 const suffix = flag('suffix') ?? '';
 const world = flag('world');
+const clean = args.includes('--clean');
+const [pressFlag, pressEvery] = (flag('press') ?? '').split(':');
+const pressKey = pressFlag === 'Space' ? ' ' : pressFlag;
+const pressMs = Number(pressEvery ?? 0);
+const [burstN, burstMs] = (flag('burst') ?? '1:0').split(':').map(Number) as [number, number];
 
 async function take(browser: Browser, base: string, game: string, [w, h]: [number, number], png: string): Promise<void> {
   const context = await browser.newContext({ viewport: { width: w, height: h }, colorScheme: 'light', locale: 'en-US', deviceScaleFactor: 1, hasTouch: w < 1000 });
@@ -42,8 +50,17 @@ async function take(browser: Browser, base: string, game: string, [w, h]: [numbe
     await page.evaluate(() => document.fonts.ready);
     await page.waitForSelector('[data-hud="statusLeft"]', { timeout: 45_000 });
     await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal'), undefined, { timeout: 30_000 });
-    await page.waitForTimeout(wait);
-    await page.screenshot({ path: png });
+    const hold = async (ms: number): Promise<void> => {
+      if (!(pressKey && pressMs > 0)) { await page.waitForTimeout(ms); return; }
+      for (let t = 0; t < ms; t += pressMs) { await page.keyboard.press(pressKey); await page.waitForTimeout(pressMs); }
+    };
+    await hold(wait);
+    // A constructed style sheet (CSSOM, so the page's Content-Security-Policy allows it) also holds for a HUD drawn again later.
+    if (clean) await page.evaluate(() => { const s = new CSSStyleSheet(); s.replaceSync('.ba-hud, .ba-overlay, .ba-camera-host { visibility: hidden !important; }'); document.adoptedStyleSheets = [...document.adoptedStyleSheets, s]; });
+    for (let i = 0; i < Math.max(1, burstN); i += 1) {
+      if (i > 0) await hold(burstMs);
+      await page.screenshot({ path: burstN > 1 ? png.replace(/\.png$/, `-b${i}.png`) : png, timeout: 120_000 });
+    }
     console.log(`ok ${game} ${w}x${h}${errors.length ? ` (page errors: ${errors.slice(0, 2).join(' | ')})` : ''}`);
   } finally {
     await context.close();

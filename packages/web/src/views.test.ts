@@ -156,6 +156,27 @@ describe('home and region pages', () => {
     expect(tileBadges(pro)).toBe(0);
   });
 
+  it('opens on four frames of the real games: the first fetched first, the others when their turn comes, the Pro mark on a Pro world', () => {
+    const { r, html } = draw('en', '/');
+    expect(html.match(/<div class="k-frame" data-frame=/g)).toHaveLength(4);
+    // frames 2 to 4 lie over the first by design: the layout check takes them as layers
+    expect(html.match(/<div class="k-frame" data-frame="[a-z]+" data-qa-layer>/g)).toHaveLength(3);
+    expect(html).toMatch(/<div class="k-frame" data-frame="coast"><picture>/);
+    expect(html.match(/fetchpriority="high"/g)).toHaveLength(1);
+    expect(html.match(/loading="lazy" fetchpriority="low"/g)).toHaveLength(3);
+    expect(html).toMatch(/<div class="k-reel" aria-hidden="true">/);
+    expect(r.preloads?.map((p) => p.media)).toEqual(['(min-width: 760px)', '(max-width: 759.98px)']);
+    expect(r.preloads?.[0]?.srcset).toContain('/assets/hero/coast-2560.avif 2560w');
+    const real = loadCatalogue({ fixtures: 'none', requiredLangs: ['en', 'tr'] }).catalogue.games;
+    const tr = draw('tr', '/tr/', { games: real }).html;
+    expect(tr).toContain('<span class="k-cap"><b>Road Run</b><span>Kıyı</span><span class="ba-badge ba-badge--pro">Pro</span></span>');
+    expect(tr).toContain('<span class="k-cap"><b>Road Run</b><span>Alpler</span></span>');
+    // A region page is the game list with its own heading: no showcase there.
+    const region = draw('en', '/workouts/legs/');
+    expect(region.html).not.toContain('k-reel');
+    expect(region.r.preloads).toBeUndefined();
+  });
+
   it('marks the active region chip and lists only that region', () => {
     const { html } = draw('en', '/workouts/legs/');
     expect(html).toMatch(/href="\/workouts\/legs\/" aria-current="page"/);

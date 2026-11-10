@@ -393,5 +393,6 @@ describe('service worker: invitation and friend-link pages', () => {
 describe('precache list', () => {
   it('takes every hashed build file but source maps, after the start pages', () => {
     expect(precacheList(['/static/a.js', '/static/a.js.map', '/index.html', '/static/b.css', '/vendor/x.wasm'], ['/', '/tr/'])).toEqual(['/', '/tr/', '/static/a.js', '/static/b.css']);
+    expect(precacheList(['/static/a.js', '/static/hero/coast-1920.0a1b2c3d.avif', '/static/tiles/road-run.0a1b2c3d.webp'], ['/'])).toEqual(['/', '/static/a.js', '/static/tiles/road-run.0a1b2c3d.webp']);
   });
 });

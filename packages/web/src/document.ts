@@ -7,6 +7,9 @@ import { SITE_ORIGIN, type Rendered } from './pages.ts';
 
 export interface Alternate { lang: Lang | 'x-default'; path: string }
 
+/** A picture the page needs at once (its largest one), fetched from the head: a srcset for the screens that the media query matches. */
+export interface Preload { srcset: string; sizes: string; media: string; type: string }
+
 export interface BuildAssets {
   css: readonly string[];
   /** The entry script (a module). */
@@ -64,6 +67,7 @@ export function renderDocument(d: DocumentInput): string {
     '<meta name="theme-color" content="#F4F2F8" media="(prefers-color-scheme: light)">',
     '<meta name="theme-color" content="#1A1430" media="(prefers-color-scheme: dark)">',
     `<link rel="icon" href="${e(d.resolver.favicon())}" type="image/svg+xml">`,
+    ...(page.preloads ?? []).map((p) => `<link rel="preload" as="image" type="${e(p.type)}" imagesrcset="${e(p.srcset)}" imagesizes="${e(p.sizes)}" media="${e(p.media)}" fetchpriority="high">`),
     ...assets.fonts.map((f) => `<link rel="preload" href="${e(f)}" as="font" type="font/woff2" crossorigin>`),
     ...assets.css.map((c) => `<link rel="stylesheet" href="${e(c)}">`),
     ...assets.modulePreload.map((m) => `<link rel="modulepreload" href="${e(m)}">`),

@@ -21,6 +21,9 @@ import { NO_PLANS_DATA, planStrip, type PlansData } from './plans.ts';
 import { gameGrid, regionChips } from './tiles.ts';
 import { weekdayNames } from './parts.ts';
 import { REGION_ORDER } from '../routes.ts';
+import { ROAD_RUN_WORLDS } from '../../../games/road-run/worlds.ts';
+import { phoneHeight, SHOWCASE, SHOWCASE_PHONE_WEBP, SHOWCASE_SIZES_PHONE, SHOWCASE_SIZES_WIDE, SHOWCASE_WIDE_MIN, SHOWCASE_WIDE_WEBP, showcaseSrcset, wideHeight, type ShowcaseSlide } from '../showcase.ts';
+import type { Preload } from '../document.ts';
 
 /** What the home page knows about the player's weeks; empty on the server and for a new player. */
 export interface HomeData {
@@ -41,11 +44,55 @@ export function featuredGame(ctx: ViewContext): ShellGame | undefined {
   return ctx.games.find((g) => g.free) ?? ctx.games[0];
 }
 
+/** The words on a frame: the game, and the Road Run world with its Pro mark when the world is part of Pro. */
+function showcaseCaption(ctx: ViewContext, s: ShowcaseSlide): SafeHtml {
+  const g = ctx.games.find((x) => x.id === s.game);
+  if (!g) return html``;
+  const w = s.world ? ROAD_RUN_WORLDS.find((x) => x.id === s.world) : undefined;
+  return html`<span class="k-cap"><b>${titleOf(ctx, g)}</b>${w ? html`<span>${localized(w.name, ctx.lang)}</span>${w.free ? '' : html`<span class="ba-badge ba-badge--pro">${ctx.i18n.t('common.pro')}</span>`}` : ''}</span>`;
+}
+
+/**
+ * One frame of the showcase: the 21:9 crop from SHOWCASE_WIDE_MIN up, the 4:3 crop below it, AVIF first and one WebP size for the
+ * rest. The first frame is the page's largest picture, so it is fetched first (and preloaded by the document head, showcasePreloads);
+ * the others wait their turn. Frames 2 to 4 are drawn over the first one by design (they fade in over it): they carry data-qa-layer,
+ * so the layout check does not take the first caption under them for two captions on top of each other.
+ */
+function showcaseFrame(ctx: ViewContext, s: ShowcaseSlide, first: boolean): SafeHtml {
+  const a = (file: string): string => ctx.assets.hero(file);
+  const media = `(min-width: ${SHOWCASE_WIDE_MIN}px)`;
+  const ww = SHOWCASE_WIDE_WEBP;
+  const pw = SHOWCASE_PHONE_WEBP;
+  const load = first ? html`fetchpriority="high"` : html`loading="lazy" fetchpriority="low"`;
+  return html`<div class="k-frame" data-frame="${s.id}"${first ? '' : html` data-qa-layer`}><picture>
+      <source media="${media}" type="image/avif" srcset="${showcaseSrcset(s, 'wide', a)}" sizes="${SHOWCASE_SIZES_WIDE}" width="${ww}" height="${wideHeight(ww)}">
+      <source media="${media}" type="image/webp" srcset="${a(`${s.id}-${ww}.webp`)} ${ww}w" sizes="${SHOWCASE_SIZES_WIDE}" width="${ww}" height="${wideHeight(ww)}">
+      <source type="image/avif" srcset="${showcaseSrcset(s, 'phone', a)}" sizes="${SHOWCASE_SIZES_PHONE}" width="${pw}" height="${phoneHeight(pw)}">
+      <img src="${a(`${s.id}-m-${pw}.webp`)}" alt="" width="${pw}" height="${phoneHeight(pw)}" ${load} decoding="async">
+    </picture>${showcaseCaption(ctx, s)}</div>`;
+}
+
+/** The frames of the real games at the top of the home page (src/showcase.ts); one after the other unless motion is reduced. */
+export function showcase(ctx: ViewContext): SafeHtml {
+  return html`<div class="k-reel" aria-hidden="true">${SHOWCASE.map((s, i) => showcaseFrame(ctx, s, i === 0))}<span class="k-ticks">${SHOWCASE.map(() => html`<i></i>`)}</span></div>`;
+}
+
+/** The head links that fetch the first frame of the showcase before the styles are in: one per crop, AVIF (a browser without AVIF skips them). */
+export function showcasePreloads(ctx: ViewContext): Preload[] {
+  const s = SHOWCASE[0];
+  if (!s) return [];
+  const a = (file: string): string => ctx.assets.hero(file);
+  return [
+    { srcset: showcaseSrcset(s, 'wide', a), sizes: SHOWCASE_SIZES_WIDE, media: `(min-width: ${SHOWCASE_WIDE_MIN}px)`, type: 'image/avif' },
+    { srcset: showcaseSrcset(s, 'phone', a), sizes: SHOWCASE_SIZES_PHONE, media: `(max-width: ${SHOWCASE_WIDE_MIN - 0.02}px)`, type: 'image/avif' },
+  ];
+}
+
 function hero(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
   const g = featuredGame(ctx);
-  return html`<article class="k-today" aria-labelledby="home-h1">
-    <div class="art">${g ? html`<a href="${ctx.href('game', { params: { slug: g.seo.slug } })}"><img src="${ctx.assets.tile(g.catalogue.tile, 800)}" srcset="${ctx.assets.tile(g.catalogue.tile, 400)} 400w, ${ctx.assets.tile(g.catalogue.tile, 800)} 800w" sizes="(min-width: 1200px) 34vw, (min-width: 640px) 46vw, 92vw" width="800" height="600" alt="" fetchpriority="high" decoding="async"><span class="cap"><b>${titleOf(ctx, g)}</b><span>${taglineOf(ctx, g)}</span></span></a>` : ''}</div>
+  return html`<article class="k-today k-show" aria-labelledby="home-h1">
+    ${showcase(ctx)}
     <div class="body">
       <h1 id="home-h1" data-main-heading>${t.t('home.h1')}</h1>
       <p class="lead">${t.t('home.lead', { n: ctx.games.length })}</p>

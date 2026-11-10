@@ -7,6 +7,7 @@ import { OG_IMAGE } from '../content/chrome.ts';
 import { BRAND_CARD } from '../src/pages.ts';
 import { loadCatalogue } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
+import { showcaseFiles } from '../src/showcase.ts';
 import { gameHasLanguage, generate, type GenerateReport } from './generate.ts';
 
 let out = '';
@@ -85,6 +86,26 @@ describe('the generated site', () => {
     // Outside the map itself, no page points at a development address (the brand card of the link preview is the site's own file, the one the content pages share).
     expect(html.replace(/<script type="application\/json" id="ba-assets">[\s\S]*?<\/script>/, '').replace(`content="https://bodyarcade.com/assets/brand/${OG_IMAGE.file}"`, '')).not.toContain('/assets/');
     expect(report.assets).toBe(Object.keys(map).length);
+  });
+
+  it('opens the home page on frames of the real games and fetches the first one from the head, one crop per screen width', () => {
+    const hero = readdirSync(join(out, 'static', 'hero'));
+    expect(hero).toHaveLength(showcaseFiles().length);
+    expect(hero.every((f) => /\.[0-9a-f]{8}\.(avif|webp)$/.test(f))).toBe(true);
+    for (const page of ['index.html', 'tr/index.html']) {
+      const html = read(page);
+      const head = html.slice(0, html.indexOf('</head>'));
+      const preloads = head.match(/<link rel="preload" as="image"[^>]*>/g) ?? [];
+      expect(preloads, page).toHaveLength(2);
+      expect(preloads[0]).toMatch(/type="image\/avif" imagesrcset="\/static\/hero\/coast-1280\.[0-9a-f]{8}\.avif 1280w, [^"]*2560w" imagesizes="[^"]+" media="\(min-width: 760px\)" fetchpriority="high"/);
+      expect(preloads[1]).toMatch(/imagesrcset="\/static\/hero\/coast-m-640\.[0-9a-f]{8}\.avif 640w, [^"]*1280w" imagesizes="[^"]+" media="\(max-width: 759\.98px\)"/);
+      const frames = html.match(/<div class="k-frame" data-frame="[a-z]+"( data-qa-layer)?>/g) ?? [];
+      expect(frames.length, page).toBe(4);
+      expect(html.match(/<img src="\/static\/hero\/[^"]+" alt="" width="960" height="720" fetchpriority="high"/g), page).toHaveLength(1);
+      expect(html.match(/<img src="\/static\/hero\/[^"]+" alt="" width="960" height="720" loading="lazy" fetchpriority="low"/g), page).toHaveLength(3);
+    }
+    // Only the home page has them: a game page opens on its own picture.
+    expect(read('games/squat-flap/index.html')).not.toContain('rel="preload" as="image"');
   });
 
   it('shows the brand card when the home page, a region, the plans or the Pro page is shared, and the tile of the game for a game page, each with its size', () => {

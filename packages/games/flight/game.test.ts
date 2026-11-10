@@ -2,7 +2,10 @@
 // the seated variant, snapshot and restore, the picture on a recording canvas, the manifest, and a whole run through
 // the Session with the keyboard.
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// The painted Squat Flap world (9 Nov) makes these whole-screen layout scans slower on a busy CI runner.
+vi.setConfig({ testTimeout: 30_000 });
 import Ajv2020 from 'ajv/dist/2020.js';
 import type { AudioApi, GameEvent, InputEvent, InputFrame } from '../../core/types/index.ts';
 import { FIXED_DT } from '../../core/types/index.ts';
