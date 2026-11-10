@@ -299,6 +299,17 @@ describe('the picture', () => {
     expect(scene.rects.pip).not.toBeNull();
   });
 
+  it('starts every oval of a shape on a sub-path of its own (an oval joined to the last one by a line drew a wedge beside each cloud)', async () => {
+    const { game, t } = await ready({ scene: true, start: START({ difficulty: 'easy' }) });
+    const sc = (t.ctx.scene2d as unknown as { ctx: { calls: { name: string }[] } });
+    sc.ctx.calls.length = 0;
+    game.render(0);
+    const calls = sc.ctx.calls.map((c) => c.name);
+    const ovals = calls.map((n, i) => [n, i] as const).filter(([n]) => n === 'ellipse');
+    expect(ovals.length).toBeGreaterThan(15);
+    for (const [, i] of ovals) expect(['moveTo', 'beginPath']).toContain(calls[i - 1]);
+  });
+
   it('shows the warm-up text, the rest and the get-ready panels as text on the canvas', async () => {
     const { game, t } = await ready({ scene: true, start: START({ difficulty: 'easy' }) });
     const sc = (t.ctx.scene2d as unknown as { ctx: { texts: { text: string }[] } });

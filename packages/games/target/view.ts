@@ -20,6 +20,8 @@ import type { LightSpec } from './reaction-tag.ts';
 import type { PadSpec } from './pad-work.ts';
 import type { StarSpec } from './star-catch.ts';
 import type { ViewLane, ViewState, ViewTarget } from './types.ts';
+import { dropLayer, glowAt, glowSprite, makeLayer, rgba, seeded, type Layer } from '../_shared/paint.ts';
+import type { Ctx2D } from '../../core/render2d/ctx.ts';
 
 export const COLORS = {
   sun: '#FFC53A', sky: '#46B4FF', flush: '#FF4F6E', go: '#22C383', chalk: '#F4F2F8', ink: '#1C1433', night: '#1A1430',
@@ -62,6 +64,98 @@ export function captionLayout(rect: Rect, kind: CallKind, text = ''): { x: numbe
 const MAX_FLOATERS = 18;
 const MAX_FLASHES = 18;
 
+/** Star Catch's night sky (no camera picture): its colours. */
+const NIGHT_SKY = { zenith: '#060920', mid: '#121338', low: '#2B1B4E', dusk: '#FF7A6B', hills: '#0C0A1E', ridge: '#15122E', band: '#8FA8FF', bandWarm: '#FF9EC0', vignette: '#03020C' } as const;
+
+/**
+ * Star Catch's sky when there is no camera picture to catch the stars in (a keyboard round, or before the picture comes):
+ * a deep night with the Milky Way across it, many stars and a few bright ones, dusk light low down behind a line of hills
+ * and pines, and a vignette. `lean`: painted straight onto the screen (tests in Node), without the fine stars.
+ */
+export function paintNightSky(c: Ctx2D, w: number, h: number, lean: boolean): void {
+  const unit = Math.min(1.5, Math.max(1, Math.sqrt(w * h) / 760));
+  const g = c.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, NIGHT_SKY.zenith);
+  g.addColorStop(0.6, NIGHT_SKY.mid);
+  g.addColorStop(1, NIGHT_SKY.low);
+  c.fillStyle = g;
+  c.fillRect(0, 0, w, h);
+  const rand = seeded(0x57a2 + Math.round(w) * 3 + Math.round(h) * 5);
+  // the Milky Way: soft clouds along a slanting band
+  const n = lean ? 4 : 26;
+  for (let i = 0; i < n; i++) {
+    const u = (i + rand() * 0.6) / n;
+    const x = w * (0.02 + 0.96 * u), y = h * (0.78 - 0.68 * u) + (rand() - 0.5) * h * 0.08;
+    glowAt(c, x, y, Math.max(w, h) * (0.08 + rand() * 0.08), i % 4 === 0 ? NIGHT_SKY.bandWarm : NIGHT_SKY.band, 0.05 + rand() * 0.04);
+  }
+  if (!lean) {
+    const count = Math.min(560, Math.round((w * h) / 1900));
+    for (let i = 0; i < count; i++) {
+      // half the stars crowd into the band
+      const inBand = rand() < 0.5;
+      const u = rand();
+      const x = inBand ? w * (0.02 + 0.96 * u) + (rand() - 0.5) * w * 0.06 : rand() * w;
+      const y = inBand ? h * (0.78 - 0.68 * u) + (rand() - 0.5) * h * 0.16 : rand() * h * 0.85;
+      const r = (0.35 + Math.pow(rand(), 4) * 1.3) * unit;
+      const t = rand();
+      c.globalAlpha = 0.2 + 0.7 * Math.pow(rand(), 2);
+      c.fillStyle = t < 0.1 ? COLORS.sky : t < 0.17 ? COLORS.sun : COLORS.chalk;
+      c.beginPath();
+      c.arc(x, y, r, 0, TAU);
+      c.fill();
+    }
+    c.globalAlpha = 1;
+    for (let i = 0; i < 12; i++) {
+      const x = rand() * w, y = rand() * h * 0.7, r = (5 + rand() * 8) * unit;
+      glowAt(c, x, y, r, i % 3 === 0 ? COLORS.sky : COLORS.chalk, 0.6);
+      c.globalAlpha = 0.55;
+      c.strokeStyle = COLORS.chalk;
+      c.lineWidth = Math.max(0.6, 0.7 * unit);
+      c.beginPath();
+      c.moveTo(x - r, y); c.lineTo(x + r, y);
+      c.moveTo(x, y - r); c.lineTo(x, y + r);
+      c.stroke();
+      c.globalAlpha = 1;
+    }
+  }
+  // dusk light low down, behind the hills
+  glowAt(c, w * 0.62, h, Math.max(w, h) * 0.55, NIGHT_SKY.dusk, 0.22, 0.35);
+  // two lines of hills, the near one with pines along it
+  const step = lean ? 40 : 6;
+  for (const [base, height, col, seed] of [[0.9, 0.07, NIGHT_SKY.ridge, 2], [0.95, 0.05, NIGHT_SKY.hills, 7]] as const) {
+    c.beginPath();
+    c.moveTo(0, h);
+    for (let x = 0; x <= w + step; x += step) {
+      const u = x / w;
+      c.lineTo(x, h * base - h * height * (0.5 + 0.3 * Math.sin(u * 5.3 + seed) + 0.2 * Math.sin(u * 13.1 + seed * 1.7)));
+    }
+    c.lineTo(w + step, h);
+    c.closePath();
+    c.fillStyle = col;
+    c.fill();
+  }
+  if (!lean) {
+    c.fillStyle = NIGHT_SKY.hills;
+    for (let x = rand() * 20; x < w; x += (8 + rand() * 26) * unit) {
+      const u = x / w;
+      const ground = h * 0.95 - h * 0.05 * (0.5 + 0.3 * Math.sin(u * 5.3 + 7) + 0.2 * Math.sin(u * 13.1 + 7 * 1.7));
+      const tall = (10 + rand() * 26) * unit;
+      c.beginPath();
+      c.moveTo(x - tall * 0.22, ground + 2);
+      c.lineTo(x, ground - tall);
+      c.lineTo(x + tall * 0.22, ground + 2);
+      c.closePath();
+      c.fill();
+    }
+  }
+  const R = Math.hypot(w, h) / 2;
+  const vg = c.createRadialGradient(w / 2, h * 0.45, R * 0.5, w / 2, h * 0.45, R);
+  vg.addColorStop(0, rgba(NIGHT_SKY.vignette, 0));
+  vg.addColorStop(1, rgba(NIGHT_SKY.vignette, 0.5));
+  c.fillStyle = vg;
+  c.fillRect(0, 0, w, h);
+}
+
 export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): TargetView {
   let game = '';
   let keyboard = false;
@@ -75,6 +169,14 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
   let caption: Caption | null = null;
   let clock = 0;
   const tmp: Vec2 = { x: 0, y: 0 };
+  // Star Catch's painted sky (once per screen size) and the soft glows of its stars (once per colour)
+  let sky: Layer | null = null;
+  let skyKey = '';
+  const glows = new Map<string, Layer | null>();
+  const glowOf = (color: string): Layer | null => {
+    if (!glows.has(color)) glows.set(color, glowSprite(color, 96, 0.7));
+    return glows.get(color) ?? null;
+  };
 
   const ctx = kit.ctx;
   const canText = (): boolean => typeof (ctx as Partial<CanvasRenderingContext2D>).fillText === 'function' && typeof (ctx as Partial<CanvasRenderingContext2D>).strokeText === 'function';
@@ -182,7 +284,111 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
 
   // ───────── the picture and the body ─────────
 
+  /** Star Catch with no camera picture: the night sky over the whole screen, with a few stars twinkling over it and now and then a shooting star. */
+  function drawNightSky(tNow: number, reduced: boolean): void {
+    const w = kit.rects.w, h = kit.rects.h;
+    if (w <= 0 || h <= 0) return;
+    const key = `${Math.round(w)}x${Math.round(h)}`;
+    if (key !== skyKey) {
+      skyKey = key;
+      dropLayer(sky);
+      const l = makeLayer(w, h);
+      if (l) paintNightSky(l.ctx, w, h, false);
+      sky = l ? l.canvas : null;
+    }
+    if (sky) ctx.drawImage(sky, 0, 0, w, h);
+    else paintNightSky(ctx, w, h, true);
+    if (reduced) return;
+    ctx.save();
+    ctx.fillStyle = COLORS.chalk;
+    for (let i = 0; i < 18; i++) {
+      const x = ((i * 0.6180339) % 1) * w, y = ((i * 0.4142135 + 0.07) % 1) * h * 0.7;
+      ctx.globalAlpha = Math.max(0, 0.5 * Math.sin(tNow / 700 + i * 1.7));
+      ctx.fillRect(x, y, 1.6, 1.6);
+    }
+    // a shooting star every eight seconds, for half a second
+    const cycle = 8000, k = (tNow % cycle) / 500;
+    if (tNow > 0 && k < 1) {
+      const n = Math.floor(tNow / cycle);
+      const x0 = w * (0.2 + ((n * 0.37) % 0.6)), y0 = h * (0.08 + ((n * 0.23) % 0.25));
+      const len = Math.min(w, h) * 0.22;
+      const x1 = x0 + len * k, y1 = y0 + len * 0.45 * k;
+      const g = ctx.createLinearGradient(x1 - len * 0.5, y1 - len * 0.22, x1, y1);
+      g.addColorStop(0, 'rgba(244, 242, 248, 0)');
+      g.addColorStop(1, 'rgba(244, 242, 248, 0.9)');
+      ctx.globalAlpha = 1 - k;
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1 - len * 0.5, y1 - len * 0.22);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Star Catch over the camera picture: night falls from the top of the picture so the stars stand out, the room still clear below. */
+  function drawNightTint(rect: Rect): void {
+    ctx.save();
+    const g = ctx.createLinearGradient(0, rect.y, 0, rect.y + rect.h * 0.55);
+    g.addColorStop(0, 'rgba(8, 9, 32, 0.5)');
+    g.addColorStop(1, 'rgba(8, 9, 32, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h * 0.55);
+    ctx.restore();
+  }
+
+  /** Star Catch with the keyboard: the player as a constellation, joints as small stars on faint lines. */
+  function drawConstellationFigure(lane: ViewLane, pr: Projector, torso: number): void {
+    const head = px(pr, { x: 0, y: 1.5 });
+    const sl = px(pr, { x: -0.4, y: 1 }), sr = px(pr, { x: 0.4, y: 1 });
+    const neck = { x: (sl.x + sr.x) / 2, y: (sl.y + sr.y) / 2 };
+    const hip = px(pr, { x: 0, y: 0 });
+    const hl = px(pr, { x: -0.22, y: 0 }), hr = px(pr, { x: 0.22, y: 0 });
+    const joints: Pt[] = [neck, sl, sr, hip, hl, hr];
+    const segs: [Pt, Pt][] = [[sl, sr], [neck, hip], [hl, hr]];
+    for (const side of ['L', 'R'] as const) {
+      const h = lane.hands[side];
+      if (!h.seen) continue;
+      const s = side === 'L' ? sl : sr;
+      const hp = px(pr, { x: h.x, y: h.y });
+      // the elbow: halfway, pushed out and down a little
+      const el = { x: (s.x + hp.x) / 2 + (side === 'L' ? -1 : 1) * torso * 0.08, y: (s.y + hp.y) / 2 + torso * 0.06 };
+      segs.push([s, el], [el, hp]);
+      joints.push(el);
+    }
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const [width, a] of [[Math.max(8, torso * 0.12), 0.08], [Math.max(2, torso * 0.025), 0.42]] as const) {
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = '#B9C6FF';
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      for (const [p, q] of segs) { ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = '#B9C6FF';
+    ctx.lineWidth = Math.max(2, torso * 0.025);
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, torso * 0.2, 0, TAU);
+    ctx.stroke();
+    const glow = glowOf('#B9C6FF');
+    const g = Math.max(18, torso * 0.34);
+    for (const p of joints) {
+      if (glow) { ctx.globalAlpha = 0.8; ctx.drawImage(glow, p.x - g / 2, p.y - g / 2, g, g); }
+      ctx.globalAlpha = 0.95;
+      ctx.fillStyle = COLORS.chalk;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(2, torso * 0.025), 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawAvatar(lane: ViewLane, pr: Projector, torso: number): void {
+    if (game === 'star-catch') { drawConstellationFigure(lane, pr, torso); return; }
     // No camera: a plain figure so the hands have a body to belong to.
     ctx.save();
     ctx.globalAlpha = 0.32;
@@ -238,6 +444,22 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
     const rot = reduced ? 0 : Math.sin(tNow / 900 + s.id) * 0.22;
     let alpha = Math.min(1, ageMs / 180);
     if (t.age > 0.78) alpha *= reduced ? 0.65 : 0.6 + 0.4 * Math.sin(tNow / 65);
+    // a soft halo of the star's colour, breathing a little, and four slim rays of light
+    const halo = glowOf(handColor(s.side));
+    if (halo) {
+      const hs = rad * (4.2 + (reduced ? 0 : 0.35 * Math.sin(tNow / 300 + s.id)));
+      ctx.save();
+      ctx.globalAlpha = 0.85 * alpha;
+      ctx.drawImage(halo, c.x - hs / 2, c.y + bob - hs / 2, hs, hs);
+      ctx.translate(c.x, c.y + bob);
+      ctx.rotate(rot * 0.5 + Math.PI / 4);
+      ctx.globalAlpha = 0.35 * alpha;
+      ctx.fillStyle = COLORS.chalk;
+      const L = rad * 1.6, Wd = Math.max(1, rad * 0.05);
+      ctx.fillRect(-L, -Wd / 2, 2 * L, Wd);
+      ctx.fillRect(-Wd / 2, -L, Wd, 2 * L);
+      ctx.restore();
+    }
     kit.sprites.stamp(ctx, 'star', c.x, c.y + bob, rad * 2, starStyle(s.side), { rot, alpha });
     arcRing(c.x, c.y, rad * 1.34, handColor(s.side), Math.max(2, rad * 0.11), 0.6 * alpha, 1 - t.age);
     if (s.low) {
@@ -272,12 +494,15 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
     for (const [g, pts] of (trails[i] as Map<number, Pt[]>)) {
       if (pts.length < 2) continue;
       const flash = lit.some((l) => l.lane === i && l.group === g && l.until > clock);
-      ctx.globalAlpha = flash ? 0.95 : 0.55;
       ctx.strokeStyle = flash ? COLORS.go : COLORS.sun;
-      ctx.lineWidth = flash ? 4 : 3;
-      ctx.beginPath();
-      pts.forEach((p, k) => { const c = px(pr, p); if (k === 0) ctx.moveTo(c.x, c.y); else ctx.lineTo(c.x, c.y); });
-      ctx.stroke();
+      // a wide soft glow under the line itself
+      for (const [width, a] of [[flash ? 14 : 10, flash ? 0.22 : 0.14], [flash ? 4 : 3, flash ? 0.95 : 0.6]] as const) {
+        ctx.globalAlpha = a;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        pts.forEach((p, k) => { const c = px(pr, p); if (k === 0) ctx.moveTo(c.x, c.y); else ctx.lineTo(c.x, c.y); });
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
@@ -508,6 +733,7 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
       const prs = projectorsFor(rect);
       const src = keyboard ? null : readyVideo(o.video?.() ?? null);
       if (src) kit.drawVideo(src, { size: o.videoSize?.() ?? videoSizeOf(src), ...(o.dim !== undefined ? { dim: o.dim } : {}) });
+      if (game === 'star-catch') { if (src) drawNightTint(rect); else drawNightSky(tNow, f.reducedMotion); }
       // with the camera picture the player is in it; without one (no picture yet, or privacy) the body is a silhouette on the stage
       kit.mirror.show({ silhouette: !src && !keyboard, skeleton: false });
 
@@ -558,6 +784,9 @@ export function createMirrorView(kit: Scene2DKit, o: MirrorViewOptions = {}): Ta
     dispose(): void {
       floaters = []; flashes = []; lit = []; caption = null; trails = [new Map(), new Map()];
       projectors = []; projKey = '';
+      dropLayer(sky); sky = null; skyKey = '';
+      for (const l of glows.values()) dropLayer(l);
+      glows.clear();
       kit.particles.clear();
     },
   };

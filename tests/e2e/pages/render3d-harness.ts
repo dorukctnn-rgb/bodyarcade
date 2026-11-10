@@ -33,8 +33,18 @@ export interface ShotResult {
   meanLuma: number;
   calls: number;
   triangles: number;
+  /** Triangles of the wind-blown grass field among them (T1/T2 in grassy worlds; 0 when there is none). */
+  grass: number;
   scenery: { visibleSlices: number; drawCalls: number; triangles: number } | null;
   jpeg: string;
+}
+
+/** Triangles the wind-blown grass field draws: one instanced call of many small blades (0 when the world has none). */
+function grassTriangles(kit: Scene3DKit): number {
+  const mesh = kit.scene.getObjectByName('grass') as THREE.Mesh | undefined;
+  if (!mesh || !mesh.visible) return 0;
+  const geo = mesh.geometry as THREE.InstancedBufferGeometry;
+  return ((geo.index ? geo.index.count : geo.getAttribute('position').count) / 3) * (geo.instanceCount ?? 1);
 }
 
 export interface BudgetResult {
@@ -199,10 +209,10 @@ export function shotRun(o: { worldIds: string[]; levels: QualityLevel[]; sizes: 
         big.width = Math.round(width / 2); big.height = Math.round(height / 2);
         big.getContext('2d')!.drawImage(probe, 0, 0, big.width, big.height);
         sync(kit);
-        const calls = kit.stats().drawCalls;
+        const { drawCalls: calls, triangles } = kit.stats();
         out.push({
           world: id, level, width, height, contrast: 1 - top / n, distinctColours: hist.size, meanLuma: luma / n / 255,
-          calls, triangles: kit.renderer.info.render.triangles, scenery: sc ? { visibleSlices: sc.visibleSlices, drawCalls: sc.drawCalls, triangles: sc.triangles } : null,
+          calls, triangles, grass: grassTriangles(kit), scenery: sc ? { visibleSlices: sc.visibleSlices, drawCalls: sc.drawCalls, triangles: sc.triangles } : null,
           jpeg: probe.toDataURL('image/jpeg', 0.8),
         });
       }
@@ -249,7 +259,7 @@ export async function budgetRun(o: { worldId: string; level: QualityLevel; frame
     const d = performance.now();
     upd.push(b - a); ren.push(c - b); gpu.push(d - c);
   }
-  const calls = kit.stats().drawCalls, triangles = kit.renderer.info.render.triangles;
+  const { drawCalls: calls, triangles } = kit.stats();
   // Frame to frame time with the display's pacing: what the governor would see (software GL is slow, so this is a ratio, not a promise).
   const gaps: number[] = [];
   let last = 0;

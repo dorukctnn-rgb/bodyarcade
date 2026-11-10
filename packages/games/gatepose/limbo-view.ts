@@ -179,6 +179,6 @@ export function createLimboView(ctx: GameContext, stage: Stage, o: { reducedMoti
       }
     },
     reset(): void { lastT = -1; lean[0] = lean[1] = 0; arms[0] = arms[1] = 0; shake = 0; flash = 0; stage.clearParticles(); },
-    dispose(): void { layout = null; },
+    dispose(): void { layout = null; backdrop.dispose(); },
   };
 }

@@ -149,9 +149,12 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
           if (kind === '3d') {
             const mobile = isMobile(view);
             const level = initialQualityLevel({ mobile, cores: view.navigator.hardwareConcurrency, stored: null });
+            // Tests and the picture tool can pin a tier (a headless browser draws in software and would fall to the lowest).
+            const pinned = (view as Window).__BA_TEST__?.quality;
+            const qmode = pinned === 'low' || pinned === 'medium' || pinned === 'high' ? pinned : 'auto';
             kit3 = deps.makeScene
               ? deps.makeScene(canvas, size, level, mobile, deps.reducedMotion())
-              : createScene3D({ canvas, mode: 'auto', level, mobile, reducedMotion: deps.reducedMotion(), size });
+              : createScene3D({ canvas, mode: qmode, level, mobile, reducedMotion: deps.reducedMotion(), size });
             markWorld(kit3, canvas);
             return { ...base, scene3d: kit3 };
           }

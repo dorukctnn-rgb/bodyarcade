@@ -1,6 +1,6 @@
 // Frame budget of every game, in a real browser, through the real shell and session (camera or keyboard).
 //
-//   node tools/perf/budget.ts --game road-run [--throttle 1,4] [--seconds 15] [--input camera|keyboard] [--video clip.mp4]
+//   node tools/perf/budget.ts --game road-run [--throttle 1,4] [--seconds 15] [--input camera|keyboard] [--video clip.mp4] [--quality low|medium|high]
 //   node tools/perf/budget.ts --all                   every game that can start, writes qa-out/perf/report.json
 //
 // What is measured, per game and CPU slowdown (Chrome's CPU throttling; 4 = a phone that is four times slower):
@@ -65,7 +65,7 @@ async function metrics(cdp: CDPSession): Promise<Record<string, number>> {
   return Object.fromEntries(list.map((m) => [m.name, m.value]));
 }
 
-async function measureGame(browser: Browser, base: string, game: { id: string; slug: string }, o: { throttle: number; seconds: number; input: 'camera' | 'keyboard'; size: [number, number]; plan: string }): Promise<BudgetResult> {
+async function measureGame(browser: Browser, base: string, game: { id: string; slug: string }, o: { throttle: number; seconds: number; input: 'camera' | 'keyboard'; size: [number, number]; plan: string; quality?: string }): Promise<BudgetResult> {
   const result: BudgetResult = { game: game.id, throttle: o.throttle, input: o.input, size: `${o.size[0]}x${o.size[1]}`, status: 'measured' };
   const context = await browser.newContext({ viewport: { width: o.size[0], height: o.size[1] }, deviceScaleFactor: 1, hasTouch: o.size[0] < 1000, permissions: ['camera'], locale: 'en-US' });
   const page: Page = await context.newPage();
@@ -73,6 +73,8 @@ async function measureGame(browser: Browser, base: string, game: { id: string; s
   page.on('pageerror', (e) => errors.push(e.message.split('\n')[0] ?? ''));
   await page.addInitScript(QA_SCRIPT);
   await page.addInitScript(pageScript({ seed: 1, lookFrames: 1 }));
+  // --quality pins the 3D tier (low, medium, high): the cost of the highest tier's passes on the main thread is measured too.
+  if (o.quality) await page.addInitScript((q) => { const w = window as unknown as { __BA_TEST__?: Record<string, unknown> }; w.__BA_TEST__ = { ...(w.__BA_TEST__ ?? {}), quality: q }; }, o.quality);
   try {
     const cdp = await context.newCDPSession(page);
     await cdp.send('Performance.enable');
@@ -154,7 +156,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     for (const g of wanted) {
       for (const t of throttles) {
-        const r = await measureGame(browser, server.url, { id: g.id, slug: g.seo.slug }, { throttle: t, seconds, input, size, plan: 'pro' });
+        const r = await measureGame(browser, server.url, { id: g.id, slug: g.seo.slug }, { throttle: t, seconds, input, size, plan: 'pro', ...(opt('quality') ? { quality: opt('quality')! } : {}) });
         results.push(r);
         console.log(r.status === 'skipped'
           ? `SKIP ${g.id} ${t}x: ${r.skipped}`

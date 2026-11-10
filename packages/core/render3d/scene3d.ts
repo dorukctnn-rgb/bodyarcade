@@ -22,6 +22,12 @@ import { buildSky, dayColor, dayDirection, type SkyKit } from './sky.ts';
 import { blobPixels, makeTexture } from './textures.ts';
 import { themeOrThrow, themeSignature, type Theme } from './theme.ts';
 import { createWeather, type WeatherKit } from './weather.ts';
+import { canPost, createPost, sceneForDisplay, type PostKit } from './post.ts';
+import { lookOf } from './looks.ts';
+import { loadedModels, loadModels, type ModelSet } from './models.ts';
+import { loadedFigure, loadFigure, type FigureAsset } from './figure.ts';
+import { createGrass, type GrassKit } from './grass.ts';
+import { NO_AO_LAYER } from './post.ts';
 
 export const DAY_SECONDS = 420;
 export const PICKUP_CAPACITY = 80;
@@ -86,10 +92,14 @@ export interface WorldFrame {
 export interface Scene3DStats {
   geometries: number;
   textures: number;
+  /** Draw calls of the scene in the last frame. At T1/T2 the full-screen passes come on top (GTAO at T2 also draws the scene's normals once more). */
   drawCalls: number;
+  /** Triangles of the scene in the last frame (same rule as drawCalls). */
+  triangles: number;
 }
 
-export interface Scene3DEvents { contextlost: undefined; contextrestored: undefined }
+/** models: the modelled scenery or the modelled runner has just been loaded (a game may now use them). */
+export interface Scene3DEvents { contextlost: undefined; contextrestored: undefined; models: undefined }
 
 export interface Scene3DKit extends Scene3D {
   readonly renderer: RendererLike;
@@ -107,6 +117,10 @@ export interface Scene3DKit extends Scene3D {
   readonly tier: QualityTier;
   readonly governor: QualityGovernorKit;
   readonly mode: QualityMode;
+  /** The loaded models when the tier draws models (T1, T2), else null. Games use them for their obstacles. */
+  readonly models: ModelSet | null;
+  /** The modelled runner (a skinned figure) when the tier draws models and its file is in, else null (games keep their own figure). */
+  readonly figure: FigureAsset | null;
   readonly disposed: boolean;
   /** Base field of view for the current shape of the screen (wider in portrait); games add a boost with setFovBoost. */
   readonly baseFov: number;
@@ -131,6 +145,8 @@ export interface Scene3DKit extends Scene3D {
   on<K extends keyof Scene3DEvents>(type: K, cb: () => void): Unsubscribe;
   /** CPU-side counts of what the kit owns (the renderer's own numbers are in stats()). */
   counts(): ResourceCounts;
+  /** The renderer's numbers: GPU memory, and what the scene cost to draw in the last frame. */
+  stats(): Scene3DStats;
   sceneryStats(): SceneryStats | null;
 }
 
@@ -155,6 +171,10 @@ interface World {
   lightningRng: () => number;
   flash: number;
   elapsed: number;
+  /** The sky as image-based light (PMREM), built the first time a tier asks for it. */
+  env: THREE.Texture | null;
+  /** Wind-blown grass (grassy worlds, T1 and T2) and the clump count it was built with. */
+  grass: GrassKit | null;
 }
 
 const levelOfMode = (m: QualityMode): QualityLevel | null => (m === 'low' ? 0 : m === 'medium' ? 1 : m === 'high' ? 2 : null);
@@ -177,6 +197,19 @@ function makeRenderer(canvas: HTMLCanvasElement): RendererLike {
   }
 }
 
+/** Renderer names of WebGL drawn in software (SwiftShader, Mesa llvmpipe and softpipe, Windows' Basic Render Driver). */
+export function isSoftwareRendererName(name: string): boolean {
+  return /swiftshader|llvmpipe|softpipe|basic render|software rasterizer/i.test(name);
+}
+
+function softwareGl(r: THREE.WebGLRenderer): boolean {
+  try {
+    const gl = r.getContext();
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    return isSoftwareRendererName(String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
+  } catch { return false; }
+}
+
 export function createScene3D(options: Scene3DOptions): Scene3DKit {
   const canvas = options.canvas;
   const renderer: RendererLike = options.renderer ?? (canvas ? makeRenderer(canvas) : (() => { throw new RenderUnavailableError('no canvas'); })());
@@ -192,6 +225,7 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
   const camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.1, 420);
   camera.position.set(CAMERA_START.x, CAMERA_START.y, CAMERA_START.z);
   camera.lookAt(CAMERA_LOOK.x, CAMERA_LOOK.y, CAMERA_LOOK.z);
+  camera.layers.enable(NO_AO_LAYER);
   const stage = new THREE.Group();
   stage.name = 'stage';
   scene.add(stage);
@@ -207,7 +241,10 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
   kitTracker.trackObject(blobs.mesh);
 
   let mode: QualityMode = options.mode ?? 'auto';
-  const startLevel: QualityLevel = levelOfMode(mode) ?? options.level ?? 2;
+  // A browser that draws WebGL in software (a blocked graphics driver, a virtual machine) starts at the lowest tier: the
+  // passes of the higher tiers cost it seconds per frame, and the governor would need minutes of such frames to step down.
+  const software = renderer instanceof THREE.WebGLRenderer && softwareGl(renderer);
+  const startLevel: QualityLevel = levelOfMode(mode) ?? (software ? 0 : options.level ?? 2);
   const governor = createQualityGovernor({ level: startLevel });
   let level: QualityLevel = startLevel;
   let tier: QualityTier = tierFor(level);
@@ -220,8 +257,11 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
   let baseFov = FOV_LANDSCAPE;
   let distance = 0;
   let lastRenderMs = -Infinity;
-  const listeners: Record<keyof Scene3DEvents, Set<() => void>> = { contextlost: new Set(), contextrestored: new Set() };
+  const listeners: Record<keyof Scene3DEvents, Set<() => void>> = { contextlost: new Set(), contextrestored: new Set(), models: new Set() };
   const sunDir = new THREE.Vector3();
+  // Only a real WebGL2 renderer gets the passes and the sky light; the test fakes and old devices draw as before.
+  const real = renderer instanceof THREE.WebGLRenderer ? renderer : null;
+  const post: PostKit | null = real && canPost(real) ? createPost(real) : null;
 
   const onLost = (): void => { lost = true; for (const cb of [...listeners.contextlost]) cb(); };
   const onRestored = (): void => { lost = false; for (const cb of [...listeners.contextrestored]) cb(); };
@@ -269,16 +309,41 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
       theme, sig, tracker, root, sky, ground, scenery, weather, pickups, hemi, ambient, sun,
       baseHemi: hemi.intensity, baseAmbient: ambient.intensity, ambientColor: new THREE.Color(theme.ambient), sunBase: new THREE.Color(theme.sun.color),
       glowColor: theme.glow ? new THREE.Color(theme.glow) : null,
-      lightningRng: rngStream(seed, `fx:lightning:${theme.id}`), flash: 0, elapsed: 0,
+      lightningRng: rngStream(seed, `fx:lightning:${theme.id}`), flash: 0, elapsed: 0, env: null, grass: null,
     };
+    post?.setGrade(lookOf(theme.id).grade);
     applyTierToWorld(w);
     applyDay(w, 0);
     return w;
   }
 
+  /** The theme's sky rendered once into a small cube and prefiltered (PMREM): lit materials take their ambient light from it. */
+  function buildEnvironment(w: World): THREE.Texture | null {
+    if (!real) return null;
+    const pmrem = new THREE.PMREMGenerator(real);
+    const envScene = new THREE.Scene();
+    const skyMat = w.sky.material.clone();
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), skyMat);
+    const groundMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(w.theme.ground).multiplyScalar(0.55), side: THREE.DoubleSide });
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(100, 24).rotateX(-Math.PI / 2), groundMat);
+    floor.position.y = -2;
+    envScene.add(dome, floor);
+    try {
+      const rt = pmrem.fromScene(envScene, 0.035, 0.1, 300);
+      w.tracker.track(rt);
+      return rt.texture;
+    } catch {
+      return null;
+    } finally {
+      dome.geometry.dispose(); skyMat.dispose(); floor.geometry.dispose(); groundMat.dispose();
+      pmrem.dispose();
+    }
+  }
+
   function disposeWorld(): void {
     if (!world) return;
     scene.remove(world.root);
+    scene.environment = null;
     world.tracker.release();
     scene.fog = null;
     world = null;
@@ -287,6 +352,24 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
   function applyTierToWorld(w: World): void {
     const shadowsOn = tier.shadows !== 'off';
     renderer.shadowMap.enabled = shadowsOn;
+    renderer.shadowMap.type = tier.shadowFilter === 'soft' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    const look = lookOf(w.theme.id);
+    if (tier.environment && real) {
+      w.env ??= buildEnvironment(w);
+      scene.environment = w.env;
+      scene.environmentIntensity = look.envIntensity;
+    } else scene.environment = null;
+    // With the sky as light, the flat hemisphere light only fills in (it would wash the shading out otherwise).
+    const fill = scene.environment ? look.hemiWithEnv : 1;
+    w.baseHemi = w.theme.hemi.intensity * 1.6 * fill;
+    w.baseAmbient = w.theme.ambientIntensity * (scene.environment ? look.ambientWithEnv : 1);
+    w.hemi.intensity = w.baseHemi;
+    w.ambient.intensity = w.baseAmbient;
+    w.sun.shadow.radius = tier.shadowFilter === 'soft' ? 1 : 3;
+    post?.setMode(lostOrNone());
+    matchDirectLook(w, !!post && post.mode !== 'none');
+    applyModels(w);
+    applyGrass(w, look);
     w.sun.castShadow = shadowsOn;
     if (shadowsOn && w.sun.shadow.mapSize.x !== tier.shadowMapSize) {
       w.sun.shadow.mapSize.set(tier.shadowMapSize, tier.shadowMapSize);
@@ -302,6 +385,72 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
     dayColor(w.sunBase, k, w.sun.color);
   }
 
+  /** The grass field at the clump count of the tier (rebuilt only when the count changes); the tufts give way to it. */
+  function applyGrass(w: World, look: ReturnType<typeof lookOf>): void {
+    const clumps = look.grass && real ? Math.round(tier.grassDensity * 420) : 0;
+    if (w.grass && w.grass.clumps !== clumps) {
+      w.root.remove(w.grass.mesh);
+      w.tracker.free(w.grass.mesh.geometry);
+      w.tracker.free(w.grass.mesh.material as THREE.Material);
+      w.grass = null;
+    }
+    if (clumps > 0 && look.grass && !w.grass) {
+      w.grass = createGrass(look.grass, clumps, rngStream(seed, `grass:${w.theme.id}`), w.tracker);
+      w.root.add(w.grass.mesh);
+    }
+    w.scenery.setTufts(!w.grass);
+  }
+
+  let modelsAsked = false;
+  /** Modelled props at the tiers that draw them; the file is fetched on the first need (real renderers only). */
+  function applyModels(w: World): void {
+    const m = tier.models ? loadedModels() : null;
+    w.scenery.useModels(m);
+    askFigure();
+    if (!tier.models || m || !real || modelsAsked) return;
+    modelsAsked = true;
+    loadModels().then(() => {
+      modelsAsked = false;
+      if (disposed || !world || !tier.models) return;
+      world.scenery.useModels(loadedModels());
+      for (const cb of [...listeners.models]) cb();
+    }, () => { modelsAsked = false; });
+  }
+
+  let figureAsked = false;
+  /** The modelled runner, fetched like the modelled props: at the tiers that draw models, real renderers only, once per page. */
+  function askFigure(): void {
+    if (!tier.models || !real || figureAsked || loadedFigure()) return;
+    figureAsked = true;
+    loadFigure().then(() => {
+      figureAsked = false;
+      if (disposed || !tier.models) return;
+      for (const cb of [...listeners.models]) cb();
+    }, () => { figureAsked = false; });
+  }
+
+  function lostOrNone(): 'none' | 'grade' | 'full' { return disposed ? 'none' : tier.post; }
+
+  /**
+   * The direct path shows the sky gradient and the fog colour as they are (the sky shader has no tone map; three mixes fog
+   * in after it). Through the passes everything is tone-mapped, so those colours are given the values that come out the
+   * same: the ten worlds keep the sky they were tuned with, at every tier.
+   */
+  function matchDirectLook(w: World, passes: boolean): void {
+    const u = w.sky.material.uniforms;
+    const fog = scene.fog as THREE.FogExp2 | null;
+    const set = (target: THREE.Color, hex: string): void => {
+      target.set(hex);
+      if (!passes) return;
+      const [r, g, b] = sceneForDisplay([target.r, target.g, target.b], w.theme.exposure);
+      target.setRGB(r, g, b, THREE.LinearSRGBColorSpace);
+    };
+    set(u['uTop']!.value as THREE.Color, w.theme.sky.top);
+    set(u['uMid']!.value as THREE.Color, w.theme.sky.mid);
+    set(u['uBot']!.value as THREE.Color, w.theme.sky.bot);
+    if (fog) set(fog.color, w.theme.fog.color);
+  }
+
   function pixelRatio(): number {
     const cap = mobile ? tier.pixelRatioCap.mobile : tier.pixelRatioCap.desktop;
     return Math.min(dpr(), cap);
@@ -313,6 +462,7 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
     const w = Math.max(1, Math.floor(width)), h = Math.max(1, Math.floor(height));
     renderer.setPixelRatio(pixelRatio());
     renderer.setSize(w, h, false);
+    post?.setSize(w, h, pixelRatio());
     camera.aspect = w / h;
     baseFov = w < h ? FOV_PORTRAIT : FOV_LANDSCAPE;
     camera.fov = baseFov + fovBoost;
@@ -325,6 +475,7 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
     tier = tierFor(l);
     blobs.mesh.visible = tier.blobShadows;
     if (world) applyTierToWorld(world);
+    else post?.setMode(tier.post);
     resize();
   }
   blobs.mesh.visible = tier.blobShadows;
@@ -345,14 +496,17 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
 
   function warm(): void {
     if (disposed) return;
-    renderer.compile(scene, camera);
+    if (post && post.mode !== 'none') post.compile(scene, camera);
+    else renderer.compile(scene, camera);
   }
 
   function updateWorld(w: World, dt: number, moveZ: number, focusX: number): void {
     w.elapsed += dt;
     distance += moveZ;
     w.scenery.update(distance);
+    w.grass?.update(distance, reduced ? 0 : w.elapsed);
     w.ground.scroll(moveZ);
+    if (!reduced) w.ground.tick(dt);
     w.sky.update(dt, camera.position, focusX);
     if (w.weather && !reduced) w.weather.update(dt, moveZ);
 
@@ -384,6 +538,8 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
     get tier() { return tier; },
     get mode() { return mode; },
     get disposed() { return disposed; },
+    get models() { return tier.models ? loadedModels() : null; },
+    get figure() { return tier.models ? loadedFigure() : null; },
     get baseFov() { return baseFov; },
 
     setTheme(t: ThemeData) {
@@ -404,15 +560,18 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
       renderer.domElement.removeEventListener('webglcontextlost', onLost);
       renderer.domElement.removeEventListener('webglcontextrestored', onRestored);
       prototypes.dispose();
+      post?.dispose();
       disposeWorld();
       scene.remove(stage);
       kitTracker.release();
       renderer.dispose();
       if (options.releaseContext === 'lose') renderer.forceContextLoss?.();
-      listeners.contextlost.clear(); listeners.contextrestored.clear();
+      listeners.contextlost.clear(); listeners.contextrestored.clear(); listeners.models.clear();
     },
     stats() {
-      return { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, drawCalls: renderer.info.render.calls };
+      // Through the passes the renderer's own numbers end with the last full-screen pass, so the scene pass is read from them.
+      const drawn = post && post.mode !== 'none' ? post.sceneInfo : renderer.info.render;
+      return { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, drawCalls: drawn.calls, triangles: drawn.triangles };
     },
 
     frameDue(nowMs) {
@@ -427,7 +586,8 @@ export function createScene3D(options: Scene3DOptions): Scene3DKit {
     },
     render() {
       if (disposed || lost) return;
-      renderer.render(scene, camera);
+      if (post && post.mode !== 'none') post.render(scene, camera);
+      else renderer.render(scene, camera);
       frameDrawn(renderer.domElement);   // the one moment a copy of the picture (the highlight clip) can be taken, see frames.ts
     },
     reset,
