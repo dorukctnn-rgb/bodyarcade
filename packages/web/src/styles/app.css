@@ -215,7 +215,7 @@ ul.ba-grid { list-style: none; margin: 0; padding: 0; }
  * With reduced motion only the first frame is there (the others are not drawn, so they are not fetched either).
  */
 .k-today.k-show { grid-template-columns: minmax(0, 1fr); container-type: inline-size; }
-.k-reel { position: relative; overflow: hidden; aspect-ratio: 4 / 3; background: #1A1430; isolation: isolate; }
+.k-reel { position: relative; width: 100%; overflow: hidden; aspect-ratio: 4 / 3; background: #1A1430; isolation: isolate; }
 .k-frame { position: absolute; inset: 0; }
 .k-frame picture, .k-frame img { display: block; width: 100%; height: 100%; }
 .k-frame img { object-fit: cover; }
