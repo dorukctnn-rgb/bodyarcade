@@ -7,7 +7,7 @@ import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { startServer } from './serve.mjs';
 import { launch, sharp } from './pw.mjs';
-import { TILE_IDS } from '../art/tile-ids.mjs';
+import { FRAME_TILES, TILE_IDS } from '../art/tile-ids.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const out = path.join(repo, 'design', 'art', 'tiles');
@@ -19,7 +19,7 @@ const W = 1600, H = 1200;
 const server = await startServer(repo);
 const browser = await launch();
 try {
-  for (const id of TILE_IDS.filter((g) => !only || g === only)) {
+  for (const id of TILE_IDS.filter((g) => (only ? g === only : !FRAME_TILES.includes(g)))) {
     const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));

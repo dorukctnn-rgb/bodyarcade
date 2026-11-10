@@ -21,7 +21,8 @@ import { NO_PLANS_DATA, planStrip, type PlansData } from './plans.ts';
 import { gameGrid, regionChips } from './tiles.ts';
 import { weekdayNames } from './parts.ts';
 import { ROAD_RUN_WORLDS } from '../../../games/road-run/worlds.ts';
-import { SHOWCASE, SHOWCASE_PHONE, SHOWCASE_PHONE_WEBP, SHOWCASE_WIDE, SHOWCASE_WIDE_MIN, SHOWCASE_WIDE_WEBP, type ShowcaseSlide } from '../showcase.ts';
+import { phoneHeight, SHOWCASE, SHOWCASE_PHONE_WEBP, SHOWCASE_SIZES_PHONE, SHOWCASE_SIZES_WIDE, SHOWCASE_WIDE_MIN, SHOWCASE_WIDE_WEBP, showcaseSrcset, wideHeight, type ShowcaseSlide } from '../showcase.ts';
+import type { Preload } from '../document.ts';
 
 /** What the home page knows about the player's weeks; empty on the server and for a new player. */
 export interface HomeData {
@@ -42,11 +43,7 @@ export function featuredGame(ctx: ViewContext): ShellGame | undefined {
   return ctx.games.find((g) => g.free) ?? ctx.games[0];
 }
 
-/** How wide a frame of the showcase is drawn: the whole content column on a computer (1560 px at most), the card on a phone. */
-const SHOWCASE_SIZES_WIDE = '(min-width: 1680px) 1560px, 96vw';
-const SHOWCASE_SIZES_PHONE = '100vw';
-
-/** The words under a frame: the game, and the Road Run world with its Pro mark when the world is part of Pro. */
+/** The words on a frame: the game, and the Road Run world with its Pro mark when the world is part of Pro. */
 function showcaseCaption(ctx: ViewContext, s: ShowcaseSlide): SafeHtml {
   const g = ctx.games.find((x) => x.id === s.game);
   if (!g) return html``;
@@ -55,28 +52,38 @@ function showcaseCaption(ctx: ViewContext, s: ShowcaseSlide): SafeHtml {
 }
 
 /**
- * One frame of the showcase: the wide crop from SHOWCASE_WIDE_MIN up, the 4:3 crop below it, AVIF first. The first frame is the
- * page's largest picture, so it is fetched first (and preloaded by the document head); the others wait their turn.
+ * One frame of the showcase: the 21:9 crop from SHOWCASE_WIDE_MIN up, the 4:3 crop below it, AVIF first and one WebP size for the
+ * rest. The first frame is the page's largest picture, so it is fetched first (and preloaded by the document head, showcasePreloads);
+ * the others wait their turn.
  */
 function showcaseFrame(ctx: ViewContext, s: ShowcaseSlide, first: boolean): SafeHtml {
   const a = (file: string): string => ctx.assets.hero(file);
-  const wide = SHOWCASE_WIDE.map((w) => `${a(`${s.id}-${w}.avif`)} ${w}w`).join(', ');
-  const phone = SHOWCASE_PHONE.map((w) => `${a(`${s.id}-m-${w}.avif`)} ${w}w`).join(', ');
   const media = `(min-width: ${SHOWCASE_WIDE_MIN}px)`;
-  const img = first
-    ? html`<img src="${a(`${s.id}-m-${SHOWCASE_PHONE_WEBP}.webp`)}" alt="" width="1280" height="960" fetchpriority="high" decoding="async">`
-    : html`<img src="${a(`${s.id}-m-${SHOWCASE_PHONE_WEBP}.webp`)}" alt="" width="1280" height="960" loading="lazy" fetchpriority="low" decoding="async">`;
+  const ww = SHOWCASE_WIDE_WEBP;
+  const pw = SHOWCASE_PHONE_WEBP;
+  const load = first ? html`fetchpriority="high"` : html`loading="lazy" fetchpriority="low"`;
   return html`<div class="k-frame" data-frame="${s.id}"><picture>
-      <source media="${media}" type="image/avif" srcset="${wide}" sizes="${SHOWCASE_SIZES_WIDE}">
-      <source media="${media}" type="image/webp" srcset="${a(`${s.id}-${SHOWCASE_WIDE_WEBP}.webp`)} ${SHOWCASE_WIDE_WEBP}w" sizes="${SHOWCASE_SIZES_WIDE}">
-      <source type="image/avif" srcset="${phone}" sizes="${SHOWCASE_SIZES_PHONE}">
-      ${img}
+      <source media="${media}" type="image/avif" srcset="${showcaseSrcset(s, 'wide', a)}" sizes="${SHOWCASE_SIZES_WIDE}" width="${ww}" height="${wideHeight(ww)}">
+      <source media="${media}" type="image/webp" srcset="${a(`${s.id}-${ww}.webp`)} ${ww}w" sizes="${SHOWCASE_SIZES_WIDE}" width="${ww}" height="${wideHeight(ww)}">
+      <source type="image/avif" srcset="${showcaseSrcset(s, 'phone', a)}" sizes="${SHOWCASE_SIZES_PHONE}" width="${pw}" height="${phoneHeight(pw)}">
+      <img src="${a(`${s.id}-m-${pw}.webp`)}" alt="" width="${pw}" height="${phoneHeight(pw)}" ${load} decoding="async">
     </picture>${showcaseCaption(ctx, s)}</div>`;
 }
 
 /** The frames of the real games at the top of the home page (src/showcase.ts); one after the other unless motion is reduced. */
 export function showcase(ctx: ViewContext): SafeHtml {
-  return html`<div class="k-reel" aria-hidden="true">${SHOWCASE.map((s, i) => showcaseFrame(ctx, s, i === 0))}</div>`;
+  return html`<div class="k-reel" aria-hidden="true">${SHOWCASE.map((s, i) => showcaseFrame(ctx, s, i === 0))}<span class="k-ticks">${SHOWCASE.map(() => html`<i></i>`)}</span></div>`;
+}
+
+/** The head links that fetch the first frame of the showcase before the styles are in: one per crop, AVIF (a browser without AVIF skips them). */
+export function showcasePreloads(ctx: ViewContext): Preload[] {
+  const s = SHOWCASE[0];
+  if (!s) return [];
+  const a = (file: string): string => ctx.assets.hero(file);
+  return [
+    { srcset: showcaseSrcset(s, 'wide', a), sizes: SHOWCASE_SIZES_WIDE, media: `(min-width: ${SHOWCASE_WIDE_MIN}px)`, type: 'image/avif' },
+    { srcset: showcaseSrcset(s, 'phone', a), sizes: SHOWCASE_SIZES_PHONE, media: `(max-width: ${SHOWCASE_WIDE_MIN - 0.02}px)`, type: 'image/avif' },
+  ];
 }
 
 function hero(ctx: ViewContext): SafeHtml {
