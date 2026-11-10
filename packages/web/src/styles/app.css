@@ -331,7 +331,8 @@ ul.ba-grid { list-style: none; margin: 0; padding: 0; }
 .ba-tile .meta-text { display: grid; line-height: 1.25; }
 .ba-tile .meta-dur { font-weight: 600; }
 .ba-tile .art .marks { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; }
-.ba-tile .art .mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(28, 20, 51, 0.78); color: #F4F2F8; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+/* No backdrop blur under the marks: a grid of them made every mark a backdrop layer, and WebKit without a GPU (Linux) then drew no frame for tens of seconds. */
+.ba-tile .art .mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(28, 20, 51, 0.86); color: #F4F2F8; }
 .ba-tile .art .mark svg { width: 16px; height: 16px; }
 
 /* ---------- Game page (D: game.html) ---------- */
