@@ -11,6 +11,16 @@ const state = (page: Page) => page.evaluate(() => [...document.querySelectorAll<
   game: v.closest('a')?.getAttribute('data-game') ?? '', src: v.getAttribute('src') ?? '', playing: !v.paused && v.currentTime > 0, on: v.classList.contains('is-on'),
 })));
 
+/**
+ * The layout of a tile: where it lies on the page (not on the screen: pointing at a tile may scroll it into view) and the size of
+ * its picture box (offset sizes, so the 2 px lift of a hovered picture, a transform, does not count).
+ */
+const pageBox = (page: Page, game: string) => page.locator(`a.ba-tile[data-game="${game}"]`).evaluate((a) => {
+  const r = a.getBoundingClientRect();
+  const art = a.querySelector<HTMLElement>('.art');
+  return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height, artWidth: art?.offsetWidth ?? 0, artHeight: art?.offsetHeight ?? 0 };
+});
+
 /** Whether this engine plays one of the formats (AV1 in WebM, H.264 in MP4); one without either keeps the pictures. */
 const playable = (page: Page) => page.evaluate(() => {
   const v = document.createElement('video');
@@ -52,14 +62,14 @@ test.describe('moving game tiles', () => {
     test.skip(!(await playable(page)), 'this engine plays neither format: the tiles keep their pictures');
     const hovers = await page.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches);
     test.skip(!hovers, 'this context reports no mouse');
-    const box = await page.locator('a.ba-tile[data-game="road-run"] .art').boundingBox();
+    const box = await pageBox(page, 'road-run');
     await page.locator('a.ba-tile[data-game="road-run"]').hover();
     await expect.poll(async () => (await state(page)).find((c) => c.game === 'road-run'), { timeout: 20_000 }).toMatchObject({ playing: true, on: true });
     // the 1x file for a tile drawn under 440 px on a screen of density 1, and only the tile that was pointed at
     expect((await state(page)).find((c) => c.game === 'road-run')?.src).toMatch(/\/assets\/clips\/road-run-400\.(webm|mp4)$/);
     expect((await state(page)).filter((c) => c.src !== '').map((c) => c.game)).toEqual(['road-run']);
     // the clip lies over the picture: the tile did not move or change size
-    expect(await page.locator('a.ba-tile[data-game="road-run"] .art').boundingBox()).toEqual(box);
+    expect(await pageBox(page, 'road-run')).toEqual(box);
 
     await page.mouse.move(2, 2);
     await expect.poll(async () => (await state(page)).find((c) => c.game === 'road-run'), { timeout: 10_000 }).toMatchObject({ playing: false, on: false });
