@@ -29,6 +29,7 @@ export interface ContextInit {
   version?: string;
   server?: boolean;
   i18n?: I18nOptions;
+  langOffer?: Lang | null;
 }
 
 const NO_OFFERS: PlansConfig = { offers: [], trialEligible: false, trialReminder: false };
@@ -54,5 +55,6 @@ export function makeContext(init: ContextInit): ViewContext {
     href: (id, o) => router.href(id, { ...o, lang }),
     version: init.version ?? '0.0.0',
     server: init.server ?? false,
+    langOffer: init.server ? null : (init.langOffer ?? null),
   };
 }

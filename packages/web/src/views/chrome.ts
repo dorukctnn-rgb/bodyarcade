@@ -3,7 +3,7 @@
 import { attr, html, type SafeHtml } from '../../../core/ui/html.ts';
 import { avatar } from '../../../core/ui/avatars.ts';
 import { icon, type IconName } from '../../../core/ui/icons.ts';
-import { LANG_INFO, type Lang, type StringKey } from '../../../core/ui/i18n/index.ts';
+import { createI18n, LANG_INFO, type Lang, type StringKey } from '../../../core/ui/i18n/index.ts';
 import { router, INDEXED_LANGS, type NavTab } from '../routes.ts';
 import { hasPro, type ViewContext } from '../context.ts';
 
@@ -119,6 +119,23 @@ export function trialNotice(ctx: ViewContext): SafeHtml {
     <div class="ba-trialnote-actions"><a class="ba-link" href="${ctx.href('pro')}">${t.t('trial.notice.manage')}</a><button type="button" class="ba-link" data-action="trial-dismiss">${t.t('trial.notice.dismiss')}</button></div></aside>`;
 }
 
+/**
+ * The bar under the header of an English page whose visitor's browser prefers another complete language (ctx.langOffer, from
+ * app/lang-offer.ts). It speaks that language: it names the other page and offers to switch to it or to keep English. Either
+ * answer goes into the language setting, so the bar is not shown again. Nothing moves a visitor away from the address they
+ * opened, the links of the page stay as the HTML has them, and the page generator never draws it (it knows no visitor).
+ */
+export function languageOffer(ctx: ViewContext): SafeHtml {
+  const want = ctx.langOffer;
+  if (!want || want === ctx.lang || ctx.server) return html``;
+  const info = LANG_INFO.find((x) => x.code === want);
+  const tag = info?.tag ?? want;
+  const w = createI18n(want);
+  const target = router.match(ctx.url) ? ctx.url : ctx.href('home');
+  return html`<aside class="ba-langnote" lang="${tag}" aria-label="${w.t('langbar.label')}" data-lang-offer="${want}"><p>${w.t('langbar.offer')}</p>
+    <div class="ba-langnote-actions"><a class="ba-link" href="${router.withLang(target, want)}" hreflang="${tag}" data-action="lang" data-lang="${want}">${w.t('langbar.go')}</a><button type="button" class="ba-link" data-action="lang-keep">${w.t('langbar.stay')}</button></div></aside>`;
+}
+
 export interface ChromeOptions {
   tab: NavTab | null;
   main: SafeHtml;
@@ -143,6 +160,7 @@ export function chrome(ctx: ViewContext, o: ChromeOptions): SafeHtml {
       <nav aria-label="${t.t('nav.label')}">${topLinks}</nav>
       <span class="ba-me">${switcherLink(ctx)}${proBadge}</span>
     </header>
+    ${languageOffer(ctx)}
     ${trialNotice(ctx)}
     <main id="main" class="ba-page ${o.mainClass ?? ''}" tabindex="-1">
       ${o.pushed ? '' : html`<div class="ba-mobilehead"><a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 28)}</a><span class="ba-me">${switcherLink(ctx)}${proBadge}</span></div>`}

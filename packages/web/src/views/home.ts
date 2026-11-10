@@ -20,6 +20,7 @@ import { freeLine } from './paywall.ts';
 import { NO_PLANS_DATA, planStrip, type PlansData } from './plans.ts';
 import { gameGrid, regionChips } from './tiles.ts';
 import { weekdayNames } from './parts.ts';
+import { REGION_ORDER } from '../routes.ts';
 
 /** What the home page knows about the player's weeks; empty on the server and for a new player. */
 export interface HomeData {
@@ -193,6 +194,7 @@ function aboutSection(ctx: ViewContext): SafeHtml {
           <li>${icon('globe')}<span>${t.t('home.about.where')}</span></li>
           <li>${icon('programs')}<span>${t.t('home.about.plans', { n: WORKOUT_PLANS.length, free: freePlan ? localized(freePlan.title, ctx.lang) : '' })} <a class="ba-link" href="${ctx.href('plans')}">${t.t('home.about.plansLink')}</a></span></li>
         </ul>
+        <p class="k-about-pages">${t.t('home.about.games')} ${ctx.games.map((g, i) => html`${i ? ', ' : ''}<a href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${titleOf(ctx, g)}</a>`)}. ${t.t('home.about.regions')} ${REGION_ORDER.map((r, i) => html`${i ? ', ' : ''}<a href="${ctx.href('region', { params: { region: r } })}">${regionLabel(ctx, r)}</a>`)}.</p>
       </div>
       ${prices}
     </div>

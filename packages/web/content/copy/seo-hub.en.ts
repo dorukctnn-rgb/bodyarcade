@@ -6,7 +6,8 @@ import { cta, faqLd, link, qa, readMinutes, table, ul, type PageSpec, type Secti
 import * as F from '../facts.ts';
 import { WORKOUT_PLANS } from '../../../core/store/workout-plans.ts';
 import { gameCounts, roundLength, titlesOf } from './games.ts';
-import { SEO_DATES, SEO_NAME, SEO_URL, GUIDE_URL, MOVE, gameLink, games, itemListLd, moreSection, otherOf, planWord, proHref, regionName, seoFile, seoLink } from './seo-shared.ts';
+import { REGION_IDS } from '../../../core/ui/settings.ts';
+import { SEO_DATES, SEO_NAME, SEO_URL, GUIDE_URL, MOVE, gameLink, games, itemListLd, moreSection, otherOf, planWord, proHref, regionHref, regionName, seoFile, seoLink } from './seo-shared.ts';
 
 export function seoHubEn(): PageSpec {
   const lang = 'en';
@@ -42,7 +43,7 @@ ${table(null, ['Game', 'What you do', 'Round', 'Free or Pro', 'Body area'], all.
         `<strong>You do not want to jump.</strong> A quiet mode, with no jumping and no stamping, is in ${c.quiet} of the ${c.total} games, and it is kind to the neighbours below. Switch it on in Settings.`,
         `<strong>You would rather sit.</strong> Every game has a seated version. ${seoLink(lang, 'seated', 'The seated games page')} goes through them one by one.`,
         `<strong>You are playing with someone.</strong> Two people can share one camera in ${c.local2} games, and ${listed(all.filter((g) => g.live).map((g) => gameLink(g, lang)))} have live online races. See ${seoLink(lang, 'friends', 'workout games to play with friends')}.`,
-        `<strong>You want to work one part of your body.</strong> ${seoLink(lang, 'areas', 'Workout games by body area')} lists the games for legs, arms, chest and back, core, cardio and mobility.`,
+        `<strong>You want to work one part of your body.</strong> ${seoLink(lang, 'areas', 'Workout games by body area')} lists the games for legs, arms, chest and back, core, cardio and mobility, and the app has a list of its own for each area: ${REGION_IDS.map((r) => link(regionHref(r, lang), regionName(r, lang))).join(', ')}.`,
       ]),
     },
     {

@@ -6,7 +6,8 @@ import { cta, faqLd, link, qa, readMinutes, table, ul, type PageSpec, type Secti
 import * as F from '../facts.ts';
 import { WORKOUT_PLANS } from '../../../core/store/workout-plans.ts';
 import { gameCounts, listWords, roundLength, titlesOf } from './games.ts';
-import { SEO_DATES, SEO_NAME, SEO_URL, GUIDE_URL, MOVE, gameLink, games, itemListLd, moreSection, otherOf, planWord, proHref, regionName, seoFile, seoLink } from './seo-shared.ts';
+import { REGION_IDS } from '../../../core/ui/settings.ts';
+import { SEO_DATES, SEO_NAME, SEO_URL, GUIDE_URL, MOVE, gameLink, games, itemListLd, moreSection, otherOf, planWord, proHref, regionHref, regionName, seoFile, seoLink } from './seo-shared.ts';
 
 export function seoHubTr(): PageSpec {
   const lang = 'tr';
@@ -42,7 +43,7 @@ ${table(null, ['Oyun', 'Ne yaparsın', 'Tur', 'Ücretsiz mi, Pro mu', 'Bölge'],
         `<strong>Zıplamak istemiyorsun.</strong> ${c.total} oyunun ${c.quiet} tanesinde zıplama ve yere vurma olmayan bir sessiz mod var; alt kattaki komşulara saygılıdır. Ayarlar’dan aç.`,
         `<strong>Oturmayı tercih ediyorsun.</strong> Her oyunun oturarak sürümü var. ${seoLink(lang, 'seated', 'Oturarak egzersiz oyunları sayfası')} hepsini sırayla anlatır.`,
         `<strong>Biriyle birlikte oynuyorsun.</strong> ${c.local2} oyunda iki kişi tek kamerayı paylaşabilir; ${listWords(all.filter((g) => g.live).map((g) => gameLink(g, lang)), lang)} oyunlarında canlı çevrimiçi yarışlar var. ${seoLink(lang, 'friends', 'Arkadaşlarla spor oyunları')} sayfasına bak.`,
-        `<strong>Vücudunun belirli bir bölgesini çalıştırmak istiyorsun.</strong> ${seoLink(lang, 'areas', 'Bölgeye göre spor oyunları')} sayfası bacak, kol, göğüs ve sırt, karın, kardiyo ve hareketlilik oyunlarını sıralar.`,
+        `<strong>Vücudunun belirli bir bölgesini çalıştırmak istiyorsun.</strong> ${seoLink(lang, 'areas', 'Bölgeye göre spor oyunları')} sayfası bacak, kol, göğüs ve sırt, karın, kardiyo ve hareketlilik oyunlarını sıralar; uygulamada her bölgenin kendi listesi de var: ${REGION_IDS.map((r) => link(regionHref(r, lang), regionName(r, lang))).join(', ')}.`,
       ]),
     },
     {
