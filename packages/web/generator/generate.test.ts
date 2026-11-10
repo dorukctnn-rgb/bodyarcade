@@ -99,7 +99,7 @@ describe('the generated site', () => {
       expect(preloads, page).toHaveLength(2);
       expect(preloads[0]).toMatch(/type="image\/avif" imagesrcset="\/static\/hero\/coast-1280\.[0-9a-f]{8}\.avif 1280w, [^"]*2560w" imagesizes="[^"]+" media="\(min-width: 760px\)" fetchpriority="high"/);
       expect(preloads[1]).toMatch(/imagesrcset="\/static\/hero\/coast-m-640\.[0-9a-f]{8}\.avif 640w, [^"]*1280w" imagesizes="[^"]+" media="\(max-width: 759\.98px\)"/);
-      const frames = html.match(/<div class="k-frame" data-frame="[a-z]+">/g) ?? [];
+      const frames = html.match(/<div class="k-frame" data-frame="[a-z]+"( data-qa-layer)?>/g) ?? [];
       expect(frames.length, page).toBe(4);
       expect(html.match(/<img src="\/static\/hero\/[^"]+" alt="" width="960" height="720" fetchpriority="high"/g), page).toHaveLength(1);
       expect(html.match(/<img src="\/static\/hero\/[^"]+" alt="" width="960" height="720" loading="lazy" fetchpriority="low"/g), page).toHaveLength(3);
