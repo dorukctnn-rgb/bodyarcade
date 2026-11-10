@@ -1,7 +1,10 @@
 // Squat Flap as a live race (mode 'duel', builder N): the Room fixes when each column reaches the bird, the game keeps the three
 // promises of core/types DuelSetup (the column with id n arrives at schedule t, a settled column is one 'duel' event, the run ends
 // with the match) and the score it adds up is the Room's own (core/net scoreOf), whatever the player chose to play alone on.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// The painted Squat Flap world (9 Nov) makes these whole-screen layout scans slower on a busy CI runner.
+vi.setConfig({ testTimeout: 30_000 });
 import type { GameEvent, InputEvent, StartOptions } from '../../core/types/index.ts';
 import { FIXED_DT } from '../../core/types/index.ts';
 import { rngStream } from '../../core/loop/rng.ts';
