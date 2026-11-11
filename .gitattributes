@@ -9,3 +9,4 @@ android/twa-manifest.json text eol=lf
 android/manifest-checksum.txt text eol=lf
 android/gradlew text eol=lf
 android/*.ps1 text eol=crlf
+*.bin binary
