@@ -1,0 +1,24 @@
+/* Duel links (sprint arm E): the duel card of a duel room's page and the duel's result card. Built on the kit's tokens; nothing here
+   moves (the rival's 3D figure on the stage turns slowly only without reduced motion, and that is drawn by rival-figure.ts). */
+
+.k-duelcard { display: grid; gap: 10px; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ba-sky-400) 55%, var(--ba-border)); }
+.k-duelcard__head { display: flex; align-items: center; gap: 10px; }
+.k-duelcard__head > svg { flex: none; width: 26px; height: 26px; color: var(--ba-sky-700); }
+.k-duelcard__head h2 { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.k-duelcard__game { font-family: var(--ba-font-body, inherit); font-weight: 650; font-size: var(--ba-text-sm); color: var(--ba-text-muted); }
+.k-duelcard p { margin: 0; }
+.k-duelcard__left { display: inline-flex; align-items: center; gap: 8px; justify-self: start; padding: 6px 12px; border-radius: 999px; background: var(--ba-surface-sunken); font-weight: 700; font-size: var(--ba-text-sm); font-variant-numeric: tabular-nums; }
+.k-duelcard__left svg { width: 18px; height: 18px; flex: none; }
+.k-duelcard__left[data-low] { background: color-mix(in srgb, var(--ba-sun-400) 22%, var(--ba-surface)); }
+.k-duelcard__facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.k-duelcard__facts li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; font-size: var(--ba-text-sm); line-height: 1.45; }
+.k-duelcard__facts svg { width: 20px; height: 20px; color: var(--ba-text-muted); }
+.k-duelcard .ba-btn { min-height: 44px; }
+
+/* The result: the two scores side by side, the winner's marked. */
+.k-duelresult__scores > div[data-win] { background: color-mix(in srgb, var(--ba-sky-400) 18%, var(--ba-surface-sunken)); box-shadow: inset 0 0 0 2px var(--ba-sky-400); }
+.k-duelresult__scores > div[data-win] b { color: var(--ba-text); }
+
+/* The rival's 3D figure fills the tile's picture like the flat skeleton did. */
+.lr-pic .lr-figure { display: block; width: 100%; height: 100%; }
+.lr-tile[data-figure="3d"] .lr-pic { background: radial-gradient(120% 90% at 50% 20%, #33295A 0%, #1A1430 70%); }

@@ -978,6 +978,7 @@ export const en = {
   'room.problem.not_allowed': 'You cannot join this room.',
   'room.problem.ticket': 'The invitation ran out. Ask for a new link.',
   'room.problem.offline': 'No connection. Try again when you are online.',
+  'room.problem.expired': 'This duel link has closed: duel links close ten minutes after they are made. Ask your friend for a new one.',
   'room.problem.back': 'Back to friends',
   'room.chat.preset': 'Preset messages only in this room.',
   'room.sec': '{n, plural, one {# second} other {# seconds}}',

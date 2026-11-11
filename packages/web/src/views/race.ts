@@ -8,6 +8,7 @@ import { icon } from '../../../core/ui/icons.ts';
 import type { ViewContext } from '../context.ts';
 import { ghostParam, plateName, specOfRun, type GhostMenu, type RaceOutcome } from '../app/race.ts';
 import { lrText } from '../app/live-strings.ts';
+import { duelResultBlock } from '../social/screens/duel.ts';
 
 /** The draft of the window: what is chosen, and the recordings pasted in since it opened. */
 export interface GhostChoice {
@@ -130,6 +131,8 @@ export function liveRaceBlock(ctx: ViewContext, r: RaceOutcome, o: { keep: boole
   const lr = lrText(t);
   const live = r.live;
   if (!live) return html``;
+  // a duel link's result: the two of them side by side (social/screens/duel.ts)
+  if (live.duel) return duelResultBlock(ctx, r, Date.now());
   const others = live.seats.filter((s) => !s.you);
   const left = others.filter((s) => s.forfeited);
   const winner = live.seats.find((s) => s.place === 1 && !s.forfeited && !s.you);

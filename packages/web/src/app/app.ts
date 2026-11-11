@@ -909,7 +909,8 @@ export class App {
     // A race is one player's round (the other side is the recording, or the friends of a room), whatever the game's page had chosen,
     // and it is played with the camera: the platform's session does not start a race by keyboard (the moves are the race).
     // A room's race (`?room=`) is the room's: its clock, its course and its judge are the Room's (live-race.ts).
-    const room = canRace(g) ? roomOfRoute(route) : null;
+    // (a duel link plays any game: one without a course is a score duel, and roomRace() turns away a game its room cannot play)
+    const room = roomOfRoute(route);
     const spec = room ? null : parseGhost(route.query.get('ghost'));
     const racing = room !== null || (spec !== null && canRace(g));
     const asked = setupFromQuery(ctx, g, route.query);
@@ -972,7 +973,7 @@ export class App {
     const st = rooms.state();
     const client = rooms.client?.() ?? null;
     if (!client || !st.info || st.info.code !== code || (st.phase !== 'lobby' && st.phase !== 'playing')) { this.waitForRoom(code, true); return null; }
-    if (st.info.config.gameId !== g.id) {
+    if (st.info.config.gameId !== g.id || (!canRace(g) && st.info.duel?.mode !== 'score')) {
       this.nav.go(ctx.href('room', { params: { code } }), { replace: true });
       return null;
     }
@@ -1154,10 +1155,10 @@ export class App {
   }
 
   /** A link goes to the system share sheet on a touch device that has one; everything else is copied. */
-  private async shareText(text: string, o: { link: boolean }): Promise<boolean> {
+  private async shareText(text: string, o: { link: boolean; text?: string }): Promise<boolean> {
     const nav = this.win.navigator;
     if (o.link && this.caps.touch && typeof nav.share === 'function') {
-      try { await nav.share({ url: text }); return true; } catch (e) { if ((e as { name?: string }).name === 'AbortError') return false; }
+      try { await nav.share(o.text ? { url: text, text: o.text } : { url: text }); return true; } catch (e) { if ((e as { name?: string }).name === 'AbortError') return false; }
     }
     try { await nav.clipboard.writeText(text); return true; } catch { /* no clipboard permission: the older way below */ }
     try {
