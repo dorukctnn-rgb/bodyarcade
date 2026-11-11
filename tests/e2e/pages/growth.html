@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Progress coach harness</title><style>body{margin:0;background:#140F27}</style></head>
+<body>
+<script type="module">
+  // The progress coach page (packages/web/src/growth/page.ts) on its own, as ?gelisim=1 opens it in the web shell. The plan is
+  // set by the test (?plan=pro); the vault is the browser's real IndexedDB; PBKDF2 runs fewer rounds here to keep tests fast.
+  import { bootGrowth } from '/packages/web/src/growth/page.ts';
+  const q = new URLSearchParams(location.search);
+  const pro = q.get('plan') === 'pro';
+  await bootGrowth(window, { access: { can: (f) => pro || ['growth:photos', 'growth:compare', 'growth:lock', 'growth:backup', 'growth:program-basic', 'growth:targets', 'growth:meals-sample'].includes(f), profileId: q.get('profile') ?? 'test' }, iterations: 2000 });
+  window.harnessReady = true;
+</script>
+</body>
+</html>
