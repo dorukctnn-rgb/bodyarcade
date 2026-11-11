@@ -991,6 +991,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'room.problem.not_allowed': 'Bu odaya katılamazsın.',
   'room.problem.ticket': 'Davetin süresi doldu. Yeni bir bağlantı iste.',
   'room.problem.offline': 'Bağlantı yok. Çevrimiçi olunca tekrar dene.',
+  'room.problem.expired': 'Bu düello linki kapandı: düello linkleri oluşturulduktan on dakika sonra kapanır. Arkadaşından yeni bir link iste.',
   'room.problem.back': 'Arkadaşlara dön',
   'room.chat.preset': 'Bu odada yalnızca hazır mesajlar var.',
   'room.sec': '{n} saniye',

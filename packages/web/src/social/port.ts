@@ -4,6 +4,7 @@
 // (app/demo-social.ts) fills the same shapes for development, tests and screenshots.
 //
 // Nothing here names a server. Types that already exist in core/social and core/types/net.ts are used as they are.
+import type { Guests } from './guest.ts';
 import type { SyncPort } from '../../../core/store/sync-docs.ts';
 import type { Unsubscribe } from '../../../core/types/index.ts';
 import type { LiveClient } from '../../../core/net/client.ts';
@@ -164,7 +165,8 @@ export interface SocialPort {
 /** The same for rooms: the failures are the room's own. */
 export type RoomDone<T = void> = { ok: true; value: T } | { ok: false; code: RoomProblem };
 
-export type RoomProblem = 'full' | 'no_room' | 'removed' | 'replaced' | 'version' | 'not_allowed' | 'ticket' | 'offline';
+/** expired: a duel room that closed by itself (core/net/duel-link.ts: ten minutes after it was made). */
+export type RoomProblem = 'full' | 'no_room' | 'removed' | 'replaced' | 'version' | 'not_allowed' | 'ticket' | 'offline' | 'expired';
 
 export interface FeedItem {
   id: number;
@@ -197,6 +199,8 @@ export interface RoomState {
    * the friend is a skeleton meanwhile. A failed link gets one line ('room.video.failed') and a retry button. Missing in the practice port.
    */
   videos?: readonly VideoStatus[];
+  /** This page is in the room as a guest of a duel link (no profile: a generated name, the age band asked at the link). */
+  guest?: boolean;
 }
 
 /**
@@ -216,7 +220,7 @@ export interface RoomPort {
   state(): RoomState;
   subscribe(cb: () => void): Unsubscribe;
   /** Opens a new room and joins it; the value is its code. */
-  create(o: { game: string; kind: 'private' | 'public'; size: number; band: LevelBand | null; /** Match length; the Room's default when missing. */ durationMs?: number }): Promise<RoomDone<string>>;
+  create(o: { game: string; kind: 'private' | 'public'; size: number; band: LevelBand | null; /** Match length; the Room's default when missing. */ durationMs?: number; /** A duel room (core/net/duel-link.ts). */ duel?: boolean }): Promise<RoomDone<string>>;
   join(code: string): Promise<RoomDone>;
   setReady(ready: boolean): void;
   /** Host only. */
@@ -251,4 +255,6 @@ export interface RoomPort {
 export interface SocialServices {
   social: SocialPort;
   rooms: RoomPort;
+  /** The guest of duel links on this device (social/guest.ts). Missing in the practice port: there a player always has a profile. */
+  guests?: Guests;
 }

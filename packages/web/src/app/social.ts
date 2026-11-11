@@ -5,6 +5,8 @@
 import { openDialog, type DialogHandle } from '../../../core/ui/dialog.ts';
 import type { Matched } from '../../../core/ui/router.ts';
 import { codeFromInvite, isRoomCode } from '../../../core/net/codes.ts';
+import { previewRoom } from '../../../core/net/api.ts';
+import { secondsLeft } from '../../../core/net/duel-link.ts';
 import { isProGame } from '../../../core/net/live-games.ts';
 import { checkChat, checkName } from '../../../core/net/chat-filter.ts';
 import { formatFriendCode, formatRecoveryCode, parseFriendCode, parseFriendLink } from '../../../core/social/codes.ts';
@@ -21,6 +23,9 @@ import type { Failed, MatchDriver, MatchProgress, ProNeeded, RoomDone, SocialNot
 import { ux } from '../social/strings.ts';
 import { IDLE_QUICK, type QuickView } from '../social/screens/lobbies.ts';
 import '../social/social.css';
+import { clockOf, duelText } from '../social/duel-strings.ts';
+import { roundFits } from '../social/screens/duel.ts';
+import { emitDuel, watchDuels } from './duel-events.ts';
 import {
   blockSheet, boardGames, friendMenuSheet, friendsPartOf, gameSheet, inviteTray, NEW_PROFILE_SHEET, onlineGames, proSheet, profileSheet, qrSheet, recoverySheet, reportSheet, seatMenuSheet,
   type FriendsPart, type ProfileSheet, type ReportSheet, type SocialPageState,
@@ -38,8 +43,8 @@ export interface SocialHost {
   announce(text: string): void;
   /** Draws the current page again from the state (called when something the page shows has changed). */
   rerender(): void;
-  /** Copies text, or hands a link to the system share sheet where there is one; false when neither worked. */
-  share(text: string, o: { link: boolean }): Promise<boolean>;
+  /** Copies text, or hands a link to the system share sheet where there is one (with `text`, a line beside it); false when neither worked. */
+  share(text: string, o: { link: boolean; text?: string }): Promise<boolean>;
   /** How long a race with a friend lasts (the game's round, half a minute to a minute and a half; a test build can shorten it). */
   raceMs?(g: ShellGame): number;
 }
@@ -61,6 +66,9 @@ const LEVEL_OF_BAND: Readonly<Record<LevelBand, number>> = { easy: 5, medium: 15
 export const raceMs = (g: Pick<ShellGame, 'durationSec'>): number => Math.max(30, Math.min(90, g.durationSec)) * 1000;
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/** Can this game be raced over a course (its manifest has the 'duel' mode)? Anything else is a score duel in a duel room. */
+const canRaceGame = (g: Pick<ShellGame, 'modes'>): boolean => g.modes.includes('duel');
 
 type Note = { ok: boolean; text: string };
 /** What a port call answered, as far as the controller reads it. */
@@ -95,6 +103,9 @@ export class SocialController {
   private active: { kind: 'profile'; handle: DialogHandle; sheet: ProfileSheet; finish(ok: boolean): void } | { kind: 'report'; handle: DialogHandle; state: ReportSheet; sent: boolean } | { kind: 'recovery'; handle: DialogHandle } | null = null;
   /** The weekly-board ticket of the solo round that is being played. */
   private round: { ticket: RunTicket; game: string } | null = null;
+  /** The once-a-second tick of a duel room's page: the time its link has left (and a redraw when another round no longer fits). */
+  private duelTick: ReturnType<typeof setInterval> | null = null;
+  private duelFits: boolean | null = null;
 
   constructor(host: SocialHost, svc: SocialServices) {
     this.host = host;
@@ -118,6 +129,8 @@ export class SocialController {
     doc.addEventListener('visibilitychange', visible);
     this.cleanups.push(() => doc.removeEventListener('visibilitychange', visible));
     this.opened = this.svc.social.open().then(() => { this.changed(); });
+    // what duel links do, for the rest of the app (arm F's tasks and badges listen to duel-events.ts)
+    this.cleanups.push(watchDuels(this.svc.rooms));
     this.mark();
     this.renderTray();
   }
@@ -127,6 +140,7 @@ export class SocialController {
     for (const c of this.cleanups.splice(0)) c();
     if (this.redrawTimer) clearTimeout(this.redrawTimer);
     if (this.trayTimer) clearInterval(this.trayTimer);
+    this.stopDuelTick();
     this.lobby.abort?.abort();
     this.active?.handle.close('cancel');
     this.svc.rooms.leave();
@@ -147,8 +161,9 @@ export class SocialController {
     if (this.lobby.abort && route?.id !== 'lobbies') this.stopSearch();
     this.presence(route);
     this.renderTray();
-    if (!this.route) return;
+    if (!this.route) { this.stopDuelTick(); return; }
     if (this.svc.social.state().status === 'offline') void this.svc.social.open();
+    if (this.route.id === 'room') this.startDuelTick(); else this.stopDuelTick();
     switch (this.route.id) {
       case 'lobbies': void this.loadLobbies(); break;
       case 'room': void this.enterRoom(this.route.params['code'] ?? ''); break;
@@ -181,7 +196,8 @@ export class SocialController {
     const rooms = this.svc.rooms;
     if (!code || !isRoomCode(code)) return { ok: false, code: 'no_room' };
     await this.opened;
-    if (this.svc.social.state().noOnline || !this.svc.social.state().profile) return { ok: false, code: 'not_allowed' };
+    // a guest of a duel link has no profile; the port joins them as the guest of this device (a room that is no duel turns them away)
+    if (this.svc.social.state().noOnline || (!this.svc.social.state().profile && !this.svc.guests?.identity())) return { ok: false, code: 'not_allowed' };
     if (rooms.state().info?.code === code && rooms.state().phase !== 'closed') return { ok: true, value: undefined };
     const r = await rooms.join(code);
     this.changed();
@@ -219,12 +235,14 @@ export class SocialController {
     if (this.room.joining === code) return;
     this.room.joining = code;
     try {
-      // A profile is needed before any room: the age question is asked once, here at the latest.
-      if (!this.svc.social.state().profile) {
+      // A profile is needed before any room: the age question is asked once, here at the latest. A duel link lets a guest in instead
+      // (the age question all the same, then a generated name): the room's preview says whether it is one.
+      if (!this.svc.social.state().profile && !this.svc.guests?.identity()) {
         await this.svc.social.open();
         if (this.svc.social.state().noOnline) return;
-        const made = this.svc.social.state().profile ? true : await this.openProfileSheet();
-        if (!made) { if (this.route?.id === 'room') this.host.go(this.host.context().href('friends'), { replace: true }); return; }
+        const duel = !this.svc.social.state().profile && !!this.svc.guests && (await previewRoom('', code).then((pv) => pv.duel === true, () => false));
+        const made = this.svc.social.state().profile ? true : await this.openProfileSheet('age', duel ? 'join' : null);
+        if (!made) { if (this.route?.id === 'room') this.host.go(this.host.context().href(duel ? 'home' : 'friends'), { replace: true }); return; }
       }
       if (this.route?.id !== 'room') return;
       const r = await rooms.join(code);
@@ -262,7 +280,10 @@ export class SocialController {
       profile: { state, name: this.me.draft ?? profile?.name ?? '', notes: this.me.notes, busy: this.me.busy },
       boards: { state, games: bgames, game: bgame, scope: this.boards.scope, week: this.boards.week, board: this.boards.board, loading: this.boards.loading, failed: this.boards.failed },
       lobbies: { state, games, game, band: l.band ?? (profile ? levelBand(profile.level) : 'medium'), region: l.region ?? profile?.region ?? 'eu', list: l.list, failed: l.failed, quick: l.quick },
-      room: { room, game: info ? (ctx.games.find((g) => g.id === info.config.gameId) ?? null) : null, profile, games, draft: this.room.draft, chatNote: this.room.chatNote, friends: state.friends, invited: this.room.invited, noOnline: state.noOnline, pro: this.svc.rooms.proNeeded?.() ?? null },
+      room: {
+        room, game: info ? (ctx.games.find((g) => g.id === info.config.gameId) ?? null) : null, profile, games: info?.duel ? ctx.games : games, draft: this.room.draft, chatNote: this.room.chatNote,
+        friends: state.friends, invited: this.room.invited, noOnline: state.noOnline, pro: this.svc.rooms.proNeeded?.() ?? null, now: this.serverNow(),
+      },
       friendLink: {
         code: formatted, profile: !!profile, own: !!formatted && profile?.code === formatted, busy: this.link.busy, done: this.link.done, note: this.link.note, noOnline: state.noOnline,
         offline: state.status === 'offline',
@@ -352,6 +373,10 @@ export class SocialController {
       case 'social.decline': void this.answer(d['fid'] ?? '', false); return true;
       case 'social.cancel': void this.run(this.svc.social.cancelRequest(d['fid'] ?? '')); return true;
       case 'social.invite': void this.inviteFriend(d['fid'] ?? ''); return true;
+      case 'social.duel': void this.duelFriend(d['fid'] ?? ''); return true;
+      case 'duel.share': void this.shareDuel(); return true;
+      case 'sheet.guest.go': this.sheetGuestGo(); return true;
+      case 'sheet.guest.profile': this.sheetGuestProfile(); return true;
       case 'social.join': this.host.go(this.host.context().href('room', { params: { code: d['room'] ?? '' } })); return true;
       case 'social.menu': void this.friendMenu(d['fid'] ?? ''); return true;
       case 'social.unblock': void this.unblock(d['fid'] ?? ''); return true;
@@ -560,7 +585,7 @@ export class SocialController {
     if (!s) return false;
     if (s.kind === 'profile' && t.name === 'age') {
       s.sheet.band = t.value as AgeBand;
-      s.sheet.name = s.sheet.band === 'adult' ? '' : randomPresetName();
+      s.sheet.name = s.sheet.band === 'adult' && !s.sheet.guest ? '' : randomPresetName();
       s.handle.setHtml(profileSheet(this.host.context(), s.sheet));
       return true;
     }
@@ -583,13 +608,17 @@ export class SocialController {
     return false;
   }
 
-  /** Asks the age and the name, shows the recovery code, and resolves true once the player has a profile (made or brought back). */
-  openProfileSheet(start: 'age' | 'recover' = 'age'): Promise<boolean> {
+  /**
+   * Asks the age and the name, shows the recovery code, and resolves true once the player has a profile (made or brought back). With
+   * `guest` (a duel link, and a device that keeps guests) the name step lets the player in as a guest instead, and the window resolves
+   * true once this device has one.
+   */
+  openProfileSheet(start: 'age' | 'recover' = 'age', guest: 'join' | 'new' | null = null): Promise<boolean> {
     if (this.active) return Promise.resolve(false);
     const st = this.svc.social.state();
     if (st.noOnline) return Promise.resolve(false);
     const ctx = (): ViewContext => this.host.context();
-    const sheet: ProfileSheet = { ...NEW_PROFILE_SHEET, step: start, persistent: st.persistent };
+    const sheet: ProfileSheet = { ...NEW_PROFILE_SHEET, step: start, persistent: st.persistent, guest: guest && this.svc.guests ? guest : null };
     const handle = openDialog({ document: this.host.document, html: profileSheet(ctx(), sheet), labelledBy: 'sheet-h', describedBy: 'sheet-d', className: 'ba-modal--sheet', dismissible: true });
     return new Promise<boolean>((resolve) => {
       const flow: NonNullable<SocialController['active']> = { kind: 'profile', handle, sheet, finish: (ok) => handle.close(ok ? 'created' : 'cancel') };
@@ -597,7 +626,7 @@ export class SocialController {
       void handle.closed.then((result) => {
         if (this.active === flow) this.active = null;
         // The sheet was closed by Escape or a click outside after the profile was made: the profile is there, and the banner keeps the code until it is saved.
-        const has = !!this.svc.social.state().profile;
+        const has = !!this.svc.social.state().profile || (result === 'guest' && !!this.svc.guests?.identity());
         if (result === 'games') this.host.go(ctx().href('home'));
         resolve(has);
       });
@@ -627,7 +656,8 @@ export class SocialController {
       a.sheet.step = 'young';
     } else {
       a.sheet.step = 'name';
-      a.sheet.name = a.sheet.band === 'adult' ? '' : randomPresetName();
+      // a guest never types a name: nobody checks a guest's words
+      a.sheet.name = a.sheet.band === 'adult' && !a.sheet.guest ? '' : randomPresetName();
       // The agreement is given at the step that makes the profile, every time that step opens.
       a.sheet.terms = false;
       a.sheet.termsError = false;
@@ -1106,7 +1136,8 @@ export class SocialController {
   private async chooseGame(): Promise<void> {
     const ctx = this.host.context();
     const room = this.svc.rooms.state();
-    const games = onlineGames(ctx);
+    // a duel room plays any game (one without a course is a score duel); other rooms play the games that can be raced
+    const games = room.info?.duel ? ctx.games : onlineGames(ctx);
     const d = openDialog({ document: this.host.document, html: gameSheet(ctx, games, room.info?.config.gameId ?? ''), labelledBy: 'sheet-h', className: 'ba-modal--sheet' });
     const pick = await d.closed;
     if (typeof pick !== 'string' || !games.some((g) => g.id === pick)) return;
@@ -1160,18 +1191,134 @@ export class SocialController {
     this.host.rerender();
   }
 
-  /** The way into a race from a game's page: a private room for two, then the room page where the friend is asked in. */
-  private async newRace(gameId: string): Promise<void> {
+  /**
+   * The way into a duel from a game's page (and from a closed duel room, for another round): a duel link (core/net/duel-link.ts), any
+   * game. A player without a profile makes it as a guest. Then the room page, where the link is sent.
+   */
+  private async newRace(gameId: string, friend?: string): Promise<string | null> {
     const t = this.host.context().i18n;
     const g = this.host.context().games.find((x) => x.id === gameId);
-    if (!g || !g.modes.includes('duel')) return;
-    if (!(await this.ensureProfile())) return;
-    const r = await this.svc.rooms.create({ game: g.id, kind: 'private', size: 2, band: null, durationMs: this.host.raceMs?.(g) ?? raceMs(g) });
-    if (!r.ok) { this.roomFailed(r.code); return; }
+    if (!g) return null;
+    if (!(await this.ensureDuelPlayer('new'))) return null;
+    // the room of an earlier link (a closed duel, its results) is left first, so the page change to the new room leaves nothing behind
+    if (this.svc.rooms.state().info) { this.svc.rooms.leave(); this.openCode = null; this.room.invited = []; }
+    const r = await this.svc.rooms.create({ game: g.id, kind: 'private', size: 2, band: null, durationMs: this.host.raceMs?.(g) ?? raceMs(g), duel: true });
+    if (!r.ok) { this.roomFailed(r.code); return null; }
     this.room.joining = r.value;
     this.room.invited = [];
+    const info = this.svc.rooms.state().info;
+    emitDuel({ type: 'duel.created', room: r.value, gameId: g.id, mode: info?.duel?.mode ?? (canRaceGame(g) ? 'race' : 'score'), guest: this.svc.rooms.state().guest === true, at: Date.now(), ...(friend ? { friend } : {}) });
     this.host.announce(t.t('room.created'));
     this.host.go(this.host.context().href('room', { params: { code: r.value } }));
+    return r.value;
+  }
+
+  /** A profile, or for a duel link the guest of this device: asks for what is missing. True once the player can open a duel room. */
+  private async ensureDuelPlayer(kind: 'join' | 'new'): Promise<boolean> {
+    await this.profileRead();
+    const s = this.svc.social.state();
+    if (s.profile) return true;
+    if (s.noOnline) { this.host.toast(ux(this.host.context())('err.child_no_online'), 'warn'); return false; }
+    if (this.svc.guests?.identity()) return true;
+    return this.openProfileSheet('age', kind);
+  }
+
+  /** The guest window's way in: the rules agreed to, the generated name kept with a device id of its own. */
+  private sheetGuestGo(): void {
+    const a = this.active;
+    if (a?.kind !== 'profile' || !a.sheet.guest) return;
+    const p = a.sheet;
+    const band = p.band;
+    if (band !== 'teen' && band !== 'adult') return;
+    if (!p.terms) {
+      p.termsError = true;
+      p.error = duelText(this.host.context().i18n)('guest.terms');
+      this.draw();
+      this.host.document.querySelector<HTMLElement>('dialog [name="terms"]')?.focus();
+      return;
+    }
+    if (!this.svc.guests) return;
+    this.svc.guests.become(band, p.name || randomPresetName());
+    a.handle.close('guest');
+  }
+
+  /** The guest window becomes the profile window (the same age answer; an adult types a name). */
+  private sheetGuestProfile(): void {
+    const a = this.active;
+    if (a?.kind !== 'profile') return;
+    a.sheet.guest = null;
+    a.sheet.name = a.sheet.band === 'adult' ? '' : randomPresetName();
+    a.sheet.error = null;
+    this.draw();
+  }
+
+  /** A duel with a friend from the friends list: the game first, then a duel link that the friend is asked into. */
+  private async duelFriend(fid: string): Promise<void> {
+    const ctx = this.host.context();
+    const f = this.svc.social.state().friends.find((x) => x.fid === fid);
+    if (!f) return;
+    const d = openDialog({ document: this.host.document, html: gameSheet(ctx, ctx.games, ''), labelledBy: 'sheet-h', className: 'ba-modal--sheet' });
+    const pick = await d.closed;
+    if (typeof pick !== 'string' || !ctx.games.some((g) => g.id === pick)) return;
+    if (isProGame(pick) && !hasPro(ctx)) { void this.openProSheet({ game: pick, reason: 'none', at: Date.now() }); return; }
+    const code = await this.newRace(pick, fid);
+    if (!code) return;
+    // the room has to know the player is in it before the invitation can be sent: a few tries while it opens
+    let r = await this.svc.social.invite(fid, code);
+    for (let i = 0; i < 6 && !r.ok && r.code === 'not_in_room'; i++) {
+      await sleep(700);
+      r = await this.svc.social.invite(fid, code);
+    }
+    const u = ux(ctx);
+    if (!r.ok) { this.host.toast(r.code === 'offline' ? u('invite.share', { name: f.name }) : this.text(r, { name: f.name }), 'warn'); return; }
+    if (!this.room.invited.includes(fid)) this.room.invited = [...this.room.invited, fid];
+    const text = duelText(ctx.i18n)('friend.asked', { name: f.name });
+    this.host.toast(text);
+    this.host.announce(text);
+    this.changed();
+  }
+
+  /** The duel link through the system share sheet where there is one (with a line about the game), else copied. */
+  private async shareDuel(): Promise<void> {
+    const room = this.svc.rooms.state();
+    if (!room.link) return;
+    const ctx = this.host.context();
+    const t = ctx.i18n;
+    const g = room.info ? ctx.games.find((x) => x.id === room.info?.config.gameId) : undefined;
+    const ok = await this.host.share(room.link, { link: true, ...(g ? { text: duelText(t)('card.shareText', { game: titleOf(ctx, g) }) } : {}) });
+    if (ok) { const text = t.t('room.linkCopied'); this.host.toast(text); this.host.announce(text); }
+  }
+
+  /** The Room's time where a room is open (its clock is the one a duel link closes by), else the page's. */
+  private serverNow(): number {
+    return this.svc.rooms.client?.()?.serverNow() ?? Date.now();
+  }
+
+  /** Ticks the time a duel link has left, once a second, while a room's page is open. */
+  private startDuelTick(): void {
+    if (this.duelTick) return;
+    const tick = (): void => {
+      const info = this.svc.rooms.state().info;
+      if (!info?.duel) { this.duelFits = null; return; }
+      const now = this.serverNow();
+      const t = this.host.context().i18n;
+      for (const el of this.host.document.querySelectorAll<HTMLElement>('[data-duel-left] span')) {
+        const text = duelText(t)('card.left', { time: clockOf(secondsLeft(info.duel.closesAt, now)) });
+        if (el.textContent !== text) el.textContent = text;
+      }
+      // the page says when another round no longer fits: drawn again once, when that changes
+      const fits = roundFits(info, now);
+      if (this.duelFits !== null && fits !== this.duelFits) this.host.rerender();
+      this.duelFits = fits;
+    };
+    this.duelTick = setInterval(tick, 1000);
+    tick();
+  }
+
+  private stopDuelTick(): void {
+    if (this.duelTick) clearInterval(this.duelTick);
+    this.duelTick = null;
+    this.duelFits = null;
   }
 
   /** Getting ready is calibrating the camera on the stage first; undoing it is only a flag. */

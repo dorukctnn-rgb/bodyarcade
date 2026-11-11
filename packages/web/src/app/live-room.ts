@@ -5,6 +5,10 @@
 // What the Room does on its own and this does not repeat: it starts the match itself when every member is ready and online
 // (there is no start button), it decides who may chat in free text, who may share a camera and what a stranger may see, and whether a Pro
 // game may start (it asks for the host's signed Pro token: `deps.pro` hands it over, and `proNeeded()` says when it was refused).
+//
+// Duel links (core/net/duel-link.ts): `create({ duel: true })` makes a duel room. A player without a profile goes into a duel room as the
+// guest of this device (`deps.guest`), unsigned (the Worker lets a guest in only there); a player with a profile is always signed. A duel
+// room that closes by itself ends with the problem 'expired' instead of 'no_room'.
 import { LiveClient, type FatalReason, type LiveClientOptions } from '../../../core/net/client.ts';
 import { createRoom, fetchIce, joinRoom, LiveApiError, type Identity } from '../../../core/net/api.ts';
 import { inviteLink, normalizeRoomCode } from '../../../core/net/codes.ts';
@@ -37,9 +41,15 @@ export interface LiveRoomDeps {
    * players who join never need one. Without this a player is free as far as rooms are concerned.
    */
   pro?: () => string | null | undefined;
+  /** The guest of this device for duel links (social/guest.ts), or null: used only when `identity()` has none. */
+  guest?: () => Identity | null;
+  /** The unsigned fetch a guest's calls go through (the page's own by default). */
+  plainFetch?: typeof fetch;
 }
 
 const FEED_MAX = 40;
+/** A duel room that is gone this close to its closing time (or after it) closed by itself. */
+const EXPIRY_SLACK_MS = 15_000;
 
 /** A room that is left or joined starts clean: the camera notes, the last refusal and the connection of the room before do not carry over. */
 const FRESH: RoomState = { ...NO_ROOM_STATE, videos: undefined, rejected: undefined, connection: undefined };
@@ -126,18 +136,18 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
     set({ feed: [...state.feed, { ...item, id: ++feedId }].slice(-FEED_MAX) });
   }
 
-  function attach(grant: JoinGrant, who: Identity, proSent: string | null): void {
+  function attach(grant: JoinGrant, who: Identity, proSent: string | null, fetcher: typeof fetch | undefined, guest: boolean): void {
     detach();
     const mine = epoch;
     const live = (): boolean => mine === epoch;
     const c = (deps.makeClient ?? ((o) => new LiveClient(o)))({
       grant, origin: deps.origin, blocks: deps.blocks?.load() ?? [], peers: 'webrtc',
-      refreshTicket: () => joinRoom(deps.origin, grant.code, who, deps.fetcher, currentProToken(deps.pro)),
+      refreshTicket: () => joinRoom(deps.origin, grant.code, who, fetcher, currentProToken(deps.pro)),
       ...(deps.pro ? { pro: deps.pro, proSent } : {}),
       ice: () => fetchIce(deps.origin, deps.fetcher),
     });
     client = c;
-    set({ ...FRESH, phase: 'joining', link: grant.link || inviteLink(deps.origin, grant.code) });
+    set({ ...FRESH, phase: 'joining', link: grant.link || inviteLink(deps.origin, grant.code), guest });
     offs.push(
       c.on('welcome', (w) => {
         if (!live()) return;
@@ -162,21 +172,35 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
       c.on('status', (s) => { if (live()) set({ connection: s.state === 'online' ? 'online' : s.state === 'stopped' ? 'stopped' : 'reconnecting' }); }),
       c.on('video', () => { if (live()) set({ videos: c.videoStatuses() }); }),
       c.on('removed', () => { if (live()) set({ phase: 'closed', problem: 'removed' }); }),
-      c.on('fatal', (f) => { if (live()) set({ phase: 'closed', problem: FATAL_PROBLEM[f.reason] ?? 'offline' }); }),
+      c.on('fatal', (f) => {
+        if (!live()) return;
+        const closesAt = state.info?.duel?.closesAt;
+        const expired = f.reason === 'no_room' && closesAt !== undefined && c.serverNow() >= closesAt - EXPIRY_SLACK_MS;
+        set({ phase: 'closed', problem: expired ? 'expired' : FATAL_PROBLEM[f.reason] ?? 'offline' });
+      }),
     );
     void c.start();
   }
 
-  async function open(grantFor: (who: Identity, pro: string | null) => Promise<JoinGrant>, game: string | null = null): Promise<RoomDone<string>> {
+  /** Who opens a room: the profile (signed), else, where a guest may go (a duel room), the guest of this device (unsigned). */
+  function caller(guestOk: boolean): { who: Identity; fetcher: typeof fetch | undefined; guest: boolean } | null {
     const who = deps.identity();
-    if (!who) return { ok: false, code: 'not_allowed' };
+    if (who) return { who, fetcher: deps.fetcher, guest: false };
+    const g = guestOk ? deps.guest?.() ?? null : null;
+    return g ? { who: g, fetcher: deps.plainFetch, guest: true } : null;
+  }
+
+  async function open(grantFor: (who: Identity, pro: string | null, fetcher: typeof fetch | undefined) => Promise<JoinGrant>, game: string | null = null, guestOk = false): Promise<RoomDone<string>> {
+    const by = caller(guestOk);
+    if (!by) return { ok: false, code: 'not_allowed' };
+    const { who, fetcher, guest } = by;
     set({ ...FRESH, phase: 'joining' });
     picked = null;
     setNeeded(null);                                                // a new try ends the note of an earlier one
     const pro = currentProToken(deps.pro);
     try {
-      const grant = await grantFor(who, pro);
-      attach(grant, who, pro);
+      const grant = await grantFor(who, pro, fetcher);
+      attach(grant, who, pro, fetcher, guest);
       return { ok: true, value: grant.code };
     } catch (e) {
       const code = problemOf(e);
@@ -195,18 +219,19 @@ export function createLiveRoomPort(deps: LiveRoomDeps): LiveRoomPort {
     client: () => client,
 
     create(o) {
-      const kind: RoomKind = o.kind;
-      return open((who, pro) => createRoom(deps.origin, who, {
-        kind, gameId: o.game, size: Math.min(4, Math.max(2, o.size)), durationMs: clampDuration(o.durationMs ?? deps.durationMs ?? DEFAULT_DURATION_MS),
-        band: kind === 'public' ? (o.band as LevelBand | null) : null,
-      }, deps.fetcher, pro), o.game);
+      const kind: RoomKind = o.duel ? 'private' : o.kind;
+      return open((who, pro, fetcher) => createRoom(deps.origin, who, {
+        kind, gameId: o.game, size: o.duel ? 2 : Math.min(4, Math.max(2, o.size)), durationMs: clampDuration(o.durationMs ?? deps.durationMs ?? DEFAULT_DURATION_MS),
+        band: kind === 'public' ? (o.band as LevelBand | null) : null, ...(o.duel ? { duel: true } : {}),
+      }, fetcher, pro), o.game, o.duel === true);
     },
 
     async join(raw) {
       const code = normalizeRoomCode(raw);
       if (!code) return { ok: false, code: 'no_room' };
       if (client && state.info?.code === code && state.phase !== 'closed') return { ok: true, value: undefined };
-      const r = await open((who, pro) => joinRoom(deps.origin, code, who, deps.fetcher, pro));
+      // a guest may try any link: the Worker seats a guest in a duel room only (any other room answers 401: not_allowed)
+      const r = await open((who, pro, fetcher) => joinRoom(deps.origin, code, who, fetcher, pro), null, true);
       return r.ok ? { ok: true, value: undefined } : r;
     },
 

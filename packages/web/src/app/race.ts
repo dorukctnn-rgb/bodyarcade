@@ -204,6 +204,8 @@ export interface LiveRaceDetails {
   room: string;
   /** The page of the room ("Back to the room"), filled in by the app. */
   roomHref?: string;
+  /** A duel link's room (core/net/duel-link.ts): when it closes, how its game is played, the game and the match length (the result card's own layout). */
+  duel?: { closesAt: number; mode: 'race' | 'score'; game: string; durationMs: number };
 }
 
 /** How a race ended, for the results screen. */

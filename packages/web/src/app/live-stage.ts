@@ -13,6 +13,8 @@ import { REACTION_ART } from '../social/screens/room.ts';
 import type { LiveMessage, LiveSource, LiveTile, LiveView } from './live-race.ts';
 import { lrText } from './live-strings.ts';
 import type { RaceStageMount } from './race.ts';
+import { createRivalFigure, type RivalFigure } from './rival-figure.ts';
+import { duelText } from '../social/duel-strings.ts';
 
 /** What the line of the stage says, from what the race is doing: empty while it runs (the game speaks then). Pure. */
 export function statusOf(v: LiveView, i18n: Pick<I18n, 'tx'>): string {
@@ -107,7 +109,12 @@ const TILE_W = 120;
 const TILE_H = 90;
 const BUBBLE_MS = 3200;
 
-interface TileEls { li: HTMLLIElement; canvas: HTMLCanvasElement; video: HTMLVideoElement; name: HTMLElement; score: HTMLElement; note: HTMLElement; retry: HTMLButtonElement; bubble: HTMLElement; bubbleTimer: ReturnType<typeof setTimeout> | null; stream: MediaStream | null }
+interface TileEls {
+  li: HTMLLIElement; pic: HTMLElement; canvas: HTMLCanvasElement; video: HTMLVideoElement; name: HTMLElement; score: HTMLElement; note: HTMLElement; retry: HTMLButtonElement;
+  bubble: HTMLElement; bubbleTimer: ReturnType<typeof setTimeout> | null; stream: MediaStream | null;
+  /** A duel link: the rival as a 3D figure (rival-figure.ts) once it is made; 'none' where it cannot be (no WebGL: the flat skeleton stays). */
+  fig: RivalFigure | 'pending' | 'none' | null;
+}
 
 export interface LiveStageOptions {
   /** How often the stage is drawn again (default 100 ms: a skeleton at ten frames a second is enough for a tile). */
@@ -204,12 +211,28 @@ export function mountLiveStage(m: RaceStageMount, src: LiveSource, o: LiveStageO
     retry.textContent = m.i18n().t('common.retry');
     li.append(pic, row, note, retry);
     tiles.append(li);
-    e = { li, canvas, video, name, score, note, retry, bubble, bubbleTimer: null, stream: null };
+    e = { li, pic, canvas, video, name, score, note, retry, bubble, bubbleTimer: null, stream: null, fig: null };
     els.set(seat, e);
     return e;
   };
 
-  const drawTile = (e: TileEls, tile: LiveTile): void => {
+  let gone = false;
+  const reduced = (): boolean => doc.documentElement?.dataset?.['motion'] === 'reduce';
+  /** The 3D figure of a duel's rival, made once per tile (three.js loads with the first one). */
+  const figureOf = (e: TileEls): RivalFigure | null => {
+    if (e.fig && e.fig !== 'pending' && e.fig !== 'none') return e.fig;
+    if (e.fig === null && typeof doc.createElement === 'function' && typeof e.pic.insertBefore === 'function') {
+      e.fig = 'pending';
+      void createRivalFigure(doc, { width: TILE_W, height: TILE_H, reducedMotion: reduced }).then((f) => {
+        if (gone || !els.has(e.li.dataset['seat'] ?? '')) { f?.dispose(); return; }
+        e.fig = f ?? 'none';
+        if (f) e.pic.insertBefore(f.canvas, e.canvas);
+      }).catch(() => { e.fig = 'none'; });
+    }
+    return null;
+  };
+
+  const drawTile = (e: TileEls, tile: LiveTile, duel: boolean): void => {
     const i18n = m.i18n();
     e.li.dataset['show'] = tile.show;
     e.li.classList.toggle('is-out', tile.out || !tile.online);
@@ -229,6 +252,19 @@ export function mountLiveStage(m: RaceStageMount, src: LiveSource, o: LiveStageO
       if (video) void e.video.play?.()?.catch?.(() => undefined);
     }
     e.video.hidden = !video;
+    // a duel link has no camera at all: the rival is a 3D figure of their pose, the flat skeleton until it is made (or where it cannot be)
+    const fig = duel && !video ? figureOf(e) : null;
+    if (fig) {
+      e.canvas.hidden = true;
+      fig.canvas.hidden = false;
+      fig.draw(tile.pose, typeof performance !== 'undefined' ? performance.now() : Date.now());
+      e.li.dataset['figure'] = '3d';
+      e.li.dataset['skeleton'] = tile.pose ? '1' : '0';
+      e.pic.setAttribute('role', 'img');
+      e.pic.setAttribute('aria-label', duelText(i18n)('stage.figure', { name: tile.name }));
+      return;
+    }
+    if (e.fig && e.fig !== 'pending' && e.fig !== 'none') e.fig.canvas.hidden = true;
     e.canvas.hidden = !!video;
     const g = video ? null : (e.canvas.getContext('2d') as Ctx2D | null);
     if (g) {
@@ -266,9 +302,14 @@ export function mountLiveStage(m: RaceStageMount, src: LiveSource, o: LiveStageO
     const seen = new Set<string>();
     for (const tile of v.tiles) {
       seen.add(tile.seat);
-      drawTile(tileOf(tile.seat), tile);
+      drawTile(tileOf(tile.seat), tile, v.duel === true);
     }
-    for (const [seat, e] of els) if (!seen.has(seat)) { if (e.bubbleTimer) clearTimeout(e.bubbleTimer); e.li.remove(); els.delete(seat); }
+    for (const [seat, e] of els) if (!seen.has(seat)) { if (e.bubbleTimer) clearTimeout(e.bubbleTimer); dropFigure(e); e.li.remove(); els.delete(seat); }
+  };
+
+  const dropFigure = (e: TileEls): void => {
+    if (e.fig && e.fig !== 'pending' && e.fig !== 'none') e.fig.dispose();
+    e.fig = 'none';
   };
 
   const said = (msg: LiveMessage): void => {
@@ -309,7 +350,8 @@ export function mountLiveStage(m: RaceStageMount, src: LiveSource, o: LiveStageO
     clearInterval(timer);
     offMsg();
     layer.removeEventListener('click', onClick);
-    for (const e of els.values()) { if (e.bubbleTimer) clearTimeout(e.bubbleTimer); e.video.srcObject = null; }
+    gone = true;
+    for (const e of els.values()) { if (e.bubbleTimer) clearTimeout(e.bubbleTimer); e.video.srcObject = null; dropFigure(e); }
     els.clear();
     layer.remove();
   };

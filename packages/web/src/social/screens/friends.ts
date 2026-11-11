@@ -2,6 +2,7 @@
 // question waits behind a button), under 16 and kid profiles (no online identity, said plainly), the service not answering,
 // a suspended profile, and the profile itself with its code, its friends and their presence, the requests and the way into rooms,
 // lobbies and the weekly boards.
+import { duelText } from '../duel-strings.ts';
 import { attr, html, type SafeHtml } from '../../../../core/ui/html.ts';
 import { icon } from '../../../../core/ui/icons.ts';
 import type { FriendEntry, IncomingRequest, MyProfile, OutgoingRequest } from '../../../../core/social/types.ts';
@@ -98,7 +99,10 @@ function friendRow(ctx: ViewContext, f: FriendEntry, canInvite: boolean): SafeHt
     ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="social.join" data-room="${f.presence.room}" aria-label="${u('friends.joinLabel', { name: f.name })}">${u('friends.join')}</button>`
     : canInvite && f.presence.status !== 'offline'
       ? html`<button class="ba-btn ba-btn--secondary" type="button" data-action="social.invite" data-fid="${f.fid}" aria-label="${t.t('social.friend.inviteLabel', { name: f.name })}">${t.t('social.friend.invite')}</button>` : '';
-  return html`<li data-friend="${f.fid}">${avatar(f.fid, dot)}<div class="grow"><b>${f.name}</b><small><i class="${dot}" aria-hidden="true"></i>${presenceText(ctx, f.presence)}</small></div><div class="k-rowbtns">${act}<button class="ba-icon-btn" type="button" data-action="social.menu" data-fid="${f.fid}" aria-label="${t.t('social.friend.more', { name: f.name })}">${icon('more')}</button></div></li>`;
+  // a duel link to an online friend (sprint arm E): the game is picked first, then the friend is asked into a duel room
+  const duel = canInvite && !f.presence.room && f.presence.status !== 'offline'
+    ? html`<button class="ba-icon-btn" type="button" data-action="social.duel" data-fid="${f.fid}" aria-label="${duelText(t)('friend.duelLabel', { name: f.name })}" title="${duelText(t)('friend.duel')}">${icon('trophy')}</button>` : '';
+  return html`<li data-friend="${f.fid}">${avatar(f.fid, dot)}<div class="grow"><b>${f.name}</b><small><i class="${dot}" aria-hidden="true"></i>${presenceText(ctx, f.presence)}</small></div><div class="k-rowbtns">${act}${duel}<button class="ba-icon-btn" type="button" data-action="social.menu" data-fid="${f.fid}" aria-label="${t.t('social.friend.more', { name: f.name })}">${icon('more')}</button></div></li>`;
 }
 
 function friendsBody(ctx: ViewContext, v: FriendsView, p: MyProfile): SafeHtml {
