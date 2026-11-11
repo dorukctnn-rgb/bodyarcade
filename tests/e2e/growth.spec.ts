@@ -34,6 +34,8 @@ function assertPrivate(reqs: Request[], secrets: readonly string[]): void {
 }
 
 test.describe.configure({ mode: 'serial' });
+// the browser's language as on CI (en-US: inches and pounds until a test picks metric), so a run on any machine is the same run
+test.use({ locale: 'en-US' });
 
 test('vault: PIN lock, wrong and right PIN, backup, delete all, restore; nothing readable in IndexedDB', async ({ page }) => {
   test.setTimeout(120_000);
@@ -128,6 +130,10 @@ test('3D twin: shaped by the typed tape; two measurements give a ghost and a hea
   for (const [n, w, h] of [['1440', 1440, 900], ['1920', 1920, 1080], ['390', 390, 844]] as const) {
     await page.setViewportSize({ width: w, height: h });
     await open(page, `lang=en&profile=twin${n}#twin`);
+    // an en-US browser (CI) starts in inches and pounds; this test types centimetres, so it picks metric first (as the food test does)
+    await page.locator('[data-tab=settings]').click();
+    await page.locator('[data-name=units][data-value=metric]').click();
+    await page.locator('[data-tab=twin]').click();
     await page.locator('[data-name=base][data-value=male]').click();
     await page.locator('[data-height]').fill('180');
     for (const [p, v] of Object.entries({ neck: 41, chest: 108, waist: 100, hips: 106, thighL: 61, calfL: 39, upperArmL: 33 })) await page.locator(`[data-part=${p}]`).fill(String(v));
