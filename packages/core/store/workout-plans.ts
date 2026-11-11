@@ -8,6 +8,7 @@
 //   game with no seated version is swapped for the step's `seatedAlt`, or left out and said so (never played standing for
 //   somebody who asked to sit).
 //   Length: worked out from the games' own durations plus the rests, never written in by hand, so it is true as the games change.
+//   A step may ask for a short round (`roundSec`): the game is played for that long (web/src/app/short-round.ts), and that is its length.
 //   The free plan holds free games only, the plans for children and for people over 60 hold low-impact games only; a test
 //   reads the real manifests and says which plan to change when a game is moved.
 //
@@ -36,6 +37,8 @@ export interface PlanStep {
   restSec: number;
   /** What to play instead when the player sits and `game` has no seated version. */
   seatedAlt?: string;
+  /** A short round: the game is played for this many seconds instead of its own length (the desk break). */
+  roundSec?: number;
 }
 
 export interface WorkoutPlan {
@@ -54,17 +57,21 @@ export const WORKOUT_PLANS: readonly WorkoutPlan[] = [
     id: 'desk-break',
     title: T('Desk break', 'Masa molası', 'Schreibtischpause', 'Pausa en la mesa', 'Pause au bureau'),
     blurb: T(
-      'Two seated games for shoulders, back and waist. No space needed, no sweat.',
-      'Omuzlar, sırt ve bel için oturarak iki oyun. Yer gerekmez, terletmez.',
-      'Zwei Spiele im Sitzen für Schultern, Rücken und Taille. Kein Platz nötig, kein Schwitzen.',
-      'Dos juegos sentado para hombros, espalda y cintura. Sin espacio, sin sudar.',
-      'Deux jeux assis pour les épaules, le dos et la taille. Pas de place à prévoir, pas de sueur.',
+      'An office break in your chair: four short seated games for shoulders, back and waist. No sweat.',
+      'Sandalyende bir ofis molası: omuzlar, sırt ve bel için oturarak dört kısa oyun. Terletmez.',
+      'Eine Büropause auf dem Stuhl: vier kurze Spiele im Sitzen für Schultern, Rücken und Taille. Kein Schwitzen.',
+      'Una pausa de oficina en tu silla: cuatro juegos cortos sentado para hombros, espalda y cintura. Sin sudar.',
+      'Une pause de bureau sur ta chaise : quatre jeux courts assis pour les épaules, le dos et la taille. Sans transpirer.',
     ),
     audience: 'desk',
     seating: 'always',
+    // Four short rounds of 45 seconds and three rests of 10: about four minutes, all of it in a chair (the seated versions: reach, twist,
+    // arm flaps, upper-body shapes). The camera sees head, shoulders and hands, as a laptop at a desk does.
     steps: [
-      { game: 'twist-turbine', difficulty: 'easy', restSec: 10 },
-      { game: 'star-catch', difficulty: 'easy', restSec: 0 },
+      { game: 'star-catch', difficulty: 'easy', restSec: 10, roundSec: 45 },
+      { game: 'twist-turbine', difficulty: 'easy', restSec: 10, roundSec: 45 },
+      { game: 'squat-flap', difficulty: 'easy', restSec: 10, roundSec: 45 },
+      { game: 'pose-wall', difficulty: 'easy', restSec: 0, roundSec: 45 },
     ],
   },
   {
@@ -170,7 +177,10 @@ export interface ResolvedStep {
   /** The step's own game was replaced by its seated alternative. */
   swapped: boolean;
   restSec: number;
+  /** Seconds the round lasts: the game's own length, or the step's short round. */
   durationSec: number;
+  /** The step is a short round of this many seconds (absent: the game's own length). */
+  roundSec?: number;
   free: boolean;
   lowImpact: boolean;
 }
@@ -221,9 +231,12 @@ export function resolvePlan(plan: WorkoutPlan, catalog: readonly PlanGame[], o: 
       game = alt;
       swapped = true;
     }
+    const own = Number.isFinite(game.durationSec) ? Math.max(0, Math.round(game.durationSec)) : 0;
+    // a short round is never longer than the game itself
+    const short = typeof s.roundSec === 'number' && Number.isFinite(s.roundSec) && s.roundSec > 0 && s.roundSec < own ? Math.round(s.roundSec) : null;
     steps.push({
       index: steps.length, game: game.id, difficulty: s.difficulty, seated, swapped, restSec: s.restSec,
-      durationSec: Number.isFinite(game.durationSec) ? Math.max(0, Math.round(game.durationSec)) : 0, free: game.free, lowImpact: game.lowImpact,
+      durationSec: short ?? own, ...(short !== null ? { roundSec: short } : {}), free: game.free, lowImpact: game.lowImpact,
     });
   }
   const last = steps.at(-1);
@@ -345,6 +358,7 @@ const stepP = p.object({
   swapped: p.withDefault(p.boolean(), false),
   restSec: p.number({ int: true, min: 0, max: 600 }),
   durationSec: p.number({ int: true, min: 0, max: 7200 }),
+  roundSec: p.optional(p.number({ int: true, min: 1, max: 7200 })),
   free: p.boolean(),
   lowImpact: p.boolean(),
 });

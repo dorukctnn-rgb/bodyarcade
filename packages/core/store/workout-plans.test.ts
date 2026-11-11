@@ -96,12 +96,35 @@ describe('the plans against the games that exist', () => {
 
   it('last about as long as a person expects of a break or a workout, from the games\' own lengths', () => {
     const minutes = Object.fromEntries(WORKOUT_PLANS.map((p) => [p.id, resolvePlan(p, REAL, {}).minutes]));
-    expect(minutes['desk-break']).toBeGreaterThanOrEqual(4);
-    expect(minutes['desk-break']).toBeLessThanOrEqual(8);
+    // the desk break is an office break: three to five minutes in a chair, made of short rounds
+    expect(minutes['desk-break']).toBeGreaterThanOrEqual(3);
+    expect(minutes['desk-break']).toBeLessThanOrEqual(5);
     for (const id of ['full-body', 'legs-day', 'kids-break', 'easy-60']) {
       expect(minutes[id], id).toBeGreaterThanOrEqual(8);
       expect(minutes[id], id).toBeLessThanOrEqual(16);
     }
+  });
+});
+
+describe('the desk break, an office break in a chair', () => {
+  const desk = planById(FREE_PLAN_ID) as WorkoutPlan;
+
+  it('is four short seated rounds of free, low-impact games, the upper body only, with short rests', () => {
+    const r = resolvePlan(desk, REAL, { seated: false });
+    expect(r.seated).toBe(true);
+    expect(r.steps.map((s) => s.game)).toEqual(['star-catch', 'twist-turbine', 'squat-flap', 'pose-wall']);
+    for (const s of r.steps) {
+      expect(s.roundSec, s.game).toBe(45);
+      expect(s.durationSec, s.game).toBe(45);
+      expect(s.difficulty, s.game).toBe('easy');
+      expect(real(s.game)?.free, s.game).toBe(true);
+      expect(real(s.game)?.lowImpact, s.game).toBe(true);
+      expect(real(s.game)?.seated, s.game).toBe(true);
+    }
+    expect(r.steps.slice(0, -1).map((s) => s.restSec)).toEqual([10, 10, 10]);
+    expect(r.playSec).toBe(180);
+    expect(r.totalSec).toBe(210);
+    expect(r.minutes).toBe(4);
   });
 });
 
@@ -258,8 +281,9 @@ describe('starting a plan', () => {
     const r = book.start('desk-break');
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.view).toMatchObject({ number: 1, total: 2, restSec: 0, current: { game: 'twist-turbine', difficulty: 'easy', seated: true }, next: { game: 'star-catch' } });
-    expect(r.view.remainingSec).toBe(180 + 10 + 196);
+    expect(r.view).toMatchObject({ number: 1, total: 4, restSec: 0, current: { game: 'star-catch', difficulty: 'easy', seated: true, roundSec: 45 }, next: { game: 'twist-turbine' } });
+    // four short rounds of 45 seconds and three rests of 10
+    expect(r.view.remainingSec).toBe(4 * 45 + 3 * 10);
     expect(book.active()?.run.plan).toBe('desk-break');
   });
 });
@@ -352,8 +376,7 @@ describe('a run of a plan', () => {
     for (const d of ['2026-10-22', '2026-10-24', '2026-10-24', '2026-10-17']) {
       x.at(d);
       x.book.start('desk-break');
-      x.book.finishStep({ score: 1, seconds: 100 });
-      x.book.finishStep({ score: 1, seconds: 100 });
+      for (let i = 0; i < 4; i++) x.book.finishStep({ score: 1, seconds: 100 });   // the four rounds of the desk break
     }
     x.at('2026-10-24');
     expect(x.book.card('desk-break')).toMatchObject({ doneThisWeek: 2, doneDays: 3, lastDone: '2026-10-24' });   // the 24th once, however often it was done
@@ -387,8 +410,8 @@ describe('two devices', () => {
     const phone = rig();
     const laptop = rig();
     phone.at('2026-10-22'); laptop.at('2026-10-23');
-    phone.book.start('desk-break'); phone.book.finishStep({ score: 1, seconds: 1 }); phone.book.finishStep({ score: 1, seconds: 1 });
-    laptop.book.start('desk-break'); laptop.book.finishStep({ score: 1, seconds: 1 }); laptop.book.finishStep({ score: 1, seconds: 1 });
+    phone.book.start('desk-break'); phone.book.finishStep({ score: 1, seconds: 1 }); phone.book.finishStep({ score: 1, seconds: 1 }); phone.book.finishStep({ score: 1, seconds: 1 }); phone.book.finishStep({ score: 1, seconds: 1 });
+    laptop.book.start('desk-break'); laptop.book.finishStep({ score: 1, seconds: 1 }); laptop.book.finishStep({ score: 1, seconds: 1 }); laptop.book.finishStep({ score: 1, seconds: 1 }); laptop.book.finishStep({ score: 1, seconds: 1 });
     phone.at('2026-10-24'); laptop.at('2026-10-24');
     expect(phone.book.merge(laptop.book.doc())).toBe(true);
     expect(laptop.book.merge(phone.book.doc())).toBe(true);
@@ -432,5 +455,31 @@ describe('what the player sees for the free plan with the real entitlements rule
     expect(card.plan.audience).toBe('kids');
     expect(card.steps.map((s) => s.game)).toEqual(['star-catch', 'reaction-tag', 'limbo-bend']);
     expect(card.lowImpact).toBe(true);
+  });
+});
+
+describe('a short round in a plan', () => {
+  const g = (id: string, durationSec = 180): PlanGame => ({ id, free: true, seated: true, lowImpact: true, durationSec });
+  const plan = (steps: WorkoutPlan['steps']): WorkoutPlan => ({ id: 'full-body', title: 't', blurb: 'b', audience: 'everyone', seating: 'follow', steps });
+
+  it('is as long as the step asks, never longer than the game itself, and that is what the plan adds up', () => {
+    const r = resolvePlan(plan([{ game: 'a', difficulty: 'easy', restSec: 10, roundSec: 45 }, { game: 'b', difficulty: 'easy', restSec: 0, roundSec: 400 }]), [g('a'), g('b', 120)], {});
+    expect(r.steps[0]).toMatchObject({ durationSec: 45, roundSec: 45 });
+    // a short round as long as the game or longer is the game's own round
+    expect(r.steps[1]?.durationSec).toBe(120);
+    expect(r.steps[1] && 'roundSec' in r.steps[1]).toBe(false);
+    expect(r.playSec).toBe(165);
+    expect(r.totalSec).toBe(175);
+  });
+
+  it('is kept with the run, so a reload goes on with the same short round', () => {
+    const store = createStore({ storage: memoryStorage(), now: () => Date.UTC(2026, 10, 11, 10), timeZone: 'UTC' });
+    const games = [g('star-catch', 196), g('twist-turbine'), g('squat-flap', 270), g('pose-wall', 210)];
+    const book = createPlanBook(store, { games: () => games, can: () => true });
+    expect(book.start(FREE_PLAN_ID).ok).toBe(true);
+    const again = createPlanBook(store, { games: () => games, can: () => true });
+    expect(again.active()?.current).toMatchObject({ game: 'star-catch', roundSec: 45, durationSec: 45 });
+    again.finishStep({ score: 10, seconds: 45 });
+    expect(again.active()?.current).toMatchObject({ game: 'twist-turbine', roundSec: 45 });
   });
 });

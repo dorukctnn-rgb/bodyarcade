@@ -55,7 +55,12 @@ function stepsList(ctx: ViewContext, c: PlanCard, headingId: string): SafeHtml {
     if (!g) return html``;
     const last = i === c.steps.length - 1;
     const original = c.plan.steps[i]?.game;
-    const line = last || s.restSec === 0 ? t.t('plans.stepLast', { level: levelName(ctx, s.difficulty) }) : t.t('plans.stepLine', { level: levelName(ctx, s.difficulty), rest: s.restSec });
+    const level = levelName(ctx, s.difficulty);
+    const end = last || s.restSec === 0;
+    // a short round (the desk break) says how long it is
+    const line = s.roundSec
+      ? (end ? t.t('plans.stepShortLast', { level, n: s.roundSec }) : t.t('plans.stepShortLine', { level, n: s.roundSec, rest: s.restSec }))
+      : (end ? t.t('plans.stepLast', { level }) : t.t('plans.stepLine', { level, rest: s.restSec }));
     return html`<li><img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="56" height="42"><div><b><a href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${titleOf(ctx, g)}</a></b><small>${line}</small>${s.swapped && original ? html`<small>${t.t('plans.swapped', { game: titleOf(ctx, g) })}</small>` : ''}</div></li>`;
   });
   const left = c.skipped.map((x) => {

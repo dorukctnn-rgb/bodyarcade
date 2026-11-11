@@ -9,6 +9,7 @@
 @import url("./race.css");
 @import url("./live-race.css");
 @import url("./duel.css");
+@import url("./modes.css");
 
 /* ---------- Base ---------- */
 html { scrollbar-gutter: stable; }

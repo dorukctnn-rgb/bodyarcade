@@ -1,0 +1,60 @@
+/* The vertical clip on the results screen, the office break (/office), family mode (/family) and the two mode cards of the home page.
+   Phone first: one column, the big screen gets two. Colours and type are the kit's tokens. */
+
+/* ---------- Shared ---------- */
+.k-kicker { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 6px; padding: 6px 12px; border-radius: 999px; background: var(--ba-accent-tint); color: var(--ba-accent-text); font-weight: 750; font-size: var(--ba-text-sm); }
+.k-kicker > svg { width: 18px; height: 18px; flex: none; }
+.k-officeprivate { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; color: var(--ba-text-muted); }
+.k-officeprivate > svg { width: 18px; height: 18px; flex: none; }
+
+/* ---------- Office break ---------- */
+.k-officecols { margin-top: 18px; }
+.k-officeset, .k-officesetup { display: grid; gap: 12px; align-content: start; }
+.k-officehead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.k-officehead h2 { margin: 0; }
+.k-officemoves li { grid-template-columns: 56px minmax(0, 1fr) auto; }
+.k-officelen { color: var(--ba-text-muted); font-weight: 750; font-size: var(--ba-text-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.k-officetips { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.k-officetips li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; align-items: start; line-height: 1.45; }
+.k-officetips li > svg { width: 22px; height: 22px; margin-top: 1px; color: var(--ba-text-muted); }
+.k-officesetup .ba-callout { margin: 0; }
+
+/* ---------- Family mode ---------- */
+.k-familymode { margin-top: 14px; display: grid; gap: 8px; }
+.k-familymode .k-hint { margin: 0; }
+.k-familyset { display: grid; gap: 10px; align-content: start; }
+.k-familyset > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.k-familyset h2 { margin: 0; min-width: 0; overflow-wrap: break-word; }
+.k-familyset .ba-badge { flex: none; }
+.k-familygoing, .k-familypanel { display: grid; gap: 12px; margin-top: 14px; }
+.k-familypanel { margin-top: 0; }
+.k-familygoing h2, .k-familypanel h2, .k-familygoing p, .k-familypanel p { margin: 0; }
+.k-familyboard { display: grid; gap: 10px; }
+.k-familyboard .k-duocol h3 { margin: 0 0 4px; font-size: 1rem; }
+.k-familyboard .k-duocol .n { font-size: clamp(2rem, 1.6rem + 2vw, 3.2rem); }
+.k-duocol.is-winner { box-shadow: inset 0 -4px 0 var(--ba-sun-400), inset 0 0 0 2.5px var(--ba-text); }
+.k-duocol--p2.is-winner { box-shadow: inset 0 -4px 0 var(--ba-sky-400), inset 0 0 0 2.5px var(--ba-text); }
+.k-familytable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.k-familytable th, .k-familytable td { padding: 8px 6px; text-align: right; border-bottom: 1px solid var(--ba-border); }
+.k-familytable th:first-child { text-align: left; font-weight: 700; }
+.k-familytable thead th { color: var(--ba-text-muted); font-size: var(--ba-text-sm); font-weight: 700; }
+.k-familytable td { font-weight: 750; }
+
+/* ---------- The two mode cards of the home page ---------- */
+.k-modelist { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+a.k-modecard { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 14px; align-items: center; height: 100%; padding: 16px; text-decoration: none; color: inherit; }
+a.k-modecard .pic { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; background: var(--ba-surface-sunken); }
+a.k-modecard .pic > svg { width: 28px; height: 28px; }
+a.k-modecard b { display: block; font-family: var(--ba-font-display); font-weight: 800; font-size: 1.1rem; line-height: 1.15; }
+a.k-modecard p { margin: 4px 0 0; color: var(--ba-text-muted); font-size: var(--ba-text-sm); line-height: 1.4; }
+a.k-modecard .ba-badge { align-self: start; }
+
+/* ---------- The vertical clip ---------- */
+.k-story { display: grid; gap: 12px; }
+.k-story h2, .k-story .k-sub { margin: 0; }
+.k-storyframe { display: grid; justify-items: center; }
+.k-storyframe[hidden], .k-storyprogress[hidden] { display: none; }
+.k-storyvideo { display: block; width: min(100%, 300px); aspect-ratio: 9 / 16; height: auto; max-height: min(70svh, 560px); border-radius: var(--ba-radius-lg); background: #1A1430; object-fit: contain; }
+.k-storyprogress { display: grid; gap: 6px; }
+.k-storyprogress progress { width: 100%; height: 10px; accent-color: var(--ba-sun-400); }
+.k-story [hidden] { display: none !important; }

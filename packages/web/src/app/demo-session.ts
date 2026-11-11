@@ -41,7 +41,8 @@ type Listener = (e: never) => void;
 export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Session & { loseSecondPlayer(): void; returnSecondPlayer(): void } {
   const doc = o.document ?? document;
   const scale = Math.max(1, o.timeScale ?? 1);
-  const roundSeconds = o.roundSeconds ?? 20;
+  // a short round (the desk break, a family evening) is as long as it asks, as it is in the real session
+  const roundSeconds = r.roundSec ?? o.roundSeconds ?? 20;
   const two = r.setup.players === 2;
   const listeners = new Map<keyof SessionEvents, Set<Listener>>();
   let state: SessionState = 'idle';

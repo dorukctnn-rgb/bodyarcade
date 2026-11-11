@@ -1032,9 +1032,10 @@ describe('the search pages say what the build does', () => {
       expect(plan && seatedFor(plan, false)).toBe(false);
       const desk = WORKOUT_PLANS.find((p) => p.id === FREE_PLAN_ID);
       expect(desk?.seating).toBe('always');
-      expect(desk?.steps.map((s) => s.game)).toEqual(['twist-turbine', 'star-catch']);
+      expect(desk?.steps.map((s) => s.game)).toEqual(['star-catch', 'twist-turbine', 'squat-flap', 'pose-wall']);
       // minutes: the rounds of the manifests plus the rests, worked out here again
-      const minutes = (p: typeof plan): number => Math.max(1, Math.round(((p?.steps ?? []).reduce((n, s) => n + (raw.find((g) => g.id === s.game)?.seconds ?? 0), 0) + (p?.steps ?? []).slice(0, -1).reduce((n, s) => n + s.restSec, 0)) / 60));
+      // (a step with a short round, the desk break's, lasts that long: never longer than the game)
+      const minutes = (p: typeof plan): number => Math.max(1, Math.round(((p?.steps ?? []).reduce((n, s) => n + Math.min(s.roundSec ?? Number.POSITIVE_INFINITY, raw.find((g) => g.id === s.game)?.seconds ?? 0), 0) + (p?.steps ?? []).slice(0, -1).reduce((n, s) => n + s.restSec, 0)) / 60));
       for (const lang of LANGS2) {
         const t = textOf('seated', lang);
         expect(t).toContain(lang === 'en' ? `about ${minutes(plan)} minutes in all` : `toplam yaklaşık ${minutes(plan)} dakika`);

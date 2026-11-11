@@ -25,6 +25,13 @@ import { hudModeFor } from './play.ts';
 import type { SessionFactory, SessionRequest } from './ports.ts';
 import type { RaceSource } from './race.ts';
 import { watchModule } from './replay.ts';
+import { shortModule, shortSeconds } from './short-round.ts';
+
+/** A short round of the game (the desk break, a family evening), when the request asks for one; a race keeps its own clock. */
+const shortened = (m: Promise<GameModule | null>, sec: number | null | undefined): Promise<GameModule | null> => {
+  const s = shortSeconds(sec);
+  return s === null ? m : m.then((x) => (x ? shortModule(x, s) : x));
+};
 
 type StringTables = Partial<Record<Lang, Readonly<Record<string, string>>>>;
 /** What a game folder's index.ts may export: the module, and its words (named `strings` or `STRINGS`, or on the module). */
@@ -136,7 +143,7 @@ export function createRealSessionFactory(deps: RealSessionDeps): SessionFactory 
     const tap = r.replay ?? null;
     const watched = (m: Promise<GameModule | null>): Promise<GameModule | null> => (tap ? m.then((x) => (x ? watchModule(x, tap) : x)) : m);
     const session = createBrowserSession({
-      games: (id) => watched(r.race && id === r.game.id ? loadRace(id, r.race) : r.first === true && id === FIRST_GAME_ID ? loadFirstRound() : loadGame(id)),
+      games: (id) => watched(shortened(r.race && id === r.game.id ? loadRace(id, r.race) : r.first === true && id === FIRST_GAME_ID ? loadFirstRound() : loadGame(id), r.race ? null : r.roundSec)),
       ui: (m, o) => {
         // A round that was left and started again draws into the same canvas, with a new kit.
         dropKit();
