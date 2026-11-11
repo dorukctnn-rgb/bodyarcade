@@ -162,7 +162,7 @@ describe.each(LANGS)('duel screens in %s', (lang) => {
     const won = liveRaceBlock(ctx, outcome(true, 500_000), { keep: false }).value;
     expect(won).toContain('data-duel-result');
     expect(textOf(won)).toContain(d('result.won'));
-    expect(textOf(won)).toContain(d('result.you'));
+    expect(won).toMatch(/<li data-seat="s1" data-you[^>]*>[^]*Swift Otter 12/);
     expect(won).toMatch(/data-seat="s1"[^>]*data-win/);
     expect(won.match(/<li /g)?.length).toBe(2);
     expect(won).toContain('data-rematch');

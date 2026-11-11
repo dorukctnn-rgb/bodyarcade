@@ -81,18 +81,36 @@ export interface RivalFigureOptions {
 
 type Three = typeof import('three');
 
+/** Whether this page could make a WebGL 2 context before (no: no figure is tried again on it). */
+let noGpu = false;
+
+/** A WebGL 2 context on the canvas, or null where there is none. */
+function gpu(canvas: HTMLCanvasElement): WebGL2RenderingContext | null {
+  if (noGpu) return null;
+  let gl: WebGL2RenderingContext | null = null;
+  try { gl = canvas.getContext('webgl2', { antialias: true, alpha: true, powerPreference: 'low-power', preserveDrawingBuffer: false }); } catch { gl = null; }
+  if (!gl) noGpu = true;
+  return gl;
+}
+
 /** Makes the figure on a canvas of its own, or null where three.js or WebGL is not there. */
 export async function createRivalFigure(doc: Document, o: RivalFigureOptions): Promise<RivalFigure | null> {
-  let T: Three;
-  try { T = await import('three'); } catch { return null; }
+  if (noGpu) return null;
   const canvas = doc.createElement('canvas');
   canvas.width = o.width;
   canvas.height = o.height;
   canvas.setAttribute('aria-hidden', 'true');
   canvas.className = 'lr-figure';
+  if (typeof canvas.getContext !== 'function') return null;
+  let T: Three;
+  try { T = await import('three'); } catch { return null; }
+  // three.js draws with WebGL 2 only. The context is asked for here first: where there is none (a browser without a GPU path, a
+  // headless test browser) the tile keeps its flat skeleton, and three.js is never asked (it would print an error to the console).
+  const gl = gpu(canvas);
+  if (!gl) return null;
   let renderer: import('three').WebGLRenderer;
   try {
-    renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power', preserveDrawingBuffer: false });
+    renderer = new T.WebGLRenderer({ canvas, context: gl, antialias: true, alpha: true, powerPreference: 'low-power', preserveDrawingBuffer: false });
   } catch {
     return null;
   }
