@@ -24,6 +24,7 @@ import { REGION_ORDER } from '../routes.ts';
 import { ROAD_RUN_WORLDS } from '../../../games/road-run/worlds.ts';
 import { phoneHeight, SHOWCASE, SHOWCASE_PHONE_WEBP, SHOWCASE_SIZES_PHONE, SHOWCASE_SIZES_WIDE, SHOWCASE_WIDE_MIN, SHOWCASE_WIDE_WEBP, showcaseSrcset, wideHeight, type ShowcaseSlide } from '../showcase.ts';
 import type { Preload } from '../document.ts';
+import { HERO_CLIP_WIDE, heroClipHeight, heroClipSet } from '../clips.ts';
 
 /** What the home page knows about the player's weeks; empty on the server and for a new player. */
 export interface HomeData {
@@ -53,6 +54,17 @@ function showcaseCaption(ctx: ViewContext, s: ShowcaseSlide): SafeHtml {
 }
 
 /**
+ * The clip of a frame: a few seconds of the same game in play, over the frame's picture, with no address until the app plays it
+ * (app/hero-reel.ts picks the file for the screen: AV1 in WebM or H.264 in MP4, the 21:9 or the 4:3 crop, the size). Out of the
+ * layout (absolute, drawn only once it has an address), so the picture stays what the page's size is made of.
+ */
+function showcaseClip(ctx: ViewContext, s: ShowcaseSlide): SafeHtml {
+  const url = (file: string): string => ctx.assets.clip(file);
+  const w = HERO_CLIP_WIDE[HERO_CLIP_WIDE.length - 1] ?? 1920;
+  return html`<video class="k-vid" data-webm-wide="${heroClipSet(s.id, 'wide', 'webm', url)}" data-mp4-wide="${heroClipSet(s.id, 'wide', 'mp4', url)}" data-webm-phone="${heroClipSet(s.id, 'phone', 'webm', url)}" data-mp4-phone="${heroClipSet(s.id, 'phone', 'mp4', url)}" width="${w}" height="${heroClipHeight('wide', w)}" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>`;
+}
+
+/**
  * One frame of the showcase: the 21:9 crop from SHOWCASE_WIDE_MIN up, the 4:3 crop below it, AVIF first and one WebP size for the
  * rest. The first frame is the page's largest picture, so it is fetched first (and preloaded by the document head, showcasePreloads);
  * the others wait their turn. Frames 2 to 4 are drawn over the first one by design (they fade in over it): they carry data-qa-layer,
@@ -69,7 +81,7 @@ function showcaseFrame(ctx: ViewContext, s: ShowcaseSlide, first: boolean): Safe
       <source media="${media}" type="image/webp" srcset="${a(`${s.id}-${ww}.webp`)} ${ww}w" sizes="${SHOWCASE_SIZES_WIDE}" width="${ww}" height="${wideHeight(ww)}">
       <source type="image/avif" srcset="${showcaseSrcset(s, 'phone', a)}" sizes="${SHOWCASE_SIZES_PHONE}" width="${pw}" height="${phoneHeight(pw)}">
       <img src="${a(`${s.id}-m-${pw}.webp`)}" alt="" width="${pw}" height="${phoneHeight(pw)}" ${load} decoding="async">
-    </picture>${showcaseCaption(ctx, s)}</div>`;
+    </picture>${showcaseClip(ctx, s)}${showcaseCaption(ctx, s)}</div>`;
 }
 
 /** The frames of the real games at the top of the home page (src/showcase.ts); one after the other unless motion is reduced. */

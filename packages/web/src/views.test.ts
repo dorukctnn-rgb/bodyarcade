@@ -178,6 +178,27 @@ describe('home and region pages', () => {
     expect(region.r.preloads).toBeUndefined();
   });
 
+  it('moves the four frames: a silent clip of the same game over each picture, with no address until the app plays it, under the caption and out of the layout', () => {
+    const { r, html } = draw('en', '/');
+    const frames = [...html.matchAll(/<div class="k-frame" data-frame="([a-z]+)"[^>]*>[\s\S]*?<\/div>/g)];
+    expect(frames).toHaveLength(4);
+    for (const [frame, id] of frames) {
+      // the picture first (the poster, the page's largest picture), then the clip over it, then the caption on top
+      expect(frame, id).toMatch(/<\/picture><video class="k-vid" [^>]*><\/video><span class="k-cap">/);
+      expect(frame, id).toContain(`data-webm-wide="/assets/clips/hero-${id}-1280.webm 1280w, /assets/clips/hero-${id}-2000.webm 2000w" data-mp4-wide="/assets/clips/hero-${id}-1280.mp4 1280w, /assets/clips/hero-${id}-2000.mp4 2000w" data-webm-phone="/assets/clips/hero-${id}-m-960.webm 960w" data-mp4-phone="/assets/clips/hero-${id}-m-960.mp4 960w"`);
+      expect(frame, id).toContain('muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>');
+    }
+    expect(html).not.toMatch(/<video[^>]*\ssrc=/);
+    expect(html).not.toMatch(/<video[^>]*\s(autoplay|controls)/);
+    // the head fetches the first frame's pictures only: no clip
+    expect(r.preloads?.every((p) => !String(p.srcset).includes('/clips/'))).toBe(true);
+    expect(html).not.toMatch(/<link[^>]+\/clips\//);
+    // the first picture is still the page's largest, fetched first
+    expect(html.match(/fetchpriority="high"/g)).toHaveLength(1);
+    // no clip on a region page, which has no showcase
+    expect(draw('en', '/workouts/legs/').html).not.toContain('class="k-vid"');
+  });
+
   it('moves the tiles of the redrawn games: a silent clip round and round over the still, with no address until the app plays it', () => {
     const tiles = (h: string): Map<string, string> => new Map([...h.matchAll(/<a class="ba-tile" href="[^"]*" data-game="([a-z0-9-]+)">[\s\S]*?<\/a>/g)].map((m) => [m[1] as string, m[0]]));
     for (const url of ['/', '/tr/', '/workouts/legs/']) {

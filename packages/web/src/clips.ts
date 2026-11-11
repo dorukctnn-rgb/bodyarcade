@@ -78,3 +78,63 @@ export function clipShouldPlay(s: { ready: boolean; hidden: boolean; inView: boo
   if (!s.ready || s.hidden || !s.inView || s.failed) return false;
   return s.hoverDevice ? s.engaged : true;
 }
+
+// ---- the moving pictures at the top of the home page ----------------------------------------------------------------------
+// The showcase (src/showcase.ts) shows a frame of each of four games, one after the other. Each frame has a clip of the same game
+// in play: HERO_SECONDS of the real game, silent, with the last half second dissolving into the first so that it loops without a jump.
+// The page shows the clip over the frame (which stays the poster: the page's largest picture, what a visitor sees before the clip
+// has loaded, when motion is reduced and when data is saved) and takes each slide off the screen when its clip has played once, so
+// the slides change on the clip's own loop. The files are design/art/clips/hero-<id>-<w>.<ext> (the 21:9 crop of a wider screen) and
+// hero-<id>-m-<w>.<ext> (the 4:3 crop of a phone), made by design/tools/hero-clips.mjs from frames of tools/gfx-shots/clip.ts.
+
+/** Widths of the 21:9 clips and of the 4:3 clips. A clip is never enlarged: each size is the capture (2000 px wide, twice the card beside the week panel) or smaller. */
+export const HERO_CLIP_WIDE = [1280, 2000] as const;
+export const HERO_CLIP_PHONE = [960] as const;
+export type HeroCrop = 'wide' | 'phone';
+
+/** Seconds one slide stays: the length of its clip's loop. */
+export const HERO_SECONDS = 5;
+
+/** The height of a clip of that width: 21:9 or 4:3, an even number (the encoders want one). */
+export const heroClipHeight = (crop: HeroCrop, w: number): number => {
+  const h = crop === 'wide' ? Math.round((w * 9) / 21) : Math.round((w * 3) / 4);
+  return h - (h % 2);
+};
+
+export const heroClipFile = (id: string, crop: HeroCrop, width: number, format: ClipFormat): string => `hero-${id}${crop === 'phone' ? '-m' : ''}-${width}.${format}`;
+
+/** Every file of design/art/clips the showcase uses. */
+export function heroClipFiles(ids: readonly string[]): string[] {
+  return ids.flatMap((id) => CLIP_FORMATS.flatMap((f) => [
+    ...HERO_CLIP_WIDE.map((w) => heroClipFile(id, 'wide', w, f)),
+    ...HERO_CLIP_PHONE.map((w) => heroClipFile(id, 'phone', w, f)),
+  ]));
+}
+
+/** The files of one crop and format of a clip, as the markup carries them: "<url> 1280w, <url> 1920w, ...". */
+export function heroClipSet(id: string, crop: HeroCrop, format: ClipFormat, url: (file: string) => string): string {
+  return (crop === 'wide' ? HERO_CLIP_WIDE : HERO_CLIP_PHONE).map((w) => `${url(heroClipFile(id, crop, w, format))} ${w}w`).join(', ');
+}
+
+/** The slide after `i` of `n`, round and round. */
+export const nextSlide = (i: number, n: number): number => (n <= 0 ? 0 : (i + 1) % n);
+
+/**
+ * Whether the reel runs now: the page has loaded, the tab is in front, at least a quarter of the reel is on the screen. (The clips
+ * of the tiles wait for a mouse; the reel is the first thing on the page, so it plays by itself.)
+ */
+export function reelShouldRun(s: { ready: boolean; hidden: boolean; inView: boolean }): boolean {
+  return s.ready && !s.hidden && s.inView;
+}
+
+/**
+ * How far a slide has got, 0 to 1, and whether it is over. The clip's own clock is the truth while it plays (so the slides change on
+ * its loop, however the page's frames are paced); a slide whose clip is not playing (not loaded, failed, still buffering) is timed by
+ * the page's clock, and one that has overrun by 2 seconds goes on whatever its clip does.
+ */
+export function slideProgress(s: { clipPlaying: boolean; clipTime: number; clipLength: number; wallMs: number; slideMs: number }): { fraction: number; over: boolean } {
+  const length = s.clipPlaying && s.clipLength > 0 ? s.clipLength * 1000 : s.slideMs;
+  const time = s.clipPlaying ? s.clipTime * 1000 : s.wallMs;
+  const over = time >= length - 40 || s.wallMs >= length + 2000;
+  return { fraction: Math.max(0, Math.min(1, time / length)), over };
+}

@@ -7,8 +7,8 @@ import { OG_IMAGE } from '../content/chrome.ts';
 import { BRAND_CARD } from '../src/pages.ts';
 import { loadCatalogue } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
-import { showcaseFiles } from '../src/showcase.ts';
-import { CLIP_TILES, clipFiles } from '../src/clips.ts';
+import { SHOWCASE, showcaseFiles } from '../src/showcase.ts';
+import { CLIP_TILES, clipFiles, heroClipFiles } from '../src/clips.ts';
 import { gameHasLanguage, generate, type GenerateReport } from './generate.ts';
 
 let out = '';
@@ -111,8 +111,8 @@ describe('the generated site', () => {
 
   it('gives the tiles of the redrawn games their clips under hashed names, and the page fetches none of them by itself', () => {
     const clips = readdirSync(join(out, 'static', 'clips'));
-    expect(clips).toHaveLength(clipFiles().length);
-    expect(clips.every((f) => /^[a-z-]+-(400|800)\.[0-9a-f]{8}\.(webm|mp4)$/.test(f))).toBe(true);
+    expect(clips).toHaveLength(clipFiles().length + heroClipFiles(SHOWCASE.map((x) => x.id)).length);
+    expect(clips.filter((f) => !f.startsWith('hero-')).every((f) => /^[a-z-]+-(400|800)\.[0-9a-f]{8}\.(webm|mp4)$/.test(f))).toBe(true);
     for (const page of ['index.html', 'tr/index.html', 'workouts/legs/index.html']) {
       const html = read(page);
       const videos = html.match(/<video class="clip"[^>]*>/g) ?? [];
@@ -126,6 +126,30 @@ describe('the generated site', () => {
     }
     expect((read('index.html').match(/<video class="clip"/g) ?? []).length).toBe(CLIP_TILES.length);
     expect(read('index.html')).not.toMatch(/<link[^>]+\/static\/clips\//);
+  });
+
+  it('gives each frame of the home page showcase its clip under hashed names, with no address in the page until the app plays it', () => {
+    const files = readdirSync(join(out, 'static', 'clips'));
+    for (const f of heroClipFiles(SHOWCASE.map((x) => x.id))) {
+      const ext = f.slice(f.lastIndexOf('.'));
+      const stem = f.slice(0, f.lastIndexOf('.'));
+      expect(files.some((x) => x.startsWith(`${stem}.`) && x.endsWith(ext) && /^[0-9a-f]{8}$/.test(x.slice(stem.length + 1, -ext.length))), f).toBe(true);
+    }
+    for (const page of ['index.html', 'tr/index.html']) {
+      const html = read(page);
+      const videos = html.match(/<video class="k-vid"[^>]*>/g) ?? [];
+      expect(videos, page).toHaveLength(SHOWCASE.length);
+      for (const v of videos) {
+        expect(v).toMatch(/data-webm-wide="\/static\/clips\/hero-[a-z]+-1280\.[0-9a-f]{8}\.webm 1280w, \/static\/clips\/hero-[a-z]+-2000\.[0-9a-f]{8}\.webm 2000w"/);
+        expect(v).toMatch(/data-mp4-wide="\/static\/clips\/hero-[a-z]+-1280\.[0-9a-f]{8}\.mp4 1280w, \/static\/clips\/hero-[a-z]+-2000\.[0-9a-f]{8}\.mp4 2000w"/);
+        expect(v).toMatch(/data-webm-phone="\/static\/clips\/hero-[a-z]+-m-960\.[0-9a-f]{8}\.webm 960w"/);
+        expect(v).toMatch(/data-mp4-phone="\/static\/clips\/hero-[a-z]+-m-960\.[0-9a-f]{8}\.mp4 960w"/);
+        expect(v).toContain('preload="none"');
+        expect(v).not.toMatch(/\ssrc=/);
+      }
+      // the picture stays the page's own: its preloads and its poster are the still frames, not a clip
+      expect(html).not.toMatch(/<link[^>]+\/static\/clips\//);
+    }
   });
 
   it('shows the brand card when the home page, a region, the plans or the Pro page is shared, and the tile of the game for a game page, each with its size', () => {

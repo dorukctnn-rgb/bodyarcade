@@ -61,6 +61,7 @@ import { openGhostDialog, type GhostDialogHost } from './ghost-dialog.ts';
 import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceStageMount, type RaceWorld } from './race.ts';
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import { startTileClips } from './tile-clips.ts';
+import { startHeroReel } from './hero-reel.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { ROUND_WORD_EVENTS, roundWord, sendSignal, type SignalEvent } from './signal.ts';
 import type { RestoreOutcome } from '../../../core/entitlements/port.ts';
@@ -814,18 +815,22 @@ export class App {
     if (route?.id === 'welcome') void this.tour?.begin();
     if (route?.id === 'results') { this.startRestTimer(); this.watchRoom(); this.mountReplay(); }
     if (route?.id === 'settings') void this.offline?.refresh();
-    if (route?.id === 'home' || route?.id === 'region') this.startClips();
+    if (route?.id === 'home' || route?.id === 'region') this.startClips(route.id === 'home');
   }
 
   // ---- the moving game tiles ------------------------------------------------------------------------------------------
 
-  private startClips(): void {
-    this.stopClips = startTileClips(this.host, {
+  /** The tiles of the games (the home page and a region page) and, on the home page, the pictures at its top (hero-reel.ts). */
+  private startClips(withReel: boolean): void {
+    const env = {
       win: this.win,
       reducedMotion: this.reducedMotion(),
       automated: isAutomated({ userAgent: this.win.navigator.userAgent, webdriver: this.win.navigator.webdriver }),
       forced: this.o.demo && this.win.__BA_TEST__?.clips === true,
-    });
+    };
+    const stopTiles = startTileClips(this.host, env);
+    const stopReel = withReel ? startHeroReel(this.host, env) : () => undefined;
+    this.stopClips = () => { stopTiles(); stopReel(); };
   }
 
   private endClips(): void {
