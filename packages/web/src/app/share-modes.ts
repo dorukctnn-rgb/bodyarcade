@@ -235,8 +235,19 @@ export class ShareModes {
     card.dataset['story'] = 'ready';
     if (this.storyFigure) card.dataset['storyFigure'] = this.storyFigure;
     const frame = card.querySelector<HTMLElement>('[data-story-frame]');
-    const video = frame?.querySelector('video');
-    if (frame && video) {
+    if (frame) {
+      let video = frame.querySelector('video');
+      if (!video) {
+        video = this.h.doc.createElement('video');
+        video.className = 'k-storyvideo';
+        video.playsInline = true;
+        video.muted = true;
+        video.loop = true;
+        video.controls = true;
+        video.preload = 'metadata';
+        video.setAttribute('aria-label', frame.dataset['storyAlt'] ?? '');
+        frame.append(video);
+      }
       video.src = this.storyUrl;
       frame.hidden = false;
       if (play && !this.h.reducedMotion()) void video.play().catch(() => undefined);

@@ -142,6 +142,8 @@ test.describe('the vertical clip', () => {
     const card = page.locator('[data-story]');
     await expect(card).toBeVisible();
     await expect(card).toContainText('There is no camera picture in it');
+    // no video on the page until there is a clip to show
+    await expect(card.locator('video')).toHaveCount(0);
     await card.getByRole('button', { name: 'Make the clip' }).click();
     await expect(card.locator('[data-story-progress]')).toBeVisible();
     await expect(card).toHaveAttribute('data-story', 'ready', { timeout: 40_000 });
