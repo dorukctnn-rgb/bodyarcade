@@ -53,8 +53,8 @@ export const REAL_VIDEO_CHECKED: Readonly<Record<FormMoveId, boolean>> = {
   squat: true, pushUp: true, gluteBridge: false, dbShoulderPress: true,
   sumoSquat: false, prisonerSquat: false, chairSquat: false, jumpSquat: false, squatHold: false, wallSit: false, pistolSquat: true, cossackSquat: true,
   reverseLunge: true, forwardLunge: true, splitSquat: false, bulgarianSplitSquat: false, lateralLunge: false, curtsyLunge: false, jumpingLunge: true,
-  jumpingJack: true, stepJack: false, starJump: false, highKnees: false, marching: false, buttKicks: false, burpee: false, squatThrust: false,
-  inchworm: false, skater: false, jumpRope: false, calfRaise: false, singleCalfRaise: false, stepUp: false, wallAngel: false, armCircles: false, goodMorning: false,
+  jumpingJack: true, stepJack: false, starJump: false, highKnees: false, marching: false, buttKicks: false, burpee: true, squatThrust: false,
+  inchworm: false, skater: false, jumpRope: false, calfRaise: true, singleCalfRaise: false, stepUp: false, wallAngel: false, armCircles: false, goodMorning: false,
   // Faz 4 and 5: set to true only where a clip of a real person ran through the coach (tools/form-fixtures, SPEC 12)
   singleLegBridge: false, hipThrust: false, superman: false, birdDog: false, donkeyKick: false,
   kneePushUp: true, inclinePushUp: false, declinePushUp: false, wallPushUp: false, widePushUp: false, diamondPushUp: false, pikePushUp: false, tricepsDip: false, plankShoulderTap: false,

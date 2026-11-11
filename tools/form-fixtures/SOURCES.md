@@ -55,3 +55,11 @@ are listed in `takip/devir/bodyarcade-form/VIDEO-KAYNAKLARI.md` for a manual dow
 
 No freely licensed video of a **glute bridge** was found: that move is tested on geometry only until our own
 recording exists (shooting list: SPEC.md 7.3).
+
+Faz 3 completion and Faz 4 and 5 (11 Nov 2026, second form agent): no new source. The seven traces that were still missing were cut from clips already listed
+above (Jumping jacks and burpees, CrossFit Burpee, Mixkit 583, 725 and 40234, CDC Toe Lift). Labelled: `bp-jb-side`, `bp-crossfit-side`, `cr-cdc-side`,
+`cr-cdc-front`. Traces without a hand label (the repetitions could not be counted by eye at the frame rates the sheets allow: the jump rope hops of
+`jr-mixkit-725-front` and `jr-mixkit-40234-front`, the travelling high knees of `hk-mixkit-583-side`) stay in the repository as fixtures but are not scored.
+Fixtures with a `trace` field (`kp-`, `gs-`, `dl-`, `pp-` prefixes) reuse the trace of the fixture they name, measured with the variant move (kneePushUp,
+gobletSquat, dbLunge, pushPress); they have the same licence as their source. CDC Sit-ups, Bicep Curls and Superman (public domain) were looked at and
+not used: front view only, or a camera and a size that do not let the repetitions be counted reliably by eye.
