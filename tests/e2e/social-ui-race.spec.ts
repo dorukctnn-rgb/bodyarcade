@@ -172,8 +172,8 @@ async function seesTheOther(p: Person, name: string): Promise<void> {
 }
 
 /** The race is over on this page: the results of a race in the room, with both players. */
-async function results(p: Person, code: string): Promise<string[]> {
-  await expect(p.page).toHaveURL(new RegExp(`/results/\\?(.*&)?room=${code}`), { timeout: 60_000 });
+async function results(p: Person, code: string, timeout = 60_000): Promise<string[]> {
+  await expect(p.page).toHaveURL(new RegExp(`/results/\\?(.*&)?room=${code}`), { timeout });
   await expect(p.page.locator('[data-live-result]')).toHaveAttribute('data-room', code);
   await expect(p.page.locator('[data-live-result] .lr-places li')).toHaveCount(2);
   await expect(p.page.locator('[data-race-verdict]')).not.toBeEmpty();
@@ -550,8 +550,10 @@ test('chromium: two adults in a private room who both share their camera see eac
     }
     await shot(ada.page, 'race-chromium-stage-cameras', { full: false });
 
-    // (the camera is the room's choice: the stage has no switch of its own) the race ends and both have their results
-    const [ra, rb] = await Promise.all([results(ada, code), results(bo, code)]);
+    // (the camera is the room's choice: the stage has no switch of its own) the race ends and both have their results. A room made on the
+    // Friends page races the game's own length (half a minute to a minute and a half on the Room's clock): the test hook's 15 seconds
+    // belong to the game page's race button, which makes duel links since #39.
+    const [ra, rb] = await Promise.all([results(ada, code, 150_000), results(bo, code, 150_000)]);
     expect(ra).toEqual(rb);
     ended = true;
   } finally {

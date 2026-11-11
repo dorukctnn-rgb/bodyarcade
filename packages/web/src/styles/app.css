@@ -838,6 +838,10 @@ html:has(.ba-stage), html:has(.ba-stage) body { overscroll-behavior: none; }
 /* friends */
 .k-start { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .k-start .ba-btn { width: 100%; }
+/* a friend's row keeps its name readable: where the buttons (join or invite, duel, more) do not fit beside it (a phone, longer words), they go to a line of their own */
+.k-flist > li { flex-wrap: wrap; row-gap: 8px; }
+.k-flist > li .grow { flex: 1 1 140px; }
+.k-flist > li .k-rowbtns { margin-left: auto; }
 .k-flist .grow small { display: flex; align-items: center; gap: 6px; }
 .k-flist .grow small i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
 .k-codeline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
