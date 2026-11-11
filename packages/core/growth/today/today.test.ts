@@ -5,7 +5,7 @@ import { generateProgram } from '../program/generate.ts';
 import { getTodayPlan, type DailyCheckin } from '../program/checkin.ts';
 import { activeDays, bestWeekStreak, gameRecords, historyOf, moveRecords, recordsOn, secondsByDay, sessionsOf, totalMinutes, weekOf, weeklyMinutes, weekStreak, type Facts, type SetFact } from './history.ts';
 import { ALL_DONE_BONUS, badgesOf, CHALLENGE_POINTS, dailyQuests, gentle, pointsOf, QUEST_POINTS, questIds, weeklyChallenge } from './quests.ts';
-import { coachTip, goalMinutes, pickGame, planSplit, type GameCard } from './today.ts';
+import { coachTip, gameRounds, goalMinutes, pickGame, planSplit, type GameCard } from './today.ts';
 
 const wed: Day = '2026-11-11';
 const ok: DailyCheckin = { sleep: 'good', energy: 4, body: 'fine', minutes: 20, priority: 'any' };
@@ -185,6 +185,15 @@ describe('today: plan split, the game, the goal, the tip', () => {
     for (let k = 0; k < 10; k++) expect(pickGame(games, { day: addDays(wed, k), focus: 'upper', low: false, pro: false })?.free).toBe(true);
     expect(pickGame(games, { day: wed, focus: 'upper', low: false, pro: false })).toEqual(pickGame(games, { day: wed, focus: 'upper', low: false, pro: false }));
     expect(pickGame([games[1]!], { day: wed, focus: 'full', low: false, pro: false, painAreas: ['knee'] })).toBeNull();
+  });
+
+  it('game rounds fill the time the plan leaves, never past a round over the minutes', () => {
+    const g = { durationSec: 180 };
+    expect(gameRounds(g, 11, 20)).toBe(3);
+    expect(gameRounds(g, 19, 20)).toBe(0);
+    expect(gameRounds(g, 5, 60)).toBe(4);
+    expect(gameRounds(null, 5, 20)).toBe(0);
+    for (const [plan, goal] of [[11, 20], [8, 15], [14, 30], [3, 10]] as const) expect(plan + (gameRounds(g, plan, goal) * 180) / 60).toBeLessThanOrEqual(goal + 3);
   });
 
   it('the goal: the check-in minutes, else the program, else 20', () => {

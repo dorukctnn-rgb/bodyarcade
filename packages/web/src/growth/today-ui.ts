@@ -6,8 +6,9 @@ import { TODAY_WORDS, type TodayKey } from './today-strings.ts';
 import type { Ctx } from './ctx.ts';
 
 export const TODAY_CSS = `
-.gc-today{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;align-items:start}
-.gc-today > .gc-span{grid-column:1/-1}
+.gc-today{columns:3 320px;column-gap:16px}
+.gc-today > *{break-inside:avoid;margin:0 0 16px}
+.gc-today > .gc-span{column-span:all}
 .gc-hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px 20px;align-items:center}
 .gc-hero h2{font-size:26px;margin:0}
 .gc-hero .gc-date{color:var(--gc-muted);font-size:14px;margin:2px 0 8px}
@@ -33,10 +34,10 @@ export const TODAY_CSS = `
 .gc-bar[data-now=true] i{outline:2px solid var(--gc-accent);outline-offset:1px}
 .gc-bar small{font-size:11px;color:var(--gc-muted);text-align:center;white-space:nowrap;overflow:hidden}
 .gc-goal-line{position:absolute;left:0;right:0;border-top:2px dashed var(--gc-tip);pointer-events:none}
-.gc-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:12px}
+.gc-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,104px),1fr));gap:10px}
 .gc-tile{background:var(--gc-panel);border:1px solid var(--gc-line);border-radius:16px;padding:14px;min-width:0}
 .gc-tile small{display:block;color:var(--gc-muted);font-size:13px;font-weight:700;margin-bottom:6px}
-.gc-tile b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.gc-tile b{font-size:clamp(21px,5vw,28px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
 .gc-quests{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .gc-quest{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;background:#0F0B20;border:1px solid var(--gc-line);border-radius:12px;padding:10px 12px}
 .gc-quest .gc-check{width:24px;height:24px;border-radius:50%;border:2px solid var(--gc-line);display:grid;place-items:center;font-size:14px;font-weight:900;color:#0E0A1E}
@@ -55,11 +56,11 @@ export const TODAY_CSS = `
 .gc-hist li{display:grid;grid-template-columns:minmax(84px,auto) minmax(0,1fr);gap:10px;border-bottom:1px solid var(--gc-line);padding:8px 0;font-size:14px}
 .gc-hist li span:first-child{color:var(--gc-muted);font-variant-numeric:tabular-nums}
 .gc [hidden]{display:none!important}
-.gc-hold{position:absolute;left:50%;top:52px;transform:translateX(-50%);background:#C8102E;color:#fff;border-radius:14px;padding:10px 18px;display:grid;gap:6px;justify-items:center;font-size:24px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 0 0 3px rgba(255,255,255,.85)}
+.gc-hold{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);background:#C8102E;color:#fff;border-radius:14px;padding:10px 18px;display:grid;gap:6px;justify-items:center;font-size:24px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 0 0 3px rgba(255,255,255,.85)}
 .gc-hold-bar{display:block;width:120px;height:6px;border-radius:999px;background:rgba(255,255,255,.35);overflow:hidden}
 .gc-hold-bar i{display:block;height:100%;width:0;background:#fff}
-.gc-step-preview{position:absolute;right:10px;bottom:76px;width:min(52%,220px);background:rgba(14,10,30,.95);border:1px solid var(--gc-accent);border-radius:14px;padding:8px;display:grid;gap:6px;font-size:14px;z-index:2}
-.gc-step-preview img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;background:#000}
+.gc-step-preview{position:absolute;left:50%;transform:translateX(-50%);bottom:84px;width:max-content;max-width:calc(100% - 20px);background:rgba(14,10,30,.95);border:1px solid var(--gc-accent);border-radius:14px;padding:8px;display:grid;gap:6px;justify-items:center;font-size:14px;z-index:2}
+.gc-step-preview img{height:min(160px,26vh);width:auto;aspect-ratio:3/4;object-fit:cover;border-radius:8px;background:#000}
 .gc-step-preview .gc-row{gap:6px;flex-wrap:nowrap}
 .gc-step-preview .gc-btn{padding:8px 10px;flex:1 1 0;min-width:0}
 @media (max-width:520px){.gc-hero{grid-template-columns:1fr;justify-items:start}.gc-hero h2{font-size:23px}}

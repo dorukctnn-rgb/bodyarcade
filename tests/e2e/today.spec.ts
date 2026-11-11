@@ -115,7 +115,7 @@ test('progress: a counted set and game rounds show as records and history; the w
     await page.evaluate(async () => {
       const g = (window as unknown as { __growth: { vault: { putJson(s: string, id: string, v: unknown): Promise<void> }; render(): Promise<void> } }).__growth;
       const t = Date.now() - 3_600_000;
-      for (const [i, reps] of [[1, 10], [2, 12]] as const) await g.vault.putJson('logs', `log-${i}`, { sessionId: 's1', moveId: 'pushUp', setNo: i, reps, clean: reps, measured: [], rir: 1, corrected: false, startedAt: t + i * 90_000, endedAt: t + i * 90_000 + 40_000, source: 'camera' });
+      for (const [i, reps] of [[1, 10], [2, 12]] as const) await g.vault.putJson('logs', `log-private-${i}`, { sessionId: 'sess-private-7', moveId: 'pushUp', setNo: i, reps, clean: reps, measured: [], rir: 1, corrected: false, startedAt: t + i * 90_000, endedAt: t + i * 90_000 + 40_000, source: 'camera' });
       await g.render();
     });
     await expect(page.locator('[data-progress-page]')).toBeVisible();
@@ -136,7 +136,7 @@ test('progress: a counted set and game rounds show as records and history; the w
   await page.locator('[data-name=goal-minutes][data-value="150"]').click();
   await expect(page.locator('[data-week-goal]')).toHaveAttribute('data-week-goal', '4/150');
   await expect(page.locator('[data-tile=week]')).toContainText('/4');
-  assertPrivate(reqs, ['pushUp', 'log-1']);
+  assertPrivate(reqs, ['sess-private', 'log-private']);
 });
 
 test('quests: points, today\'s quests, the week\'s challenge, badges and the friend race to come', async ({ page }) => {

@@ -50,7 +50,7 @@ export async function questsTab(c: Ctx, host: HTMLElement): Promise<() => void> 
   for (const b of list) {
     const d = el('div', 'gc-badge'); d.dataset.badge = b.id; d.dataset.earned = String(b.earned);
     const name = t(`badge_${b.id}` as TodayKey);
-    const medal = el('span', 'gc-medal', b.earned ? '★' : String(list.indexOf(b) + 1)); medal.setAttribute('aria-hidden', 'true');
+    const medal = el('span', 'gc-medal', b.earned ? '★' : '·'); medal.setAttribute('aria-hidden', 'true');
     d.append(medal, el('b', '', name), el('small', '', b.earned ? t('badgeOpen') : `${b.value}/${b.goal}`));
     d.setAttribute('aria-label', `${name}: ${b.earned ? t('badgeOpen') : `${b.value}/${b.goal}`}`);
     box.append(d);

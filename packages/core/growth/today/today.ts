@@ -92,3 +92,15 @@ export function coachTip(o: {
   if (o.week.canStillMeet && o.week.daysToGo === 1) return { id: 'week-close', n: 1 };
   return { id: 'steady' };
 }
+
+/**
+ * Rounds of today's game that fill the time the plan leaves: the program engine may come out shorter than the minutes the
+ * person has (few moves are measured on real video yet), and the game is the workout's playful part. No rounds when the
+ * gap is under about two thirds of a round; at most four; never more than a round past the minutes.
+ */
+export function gameRounds(game: Pick<GameCard, 'durationSec'> | null, planMinutes: number, goalMinutes: number): number {
+  if (!game || game.durationSec <= 0) return 0;
+  const gap = (goalMinutes - planMinutes) * 60;
+  if (gap < Math.max(90, game.durationSec * 0.6)) return 0;
+  return Math.max(1, Math.min(4, Math.floor(gap / game.durationSec + 0.25)));
+}

@@ -8,7 +8,7 @@ import type { MoveState } from '../../../core/growth/program/progress.ts';
 import type { FormMoveId } from '../../../core/form/types.ts';
 import { activeDays, DEFAULT_WEEK_GOAL, recordsOn, secondsByDay, weekOf, weekStreak, type WeekGoal } from '../../../core/growth/today/history.ts';
 import { dailyQuests, gentle, pointsOf } from '../../../core/growth/today/quests.ts';
-import { coachTip, goalMinutes, pickGame, planSplit, type Tip } from '../../../core/growth/today/today.ts';
+import { coachTip, gameRounds, goalMinutes, pickGame, planSplit, type Tip } from '../../../core/growth/today/today.ts';
 import { addDays } from '../../../core/store/date.ts';
 import { FORM_WORDS } from '../form/strings.ts';
 import { checkinForm, checkinSummary, defaultCheckin } from './checkin-form.ts';
@@ -78,11 +78,16 @@ export async function todayPanel(c: Ctx, host: HTMLElement): Promise<() => void>
 
   // ---- today's plan ----
   const pc = el('section', 'gc-card'); pc.dataset.todayPlan = String(plan.minutes); pc.dataset.intensity = plan.intensity;
-  const split = planSplit(plan);
   const game = pickGame(games, { day, focus: plan.focus, low: plan.intensity === 'low', painAreas: checkin?.body === 'pain' ? checkin.painAreas ?? [] : [], pro });
-  const parts = [split.warmup ? t('part_warmup', { n: split.warmup }) : '', split.work ? t(game ? 'part_workGame' : 'part_work', { n: split.work }) : '', split.stretch ? t('part_stretch', { n: split.stretch }) : ''].filter(Boolean);
+  // the game's rounds fill the minutes the program's plan leaves (the workout "with a game")
+  const rounds = game && c.play ? gameRounds(game, plan.minutes, goalMin) : 0;
+  const gameMin = game ? Math.max(1, Math.round((Math.max(1, rounds) * game.durationSec) / 60)) : 0;
+  const base = planSplit(plan);
+  const split = rounds ? { ...base, work: base.work + gameMin, total: base.total + gameMin } : base;
+  pc.dataset.total = String(split.total);
+  const parts = [split.warmup ? t('part_warmup', { n: split.warmup }) : '', split.work ? t(rounds ? 'part_workGame' : 'part_work', { n: split.work }) : '', split.stretch ? t('part_stretch', { n: split.stretch }) : ''].filter(Boolean);
   const line = el('p', 'gc-plan-line', `${t('planHead', { total: split.total })} ${parts.join(', ')}.`); line.dataset.planLine = '';
-  pc.append(el('h2', '', W.todayPlan.replace('{min}', String(plan.minutes))), line);
+  pc.append(el('h2', '', t('planTitle')), line);
   if (!stored) pc.append(el('p', 'gc-note', t('samplePlan')));
   for (const a of plan.adjustments) { const x = el('p', 'gc-muted', W[`adj_${a}` as GrowthKey]); x.dataset.adj = a; pc.append(x); }
   for (const n of plan.notes) { const x = el('p', 'gc-note', W[`note_${n}` as GrowthKey]); x.dataset.note = n; pc.append(x); }
@@ -99,9 +104,10 @@ export async function todayPanel(c: Ctx, host: HTMLElement): Promise<() => void>
     pc.append(ul);
   }
   if (game && c.play) {
-    const g = el('div', 'gc-game'); g.dataset.game = game.id;
+    const g = el('div', 'gc-game'); g.dataset.game = game.id; g.dataset.rounds = String(rounds);
     const a = el('a', 'gc-link', t('play')); a.href = c.play.href(game, c.lang);
-    g.append(el('span', '', t('gameRow', { game: gameTitle(game, c.lang, game.id), min: Math.max(1, Math.round(game.durationSec / 60)) })), a);
+    const name = gameTitle(game, c.lang, game.id);
+    g.append(el('span', '', rounds > 1 ? t('gameRow', { game: name, n: rounds, min: gameMin }) : rounds === 1 ? t('gameRowOne', { game: name, min: gameMin }) : t('gameExtra', { game: name, min: gameMin })), a);
     pc.append(g);
   }
   const start = btn(stored ? t('startPlan') : t('startSample'), 'gc-btn gc-btn--primary', async () => {

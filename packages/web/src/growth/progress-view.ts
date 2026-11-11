@@ -20,6 +20,7 @@ export async function progressTab(c: Ctx, host: HTMLElement): Promise<() => void
   const games = c.play?.games ?? [];
   const moveName = (id: keyof (typeof FORM_WORDS)['en']['moves']): string => FORM_WORDS[c.lang].moves[id]?.name ?? id;
   const short = (d: string): string => new Intl.DateTimeFormat(c.tag, { day: 'numeric', month: 'short' }).format(new Date(`${d}T12:00:00`));
+  const tiny = (d: string): string => new Intl.DateTimeFormat(c.tag, { day: 'numeric', month: 'numeric' }).format(new Date(`${d}T12:00:00`));
 
   const grid = el('div', 'gc-today'); grid.dataset.progressPage = '';
   host.append(grid);
@@ -29,7 +30,7 @@ export async function progressTab(c: Ctx, host: HTMLElement): Promise<() => void
   const streak = weekStreak(activeDays(facts), day, goal.days);
   const tiles = el('div', 'gc-tiles gc-span');
   tiles.append(
-    tile(c, t('tileStreak'), t('weeksN', { n: streak }), 'streak'),
+    tile(c, t('tileStreak'), t(streak === 1 ? 'weekOne' : 'weeksN', { n: streak }), 'streak'),
     tile(c, t('tileWeek'), t('tileWeekValue', { n: week.activeDays, goal: goal.days }), 'week'),
     tile(c, t('tileMinutes'), fmt(c, Math.floor(week.seconds / 60)), 'minutes'),
     tile(c, t('tileTotal'), fmt(c, totalMinutes(facts)), 'total'),
@@ -49,7 +50,7 @@ export async function progressTab(c: Ctx, host: HTMLElement): Promise<() => void
   // ---- minutes per week, this week day by day ----
   const ch = el('section', 'gc-card'); ch.dataset.chart = 'weeks';
   const wm = weeklyMinutes(facts, 8);
-  ch.append(el('h2', '', t('chartWeeks')), bars(c, wm.map((w, i) => ({ value: w.minutes, label: short(w.start), title: t('chartAlt', { min: w.minutes, date: short(w.start) }), active: w.minutes >= goal.minutes, now: i === wm.length - 1 })), goal.minutes));
+  ch.append(el('h2', '', t('chartWeeks')), bars(c, wm.map((w, i) => ({ value: w.minutes, label: tiny(w.start), title: t('chartAlt', { min: w.minutes, date: short(w.start) }), active: w.minutes >= goal.minutes, now: i === wm.length - 1 })), goal.minutes));
   ch.append(el('h3', '', t('chartDays')));
   const dn = (d: string): string => new Intl.DateTimeFormat(c.tag, { weekday: 'narrow' }).format(new Date(`${d}T12:00:00`));
   ch.append(bars(c, week.days.map((d) => ({ value: Math.round(d.seconds / 60), label: dn(d.day), title: `${short(d.day)}: ${t('minutesN', { n: Math.round(d.seconds / 60) })}`, active: d.active, now: d.day === day }))));
@@ -76,7 +77,7 @@ export async function progressTab(c: Ctx, host: HTMLElement): Promise<() => void
     const ul = el('ul', 'gc-compact');
     for (const g of gr) {
       const li = el('li'); li.dataset.gameRecord = g.game; li.dataset.best = String(g.best);
-      li.append(el('span', '', gameTitle(games.find((x) => x.id === g.game), c.lang, g.game)), el('span', '', `${t('recScore', { v: fmt(c, g.best) })}${g.runs ? ` · ${t('recRuns', { n: g.runs })}` : ''}`));
+      li.append(el('span', '', gameTitle(games.find((x) => x.id === g.game), c.lang, g.game)), el('span', '', `${t('recScore', { v: fmt(c, g.best) })}${g.runs ? ` · ${t(g.runs === 1 ? 'roundOne' : 'recRuns', { n: g.runs })}` : ''}`));
       ul.append(li);
     }
     rc.append(ul);
@@ -93,7 +94,7 @@ export async function progressTab(c: Ctx, host: HTMLElement): Promise<() => void
     for (const h of hist) {
       const li = el('li'); li.dataset.kind = h.kind;
       const min = Math.max(1, Math.round(h.seconds / 60));
-      const text = h.kind === 'workout' ? t('histWorkout', { sets: h.sets, min }) : t('histGame', { game: gameTitle(games.find((g) => g.id === h.game), c.lang, h.game), score: fmt(c, h.score), min });
+      const text = h.kind === 'workout' ? t(h.sets === 1 ? 'histWorkoutOne' : 'histWorkout', { sets: h.sets, min }) : t('histGame', { game: gameTitle(games.find((g) => g.id === h.game), c.lang, h.game), score: fmt(c, h.score), min });
       li.append(el('span', '', short(h.day)), el('span', '', text));
       ul.append(li);
     }
