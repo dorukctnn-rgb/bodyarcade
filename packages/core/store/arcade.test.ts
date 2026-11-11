@@ -185,7 +185,7 @@ describe('plans through the arcade', () => {
     const { arcade } = rig();
     expect(arcade.plans.start('legs-day')).toEqual({ ok: false, code: 'locked' });
     expect(arcade.plans.start(FREE_PLAN_ID).ok).toBe(true);
-    expect(arcade.today().plan).toMatchObject({ number: 1, total: 2, plan: { id: 'desk-break' } });
+    expect(arcade.today().plan).toMatchObject({ number: 1, total: 4, plan: { id: 'desk-break' } });
     arcade.plans.finishStep({ score: 100, seconds: 180 });
     expect(arcade.today().plan?.number).toBe(2);
   });
@@ -196,13 +196,17 @@ describe('plans through the arcade', () => {
     arcade.plans.start(FREE_PLAN_ID);
     const one = arcade.finishPlanStep(roundOf({ score: 321, seconds: 181 }));
     expect(one?.report.outcome).toMatchObject({ saved: true });
-    expect(one?.progress).toMatchObject({ over: false, played: 1, seconds: 181, view: { number: 2, current: { game: 'star-catch' } } });
-    expect(arcade.progress('twist-turbine').best('standard', 'normal')).toBe(321);       // the first step's game, not a game the caller named
+    expect(one?.progress).toMatchObject({ over: false, played: 1, seconds: 181, view: { number: 2, current: { game: 'twist-turbine' } } });
+    expect(arcade.progress('star-catch').best('standard', 'normal')).toBe(321);       // the first step's game, not a game the caller named
     const two = arcade.finishPlanStep(roundOf({ score: 111, seconds: 190 }));
-    expect(two?.progress).toMatchObject({ over: true, done: true, played: 2 });
-    expect(arcade.progress('star-catch').best('standard', 'normal')).toBe(111);
+    expect(two?.progress).toMatchObject({ over: false, played: 2, view: { number: 3, current: { game: 'squat-flap' } } });
+    expect(arcade.progress('twist-turbine').best('standard', 'normal')).toBe(111);
+    arcade.finishPlanStep(roundOf({ score: 50, seconds: 45 }));
+    const four = arcade.finishPlanStep(roundOf({ score: 60, seconds: 45 }));
+    expect(four?.progress).toMatchObject({ over: true, done: true, played: 4 });
+    expect(arcade.progress('pose-wall').best('standard', 'normal')).toBe(60);
     expect(arcade.plans.active()).toBeNull();
-    expect(arcade.habit.view().todaySeconds).toBe(371);                      // the plan's minutes are the day's minutes
+    expect(arcade.habit.view().todaySeconds).toBe(181 + 190 + 45 + 45);       // the plan's minutes are the day's minutes
     expect(arcade.plans.card(FREE_PLAN_ID)?.doneThisWeek).toBe(1);
   });
 
@@ -214,7 +218,7 @@ describe('plans through the arcade', () => {
       expect(r?.report.outcome.saved).toBe(false);
       expect(r?.progress).toBeNull();
     }
-    expect(arcade.plans.active()).toMatchObject({ number: 1, current: { game: 'twist-turbine' } });
+    expect(arcade.plans.active()).toMatchObject({ number: 1, current: { game: 'star-catch' } });
     expect(arcade.habit.view().todaySeconds).toBe(0);
     expect(arcade.plans.skipStep()).toMatchObject({ skipped: 1, view: { number: 2 } });       // the player can still leave the step out
   });
@@ -231,7 +235,8 @@ describe('a second device', () => {
     const phone = rig({ server });
     phone.arcade.recordRun('squat-flap', roundOf());
     phone.arcade.recordRun(gameOfTheDay(phone.arcade), roundOf());
-    phone.arcade.plans.start(FREE_PLAN_ID); phone.arcade.plans.finishStep({ score: 1, seconds: 1 }); phone.arcade.plans.finishStep({ score: 1, seconds: 1 });
+    phone.arcade.plans.start(FREE_PLAN_ID);
+    for (let i = 0; i < 4; i++) phone.arcade.plans.finishStep({ score: 1, seconds: 1 });   // the four rounds of the desk break
     expect(await phone.arcade.sync.sync()).toMatchObject({ ok: true, pushed: ['daily', 'habit', 'plans'] });
     const laptop = rig({ server });
     expect(await laptop.arcade.sync.sync()).toMatchObject({ ok: true, pulled: ['daily', 'habit', 'plans'], pushed: [] });

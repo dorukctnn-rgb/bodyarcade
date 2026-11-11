@@ -14,6 +14,9 @@ import type { RaceOutcome } from '../app/race.ts';
 import { liveRaceBlock, raceBlock } from './race.ts';
 import { lrText } from '../app/live-strings.ts';
 import { playHref, type SetupState } from './setup.ts';
+import { storyCard } from './story-card.ts';
+import { familyPanel } from './family.ts';
+import type { FamilyView } from '../app/family.ts';
 
 /** A number a game adds to its results beyond the common ones (Reaction Tag: the average and the best reaction), already in words. */
 export interface ResultExtra { label: string; value: string }
@@ -78,6 +81,10 @@ export interface RoundResult {
   practice?: boolean;
   /** The last seconds of the round as a video made on this device (the address is the page's own, a blob), to show, share and save. */
   clip?: { url: string; name: string; mime: string; seconds: number } | null;
+  /** The player may make the vertical clip of this round (app/story-clip.ts): the browser records, and the profile may share. */
+  story?: boolean;
+  /** A round of a family evening: where the evening stands after it. */
+  family?: FamilyView | null;
 }
 
 export function formatClock(seconds: number): string {
@@ -201,8 +208,10 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
         ${progressBlock(ctx, r.practice ? null : r.progress)}
       </div>
       <div class="k-stack">
+        ${r.family ? familyPanel(ctx, r.family) : ''}
         ${r.plan ? planPanel(ctx, r.plan) : ''}
         ${clipCard(ctx, r)}
+        ${r.story ? storyCard(ctx) : ''}
         ${why(ctx, r)}
         ${r.replay ? html`<section class="k-card k-replay" aria-labelledby="replay"><h2 id="replay" class="k-h3">${t.t('results.replay.title')}</h2>
           <div class="view" data-replay role="img" aria-label="${t.t('results.replay.alt', { reason: r.replay.reason })}"></div>

@@ -49,7 +49,7 @@ describe('a first device with something to say and a server that has nothing', (
     expect(server.docs.has('daily')).toBe(false);
     expect(server.docs.has('plans')).toBe(false);
     a.done('2026-10-24');
-    a.plans.start('desk-break'); a.plans.finishStep({ score: 1, seconds: 100 }); a.plans.finishStep({ score: 1, seconds: 100 });
+    a.plans.start('desk-break'); a.plans.finishStep({ score: 1, seconds: 100 }); a.plans.finishStep({ score: 1, seconds: 100 }); a.plans.finishStep({ score: 1, seconds: 100 }); a.plans.finishStep({ score: 1, seconds: 100 });
     const r2 = await a.sync.sync();
     expect(r2).toMatchObject({ ok: true, pushed: ['daily', 'plans'] });
     expect([...server.docs.keys()].sort()).toEqual(['daily', 'habit', 'plans']);
@@ -115,7 +115,7 @@ describe('two devices', () => {
     const server = new FakeSyncServer();
     const old = device(server);
     for (let i = 0; i < 20; i++) old.play(addDays('2026-10-01', i));
-    old.plans.start('desk-break'); old.plans.finishStep({ score: 1, seconds: 100 }); old.plans.finishStep({ score: 1, seconds: 100 });
+    old.plans.start('desk-break'); old.plans.finishStep({ score: 1, seconds: 100 }); old.plans.finishStep({ score: 1, seconds: 100 }); old.plans.finishStep({ score: 1, seconds: 100 }); old.plans.finishStep({ score: 1, seconds: 100 });
     await old.sync.sync();
     const fresh = device(server, '2026-10-24');
     expect(await fresh.sync.sync()).toMatchObject({ ok: true, pulled: ['habit', 'plans'], pushed: [] });

@@ -66,6 +66,8 @@ export interface SessionRequest {
   race?: RaceSource | null;
   /** A round with the camera and one player: where the session puts what the replay of a miss is made of (pose landmarks while it runs, the game's log). */
   replay?: ReplayTap | null;
+  /** A short round (the desk break, a family evening): the game is played for this many seconds (short-round.ts). */
+  roundSec?: number;
 }
 
 /**

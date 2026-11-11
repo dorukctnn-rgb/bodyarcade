@@ -18,6 +18,7 @@ import { canRace } from '../app/duel.ts';
 import { chrome, sitePageHref } from './chrome.ts';
 import { freeLine } from './paywall.ts';
 import { NO_PLANS_DATA, planStrip, type PlansData } from './plans.ts';
+import { modeStrip } from './modes.ts';
 import { gameGrid, regionChips } from './tiles.ts';
 import { weekdayNames } from './parts.ts';
 import { REGION_ORDER } from '../routes.ts';
@@ -307,6 +308,7 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
       ${hidden}
     </section>
     ${region ? '' : planStrip(ctx, data.plans)}
+    ${region ? '' : modeStrip(ctx)}
     ${together(ctx)}
     ${proTeaser(ctx)}
     ${region ? '' : aboutSection(ctx)}`;
