@@ -5,15 +5,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parseTrace } from '../../pose/trace.ts';
-import { score, type LabelSample } from './measure-lib.ts';
+import { photoScore, score, type LabelSample } from './measure-lib.ts';
 
 const dir = fileURLToPath(new URL('../../../../tests/traces/growth/', import.meta.url));
 const labels = JSON.parse(readFileSync(`${dir}labels.json`, 'utf8')) as { clips: Record<string, { split: 'tune' | 'holdout'; samples: LabelSample[] }> };
 const have = Object.keys(labels.clips).filter((id) => existsSync(`${dir}${id}.trace.json`));
 
-// The traces are extracted with tools/growth-fixtures/extract.ts (one headless browser, the shared heavy-job lock); until they
-// are in the repository this block is skipped.
-describe.skipIf(have.length < 3)('turn tracker on real turning people', () => {
+// The traces were extracted with tools/growth-fixtures/extract.ts (one headless browser) on 11 Nov 2026 and are in the
+// repository, so this block always runs.
+describe('turn tracker on real turning people', () => {
   it('has the three fixture traces', () => { expect(have.length).toBe(3); });
   for (const split of ['tune', 'holdout'] as const) {
     it(`${split} clips: main directions and the 360 steps`, () => {
@@ -28,8 +28,29 @@ describe.skipIf(have.length < 3)('turn tracker on real turning people', () => {
       expect(main).toBeGreaterThanOrEqual(MEASURED[split].main);
       expect(farShare).toBeLessThanOrEqual(MEASURED[split].far);
     });
+    it(`${split} clips: the photo each direction would keep is that direction`, () => {
+      for (const mode of ['quick', 'full'] as const) {
+        let wanted = 0, right = 0;
+        for (const id of have.filter((x) => labels.clips[x]!.split === split)) {
+          const p = photoScore(parseTrace(JSON.parse(readFileSync(`${dir}${id}.trace.json`, 'utf8'))), labels.clips[id]!.samples, mode);
+          wanted += p.wanted; right += p.right;
+        }
+        console.log(`${split} ${mode} photos: ${right}/${wanted} within 22.5 degrees`);
+        expect(right / wanted).toBeGreaterThanOrEqual(MEASURED[split].photos[mode]);
+      }
+    });
   }
 });
 
-/** The measured floors (see the notes); the test fails if the tracker gets worse. */
-const MEASURED = { tune: { main: 0, far: 1 }, holdout: { main: 0, far: 1 } };
+/**
+ * The measured floors (11 Nov 2026, tools/growth-fixtures/measure.ts); the test fails if the tracker gets worse.
+ * Frame by frame (every high-confidence label): tune main 10/16, two or more steps off 4/18; holdout main 31/41, two or more
+ * steps off 4/54. Below SPEC 2.5's target (main >= 95 %, two steps off 0 %): from behind, in loose shirts, the pose model reads
+ * the shoulders narrow, so the side-to-back and side-to-front changes come about half a second late.
+ * The photos (the frame each direction would keep): quick mode 4/4 tune and 8/8 holdout; 360 mode 6/8 tune and 13/16 holdout
+ * (the misses are diagonals: a 135 photo that is nearly the back, 45 photos about 25 degrees off).
+ */
+const MEASURED = {
+  tune: { main: 10 / 16, far: 4 / 18, photos: { quick: 1, full: 6 / 8 } },
+  holdout: { main: 31 / 41, far: 4 / 54, photos: { quick: 1, full: 13 / 16 } },
+};
