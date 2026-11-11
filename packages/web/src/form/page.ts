@@ -12,6 +12,7 @@ import { drawFormBody, type FormCtx, type PictureRect } from '../../../core/rend
 import { detectLang, LANG_INFO, type Lang } from '../../../core/ui/i18n/index.ts';
 import type { CameraLease, PoseFrame } from '../../../core/types/index.ts';
 import { FORM_WORDS, fill, type FormWords } from './strings.ts';
+import { coachNav } from '../coach-nav.ts';
 
 const CSS = `
 .fc{--fc-bg:#140F27;--fc-panel:#1C1433;--fc-line:#31285A;--fc-text:#F4F2F8;--fc-muted:#A79FBE;--fc-ok:#22C383;--fc-tip:#FFC53A;--fc-bad:#F23A5C;
@@ -19,7 +20,8 @@ const CSS = `
   display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:auto 1fr;gap:16px;padding:16px;box-sizing:border-box}
 .fc *{box-sizing:border-box}
 .fc-top{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
-.fc-top a{color:var(--fc-text);font-weight:800;text-decoration:none;font-size:18px}
+.fc-topnav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;width:100%}
+.fc-topnav > a{color:var(--fc-text);font-weight:800;text-decoration:none;font-size:18px}
 .fc-top h1{margin:0;font-size:22px;font-weight:700}
 .fc-top p{margin:0;color:var(--fc-muted);font-size:14px}
 .fc-moves{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-left:auto;font-weight:700}
@@ -86,10 +88,11 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 };
 
-export function bootFormCoach(win: Window = window): () => void {
+/** `lang`: the page's language when its address says it (/tr/form-coach); otherwise ?lang= or the browser's. */
+export function bootFormCoach(win: Window = window, langOf?: Lang): () => void {
   const doc = win.document;
   const params = new URLSearchParams(win.location.search);
-  const lang = pickLang(win);
+  const lang = langOf ?? pickLang(win);
   const W: FormWords = FORM_WORDS[lang];
   const tag = LANG_INFO.find((l) => l.code === lang)?.tag ?? 'en';
   doc.documentElement.lang = tag;
@@ -102,14 +105,16 @@ export function bootFormCoach(win: Window = window): () => void {
   const style = el('style'); style.textContent = CSS; doc.head.append(style);
   const root = el('main', 'fc');
   const top = el('header', 'fc-top');
-  const brand = el('a', '', 'BodyArcade'); brand.href = '/';
+  // the site's places (Kol G): games, Today, the form coach, progress and duels
+  const { brand, nav } = coachNav(doc, lang, 'coach');
   const h1 = el('h1', '', W.ui.title);
   const privacy = el('p', '', W.ui.privacy);
   const tabs = el('label', 'fc-moves');
   const picker = el('select'); picker.dataset.movePicker = '';
   tabs.append(doc.createTextNode(W.ui.pickMove), picker);
   picker.addEventListener('change', () => { if (isFormMove(picker.value)) selectMove(picker.value); });
-  top.append(brand, h1, privacy, tabs);
+  const bar = el('div', 'fc-topnav'); bar.append(brand, nav);
+  top.append(bar, h1, privacy, tabs);
   const stage = el('section', 'fc-stage');
   const video = el('video', 'fc-video'); video.muted = true; video.playsInline = true; video.setAttribute('aria-hidden', 'true');
   const canvas = el('canvas', 'fc-canvas'); canvas.setAttribute('aria-hidden', 'true');

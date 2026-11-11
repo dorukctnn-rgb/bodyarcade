@@ -10,6 +10,8 @@
 @import url("./live-race.css");
 @import url("./duel.css");
 @import url("./modes.css");
+@import url("./band.css");
+@import url("./home-g.css");
 
 /* ---------- Base ---------- */
 html { scrollbar-gutter: stable; }

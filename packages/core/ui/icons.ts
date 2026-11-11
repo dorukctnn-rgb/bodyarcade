@@ -56,6 +56,12 @@ const SOURCE = {
   sparkle: I('<path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/>'),
   moon: I('<path d="M19.5 14.6A8 8 0 019.4 4.5a8 8 0 1010.1 10.1z"/>'),
   sun: I('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>'),
+  // the Today panel: a day's ring with the part already done in the accent colour
+  today: I('<circle cx="12" cy="12" r="8"/><path class="ac" d="M12 4a8 8 0 018 8"/><circle class="ac" cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/>'),
+  // the form coach: a body line with its joints
+  coach: I('<circle cx="12" cy="4.6" r="2.1"/><path d="M12 7.4v6.2M12 13.6l-3.6 6.4M12 13.6l3.6 6.4"/><path class="ac" d="M5.6 9.4l6.4 1.2 6.4-1.2"/>'),
+  // the progress coach: bars that grow
+  chart: I('<path d="M4 20.2h16"/><path d="M7 16.4v-3.6M12 16.4V8.6"/><path class="ac" d="M17 16.4V4.8"/>'),
 } as const;
 
 export type IconName = keyof typeof SOURCE;

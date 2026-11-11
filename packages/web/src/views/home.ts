@@ -27,6 +27,7 @@ import { phoneHeight, SHOWCASE, SHOWCASE_PHONE_WEBP, SHOWCASE_SIZES_PHONE, SHOWC
 import type { Preload } from '../document.ts';
 import { HERO_CLIP_WIDE, heroClipHeight, heroClipSet } from '../clips.ts';
 import { howHero } from './how.ts';
+import { bandSection, coachSection, privacySection, todaySection } from './home-sections.ts';
 
 /** What the home page knows about the player's weeks; empty on the server and for a new player. */
 export interface HomeData {
@@ -288,10 +289,12 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
     ? html`<p class="ba-small ba-hiddennote">${t.t('home.hidden', { n: hiddenByModes })}</p>`
     : '';
 
+  // The home page in the order of Kol G (Apple Fitness+ line): 1 what BodyArcade is (the scene), 2 the before/after band, 3 the games,
+  // 4 the form coach, 5 Today and the progress coach, 6 duels, the office break and family mode, 7 privacy; then the rest.
   const top = region
     ? html`<div class="ba-pagehead"><h1 class="ba-h1" data-main-heading>${t.t('workouts.title', { region: regionLabel(ctx, region) })}</h1></div>
        <p class="k-sub">${t.t('workouts.description', { region: regionLabel(ctx, region), ...regionGames(ctx.games, region) })}</p>`
-    : html`${howHero(ctx, featuredGame(ctx))}<section class="k-hero${data.week ? '' : ' k-hero--solo'}" aria-label="${t.t('brand.name')}">${hero(ctx)}${data.week ? weekCard(ctx, data.week, data.recent) : ''}</section>`;
+    : html`${howHero(ctx, featuredGame(ctx))}${bandSection(ctx)}<section class="k-hero${data.week ? '' : ' k-hero--solo'}" aria-label="${t.t('brand.name')}">${hero(ctx)}${data.week ? weekCard(ctx, data.week, data.recent) : ''}</section>`;
 
   const main = html`
     ${top}
@@ -306,7 +309,10 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
       ${hidden}
     </section>
     ${region ? '' : planStrip(ctx, data.plans)}
+    ${region ? '' : coachSection(ctx)}
+    ${region ? '' : todaySection(ctx)}
     ${region ? '' : modeStrip(ctx)}
+    ${region ? '' : privacySection(ctx)}
     ${together(ctx)}
     ${proTeaser(ctx)}
     ${region ? '' : aboutSection(ctx)}`;

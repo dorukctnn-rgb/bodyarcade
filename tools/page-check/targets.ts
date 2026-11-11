@@ -116,6 +116,12 @@ export function webTargets(prefix: string): Target[] {
     { id: 'web:pro', server: 'web', path: `${prefix}/pro/` },
     { id: 'web:friends', server: 'web', path: `${prefix}/friends/` },
     { id: 'web:notfound', server: 'web', path: `${prefix}/nope/` },
+    // Sprint 11 Nov: the office break and family mode (Kol D), and the coach pages, which are apps of their own (Kol G)
+    { id: 'web:office', server: 'web', path: `${prefix}/office/`, hooks: PRACTICE, steps: [MAIN_READY], note: 'the office break' },
+    { id: 'web:family', server: 'web', path: `${prefix}/family/`, hooks: PRACTICE, steps: [MAIN_READY], note: 'family mode' },
+    { id: 'web:formcoach', server: 'web', path: `${prefix}/form-coach/`, steps: [{ waitFor: 'main.fc' }, { wait: 400 }], note: 'the form coach before the camera is on' },
+    { id: 'web:today', server: 'web', path: `${prefix}/today/`, steps: [{ waitFor: 'main.gc[data-ready]' }, { wait: 400 }], note: 'the progress coach on Today' },
+    { id: 'web:progress', server: 'web', path: `${prefix}/progress/`, steps: [{ waitFor: 'main.gc[data-ready]' }, { wait: 400 }], note: 'the progress coach on its progress tab' },
   ];
   // The welcome tour, every page of it (the stage drawn once and held still, so the picture is the same on every run).
   for (const n of [1, 2, 3, 4, 5]) out.push({ id: `web:welcome:${n}`, server: 'web', path: `${prefix}/welcome/${n === 1 ? '' : `?step=${n}`}`, hooks: { ...PRACTICE, tour: 'static' }, steps: [TOUR_READY], note: `welcome tour, page ${n}` });

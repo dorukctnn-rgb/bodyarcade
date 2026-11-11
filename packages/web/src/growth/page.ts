@@ -13,6 +13,7 @@ import { DEFAULT_SETTINGS, makeHelpers, saveFile, field, numberInput, chips, typ
 import { GROWTH_WORDS } from './strings.ts';
 import type { PlayFacts } from './play.ts';
 import { TODAY_CSS, tw } from './today-ui.ts';
+import { coachNav } from '../coach-nav.ts';
 
 export const GROWTH_CSS = `
 .gc{--gc-bg:#140F27;--gc-panel:#1C1433;--gc-panel2:#241A42;--gc-line:#31285A;--gc-text:#F4F2F8;--gc-muted:#A79FBE;--gc-ok:#22C383;--gc-tip:#FFC53A;--gc-accent:#7FD8FF;
@@ -22,6 +23,7 @@ export const GROWTH_CSS = `
 .gc a{color:var(--gc-accent)}
 .gc-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;margin-bottom:12px}
 .gc-top .gc-brand{color:var(--gc-text);font-weight:800;text-decoration:none;font-size:18px}
+.gc-topnav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;width:100%}
 .gc-top h1{margin:0;font-size:24px}
 .gc-top p{margin:0;color:var(--gc-muted);font-size:14px;flex:1 1 320px}
 .gc-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;scrollbar-width:thin}
@@ -98,12 +100,14 @@ export interface BootGrowthOptions {
   iterations?: number;
   /** the games' side for the Today panel and the progress page (the arcade and the catalogue); without it they show the program only */
   play?: PlayFacts | null;
+  /** the page's language when its address says it (/tr/today); otherwise ?lang= or the browser's */
+  lang?: Lang;
 }
 
 export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}): Promise<() => void> {
   const doc = win.document;
   const params = new URLSearchParams(win.location.search);
-  const lang = pickLang(win);
+  const lang = o.lang ?? pickLang(win);
   const W = GROWTH_WORDS[lang];
   const tag = LANG_INFO.find((l) => l.code === lang)?.tag ?? 'en';
   doc.documentElement.lang = tag;
@@ -303,8 +307,11 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
     const toast = root.querySelector('.gc-toast');
     root.replaceChildren(...(toast ? [toast] : []));
     const top = helpers.el('header', 'gc-top');
-    const brand = helpers.el('a', 'gc-brand', 'BodyArcade'); brand.href = '/';
-    top.append(brand, helpers.el('h1', '', W.title), helpers.el('p', '', W.privacy));
+    // the site's places (Kol G): games, Today, the form coach, progress and duels; Today is lit on its tab, progress on the others
+    const cn = coachNav(doc, lang, tab === 'home' ? 'today' : 'progress');
+    cn.brand.className = 'gc-brand';
+    const bar = helpers.el('div', 'gc-topnav'); bar.append(cn.brand, cn.nav);
+    top.append(bar, helpers.el('h1', '', W.title), helpers.el('p', '', W.privacy));
     root.append(top);
     if (vault.state === 'locked') { root.append(lockScreen()); return; }
     if (tab === 'photos' && ctx.minor()) tab = 'home';

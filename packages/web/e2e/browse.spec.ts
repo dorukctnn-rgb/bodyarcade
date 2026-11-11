@@ -286,20 +286,27 @@ test.describe('settings and language', () => {
     await expect(page.locator('h1')).toHaveText('Ayarlar');
     await page.locator('.ba-tab, .ba-topbar nav a', { hasText: 'Oyunlar' }).first().click();
     await expect(page).toHaveURL(/\/tr\/$/);
-    await expect(page.locator('h1')).toContainText('Çömel, zıpla, yumruk at');
+    // the home page's heading is the scene at the top since #37 (home.how.h1)
+    await expect(page.locator('h1')).toContainText('Kumanda senin vücudun');
   });
 
-  test('a Turkish browser is taken to the Turkish home page once; a German one gets English (German is a draft)', async ({ browser }) => {
+  // Since #33 the language bar takes the place of the move to /tr/ on arrival (app/lang-offer.ts; tests/e2e/language-bar.spec.ts has the rest).
+  test('a Turkish browser stays on the English address it opened and is offered the Turkish page; a German one gets English and no bar (German is a draft)', async ({ browser }) => {
     const tr = await browser.newContext({ locale: 'tr-TR' });
     const p1 = await tr.newPage();
     await p1.goto(`${WEB_DEV_URL}/games/squat-flap/`);
-    await expect(p1).toHaveURL(/\/tr\/games\/squat-flap\/$/);
+    await expect(p1.locator('aside.ba-langnote')).toHaveAttribute('data-lang-offer', 'tr');
+    await expect(p1).toHaveURL(/\/games\/squat-flap\/$/);
+    expect(new URL(p1.url()).pathname).toBe('/games/squat-flap/');
+    await expect(p1.locator('html')).toHaveAttribute('lang', 'en');
     await tr.close();
     const de = await browser.newContext({ locale: 'de-DE' });
     const p2 = await de.newPage();
     await p2.goto(`${WEB_DEV_URL}/`);
-    await expect(p2).toHaveURL(/\/$/);
+    await expect(p2.locator('[data-main-heading]')).toBeVisible();
+    expect(new URL(p2.url()).pathname).toBe('/');
     await expect(p2.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(p2.locator('aside.ba-langnote')).toHaveCount(0);
     await de.close();
   });
 
@@ -309,8 +316,11 @@ test.describe('settings and language', () => {
     await expect(page).toHaveURL(/\/tr\/games\/squat-flap\/$/);
     await expect(page.locator('h1')).toHaveText('Squat Flap');
     await expect(page.locator('.k-facts')).toContainText('tur');
+    // remembered: an English address stays English (#33) and the bar offers the Turkish page, in Turkish
     await page.goto(`${WEB_DEV_URL}/`);
-    await expect(page).toHaveURL(/\/tr\/$/);
+    await expect(page.locator('aside.ba-langnote')).toHaveAttribute('data-lang-offer', 'tr');
+    expect(new URL(page.url()).pathname).toBe('/');
+    await expect(page.locator('aside.ba-langnote a[data-action="lang"]')).toHaveAttribute('href', '/tr/');
   });
 
   test('clearing the data asks first, then resets settings and results', async ({ page }) => {

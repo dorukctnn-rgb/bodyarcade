@@ -4,8 +4,10 @@
 // as a ghost and the change as a heat map. A corner label says "illustration"; the text names features, never results
 // (no kilos, weeks or percentages). Light: nothing heavy loads until the band is near the screen; with reduced motion
 // each view draws one still frame and the WebGL contexts are released (the still stays as an image).
+// The markup (bandMarkup) is drawn by the page itself (the home page, views/home-sections.ts), so it is there before any script,
+// with a still of each view; mountBeforeAfterBand brings it to life. Its styles are styles/band.css.
 //   import { mountBeforeAfterBand } from './growth/before-after-band.ts';
-//   mountBeforeAfterBand(hostElement, { lang: 'tr', href: '/?gelisim=1' });
+//   mountBeforeAfterBand(hostElement, { lang: 'tr', href: '/tr/progress/' });
 import type { Lang } from '../../../core/ui/i18n/index.ts';
 import type { Tape } from '../../../core/growth/twin/model.ts';
 
@@ -24,80 +26,79 @@ export const BAND_TAPES: { height: number; before: Tape; after: Tape } = {
   after: { neck: 39, chest: 106, waist: 92, hips: 101, thighL: 58, thighR: 58, calfL: 38, calfR: 38, upperArmL: 34, upperArmR: 34 },
 };
 
-const CSS = `
-.bab{--bab-bg:#140F27;--bab-panel:#1C1433;--bab-line:#31285A;--bab-text:#F4F2F8;--bab-muted:#A79FBE;
-  background:var(--bab-bg);color:var(--bab-text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch;padding:24px clamp(16px,4vw,48px);box-sizing:border-box;width:100%}
-.bab *{box-sizing:border-box}
-.bab-copy{display:flex;flex-direction:column;justify-content:center;gap:12px}
-.bab-copy h2{margin:0;font-size:clamp(24px,3vw,38px);line-height:1.12;font-weight:800}
-.bab-copy p{margin:0;color:var(--bab-muted);font-size:clamp(15px,1.4vw,18px);line-height:1.5}
-.bab-copy a{align-self:flex-start;font-weight:800;color:#140F27;background:#22C383;border-radius:12px;padding:12px 18px;text-decoration:none;min-height:44px}
-.bab-card{position:relative;background:var(--bab-panel);border:1px solid var(--bab-line);border-radius:18px;overflow:hidden;min-height:340px;display:flex;flex-direction:column}
-.bab-stage{position:relative;flex:1;min-height:280px}
-.bab-stage canvas,.bab-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.bab-tag{position:absolute;top:10px;right:10px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--bab-muted);background:rgba(20,15,39,.8);border-radius:999px;padding:3px 9px}
-.bab-foot{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:14px;font-weight:700}
-.bab-foot input{flex:1;accent-color:#22C383;min-height:32px}
-.bab-key{display:flex;gap:12px;flex-wrap:wrap;color:var(--bab-muted);font-weight:600}
-.bab-key i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-@media (max-width:900px){.bab{grid-template-columns:1fr 1fr}.bab-copy{grid-column:1/-1}}
-@media (max-width:560px){.bab{grid-template-columns:1fr}.bab-card{min-height:300px}}
-`;
+/** The stills of the two views (made from the views themselves with reduced motion; design/art/hero, served like the home page's pictures). */
+export const BAND_STILLS = { morph: { file: 'band-morph-800.webp', width: 800, height: 536 }, compare: { file: 'band-compare-800.webp', width: 800, height: 568 } } as const;
+
+const esc = (v: string): string => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** The words of the band in a language (the home page's tests read them). */
+export const bandWords = (lang: Lang): (typeof WORDS)[Lang] => WORDS[lang] ?? WORDS.en;
+
+/**
+ * The band as markup: the words, the two views (each with its still, when there is one, and the "illustration" label), the slider
+ * under the first and the key under the second. `href` is the progress coach's address in the page's language.
+ */
+export function bandMarkup(lang: Lang, o: { href: string; stills?: { morph: string; compare: string } | null }): string {
+  const W = bandWords(lang);
+  const still = (view: 'morph' | 'compare', src: string | undefined): string => (src ? `<img src="${esc(src)}" alt="" width="${BAND_STILLS[view].width}" height="${BAND_STILLS[view].height}" loading="lazy" decoding="async" data-band-still>` : '');
+  const card = (view: 'morph' | 'compare', foot: string): string => `<figure class="bab-card" style="margin:0"><div class="bab-stage" data-band-stage="${view}">${still(view, o.stills?.[view])}</div><span class="bab-tag">${esc(W.label)}</span><figcaption class="bab-foot">${foot}</figcaption></figure>`;
+  const key = ([['#7FD8FF', W.ghost], ['#3FA9F5', `${W.heat} −`], ['#FF9F43', `${W.heat} +`]] as const).map(([c, t]) => `<span><i style="background:${c}"></i>${esc(t)}</span>`).join('');
+  return `<section class="bab" aria-label="${esc(W.title)}" data-band><div class="bab-copy"><h2>${esc(W.title)}</h2><p>${esc(W.text)}</p><a href="${esc(o.href)}" data-native>${esc(W.cta)}</a></div>`
+    + card('morph', `<span>${esc(W.before)}</span><input type="range" min="0" max="100" value="0" aria-label="${esc(W.slider)}"><span>${esc(W.after)}</span>`)
+    + card('compare', `<div class="bab-key">${key}</div>`)
+    + '</section>';
+}
 
 export interface BandHandle { dispose(): void; ready: Promise<void>; root: HTMLElement }
 
-export function mountBeforeAfterBand(host: HTMLElement, o: { lang: Lang; href?: string; eager?: boolean }): BandHandle {
-  const W = WORDS[o.lang] ?? WORDS.en;
+/**
+ * Brings the band to life: the markup already on the page (host is the band, or holds it), or, when there is none (the test page),
+ * the markup drawn here. `motion: false` (reduced motion, saving data, a test run) keeps a band that has stills as it is.
+ */
+export function mountBeforeAfterBand(host: HTMLElement, o: { lang: Lang; href?: string; eager?: boolean; motion?: boolean }): BandHandle {
+  const W = bandWords(o.lang);
   const doc = host.ownerDocument;
-  if (!doc.getElementById('bab-css')) { const s = doc.createElement('style'); s.id = 'bab-css'; s.textContent = CSS; doc.head.append(s); }
-  const root = doc.createElement('section'); root.className = 'bab'; root.setAttribute('aria-label', W.title);
-  const copy = doc.createElement('div'); copy.className = 'bab-copy';
-  const h = doc.createElement('h2'); h.textContent = W.title;
-  const p = doc.createElement('p'); p.textContent = W.text;
-  const a = doc.createElement('a'); a.href = o.href ?? '/?gelisim=1'; a.textContent = W.cta;
-  copy.append(h, p, a);
-  const mk = (): { card: HTMLElement; stage: HTMLElement; foot: HTMLElement } => {
-    const card = doc.createElement('figure'); card.className = 'bab-card'; card.style.margin = '0';
-    const stage = doc.createElement('div'); stage.className = 'bab-stage';
-    const tag = doc.createElement('span'); tag.className = 'bab-tag'; tag.textContent = W.label;
-    const foot = doc.createElement('figcaption'); foot.className = 'bab-foot';
-    card.append(stage, tag, foot);
-    return { card, stage, foot };
-  };
-  const left = mk(), right = mk();
-  const range = doc.createElement('input'); range.type = 'range'; range.min = '0'; range.max = '100'; range.value = '0'; range.setAttribute('aria-label', W.slider);
-  const bLab = doc.createElement('span'); bLab.textContent = W.before; const aLab = doc.createElement('span'); aLab.textContent = W.after;
-  left.foot.append(bLab, range, aLab);
-  const key = doc.createElement('div'); key.className = 'bab-key';
-  for (const [c, t] of [['#7FD8FF', W.ghost], ['#3FA9F5', `${W.heat} −`], ['#FF9F43', `${W.heat} +`]] as const) { const s = doc.createElement('span'); const i = doc.createElement('i'); i.style.background = c; s.append(i, doc.createTextNode(t)); key.append(s); }
-  right.foot.append(key);
-  root.append(copy, left.card, right.card);
-  host.append(root);
+  const drawnBefore = host.matches('[data-band]') || !!host.querySelector('[data-band]');
+  if (!drawnBefore) host.insertAdjacentHTML('beforeend', bandMarkup(o.lang, { href: o.href ?? '/progress/' }));
+  const band = (host.matches('[data-band]') ? host : host.querySelector<HTMLElement>('[data-band]')) as HTMLElement;
+  const leftStage = band.querySelector<HTMLElement>('[data-band-stage="morph"]') as HTMLElement;
+  const rightStage = band.querySelector<HTMLElement>('[data-band-stage="compare"]') as HTMLElement;
+  const range = band.querySelector<HTMLInputElement>('input[type="range"]') as HTMLInputElement;
 
-  const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduce = o.motion === false || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const hasStills = !!leftStage.querySelector('img') && !!rightStage.querySelector('img');
   let disposed = false;
   let stop = (): void => undefined;
   let resolveReady: () => void = () => undefined;
   const ready = new Promise<void>((r) => { resolveReady = r; });
 
+  if (reduce && hasStills) {
+    // the stills are the band: nothing to load
+    range.value = '100'; range.disabled = true;
+    band.dataset.ready = 'true';
+    resolveReady();
+    return { root: band, ready, dispose(): void { disposed = true; } };
+  }
+
   async function start(): Promise<void> {
     const { createTwinView } = await import('./twin-view.ts');
     if (disposed) return;
-    const morphView = createTwinView(left.stage, { interactive: true });
-    const cmpView = createTwinView(right.stage, { interactive: true });
+    const morphView = createTwinView(leftStage, { interactive: true });
+    const cmpView = createTwinView(rightStage, { interactive: true });
     const t = BAND_TAPES;
     await morphView.update({ base: 'male', heightCm: t.height, now: t.after, then: t.before, morph: 0 });
     await cmpView.update({ base: 'male', heightCm: t.height, now: t.after, then: t.before, ghost: true, heat: true });
     if (disposed) { morphView.dispose(); cmpView.dispose(); return; }
-    root.dataset.ready = 'true';
+    // the live views take the place of the stills
+    for (const img of band.querySelectorAll('[data-band-still]')) img.remove();
+    band.dataset.ready = 'true';
     resolveReady();
     if (reduce) {
       // still frames only: keep them as images, release the GL contexts
       const still = (v: typeof morphView, stage: HTMLElement): void => { const img = doc.createElement('img'); img.alt = W.label; img.src = v.canvas.toDataURL('image/png'); v.dispose(); stage.append(img); };
       range.value = '100';
       await morphView.update({ base: 'male', heightCm: t.height, now: t.after, then: t.before, morph: 1 });
-      still(morphView, left.stage); still(cmpView, right.stage);
+      still(morphView, leftStage); still(cmpView, rightStage);
       range.disabled = true;
       return;
     }
@@ -120,8 +121,9 @@ export function mountBeforeAfterBand(host: HTMLElement, o: { lang: Lang; href?: 
   if (o.eager || typeof IntersectionObserver === 'undefined') void start();
   else {
     const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); void start(); } }, { rootMargin: '200px' });
-    io.observe(root);
+    io.observe(band);
     const prev = stop; stop = () => { io.disconnect(); prev(); };
   }
-  return { root, ready, dispose(): void { disposed = true; stop(); root.remove(); } };
+  // markup drawn here goes with the band; the page's own markup stays the page's
+  return { root: band, ready, dispose(): void { disposed = true; stop(); if (!drawnBefore) band.remove(); } };
 }
