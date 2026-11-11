@@ -149,6 +149,10 @@ test('program: build, the check-in with knee pain leaves knee moves out with the
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page, 'lang=tr&profile=prog&trace=/tests/traces/form/sq-mixkit-52106-front.trace.json#program');
   await page.locator('[data-name=goal][data-value=strength]').click();
+  // one training day, today, so the test does not depend on the weekday it runs on (a one-day week is session A)
+  const wd = await page.evaluate(() => new Date().getDay());
+  for (const d of [1, 3, 5]) if (d !== wd) await page.locator(`[data-name=days][data-value="${d}"]`).click();
+  if (![1, 3, 5].includes(wd)) await page.locator(`[data-name=days][data-value="${wd}"]`).click();
   await page.getByRole('button', { name: 'Kur', exact: true }).click();
   await expect(page.locator('[data-checkin]')).toBeVisible();
   await page.locator('[data-name=body][data-value=pain]').click();
