@@ -65,6 +65,8 @@ interface Window {
     tour?: 'static' | 'fallback' | 'first';
     /** How long a race against a recording lasts, in seconds, at least 15 (tests; a published build has the game's round, half a minute to a minute and a half). */
     raceSeconds?: number;
+    /** A score duel of the practice session (duel links): about how many points a second the practice player makes. */
+    scorePerSec?: number;
     /** The signed Pro token a room shows the Worker (tests whose Worker holds the key it was signed with): a build that keeps the plan in memory has none of its own. */
     proToken?: string;
     /** Players added to a fresh device before the app starts (the plan must be 'family'); `active` is the one that plays. */

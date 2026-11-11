@@ -985,7 +985,10 @@ export class App {
 
   /** The name the player has in rooms (their own run of a race carries it). */
   private liveName(): string {
-    return this.social?.services().social.state().profile?.name ?? this.playerFacts()?.name ?? '';
+    // the name the Room gave this seat first (a guest of a duel link has no profile; the Room may have told two equal names apart)
+    const rooms = this.social?.services().rooms.state();
+    const seat = rooms?.members.find((m) => m.seat === rooms.me)?.name;
+    return seat ?? this.social?.services().social.state().profile?.name ?? this.playerFacts()?.name ?? '';
   }
 
   /**

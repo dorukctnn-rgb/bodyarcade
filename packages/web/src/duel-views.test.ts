@@ -163,12 +163,13 @@ describe.each(LANGS)('duel screens in %s', (lang) => {
     expect(won).toContain('data-duel-result');
     expect(textOf(won)).toContain(d('result.won'));
     expect(textOf(won)).toContain(d('result.you'));
-    expect(won).toMatch(/data-win[^>]*data-seat="s1"/);
+    expect(won).toMatch(/data-seat="s1"[^>]*data-win/);
+    expect(won.match(/<li /g)?.length).toBe(2);
     expect(won).toContain('data-rematch');
     expect(won).not.toContain('data-duel-closed');
     const lost = duelResultBlock(ctx, outcome(false, 30_000), Date.now()).value;
     expect(textOf(lost)).toContain(d('result.lost', { name: 'Bo' }));
-    expect(lost).toMatch(/data-win[^>]*data-seat="s2"/);
+    expect(lost).toMatch(/data-seat="s2"[^>]*data-win/);
     expect(lost).toContain('data-duel-closed');
     expect(lost).toContain('data-action="race.new" data-game="star-catch"');
     expect(textOf(lost)).not.toMatch(NO_LEAK);

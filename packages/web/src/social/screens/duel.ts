@@ -81,7 +81,6 @@ export function duelResultBlock(ctx: ViewContext, r: RaceOutcome, now: number): 
   const t = ctx.i18n;
   const d = duelText(t);
   const lr = lrText(t);
-  const me = live.seats.find((s) => s.you);
   const rival = live.seats.find((s) => !s.you);
   const left = live.seats.filter((s) => !s.you && s.forfeited);
   const verdict = live.reason === 'abandoned' ? lr('result.abandoned')
@@ -89,13 +88,16 @@ export function duelResultBlock(ctx: ViewContext, r: RaceOutcome, now: number): 
       : live.reason === 'forfeit' && r.won && rival?.forfeited ? lr('result.left.one', { name: rival.name })
         : r.won ? d('result.won') : r.draw ? d('result.draw') : d('result.lost', { name: rival?.name ?? '' });
   const fits = now + roundNeedsMs(duel.durationMs) <= duel.closesAt;
-  const col = (s: typeof me, label: string, win: boolean): SafeHtml => html`<div${attr('data-win', win)}${s ? html` data-seat="${s.seat}"` : ''}><b>${t.number(s?.score ?? 0)}</b><span>${label}</span></div>`;
-  const youWin = !!me && r.won;
-  const rivalWin = !!rival && !r.won && !r.draw && live.reason !== 'abandoned' && live.reason !== 'no_contest';
-  return html`<section class="k-card rc-result k-duelresult" aria-labelledby="race-result-h" data-race data-live-result data-duel-result data-room="${live.room}">
+  const counted = live.reason !== 'abandoned' && live.reason !== 'no_contest';
+  // the two of them side by side, best first (the same rows and order on both pages: a race's places list, drawn as two columns)
+  const col = (s: (typeof live.seats)[number]): SafeHtml => html`<li data-seat="${s.seat}"${attr('data-you', s.you)}${attr('data-left', s.forfeited)}${attr('data-win', counted && !r.draw && s.place === 1 && !s.forfeited)}>
+      ${s.place !== null && !s.forfeited ? html`<span class="lr-place" aria-hidden="true">${String(s.place)}</span><span class="ba-visually-hidden">${lr('result.place', { n: s.place })}</span>` : html`<span class="lr-place lr-place--out" aria-hidden="true"></span>`}
+      <span class="lr-pname">${s.you ? lr('result.you', { name: s.name || d('result.you') }) : s.name}${s.forfeited ? html` <small>${lr('result.forfeit')}</small>` : ''}</span>
+      <b class="lr-ppoints">${t.t('race.points', { n: s.score })}</b></li>`;
+  return html`<section class="k-card rc-result lr-result k-duelresult" aria-labelledby="race-result-h" data-race data-live-result data-duel-result data-room="${live.room}">
     <h2 class="k-h3" id="race-result-h">${d('result.title')}</h2>
     <p class="rc-verdict" role="status" data-race-verdict>${verdict}</p>
-    <div class="rc-scores k-duelresult__scores" aria-label="${lr('result.list')}">${col(me, d('result.you'), youWin)}${col(rival, rival?.name ?? '', rivalWin)}</div>
+    <ol class="lr-places k-duelresult__scores" aria-label="${lr('result.list')}">${live.seats.map(col)}</ol>
     <p class="ba-small lr-rematch" role="status" data-rematch></p>
     ${fits ? '' : html`<p class="ba-small" data-duel-closed>${d('result.closed')}</p><div class="ba-actions rc-actions"><button type="button" class="ba-btn ba-btn--secondary" data-action="race.new" data-game="${duel.game}">${icon('plus')}<span>${d('card.new')}</span></button></div>`}
     <div class="ba-actions rc-actions"><button type="button" class="ba-btn ba-btn--quiet" data-action="room.leave">${lr('result.leave')}</button></div>
