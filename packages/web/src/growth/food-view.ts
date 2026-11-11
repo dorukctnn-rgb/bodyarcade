@@ -157,3 +157,18 @@ export async function foodTab(c: Ctx, host: HTMLElement): Promise<() => void> {
   right.append(wk);
   return () => undefined;
 }
+
+/** What the Today panel shows of the food plan (kol F): the same answers, targets and today's menu as this tab. */
+export type FoodToday =
+  | { state: 'minor' }
+  | { state: 'setup' }
+  | { state: 'ready'; view: ReturnType<typeof nutritionView>; meals: PlannedMeal[]; concern: boolean };
+
+export async function foodToday(c: Ctx): Promise<FoodToday> {
+  if (c.minor()) return { state: 'minor' };
+  const fp = await c.vault.getJson<FoodProfile>('nutrition', 'profile');
+  if (!fp || !fp.heightCm || !fp.weightKg || fp.pregnant === null || fp.concern === null || !c.settings.birthYear) return { state: 'setup' };
+  const view = nutritionView({ birthYear: c.settings.birthYear, heightCm: fp.heightCm, weightKg: fp.weightKg, formula: fp.formula, pal: fp.pal, pregnant: fp.pregnant, conditions: fp.conditions, concern: fp.concern, hideNumbers: c.settings.hideNumbers }, fp.goal);
+  const plan = buildPlan({ kcal: view.target?.kcal ?? 2000, days: 1, filters: { cuisines: fp.cuisines, diet: fp.diet, avoidAllergens: fp.allergens, noPork: fp.noPork }, seed: Math.floor(Date.now() / 86_400_000) % 3 });
+  return { state: 'ready', view, meals: plan.days[0]?.meals ?? [], concern: fp.concern === 'yes' };
+}

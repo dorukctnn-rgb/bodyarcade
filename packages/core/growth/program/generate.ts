@@ -39,7 +39,8 @@ export interface Prescription {
 }
 
 export type BlockKind = 'warmup' | 'main' | 'conditioning' | 'cooldown';
-export interface Block { kind: BlockKind; items: Prescription[]; game?: boolean; rounds?: number; workS?: number; restS?: number }
+/** `safe`: a circuit put in on a pain day in place of what was left out (checkin.ts), of moves that spare the sore area. */
+export interface Block { kind: BlockKind; items: Prescription[]; game?: boolean; rounds?: number; workS?: number; restS?: number; safe?: boolean }
 export interface SessionTemplate { id: string; focus: 'full' | 'upper' | 'lower' | 'push' | 'pull' | 'legs' | 'conditioning' | 'mobility'; blocks: Block[]; minutes: number }
 export interface Program { input: ProgramInput; sessions: SessionTemplate[]; schedule: Partial<Record<Weekday, string>>; deloadEvery: number; missingPatterns: Pattern[] }
 

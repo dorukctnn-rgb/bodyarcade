@@ -4,6 +4,8 @@
 import { bootEntitlements, type BootWindow } from '../../../core/entitlements/boot.ts';
 import { createProfileBook } from '../../../core/store/index.ts';
 import type { GrowthAccess } from './ctx.ts';
+import { gameInfos, playFromArcade, type PlayFacts } from './play.ts';
+import { router } from '../routes.ts';
 
 /** What stays free (SPEC 6.1): photos, compare, lock, backup, the basic program, targets and the sample menus. */
 export const GROWTH_FREE: ReadonlySet<string> = new Set(['growth:photos', 'growth:compare', 'growth:lock', 'growth:backup', 'growth:program-basic', 'growth:targets', 'growth:meals-sample']);
@@ -19,3 +21,23 @@ export async function growthAccess(win: Window, games: readonly string[]): Promi
     return { can: (f) => GROWTH_FREE.has(f), profileId: 'me' };
   }
 }
+
+/**
+ * The access above and the games' side of the Today panel (kol F): the active profile's arcade (its rounds, seconds and
+ * bests; read only here) and the catalogue's games. Without either (an offline first visit), the panels show the program.
+ */
+export async function growthBoot(win: Window, games: readonly ShellGameLike[]): Promise<{ access: GrowthAccess; play: PlayFacts | null }> {
+  const access = await growthAccess(win, games.map((g) => g.id));
+  try {
+    const book = createProfileBook({ can: (f) => access.can(f), known: () => true, ownerName: 'me', recoveredName: (n) => `#${n}`, games: () => games.map((g) => g.id), onProblem: () => undefined });
+    const infos = gameInfos(games);
+    const arcade = book.open().arcade({ games: () => games });
+    const play = playFromArcade(arcade, infos, (g, lang) => router.href('game', { params: { slug: g.slug }, lang }));
+    win.addEventListener('pagehide', () => book.dispose(), { once: true });
+    return { access, play };
+  } catch {
+    return { access, play: null };
+  }
+}
+
+type ShellGameLike = Parameters<typeof gameInfos>[0][number];

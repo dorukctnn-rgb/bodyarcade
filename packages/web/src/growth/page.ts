@@ -11,6 +11,8 @@ import { Vault } from '../../../core/growth/vault/vault.ts';
 import { detectLang, LANG_INFO, type Lang } from '../../../core/ui/i18n/index.ts';
 import { DEFAULT_SETTINGS, makeHelpers, saveFile, field, numberInput, chips, type Ctx, type GrowthAccess, type Settings, type TabId } from './ctx.ts';
 import { GROWTH_WORDS } from './strings.ts';
+import type { PlayFacts } from './play.ts';
+import { TODAY_CSS, tw } from './today-ui.ts';
 
 export const GROWTH_CSS = `
 .gc{--gc-bg:#140F27;--gc-panel:#1C1433;--gc-panel2:#241A42;--gc-line:#31285A;--gc-text:#F4F2F8;--gc-muted:#A79FBE;--gc-ok:#22C383;--gc-tip:#FFC53A;--gc-accent:#7FD8FF;
@@ -74,6 +76,8 @@ export const GROWTH_CSS = `
 .gc-meal{display:grid;gap:4px}
 .gc-meal small{color:var(--gc-muted)}
 .gc-lock{max-width:440px;margin:10vh auto}
+.gc-body > .gc-grid + .gc-today, .gc-body > .gc-today + .gc-more{margin-top:16px}
+.gc-more{font-size:15px;color:var(--gc-muted);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 10px}
 @media (max-width:900px){.gc-wide,.gc-session{grid-template-columns:1fr}.gc-top h1{font-size:21px}}
 `;
 
@@ -92,6 +96,8 @@ export interface BootGrowthOptions {
   backend?: VaultBackend;
   /** tests: PBKDF2 iterations (the default is 600 000) */
   iterations?: number;
+  /** the games' side for the Today panel and the progress page (the arcade and the catalogue); without it they show the program only */
+  play?: PlayFacts | null;
 }
 
 export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}): Promise<() => void> {
@@ -102,7 +108,7 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
   const tag = LANG_INFO.find((l) => l.code === lang)?.tag ?? 'en';
   doc.documentElement.lang = tag;
   doc.title = `${W.title} · BodyArcade`;
-  const style = doc.createElement('style'); style.textContent = GROWTH_CSS; doc.head.append(style);
+  const style = doc.createElement('style'); style.textContent = GROWTH_CSS + TODAY_CSS; doc.head.append(style);
   const access: GrowthAccess = o.access ?? { can: () => false, profileId: 'me' };
   const backend = o.backend ?? await openBackend(access.profileId);
   const vault = await Vault.open(backend, o.iterations !== undefined ? { iterations: o.iterations } : {});
@@ -110,7 +116,7 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
   const root = helpers.el('main', 'gc');
   doc.body.append(root);
   let settings: Settings = { ...DEFAULT_SETTINGS };
-  let tab: TabId = (['home', 'photos', 'twin', 'program', 'food', 'settings'] as TabId[]).find((t) => win.location.hash === `#${t}`) ?? 'home';
+  let tab: TabId = (['home', 'progress', 'quests', 'photos', 'twin', 'program', 'food', 'settings'] as TabId[]).find((t) => win.location.hash === `#${t}`) ?? 'home';
   let disposeTab: (() => void) | null = null;
   let toastTimer = 0;
 
@@ -128,6 +134,7 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
     go: (t) => { tab = t; win.history.replaceState(null, '', `${win.location.pathname}${win.location.search}#${t}`); render(); },
     minor: () => settings.birthYear !== null && new Date().getFullYear() - settings.birthYear < 18,
     traceUrl: (() => { const t = params.get('trace'); return t && t.startsWith('/') ? t : null; })(),
+    play: o.play ?? null,
   } as Ctx;
 
   async function loadSettings(): Promise<void> {
@@ -181,6 +188,8 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
   }
 
   async function homeTab(host: HTMLElement): Promise<() => void> {
+    // what needs saying first (the setup, the backup, the iPhone and private-window notes), then the Today panel (kol F),
+    // then the shortcuts to the other tabs
     const grid = helpers.el('div', 'gc-grid');
     host.append(grid);
     if (!settings.setupDone) grid.append(setupCard());
@@ -193,6 +202,10 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
     }
     if (isIosSafari(win.navigator.userAgent, win.navigator.maxTouchPoints) && settings.firstPhotoAt === null && !ctx.minor()) grid.append(Object.assign(helpers.el('section', 'gc-card gc-muted'), { textContent: W.iosCard }));
     if (!backend.persistent) grid.append(Object.assign(helpers.el('section', 'gc-card gc-muted'), { textContent: W.privateTab }));
+    if (!grid.childElementCount) grid.remove();
+    const panel = await (await import('./today-view.ts')).todayPanel(ctx, host);
+    const more = helpers.el('div', 'gc-grid'); more.dataset.shortcuts = '';
+    host.append(Object.assign(helpers.el('h2', 'gc-more'), { textContent: tw(ctx)('shortcuts') }), more);
     const sessions = (await vault.all<{ at: number }>('sessions')).map((s) => s.value.at).sort((a, b) => b - a);
     const measures = (await vault.all<{ at: number }>('measures')).map((s) => s.value.at).sort((a, b) => b - a);
     const card = (title: string, line: string, to: TabId): HTMLElement => {
@@ -200,12 +213,12 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
       c.append(helpers.el('h2', '', title), helpers.el('p', 'gc-muted', line), helpers.btn(title, 'gc-btn', () => ctx.go(to)));
       return c;
     };
-    if (!ctx.minor()) grid.append(card(W.homePhotos, sessions[0] ? ctx.t('lastOn', { date: ctx.date(sessions[0]) }) : W.none, 'photos'));
-    grid.append(card(W.homeTwin, measures[0] ? ctx.t('lastOn', { date: ctx.date(measures[0]) }) : W.none, 'twin'));
+    if (!ctx.minor()) more.append(card(W.homePhotos, sessions[0] ? ctx.t('lastOn', { date: ctx.date(sessions[0]) }) : W.none, 'photos'));
+    more.append(card(W.homeTwin, measures[0] ? ctx.t('lastOn', { date: ctx.date(measures[0]) }) : W.none, 'twin'));
     const { programSummary } = await import('./program-view.ts');
-    grid.append(card(W.homeProgram, await programSummary(ctx), 'program'));
-    grid.append(card(W.homeFood, W.foodSetup, 'food'));
-    return () => undefined;
+    more.append(card(W.homeProgram, await programSummary(ctx), 'program'));
+    more.append(card(W.homeFood, W.foodSetup, 'food'));
+    return panel;
   }
 
   async function settingsTab(host: HTMLElement): Promise<() => void> {
@@ -296,7 +309,8 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
     if (vault.state === 'locked') { root.append(lockScreen()); return; }
     if (tab === 'photos' && ctx.minor()) tab = 'home';
     const tabs = helpers.el('nav', 'gc-tabs'); tabs.setAttribute('role', 'tablist');
-    const names: [TabId, string][] = [['home', W.tabHome], ['photos', W.tabPhotos], ['twin', W.tabTwin], ['program', W.tabProgram], ['food', W.tabFood], ['settings', W.tabSettings]];
+    const T = tw(ctx);
+    const names: [TabId, string][] = [['home', W.tabHome], ['progress', T('tabProgress')], ['quests', T('tabQuests')], ['program', W.tabProgram], ['food', W.tabFood], ['photos', W.tabPhotos], ['twin', W.tabTwin], ['settings', W.tabSettings]];
     for (const [id, name] of names) {
       if (id === 'photos' && ctx.minor()) continue;
       const b = helpers.btn(name, 'gc-tab', () => ctx.go(id)); b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(id === tab)); b.dataset.tab = id;
@@ -311,6 +325,8 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
     else if (tab === 'twin') disposeTab = await (await import('./twin-tab.ts')).twinTab(ctx, host);
     else if (tab === 'program') disposeTab = await (await import('./program-view.ts')).programTab(ctx, host);
     else if (tab === 'food') disposeTab = await (await import('./food-view.ts')).foodTab(ctx, host);
+    else if (tab === 'progress') disposeTab = await (await import('./progress-view.ts')).progressTab(ctx, host);
+    else if (tab === 'quests') disposeTab = await (await import('./quests-view.ts')).questsTab(ctx, host);
     root.dataset.ready = tab;
   }
 

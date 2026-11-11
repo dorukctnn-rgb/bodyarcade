@@ -5,10 +5,13 @@
 //   low energy/sleep -> lower intensity (one set less, the bottom of the range, no jumping, longer rests);
 //   marked pain      -> the moves that load that area are left out today, with the note "if the pain goes on, ask a health
 //                       professional" (a code here; no diagnosis, no treatment advice);
-//   priority         -> strength drops the conditioning, cardio adds it, mobility swaps in the mobility session.
+//   priority         -> strength drops the conditioning, cardio adds it, mobility swaps in the mobility session;
+//   pain + time      -> what was left out is made up (kol F, 11 Nov: knee pain on a 20-minute day left a 5-minute plan): one
+//                       set more on the main moves that stay (not on a low day), a low-impact circuit of moves that do not
+//                       load the sore area at all, and a few such stretches in the cool-down, up to the minutes of the day.
 // Codes and numbers only; the page words them.
 import type { FormMoveId } from '../../form/types.ts';
-import { allowed, blockSeconds, fit, generateProgram, pickMove, type Block, type Prescription, type Program, type SessionTemplate, type Weekday } from './generate.ts';
+import { allowed, blockSeconds, fit, generateProgram, pickMove, RX, type Block, type Prescription, type Program, type ProgramInput, type SessionTemplate, type Weekday } from './generate.ts';
 import { MOVE_META, type Area } from './moves-meta.ts';
 import { beforeSession, deload, isDeloadWeek, type MoveState } from './progress.ts';
 
@@ -23,7 +26,7 @@ export interface DailyCheckin {
   priority: 'strength' | 'cardio' | 'mobility' | 'any';
 }
 
-export type Adjustment = 'short' | 'mini' | 'low-energy' | 'poor-sleep' | 'tired' | 'pain-skip' | 'priority-strength' | 'priority-cardio' | 'priority-mobility' | 'deload' | 'rest-day';
+export type Adjustment = 'short' | 'mini' | 'low-energy' | 'poor-sleep' | 'tired' | 'pain-skip' | 'pain-fill' | 'priority-strength' | 'priority-cardio' | 'priority-mobility' | 'deload' | 'rest-day';
 export type PlanNote = 'see-professional' | 'rest-is-fine';
 
 export interface TodayPlan {
@@ -135,9 +138,16 @@ export function getTodayPlan(o: TodayInput): TodayPlan {
     adjustments.push('priority-cardio');
   }
 
+  // pain: make up the time that the left-out moves took (never on a mini day; the time step below trims an overshoot)
+  const want = c?.minutes ?? program.input.minutes;
+  if (c?.body === 'pain' && c.painAreas?.length && skipped.length && want >= 10) {
+    const spare: ProgramInput = { ...program.input, avoid: { ...(program.input.avoid ?? {}), areas: [...(program.input.avoid?.areas ?? []), ...c.painAreas], strict: true, noJumping: true } };
+    const filled = fillPainDay(blocks, spare, want * 60, low);
+    if (filled) { blocks = filled; adjustments.push('pain-fill'); }
+  }
+
   // time
   let session: SessionTemplate = { ...tpl, blocks };
-  const want = c?.minutes ?? program.input.minutes;
   if (want < 10) {
     blocks = blocks.filter((b) => b.kind !== 'conditioning').map((b) => b.kind === 'main' ? { ...b, items: b.items.slice(0, 2).map((p) => ({ ...p, sets: 1 })) } : b.kind === 'warmup' ? { ...b, items: b.items.slice(0, 1), game: false } : b);
     session = { ...session, blocks };
@@ -148,4 +158,58 @@ export function getTodayPlan(o: TodayInput): TodayPlan {
   }
   const minutes = Math.max(1, Math.round(session.blocks.reduce((a, b) => a + blockSeconds(b), 0) / 60));
   return { date, sessionId: id, restDay: !id, focus: tpl.focus, blocks: session.blocks, minutes, intensity: low ? 'low' : 'normal', adjustments, skipped, notes };
+}
+
+/** Moves for the safe circuit, in the order they are tried: standing ones first, then floor ones; count-only and time-only
+ *  moves (the form coach counts them, the progression does not need them). `allowed` with the pain areas strict leaves
+ *  out every move that loads a sore area at all, and the jumping ones. */
+export const SAFE_CIRCUIT: readonly FormMoveId[] = ['marching', 'calfRaise', 'armCircles', 'wallAngel', 'deadBug', 'superman', 'sidePlank', 'singleLegBridge', 'reverseCrunch', 'toeTouch', 'hollowHold', 'crunch', 'flutterKicks'];
+/** Stretches for the cool-down of a pain day, tried in this order. */
+export const SAFE_STRETCH: readonly FormMoveId[] = ['hamstringStretch', 'chestStretch', 'shoulderStretch', 'neckStretch', 'figureFour', 'butterflyStretch', 'childsPose'];
+
+/**
+ * A pain day's plan made up to `budgetS` seconds with moves that spare the sore area: one set more on each main move that
+ * stays (not on a low day, at most the goal's top number of sets plus one), then a circuit of up to five safe moves (30 s
+ * on, 15 s off; as many rounds as fit, one to six), then up to two safe stretches in the cool-down. Null when nothing
+ * could be added (every move loads the area, or the plan already fills the time).
+ */
+export function fillPainDay(blocks: readonly Block[], spare: ProgramInput, budgetS: number, low: boolean): Block[] | null {
+  const out: Block[] = blocks.map((b) => ({ ...b, items: b.items.map((p) => ({ ...p, range: [...p.range] as [number, number] })) }));
+  const total = (): number => out.reduce((a, b) => a + blockSeconds(b), 0);
+  const start = total();
+  if (budgetS - start < 120) return null;
+  const used = new Set(out.flatMap((b) => b.items.map((p) => p.move)));
+  // 1. one set more on the main moves that stayed
+  const main = out.find((b) => b.kind === 'main');
+  if (main && !low) {
+    const cap = RX[spare.goal].sets[1] + 1;
+    for (const p of main.items) {
+      const one = blockSeconds({ kind: 'main', items: [{ ...p, sets: 1 }] }) - 20 + p.restS;
+      if (p.sets < cap && total() + one <= budgetS) p.sets++;
+    }
+  }
+  // 2. the safe circuit
+  const moves = SAFE_CIRCUIT.filter((m) => !used.has(m) && MOVE_META[m] && !MOVE_META[m].impact && allowed(m, spare)).slice(0, 5);
+  if (moves.length) {
+    const workS = 30, restS = 15;
+    const round = moves.length * (workS + restS);
+    const rounds = Math.max(1, Math.min(6, Math.floor((budgetS - total()) / round)));
+    if (budgetS - total() >= round * 0.75) {
+      const circuit: Block = { kind: 'conditioning', safe: true, rounds, workS, restS, items: moves.map((m) => ({ move: m, sets: 1, target: workS, range: [workS, workS + 10] as [number, number], unit: 'seconds' as const, restS })) };
+      const at = out.findIndex((b) => b.kind === 'cooldown');
+      out.splice(at < 0 ? out.length : at, 0, circuit);
+      for (const m of moves) used.add(m);
+    }
+  }
+  // 3. safe stretches in the cool-down
+  let cool = out.find((b) => b.kind === 'cooldown');
+  if (!cool) { cool = { kind: 'cooldown', items: [] }; out.push(cool); }
+  let added = 0;
+  for (const m of SAFE_STRETCH) {
+    if (added >= 2 || budgetS - total() < 30) break;
+    if (used.has(m) || !MOVE_META[m] || !allowed(m, spare)) continue;
+    cool.items.push({ move: m, sets: 1, target: 30, range: [30, 45], unit: MOVE_META[m].unit, restS: 0 });
+    used.add(m); added++;
+  }
+  return total() > start ? out.filter((b) => b.kind !== 'cooldown' || b.items.length > 0) : null;
 }
