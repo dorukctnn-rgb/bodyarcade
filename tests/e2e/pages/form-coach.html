@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Form coach harness</title><style>body{margin:0}</style></head>
+<body>
+<script type="module">
+  // The form coach page (packages/web/src/form/page.ts) on its own, as ?form=1 opens it in the web shell.
+  import { bootFormCoach } from '/packages/web/src/form/page.ts';
+  bootFormCoach(window);
+  window.harnessReady = true;
+</script>
+</body>
+</html>
