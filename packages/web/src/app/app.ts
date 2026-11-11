@@ -62,6 +62,7 @@ import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, t
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import { startTileClips } from './tile-clips.ts';
 import { startHeroReel } from './hero-reel.ts';
+import { startHowScene } from './how-scene.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { ROUND_WORD_EVENTS, roundWord, sendSignal, type SignalEvent } from './signal.ts';
 import type { RestoreOutcome } from '../../../core/entitlements/port.ts';
@@ -830,7 +831,8 @@ export class App {
     };
     const stopTiles = startTileClips(this.host, env);
     const stopReel = withReel ? startHeroReel(this.host, env) : () => undefined;
-    this.stopClips = () => { stopTiles(); stopReel(); };
+    const stopHow = withReel ? startHowScene(this.host, env) : () => undefined;
+    this.stopClips = () => { stopTiles(); stopReel(); stopHow(); };
   }
 
   private endClips(): void {

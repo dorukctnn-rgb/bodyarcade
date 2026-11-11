@@ -71,7 +71,7 @@ const PRACTICE: Record<string, unknown> = { timeScale: 40, roundSeconds: 6, forc
 /** Players added to a fresh device that has the Family plan (a child, two more); `active` is the one that plays. */
 const FAMILY_PLAYERS = [{ name: 'Defne', kid: true, avatar: 'fox' }, { name: 'Mert', avatar: 'robot' }, { name: 'Elif', avatar: 'rocket' }];
 /** The main action of Home: the play button of the hero (today's game). */
-const HOME_MAIN = '.k-today .ba-btn--primary';
+const HOME_MAIN = '.k-how .ba-btn--primary';
 const TOUR_READY: Step = { waitFor: '[data-welcome][data-ready="1"]', timeout: 40000 };
 const MAIN_READY: Step = { waitFor: 'main h1', timeout: 20000 };
 
