@@ -12,8 +12,8 @@ import { SERVER_CAPABILITIES } from '../../core/ui/capabilities.ts';
 import { LANG_INFO, type Lang } from '../../core/ui/i18n/index.ts';
 import { hasLanguage } from '../../core/ui/i18n/localized.ts';
 import { devAssets, mappedAssets, ONBOARDING_FILES, type TileSize } from '../src/assets.ts';
-import { showcaseFiles } from '../src/showcase.ts';
-import { clipFiles } from '../src/clips.ts';
+import { SHOWCASE, showcaseFiles } from '../src/showcase.ts';
+import { clipFiles, heroClipFiles } from '../src/clips.ts';
 import { loadCatalogue, repoRoot, tilesDir, type FixtureMode } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import { renderDocument, type Alternate, type BuildAssets } from '../src/document.ts';
@@ -96,7 +96,7 @@ function copyAssets(out: string, games: readonly ShellGame[], root: string): Rec
   }
   for (const file of ONBOARDING_FILES) put(devAssets.onboarding(file), join(root, 'design', 'onboarding', 'fallback', file), 'onboarding');
   for (const file of showcaseFiles()) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
-  for (const file of clipFiles()) put(devAssets.clip(file), join(root, 'design', 'art', 'clips', file), 'clips');
+  for (const file of [...clipFiles(), ...heroClipFiles(SHOWCASE.map((x) => x.id))]) put(devAssets.clip(file), join(root, 'design', 'art', 'clips', file), 'clips');
   return map;
 }
 

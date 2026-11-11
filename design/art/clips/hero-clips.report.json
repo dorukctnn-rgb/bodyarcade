@@ -1,0 +1,194 @@
+{
+  "hero-coast-1280.webm": {
+    "width": 1280,
+    "height": 548,
+    "codec": "av1",
+    "crf": 41,
+    "bytes": 668389,
+    "budget": 700000
+  },
+  "hero-coast-1280.mp4": {
+    "width": 1280,
+    "height": 548,
+    "codec": "h264",
+    "crf": 31,
+    "bytes": 653904,
+    "budget": 700000
+  },
+  "hero-coast-2000.webm": {
+    "width": 2000,
+    "height": 856,
+    "codec": "av1",
+    "crf": 38,
+    "bytes": 1470789,
+    "budget": 1500000
+  },
+  "hero-coast-2000.mp4": {
+    "width": 2000,
+    "height": 856,
+    "codec": "h264",
+    "crf": 31,
+    "bytes": 1379330,
+    "budget": 1500000
+  },
+  "hero-coast-m-960.webm": {
+    "width": 960,
+    "height": 720,
+    "codec": "av1",
+    "crf": 40,
+    "bytes": 593436,
+    "budget": 600000
+  },
+  "hero-coast-m-960.mp4": {
+    "width": 960,
+    "height": 720,
+    "codec": "h264",
+    "crf": 31,
+    "bytes": 524593,
+    "budget": 600000
+  },
+  "hero-flap-1280.webm": {
+    "width": 1280,
+    "height": 548,
+    "codec": "av1",
+    "crf": 20,
+    "bytes": 692886,
+    "budget": 700000
+  },
+  "hero-flap-1280.mp4": {
+    "width": 1280,
+    "height": 548,
+    "codec": "h264",
+    "crf": 22,
+    "bytes": 658770,
+    "budget": 700000
+  },
+  "hero-flap-2000.webm": {
+    "width": 2000,
+    "height": 856,
+    "codec": "av1",
+    "crf": 18,
+    "bytes": 1189869,
+    "budget": 1500000
+  },
+  "hero-flap-2000.mp4": {
+    "width": 2000,
+    "height": 856,
+    "codec": "h264",
+    "crf": 21,
+    "bytes": 1363086,
+    "budget": 1500000
+  },
+  "hero-flap-m-960.webm": {
+    "width": 960,
+    "height": 720,
+    "codec": "av1",
+    "crf": 21,
+    "bytes": 588279,
+    "budget": 600000
+  },
+  "hero-flap-m-960.mp4": {
+    "width": 960,
+    "height": 720,
+    "codec": "h264",
+    "crf": 22,
+    "bytes": 598344,
+    "budget": 600000
+  },
+  "hero-city-1280.webm": {
+    "width": 1280,
+    "height": 548,
+    "codec": "av1",
+    "crf": 36,
+    "bytes": 664986,
+    "budget": 700000
+  },
+  "hero-city-1280.mp4": {
+    "width": 1280,
+    "height": 548,
+    "codec": "h264",
+    "crf": 29,
+    "bytes": 653941,
+    "budget": 700000
+  },
+  "hero-city-2000.webm": {
+    "width": 2000,
+    "height": 856,
+    "codec": "av1",
+    "crf": 31,
+    "bytes": 1491715,
+    "budget": 1500000
+  },
+  "hero-city-2000.mp4": {
+    "width": 2000,
+    "height": 856,
+    "codec": "h264",
+    "crf": 28,
+    "bytes": 1489816,
+    "budget": 1500000
+  },
+  "hero-city-m-960.webm": {
+    "width": 960,
+    "height": 720,
+    "codec": "av1",
+    "crf": 40,
+    "bytes": 597968,
+    "budget": 600000
+  },
+  "hero-city-m-960.mp4": {
+    "width": 960,
+    "height": 720,
+    "codec": "h264",
+    "crf": 31,
+    "bytes": 553078,
+    "budget": 600000
+  },
+  "hero-alps-1280.webm": {
+    "width": 1280,
+    "height": 548,
+    "codec": "av1",
+    "crf": 45,
+    "bytes": 1182065,
+    "budget": 1200000
+  },
+  "hero-alps-1280.mp4": {
+    "width": 1280,
+    "height": 548,
+    "codec": "h264",
+    "crf": 32,
+    "bytes": 1107769,
+    "budget": 1200000
+  },
+  "hero-alps-2000.webm": {
+    "width": 2000,
+    "height": 856,
+    "codec": "av1",
+    "crf": 46,
+    "bytes": 2483133,
+    "budget": 2600000
+  },
+  "hero-alps-2000.mp4": {
+    "width": 2000,
+    "height": 856,
+    "codec": "h264",
+    "crf": 33,
+    "bytes": 2156536,
+    "budget": 2600000
+  },
+  "hero-alps-m-960.webm": {
+    "width": 960,
+    "height": 720,
+    "codec": "av1",
+    "crf": 44,
+    "bytes": 935803,
+    "budget": 950000
+  },
+  "hero-alps-m-960.mp4": {
+    "width": 960,
+    "height": 720,
+    "codec": "h264",
+    "crf": 31,
+    "bytes": 944671,
+    "budget": 950000
+  }
+}
