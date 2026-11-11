@@ -16,17 +16,15 @@ export function shapesMarkup(shapes: readonly Shape[]): string {
   return shapes.map((s) => `<${s.tag} data-g${attrs(s.geo)}${attrs(s.style)}/>`).join('');
 }
 
-/** The camera picture: a dim room, the corners of a viewfinder, the person. */
+/** The camera picture: a dim room with a picture on the wall, the camera's red dot, the person. */
 function cameraPane(still: string): string {
-  const c = (x: number, y: number, dx: number, dy: number): string => `<path d="M${x} ${y + dy * 22}V${y}H${x + dx * 22}" fill="none" stroke="rgba(244,242,248,0.55)" stroke-width="3" stroke-linecap="round"/>`;
   return `<svg viewBox="0 0 ${HOW_W} ${HOW_H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">`
     + '<defs><linearGradient id="how-room" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A3350"/><stop offset="1" stop-color="#262036"/></linearGradient></defs>'
     + `<rect width="${HOW_W}" height="${HOW_H}" fill="url(#how-room)"/>`
     + `<rect y="${HOW_FLOOR}" width="${HOW_W}" height="${HOW_H - HOW_FLOOR}" fill="#1D1829"/>`
-    + `<rect x="300" y="40" width="64" height="92" rx="4" fill="rgba(244,242,248,0.06)"/>`
+    + `<rect x="54" y="70" width="74" height="52" rx="3" fill="rgba(244,242,248,0.07)"/>`
     + `<g data-how-person>${still}</g>`
-    + c(16, 16, 1, 1) + c(HOW_W - 16, 16, -1, 1) + c(16, HOW_H - 16, 1, -1) + c(HOW_W - 16, HOW_H - 16, -1, -1)
-    + '<circle cx="36" cy="40" r="5" fill="#FF4F6E"/>'
+    + '<circle cx="30" cy="40" r="5" fill="#FF4F6E"/>'
     + '</svg>';
 }
 
@@ -54,8 +52,8 @@ export function howHero(ctx: ViewContext, featured: ShellGame | undefined): Safe
     ['camera', t.t('home.how.step.two'), t.t('home.how.step.two.sub')],
     ['play', t.t('home.how.step.three'), t.t('home.how.step.three.sub')],
   ] as const;
-  return html`<section class="k-how" aria-labelledby="home-h1" data-how>
-    <div class="k-how-head">
+  return html`<section class="k-mirror" aria-labelledby="home-h1" data-how>
+    <div class="k-mirror-head">
       <h1 id="home-h1" data-main-heading>${t.t('home.how.h1')}</h1>
       <p class="lead">${t.t('home.how.lead')}</p>
       <div class="k-actions">
@@ -63,14 +61,14 @@ export function howHero(ctx: ViewContext, featured: ShellGame | undefined): Safe
         <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('welcome')}">${t.t('home.cta.how')}</a>
       </div>
     </div>
-    <figure class="k-how-scene">
-      <div class="k-how-pane k-how-pane--cam">${raw(cameraPane(shapesMarkup(personShapes(pts))))}<span class="k-how-tag" aria-hidden="true">${icon('camera')}${t.t('home.how.camera')}</span></div>
-      <div class="k-how-pane k-how-pane--game">${raw(gamePane(shapesMarkup(moverShapes(pts))))}<span class="k-how-tag" aria-hidden="true">${icon('play')}${t.t('home.how.game')}</span><span class="k-how-rep" aria-hidden="true">+1</span></div>
+    <figure class="k-mirror-scene">
+      <div class="k-mirror-pane k-mirror-pane--cam">${raw(cameraPane(shapesMarkup(personShapes(pts))))}<span class="k-mirror-tag" aria-hidden="true">${icon('camera')}${t.t('home.how.camera')}</span></div>
+      <div class="k-mirror-pane k-mirror-pane--game">${raw(gamePane(shapesMarkup(moverShapes(pts))))}<span class="k-mirror-tag" aria-hidden="true">${icon('play')}${t.t('home.how.game')}</span><span class="k-mirror-rep" aria-hidden="true">+1</span></div>
       <figcaption class="ba-visually-hidden">${t.t('home.how.caption')}</figcaption>
     </figure>
-    <ol class="k-how-steps">
-      ${steps.map(([ic, title, sub]) => html`<li><span class="k-how-n" aria-hidden="true">${icon(ic)}</span><span><b>${title}</b><span>${sub}</span></span></li>`)}
+    <ol class="k-mirror-steps">
+      ${steps.map(([ic, title, sub]) => html`<li><span class="k-mirror-n" aria-hidden="true">${icon(ic)}</span><span><b>${title}</b><span>${sub}</span></span></li>`)}
     </ol>
-    <p class="ba-assure k-how-assure">${icon('shield')}<span>${t.t('home.how.assure')}</span></p>
+    <p class="ba-assure k-mirror-assure">${icon('shield')}<span>${t.t('home.how.assure')}</span></p>
   </section>`;
 }

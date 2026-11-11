@@ -208,44 +208,48 @@ ul.ba-grid { list-style: none; margin: 0; padding: 0; }
  * (a person in front of a camera with our body line, and the game's character squatting at the same moment), then the three steps.
  * The scene is inline SVG of a fixed shape (no layout shift); on a phone the two pictures sit one above the other.
  */
-.k-how { display: grid; justify-items: center; gap: clamp(18px, 2.4vw, 30px); padding: clamp(18px, 3vw, 44px) 0 clamp(8px, 1.6vw, 20px); text-align: center; }
-.k-how-head { display: grid; justify-items: center; gap: clamp(12px, 1.4vw, 18px); }
-.k-how h1 { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(2.1rem, 1.2rem + 3.4vw, 4.6rem); line-height: 1.02; letter-spacing: 0; margin: 0; max-width: 15ch; text-wrap: balance; }
-.k-how .lead { margin: 0; max-width: 32em; color: var(--ba-text-muted); font-size: clamp(1.05rem, 0.95rem + 0.5vw, 1.4rem); line-height: 1.45; text-wrap: balance; }
-.k-how .k-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
-.k-how-scene { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(10px, 1.4vw, 18px); width: 100%; max-width: min(1240px, calc((100svh - 330px) * 2.75)); min-width: min(100%, 640px); margin: 0; }
-.k-how-pane { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--ba-radius-lg); background: #1A1430; }
-.k-how-pane svg { display: block; width: 100%; height: 100%; }
-.k-how-tag {
+.k-mirror { display: grid; justify-items: center; gap: clamp(18px, 2.4vw, 30px); padding: clamp(18px, 3vw, 44px) 0 clamp(8px, 1.6vw, 20px); text-align: center; }
+.k-mirror-head { display: grid; justify-items: center; gap: clamp(12px, 1.4vw, 18px); }
+.k-mirror h1 { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(2.1rem, 1.2rem + 3.4vw, 4.6rem); line-height: 1.02; letter-spacing: 0; margin: 0; max-width: 15ch; text-wrap: balance; }
+.k-mirror .lead { margin: 0; max-width: 32em; color: var(--ba-text-muted); font-size: clamp(1.05rem, 0.95rem + 0.5vw, 1.4rem); line-height: 1.45; text-wrap: balance; }
+.k-mirror .k-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.k-mirror .k-actions .ba-btn { flex: 0 0 auto; }
+.k-mirror-scene { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(10px, 1.4vw, 18px); width: 100%; max-width: min(1240px, calc((100svh - 440px) * 2.67)); min-width: min(100%, 640px); margin: 0; }
+.k-mirror-pane { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--ba-radius-lg); background: #1A1430; }
+.k-mirror-pane svg { display: block; width: 100%; height: 100%; }
+.k-mirror-tag {
   position: absolute; left: clamp(10px, 1.4vw, 16px); top: clamp(10px, 1.4vw, 16px); display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 10px;
   border-radius: 999px; background: rgba(20, 15, 39, 0.78); color: #F4F2F8; font-size: var(--ba-text-sm); font-weight: 700; line-height: 1.2; white-space: nowrap;
 }
-.k-how-pane--cam .k-how-tag { left: auto; right: clamp(10px, 1.4vw, 16px); }
-.k-how-tag svg { width: 16px; height: 16px; flex: none; }
-.k-how-pane--cam .k-how-tag svg { color: #22C383; }
-.k-how-pane--game .k-how-tag svg { color: #FFC53A; }
-.k-how-rep { position: absolute; left: 50%; top: 22%; transform: translate(-50%, 0); padding: 4px 12px; border-radius: 999px; background: #22C383; color: #0E2A1E; font-weight: 800; font-size: var(--ba-text-md); line-height: 1.2; opacity: 0; pointer-events: none; }
-.k-how-rep.is-on { animation: k-how-rep 900ms var(--ba-ease-out) both; }
-@keyframes k-how-rep { 0% { opacity: 0; transform: translate(-50%, 10px); } 18% { opacity: 1; transform: translate(-50%, 0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -14px); } }
-.k-how-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 2vw, 28px); width: 100%; max-width: 1080px; margin: 0; padding: 0; list-style: none; text-align: left; }
-.k-how-steps li { display: flex; gap: 12px; align-items: flex-start; }
-.k-how-steps li > span:last-child { display: grid; gap: 2px; line-height: 1.35; }
-.k-how-steps b { font-weight: 800; font-size: var(--ba-text-md); }
-.k-how-steps li > span:last-child > span { color: var(--ba-text-muted); font-size: var(--ba-text-sm); }
-.k-how-n { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
-.k-how-n svg { width: 20px; height: 20px; }
-.k-how-assure { justify-content: center; }
+.k-mirror-pane--cam .k-mirror-tag { left: auto; right: clamp(10px, 1.4vw, 16px); }
+.k-mirror-tag svg { width: 16px; height: 16px; flex: none; }
+.k-mirror-pane--cam .k-mirror-tag svg { color: #22C383; }
+.k-mirror-pane--game .k-mirror-tag svg { color: #FFC53A; }
+.k-mirror-rep { position: absolute; left: 50%; top: 22%; transform: translate(-50%, 0); padding: 4px 12px; border-radius: 999px; background: #22C383; color: #0E2A1E; font-weight: 800; font-size: var(--ba-text-md); line-height: 1.2; opacity: 0; pointer-events: none; }
+.k-mirror-rep.is-on { animation: k-mirror-rep 900ms var(--ba-ease-out) both; }
+@keyframes k-mirror-rep { 0% { opacity: 0; transform: translate(-50%, 10px); } 18% { opacity: 1; transform: translate(-50%, 0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -14px); } }
+.k-mirror-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 2vw, 28px); width: 100%; max-width: 1080px; margin: 0; padding: 0; list-style: none; text-align: left; }
+.k-mirror-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.k-mirror-steps li > span:last-child { display: grid; gap: 2px; line-height: 1.35; }
+.k-mirror-steps b { font-weight: 800; font-size: var(--ba-text-md); }
+.k-mirror-steps li > span:last-child > span { color: var(--ba-text-muted); font-size: var(--ba-text-sm); }
+.k-mirror-n { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--ba-surface); box-shadow: inset 0 0 0 1.5px var(--ba-border); }
+.k-mirror-n svg { width: 20px; height: 20px; }
+.k-mirror-assure { justify-content: center; }
 @media (max-width: 759.98px) {
-  .k-how { text-align: left; justify-items: stretch; }
-  .k-how-head { justify-items: start; }
-  .k-how .k-actions { justify-content: flex-start; }
-  .k-how-scene { grid-template-columns: minmax(0, 1fr); max-width: none; min-width: 0; }
-  .k-how-pane { aspect-ratio: 16 / 10; }
-  .k-how-steps { grid-template-columns: minmax(0, 1fr); }
-  .k-how-assure { justify-content: flex-start; }
+  .k-mirror { text-align: left; justify-items: stretch; }
+  .k-mirror-head { justify-items: start; }
+  .k-mirror { gap: 16px; padding-top: 12px; }
+  .k-mirror .k-actions { justify-content: flex-start; gap: 10px; }
+  .k-mirror .k-actions .ba-btn { min-height: 52px; padding: 0 14px; font-size: 1rem; gap: 8px; }
+  .k-mirror .k-actions .ba-btn--primary { flex: 1 1 auto; }
+  .k-mirror-scene { grid-template-columns: minmax(0, 1fr); gap: 10px; max-width: none; min-width: 0; }
+  .k-mirror-pane { aspect-ratio: 16 / 10; }
+  .k-mirror-steps { grid-template-columns: minmax(0, 1fr); }
+  .k-mirror-assure { justify-content: flex-start; }
 }
-:root[data-motion="reduce"] .k-how-rep { display: none; }
-@media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .k-how-rep { display: none; } }
+:root[data-motion="reduce"] .k-mirror-rep { display: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .k-mirror-rep { display: none; } }
 .k-hero--solo { grid-template-columns: minmax(0, 1fr); }
 .k-today .k-showh { font-family: var(--ba-font-display); font-weight: 800; font-size: clamp(1.6rem, 1.1rem + 1.7vw, 2.6rem); letter-spacing: 0; line-height: 1.02; margin: 0; text-wrap: balance; }
 .k-today .lead { margin: 0; color: var(--ba-text-muted); font-size: var(--ba-text-md); line-height: 1.5; max-width: 34em; }
@@ -432,8 +436,8 @@ form[data-form="setup"] { display: contents; }
   .k-detail .art { position: sticky; top: 12px; }
   .k-info .k-actionbar { margin-left: 0; margin-right: calc(-1 * var(--ba-gutter)); padding-left: 0; }
 }
-.k-how .g { font: 800 1.25rem/1 var(--ba-font-display); color: var(--ba-text); }
-.k-how .s { color: var(--ba-text); font-weight: 600; font-size: var(--ba-text-md); }
+.k-mirror .g { font: 800 1.25rem/1 var(--ba-font-display); color: var(--ba-text); }
+.k-mirror .s { color: var(--ba-text); font-weight: 600; font-size: var(--ba-text-md); }
 .k-block.ba-fieldset { margin: 22px 0 0; }
 .k-hint { margin: 8px 0 0; }
 .k-duo .p1 { background: var(--ba-left); }

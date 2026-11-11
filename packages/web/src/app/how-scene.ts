@@ -22,7 +22,7 @@ export function startHowScene(root: ParentNode, env: TileClipsEnv): () => void {
   if (!clipsAllowed({ reducedMotion: env.reducedMotion, connection, automated: env.automated, forced: env.forced === true })) return () => undefined;
   const person = [...scene.querySelectorAll('[data-how-person] [data-g]')];
   const mover = [...scene.querySelectorAll('[data-how-mover] [data-g]')];
-  const rep = scene.querySelector<HTMLElement>('.k-how-rep');
+  const rep = scene.querySelector<HTMLElement>('.k-mirror-rep');
   const Observer = (win as Window & typeof globalThis).IntersectionObserver;
   if (person.length === 0 || mover.length === 0 || typeof Observer !== 'function') return () => undefined;
 

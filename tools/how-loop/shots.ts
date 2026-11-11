@@ -37,7 +37,7 @@ try {
   await page.waitForSelector('[data-how-live]', { timeout: 20_000 }).catch(() => console.log('the scene did not start'));
   for (let i = 0; i < 4; i += 1) {
     await page.waitForTimeout(600);
-    await page.locator('.k-how-scene').screenshot({ path: join(out, `scene-moment-${i}.png`) });
+    await page.locator('.k-mirror-scene').screenshot({ path: join(out, `scene-moment-${i}.png`) });
   }
   await context.close();
 } finally {
