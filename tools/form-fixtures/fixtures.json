@@ -1,0 +1,26 @@
+{
+  "about": "Form coach fixtures: real people in freely licensed videos, run through the real pose model frame by frame (tools/form-fixtures/extract.ts). Only the landmarks are committed (tests/traces/form/); the videos stay outside the repository. windows: seconds of the source video that show one fixed camera shot; several windows are joined with 1 s of empty frames (as if the person stepped out of view; longer than the coach waits for them, so no repetition runs across a cut). Licences: tools/form-fixtures/SOURCES.md.",
+  "gapS": 1.0,
+  "fixtures": [
+    {"id": "sq-mixkit-52106-front", "move": "squat", "clip": "squat-mixkit-52106.mp4", "angle": "front", "windows": [[0.0, 9.5]], "source": "mixkit-52106"},
+    {"id": "sq-mixkit-52117-45", "move": "squat", "clip": "squat-mixkit-52117.mp4", "angle": "45", "windows": [[0.4, 6.9]], "source": "mixkit-52117"},
+    {"id": "sq-mixkit-52116-front-low", "move": "squat", "clip": "squat-mixkit-52116.mp4", "angle": "front", "windows": [[0.4, 5.4]], "source": "mixkit-52116"},
+    {"id": "sq-mixkit-752-45", "move": "squat", "clip": "squat-mixkit-752.mp4", "angle": "45", "windows": [[0.0, 14.4]], "source": "mixkit-752"},
+    {"id": "sq-cdc-half-45", "move": "squat", "clip": "squat-commons-cdc-half.webm", "angle": "45", "windows": [[16.7, 35.8], [40.6, 48.6]], "source": "commons-cdc-half-squat"},
+    {"id": "sq-tf-goblet-front", "move": "squat", "clip": "squat-commons-kb-goblet.webm", "angle": "front", "windows": [[0.0, 23.0]], "source": "commons-taco-fleur-kettlebell-goblet-squat"},
+    {"id": "sq-tf-frontraise-side", "move": "squat", "clip": "squat-commons-squat-frontal-raise.webm", "angle": "side", "windows": [[0.0, 28.1]], "source": "commons-taco-fleur-squat-and-frontal-raise"},
+    {"id": "pu-mixkit-50762-side", "move": "pushUp", "clip": "push-up-mixkit-50762.mp4", "angle": "side", "windows": [[3.5, 13.0]], "source": "mixkit-50762"},
+    {"id": "pu-cdc-knee-45", "move": "pushUp", "clip": "push-up-commons-cdc.webm", "angle": "45", "windows": [[47.0, 64.6]], "source": "commons-cdc-push-ups"},
+    {"id": "pu-cdc-full-45", "move": "pushUp", "clip": "push-up-commons-cdc.webm", "angle": "45", "windows": [[64.8, 71.2]], "source": "commons-cdc-push-ups"},
+    {"id": "pu-interval-side", "move": "pushUp", "clip": "push-up-commons-interval.webm", "angle": "side", "windows": [[0.0, 51.4]], "source": "commons-interval-push-ups"},
+    {"id": "pu-mixkit-731-front", "move": "pushUp", "clip": "push-up-mixkit-731.mp4", "angle": "front", "windows": [[0.5, 11.5]], "source": "mixkit-731"},
+    {"id": "pu-mixkit-50761-front", "move": "pushUp", "clip": "push-up-mixkit-50761.mp4", "angle": "front", "windows": [[1.0, 8.5]], "source": "mixkit-50761"},
+    {"id": "pu-tf-crush-side", "move": "pushUp", "clip": "push-up-commons-kb-crush.webm", "angle": "side", "windows": [[0.3, 8.6]], "source": "commons-taco-fleur-kettlebell-crush-grip-push-up"},
+    {"id": "sp-mixkit-42899-front", "move": "dbShoulderPress", "clip": "shoulder-press-mixkit-42899.mp4", "angle": "front", "windows": [[0.4, 11.2]], "source": "mixkit-42899"},
+    {"id": "sp-cdc-seated-wide", "move": "dbShoulderPress", "clip": "shoulder-press-commons-cdc.webm", "angle": "front", "windows": [[9.5, 21.2]], "source": "commons-cdc-overhead-press"},
+    {"id": "sp-cdc-seated-close", "move": "dbShoulderPress", "clip": "shoulder-press-commons-cdc.webm", "angle": "front", "windows": [[21.5, 37.8]], "source": "commons-cdc-overhead-press"},
+    {"id": "sp-army-pushpress-front", "move": "dbShoulderPress", "clip": "shoulder-press-commons-army-pushpress.webm", "angle": "front", "windows": [[10.3, 20.8], [28.7, 39.8], [42.0, 45.8]], "source": "commons-army-push-press"},
+    {"id": "sp-colossus-45-close", "move": "dbShoulderPress", "clip": "shoulder-press-commons-colossus.webm", "angle": "45", "windows": [[90.3, 99.8]], "source": "commons-colossus-shoulder-press"},
+    {"id": "sp-colossus-partial-45", "move": "dbShoulderPress", "clip": "shoulder-press-commons-colossus.webm", "angle": "45", "windows": [[158.3, 171.0]], "source": "commons-colossus-shoulder-press"}
+  ]
+}
