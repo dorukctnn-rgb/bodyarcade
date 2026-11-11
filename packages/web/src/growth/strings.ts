@@ -115,7 +115,7 @@ const tr: GrowthWords = {
   how_neck: 'Adem elmasının hemen altından, mezura düz.', how_chest: 'Göğsün en dolgun yerinden, kolların altından, nefes verirken.', how_waist: 'En ince yerden, genelde göbeğin biraz üstü; rahat, karnını içine çekmeden.',
   how_hips: 'Kalçanın en geniş yerinden, ayaklar bitişik.', how_thigh: 'Kalça kıvrımının hemen altından, ayakta.', how_calf: 'Baldırın en geniş yerinden.', how_upperArm: 'Omuzla dirseğin ortasından, kol rahat sarkarken.',
   ratiosTitle: 'Oranlar', whtr: 'Bel/boy oranı: {v}', whr: 'Bel/kalça oranı: {v}', refLine: '{src} kaynağında kullanılan sınır: {ref}', ratiosNote: 'Genel bilgidir, teşhis değildir.',
-  srcNice: 'NICE kılavuzu NG246 (2025)', srcWho: 'WHO uzman raporu (2008)', illustration: 'çizim',
+  srcNice: 'NICE kılavuzu NG246 (2025)', srcWho: 'WHO uzman raporu (2008)', illustration: 'temsili görsel',
   progSetup: 'Programımı kur', goal: 'Hedef', goal_strength: 'Kas ve güç', goal_conditioning: 'Kondisyon', goal_general: 'Genel form', goal_mobility: 'Hareketlilik',
   level: 'Seviye', level_beginner: 'Başlangıç', level_intermediate: 'Orta', level_advanced: 'İleri', equipment: 'Ekipman', eq_chair: 'Sandalye', eq_wall: 'Duvar', eq_step: 'Basamak', eq_dumbbell: 'Dambıl',
   dumbbellKg: 'Elindeki dambıl ağırlıkları (kg, virgülle)', daysLabel: 'Günler', minutes: 'Dakika', avoidLabel: 'Şu bölgeyi zorlayan hareketleri çıkar', area_knee: 'Diz', area_back: 'Bel', area_shoulder: 'Omuz', area_wrist: 'El bileği', area_neck: 'Boyun',
