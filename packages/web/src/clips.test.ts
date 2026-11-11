@@ -53,16 +53,13 @@ describe('moving game tiles', () => {
     expect(clipsAllowed({ ...base, automated: true, forced: true })).toBe(true);
   });
 
-  it('play on the screen only, after the page has loaded, in a tab in front; with a mouse only while hovered or focused', () => {
-    const s = { ready: true, hidden: false, inView: true, hoverDevice: false, engaged: false, failed: false };
+  it('play whenever on the screen, after the page has loaded, in a tab in front, with a mouse as on a touch screen', () => {
+    const s = { ready: true, hidden: false, inView: true, failed: false };
     expect(clipShouldPlay(s)).toBe(true);
     expect(clipShouldPlay({ ...s, ready: false })).toBe(false);
     expect(clipShouldPlay({ ...s, hidden: true })).toBe(false);
     expect(clipShouldPlay({ ...s, inView: false })).toBe(false);
     expect(clipShouldPlay({ ...s, failed: true })).toBe(false);
-    expect(clipShouldPlay({ ...s, hoverDevice: true })).toBe(false);
-    expect(clipShouldPlay({ ...s, hoverDevice: true, engaged: true })).toBe(true);
-    expect(clipShouldPlay({ ...s, hoverDevice: true, engaged: true, inView: false })).toBe(false);
   });
 });
 

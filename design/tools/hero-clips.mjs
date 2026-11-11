@@ -4,7 +4,10 @@
 // Each comes as AV1 in WebM and as H.264 in MP4: the 21:9 crop at 1280 and 2000 px wide (never enlarged: the capture is 2000
 // wide) and the 4:3 crop at 960. Silent, each under its budget: the best quality (lowest CRF) that fits.
 //
-//   node design/tools/hero-clips.mjs <frames dir> [--only=<id>] [--ffmpeg=<path to ffmpeg>] [--work=<dir for the loop frames>]
+//   node design/tools/hero-clips.mjs <frames dir> [--only=<id>] [--ffmpeg=<path to ffmpeg>] [--work=<dir for the loop frames>] [--fast]
+//
+// --fast: the quicker settings of each encoder (AV1 cpu-used 6, H.264 preset slow), for a machine that is busy; each file is still the
+// best CRF that fits its budget (11 Nov: the City clips again, under a full CPU).
 //
 // The files are written to design/art/clips; design/art/clips/hero-clips.report.json keeps what each file came to, and a file that is
 // already in the report is not made again (delete its line to make it again).
@@ -33,6 +36,7 @@ const opt = (k) => process.argv.find((a) => a.startsWith(`--${k}=`))?.slice(k.le
 const FFMPEG = opt('ffmpeg') ?? process.env.FFMPEG ?? 'ffmpeg';
 const only = opt('only');
 const work = path.resolve(opt('work') ?? path.join(frames, '_loop'));
+const fast = process.argv.includes('--fast');
 
 const FPS = 30;
 /** Same as packages/web/src/clips.ts: HERO_SECONDS, HERO_CLIP_WIDE, HERO_CLIP_PHONE. */
@@ -75,8 +79,8 @@ function encode(dir, codec, w, h, crf, file) {
   const input = ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', String(FPS), '-i', path.join(dir, 'l%04d.jpg')];
   const scale = ['-vf', `scale=${w}:${h}:flags=lanczos,format=yuv420p`, '-an'];
   const args = codec === 'av1'
-    ? [...input, ...scale, '-c:v', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-cpu-used', '4', '-row-mt', '1', '-tile-columns', w >= 1920 ? '2' : '1', '-g', '300', '-f', 'webm', file]
-    : [...input, ...scale, '-c:v', 'libx264', '-preset', 'slower', '-crf', String(crf), '-profile:v', 'high', '-level', w >= 1920 ? '5.0' : '4.0', '-g', '300', '-tag:v', 'avc1', '-movflags', '+faststart', '-f', 'mp4', file];
+    ? [...input, ...scale, '-c:v', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-cpu-used', fast ? '6' : '4', '-row-mt', '1', '-tile-columns', w >= 1920 ? '2' : '1', '-g', '300', '-f', 'webm', file]
+    : [...input, ...scale, '-c:v', 'libx264', '-preset', fast ? 'slow' : 'slower', '-crf', String(crf), '-profile:v', 'high', '-level', w >= 1920 ? '5.0' : '4.0', '-g', '300', '-tag:v', 'avc1', '-movflags', '+faststart', '-f', 'mp4', file];
   execFileSync(FFMPEG, args, { stdio: 'inherit' });
 }
 

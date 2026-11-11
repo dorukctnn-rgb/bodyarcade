@@ -6,8 +6,11 @@
 // - The pose follows the simulation, never a clock: the run cycle's place comes from the distance run, the jump's from
 //   the jump's progress, and the crouch bends the hips, the knees and the back on top of the run.
 // - Each figure owns a copy of the geometry (its colours are the game's), its material and its skeleton; dispose() frees them.
+// - In a night world (render3d/looks.ts figureLight) the material adds a light of its own: a fill from the camera's side and a rim
+//   on the edges. The camera sees the runner's back with the moon ahead of it, and without it the runner was a black shape.
 import * as THREE from 'three';
 import figureUrl from './assets/runner.glb?url';
+import type { FigureLight } from './looks.ts';
 
 export interface FigureAsset {
   scene: THREE.Object3D;
@@ -59,7 +62,31 @@ export interface Figure {
   pose(p: FigurePose): void;
   /** 0..1: the red glow of a hit. */
   setHit(k: number): void;
+  /** The world's light on the figure (looks.ts figureLight); null: none (the world's own lights only). */
+  setLight(light: FigureLight | null): void;
   dispose(): void;
+}
+
+/**
+ * The figure's own light in the standard material's fragment shader, added to what it gives off (so it is there whatever the scene's
+ * lights are, and goes through the same fog, tone mapping and grade): `fill` times the surface's own colour, strongest where the
+ * surface faces the camera, and `rim` on the edges (where the surface turns away from the camera). Throws when three.js no longer has
+ * the two places it goes in, so an upgrade cannot drop it without a test failing.
+ */
+export function withFigureLight(fragmentShader: string): string {
+  const head = '#include <common>';
+  const at = '#include <emissivemap_fragment>';
+  if (!fragmentShader.includes(head) || !fragmentShader.includes(at)) throw new Error('figure light: the standard material shader has changed');
+  return fragmentShader
+    .replace(head, `${head}\nuniform float baFigFill;\nuniform vec3 baFigRim;`)
+    .replace(at, [
+      at,
+      '{',
+      '  vec3 baView = normalize( vViewPosition );',
+      '  float baFacing = saturate( dot( normal, baView ) );',
+      '  totalEmissiveRadiance += diffuseColor.rgb * baFigFill * ( 0.35 + 0.65 * baFacing ) + baFigRim * pow( 1.0 - baFacing, 2.0 );',
+      '}',
+    ].join('\n'));
 }
 
 /** The palette of the source model (its texture bands, sRGB): skin, dark (brows, eyes), hair, shirt, trousers. */
@@ -121,6 +148,14 @@ export function createFigure(asset: FigureAsset, colours: FigureColors, track: <
   const skinned = mesh as THREE.SkinnedMesh | null;
   // The camera mostly sees the runner's back, often against the sun: a stronger sky light keeps the shaded side readable.
   const material = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72, metalness: 0, flatShading: true, envMapIntensity: 1.7 }));
+  // The night light (setLight): uniforms of this material, 0 until a world asks for it.
+  const fill = { value: 0 };
+  const rim = { value: new THREE.Color(0, 0, 0) };
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms['baFigFill'] = fill;
+    shader.uniforms['baFigRim'] = rim;
+    shader.fragmentShader = withFigureLight(shader.fragmentShader);
+  };
   if (skinned) {
     skinned.geometry = track(recolour(skinned.geometry, skinned.skeleton.bones, colours));
     skinned.material = material;
@@ -170,6 +205,10 @@ export function createFigure(asset: FigureAsset, colours: FigureColors, track: <
     },
     setHit(k: number): void {
       material.emissive.setRGB(k * 0.9, k * 0.1, k * 0.05);
+    },
+    setLight(light: FigureLight | null): void {
+      fill.value = light ? Math.max(0, light.fill) : 0;
+      if (light) rim.value.set(light.rim).multiplyScalar(Math.max(0, light.rimStrength)); else rim.value.setRGB(0, 0, 0);
     },
     dispose(): void {
       if (disposed) return;

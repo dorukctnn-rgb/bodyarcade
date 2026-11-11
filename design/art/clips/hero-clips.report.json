@@ -95,54 +95,6 @@
     "bytes": 598344,
     "budget": 600000
   },
-  "hero-city-1280.webm": {
-    "width": 1280,
-    "height": 548,
-    "codec": "av1",
-    "crf": 36,
-    "bytes": 664986,
-    "budget": 700000
-  },
-  "hero-city-1280.mp4": {
-    "width": 1280,
-    "height": 548,
-    "codec": "h264",
-    "crf": 29,
-    "bytes": 653941,
-    "budget": 700000
-  },
-  "hero-city-2000.webm": {
-    "width": 2000,
-    "height": 856,
-    "codec": "av1",
-    "crf": 31,
-    "bytes": 1491715,
-    "budget": 1500000
-  },
-  "hero-city-2000.mp4": {
-    "width": 2000,
-    "height": 856,
-    "codec": "h264",
-    "crf": 28,
-    "bytes": 1489816,
-    "budget": 1500000
-  },
-  "hero-city-m-960.webm": {
-    "width": 960,
-    "height": 720,
-    "codec": "av1",
-    "crf": 40,
-    "bytes": 597968,
-    "budget": 600000
-  },
-  "hero-city-m-960.mp4": {
-    "width": 960,
-    "height": 720,
-    "codec": "h264",
-    "crf": 31,
-    "bytes": 553078,
-    "budget": 600000
-  },
   "hero-alps-1280.webm": {
     "width": 1280,
     "height": 548,
@@ -190,5 +142,53 @@
     "crf": 31,
     "bytes": 944671,
     "budget": 950000
+  },
+  "hero-city-1280.webm": {
+    "width": 1280,
+    "height": 548,
+    "codec": "av1",
+    "crf": 35,
+    "bytes": 665457,
+    "budget": 700000
+  },
+  "hero-city-1280.mp4": {
+    "width": 1280,
+    "height": 548,
+    "codec": "h264",
+    "crf": 29,
+    "bytes": 653553,
+    "budget": 700000
+  },
+  "hero-city-2000.webm": {
+    "width": 2000,
+    "height": 856,
+    "codec": "av1",
+    "crf": 32,
+    "bytes": 1428178,
+    "budget": 1500000
+  },
+  "hero-city-2000.mp4": {
+    "width": 2000,
+    "height": 856,
+    "codec": "h264",
+    "crf": 28,
+    "bytes": 1488432,
+    "budget": 1500000
+  },
+  "hero-city-m-960.webm": {
+    "width": 960,
+    "height": 720,
+    "codec": "av1",
+    "crf": 39,
+    "bytes": 575228,
+    "budget": 600000
+  },
+  "hero-city-m-960.mp4": {
+    "width": 960,
+    "height": 720,
+    "codec": "h264",
+    "crf": 31,
+    "bytes": 541981,
+    "budget": 600000
   }
 }

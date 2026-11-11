@@ -19,6 +19,7 @@ import { arrowPixels, makeTexture, stripePixels } from '../../core/render3d/text
 import { LANE_W, type Obstacle, type Run } from './sim.ts';
 import { defineModelled, familyOf, modelledKey, type ObstacleFamily } from './obstacles.ts';
 import { createFigure, type Figure, type FigureColors } from '../../core/render3d/figure.ts';
+import { lookOf, type FigureLight } from '../../core/render3d/looks.ts';
 
 /** Road width of today's engine (engine.js ROAD_W). */
 export const ROAD_W = 5.6;
@@ -175,11 +176,14 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
   let family: ObstacleFamily = 'wild';
   let modelled = false;
   let figure: Figure | null = null;
+  /** The world's own light on the runner (a night world: looks.ts figureLight), on the figure and on the rig alike. */
+  let light: FigureLight | null = null;
   const figureTracker = new ResourceTracker();
   /** The modelled figure, made once per view the first time the tier draws models and its file is in. */
   const useFigure = (): void => {
     if (figure || disposed || !kit.figure) return;
     figure = createFigure(kit.figure, figureColours(o.skin ?? 'runner'), (r) => figureTracker.track(r));
+    figure.setLight(light);
     figure.root.visible = false;
     kit.stage.add(figure.root);
   };
@@ -206,6 +210,8 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
       kit.setTheme(world);
       defineObstacles(kit);
       family = familyOf(kit.theme?.id ?? '');
+      light = lookOf(kit.theme?.id ?? '').figureLight;
+      figure?.setLight(light);
       useModels();
       lastT = null;
       lastDist = 0;
@@ -273,7 +279,9 @@ export function createRunnerView(kit: Scene3DKit, o: RunnerViewOptions): RunnerV
         rig.armL.up.rotation.z = 0.25; rig.armR.up.rotation.z = -0.25;
       }
       const hitK = run.hitT > 0 ? Math.min(1, run.hitT * 2) : 0;
-      for (const m of rig.mats) m.emissive.setRGB(hitK * 0.9, hitK * 0.1, hitK * 0.05);
+      // The rig (T0) has no rim; a night world lifts its colours a little instead.
+      const lift = light ? light.fill * 0.6 : 0;
+      for (const m of rig.mats) m.emissive.setRGB(m.color.r * lift + hitK * 0.9, m.color.g * lift + hitK * 0.1, m.color.b * lift + hitK * 0.05);
       const shown = run.invuln > 0 ? Math.floor(t * 14) % 2 === 0 : true;
       // The modelled figure takes the rig's place while the tier draws models (a drop to T0 brings the rig back).
       const fig = figure && kit.figure ? figure : null;

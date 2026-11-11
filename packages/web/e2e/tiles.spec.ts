@@ -55,24 +55,34 @@ test.describe('moving game tiles', () => {
     expect(fetched).toEqual([]);
   });
 
-  test('with a mouse, the tile under the pointer plays its clip and gives the still back when the pointer leaves', async ({ page }) => {
+  test('with a mouse, the tiles on the screen play without being pointed at, keep playing, and pause off the screen', async ({ page }) => {
     const errors = collectErrors(page);
     await withHooks(page, { clips: true });
     await page.goto(`${WEB_DEV_URL}/`);
     test.skip(!(await playable(page)), 'this engine plays neither format: the tiles keep their pictures');
-    const hovers = await page.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches);
-    test.skip(!hovers, 'this context reports no mouse');
+    // nothing for a tile below the screen
+    await page.waitForTimeout(800);
+    const below = await page.evaluate(() => [...document.querySelectorAll('a.ba-tile:has(video.clip)')].filter((a) => a.getBoundingClientRect().top > innerHeight).map((a) => a.getAttribute('data-game')));
+    expect((await state(page)).filter((c) => below.includes(c.game)).every((c) => c.src === '')).toBe(true);
+
     const box = await pageBox(page, 'road-run');
-    await page.locator('a.ba-tile[data-game="road-run"]').hover();
+    await page.mouse.move(2, 2);
+    await page.evaluate(() => document.querySelector('.ba-grid')?.scrollIntoView({ block: 'center' }));
     await expect.poll(async () => (await state(page)).find((c) => c.game === 'road-run'), { timeout: 20_000 }).toMatchObject({ playing: true, on: true });
-    // the 1x file for a tile drawn under 440 px on a screen of density 1, and only the tile that was pointed at
+    // the 1x file for a tile drawn under 440 px on a screen of density 1
     expect((await state(page)).find((c) => c.game === 'road-run')?.src).toMatch(/\/assets\/clips\/road-run-400\.(webm|mp4)$/);
-    expect((await state(page)).filter((c) => c.src !== '').map((c) => c.game)).toEqual(['road-run']);
     // the clip lies over the picture: the tile did not move or change size
     expect(await pageBox(page, 'road-run')).toEqual(box);
+    // it keeps moving with the pointer away from it: two moments, two different times
+    const t0 = await page.locator('a.ba-tile[data-game="road-run"] video.clip').evaluate((v: HTMLVideoElement) => v.currentTime);
+    await page.waitForTimeout(700);
+    const t1 = await page.locator('a.ba-tile[data-game="road-run"] video.clip').evaluate((v: HTMLVideoElement) => v.currentTime);
+    expect(t1).not.toBe(t0);
 
-    await page.mouse.move(2, 2);
-    await expect.poll(async () => (await state(page)).find((c) => c.game === 'road-run'), { timeout: 10_000 }).toMatchObject({ playing: false, on: false });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(100);
+    const offScreen = await page.locator('a.ba-tile[data-game="road-run"]').evaluate((a) => a.getBoundingClientRect().top > innerHeight);
+    if (offScreen) await expect.poll(async () => (await state(page)).find((c) => c.game === 'road-run')?.playing, { timeout: 10_000 }).toBe(false);
     expect(errors).toEqual([]);
   });
 

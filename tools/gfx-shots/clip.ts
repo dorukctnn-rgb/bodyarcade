@@ -45,7 +45,8 @@ rmSync(dir, { recursive: true, force: true });
 mkdirSync(dir, { recursive: true });
 
 const web = await startWeb('none');
-const browser = await chromium.launch(baseLaunchOptions);
+// BA_GPU=1: the real GPU (ANGLE D3D11) instead of SwiftShader; 11 Nov: about 20 s a frame in software at 2000x1125.
+const browser = await chromium.launch(process.env['BA_GPU'] === '1' ? { ...baseLaunchOptions, args: [...(baseLaunchOptions.args ?? []), '--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] } : baseLaunchOptions);
 try {
   const context = await browser.newContext({ viewport: { width: w, height: h }, colorScheme: 'light', locale: 'en-US', deviceScaleFactor: 1, hasTouch: w < 1000 });
   const page = await context.newPage();
