@@ -268,7 +268,7 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
       b2.disabled = false;
     });
     const r2 = helpers.el('div', 'gc-row'); r2.append(b1, b2);
-    store.append(field(helpers, W.backupPass, pass), field(helpers, W.restore, file), r2, out, helpers.el('p', 'gc-note', W.restoreWarn));
+    store.append(field(helpers, W.backupPass, pass), field(helpers, W.backupFile, file), r2, out, helpers.el('p', 'gc-note', W.restoreWarn));
     // delete everything: two steps
     const del = helpers.btn(W.deleteAll, 'gc-btn gc-btn--danger', () => {
       const box = helpers.el('div', 'gc-card');
@@ -279,14 +279,16 @@ export async function bootGrowth(win: Window = window, o: BootGrowthOptions = {}
       const r = helpers.el('div', 'gc-row'); r.append(yes, no); box.append(r);
       store.append(box);
     });
-    store.append(helpers.el('h3', '', ''), del);
+    store.append(del);
     grid.append(store);
     return () => undefined;
   }
 
   async function render(): Promise<void> {
     disposeTab?.(); disposeTab = null;
-    root.replaceChildren();
+    // a toast shown just before a re-render (saved, PIN on, everything deleted) outlives it: it is fixed on screen anyway
+    const toast = root.querySelector('.gc-toast');
+    root.replaceChildren(...(toast ? [toast] : []));
     const top = helpers.el('header', 'gc-top');
     const brand = helpers.el('a', 'gc-brand', 'BodyArcade'); brand.href = '/';
     top.append(brand, helpers.el('h1', '', W.title), helpers.el('p', '', W.privacy));

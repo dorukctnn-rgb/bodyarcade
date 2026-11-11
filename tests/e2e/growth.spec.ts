@@ -187,7 +187,11 @@ test('food: numbers for an adult, none in pregnancy, none under 18; general-info
     await open(page, `lang=en&profile=food${n}&plan=pro#home`);
     await page.locator('[data-birth-year]').fill('1996');
     await page.getByRole('button', { name: 'Continue' }).click();
+    // an en-US browser starts in inches and pounds; this test types centimetres and kilos, so it picks metric first
+    await page.locator('[data-tab=settings]').click();
+    await page.locator('[data-name=units][data-value=metric]').click();
     await page.locator('[data-tab=food]').click();
+    await expect(page.getByText('Height (cm)')).toBeVisible();
     await page.locator('[data-f-height]').fill('165');
     await page.locator('[data-f-weight]').fill('70');
     await page.locator('[data-name=formula][data-value=female]').click();

@@ -89,6 +89,7 @@ export function mountBeforeAfterBand(host: HTMLElement, o: { lang: Lang; href?: 
     const t = BAND_TAPES;
     await morphView.update({ base: 'male', heightCm: t.height, now: t.after, then: t.before, morph: 0 });
     await cmpView.update({ base: 'male', heightCm: t.height, now: t.after, then: t.before, ghost: true, heat: true });
+    if (disposed) { morphView.dispose(); cmpView.dispose(); return; }
     root.dataset.ready = 'true';
     resolveReady();
     if (reduce) {

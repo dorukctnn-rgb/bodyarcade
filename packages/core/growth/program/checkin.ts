@@ -139,9 +139,7 @@ export function getTodayPlan(o: TodayInput): TodayPlan {
   let session: SessionTemplate = { ...tpl, blocks };
   const want = c?.minutes ?? program.input.minutes;
   if (want < 10) {
-    const mm = main();
     blocks = blocks.filter((b) => b.kind !== 'conditioning').map((b) => b.kind === 'main' ? { ...b, items: b.items.slice(0, 2).map((p) => ({ ...p, sets: 1 })) } : b.kind === 'warmup' ? { ...b, items: b.items.slice(0, 1), game: false } : b);
-    void mm;
     session = { ...session, blocks };
     adjustments.push('mini');
   } else {
