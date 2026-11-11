@@ -132,7 +132,7 @@ const tiltProgress = (b: B): number | null => {
   return t === null ? null : Math.max(0, Math.min(1.3, (t - 20) / 45));
 };
 
-function floorAndBack(id: FormMoveId, minMs: number): MoveDef {
+export function floorAndBack(id: FormMoveId, minMs: number): MoveDef {
   return {
     id, label: 'S', group: 'cardio', views: ['side', 'diag'], parts: FULL,
     rep: { countAt: 0.6, upAt: 0.15, fullAt: 1, minMs },

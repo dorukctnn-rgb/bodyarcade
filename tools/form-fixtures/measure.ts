@@ -3,7 +3,7 @@
 // Usage: node tools/form-fixtures/measure.ts [--debug] [--only <id prefix>] [--hz 15]
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { fixtures, labels, loadTrace, restIndex, root, runTrace, score } from './run-lib.ts';
+import { fixtures, labels, loadTrace, root, runTrace, score, traceId } from './run-lib.ts';
 
 const argv = process.argv.slice(2);
 const debug = argv.includes('--debug');
@@ -14,8 +14,8 @@ const lab = existsSync(join(root, 'tools/form-fixtures/labels.json')) ? labels()
 const rows: string[] = [];
 for (const f of fixtures()) {
   if (only && !f.id.startsWith(only)) continue;
-  if (!existsSync(join(root, 'tests/traces/form', `${f.id}.trace.json`))) { rows.push(`| ${f.id} | (no trace yet) |`); continue; }
-  const r = runTrace(f.move, loadTrace(f.id), hz);
+  if (!existsSync(join(root, 'tests/traces/form', `${traceId(f)}.trace.json`))) { rows.push(`| ${f.id} | (no trace yet) |`); continue; }
+  const r = runTrace(f.move, loadTrace(traceId(f)), hz);
   if (debug) {
     console.log(`\n== ${f.id} (${f.move}) frames ${r.frames} red ${r.redFrames} views ${JSON.stringify(r.views)}`);
     let line = '';

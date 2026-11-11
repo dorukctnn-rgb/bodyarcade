@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseTrace } from '../pose/trace.ts';
-import { fixtures, labels, loadTrace, runTrace, score } from '../../../tools/form-fixtures/run-lib.ts';
+import { fixtures, labels, loadTrace, runTrace, score, traceId } from '../../../tools/form-fixtures/run-lib.ts';
 import { FAULTS } from '../../../tools/form-fixtures/faults.ts';
 import { FORM_MOVE_IDS } from './moves/index.ts';
 
@@ -15,7 +15,7 @@ describe('real video: repetitions and false alarms', () => {
   for (const f of all) {
     const l = lab[f.id]!;
     it(`${f.id}: ${l.kind === 'none' ? 'counts nothing' : l.kind === 'wrong' ? 'nothing it counts is clean' : `${l.reps?.length ?? 0} labelled repetitions`}`, () => {
-      const r = runTrace(f.move, loadTrace(f.id));
+      const r = runTrace(f.move, loadTrace(traceId(f)));
       const s = score(r, l);
       if (l.kind === 'none') expect(s.counted).toBe(0);
       else if (l.kind === 'wrong') expect(s.caught).toBe(s.counted);
@@ -45,7 +45,7 @@ describe('real video: a person standing still', () => {
 describe('real video at 15 poses a second (a slow phone)', () => {
   it('still counts every labelled repetition', () => {
     for (const f of all) {
-      const trace = loadTrace(f.id);
+      const trace = loadTrace(traceId(f));
       // at 15 poses a second the smoothing lags a little more: a repetition at the very end of a clip (its bottom in the last
       // 1.5 s) may only finish after the clip does (jl-mixkit-52316-45, 11 Nov 2026), so those are left out here
       const endS = (trace.frames.at(-1)?.t ?? 0) / 1000;

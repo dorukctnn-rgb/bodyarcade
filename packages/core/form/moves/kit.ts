@@ -1,7 +1,7 @@
 // Helpers shared by the move definitions.
 import { LM } from '../../types/index.ts';
-import { COUNT_VISIBILITY, RULE_VISIBILITY, SIDE_IDX, mid, seen, type P, type Side } from '../geometry.ts';
-import type { BodyCtx } from '../types.ts';
+import { COUNT_VISIBILITY, RULE_VISIBILITY, SIDE_IDX, mid, seen, type P, type Side, type View } from '../geometry.ts';
+import type { BodyCtx, FormRule, LiveRule, RepRule, SegmentId, Severity } from '../types.ts';
 
 type Body = Pick<BodyCtx, 'pts' | 'near' | 'view'>;
 export type Joint = keyof (typeof SIDE_IDX)['L'];
@@ -33,3 +33,12 @@ export const nose = (b: Body, count = false): P | null => {
 };
 
 export const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+// ---- rule builders (Faz 4 and 5) ----
+
+export const liveRule = (r: Omit<LiveRule, 'kind'>): LiveRule => ({ kind: 'live', ...r });
+export const repRule = (r: Omit<RepRule, 'kind'>): RepRule => ({ kind: 'rep', ...r });
+
+/** A repetition that never reached the target (progress 1) is not clean: the move's range-of-motion rule. */
+export const topRule = (id: string, cue: string, views: readonly View[], segments: (b: BodyCtx) => readonly SegmentId[], severity: Severity = 'error'): FormRule =>
+  repRule({ id, severity, views, judge: (r) => r.maxP < 1, segments, cue });
