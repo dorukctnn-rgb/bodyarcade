@@ -5,10 +5,32 @@
 <script type="module">
   // The progress coach page (packages/web/src/growth/page.ts) on its own, as ?gelisim=1 opens it in the web shell. The plan is
   // set by the test (?plan=pro); the vault is the browser's real IndexedDB; PBKDF2 runs fewer rounds here to keep tests fast.
+  // ?play=1 gives the Today panel and the progress page a fixed set of games and game rounds (the shell reads the player's
+  // arcade instead: growth/access.ts growthBoot).
   import { bootGrowth } from '/packages/web/src/growth/page.ts';
   const q = new URLSearchParams(location.search);
   const pro = q.get('plan') === 'pro';
-  await bootGrowth(window, { access: { can: (f) => pro || ['growth:photos', 'growth:compare', 'growth:lock', 'growth:backup', 'growth:program-basic', 'growth:targets', 'growth:meals-sample'].includes(f), profileId: q.get('profile') ?? 'test' }, iterations: 2000 });
+  const ago = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const at = (n) => { const d = new Date(); d.setDate(d.getDate() - n); d.setHours(Math.min(d.getHours(), 9), 0, 0, 0); return d.getTime(); };
+  const games = [
+    { id: 'squat-flap', free: true, regions: ['legs'], lowImpact: true, seated: true, durationSec: 270, title: { en: 'Squat Flap', tr: 'Squat Flap' }, slug: 'squat-flap' },
+    { id: 'star-catch', free: true, regions: ['arms'], lowImpact: true, seated: true, durationSec: 196, title: { en: 'Star Catch', tr: 'Yıldız Yakala' }, slug: 'star-catch' },
+    { id: 'twist-turbine', free: true, regions: ['core'], lowImpact: true, seated: true, durationSec: 180, title: { en: 'Twist Turbine', tr: 'Dönen Türbin' }, slug: 'twist-turbine' },
+    { id: 'pad-work', free: false, regions: ['arms', 'core'], lowImpact: true, seated: true, durationSec: 420, title: { en: 'Pad Work', tr: 'Pad Work' }, slug: 'pad-work' },
+  ];
+  const runs = q.get('play') === '1' ? [
+    { day: ago(3), game: 'star-catch', t: at(3), score: 300, seconds: 190 },
+    { day: ago(2), game: 'squat-flap', t: at(2), score: 900, seconds: 240 },
+    { day: ago(0), game: 'squat-flap', t: at(0), score: 1240, seconds: 250 },
+  ] : [];
+  const gameSeconds = {};
+  for (const r of runs) gameSeconds[r.day] = (gameSeconds[r.day] ?? 0) + r.seconds;
+  const play = q.get('play') === '1' ? {
+    games,
+    read: () => ({ runs: runs.map((r) => ({ ...r })), gameSeconds: { ...gameSeconds }, gameBests: [{ game: 'squat-flap', best: 1240 }, { game: 'star-catch', best: 300 }] }),
+    href: (g, lang) => `${lang === 'en' ? '' : `/${lang}`}/games/${g.slug}`,
+  } : null;
+  await bootGrowth(window, { access: { can: (f) => pro || ['growth:photos', 'growth:compare', 'growth:lock', 'growth:backup', 'growth:program-basic', 'growth:targets', 'growth:meals-sample'].includes(f), profileId: q.get('profile') ?? 'test' }, iterations: 2000, play });
   window.harnessReady = true;
 </script>
 </body>

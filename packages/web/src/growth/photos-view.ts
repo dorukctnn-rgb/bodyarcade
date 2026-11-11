@@ -13,13 +13,13 @@ import { askPersist } from '../../../core/growth/vault/persist.ts';
 import { newId } from '../../../core/growth/vault/vault.ts';
 import { LM, POSE_CONNECTIONS, type CameraLease, type Landmark, type PoseFrame } from '../../../core/types/index.ts';
 import { chips, field, saveFile, select, type Ctx } from './ctx.ts';
-import type { GrowthKey } from './strings.ts';
+import { fill, type GrowthKey } from './strings.ts';
 
 export interface ShotRecord { bucket: Bucket; photo: string; thumb: string; lm: Landmark[]; aspect: number; w: number; h: number; approximate: boolean; forced: boolean; light: LightStats | null }
 export interface PhotoSession { at: number; mode: CaptureMode; note: string; shots: ShotRecord[] }
 
 const dirKey = (b: Bucket): GrowthKey => `dir${b}` as GrowthKey;
-const CUE_KEY: Record<NonNullable<CaptureState['cue']>, GrowthKey> = { 'start-front': 'cueStart', turn: 'cueTurn', slower: 'cueSlower', closer: 'cueCloser', farther: 'cueFarther', stay: 'cueStay', still: 'cueStill', 'same-way': 'cueSameWay', done: 'cueDone' };
+const CUE_KEY: Record<NonNullable<CaptureState['cue']>, GrowthKey> = { 'start-front': 'cueStart', turn: 'cueTurn', slower: 'cueSlower', closer: 'cueCloser', farther: 'cueFarther', stay: 'cueStay', still: 'cueStill', 'same-way': 'cueSameWay', 'turn-to': 'cueTurnTo', hold: 'cueHold', check: 'cueCheck', done: 'cueDone' };
 
 export async function loadSessions(c: Ctx): Promise<{ id: string; s: PhotoSession }[]> {
   return (await c.vault.all<PhotoSession>('sessions')).map(({ id, value }) => ({ id, s: value })).sort((a, b) => a.s.at - b.s.at);
@@ -76,16 +76,23 @@ export async function photosTab(c: Ctx, host: HTMLElement): Promise<() => void> 
   for (const k of ['setup1', 'setup2', 'setup3'] as const) setupList.append(el('li', '', W[k]));
   const lastS = sessions.at(-1)?.s;
   const lastLine = lastS ? el('p', 'gc-muted', c.t('lastTime', { date: c.date(lastS.at), note: lastS.note || '-' })) : null;
+  const modeNote = el('p', 'gc-note', W.fullNote); modeNote.hidden = true; modeNote.dataset.fullNote = '';
   const modes = chips(c, [['quick', W.quick], ['full', `${W.full} · ${W.proTag}`]] as const, ['quick'], false, (v) => {
     if (v[0] === 'full' && !c.access.can('growth:turntable')) { c.toast(W.proLocked); return; }
     mode = v[0] as CaptureMode;
+    modeNote.hidden = mode !== 'full';
   }, 'mode');
   const stage = el('div', 'gc-stage');
   const video = el('video'); video.muted = true; video.playsInline = true; video.setAttribute('aria-hidden', 'true');
   const overlay = el('canvas'); overlay.setAttribute('aria-hidden', 'true');
   const buckets = el('div', 'gc-buckets');
   const cue = el('p', 'gc-cue'); cue.setAttribute('aria-live', 'polite'); cue.dataset.cue = '';
-  stage.append(video, overlay, buckets, cue);
+  // the 360 mode, step by step: the "stop" sign with how long the person has held still, and the photo's preview
+  const holdSign = el('div', 'gc-hold'); holdSign.dataset.hold = ''; holdSign.hidden = true;
+  const holdBar = el('i'), holdTrack = el('span', 'gc-hold-bar');
+  holdTrack.append(holdBar); holdSign.append(el('b', '', W.holdSign), holdTrack);
+  const preview = el('div', 'gc-step-preview'); preview.dataset.stepPreview = ''; preview.hidden = true;
+  stage.append(video, overlay, buckets, holdSign, cue, preview);
   stage.hidden = true;
   const actions = el('div', 'gc-row');
   const startB = btn(W.startCapture, 'gc-btn gc-btn--primary');
@@ -94,7 +101,7 @@ export async function photosTab(c: Ctx, host: HTMLElement): Promise<() => void> 
   actions.append(startB, anywayB, voiceL);
   const status = el('p', 'gc-muted'); status.setAttribute('role', 'status');
   const review = el('div'); review.dataset.review = '';
-  cap.append(el('h2', '', W.setupCard), setupList, el('p', 'gc-note', W.laptopNote), ...(lastLine ? [lastLine] : []), modes, stage, actions, status, review);
+  cap.append(el('h2', '', W.setupCard), setupList, el('p', 'gc-note', W.laptopNote), ...(lastLine ? [lastLine] : []), modes, modeNote, stage, actions, status, review);
 
   const services = browserServices();
   let lease: CameraLease | null = null, offFrame: (() => void) | null = null, stopTrace: (() => void) | null = null, ac: AbortController | null = null;
@@ -116,9 +123,37 @@ export async function photosTab(c: Ctx, host: HTMLElement): Promise<() => void> 
     buckets.replaceChildren(...wanted.map((b) => {
       const x = el('span', 'gc-bucket', W[dirKey(b)]);
       x.dataset.bucket = String(b);
-      x.dataset.state = s?.filled.includes(b) ? 'filled' : s?.bucket === b ? 'now' : 'empty';
+      const filled = s ? s.filled.includes(b) : !!capture?.result.some((r) => r.bucket === b);
+      // the 360 mode lights the direction asked for; the quick mode the one the person is in
+      const now = s?.step ? s.step.targets.includes(b) || s.step.pending === b : s?.bucket === b;
+      x.dataset.state = filled ? 'filled' : now ? 'now' : 'empty';
       return x;
     }));
+  }
+  function cueText(s: CaptureState): string {
+    if (!s.cue) return '';
+    if (s.cue === 'turn-to' && s.step) return s.step.targets.length > 1 ? W.cueTurnEither : s.step.targets[0] !== undefined ? fill(W.cueTurnTo, { dir: W[dirKey(s.step.targets[0])] }) : '';
+    return W[CUE_KEY[s.cue]];
+  }
+  /** The 360 photo waiting for an answer: its thumbnail, retake and continue. */
+  function showPreview(b: Bucket, thumb: Uint8Array<ArrayBuffer> | null): void {
+    preview.replaceChildren();
+    const img = el('img'); img.alt = W[dirKey(b)];
+    if (thumb) { const u = URL.createObjectURL(new Blob([thumb], { type: 'image/jpeg' })); img.src = u; disposers.push(() => URL.revokeObjectURL(u)); }
+    const again = btn(W.retake, 'gc-btn', () => {
+      capture?.retake(); kept.delete(b); preview.hidden = true; anywayB.hidden = false;
+    });
+    again.dataset.stepRetake = '';
+    const next = btn(W.continue, 'gc-btn gc-btn--primary', () => {
+      capture?.accept(); preview.hidden = true; anywayB.hidden = false; drawBuckets(null);
+      if (capture?.isDone()) void finishCapture();
+    });
+    next.dataset.stepContinue = '';
+    const row = el('div', 'gc-row'); row.append(again, next);
+    preview.dataset.bucket = String(b);
+    preview.append(img, el('b', '', W[dirKey(b)]), row);
+    preview.hidden = false; anywayB.hidden = true;
+    next.focus({ preventScroll: true });
   }
   function drawOverlay(): void {
     const w = stage.clientWidth, h = stage.clientHeight;
@@ -157,10 +192,17 @@ export async function photosTab(c: Ctx, host: HTMLElement): Promise<() => void> 
     }
     const s = capture.push({ t: f.t, lm: f.landmarks, aspect: f.aspect, sharp: video.videoWidth ? lastSharp : 1 });
     // encoding a full frame costs tens of ms: at most one grab per bucket every 200 ms (the shot keeps the grabbed frame's own points)
-    if (s.bestChanged !== null && f.landmarks && f.t - (grabbedAt.get(s.bestChanged) ?? -1e9) >= 200) { const b = s.bestChanged, lm = f.landmarks.map((p) => ({ ...p })); grabbedAt.set(b, f.t); void grab(lm).then((g) => { if (!capture?.result.some((x) => x.bucket === b) || !kept.has(b)) kept.set(b, g); }); }
+    if (capture.mode === 'quick' && s.bestChanged !== null && f.landmarks && f.t - (grabbedAt.get(s.bestChanged) ?? -1e9) >= 200) { const b = s.bestChanged, lm = f.landmarks.map((p) => ({ ...p })); grabbedAt.set(b, f.t); void grab(lm).then((g) => { if (!capture?.result.some((x) => x.bucket === b) || !kept.has(b)) kept.set(b, g); }); }
     if (s.justFilled !== null) beep();
+    // a 360 photo was taken: keep its pixels and show it for "retake" or "continue"
+    if (s.justPending !== null && f.landmarks) { const b = s.justPending, lm = f.landmarks.map((p) => ({ ...p })); beep(); void grab(lm).then((g) => { kept.set(b, g); if (capture?.pending?.bucket === b) showPreview(b, g.thumb); }); }
+    if (s.step) {
+      holdSign.hidden = s.cue !== 'hold';
+      holdBar.style.width = `${Math.round(s.step.hold * 100)}%`;
+      holdSign.dataset.progress = String(Math.round(s.step.hold * 100));
+    }
     drawBuckets(s);
-    const text = s.cue ? W[CUE_KEY[s.cue]] : '';
+    const text = cueText(s);
     cue.textContent = text;
     if (text && text !== lastCue) { lastCue = text; say(text); }
     drawOverlay();
@@ -180,6 +222,7 @@ export async function photosTab(c: Ctx, host: HTMLElement): Promise<() => void> 
     ac?.abort(); ac = null; offFrame?.(); offFrame = null; stopTrace?.(); stopTrace = null;
     services.pose.detach(); lease?.release(); lease = null; video.srcObject = null;
     startB.textContent = W.startCapture; startB.dataset.on = 'false'; anywayB.hidden = true;
+    holdSign.hidden = true; preview.hidden = true;
   }
   disposers.push(stopCamera);
 
@@ -217,7 +260,14 @@ export async function photosTab(c: Ctx, host: HTMLElement): Promise<() => void> 
   anywayB.addEventListener('click', () => {
     if (!capture || !lastLm) return;
     const b = capture.force();
-    if (b !== null) { const lm = lastLm.map((p) => ({ ...p })); void grab(lm).then((g) => { kept.set(b, g); drawBuckets(null); if (capture?.isDone()) void finishCapture(); }); }
+    if (b !== null) {
+      const lm = lastLm.map((p) => ({ ...p }));
+      void grab(lm).then((g) => {
+        kept.set(b, g);
+        if (capture?.mode === 'full') { showPreview(b, g.thumb); return; }
+        drawBuckets(null); if (capture?.isDone()) void finishCapture();
+      });
+    }
   });
 
   let finishing = false;

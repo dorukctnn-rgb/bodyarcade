@@ -77,10 +77,13 @@ describe('capture', () => {
     }
   });
 
-  it('the 360 mode fills eight buckets', () => {
+  it('the 360 mode takes no diagonal photo while the person keeps turning (step by step: capture-step.test.ts)', () => {
     const cap = new Capture('full');
-    for (const f of turnFrames({ seconds: 26, degPerS: 15, seed: 10 })) cap.push({ t: f.t, lm: f.lm, aspect: 16 / 9, sharp: 1 });
-    expect(cap.result.map((s) => s.bucket).sort((a, b) => a - b)).toEqual([0, 45, 90, 135, 180, 225, 270, 315]);
+    for (const f of turnFrames({ seconds: 26, degPerS: 15, seed: 10, stillS: 0.2 })) {
+      const s = cap.push({ t: f.t, lm: f.lm, aspect: 16 / 9, sharp: 1 });
+      if (s.justPending !== null) { expect(s.justPending % 90, `${s.justPending} at ${f.deg}`).toBe(0); expect(angleDiff(f.deg, s.justPending)).toBeLessThanOrEqual(15); cap.accept(); }
+    }
+    expect(cap.result.filter((s) => s.bucket % 90 !== 0)).toEqual([]);
   });
 
   it('too far away: it says "closer" and fills nothing; take it anyway fills the current one', () => {

@@ -157,7 +157,8 @@ test('program: build, the check-in with knee pain leaves knee moves out with the
   await expect(page.locator('[data-checkin]')).toBeVisible();
   await page.locator('[data-name=body][data-value=pain]').click();
   await page.locator('[data-name=pain][data-value=knee]').click();
-  await page.locator('[data-minutes]').fill('20');
+  // minutes are ready options now (kol F: the 30-second form has no typing)
+  await page.locator('[data-name=minutes][data-value="20"]').click();
   await page.getByRole('button', { name: 'Günümü planla' }).click();
   await expect(page.locator('[data-today] [data-note=see-professional]')).toHaveText('Ağrı sürerse sağlık uzmanına danış.');
   await expect(page.locator('[data-today] [data-move=squat]')).toHaveCount(0);

@@ -64,3 +64,39 @@ export function turnFrames(o: { seconds: number; degPerS: number; start?: number
   }
   return out;
 }
+
+/**
+ * A 360 capture done the guided way (SPEC 2.4 mode B): still at the front for `firstStopS`, then 45 degrees at a time at
+ * `degPerS`, stopping `stopS` at each step, `dir` +1 (angles grow) or -1, back to the front at the end. `stops` lists the
+ * time window of each stop, for tests that check when a photo was taken.
+ */
+export function stepTurnFrames(o: { stopS: number; firstStopS?: number; degPerS: number; dir?: 1 | -1; fps?: number; seed?: number } & TurnBodyOptions): { frames: { t: number; deg: number; lm: Landmark[] }[]; stops: { deg: number; from: number; to: number }[] } {
+  const fps = o.fps ?? 30, rng = mulberry32(o.seed ?? 7), dir = o.dir ?? 1;
+  const moveS = 45 / Math.abs(o.degPerS);
+  const plan: { deg0: number; deg1: number; s: number }[] = [{ deg0: 0, deg1: 0, s: o.firstStopS ?? o.stopS }];
+  for (let k = 1; k <= 8; k++) {
+    const from = (dir * 45 * (k - 1) + 360) % 360;
+    plan.push({ deg0: from, deg1: from + dir * 45, s: moveS });
+    if (k < 8) plan.push({ deg0: (from + dir * 45 + 360) % 360, deg1: (from + dir * 45 + 360) % 360, s: o.stopS });
+  }
+  const frames: { t: number; deg: number; lm: Landmark[] }[] = [];
+  const stops: { deg: number; from: number; to: number }[] = [];
+  let t0 = 0;
+  for (const seg of plan) {
+    if (seg.deg0 === seg.deg1) stops.push({ deg: seg.deg0, from: t0, to: t0 + seg.s * 1000 });
+    t0 += seg.s * 1000;
+  }
+  const end = t0;
+  for (let k = 0; (k * 1000) / fps <= end; k++) {
+    const t = (k * 1000) / fps;
+    let acc = 0, deg = 0;
+    for (const seg of plan) {
+      const d = seg.s * 1000;
+      if (t <= acc + d) { deg = seg.deg0 + (seg.deg1 - seg.deg0) * ((t - acc) / d); break; }
+      acc += d; deg = seg.deg1;
+    }
+    deg = ((deg % 360) + 360) % 360;
+    frames.push({ t, deg, lm: turnBody(deg, rng, o) });
+  }
+  return { frames, stops };
+}

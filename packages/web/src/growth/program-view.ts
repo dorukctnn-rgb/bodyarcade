@@ -16,14 +16,25 @@ import type { CameraLease, PoseFrame } from '../../../core/types/index.ts';
 import { FORM_WORDS } from '../form/strings.ts';
 import { chips, field, numberInput, select, type Ctx } from './ctx.ts';
 import type { GrowthKey } from './strings.ts';
+import { checkinForm, defaultCheckin } from './checkin-form.ts';
+import { saveCheckin } from './play.ts';
 
-interface Stored { input: ProgramInput; program: Program; startedAt: number }
-type States = Partial<Record<FormMoveId, MoveState>>;
+export interface Stored { input: ProgramInput; program: Program; startedAt: number }
+export type States = Partial<Record<FormMoveId, MoveState>>;
 
 const todayIso = (d = new Date()): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 async function load(c: Ctx): Promise<{ stored: Stored | null; states: States }> {
   return { stored: await c.vault.getJson<Stored>('program', 'current'), states: (await c.vault.getJson<States>('program', 'states')) ?? {} };
+}
+/** The program and its progression (the Today panel reads them too). */
+export const loadProgram = load;
+/** The program's week, from 1 (planned deload weeks). */
+export const programWeek = (s: Stored, now = Date.now()): number => Math.floor((now - s.startedAt) / (7 * 86_400_000)) + 1;
+
+/** The Today panel's "start with this plan": the sample program becomes the person's program. */
+export async function startProgram(c: Ctx, input: ProgramInput): Promise<void> {
+  await c.vault.putJson('program', 'current', { input, program: generateProgram(input), startedAt: Date.now() } satisfies Stored);
 }
 
 export async function programSummary(c: Ctx): Promise<string> {
@@ -46,29 +57,15 @@ export async function programTab(c: Ctx, host: HTMLElement): Promise<() => void>
   const left = el('div', 'gc-grid'); left.style.gridTemplateColumns = '1fr';
   const right = el('div', 'gc-grid'); right.style.gridTemplateColumns = '1fr';
   wrap.append(left, right);
-  const week = Math.floor((Date.now() - stored.startedAt) / (7 * 86_400_000)) + 1;
+  const week = programWeek(stored);
 
-  // ---- check-in ----
-  const ci = el('section', 'gc-card'); ci.dataset.checkin = '';
-  const ans: DailyCheckin = (await c.vault.getJson<{ date: string; a: DailyCheckin }>('program', 'checkin').then((x) => (x?.date === todayIso() ? x.a : null))) ?? { sleep: 'good', energy: 3, body: 'fine', painAreas: [], minutes: stored.input.minutes, priority: 'any' };
-  const q = (label: string, node: HTMLElement): void => { ci.append(el('p', 'gc-q', label), node); };
-  ci.append(el('h2', '', W.checkinTitle));
-  q(W.sleep, chips(c, [['good', W.sleep_good], ['ok', W.sleep_ok], ['poor', W.sleep_poor]] as const, [ans.sleep], false, (v) => { ans.sleep = v[0] as DailyCheckin['sleep']; }, 'sleep'));
-  q(W.energy, chips(c, (['1', '2', '3', '4', '5'] as const).map((n) => [n, n] as [typeof n, string]), [String(ans.energy) as '3'], false, (v) => { ans.energy = Number(v[0]) as DailyCheckin['energy']; }, 'energy'));
-  const painBox = el('div'); painBox.hidden = ans.body !== 'pain';
-  q(W.bodyFeel, chips(c, [['fine', W.body_fine], ['tired', W.body_tired], ['pain', W.body_pain]] as const, [ans.body], false, (v) => { ans.body = v[0] as DailyCheckin['body']; painBox.hidden = ans.body !== 'pain'; }, 'body'));
-  painBox.append(el('p', 'gc-q', W.painWhere), chips(c, AREAS.map((a) => [a, W[`area_${a}` as GrowthKey]] as [Area, string]), ans.painAreas ?? [], true, (v) => { ans.painAreas = v; }, 'pain'));
-  ci.append(painBox);
-  const mins = numberInput(c, ans.minutes, { min: 5, max: 120, step: 5 }); mins.dataset.minutes = '';
-  ci.append(field(c, W.minutesToday, mins));
-  q(W.priority, chips(c, [['any', W.prio_any], ['strength', W.prio_strength], ['cardio', W.prio_cardio], ['mobility', W.prio_mobility]] as const, [ans.priority], false, (v) => { ans.priority = v[0] as DailyCheckin['priority']; }, 'priority'));
-  const planB = btn(W.planToday, 'gc-btn gc-btn--primary', async () => {
-    ans.minutes = Math.max(5, Number(mins.value) || stored.input.minutes);
-    await c.vault.putJson('program', 'checkin', { date: todayIso(), a: ans });
+  // ---- check-in: the same 30-second form as the Today panel (checkin-form.ts) ----
+  let ans: DailyCheckin = (await c.vault.getJson<{ date: string; a: DailyCheckin }>('program', 'checkin').then((x) => (x?.date === todayIso() ? x.a : null))) ?? defaultCheckin(stored.input.minutes);
+  left.append(checkinForm(c, ans, async (a) => {
+    ans = a;
+    await saveCheckin(c, todayIso(), a);
     drawToday(getTodayPlan({ program: stored.program, date: todayIso(), checkin: ans, states, week }));
-  });
-  ci.append(el('div', 'gc-row'), planB);
-  left.append(ci);
+  }));
 
   // ---- today ----
   const today = el('section', 'gc-card'); today.dataset.today = '';
@@ -80,7 +77,9 @@ export async function programTab(c: Ctx, host: HTMLElement): Promise<() => void>
     for (const n of p.notes) { const x = el('p', 'gc-note', W[`note_${n}` as GrowthKey]); x.dataset.note = n; today.append(x); }
     for (const b of p.blocks) {
       if (!b.items.length) continue;
-      today.append(el('h3', '', W[`blk_${b.kind}` as GrowthKey] + (b.kind === 'conditioning' && b.rounds ? ` · ${c.t('rounds', { n: b.rounds, s: b.workS ?? 30 })}` : '')));
+      const h = el('h3', '', (b.safe ? W.blk_safe : W[`blk_${b.kind}` as GrowthKey]) + (b.kind === 'conditioning' && b.rounds ? ` · ${c.t('rounds', { n: b.rounds, s: b.workS ?? 30 })}` : ''));
+      if (b.safe) h.dataset.safe = '';
+      today.append(h);
       const ul = el('ul', 'gc-list');
       for (const it of b.items) {
         const li = el('li'); li.dataset.move = it.move;

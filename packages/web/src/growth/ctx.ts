@@ -4,6 +4,7 @@ import type { Lang } from '../../../core/ui/i18n/index.ts';
 import type { Vault } from '../../../core/growth/vault/vault.ts';
 import type { GrowthKey, GrowthWords } from './strings.ts';
 import { fill } from './strings.ts';
+import type { PlayFacts } from './play.ts';
 
 export interface GrowthAccess {
   /** a Pro feature id: 'growth:turntable', 'growth:timelapse', 'growth:program-full', 'growth:meals-week', 'growth:shopping', 'growth:adaptive' */
@@ -46,9 +47,12 @@ export interface Ctx {
   minor(): boolean;
   /** the trace test hook: a recorded landmark trace instead of the camera (developers and tests) */
   traceUrl: string | null;
+  /** the games' side (the arcade's rounds, seconds and bests, the catalogue), or null when the page runs without it */
+  play: PlayFacts | null;
 }
 
-export type TabId = 'home' | 'photos' | 'twin' | 'program' | 'food' | 'settings';
+/** 'home' is the Today panel (kol F); 'progress' and 'quests' are its two pages. */
+export type TabId = 'home' | 'progress' | 'quests' | 'photos' | 'twin' | 'program' | 'food' | 'settings';
 
 export function makeHelpers(doc: Document, W: GrowthWords): Pick<Ctx, 't' | 'el' | 'btn'> {
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] => {

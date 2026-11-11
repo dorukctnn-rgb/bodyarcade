@@ -8,10 +8,11 @@ if (new URLSearchParams(location.search).get('form') === '1') {
   void import('./form/page.ts').then(({ bootFormCoach }) => bootFormCoach());
 } else if (new URLSearchParams(location.search).get('gelisim') === '1') {
   // the progress coach: not linked anywhere until it and the form coach's whole catalogue are tested together (takip/devir/bodyarcade-gelisim/SPEC.md)
-  void import('./growth/access.ts').then(async ({ growthAccess }) => {
-    const access = await growthAccess(window, catalogue.games.map((g: { id: string }) => g.id));
+  void import('./growth/access.ts').then(async ({ growthBoot }) => {
+    // the access and, for the Today panel and the progress page, the active player's games (kol F)
+    const { access, play } = await growthBoot(window, catalogue.games);
     const { bootGrowth } = await import('./growth/page.ts');
-    await bootGrowth(window, { access });
+    await bootGrowth(window, { access, play });
   });
 } else if (new URLSearchParams(location.search).get('worlds') === '1') {
   void import('./worlds/page.ts').then(({ bootWorlds }) => bootWorlds());
