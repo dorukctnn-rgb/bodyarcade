@@ -6,6 +6,7 @@ import {
   type ClientMessage, type NetPauseReason, type ObstacleResult, type PresetId, type ReactionId, type ReportReason,
   type RoomMessage, type SignalData,
 } from '../types/net.ts';
+import { MAX_DUEL_SCORE } from './duel-link.ts';
 
 /** Largest client message the Room reads (an SDP offer with video is about 6-8 KB). */
 export const MAX_CLIENT_MESSAGE = 32 * 1024;
@@ -100,8 +101,12 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         ? { t: 'ev', mid: m.mid, seq: m.seq, ob: m.ob, k: m.k } : null;
     case 'final': {
       const evs = obstacleList(m.evs);
-      return isId(m.mid) && evs ? { t: 'final', mid: m.mid, evs } : null;
+      if (!isId(m.mid) || !evs) return null;
+      if (m.sc === undefined) return { t: 'final', mid: m.mid, evs };
+      return isInt(m.sc, 0, MAX_DUEL_SCORE) ? { t: 'final', mid: m.mid, evs, sc: m.sc } : null;
     }
+    case 'sc':
+      return isId(m.mid) && isInt(m.v, 0, MAX_DUEL_SCORE) ? { t: 'sc', mid: m.mid, v: m.v } : null;
     case 'relay': {
       if (m.d === undefined) return null;
       const size = JSON.stringify(m.d).length;
@@ -131,7 +136,7 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
 
 const ROOM_TYPES = new Set([
   'welcome', 'sync', 'presence', 'room', 'signal', 'start', 'paused', 'resumed', 'forfeit', 'settling', 'ack', 'relay',
-  'result', 'chat', 'preset', 'react', 'chat_rejected', 'blocked', 'reported', 'removed', 'error',
+  'result', 'chat', 'preset', 'react', 'chat_rejected', 'blocked', 'reported', 'removed', 'error', 'scores',
 ]);
 
 /** A Room message, checked only for its type tag (the Room is trusted); null for unknown or malformed text. */
