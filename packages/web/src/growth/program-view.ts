@@ -6,7 +6,7 @@ import { browserServices } from '../../../core/loop/browser.ts';
 import { POSE_MODEL, WASM_BASE } from '../../../core/pose/assets.ts';
 import { parseTrace, traceSource } from '../../../core/pose/trace.ts';
 import { getTodayPlan, type DailyCheckin, type TodayPlan } from '../../../core/growth/program/checkin.ts';
-import { alternatives, generateProgram, spacingOk, swapInProgram, type Equip, type Goal, type Level, type Program, type ProgramInput, type Weekday } from '../../../core/growth/program/generate.ts';
+import { allowed, alternatives, generateProgram, spacingOk, swapInProgram, type Equip, type Goal, type Level, type Program, type ProgramInput, type Weekday } from '../../../core/growth/program/generate.ts';
 import { AREAS, type Area } from '../../../core/growth/program/moves-meta.ts';
 import { applyResult, startState, type MoveState } from '../../../core/growth/program/progress.ts';
 import { correct, fromSummary, resultsOf, stepsOf, targetReached, type SetLog, type Step } from '../../../core/growth/program/session.ts';
@@ -212,7 +212,7 @@ export async function programTab(c: Ctx, host: HTMLElement): Promise<() => void>
       for (const r of res) {
         const plan = main.find((m) => m.move === r.move)!;
         const cur = next[r.move] ?? startState(plan);
-        next[r.move] = applyResult(cur, r, { dumbbellsKg: dumbbells, beginner: stored!.input.level === 'beginner' });
+        next[r.move] = applyResult(cur, r, { dumbbellsKg: dumbbells, beginner: stored!.input.level === 'beginner', harderAllowed: (id) => allowed(id, stored!.input) });
         if (next[r.move]!.move !== r.move) next[next[r.move]!.move] = next[r.move];
       }
       await c.vault.putJson('program', 'states', next);

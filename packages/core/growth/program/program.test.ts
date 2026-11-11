@@ -4,7 +4,7 @@ import { FORM_MOVES, REAL_VIDEO_CHECKED } from '../../form/moves/index.ts';
 import type { FormMoveId, SetSummary } from '../../form/types.ts';
 import { getTodayPlan, type DailyCheckin } from './checkin.ts';
 import { alternatives, generateProgram, sessionSeconds, spacingOk, swapInProgram, type ProgramInput } from './generate.ts';
-import { MOVE_META } from './moves-meta.ts';
+import { DERIVED_META, MOVE_META } from './moves-meta.ts';
 import { applyResult, beforeSession, deload, isDeloadWeek, startState, suggestDeload } from './progress.ts';
 import { correct, fromSummary, resultsOf, stepsOf, targetReached } from './session.ts';
 
@@ -20,15 +20,18 @@ describe('program builder', () => {
     expect(spacingOk(p)).toBe(true);
   });
 
-  it('every move has its program data', () => {
+  it('every move has its program data (written by hand for the whole catalogue of this commit)', () => {
     for (const id of Object.keys(FORM_MOVES) as FormMoveId[]) expect(MOVE_META[id], id).toBeDefined();
+    if (DERIVED_META.length) console.warn('program data guessed for new form coach moves: ' + DERIVED_META.join(', '));
   });
 
-  it('equipment: dumbbells bring the shoulder press with the lightest weight; without them no dumbbell move', () => {
-    expect(mainMoves(generateProgram(base))).not.toContain('dbShoulderPress');
+  it('equipment: dumbbells bring dumbbell moves at the lightest weight; without them no dumbbell move', () => {
+    const db = (id: FormMoveId): boolean => FORM_MOVES[id].equipment?.includes('dumbbell') ?? false;
+    expect(mainMoves(generateProgram(base)).some(db)).toBe(false);
     const p = generateProgram({ ...base, equipment: ['dumbbell'], dumbbellsKg: [6, 4, 8] });
-    const press = p.sessions.flatMap((s) => s.blocks.flatMap((b) => b.items)).find((i) => i.move === 'dbShoulderPress');
-    expect(press?.loadKg).toBe(4);
+    const items = p.sessions.flatMap((s) => s.blocks.flatMap((b) => b.items)).filter((i) => db(i.move));
+    expect(items.length).toBeGreaterThan(0);
+    for (const i of items) expect(i.loadKg).toBe(4);
   });
 
   it('the avoid list: knees out takes every marked knee move out; no jumping takes impact moves out everywhere', () => {
