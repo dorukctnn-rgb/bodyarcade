@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The e2e suite (camera, pose, render kits, the Road Run gate run) takes about 10 minutes on a desktop.
     timeout-minutes: 45
     steps:
@@ -71,7 +71,7 @@ jobs:
   # The one spec that launches WebKit and Firefox itself (social-ui-engines.spec.ts) is left out, and so are the Firefox and WebKit rows of the room race
   # (social-ui-race.spec.ts launches each engine itself; only Chromium is installed here): the QA workflow's browsers job runs them where those engines are installed.
   social-ui:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
