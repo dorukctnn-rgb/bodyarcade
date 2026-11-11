@@ -403,5 +403,6 @@ describe('precache list', () => {
     expect(precacheList(['/static/a.js', '/static/a.js.map', '/index.html', '/static/b.css', '/vendor/x.wasm'], ['/', '/tr/'])).toEqual(['/', '/tr/', '/static/a.js', '/static/b.css']);
     expect(precacheList(['/static/a.js', '/static/hero/coast-1920.0a1b2c3d.avif', '/static/tiles/road-run.0a1b2c3d.webp'], ['/'])).toEqual(['/', '/static/a.js', '/static/tiles/road-run.0a1b2c3d.webp']);
     expect(precacheList(['/static/a.js', '/static/clips/road-run-800.0a1b2c3d.webm', '/static/clips/road-run-400.0a1b2c3d.mp4'], ['/'])).toEqual(['/', '/static/a.js']);
+    expect(precacheList(['/static/a.js', '/static/twin-female.0a1b2c3d.bin'], ['/'])).toEqual(['/', '/static/a.js']);
   });
 });
