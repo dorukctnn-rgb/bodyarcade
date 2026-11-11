@@ -54,8 +54,24 @@ test('push-ups from the side (a real person): six repetitions, and the move swit
   expect(seen.at(-1)!.reps).toBe(6);
   expect(seen.at(-1)!.view).toBe('side');
   await page.screenshot({ path: test.info().outputPath('push-up-side.png') });
-  await page.getByRole('tab', { name: 'Dumbbell shoulder press' }).click();
+  await page.locator('[data-move-picker]').selectOption('dbShoulderPress');
   expect((await snap(page)).move).toBe('dbShoulderPress');
+});
+
+test('reverse lunges from the side (a real person, Faz 3): five repetitions on alternating legs, the summary per leg, Turkish', async ({ page }) => {
+  test.setTimeout(90_000);
+  const seen = await playTrace(page, 'reverseLunge', 'ln-mixkit-52110-side', 'tr', 19);
+  expect(seen.at(-1)!.reps).toBe(5);
+  expect(seen.at(-1)!.clean).toBe(5);
+  await expect(page.locator('.fc-chip').first()).toHaveText('Form + sayaç');
+  await expect(page.locator('[data-move-picker] optgroup')).toHaveCount(6);
+  await page.getByRole('button', { name: 'Seti bitir' }).click();
+  await expect(page.locator('.fc-summary')).toContainText('5 tekrar, 5 temiz');
+  await expect(page.locator('.fc-summary')).toContainText('Sol 3, sağ 2');
+  await page.screenshot({ path: test.info().outputPath('lunge-side-tr.png') });
+  // a count-only move says so on its card
+  await page.locator('[data-move-picker]').selectOption('cossackSquat');
+  await expect(page.locator('.fc-chip').first()).toHaveText('Yalnız sayaç');
 });
 
 test('the page fits a phone: no horizontal scroll, the counter inside the picture', async ({ page }) => {

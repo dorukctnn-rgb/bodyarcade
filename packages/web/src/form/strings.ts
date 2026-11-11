@@ -1,24 +1,38 @@
 // Words of the form coach page in the site's five languages. The coach (packages/core/form) gives codes only; this table
 // turns them into sentences. Cues are short (read from 2-3 m away, one at a time). "Form tips" wording only: no health claims.
+// Faz 1's moves are written here; the standing moves of Faz 3 are in strings-standing.ts and merged below.
 import type { Lang } from '../../../core/ui/i18n/index.ts';
 import type { FormMoveId } from '../../../core/form/types.ts';
+import { STANDING_WORDS, type StandingUiKey } from './strings-standing.ts';
 
 export interface MoveWords { name: string; setup: string; looks: string[]; cannot: string[] }
 
-export interface FormWords {
-  ui: Record<
-    | 'title' | 'formCount' | 'start' | 'stop' | 'finish' | 'again' | 'reps' | 'clean' | 'privacy' | 'looks' | 'cannot' | 'sound' | 'voice'
-    | 'loading' | 'cameraError' | 'summaryTitle' | 'summaryLine' | 'topError' | 'allClean' | 'noReps' | 'notChecked' | 'tipsNote'
-    | 'ready' | 'person' | 'parts' | 'closer' | 'farther' | 'lieDown' | 'wantFront' | 'wantSide' | 'wantDiag' | 'legend'
-    | 'legendOk' | 'legendTip' | 'legendBad' | 'legendUnknown', string>;
+type BaseUiKey =
+  | 'title' | 'formCount' | 'start' | 'stop' | 'finish' | 'again' | 'reps' | 'clean' | 'privacy' | 'looks' | 'cannot' | 'sound' | 'voice'
+  | 'loading' | 'cameraError' | 'summaryTitle' | 'summaryLine' | 'topError' | 'allClean' | 'noReps' | 'notChecked' | 'tipsNote'
+  | 'ready' | 'person' | 'parts' | 'closer' | 'farther' | 'lieDown' | 'wantFront' | 'wantSide' | 'wantDiag' | 'legend'
+  | 'legendOk' | 'legendTip' | 'legendBad' | 'legendUnknown';
+
+type Faz1MoveId = 'squat' | 'pushUp' | 'gluteBridge' | 'dbShoulderPress';
+
+interface BaseWords {
+  ui: Record<BaseUiKey, string>;
   parts: Record<'head' | 'shoulders' | 'elbows' | 'hands' | 'hips' | 'knees' | 'feet', string>;
+  moves: Record<Faz1MoveId, MoveWords>;
+  cues: Record<string, string>;
+  rules: Record<string, string>;
+}
+
+export interface FormWords {
+  ui: Record<BaseUiKey | StandingUiKey, string>;
+  parts: BaseWords['parts'];
   moves: Record<FormMoveId, MoveWords>;
   cues: Record<string, string>;
   /** What went wrong, as a short phrase for the set summary ("most often: knees caved in"). */
   rules: Record<string, string>;
 }
 
-const tr: FormWords = {
+const tr: BaseWords = {
   ui: {
     title: 'Form koçu', formCount: 'Form + sayaç', start: 'Kamerayı aç', stop: 'Kamerayı kapat', finish: 'Seti bitir', again: 'Yeni set',
     reps: 'Tekrar', clean: 'Temiz', privacy: 'Kamera görüntüsü cihazından çıkmaz.', looks: 'Neye bakıyoruz', cannot: 'Bakamadığımız', sound: 'Tekrar sesi', voice: 'Sesli ipucu',
@@ -51,7 +65,7 @@ const tr: FormWords = {
   },
 };
 
-const en: FormWords = {
+const en: BaseWords = {
   ui: {
     title: 'Form coach', formCount: 'Form + count', start: 'Turn on the camera', stop: 'Turn off the camera', finish: 'End the set', again: 'New set',
     reps: 'Reps', clean: 'Clean', privacy: 'The camera picture never leaves your device.', looks: 'What we check', cannot: 'What we cannot check', sound: 'Rep sound', voice: 'Spoken tips',
@@ -84,7 +98,7 @@ const en: FormWords = {
   },
 };
 
-const de: FormWords = {
+const de: BaseWords = {
   ui: {
     title: 'Form-Coach', formCount: 'Form + Zähler', start: 'Kamera einschalten', stop: 'Kamera ausschalten', finish: 'Satz beenden', again: 'Neuer Satz',
     reps: 'Wdh.', clean: 'Sauber', privacy: 'Das Kamerabild verlässt dein Gerät nie.', looks: 'Was wir prüfen', cannot: 'Was wir nicht prüfen können', sound: 'Ton pro Wiederholung', voice: 'Gesprochene Tipps',
@@ -117,7 +131,7 @@ const de: FormWords = {
   },
 };
 
-const es: FormWords = {
+const es: BaseWords = {
   ui: {
     title: 'Entrenador de técnica', formCount: 'Técnica + conteo', start: 'Activar la cámara', stop: 'Apagar la cámara', finish: 'Terminar la serie', again: 'Nueva serie',
     reps: 'Reps', clean: 'Limpias', privacy: 'La imagen de la cámara nunca sale de tu dispositivo.', looks: 'Lo que revisamos', cannot: 'Lo que no podemos revisar', sound: 'Sonido por repetición', voice: 'Consejos hablados',
@@ -150,7 +164,7 @@ const es: FormWords = {
   },
 };
 
-const fr: FormWords = {
+const fr: BaseWords = {
   ui: {
     title: 'Coach de posture', formCount: 'Posture + compteur', start: 'Activer la caméra', stop: 'Couper la caméra', finish: 'Terminer la série', again: 'Nouvelle série',
     reps: 'Rép.', clean: 'Propres', privacy: "L'image de la caméra ne quitte jamais ton appareil.", looks: 'Ce que nous vérifions', cannot: 'Ce que nous ne pouvons pas vérifier', sound: 'Son à chaque répétition', voice: 'Conseils à voix haute',
@@ -183,7 +197,12 @@ const fr: FormWords = {
   },
 };
 
-export const FORM_WORDS: Readonly<Record<Lang, FormWords>> = { en, tr, de, es, fr };
+const merge = (b: BaseWords, lang: Lang): FormWords => {
+  const x = STANDING_WORDS[lang];
+  return { ui: { ...b.ui, ...x.ui }, parts: b.parts, moves: { ...b.moves, ...x.moves }, cues: { ...b.cues, ...x.cues }, rules: { ...b.rules, ...x.rules } };
+};
+
+export const FORM_WORDS: Readonly<Record<Lang, FormWords>> = { en: merge(en, 'en'), tr: merge(tr, 'tr'), de: merge(de, 'de'), es: merge(es, 'es'), fr: merge(fr, 'fr') };
 
 /** Fills {name} placeholders. */
 export const fill = (s: string, v: Record<string, string | number>): string => s.replace(/\{(\w+)\}/g, (m, k: string) => (k in v ? String(v[k]) : m));

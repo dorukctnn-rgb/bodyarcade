@@ -17,6 +17,8 @@ export const FAULTS: FaultCase[] = [
   ]),
   // no shallow push-up here: pulling the landmarks towards the top position keeps the hips high while the shoulders go down
   // (a pike that a real push-up never has); shallow push-ups wait for real recordings (SPEC.md 7.3)
+  // Faz 3: lunges that stop at 60 % of their real range (the whole body pulled towards the standing frame)
+  ...([['ln-mixkit-52110-side', 'reverseLunge'], ['ln-mixkit-42898-45', 'reverseLunge']] as const).map(([fixture, move]) => ({ fixture, move, fault: 'range x0.6', rule: 'lunge.depth', make: (t: Trace) => shrinkRange(t, 0.6, undefined, restIndex(move, t)) })),
   ...['sp-mixkit-42899-front', 'sp-cdc-seated-close', 'sp-colossus-45-close'].flatMap((fixture) => [
     { fixture, move: 'dbShoulderPress' as const, fault: 'left arm only half way up', rule: 'press.together', make: (t: Trace) => shrinkRange(t, 0.5, LEFT_ARM, restIndex('dbShoulderPress', t)) },
     { fixture, move: 'dbShoulderPress' as const, fault: 'left arm 0.6 s behind', rule: 'press.together', expect: 'below-threshold' as const, make: (t: Trace) => lagArm(t, 18) },

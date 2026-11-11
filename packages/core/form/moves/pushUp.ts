@@ -34,6 +34,8 @@ export function bodyLine(b: B): number | null {
 
 export const pushUp: MoveDef = {
   id: 'pushUp',
+  label: 'F',
+  group: 'floor',
   views: ['side', 'diag'],
   lying: true,
   parts: ['head', 'shoulders', 'elbows', 'hands', 'hips', 'knees', 'feet'],

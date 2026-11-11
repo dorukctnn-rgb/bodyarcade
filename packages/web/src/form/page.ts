@@ -1,13 +1,13 @@
 // The form coach page, behind ?form=1 (like the Worlds page): not linked from the site until the whole catalogue of SPEC.md is
 // built and tested (no partial launch). The SAME camera and pose services as the games; the picture never leaves the device.
-//   ?form=1&move=squat|pushUp|gluteBridge|dbShoulderPress&lang=tr
+//   ?form=1&move=<a move id of packages/core/form/moves/index.ts>&lang=tr
 //   ?form=1&trace=/tests/traces/form/<id>.trace.json   (developers and tests: a recorded landmark trace instead of the camera)
 import { browserServices } from '../../../core/loop/browser.ts';
 import { POSE_MODEL, WASM_BASE } from '../../../core/pose/assets.ts';
 import { parseTrace, traceSource } from '../../../core/pose/trace.ts';
 import { createFormCoach, type FormCoach } from '../../../core/form/coach.ts';
 import { FORM_MOVES, FORM_MOVE_IDS, REAL_VIDEO_CHECKED, isFormMove } from '../../../core/form/moves/index.ts';
-import type { CoachState, FormMoveId, GuideCheck } from '../../../core/form/types.ts';
+import type { CoachState, FormMoveId, GuideCheck, MoveGroup, MoveLabel } from '../../../core/form/types.ts';
 import { drawFormBody, type FormCtx, type PictureRect } from '../../../core/render2d/form-overlay.ts';
 import { detectLang, LANG_INFO, type Lang } from '../../../core/ui/i18n/index.ts';
 import type { CameraLease, PoseFrame } from '../../../core/types/index.ts';
@@ -22,9 +22,9 @@ const CSS = `
 .fc-top a{color:var(--fc-text);font-weight:800;text-decoration:none;font-size:18px}
 .fc-top h1{margin:0;font-size:22px;font-weight:700}
 .fc-top p{margin:0;color:var(--fc-muted);font-size:14px}
-.fc-moves{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
-.fc-moves button,.fc-btn{font:inherit;font-weight:700;border-radius:12px;border:1px solid var(--fc-line);background:var(--fc-panel);color:var(--fc-text);padding:10px 14px;cursor:pointer;min-height:44px}
-.fc-moves button[aria-selected=true]{background:var(--fc-text);color:var(--fc-bg);border-color:var(--fc-text)}
+.fc-moves{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-left:auto;font-weight:700}
+.fc-moves select{font:inherit;font-weight:700;border-radius:12px;border:1px solid var(--fc-line);background:var(--fc-panel);color:var(--fc-text);padding:10px 14px;min-height:44px;max-width:100%}
+.fc-btn{font:inherit;font-weight:700;border-radius:12px;border:1px solid var(--fc-line);background:var(--fc-panel);color:var(--fc-text);padding:10px 14px;cursor:pointer;min-height:44px}
 .fc-btn--primary{background:#FF4F6E;border-color:#C8264A;color:#1C1433}
 .fc-stage{position:relative;background:#000;border-radius:16px;overflow:hidden;min-height:60vh}
 .fc-video,.fc-canvas{position:absolute;inset:0;width:100%;height:100%}
@@ -47,6 +47,8 @@ const CSS = `
 .fc-card h2,.fc-summary h2{margin:0 0 8px;font-size:20px}
 .fc-chip{display:inline-block;font-size:13px;font-weight:700;border-radius:999px;padding:3px 10px;background:#0E7A4E;color:#D6F5E7;margin:0 6px 8px 0}
 .fc-chip--trial{background:#8A5A00;color:#FFF1CC}
+.fc-chip--count{background:#31285A;color:#F4F2F8}
+.fc-num[hidden]{display:none}
 .fc-card p{margin:0 0 10px;line-height:1.45}
 .fc-card h3{margin:12px 0 6px;font-size:14px;color:var(--fc-muted);text-transform:uppercase;letter-spacing:.04em}
 .fc-card ul{margin:0;padding-left:18px;line-height:1.5}
@@ -61,7 +63,12 @@ const CSS = `
 @media (max-width:900px){.fc{grid-template-columns:1fr}.fc-moves{margin-left:0}.fc-stage{min-height:56vh}}
 `;
 
-interface Snapshot { reps: number; clean: number; cue: string | null; view: string | null; ready: boolean; segments: Record<string, string>; frames: number; move: FormMoveId }
+interface Snapshot { reps: number; clean: number; holdMs: number; cue: string | null; view: string | null; ready: boolean; segments: Record<string, string>; frames: number; move: FormMoveId }
+
+const GROUPS: readonly [MoveGroup, 'grpSquat' | 'grpLunge' | 'grpCardio' | 'grpStanding' | 'grpFloor' | 'grpDumbbell'][] = [
+  ['squat', 'grpSquat'], ['lunge', 'grpLunge'], ['cardio', 'grpCardio'], ['standing', 'grpStanding'], ['floor', 'grpFloor'], ['dumbbell', 'grpDumbbell'],
+];
+const LABEL_KEY: Record<MoveLabel, 'formCount' | 'holdForm' | 'countOnly' | 'timeOnly'> = { F: 'formCount', H: 'holdForm', S: 'countOnly', T: 'timeOnly' };
 
 function pickLang(win: Window): Lang {
   const q = new URLSearchParams(win.location.search).get('lang');
@@ -98,13 +105,16 @@ export function bootFormCoach(win: Window = window): () => void {
   const brand = el('a', '', 'BodyArcade'); brand.href = '/';
   const h1 = el('h1', '', W.ui.title);
   const privacy = el('p', '', W.ui.privacy);
-  const tabs = el('nav', 'fc-moves'); tabs.setAttribute('role', 'tablist');
+  const tabs = el('label', 'fc-moves');
+  const picker = el('select'); picker.dataset.movePicker = '';
+  tabs.append(doc.createTextNode(W.ui.pickMove), picker);
+  picker.addEventListener('change', () => { if (isFormMove(picker.value)) selectMove(picker.value); });
   top.append(brand, h1, privacy, tabs);
   const stage = el('section', 'fc-stage');
   const video = el('video', 'fc-video'); video.muted = true; video.playsInline = true; video.setAttribute('aria-hidden', 'true');
   const canvas = el('canvas', 'fc-canvas'); canvas.setAttribute('aria-hidden', 'true');
   const hud = el('div', 'fc-hud');
-  const repsBox = el('div', 'fc-num'); const repsN = el('b', '', '0'); repsN.dataset.reps = ''; repsBox.append(repsN, el('span', '', W.ui.reps));
+  const repsBox = el('div', 'fc-num'); const repsN = el('b', '', '0'); repsN.dataset.reps = ''; const repsLabel = el('span', '', W.ui.reps); repsBox.append(repsN, repsLabel);
   const cleanBox = el('div', 'fc-num'); const cleanN = el('b', '', '0'); cleanN.dataset.clean = ''; cleanBox.append(cleanN, el('span', '', W.ui.clean));
   hud.append(repsBox, cleanBox);
   const cue = el('p', 'fc-cue'); cue.setAttribute('aria-live', 'polite'); cue.dataset.cue = '';
@@ -125,20 +135,35 @@ export function bootFormCoach(win: Window = window): () => void {
   doc.body.append(root);
 
   function renderTabs(): void {
-    tabs.replaceChildren(...FORM_MOVE_IDS.map((id) => {
-      const b = el('button', '', W.moves[id].name); b.type = 'button'; b.setAttribute('role', 'tab');
-      b.setAttribute('aria-selected', String(id === move)); b.dataset.move = id;
-      b.addEventListener('click', () => selectMove(id));
-      return b;
+    picker.replaceChildren(...GROUPS.flatMap(([g, key]) => {
+      const ids = FORM_MOVE_IDS.filter((id) => FORM_MOVES[id].group === g);
+      if (!ids.length) return [];
+      const og = el('optgroup'); og.label = W.ui[key];
+      og.append(...ids.map((id) => { const o = el('option', '', W.moves[id].name); o.value = id; o.selected = id === move; return o; }));
+      return [og];
     }));
+    picker.value = move;
+    // a held move counts seconds, not repetitions
+    const held = !!FORM_MOVES[move].hold;
+    repsLabel.textContent = held ? W.ui.seconds : W.ui.reps;
+    cleanBox.hidden = held;
   }
 
   function renderCard(): void {
     const m = W.moves[move];
-    const chip = el('span', 'fc-chip', W.ui.formCount);
+    const def = FORM_MOVES[move];
+    const formed = def.label === 'F' || def.label === 'H';
+    const chip = el('span', formed ? 'fc-chip' : 'fc-chip fc-chip--count', W.ui[LABEL_KEY[def.label]]);
+    chip.dataset.label = def.label;
     const kids: Node[] = [el('h2', '', m.name), chip];
     if (!REAL_VIDEO_CHECKED[move]) kids.push(el('span', 'fc-chip fc-chip--trial', W.ui.notChecked));
     kids.push(el('p', '', m.setup));
+    if (def.equipment?.length) {
+      const eq = { chair: W.ui.eqChair, wall: W.ui.eqWall, step: W.ui.eqStep, dumbbell: W.ui.eqDumbbell } as const;
+      kids.push(el('p', '', `${W.ui.equipment}: ${def.equipment.map((e) => eq[e]).join(', ')}`));
+    }
+    if (def.label === 'S') kids.push(el('p', 'fc-status', W.ui.countOnlyNote));
+    if (def.label === 'T') kids.push(el('p', 'fc-status', W.ui.timeOnlyNote));
     const list = (title: string, items: string[]): Node[] => { const ul = el('ul'); ul.append(...items.map((t) => el('li', '', t))); return [el('h3', '', title), ul]; };
     kids.push(...list(W.ui.looks, m.looks), ...list(W.ui.cannot, m.cannot));
     const legend = el('div', 'fc-legend');
@@ -211,7 +236,7 @@ export function bootFormCoach(win: Window = window): () => void {
   }
 
   function updateHud(s: CoachState | null): void {
-    repsN.textContent = String(s?.reps ?? 0);
+    repsN.textContent = FORM_MOVES[move].hold ? String(Math.floor((s?.holdMs ?? 0) / 1000)) : String(s?.reps ?? 0);
     cleanN.textContent = String(s?.clean ?? 0);
     const code = s?.cue ?? null;
     cue.textContent = code ? (W.cues[code] ?? '') : '';
@@ -235,9 +260,13 @@ export function bootFormCoach(win: Window = window): () => void {
   function showSummary(): void {
     const sum = coach.summary();
     const kids: Node[] = [el('h2', '', W.ui.summaryTitle)];
-    if (sum.reps === 0) kids.push(el('p', '', W.ui.noReps));
+    if (sum.holdMs !== undefined) {
+      kids.push(el('p', '', fill(W.ui.holdLine, { s: Math.floor(sum.holdMs / 1000), best: Math.floor((sum.bestHoldMs ?? 0) / 1000) })));
+      if (sum.top) kids.push(el('p', '', fill(W.ui.topError, { what: W.rules[sum.top.id] ?? sum.top.id, n: sum.top.count })));
+    } else if (sum.reps === 0) kids.push(el('p', '', W.ui.noReps));
     else {
       kids.push(el('p', '', fill(W.ui.summaryLine, { reps: sum.reps, clean: sum.clean })));
+      if (sum.sides) kids.push(el('p', '', fill(W.ui.sidesLine, { L: sum.sides.L, R: sum.sides.R })));
       kids.push(el('p', '', sum.top && sum.clean < sum.reps ? fill(W.ui.topError, { what: W.rules[sum.top.id] ?? sum.top.id, n: sum.top.count }) : W.ui.allClean));
       const dots = el('div', 'fc-dots');
       dots.append(...sum.list.map((r) => { const d = el('span', r.clean ? 'ok' : 'bad', String(r.n)); d.title = r.errors.map((e) => W.rules[e] ?? e).join(', '); return d; }));
@@ -294,7 +323,7 @@ export function bootFormCoach(win: Window = window): () => void {
 
   // test hook: what the page shows, without reading pixels
   (win as unknown as { __formCoach?: unknown }).__formCoach = {
-    snapshot: (): Snapshot => ({ reps: last?.reps ?? 0, clean: last?.clean ?? 0, cue: last?.cue ?? null, view: last?.view ?? null, ready: last?.guide.ready ?? false, segments: { ...(last?.segments ?? {}) }, frames, move }),
+    snapshot: (): Snapshot => ({ reps: last?.reps ?? 0, clean: last?.clean ?? 0, holdMs: last?.holdMs ?? 0, cue: last?.cue ?? null, view: last?.view ?? null, ready: last?.guide.ready ?? false, segments: { ...(last?.segments ?? {}) }, frames, move }),
     summary: () => coach.summary(),
   };
 

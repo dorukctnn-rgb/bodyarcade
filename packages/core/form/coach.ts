@@ -5,15 +5,19 @@
 // bad for holdMs before it shows, clear for clearMs before it goes), judge the repetition rules when a repetition ends, colour
 // the parts (bad > tip > ok > unknown > none) and pick one cue. A rule whose points are not seen well enough is 'unknown': its
 // parts turn grey and it never shows red. No allocation-heavy work per frame beyond a few small objects.
+//
+// One-sided moves (lunges, high knees) run one repetition machine per side on that side's own progress, so alternating legs
+// never have to pass through the start position together. Held moves (wall sit) run a clock instead of repetitions: it counts
+// the time in the position while no error shows.
 import { LM, type PoseFrame } from '../types/index.ts';
 import { COUNT_VISIBILITY, dist, mid, nearSideScore, seen, viewOf, type P, type Side, type View } from './geometry.ts';
 import { checkPlacement } from './guide.ts';
 import { FORM_MOVES } from './moves/index.ts';
-import { RepMachine } from './reps.ts';
+import { RepMachine, type RepEvent } from './reps.ts';
 import { emptySegments, worse } from './segments.ts';
 import { PointSmoother } from './smooth.ts';
 import type {
-  BodyCtx, CoachState, FormMoveId, LiveRule, MoveDef, Phase, RepRule, RepSummary, SegState, SegmentId, SetSummary, Severity,
+  BodyCtx, CoachState, FormMoveId, LiveRule, MoveDef, Phase, RepRule, RepStats, RepSummary, SegState, SegmentId, SetSummary, Severity,
 } from './types.ts';
 
 class Hyst {
@@ -50,8 +54,47 @@ class RunningLength {
   reset(): void { this.value = 0; this.ring.length = 0; this.lastT = -Infinity; }
 }
 
+/** The clock of a held position: in the position with hysteresis (300 ms either way), good time only while no error shows. */
+class HoldClock {
+  inPos = false;
+  goodMs = 0;
+  bestMs = 0;
+  private runMs = 0;
+  private candSince = -1;
+  private lastT = -1;
+  step(p: number | null, t: number, enterAt: number, leaveAt: number, errorShows: boolean): { running: boolean; left: boolean } {
+    const dt = this.lastT < 0 ? 0 : Math.min(200, Math.max(0, t - this.lastT));
+    this.lastT = t;
+    let left = false;
+    const want = this.inPos ? !(p === null || p < leaveAt) : p !== null && p >= enterAt;
+    if (want !== this.inPos) {
+      if (this.candSince < 0) this.candSince = t;
+      if (t - this.candSince >= 300) { this.inPos = want; this.candSince = -1; if (!want) { left = true; this.runMs = 0; } }
+    } else this.candSince = -1;
+    const running = this.inPos && !errorShows;
+    if (running) { this.goodMs += dt; this.runMs += dt; if (this.runMs > this.bestMs) this.bestMs = this.runMs; } else this.runMs = 0;
+    return { running, left };
+  }
+  reset(): void { this.inPos = false; this.goodMs = 0; this.bestMs = 0; this.runMs = 0; this.candSince = -1; this.lastT = -1; }
+}
+
 interface Flash { segments: readonly SegmentId[]; state: SegState; until: number }
 interface CueCand { code: string; severity: Severity; since: number }
+
+type Key = 'B' | Side;
+interface Hits { errors: Set<string>; tips: Set<string> }
+/** One repetition machine: the whole body ('B') or one side of a one-sided move, with what its repetition collected so far. */
+interface Run {
+  key: Key; m: RepMachine; armed: boolean; hits: Hits; at: Record<string, number>; maxP: number; p: number | null; armedAt: number;
+  /** What its machine is fed this frame: the progress, or (the trailing side while the other side leads) the progress kept
+   *  under countAt, so the trailing leg can reach its start position but never begins a repetition of its own. */
+  feed: number | null;
+  /** Its repetition was not measured for a while (blocked: both legs read alike, as when the model lays the far leg over the near
+   *  one): it still counts, but its deepest point is unknown, so the repetition's rules are not judged. */
+  unsure: boolean;
+}
+
+const noHits = (): Hits => ({ errors: new Set(), tips: new Set() });
 
 export interface FormCoach {
   readonly move: MoveDef;
@@ -73,7 +116,11 @@ export function createFormCoach(m: MoveDef | FormMoveId, o: FormCoachOptions = {
   const move = typeof m === 'string' ? FORM_MOVES[m] : m;
   const cueMinMs = o.cueMinMs ?? 1500;
   const smoother = new PointSmoother();
-  const reps = new RepMachine(move.rep, o.lostMs ?? 600);
+  let progress = move.makeProgress ? move.makeProgress() : (move.progress ?? (() => null));
+  const sided = !!move.sideProgress;
+  const mkRun = (key: Key): Run => ({ key, m: new RepMachine(move.rep, o.lostMs ?? 600), armed: false, hits: noHits(), at: {}, maxP: 0, p: null, armedAt: -Infinity, feed: null, unsure: false });
+  const runs: Run[] = sided ? [mkRun('L'), mkRun('R')] : [mkRun('B')];
+  const clock = move.hold ? new HoldClock() : null;
   const len = { thigh: new RunningLength(), shin: new RunningLength(), upperArm: new RunningLength(), forearm: new RunningLength(), torso: new RunningLength(), shoulders: new RunningLength() };
   const hyst = new Map<string, Hyst>();
   const live = move.rules.filter((r): r is LiveRule => r.kind === 'live');
@@ -86,12 +133,12 @@ export function createFormCoach(m: MoveDef | FormMoveId, o: FormCoachOptions = {
   let flashes: Flash[] = [];
   let cueFlash: (CueCand & { until: number }) | null = null;
   let cue: { code: string; severity: Severity; shownAt: number } | null = null;
-  let armed = false;
-  let hits = { errors: new Set<string>(), tips: new Set<string>() };
+  const breaks = new Map<string, number>();
   const list: RepSummary[] = [];
   const viewsSeen = new Set<View>();
 
   const h = (key: string): Hyst => { let x = hyst.get(key); if (!x) { x = new Hyst(); hyst.set(key, x); } return x; };
+  const resetRule = (id: string): void => { h(id).reset(); h(`${id}:L`).reset(); h(`${id}:R`).reset(); };
 
   function updateLengths(pts: readonly P[], t: number): void {
     const sides: Side[] = view === 'side' ? [near] : ['L', 'R'];
@@ -137,28 +184,39 @@ export function createFormCoach(m: MoveDef | FormMoveId, o: FormCoachOptions = {
     if (!cue || cue.code !== best.code) cue = { code: best.code, severity: best.severity, shownAt: t };
   }
 
+  /** The side doing the work: the armed run that is deepest, else the run with the larger progress. */
+  function leadRun(): Run {
+    const armed = runs.filter((r) => r.armed);
+    return (armed.length ? armed : runs).reduce((a, b) => ((b.p ?? -1) > (a.p ?? -1) ? b : a));
+  }
+
   function blank(t: number, present: boolean, pts: readonly P[], guideAspect: number): CoachState {
     const segs = emptySegments();
     chooseCue([], t);
     return {
       t, present, view, near, guide: checkPlacement(move, present ? pts : null, present ? view : null, near, guideAspect),
-      phase: reps.phase, progress: null, reps: list.length, clean: list.filter((r) => r.clean).length, segments: segs,
-      cue: cue?.code ?? null, cueSeverity: cue?.severity ?? null, repDone: null, pts,
+      phase: clock ? 'top' : leadRun().m.phase, progress: null, reps: list.length, clean: list.filter((r) => r.clean).length,
+      segments: segs, cue: cue?.code ?? null, cueSeverity: cue?.severity ?? null, repDone: null, holdMs: clock?.goodMs ?? 0, holding: false, pts,
     };
   }
 
   function reset(): void {
-    smoother.reset(); reps.reset(); for (const l of Object.values(len)) l.reset(); hyst.clear();
-    view = null; viewCand = null; near = 'L'; flashes = []; cueFlash = null; cue = null; armed = false;
-    hits = { errors: new Set(), tips: new Set() };
+    smoother.reset();
+    for (const r of runs) { r.m.reset(); r.armed = false; r.hits = noHits(); r.at = {}; r.maxP = 0; r.p = null; r.armedAt = -Infinity; r.feed = null; r.unsure = false; }
+    for (const l of Object.values(len)) l.reset();
+    hyst.clear(); clock?.reset(); breaks.clear();
+    if (move.makeProgress) progress = move.makeProgress();
+    view = null; viewCand = null; near = 'L'; flashes = []; cueFlash = null; cue = null;
     list.length = 0; viewsSeen.clear(); lastSeenT = -Infinity;
   }
 
   function push(f: PoseFrame): CoachState {
     const t = f.t;
     if (!f.landmarks) {
-      const ev = reps.push(null, t);
-      if (ev.some((e) => e.kind === 'cancel')) { armed = false; hits = { errors: new Set(), tips: new Set() }; }
+      for (const r of runs) {
+        if (r.m.push(null, t).some((e) => e.kind === 'cancel')) { r.armed = false; r.hits = noHits(); r.at = {}; }
+      }
+      clock?.step(null, t, move.hold!.enterAt, move.hold!.leaveAt, false);
       if (t - lastSeenT > 3000) { for (const l of Object.values(len)) l.reset(); view = null; }
       return blank(t, false, smoother.pts, f.aspect);
     }
@@ -167,7 +225,8 @@ export function createFormCoach(m: MoveDef | FormMoveId, o: FormCoachOptions = {
 
     // camera angle and near side, both held against flicker
     // the camera angle is read at the start position and held through a repetition (a squat changes the torso's length)
-    const raw = reps.phase === 'top' ? viewOf(pts) : null;
+    const atStart = !runs.some((r) => r.armed) && !clock?.inPos;
+    const raw = atStart ? viewOf(pts) : null;
     if (raw !== null) {
       if (view === null) view = raw;
       else if (raw !== view) {
@@ -181,81 +240,163 @@ export function createFormCoach(m: MoveDef | FormMoveId, o: FormCoachOptions = {
     else if (near === 'R' && score > 0.5) near = 'L';
 
     updateLengths(pts, t);
-    const base = { t, pts, view: (view ?? 'front') as View, near, len: lengths() };
+    const base = { t, pts, view: (view ?? 'front') as View, near, len: lengths(), work: null as Side | null };
     const usable = view !== null && move.views.includes(view);
-    const p = usable ? move.progress(base) : null;
-    const events = reps.push(p, t);
-    const phase = reps.phase;
-    const ctx: BodyCtx = { ...base, p: p ?? 0, phase };
+
+    // the progress: the body's, or each side's. One-sided moves: when both sides are up together and alike (both thighs level:
+    // a squat, or the model laying one leg over the other) neither is measured. A side begins a repetition only while it leads
+    // the other by exclusiveGap (or the other is not seen): until then it may come back to its start position but its machine
+    // is kept under countAt, so a trailing or swinging leg never counts.
+    const blocked: [boolean, boolean] = [false, false];
+    if (sided) {
+      const pl = usable ? move.sideProgress!(base, 'L') : null, pr = usable ? move.sideProgress!(base, 'R') : null;
+      const ex = move.exclusive ?? Infinity, gap = move.exclusiveGap ?? 0.35;
+      runs[0]!.p = pl; runs[1]!.p = pr;
+      const alike = pl !== null && pr !== null && Math.abs(pl - pr) < gap && Math.min(pl, pr) >= ex;
+      for (const i of [0, 1] as const) {
+        const r = runs[i]!, mine = i === 0 ? pl : pr, theirs = i === 0 ? pr : pl;
+        if (alike) {
+          // still seen: the machine waits instead of treating the person as gone; a repetition in progress loses its bottom
+          blocked[i] = true; r.p = null; r.feed = null; r.m.hold(t); if (r.armed) r.unsure = true;
+        } else if (!r.armed && mine !== null && theirs !== null && mine < theirs + gap) r.feed = Math.min(mine, move.rep.countAt - 0.001);
+        else r.feed = mine;
+      }
+    } else { runs[0]!.p = usable ? progress(base) : null; runs[0]!.feed = runs[0]!.p; }
+
+    const events: { run: Run; e: RepEvent }[] = [];
+    if (!clock) {
+      const wasArmed = runs.map((r) => r.armed);
+      const started: Run[] = [];
+      runs.forEach((r, i) => {
+        if (blocked[i]) return;
+        // one side not measurable this frame while the person is in view (its foot or knee not seen well): it waits
+        if (sided && usable && r.feed === null) { r.m.hold(t); return; }
+        for (const e of r.m.push(r.feed, t)) { events.push({ run: r, e }); if (e.kind === 'start') started.push(r); }
+      });
+      // one side began while the other side's repetition is still going: that one is over (alternating legs flow from one into
+      // the next: walking and jumping lunges, fast high knees); it ends before the new one in the list
+      for (const r of started) {
+        const i = runs.indexOf(r), o2 = runs[1 - i];
+        if (!o2 || !wasArmed[1 - i] || started.includes(o2) || o2.m.phase === 'top') continue;
+        if (o2.p !== null && o2.p > (move.handoffAt ?? 0.75)) continue;
+        const at = events.findIndex((x) => x.run === r && x.e.kind === 'start');
+        events.splice(at, 0, ...o2.m.forceEnd(t).map((e) => ({ run: o2, e })));
+      }
+    }
+
+    const lead = leadRun();
+    const p = lead.p;
+    const work: Side | null = sided && p !== null ? (lead.key as Side) : null;
+    const phase: Phase = clock ? (clock.inPos ? 'bottom' : 'top') : lead.m.phase;
+    const ctx: BodyCtx = { ...base, work, p: p ?? 0, phase };
+    const ctxFor = (key: Key): BodyCtx => (key === 'B' ? ctx : { ...ctx, work: key });
 
     const segs = emptySegments();
     const paint = (ids: readonly SegmentId[], s: SegState): void => { for (const id of ids) segs[id] = worse(segs[id], s); };
     const cands: CueCand[] = [];
+    let errorShows = false;
 
     for (const r of live) {
       // a rule written for another camera angle says nothing here (its parts stay neutral, not grey: grey means "cannot see")
-      if (!view || !r.views.includes(view)) { h(r.id).reset(); h(`${r.id}:L`).reset(); h(`${r.id}:R`).reset(); continue; }
+      if (!view || !r.views.includes(view)) { resetRule(r.id); continue; }
       const phases = r.phases ?? DEFAULT_PHASES;
       const active = p !== null && phases.includes(phase) && (r.minP === undefined || p >= r.minP);
-      if (!active) { h(r.id).reset(); h(`${r.id}:L`).reset(); h(`${r.id}:R`).reset(); continue; }
-      const m = r.measure(ctx);
+      if (!active) { resetRule(r.id); continue; }
+      const mv = r.measure(ctx);
       const one = (v: number | null, key: string, side?: Side): void => {
         const ids = r.segments(ctx, side);
         if (v === null) { paint(ids, 'unknown'); return; }
         const x = h(key);
+        const wasBad = x.bad;
         const bad = x.step(r.bad(v), r.clear(v), t, r.holdMs ?? 150, r.clearMs ?? 100);
         if (!bad) { paint(ids, 'ok'); return; }
         paint(ids, r.severity === 'error' ? 'bad' : 'tip');
         const code = typeof r.cue === 'function' ? r.cue(v) : r.cue;
         cands.push({ code, severity: r.severity, since: x.badSince });
-        if (armed) (r.severity === 'error' ? hits.errors : hits.tips).add(r.id);
+        if (r.severity === 'error') errorShows = true;
+        for (const run of runs) if (run.armed) (r.severity === 'error' ? run.hits.errors : run.hits.tips).add(r.id);
+        if (clock?.inPos && !wasBad && r.severity === 'error') breaks.set(r.id, (breaks.get(r.id) ?? 0) + 1);
       };
-      if (m !== null && typeof m === 'object') { one(m.L, `${r.id}:L`, 'L'); one(m.R, `${r.id}:R`, 'R'); }
-      else one(m, r.id);
+      if (mv !== null && typeof mv === 'object') { one(mv.L, `${r.id}:L`, 'L'); one(mv.R, `${r.id}:R`, 'R'); }
+      else one(mv, r.id);
     }
 
-    let repDone: RepSummary | null = null;
-    for (const e of events) {
-      if (e.kind === 'start') {
-        armed = true;
-        // what is wrong in the start position as the repetition begins belongs to it (hands placed too far forward, hips piked)
-        hits = { errors: new Set(), tips: new Set() };
-        for (const r of live) {
-          if (!(r.phases ?? DEFAULT_PHASES).includes('top')) continue;
-          if (h(r.id).bad || h(`${r.id}:L`).bad || h(`${r.id}:R`).bad) (r.severity === 'error' ? hits.errors : hits.tips).add(r.id);
-        }
-      } else if (e.kind === 'cancel') {
-        armed = false; hits = { errors: new Set(), tips: new Set() };
-      } else if (e.kind === 'shallow') {
-        // too small to count: say what the depth rule says, as a tip
-        const depthRule = repRules.find((r) => progressRules.has(r.id) && view !== null && r.views.includes(view));
-        if (depthRule && !cueFlash) cueFlash = { code: depthRule.cue, severity: 'tip', since: t, until: t + 1500 };
-      } else if (e.kind === 'notReturned') {
-        cueFlash = { code: move.returnCue, severity: 'tip', since: t, until: t + 1500 };
-      } else if (e.kind === 'end') {
-        armed = false;
-        const stats = { startT: e.startT ?? t, bottomT: e.bottomT ?? t, endT: t, maxP: e.maxP ?? 0, at: {} };
-        for (const r of repRules) {
-          if (!view || !r.views.includes(view)) continue;
-          const bad = r.judge(stats, ctx);
-          if (bad === null) continue;
-          if (bad) {
-            (r.severity === 'error' ? hits.errors : hits.tips).add(r.id);
-            flashes.push({ segments: r.segments(ctx), state: r.severity === 'error' ? 'bad' : 'tip', until: t + 1200 });
-            if (!cueFlash || r.severity === 'error') cueFlash = { code: r.cue, severity: r.severity, since: t, until: t + 1500 };
-          } else if (progressRules.has(r.id)) flashes.push({ segments: r.segments(ctx), state: 'ok', until: t + 600 });
-        }
-        repDone = {
-          n: list.length + 1, startT: stats.startT, endT: t, maxP: stats.maxP,
-          errors: [...hits.errors], tips: [...hits.tips], clean: hits.errors.size === 0,
-        };
-        list.push(repDone);
-        hits = { errors: new Set(), tips: new Set() };
+    // the move's extra channels for each repetition in progress (min, max, or the value at its deepest moment)
+    if (move.track) for (const run of runs) {
+      if (!run.armed || run.p === null) continue;
+      const c = ctxFor(run.key);
+      const deepest = run.p >= run.maxP;
+      if (deepest) run.maxP = run.p;
+      for (const ch of move.track) {
+        const v = ch.value(c);
+        if (v === null) continue;
+        if (ch.at === 'bottom') { if (deepest) run.at[ch.id] = v; continue; }
+        const prev = run.at[ch.id];
+        run.at[ch.id] = prev === undefined ? v : ch.agg === 'min' ? Math.min(prev, v) : Math.max(prev, v);
       }
     }
 
+    let repDone: RepSummary | null = null;
+    for (const { run, e } of events) {
+      const other = runs.find((r) => r !== run);
+      if (e.kind === 'start') {
+        run.armed = true; run.armedAt = t; run.at = {}; run.maxP = 0; run.unsure = false;
+        // what is wrong in the start position as the repetition begins belongs to it (hands placed too far forward, hips piked)
+        run.hits = noHits();
+        for (const r of live) {
+          if (!(r.phases ?? DEFAULT_PHASES).includes('top')) continue;
+          if (h(r.id).bad || h(`${r.id}:L`).bad || h(`${r.id}:R`).bad) (r.severity === 'error' ? run.hits.errors : run.hits.tips).add(r.id);
+        }
+      } else if (e.kind === 'cancel') {
+        run.armed = false; run.hits = noHits(); run.at = {};
+      } else if (e.kind === 'shallow') {
+        // too small to count: say what the depth rule says, as a tip; not for the trailing leg of a one-sided move while the
+        // other side is (or was just) doing a repetition
+        if (other && (other.armed || t - other.armedAt < 1500)) continue;
+        const code = move.shallowCue ?? repRules.find((r) => progressRules.has(r.id) && view !== null && r.views.includes(view))?.cue;
+        if (code && !cueFlash) cueFlash = { code, severity: 'tip', since: t, until: t + 1500 };
+      } else if (e.kind === 'notReturned') {
+        if (other?.armed) continue;
+        cueFlash = { code: move.returnCue, severity: 'tip', since: t, until: t + 1500 };
+      } else if (e.kind === 'end') {
+        run.armed = false;
+        const side = run.key === 'B' ? undefined : run.key;
+        const stats: RepStats = { startT: e.startT ?? t, bottomT: e.bottomT ?? t, endT: t, maxP: e.maxP ?? 0, at: run.at, ...(side ? { side } : {}) };
+        const c = ctxFor(run.key);
+        for (const r of repRules) {
+          if (!view || !r.views.includes(view) || run.unsure) continue;
+          const bad = r.judge(stats, c);
+          if (bad === null) continue;
+          if (bad) {
+            (r.severity === 'error' ? run.hits.errors : run.hits.tips).add(r.id);
+            flashes.push({ segments: r.segments(c), state: r.severity === 'error' ? 'bad' : 'tip', until: t + 1200 });
+            if (!cueFlash || r.severity === 'error') cueFlash = { code: r.cue, severity: r.severity, since: t, until: t + 1500 };
+          } else if (progressRules.has(r.id)) flashes.push({ segments: r.segments(c), state: 'ok', until: t + 600 });
+        }
+        repDone = {
+          n: list.length + 1, startT: stats.startT, endT: t, maxP: stats.maxP,
+          errors: [...run.hits.errors], tips: [...run.hits.tips], clean: run.hits.errors.size === 0, ...(side ? { side } : {}),
+        };
+        list.push(repDone);
+        run.hits = noHits(); run.at = {};
+      }
+    }
+
+    // a held position: its clock, and its target parts green while it is held
+    let holding = false;
+    if (clock) {
+      const st = clock.step(p, t, move.hold!.enterAt, move.hold!.leaveAt, errorShows);
+      holding = st.running;
+      if (st.left && move.hold!.outCue && !cueFlash) cueFlash = { code: move.hold!.outCue, severity: 'tip', since: t, until: t + 1500 };
+      if (clock.inPos) for (const r of repRules) if (progressRules.has(r.id) && view && r.views.includes(view)) paint(r.segments(ctx), 'ok');
+    }
+
     // depth reached during the repetition: its parts turn green (the player sees the target is met)
-    if (armed && p !== null && p >= move.rep.fullAt) for (const r of repRules) if (progressRules.has(r.id) && view && r.views.includes(view)) paint(r.segments(ctx), 'ok');
+    for (const run of runs) {
+      if (!run.armed || run.p === null || run.p < move.rep.fullAt) continue;
+      const c = ctxFor(run.key);
+      for (const r of repRules) if (progressRules.has(r.id) && view && r.views.includes(view)) paint(r.segments(c), 'ok');
+    }
     flashes = flashes.filter((x) => x.until >= t);
     for (const x of flashes) paint(x.segments, x.state);
 
@@ -263,7 +404,8 @@ export function createFormCoach(m: MoveDef | FormMoveId, o: FormCoachOptions = {
     return {
       t, present: true, view, near, guide: checkPlacement(move, pts, view, near, f.aspect), phase, progress: p,
       reps: list.length, clean: list.filter((r) => r.clean).length, segments: segs,
-      cue: cue?.code ?? null, cueSeverity: cue?.severity ?? null, repDone, pts,
+      cue: cue?.code ?? null, cueSeverity: cue?.severity ?? null, repDone, holdMs: clock?.goodMs ?? 0, holding, pts,
+      ...(sided ? { sideP: { L: runs[0]!.p, R: runs[1]!.p } } : {}), len: base.len,
     };
   }
 
@@ -271,10 +413,15 @@ export function createFormCoach(m: MoveDef | FormMoveId, o: FormCoachOptions = {
     const counts = new Map<string, number>();
     for (const r of list) for (const id of r.errors) counts.set(id, (counts.get(id) ?? 0) + 1);
     if (counts.size === 0) for (const r of list) for (const id of r.tips) counts.set(id, (counts.get(id) ?? 0) + 1);
+    if (clock) for (const [id, n] of breaks) counts.set(id, (counts.get(id) ?? 0) + n);
     let top: SetSummary['top'] = null;
     for (const [id, count] of counts) if (!top || count > top.count) top = { id, count };
     const measured = move.rules.filter((r) => r.views.some((v) => viewsSeen.has(v))).map((r) => r.id);
-    return { reps: list.length, clean: list.filter((r) => r.clean).length, top, list: [...list], measured };
+    return {
+      reps: list.length, clean: list.filter((r) => r.clean).length, top, list: [...list], measured,
+      ...(sided ? { sides: { L: list.filter((r) => r.side === 'L').length, R: list.filter((r) => r.side === 'R').length } } : {}),
+      ...(clock ? { holdMs: clock.goodMs, bestHoldMs: clock.bestMs, breaks: Object.fromEntries(breaks) } : {}),
+    };
   }
 
   return { move, push, summary, reset };

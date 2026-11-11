@@ -2,7 +2,23 @@
 // types/no-words.test.ts); the page turns cue and guide codes into sentences in the player's language.
 import type { P, Side, View } from './geometry.ts';
 
-export type FormMoveId = 'squat' | 'pushUp' | 'gluteBridge' | 'dbShoulderPress';
+export type FormMoveId =
+  // Faz 1
+  | 'squat' | 'pushUp' | 'gluteBridge' | 'dbShoulderPress'
+  // Faz 3: standing bodyweight moves (SPEC.md 5.1, 5.2, 5.6, 5.7, 5.3 row 21)
+  | 'sumoSquat' | 'chairSquat' | 'prisonerSquat' | 'jumpSquat' | 'squatHold' | 'wallSit' | 'pistolSquat' | 'cossackSquat'
+  | 'reverseLunge' | 'forwardLunge' | 'splitSquat' | 'bulgarianSplitSquat' | 'lateralLunge' | 'curtsyLunge' | 'jumpingLunge'
+  | 'jumpingJack' | 'stepJack' | 'starJump' | 'highKnees' | 'marching' | 'buttKicks' | 'burpee' | 'squatThrust' | 'inchworm'
+  | 'skater' | 'jumpRope' | 'calfRaise' | 'singleCalfRaise' | 'stepUp' | 'wallAngel' | 'armCircles' | 'goodMorning';
+
+/**
+ * What the coach offers for a move (SPEC.md 5): F = form + count, H = hold time + form, S = count only, T = time only. A move
+ * is offered as F or H only after its rules were measured on real people (REAL_VIDEO_CHECKED); otherwise it says so.
+ */
+export type MoveLabel = 'F' | 'H' | 'S' | 'T';
+
+/** Where a move sits in the catalogue (the move picker's groups). */
+export type MoveGroup = 'squat' | 'lunge' | 'cardio' | 'standing' | 'floor' | 'dumbbell';
 
 /** Body line parts that a rule can colour. L and R are the player's own sides. */
 export type SegmentId =
@@ -28,6 +44,8 @@ export interface BodyCtx {
   view: View;
   /** The side facing the camera (side and diagonal views). */
   near: Side;
+  /** One-sided moves (lunges, high knees): the side doing the work now (the leg in front, the knee up), or null. */
+  work: Side | null;
   /** The player's own lengths in view units, from the frames where they were seen best (running maximum with a slow decay). */
   len: { thigh: number; shin: number; upperArm: number; forearm: number; torso: number; shoulders: number };
   /** The repetition's progress this frame (0 top, 1 target) and where the repetition is. */
@@ -44,6 +62,15 @@ export interface RepOpts {
   fullAt: number;
   /** Shortest repetition, ms. */
   minMs: number;
+}
+
+/** A held position (wall sit, squat hold): the clock runs while the progress stays in the position and no error shows. */
+export interface HoldOpts {
+  /** In the position from this progress up (held for 300 ms), out of it below `leaveAt` (held for 300 ms). */
+  enterAt: number;
+  leaveAt: number;
+  /** Cue shown when the player leaves the position after having held it (e.g. "sit a little deeper"). */
+  outCue?: string;
 }
 
 export interface LiveRule {
@@ -76,7 +103,7 @@ export interface RepRule {
   id: string;
   severity: Severity;
   views: readonly View[];
-  /** Bad when this returns true for the finished repetition; null = could not be judged. */
+  /** Bad when this returns true for the finished repetition; null = could not be judged. `b.work` is the repetition's side. */
   judge(r: RepStats, b: BodyCtx): boolean | null;
   segments(b: BodyCtx): readonly SegmentId[];
   cue: string;
@@ -90,12 +117,18 @@ export interface RepStats {
   bottomT: number;
   endT: number;
   maxP: number;
+  /** One-sided moves: the side that did the repetition. */
+  side?: Side;
   /** Extremes of the move's own extra channels over the repetition (e.g. the torso angle at the bottom). */
   at: Record<string, number>;
 }
 
 export interface MoveDef {
   id: FormMoveId;
+  label: MoveLabel;
+  group: MoveGroup;
+  /** Things the move needs besides the floor (shown on its card). */
+  equipment?: readonly ('chair' | 'wall' | 'step' | 'dumbbell')[];
   /** Views the move is set up for, preferred first. Counting works in these; outside them the guide asks to turn. */
   views: readonly View[];
   /** Lying or plank moves: the body must lie along the picture. */
@@ -103,11 +136,32 @@ export interface MoveDef {
   /** Body parts the camera must see (for the placement guide). */
   parts: readonly ('head' | 'shoulders' | 'elbows' | 'hands' | 'hips' | 'knees' | 'feet')[];
   rep: RepOpts;
-  /** The repetition's progress (0 top, 1 target) or null when it cannot be measured this frame. */
-  progress(b: Omit<BodyCtx, 'p' | 'phase'>): number | null;
-  /** Extra channels kept per repetition: value this frame, and whether the repetition keeps its minimum or maximum. */
+  /** A held position instead of repetitions (H and T moves). */
+  hold?: HoldOpts;
+  /**
+   * The repetition's progress (0 top, 1 target) or null when it cannot be measured this frame. `makeProgress` instead gives a
+   * fresh progress function with its own memory for each coach (moves measured against a reference that moves: a hop above
+   * the floor, a calf raise above standing).
+   */
+  progress?(b: Omit<BodyCtx, 'p' | 'phase'>): number | null;
+  makeProgress?(): (b: Omit<BodyCtx, 'p' | 'phase'>) => number | null;
+  /**
+   * One-sided moves: each side's own progress, counted by its own repetition machine (so alternating knees or legs never
+   * have to pass through the start position together). A side is not measured while the other side's progress is at least
+   * `exclusive` and this side is not clearly ahead of it (by `exclusiveGap`, default 0.35): both thighs coming up together is
+   * a squat, not a lunge. When one side begins a repetition while the other's is still going and that one has come back under
+   * `handoffAt` (default 0.75), the other's repetition ends there (alternating legs flow from one into the next).
+   */
+  sideProgress?(b: Omit<BodyCtx, 'p' | 'phase'>, s: Side): number | null;
+  exclusive?: number;
+  exclusiveGap?: number;
+  handoffAt?: number;
+  /** Extra channels kept per repetition: value this frame, and whether the repetition keeps its minimum or maximum (or, with
+   *  at 'bottom', the value at its deepest moment). */
   track?: readonly { id: string; agg: 'min' | 'max'; at?: 'bottom' | 'any'; value(b: BodyCtx): number | null }[];
   rules: readonly FormRule[];
+  /** Cue for a movement too small to count (default: the move's depth rule's cue). */
+  shallowCue?: string;
   /** Cue shown when the player starts the next repetition without going back to the start position. */
   returnCue: string;
 }
@@ -120,6 +174,7 @@ export interface RepSummary {
   errors: string[];
   tips: string[];
   clean: boolean;
+  side?: Side;
 }
 
 export type GuideCheck =
@@ -148,8 +203,14 @@ export interface CoachState {
   cueSeverity: Severity | null;
   /** The repetition that just finished (set for one frame), for sounds and the rep strip. */
   repDone: RepSummary | null;
+  /** Held moves: seconds held in good form so far (ms), and whether the clock runs now. */
+  holdMs: number;
+  holding: boolean;
   /** The smoothed points of this frame (view space), for the body line. */
   pts: readonly P[];
+  /** Diagnostics for the measurement tools: each side's progress (one-sided moves) and the body's lengths. */
+  sideP?: { L: number | null; R: number | null };
+  len?: BodyCtx['len'];
 }
 
 export interface SetSummary {
@@ -160,4 +221,10 @@ export interface SetSummary {
   list: RepSummary[];
   /** Rule ids the move measured in the views seen during the set, and the ones it could not. */
   measured: string[];
+  /** One-sided moves: repetitions per side. */
+  sides?: { L: number; R: number };
+  /** Held moves: time held in good form (ms), the longest unbroken hold (ms), and how often each error broke the hold. */
+  holdMs?: number;
+  bestHoldMs?: number;
+  breaks?: Record<string, number>;
 }

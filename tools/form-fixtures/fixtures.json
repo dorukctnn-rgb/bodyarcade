@@ -21,6 +21,25 @@
     {"id": "sp-cdc-seated-close", "move": "dbShoulderPress", "clip": "shoulder-press-commons-cdc.webm", "angle": "front", "windows": [[21.5, 37.8]], "source": "commons-cdc-overhead-press"},
     {"id": "sp-army-pushpress-front", "move": "dbShoulderPress", "clip": "shoulder-press-commons-army-pushpress.webm", "angle": "front", "windows": [[10.3, 20.8], [28.7, 39.8], [42.0, 45.8]], "source": "commons-army-push-press"},
     {"id": "sp-colossus-45-close", "move": "dbShoulderPress", "clip": "shoulder-press-commons-colossus.webm", "angle": "45", "windows": [[90.3, 99.8]], "source": "commons-colossus-shoulder-press"},
-    {"id": "sp-colossus-partial-45", "move": "dbShoulderPress", "clip": "shoulder-press-commons-colossus.webm", "angle": "45", "windows": [[158.3, 171.0]], "source": "commons-colossus-shoulder-press"}
+    {"id": "sp-colossus-partial-45", "move": "dbShoulderPress", "clip": "shoulder-press-commons-colossus.webm", "angle": "45", "windows": [[158.3, 171.0]], "source": "commons-colossus-shoulder-press"},
+    {"id": "ln-mixkit-52110-side", "move": "reverseLunge", "clip": "lunge-mixkit-52110.mp4", "angle": "side", "windows": [[0.0, 16.6]], "source": "mixkit-52110"},
+    {"id": "ln-mixkit-42898-45", "move": "reverseLunge", "clip": "lunge-mixkit-42898.mp4", "angle": "45", "windows": [[0.0, 14.1]], "source": "mixkit-42898"},
+    {"id": "ln-mixkit-52112-45", "move": "forwardLunge", "clip": "mk-52112.mp4", "angle": "45", "windows": [[0.0, 7.7]], "source": "mixkit-52112"},
+    {"id": "ln-mixkit-42900-front", "move": "reverseLunge", "clip": "mk-42900.mp4", "angle": "front", "windows": [[0.0, 9.5]], "source": "mixkit-42900"},
+    {"id": "ln-army-forward-front", "move": "forwardLunge", "clip": "lunge-commons-acft-forward.webm", "angle": "front", "windows": [[9.1, 16.3], [21.3, 32.4], [37.8, 43.2], [52.9, 58.5]], "source": "commons-army-forward-lunge"},
+    {"id": "ln-army-forward-side", "move": "forwardLunge", "clip": "lunge-commons-acft-forward.webm", "angle": "side", "windows": [[32.5, 37.6], [43.3, 52.2], [58.7, 62.6]], "source": "commons-army-forward-lunge"},
+    {"id": "jl-mixkit-52316-45", "move": "jumpingLunge", "clip": "mk-52316.mp4", "angle": "45", "windows": [[0.0, 12.5]], "source": "mixkit-52316"},
+    {"id": "cs-tf-cossack-front", "move": "cossackSquat", "clip": "cm-tf-cossack-squats.webm", "angle": "front", "windows": [[0.0, 29.0], [35.0, 67.9]], "source": "commons-taco-fleur-overhead-kettlebell-cossack-squats"},
+    {"id": "ps-single-leg-side", "move": "pistolSquat", "clip": "cm-single-leg-squat.webm", "angle": "side", "windows": [[0.0, 7.8]], "source": "commons-basic-single-leg-squat"},
+    {"id": "sq-tf-racked-side", "move": "squat", "clip": "cm-tf-racked-squats-side.webm", "angle": "side", "windows": [[0.0, 47.0]], "source": "commons-taco-fleur-kettlebell-racked-squats-side"},
+    {"id": "jj-jb-front", "move": "jumpingJack", "clip": "cm-jacks-burpees.webm", "angle": "front", "windows": [[0.0, 3.0], [10.2, 13.4]], "source": "commons-jumping-jacks-and-burpees"},
+    {"id": "bp-jb-front", "move": "burpee", "clip": "cm-jacks-burpees.webm", "angle": "front", "windows": [[2.8, 10.2], [13.2, 21.0]], "source": "commons-jumping-jacks-and-burpees", "fromTrace": "tests/traces/video/jacks-burpees-21s.trace.json"},
+    {"id": "bp-jb-side", "move": "burpee", "clip": "cm-jacks-burpees.webm", "angle": "side", "windows": [[24.6, 45.2]], "source": "commons-jumping-jacks-and-burpees"},
+    {"id": "bp-crossfit-side", "move": "burpee", "clip": "cm-crossfit-burpee.webm", "angle": "side", "windows": [[0.0, 13.6]], "source": "commons-crossfit-burpee"},
+    {"id": "hk-mixkit-583-side", "move": "highKnees", "clip": "mk-583.mp4", "angle": "side", "windows": [[1.2, 10.0]], "source": "mixkit-583"},
+    {"id": "jr-mixkit-725-front", "move": "jumpRope", "clip": "mk-725.mp4", "angle": "front", "windows": [[0.0, 14.0]], "source": "mixkit-725"},
+    {"id": "cr-cdc-front", "move": "calfRaise", "clip": "cm-cdc-toe-lift.webm", "angle": "45", "windows": [[1.8, 7.0]], "source": "commons-cdc-toe-lift"},
+    {"id": "cr-cdc-side", "move": "calfRaise", "clip": "cm-cdc-toe-lift.webm", "angle": "side", "windows": [[42.5, 51.5]], "source": "commons-cdc-toe-lift"},
+    {"id": "jr-mixkit-40234-front", "move": "jumpRope", "clip": "mk-40234.mp4", "angle": "front", "windows": [[0.0, 14.2]], "source": "mixkit-40234"}
   ]
 }

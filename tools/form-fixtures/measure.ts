@@ -21,7 +21,7 @@ for (const f of fixtures()) {
     let line = '';
     for (let i = 0; i < r.progress.length; i += 8) { const p = r.progress[i]; line += p === null || p === undefined ? '.' : String(Math.min(9, Math.round(p * 9))); }
     console.log(' p (every 0.27 s, 0-9):', line);
-    for (const rep of r.reps) console.log(`  rep ${rep.n} ${(rep.startT / 1000).toFixed(2)}-${(rep.endT / 1000).toFixed(2)} s, max ${rep.maxP.toFixed(2)}, errors [${rep.errors.join(', ')}], tips [${rep.tips.join(', ')}]`);
+    for (const rep of r.reps) console.log(`  rep ${rep.n}${rep.side ? ` ${rep.side}` : ''} ${(rep.startT / 1000).toFixed(2)}-${(rep.endT / 1000).toFixed(2)} s, max ${rep.maxP.toFixed(2)}, errors [${rep.errors.join(', ')}], tips [${rep.tips.join(', ')}]`);
   }
   const l = lab[f.id];
   if (!l) { rows.push(`| ${f.id} | ${f.move} | ${f.angle} | ? | ${r.reps.length} | | | | |`); continue; }

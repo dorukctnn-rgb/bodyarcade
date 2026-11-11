@@ -37,6 +37,22 @@ export class RepMachine {
     this.phase = 'top'; this.armed = false; this.maxP = 0; this.localMin = Infinity; this.warned = false; this.prevP = 0; this.sawTop = false; this.peakOut = 0;
   }
 
+  /**
+   * Ends the repetition in progress now (one-sided moves: the other side has begun its repetition, so this one is over even if
+   * the leg never came all the way back; walking lunges and fast high knees flow from one side into the other).
+   */
+  forceEnd(t: number): RepEvent[] {
+    if (!this.armed) return [];
+    const dur = t - this.leftTopT;
+    const ev: RepEvent = dur >= this.o.minMs ? { kind: 'end', t, startT: this.leftTopT, bottomT: this.bottomT, maxP: this.maxP } : { kind: 'cancel', t };
+    this.armed = false; this.phase = 'top'; this.leftTopT = t; this.sawTop = true; this.peakOut = 0;
+    return [ev];
+  }
+
+  /** The person is seen but this machine's progress is not measured this frame (the other side of a one-sided move is doing
+   *  the same thing): nothing changes, and the person does not count as gone. */
+  hold(t: number): void { this.lastSeenT = t; }
+
   /** One frame. `p` null = the move cannot be measured this frame (the person is away or turned). */
   push(p: number | null, t: number): RepEvent[] {
     const out: RepEvent[] = [];

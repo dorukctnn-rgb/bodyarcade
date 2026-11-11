@@ -22,6 +22,9 @@ export function handHeights(b: B, count = true): { L: number | null; R: number |
 
 export const dbShoulderPress: MoveDef = {
   id: 'dbShoulderPress',
+  label: 'F',
+  group: 'dumbbell',
+  equipment: ['dumbbell'],
   views: ['front', 'diag'],
   parts: ['head', 'shoulders', 'elbows', 'hands'],
   rep: { countAt: 0.45, upAt: 0.25, fullAt: 1, minMs: 500 },

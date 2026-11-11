@@ -25,6 +25,8 @@ export function hipBend(b: B, count = false): number | null {
 
 export const gluteBridge: MoveDef = {
   id: 'gluteBridge',
+  label: 'F',
+  group: 'floor',
   views: ['side'],
   lying: true,
   parts: ['shoulders', 'hips', 'knees', 'feet'],
