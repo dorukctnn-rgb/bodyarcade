@@ -192,8 +192,9 @@ describe('daily check-in: getTodayPlan', () => {
     expect(t.restDay).toBe(true); expect(t.focus).toBe('mobility'); expect(t.adjustments).toContain('rest-day');
   });
   it('progress state replaces the template targets', () => {
-    const t = getTodayPlan({ program, date: monday, states: { squat: { ...startState({ move: 'squat', sets: 3, target: 8, range: [8, 20], unit: 'reps', restS: 90 }), target: 14 } } });
-    const sq = t.blocks.flatMap((b) => b.items).find((i) => i.move === 'squat');
-    expect(sq?.target).toBe(14);
+    const first = program.sessions.find((s) => s.id === 'A')!.blocks.find((b) => b.kind === 'main')!.items[0]!;
+    const t = getTodayPlan({ program, date: monday, states: { [first.move]: { ...startState(first), target: first.range[0] + 6 } } });
+    const sq = t.blocks.flatMap((b) => b.items).find((i) => i.move === first.move);
+    expect(sq?.target).toBe(first.range[0] + 6);
   });
 });

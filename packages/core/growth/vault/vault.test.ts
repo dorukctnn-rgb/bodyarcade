@@ -126,7 +126,8 @@ describe('zip', () => {
     const back = readZip(z);
     expect(back.map((e) => e.name)).toEqual(['a.txt', 'r/0.bin']);
     expect(new TextDecoder().decode(back[0]!.data)).toBe('hello');
-    const bad = z.slice(); bad[32] = bad[32]! ^ 0xff;
+    // a byte of the first entry's data (after its 30-byte header and 5-byte name)
+    const bad = z.slice(); bad[36] = bad[36]! ^ 0xff;
     expect(() => readZip(bad)).toThrow('zip:checksum');
     expect(() => readZip(bytes('not a zip at all, sorry about that'))).toThrow('zip:not-zip');
   });
@@ -160,7 +161,8 @@ describe('backup', () => {
     const a = await Vault.open(new MemoryBackend(), FAST);
     await a.putJson('logs', 'l', { reps: 10 });
     const file = await makeBackup(a, 'backup-pass', FAST);
-    const bad = file.slice(); bad[bad.length - 40] = bad[bad.length - 40]! ^ 0xff;
+    const mid = Math.floor(file.length / 2);
+    const bad = file.slice(); bad[mid] = bad[mid]! ^ 0xff;
     const b = await Vault.open(new MemoryBackend(), FAST);
     await b.putJson('logs', 'keep', { reps: 3 });
     await expect(restoreBackup(b, bad, 'backup-pass')).rejects.toThrow(/backup:(damaged|not-backup)/);

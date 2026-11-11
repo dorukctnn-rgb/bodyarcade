@@ -123,10 +123,11 @@ export class TurnTracker {
         // a side again: the same one, unless the nose clearly points the other way (still the same side: no jump)
         return at;
       }
-      // from a wide view: the nose says which side (it points the same way whether the person came from the front or the back)
+      // from a wide view: the nose says which side (it points the same way whether the person came from the front or the
+      // back); only when the nose is unclear does the turn's direction decide
+      if (c.dir !== 0) return c.dir === 1 ? 90 : 270;
       if (this.dir !== 0) return norm(at + 90 * this.dir);
-      if (c.dir === 0) return null;
-      return c.dir === 1 ? 90 : 270;
+      return null;
     }
     return null;
   }
@@ -145,7 +146,7 @@ export class TurnTracker {
           if (Math.abs(d) === 90) this.dir = d > 0 ? 1 : -1;
         } else if (prev !== null && this.dir !== 0) {
           const d = ((want - prev + 540) % 360) - 180;
-          if (Math.sign(d) !== this.dir) this.reversed = true;
+          if (d !== 0 && Math.sign(d) !== this.dir) { this.reversed = true; this.dir = Math.sign(d) as 1 | -1; }
         }
         this.main = want; this.path.push(want); this.pending = null;
       }

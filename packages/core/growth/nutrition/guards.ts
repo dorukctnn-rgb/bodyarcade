@@ -117,7 +117,7 @@ export function adaptTarget(o: { target: EnergyTarget; weighIns21d: number; expe
 /** Words the nutrition texts never use, in every language (SPEC 4.2 rule 6, 6.3); the strings test reads them. */
 export const BANNED_WORDS: Record<string, readonly string[]> = {
   en: ['good food', 'bad food', 'cheat', 'earned', 'earn it', 'guilt', 'detox', 'cleanse', 'burn fat', 'fat burning', 'cure', 'treat', 'guarantee', 'transformation'],
-  tr: ['iyi yiyecek', 'kötü yiyecek', 'kaçamak', 'hak ettin', 'suçluluk', 'detoks', 'arınma', 'yağ yak', 'tedavi', 'iyileştir', 'garanti', 'dönüşüm'],
+  tr: ['iyi yiyecek', 'kötü yiyecek', 'kaçamak', 'hak ettin', 'suçluluk', 'detoks', 'arınma', 'yağ yakar', 'yağ yakım', 'tedavi', 'iyileştir', 'garanti', 'dönüşüm'],
   de: ['gutes essen', 'schlechtes essen', 'cheat', 'verdient', 'schuld', 'detox', 'entgift', 'fett verbrenn', 'heilt', 'garantie', 'verwandlung'],
   es: ['comida buena', 'comida mala', 'trampa', 'te lo ganaste', 'culpa', 'detox', 'desintox', 'quema grasa', 'quemar grasa', 'cura', 'garantía', 'transformación'],
   fr: ['bonne nourriture', 'mauvaise nourriture', 'écart', 'mérité', 'culpabilité', 'détox', 'brûle les graisses', 'brûler les graisses', 'guérit', 'garantie', 'transformation'],

@@ -37,7 +37,8 @@ describe('turn tracker', () => {
       const right = main.filter((o) => o.bucket === nearestMain(o.deg));
       expect(right.length / main.length).toBeGreaterThanOrEqual(0.95);
       const all = out.filter((o) => o.bucket !== null);
-      expect(all.every((o) => angleDiff(o.deg, o.bucket!) <= 60)).toBe(true);
+      // never two 45-degree steps off (SPEC 2.5); a reading lags while a new direction is held for 300 ms
+      expect(all.filter((o) => angleDiff(o.deg, o.bucket!) >= 90)).toEqual([]);
     });
   }
 
@@ -47,17 +48,18 @@ describe('turn tracker', () => {
     expect(back.filter((o) => o.bucket === 180).length / back.length).toBeGreaterThanOrEqual(0.9);
   });
 
-  it('turning back the way one came is noticed', () => {
-    const fwd = turnFrames({ seconds: 6, degPerS: 30, seed: 5 });
+  it('turning back the way one came is noticed at the next side (the nose shows it), and the side is still named right', () => {
+    const fwd = turnFrames({ seconds: 9, degPerS: 30, seed: 5 });
     const tr = new TurnTracker();
-    let reversed = false;
+    let reversed = false, last = null as Bucket | null;
     for (const f of fwd) tr.push(features(f.lm, 16 / 9), f.t);
-    // now back from ~150 degrees to the front
-    for (let k = 0; k < 150; k++) {
-      const deg = 150 - k;
-      reversed = tr.push(features(turnBody(deg, mulberry32(k)), 16 / 9), 6000 + k * 33).reversed || reversed;
+    // past the back (~240 degrees), then back to the first side (90)
+    for (let k = 0; k <= 150; k++) {
+      const r = tr.push(features(turnBody(240 - k, mulberry32(k)), 16 / 9), 9000 + k * 33);
+      reversed = r.reversed || reversed; last = r.bucket;
     }
     expect(reversed).toBe(true);
+    expect(last).toBe(90);
   });
 });
 

@@ -51,7 +51,8 @@ describe('progress coach words', () => {
     const roots = [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('../../../core/growth', import.meta.url)), fileURLToPath(new URL('../../../../tools/growth-twin', import.meta.url)), fileURLToPath(new URL('../../../../tools/food-data', import.meta.url))];
     const bad = /\bA\.?I\.?\b|\bKI\b|\bIA\b|yapay zek|artificial intelligence|künstliche intelligenz|inteligencia artificial|intelligence artificielle/;
     for (const r of roots) for (const f of files(r)) {
-      if (f.endsWith('.bin')) continue;
+      // this file names the words it looks for
+      if (f.endsWith('.bin') || f.endsWith('strings.test.ts')) continue;
       const text = readFileSync(f, 'utf8');
       expect(bad.test(text), f).toBe(false);
     }

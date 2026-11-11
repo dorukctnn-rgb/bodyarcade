@@ -46,7 +46,7 @@ export function scaleMeal(meal: Meal, kcal: number): { grams: { food: string; g:
   const scal = meal.items.filter((i) => i.scale);
   const fixedK = totalsOf(fixed).kcal;
   const scalK = totalsOf(scal.map((i) => ({ food: i.food, g: i.g }))).kcal;
-  const k = scalK > 0 ? Math.max(0.5, Math.min(2, (kcal - fixedK) / scalK)) : 1;
+  const k = scalK > 0 ? Math.max(0.4, Math.min(3, (kcal - fixedK) / scalK)) : 1;
   const grams = [...fixed, ...scal.map((i) => {
     const piece = FOODS[i.food]?.piece ?? 0;
     const g = piece ? Math.max(piece / 2, Math.round((i.g * k) / (piece / 2)) * (piece / 2)) : Math.max(10, Math.round((i.g * k) / 10) * 10);
@@ -90,13 +90,13 @@ export function buildPlan(o: { kcal: number; protein?: [number, number]; days: n
       tot = add(tot, sc.totals);
       if (slot === 'dinner' && meal.twice && o.twice !== false) leftover = meal;
     }
-    // one more pass: nudge the biggest scalable meal so the day lands within 5 %
-    const off = (tot.kcal - o.kcal) / o.kcal;
-    if (Math.abs(off) > 0.05 && meals.length) {
-      const big = meals.reduce((a, b) => (b.totals.kcal > a.totals.kcal ? b : a));
-      const sc = scaleMeal(big.meal, big.totals.kcal - (tot.kcal - o.kcal));
-      tot = add({ kcal: tot.kcal - big.totals.kcal, p: tot.p - big.totals.p, f: tot.f - big.totals.f, c: tot.c - big.totals.c, fib: tot.fib - big.totals.fib }, sc.totals);
-      big.grams = sc.grams; big.totals = sc.totals;
+    // then nudge the meals, biggest first, until the day lands within 5 % (each meal stays between 0.4x and 3x its scalable part)
+    const order = [...meals].sort((a, b) => b.totals.kcal - a.totals.kcal);
+    for (let pass = 0; pass < 2 && Math.abs(tot.kcal - o.kcal) / o.kcal > 0.03; pass++) for (const m of order) {
+      if (Math.abs(tot.kcal - o.kcal) / o.kcal <= 0.03) break;
+      const sc = scaleMeal(m.meal, m.totals.kcal - (tot.kcal - o.kcal));
+      tot = add({ kcal: tot.kcal - m.totals.kcal, p: tot.p - m.totals.p, f: tot.f - m.totals.f, c: tot.c - m.totals.c, fib: tot.fib - m.totals.fib }, sc.totals);
+      m.grams = sc.grams; m.totals = sc.totals;
     }
     days.push({ day: d, meals, totals: tot, target: o.kcal, offBy: (tot.kcal - o.kcal) / o.kcal });
   }
