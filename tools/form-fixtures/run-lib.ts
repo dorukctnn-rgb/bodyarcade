@@ -10,7 +10,13 @@ import type { PoseFrame, Trace } from '../../packages/core/types/index.ts';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-export interface Fixture { id: string; move: FormMoveId; clip: string; angle: string; windows: [number, number][]; source: string }
+export interface Fixture {
+  id: string; move: FormMoveId; clip: string; angle: string; windows: [number, number][]; source: string;
+  /** Another fixture's trace this one reuses (the same video measured with a variant of the move: a goblet squat is a squat). */
+  trace?: string;
+}
+/** The id of the trace file a fixture is measured on. */
+export const traceId = (f: Pick<Fixture, 'id' | 'trace'>): string => f.trace ?? f.id;
 
 /** One labelled repetition: when it was deepest (fixture seconds) and what was wrong with it (rule ids; empty = good form). */
 export interface LabelRep { t: number; wrong?: string[]; note?: string }

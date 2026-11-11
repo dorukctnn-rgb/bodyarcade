@@ -40,6 +40,11 @@
     {"id": "jr-mixkit-725-front", "move": "jumpRope", "clip": "mk-725.mp4", "angle": "front", "windows": [[0.0, 14.0]], "source": "mixkit-725"},
     {"id": "cr-cdc-front", "move": "calfRaise", "clip": "cm-cdc-toe-lift.webm", "angle": "45", "windows": [[1.8, 7.0]], "source": "commons-cdc-toe-lift"},
     {"id": "cr-cdc-side", "move": "calfRaise", "clip": "cm-cdc-toe-lift.webm", "angle": "side", "windows": [[42.5, 51.5]], "source": "commons-cdc-toe-lift"},
-    {"id": "jr-mixkit-40234-front", "move": "jumpRope", "clip": "mk-40234.mp4", "angle": "front", "windows": [[0.0, 14.2]], "source": "mixkit-40234"}
+    {"id": "jr-mixkit-40234-front", "move": "jumpRope", "clip": "mk-40234.mp4", "angle": "front", "windows": [[0.0, 14.2]], "source": "mixkit-40234"},
+    {"id": "kp-cdc-knee-45", "move": "kneePushUp", "clip": "push-up-commons-cdc.webm", "angle": "45", "windows": [[47.0, 64.6]], "source": "commons-cdc-push-ups", "trace": "pu-cdc-knee-45"},
+    {"id": "gs-tf-goblet-front", "move": "gobletSquat", "clip": "squat-commons-kb-goblet.webm", "angle": "front", "windows": [[0.0, 23.0]], "source": "commons-taco-fleur-kettlebell-goblet-squat", "trace": "sq-tf-goblet-front"},
+    {"id": "gs-mixkit-52106-front", "move": "gobletSquat", "clip": "squat-mixkit-52106.mp4", "angle": "front", "windows": [[0.0, 9.5]], "source": "mixkit-52106", "trace": "sq-mixkit-52106-front"},
+    {"id": "dl-mixkit-52110-side", "move": "dbLunge", "clip": "lunge-mixkit-52110.mp4", "angle": "side", "windows": [[0.0, 16.6]], "source": "mixkit-52110", "trace": "ln-mixkit-52110-side"},
+    {"id": "pp-army-pushpress-front", "move": "pushPress", "clip": "shoulder-press-commons-army-pushpress.webm", "angle": "front", "windows": [[10.3, 20.8], [28.7, 39.8], [42.0, 45.8]], "source": "commons-army-push-press", "trace": "sp-army-pushpress-front"}
   ]
 }

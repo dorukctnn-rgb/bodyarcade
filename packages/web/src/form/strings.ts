@@ -4,6 +4,8 @@
 import type { Lang } from '../../../core/ui/i18n/index.ts';
 import type { FormMoveId } from '../../../core/form/types.ts';
 import { STANDING_WORDS, type StandingUiKey } from './strings-standing.ts';
+import { en as en45, tr as tr45, type Faz45UiKey, type Faz45Words } from './strings-faz45.ts';
+import { de as de45, es as es45, fr as fr45 } from './strings-faz45-more.ts';
 
 export interface MoveWords { name: string; setup: string; looks: string[]; cannot: string[] }
 
@@ -24,7 +26,7 @@ interface BaseWords {
 }
 
 export interface FormWords {
-  ui: Record<BaseUiKey | StandingUiKey, string>;
+  ui: Record<BaseUiKey | StandingUiKey | Faz45UiKey, string>;
   parts: BaseWords['parts'];
   moves: Record<FormMoveId, MoveWords>;
   cues: Record<string, string>;
@@ -197,9 +199,15 @@ const fr: BaseWords = {
   },
 };
 
+// Faz 4 (floor) and Faz 5 (dumbbell) words: en and tr in strings-faz45.ts, de, es and fr in strings-faz45-more.ts
+const FAZ45: Readonly<Record<Lang, Faz45Words>> = { en: en45, tr: tr45, de: de45, es: es45, fr: fr45 };
+
 const merge = (b: BaseWords, lang: Lang): FormWords => {
-  const x = STANDING_WORDS[lang];
-  return { ui: { ...b.ui, ...x.ui }, parts: b.parts, moves: { ...b.moves, ...x.moves }, cues: { ...b.cues, ...x.cues }, rules: { ...b.rules, ...x.rules } };
+  const x = STANDING_WORDS[lang], y = FAZ45[lang];
+  return {
+    ui: { ...b.ui, ...x.ui, ...y.ui }, parts: b.parts, moves: { ...b.moves, ...x.moves, ...y.moves },
+    cues: { ...b.cues, ...x.cues, ...y.cues }, rules: { ...b.rules, ...x.rules, ...y.rules },
+  };
 };
 
 export const FORM_WORDS: Readonly<Record<Lang, FormWords>> = { en: merge(en, 'en'), tr: merge(tr, 'tr'), de: merge(de, 'de'), es: merge(es, 'es'), fr: merge(fr, 'fr') };

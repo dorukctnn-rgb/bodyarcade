@@ -18,7 +18,7 @@ import { kneeAngle as legKnee, torsoLean } from './legs.ts';
 
 const FRONT_TARGET_H = 0.2;
 
-function frontProgress(b: Pick<BodyCtx, 'pts' | 'near' | 'view' | 'len'>, target = FRONT_TARGET_H): number | null {
+export function frontProgress(b: Pick<BodyCtx, 'pts' | 'near' | 'view' | 'len'>, target = FRONT_TARGET_H): number | null {
   if (b.len.thigh <= 0) return null;
   let sum = 0, n = 0;
   for (const s of ['L', 'R'] as const) {
@@ -49,14 +49,14 @@ export function kneeInside(b: Pick<BodyCtx, 'pts' | 'near' | 'view'>, s: Side): 
 
 // ---- rules shared by the family ----
 
-const depthRule = (id: string, views: readonly View[]): FormRule => ({
+export const depthRule = (id: string, views: readonly View[]): FormRule => ({
   kind: 'rep', id, severity: 'error', views,
   judge: (r) => r.maxP < 1,
   segments: (b) => (b.view === 'side' ? [thigh(b.near)] : ['thighL', 'thighR']),
   cue: 'squat.deeper',
 });
 
-const kneesInRule: FormRule = {
+export const kneesInRule: FormRule = {
   kind: 'live', id: 'squat.kneesIn', severity: 'error', views: ['front'], minP: 0.35,
   measure: (b) => ({ L: kneeInside(b, 'L'), R: kneeInside(b, 'R') }),
   bad: (v) => v > 0.07, clear: (v) => v < 0.04,
@@ -64,7 +64,7 @@ const kneesInRule: FormRule = {
   cue: 'squat.kneesOut',
 };
 
-const shiftRule: FormRule = {
+export const shiftRule: FormRule = {
   kind: 'live', id: 'squat.shift', severity: 'tip', views: ['front'], minP: 0.5,
   measure(b) {
     const hips = pair(b, 'hip'), ankles = pair(b, 'ankle');
@@ -78,19 +78,19 @@ const shiftRule: FormRule = {
 };
 
 /** Torso lean minus shin lean at the bottom, from the side (TORSO): leaning forward more than the shins do. */
-const chestRule = (phases: readonly ('top' | 'down' | 'bottom' | 'up')[] = ['bottom', 'up']): FormRule => ({
+export const chestRule = (phases: readonly ('top' | 'down' | 'bottom' | 'up')[] = ['bottom', 'up'], bad = 30, clear = 22): FormRule => ({
   kind: 'live', id: 'squat.chest', severity: 'tip', views: ['side'], minP: 0.6, phases,
   measure(b) {
     const p = all(b, b.near, ['shoulder', 'hip', 'knee', 'ankle']);
     if (!p) return null;
     return fromVertical(p[1]!, p[0]!) - fromVertical(p[3]!, p[2]!);
   },
-  bad: (v) => v > 30, clear: (v) => v < 22,
+  bad: (v) => v > bad, clear: (v) => v < clear,
   segments: () => ['torso'],
   cue: 'squat.chestUp',
 });
 
-const tempoRule: FormRule = {
+export const tempoRule: FormRule = {
   kind: 'rep', id: 'squat.tempo', severity: 'tip', views: ['front', 'diag', 'side'],
   judge: (r) => r.bottomT - r.startT < 400,
   segments: () => [],

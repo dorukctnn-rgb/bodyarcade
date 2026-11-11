@@ -2,14 +2,32 @@
 // types/no-words.test.ts); the page turns cue and guide codes into sentences in the player's language.
 import type { P, Side, View } from './geometry.ts';
 
-export type FormMoveId =
-  // Faz 1
-  | 'squat' | 'pushUp' | 'gluteBridge' | 'dbShoulderPress'
-  // Faz 3: standing bodyweight moves (SPEC.md 5.1, 5.2, 5.6, 5.7, 5.3 row 21)
+/** Faz 1: the four first moves. */
+export type Faz1MoveId = 'squat' | 'pushUp' | 'gluteBridge' | 'dbShoulderPress';
+/** Faz 3: standing bodyweight moves (SPEC.md 5.1, 5.2, 5.6, 5.7, 5.3 row 21). */
+export type StandingMoveId =
   | 'sumoSquat' | 'chairSquat' | 'prisonerSquat' | 'jumpSquat' | 'squatHold' | 'wallSit' | 'pistolSquat' | 'cossackSquat'
   | 'reverseLunge' | 'forwardLunge' | 'splitSquat' | 'bulgarianSplitSquat' | 'lateralLunge' | 'curtsyLunge' | 'jumpingLunge'
   | 'jumpingJack' | 'stepJack' | 'starJump' | 'highKnees' | 'marching' | 'buttKicks' | 'burpee' | 'squatThrust' | 'inchworm'
   | 'skater' | 'jumpRope' | 'calfRaise' | 'singleCalfRaise' | 'stepUp' | 'wallAngel' | 'armCircles' | 'goodMorning';
+/** Faz 4: floor moves, push-ups, planks and core (SPEC.md 5.3-5.5). */
+export type FloorMoveId =
+  | 'singleLegBridge' | 'hipThrust' | 'superman' | 'birdDog' | 'donkeyKick'
+  | 'kneePushUp' | 'inclinePushUp' | 'declinePushUp' | 'wallPushUp' | 'widePushUp' | 'diamondPushUp' | 'pikePushUp' | 'tricepsDip' | 'plankShoulderTap'
+  | 'plank' | 'highPlank' | 'sidePlank' | 'crunch' | 'sitUp' | 'bicycleCrunch' | 'legRaise' | 'flutterKicks' | 'deadBug' | 'hollowHold'
+  | 'mountainClimber' | 'russianTwist' | 'vUp' | 'reverseCrunch' | 'toeTouch' | 'bearHold'
+  // stretching (SPEC.md 5.13): time only
+  | 'hamstringStretch' | 'hipFlexorStretch' | 'catCow' | 'childsPose' | 'chestStretch' | 'quadStretch' | 'shoulderStretch' | 'neckStretch' | 'butterflyStretch' | 'figureFour';
+/** Faz 5: dumbbell moves (SPEC.md 5.8-5.12). */
+export type DumbbellMoveId =
+  | 'gobletSquat' | 'dbFrontSquat' | 'dbSumoSquat' | 'romanianDeadlift' | 'singleLegRdl' | 'dbDeadlift' | 'dbLunge' | 'dbBulgarian' | 'dbStepUp'
+  | 'dbHipThrust' | 'dbCalfRaise' | 'dbSwing' | 'thruster'
+  | 'arnoldPress' | 'pushPress' | 'lateralRaise' | 'frontRaise' | 'rearDeltFly' | 'uprightRow' | 'shrug'
+  | 'bicepsCurl' | 'hammerCurl' | 'concentrationCurl' | 'zottmanCurl' | 'overheadTricepsExt' | 'tricepsKickback' | 'skullCrusher' | 'closeGripFloorPress'
+  | 'floorPress' | 'pullover' | 'bentOverRow' | 'oneArmRow' | 'renegadeRow'
+  | 'dbRussianTwist' | 'dbSideBend' | 'manMaker' | 'dbSnatch';
+
+export type FormMoveId = Faz1MoveId | StandingMoveId | FloorMoveId | DumbbellMoveId;
 
 /**
  * What the coach offers for a move (SPEC.md 5): F = form + count, H = hold time + form, S = count only, T = time only. A move
@@ -18,7 +36,7 @@ export type FormMoveId =
 export type MoveLabel = 'F' | 'H' | 'S' | 'T';
 
 /** Where a move sits in the catalogue (the move picker's groups). */
-export type MoveGroup = 'squat' | 'lunge' | 'cardio' | 'standing' | 'floor' | 'dumbbell';
+export type MoveGroup = 'squat' | 'lunge' | 'cardio' | 'standing' | 'floor' | 'dumbbell' | 'stretch';
 
 /** Body line parts that a rule can colour. L and R are the player's own sides. */
 export type SegmentId =

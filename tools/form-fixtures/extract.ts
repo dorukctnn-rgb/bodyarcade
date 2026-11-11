@@ -15,7 +15,7 @@ import type { TraceFile } from '../../packages/core/types/index.ts';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const outDir = join(root, 'tests/traces/form');
 
-interface Fixture { id: string; move: string; clip: string; angle: string; windows: [number, number][]; source: string }
+interface Fixture { id: string; move: string; clip: string; angle: string; windows: [number, number][]; source: string; trace?: string }
 interface Manifest { gapS: number; fixtures: Fixture[] }
 
 function args(): Record<string, string> {
@@ -35,7 +35,7 @@ if (!o.clips) { console.error('Usage: node tools/form-fixtures/extract.ts --clip
 const clips = resolve(o.clips);
 const manifest = JSON.parse(readFileSync(join(root, 'tools/form-fixtures/fixtures.json'), 'utf8')) as Manifest;
 const only = o.only ? new Set(o.only.split(',')) : null;
-const todo = manifest.fixtures.filter((f) => (!only || only.has(f.id)) && (o.force || !existsSync(join(outDir, `${f.id}.trace.json`))));
+const todo = manifest.fixtures.filter((f) => !f.trace && (!only || only.has(f.id)) && (o.force || !existsSync(join(outDir, `${f.id}.trace.json`))));
 if (todo.length === 0) { console.log('Every fixture trace exists already.'); process.exit(0); }
 mkdirSync(outDir, { recursive: true });
 

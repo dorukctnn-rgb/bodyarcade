@@ -64,7 +64,7 @@ test('reverse lunges from the side (a real person, Faz 3): five repetitions on a
   expect(seen.at(-1)!.reps).toBe(5);
   expect(seen.at(-1)!.clean).toBe(5);
   await expect(page.locator('.fc-chip').first()).toHaveText('Form + sayaç');
-  await expect(page.locator('[data-move-picker] optgroup')).toHaveCount(6);
+  await expect(page.locator('[data-move-picker] optgroup')).toHaveCount(7);
   await page.getByRole('button', { name: 'Seti bitir' }).click();
   await expect(page.locator('.fc-summary')).toContainText('5 tekrar, 5 temiz');
   await expect(page.locator('.fc-summary')).toContainText('Sol 3, sağ 2');

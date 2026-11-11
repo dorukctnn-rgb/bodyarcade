@@ -2,7 +2,7 @@
 // strings.ts. Same rules as there: short cues (read from 2-3 m away), "form tips" wording, no health claims, nothing that names
 // the technology. "Count only" and "time only" moves say plainly what the camera does not judge.
 import type { Lang } from '../../../core/ui/i18n/index.ts';
-import type { FormMoveId } from '../../../core/form/types.ts';
+import type { StandingMoveId } from '../../../core/form/types.ts';
 
 export interface StandingMoveWords { name: string; setup: string; looks: string[]; cannot: string[] }
 
@@ -11,7 +11,6 @@ export type StandingUiKey =
   | 'eqDumbbell' | 'pickMove' | 'grpSquat' | 'grpLunge' | 'grpCardio' | 'grpStanding' | 'grpFloor' | 'grpDumbbell' | 'countOnlyNote'
   | 'timeOnlyNote';
 
-export type StandingMoveId = Exclude<FormMoveId, 'squat' | 'pushUp' | 'gluteBridge' | 'dbShoulderPress'>;
 
 export interface StandingWords {
   ui: Record<StandingUiKey, string>;

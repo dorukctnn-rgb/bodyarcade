@@ -65,8 +65,8 @@ const CSS = `
 
 interface Snapshot { reps: number; clean: number; holdMs: number; cue: string | null; view: string | null; ready: boolean; segments: Record<string, string>; frames: number; move: FormMoveId }
 
-const GROUPS: readonly [MoveGroup, 'grpSquat' | 'grpLunge' | 'grpCardio' | 'grpStanding' | 'grpFloor' | 'grpDumbbell'][] = [
-  ['squat', 'grpSquat'], ['lunge', 'grpLunge'], ['cardio', 'grpCardio'], ['standing', 'grpStanding'], ['floor', 'grpFloor'], ['dumbbell', 'grpDumbbell'],
+const GROUPS: readonly [MoveGroup, 'grpSquat' | 'grpLunge' | 'grpCardio' | 'grpStanding' | 'grpFloor' | 'grpDumbbell' | 'grpStretch'][] = [
+  ['squat', 'grpSquat'], ['lunge', 'grpLunge'], ['cardio', 'grpCardio'], ['standing', 'grpStanding'], ['floor', 'grpFloor'], ['dumbbell', 'grpDumbbell'], ['stretch', 'grpStretch'],
 ];
 const LABEL_KEY: Record<MoveLabel, 'formCount' | 'holdForm' | 'countOnly' | 'timeOnly'> = { F: 'formCount', H: 'holdForm', S: 'countOnly', T: 'timeOnly' };
 
