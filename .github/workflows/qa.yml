@@ -49,7 +49,7 @@ permissions:
 jobs:
   page-check:
     if: github.event_name != 'workflow_dispatch' || inputs.page_check != 'false'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
@@ -113,11 +113,11 @@ jobs:
         include:
           # pagecheck: the ten-size layout check of the web shell on this engine too (one runner per engine is enough)
           - { os: macos-latest, engine: webkit, label: 'Safari engine, macOS', pagecheck: true }
-          - { os: ubuntu-latest, engine: webkit, label: 'WebKit, Linux', pagecheck: false }
-          - { os: ubuntu-latest, engine: firefox, label: 'Firefox, Linux', pagecheck: true }
+          - { os: ubuntu-24.04, engine: webkit, label: 'WebKit, Linux', pagecheck: false }
+          - { os: ubuntu-24.04, engine: firefox, label: 'Firefox, Linux', pagecheck: true }
           - { os: macos-latest, engine: firefox, label: 'Firefox, macOS', pagecheck: false }
           # the same flows on Chromium in the same environment: a flow that fails here too is the flow's, not the engine's
-          - { os: ubuntu-latest, engine: chromium, label: 'Chromium, Linux (baseline)', pagecheck: false }
+          - { os: ubuntu-24.04, engine: chromium, label: 'Chromium, Linux (baseline)', pagecheck: false }
     steps:
       - uses: actions/checkout@v7
 
