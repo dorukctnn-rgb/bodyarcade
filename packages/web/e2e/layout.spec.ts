@@ -65,3 +65,21 @@ test('the Turkish plans keep the layout rule on the narrowest phones (the engine
   }
   expect(found, found.join('\n')).toEqual([]);
 });
+
+test('the German, Spanish and French pages of the new sections keep the layout rule on narrow phones and a laptop (German words are the longest)', async ({ browser }) => {
+  test.setTimeout(300_000);
+  const found: string[] = [];
+  for (const lang of ['de', 'es', 'fr'] as const) {
+    for (const [w, h] of [[360, 780], [320, 640], [1280, 800]] as const) {
+      for (const name of ['home', 'game', 'plans', 'office', 'family'] as const) {
+        const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, name, { w, h, lang });
+        try {
+          for (const p of [...(await checkPage(page)), ...errors.map((e) => `console: ${e}`)]) found.push(`${lang} ${name} ${w}: ${p}`);
+        } finally {
+          await context.close();
+        }
+      }
+    }
+  }
+  expect(found, found.join('\n')).toEqual([]);
+});

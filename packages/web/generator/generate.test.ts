@@ -32,7 +32,7 @@ describe('the generated site', () => {
   it('has no problems and writes the pages of every complete language', () => {
     expect(report.problems).toEqual([]);
     const paths = report.pages.map((p) => p.path);
-    for (const p of ['/', '/tr/', '/workouts/legs/', '/tr/workouts/legs/', '/games/squat-flap/', '/tr/games/squat-flap/', '/play/squat-flap/', '/settings/', '/tr/settings/', '/pro/', '/results/', '/welcome/']) {
+    for (const p of ['/', '/tr/', '/workouts/legs/', '/tr/workouts/legs/', '/games/squat-flap/', '/tr/games/squat-flap/', '/play/squat-flap/', '/settings/', '/tr/settings/', '/pro/', '/results/', '/welcome/', '/office/', '/tr/office/', '/family/', '/tr/family/']) {
       expect(paths, p).toContain(p);
       expect(existsSync(join(out, p, 'index.html')), p).toBe(true);
     }
@@ -46,6 +46,10 @@ describe('the generated site', () => {
     expect(sitemap).toContain('<loc>https://bodyarcade.com/games/squat-flap/</loc>');
     expect(sitemap).toContain('<loc>https://bodyarcade.com/tr/games/squat-flap/</loc>');
     expect(sitemap).toContain('hreflang="x-default" href="https://bodyarcade.com/games/squat-flap/"');
+    // the office break and family mode are made for search too (their titles are what people type), in English and Turkish
+    for (const path of ['/office/', '/tr/office/', '/family/', '/tr/family/']) expect(sitemap, path).toContain(`<loc>https://bodyarcade.com${path}</loc>`);
+    expect(sitemap).toContain('hreflang="tr" href="https://bodyarcade.com/tr/office/"');
+    expect(sitemap).toContain('hreflang="x-default" href="https://bodyarcade.com/family/"');
     for (const hidden of ['/settings/', '/pro/', '/results/', '/play/', '/welcome/']) expect(sitemap, hidden).not.toContain(`bodyarcade.com${hidden}`);
     const count = (sitemap.match(/<loc>/g) ?? []).length;
     expect(count).toBe(report.pages.filter((p) => p.indexable).length);
@@ -65,6 +69,23 @@ describe('the generated site', () => {
     expect(html).not.toMatch(/<script(?![^>]*(?:src=|type="application\/(?:ld\+)?json"))/);
     expect(html).not.toMatch(/<style[\s>]/);
     expect(html).not.toMatch(/\sstyle="/);
+  });
+
+  it('lets search engines index the office break and family mode: a canonical address, the language alternates, the search title', () => {
+    for (const [file, canon, title] of [
+      ['office/index.html', 'https://bodyarcade.com/office/', 'Desk exercises at work'],
+      ['tr/office/index.html', 'https://bodyarcade.com/tr/office/', 'Ofiste oturarak egzersiz'],
+      ['family/index.html', 'https://bodyarcade.com/family/', 'Family exercise games'],
+      ['tr/family/index.html', 'https://bodyarcade.com/tr/family/', 'İki kişilik spor oyunları'],
+    ] as const) {
+      const html = read(file);
+      expect(html, file).not.toContain('name="robots"');
+      expect(html, file).toContain(`<link rel="canonical" href="${canon}">`);
+      expect(html, file).toContain(`<title>${title}`);
+      expect(html, file).toContain('hreflang="x-default"');
+      expect(html, file).toMatch(/hreflang="tr" href="https:\/\/bodyarcade\.com\/tr\/(office|family)\/"/);
+      expect(html, file).toMatch(/hreflang="en" href="https:\/\/bodyarcade\.com\/(office|family)\/"/);
+    }
   });
 
   it('keeps the pages for the player out of the index', () => {

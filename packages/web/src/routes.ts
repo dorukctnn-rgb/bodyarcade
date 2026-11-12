@@ -39,7 +39,7 @@ export const INDEXED_LANGS: readonly Lang[] = ['en', 'tr'];
 export const router = createRouter<RouteId>(ROUTES, { prefixed: PREFIXED_LANGS });
 
 /** Pages that search engines may index. Everything else is for the player and says noindex. */
-export const INDEXABLE: ReadonlySet<RouteId> = new Set<RouteId>(['home', 'region', 'game', 'plans']);
+export const INDEXABLE: ReadonlySet<RouteId> = new Set<RouteId>(['home', 'region', 'game', 'plans', 'office', 'family']);
 
 export const REGION_ORDER: readonly BodyRegion[] = REGION_IDS;
 export const isRegion = (v: unknown): v is BodyRegion => typeof v === 'string' && (REGION_ORDER as readonly string[]).includes(v);

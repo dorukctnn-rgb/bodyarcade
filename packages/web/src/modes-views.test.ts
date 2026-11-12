@@ -53,7 +53,7 @@ describe.each(LANGS)('the office break in %s', (lang) => {
   it('is the free desk break: its four seated games, each 45 seconds, the desk set-up, and a start button', () => {
     const { html, text, missing, noindex } = draw(lang, p(lang, '/office/'), { caps: bigScreen, server: false });
     expect(missing).toEqual([]);
-    expect(noindex).toBe(true);
+    expect(noindex).toBe(false);
     const plan = WORKOUT_PLANS.find((x) => x.id === FREE_PLAN_ID);
     const r = plan ? resolvePlan(plan, games, { seated: true }) : null;
     expect(r?.steps.length).toBe(4);
@@ -168,5 +168,43 @@ describe('the home page', () => {
     expect(big.text).toContain(lang === 'en' ? 'Two players side by side on one camera' : 'Tek kamerada yan yana iki oyuncu');
     const small = draw(lang, p(lang, '/'), { caps: phone, server: false });
     expect(small.text).toContain(lang === 'en' ? 'Two players take turns on one device' : 'İki oyuncu tek cihazda sırayla oynar');
+  });
+});
+
+// The two pages are meant to be found: indexed, with a title and a description in each language made of what people type there
+// (Google's suggestions of 12 Nov 2026: "desk exercises at work", "masa başı egzersiz", "übungen im büro", "pausas activas en la oficina",
+// "exercices assis au bureau"; "family exercise games", "iki kişilik spor oyunu", "bewegungsspiele für die ganze familie",
+// "juegos activos en familia", "sport en famille à la maison").
+describe('the search titles of the office break and family mode', () => {
+  const ALL: Lang[] = ['en', 'tr', 'de', 'es', 'fr'];
+  const PHRASE: Record<'office' | 'family', Record<Lang, RegExp>> = {
+    office: { en: /desk exercises at work/i, tr: /ofiste oturarak egzersiz/i, de: /Übungen im Büro/, es: /Pausas activas en la oficina/, fr: /Exercices assis au bureau/ },
+    family: { en: /family exercise games/i, tr: /İki kişilik spor oyunları/, de: /Bewegungsspiele für die ganze Familie/, es: /Juegos activos en familia/, fr: /Sport en famille à la maison/ },
+  };
+  const page = (lang: Lang, path: string) => renderPage(makeContext({ lang, games, url: p(lang, path), caps: bigScreen, server: true }), router.match(p(lang, path)), EMPTY_STATE);
+
+  it.each(ALL)('%s: both pages are indexable, with the phrase in the title and a title and description of a search result size', (lang) => {
+    for (const [kind, path] of [['office', '/office/'], ['family', '/family/']] as const) {
+      const r = page(lang, path);
+      expect(r.status).toBe(200);
+      expect(r.noindex, kind).toBe(false);
+      expect(r.title, kind).toMatch(PHRASE[kind][lang]);
+      expect(r.title.length, `${lang} ${kind} title`).toBeLessThanOrEqual(62);
+      expect(r.description.length, `${lang} ${kind} description`).toBeGreaterThanOrEqual(100);
+      expect(r.description.length, `${lang} ${kind} description`).toBeLessThanOrEqual(160);
+      for (const text of [r.title, r.description]) {
+        expect(copyProblems(text), `${lang} ${kind}`).toEqual([]);
+        expect(text, `${lang} ${kind}`).not.toMatch(/\b(AI|KI|IA)\b|yapay zek|undefined|NaN|\{[a-z]+\}/);
+        // features, never results or medical claims
+        expect(text, `${lang} ${kind}`).not.toMatch(/weight|kilo|abnehm|adelgaz|maigr|pain|schmerz|dolor|douleur|ağrı|zayıfla/i);
+      }
+    }
+  });
+
+  it('the two pages have different titles and descriptions in every language', () => {
+    for (const lang of ALL) {
+      expect(page(lang, '/office/').title).not.toBe(page(lang, '/family/').title);
+      expect(page(lang, '/office/').description).not.toBe(page(lang, '/family/').description);
+    }
   });
 });

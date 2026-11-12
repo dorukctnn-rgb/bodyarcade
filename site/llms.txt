@@ -16,6 +16,8 @@
 - [Exercise games for PC](https://bodyarcade.com/exercise-games-for-pc): what a laptop or desktop needs, the games for a desk and the ones that need floor space
 - [A Kinect alternative for PC](https://bodyarcade.com/kinect-alternative-pc): what a webcam reads next to a depth sensor, and the games it runs
 - [Workout plans](https://bodyarcade.com/plans/): ready sessions of games with rests; Desk break is free
+- [Office break](https://bodyarcade.com/office/): a free break of short seated camera games at your desk, with the desk set-up and the moves
+- [Family mode](https://bodyarcade.com/family/): two players on one camera, side by side on a big screen or in turns on a phone; the classic set is free
 - [Updates](https://bodyarcade.com/changelog): new games and changes, release by release; the last release was on 27 October 2026
 - [Privacy policy](https://bodyarcade.com/privacy), [Terms](https://bodyarcade.com/terms), [Refund policy](https://bodyarcade.com/refund)
 

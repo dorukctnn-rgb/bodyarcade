@@ -55,13 +55,13 @@ const T = (en: string, tr: string, de: string, es: string, fr: string): Record<s
 export const WORKOUT_PLANS: readonly WorkoutPlan[] = [
   {
     id: 'desk-break',
-    title: T('Desk break', 'Masa molası', 'Schreibtischpause', 'Pausa en la mesa', 'Pause au bureau'),
+    title: T('Desk break', 'Masa molası', 'Büropause', 'Pausa de oficina', 'Pause au bureau'),
     blurb: T(
       'An office break in your chair: four short seated games for shoulders, back and waist. No sweat.',
       'Sandalyende bir ofis molası: omuzlar, sırt ve bel için oturarak dört kısa oyun. Terletmez.',
-      'Eine Büropause auf dem Stuhl: vier kurze Spiele im Sitzen für Schultern, Rücken und Taille. Kein Schwitzen.',
-      'Una pausa de oficina en tu silla: cuatro juegos cortos sentado para hombros, espalda y cintura. Sin sudar.',
-      'Une pause de bureau sur ta chaise : quatre jeux courts assis pour les épaules, le dos et la taille. Sans transpirer.',
+      'Eine Büropause auf dem Stuhl: vier kurze Spiele im Sitzen für Schultern, Rücken und Taille. Ganz ohne Schwitzen.',
+      'Una pausa de oficina sin salir de tu silla: cuatro juegos cortos para mover hombros, espalda y cintura. Sin sudar.',
+      'Une pause au bureau sur ta chaise : quatre jeux courts, assis, pour les épaules, le dos et la taille. Sans transpirer.',
     ),
     audience: 'desk',
     seating: 'always',
