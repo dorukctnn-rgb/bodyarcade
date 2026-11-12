@@ -40,9 +40,15 @@ const BUDGET = {
   // CPU side at 4x throttling, measured over four runs (with other builds running on the machine, so the tails are noisy):
   // update p50 0.1-0.4 ms, p95 0.4-6.1 ms; submit p50 2.4-9 ms. p95 of the submit is not judged: software GL stalls the page
   // now and then (6 to 43 ms), a phone's GPU driver does not.
+  // The submit budget per tier since the graphics overhaul (#31, 10 Nov): T1 draws into an HDR target with a final pass, T2 adds
+  // half-resolution GTAO, bloom and soft shadows, so its submit is no longer a phone frame. Measured 12 Nov on the real GPU (ANGLE
+  // D3D11, --use-angle=d3d11), 4x throttling, p50 over two runs on a busy machine (the second about 1.5x the first): T0 4.6-10.8 ms,
+  // T1 7.1-13.9 ms, T2 12.4-35.7 ms. The 12 ms budget of 24 Oct was set before those passes. A phone-class CPU does not stay at
+  // T2: the governor (quality.ts) drops a level when the mean frame passes 24 ms. T0 keeps the old budget; T1 and T2 get about a
+  // quarter over the measured top, so a regression still shows.
   updateP50Ms: 1.5,
   updateMs: 8,
-  renderMs: 12,
+  renderMs: { 0: 12, 1: 18, 2: 45 },
 } as const;
 
 const within = (a: number, b: number, share: number): boolean => Math.abs(a - b) <= Math.max(1, Math.abs(a) * share);
@@ -151,7 +157,7 @@ test('frame cost of the kit at 4x CPU throttling', async ({ page }) => {
     // The kit's own CPU work in one frame at 4x throttling must leave most of a 16.7 ms frame to the game and the pose model.
     expect(r.updateP50, `${tag} update (median)`).toBeLessThan(BUDGET.updateP50Ms);
     expect(r.updateP95, `${tag} update (p95)`).toBeLessThan(BUDGET.updateMs);
-    expect(r.renderP50, `${tag} render submit (median)`).toBeLessThan(BUDGET.renderMs);
+    expect(r.renderP50, `${tag} render submit (median)`).toBeLessThan(BUDGET.renderMs[r.level as 0 | 1 | 2]);
   }
   expect(errorsOf(page)).toEqual([]);
 });

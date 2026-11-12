@@ -138,10 +138,15 @@ test('3D twin: shaped by the typed tape; two measurements give a ghost and a hea
     await page.locator('[data-height]').fill('180');
     for (const [p, v] of Object.entries({ neck: 41, chest: 108, waist: 100, hips: 106, thighL: 61, calfL: 39, upperArmL: 33 })) await page.locator(`[data-part=${p}]`).fill(String(v));
     await page.getByRole('button', { name: 'Save measurements' }).click();
+    // a save draws the tab again once the vault has written (slow on a CI runner): the second tape goes into the new form,
+    // which opens on the first one; typed into the old form it was lost and the heat map compared two equal tapes
+    const saved = page.locator('[data-measure] > ul.gc-list > li');
+    await expect(saved).toHaveCount(1, { timeout: 30_000 });
     await page.locator('[data-height]').fill('180');
     await page.locator('[data-part=waist]').fill('90');
     await page.locator('[data-part=hips]').fill('101');
     await page.getByRole('button', { name: 'Save measurements' }).click();
+    await expect(saved).toHaveCount(2, { timeout: 30_000 });
     await page.locator('[data-name=twin][data-value=ghost]').click();
     await page.locator('[data-name=twin][data-value=heat]').click();
     await page.waitForFunction(() => { const s = (window as unknown as { __twin?: { stats(): { ready: boolean; heatMin: number; ghost: boolean } | null } }).__twin?.stats(); return !!s && s.ready && s.ghost && s.heatMin < -0.03; });

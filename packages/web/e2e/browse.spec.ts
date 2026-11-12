@@ -11,7 +11,8 @@ test.describe('finding a game', () => {
     const errors = collectErrors(page);
     await page.goto(`${WEB_DEV_URL}/`);
     await expect(page.locator('a.ba-tile')).toHaveCount(11);
-    await expect(page.locator('h1')).toContainText('The game moves when you do');
+    // the home page's heading is the scene at the top since #37 (home.how.h1); the games follow under it
+    await expect(page.locator('h1')).toContainText('Your body is the controller');
     await page.evaluate(() => { (window as unknown as { __marker: number }).__marker = 1; });
 
     await page.locator('.ba-filters a.ba-chip', { hasText: 'Legs and hips' }).click();
