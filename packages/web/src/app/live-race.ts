@@ -72,6 +72,8 @@ export interface LiveView {
   match: string | null;
   seed: number | null;
   tiles: LiveTile[];
+  /** A duel link's room (core/net/duel-link.ts): the others are drawn as 3D figures, never a camera picture. */
+  duel?: boolean;
 }
 
 /** A message of the room, for a bubble over the tile of who sent it. */
@@ -151,7 +153,7 @@ export function liveSeats(o: {
 }
 
 /** The result of a race in a room as the results screen reads a race (race.ts RaceOutcome), with every player. Pure. */
-export function liveOutcome(result: MatchResult, seats: readonly LiveSeat[], room: string, best: RaceOutcome['best']): RaceOutcome {
+export function liveOutcome(result: MatchResult, seats: readonly LiveSeat[], room: string, best: RaceOutcome['best'], duel?: LiveRaceDetails['duel']): RaceOutcome {
   const me = seats.find((s) => s.you);
   const others = seats.filter((s) => !s.you);
   const top = others.filter((s) => !s.forfeited).reduce<LiveSeat | null>((b, s) => (!b || s.score > b.score ? s : b), null);
@@ -160,7 +162,7 @@ export function liveOutcome(result: MatchResult, seats: readonly LiveSeat[], roo
   const draw = result.winner === null && result.reason === 'complete' && !!me && !me.forfeited;
   // a race that ended too early to count (no_contest), or that nobody finished (abandoned), is lost by nobody
   const counted = result.reason === 'complete' || result.reason === 'forfeit';
-  const live: LiveRaceDetails = { reason: result.reason, seats: [...seats], room };
+  const live: LiveRaceDetails = { reason: result.reason, seats: [...seats], room, ...(duel ? { duel } : {}) };
   return {
     kind: 'live', you, won, draw, lost: counted && !won && !draw,
     rivals: others.map((s) => ({ name: s.name, score: s.score, label: null })),
@@ -197,6 +199,8 @@ export function liveSource(c: LiveClient, o: LiveSourceOptions): LiveSource {
   let pose: { lm: Landmark[]; at: number } | null = null;
   let result: MatchResult | null = null;
   let outcomeCache: RaceOutcome | null = null;
+  /** A score duel: the total this page reported last (the race's own points are the Room's sum of its results). */
+  let total = 0;
 
   const learnNames = (): void => { for (const m of c.members) if (m.name) names.set(m.seat, m.name); };
   learnNames();
@@ -208,13 +212,15 @@ export function liveSource(c: LiveClient, o: LiveSourceOptions): LiveSource {
   const myResults = (): ObstacleResult[] => [...mine].map(([ob, k]) => ({ ob, k }));
   const myScore = (): number => {
     const m = c.match;
-    return m && m.id === played ? scoreOf(courseOf(m), myResults()).score : 0;
+    if (!m || m.id !== played) return 0;
+    return m.mode === 'score' ? total : scoreOf(courseOf(m), myResults()).score;
   };
   /** A match this page races in now: its course and what the Room already holds of this player (a page that came back). */
   const enter = (m: MatchInfo, held: readonly ObstacleResult[]): void => {
     if (played === m.id) { for (const e of held) if (!mine.has(e.ob)) mine.set(e.ob, e.k); return; }
     played = m.id;
     mine = new Map();
+    total = 0;
     for (const e of held) if (!mine.has(e.ob)) mine.set(e.ob, e.k);
     recorder = new TrackRecorder(m.duration);
     result = null;
@@ -230,12 +236,18 @@ export function liveSource(c: LiveClient, o: LiveSourceOptions): LiveSource {
       if (m && m.id === played && !mine.has(ob)) mine.set(ob, k);
       inner.report(ob, k);
     },
-    finish: (results) => {
+    finish: (results, sc) => {
       for (const e of results) if (!mine.has(e.ob)) mine.set(e.ob, e.k);
-      inner.finish(results);
+      if (typeof sc === 'number') total = sc;
+      inner.finish(results, sc);
     },
     // the frames to the others go out on this page's own beat (send below), with the skeleton; the game's own state adds nothing
     state: () => undefined,
+    duelMode: () => inner.duelMode?.() ?? 'race',
+    score(v) {
+      total = v;
+      inner.score?.(v);
+    },
   };
 
   const send = (): void => {
@@ -261,7 +273,8 @@ export function liveSource(c: LiveClient, o: LiveSourceOptions): LiveSource {
     if (own && o.book && !seats.find((s) => s.you)?.forfeited) {
       try { const k = o.book.offer(own); best = k === 'invalid' ? 'none' : k; } catch { best = 'none'; }
     }
-    return liveOutcome(r, seats, room, best);
+    const d = c.room?.duel;
+    return liveOutcome(r, seats, room, best, d ? { closesAt: d.closesAt, mode: m.mode === 'score' ? 'score' : 'race', game: m.gameId, durationMs: m.duration } : undefined);
   };
 
   const offs: Unsubscribe[] = [
@@ -292,7 +305,8 @@ export function liveSource(c: LiveClient, o: LiveSourceOptions): LiveSource {
     unpause: (r) => { if (!off) clientSide.unpause(r); },
   };
 
-  const rivals = (): RaceRival[] => inner.rivals().map((r) => ({ seat: r.seat, name: r.name || (names.get(r.seat) ?? ''), score: board.score(r.seat) ?? r.score }));
+  // the points of a race come with the frames of the others (the Room's own sum arrives with the result); a score duel's are the Room's
+  const rivals = (): RaceRival[] => inner.rivals().map((r) => ({ seat: r.seat, name: r.name || (names.get(r.seat) ?? ''), score: c.match?.mode === 'score' ? r.score : board.score(r.seat) ?? r.score }));
 
   const view = (): LiveView => {
     const serverNow = c.serverNow();
@@ -313,7 +327,7 @@ export function liveSource(c: LiveClient, o: LiveSourceOptions): LiveSource {
       waiting: others.filter((x) => !x.ready || !x.online).map((x) => x.name),
       alone: others.length === 0, held, online,
       match: m && m.id === played ? m.id : null, seed: m && m.id === played ? m.seed : null,
-      tiles,
+      tiles, duel: !!c.room?.duel,
     };
   };
 

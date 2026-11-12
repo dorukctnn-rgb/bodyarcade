@@ -46,7 +46,7 @@ async function take(browser: Browser, base: string, game: string, [w, h]: [numbe
   page.on('pageerror', (e) => errors.push(e.message));
   try {
     await page.addInitScript((q) => { window.__BA_TEST__ = { timeScale: 1, keyboard: true, ...(q ? { quality: q as 'low' | 'medium' | 'high' } : {}) }; }, quality ?? '');
-    await page.goto(`${base}/play/${game}/?input=keyboard&plan=pro${world ? `&world=${world}` : ''}${extra ? `&${extra}` : ''}`, { waitUntil: 'networkidle' });
+    await page.goto(`${base}/play/${game}/?input=keyboard&plan=pro${world ? `&world=${world}` : ''}${extra ? `&${extra}` : ''}`, { waitUntil: 'networkidle', timeout: 120_000 });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForSelector('[data-hud="statusLeft"]', { timeout: 45_000 });
     await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal'), undefined, { timeout: 30_000 });
@@ -69,7 +69,8 @@ async function take(browser: Browser, base: string, game: string, [w, h]: [numbe
 
 mkdirSync(out, { recursive: true });
 const web = await startWeb('none');
-const browser = await chromium.launch(baseLaunchOptions);
+// BA_GPU=1: the real GPU (ANGLE D3D11) instead of SwiftShader (as clip.ts).
+const browser = await chromium.launch(process.env['BA_GPU'] === '1' ? { ...baseLaunchOptions, args: [...(baseLaunchOptions.args ?? []), '--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] } : baseLaunchOptions);
 let failed = 0;
 try {
   for (const game of games) {

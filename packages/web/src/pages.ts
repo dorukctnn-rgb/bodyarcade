@@ -16,6 +16,10 @@ import { childSocialPage, profilesPage } from './views/profiles.ts';
 import { NO_PROFILES_STATE, type ProfilesPageState } from './app/profiles-model.ts';
 import { defaultPaywallState, paywallPage, type PaywallState } from './views/paywall.ts';
 import { NO_PLANS_DATA, plansPage, type PlansData } from './views/plans.ts';
+import { officeCard, officePage } from './views/office.ts';
+import { FAMILY_ROUND_SEC } from './app/family.ts';
+import { familyPage, NO_FAMILY_DATA, type FamilyData } from './views/family.ts';
+import { coachBootPage, coachPageText } from './views/coach-boot.ts';
 import { playPage } from './views/play.ts';
 import { resultsPage, type RoundResult } from './views/results.ts';
 import { settingsPage, type AppRows } from './views/settings.ts';
@@ -49,6 +53,8 @@ export interface PageState {
   profiles: ProfilesPageState | null;
   /** The Android app's own rows of the settings page (offline play, the daily reminder); null on the web and in the page generator. */
   app: AppRows | null;
+  /** Family mode: the evening that is going (the family page). */
+  family?: FamilyData;
 }
 
 export const EMPTY_STATE: PageState = { paywall: null, result: null, reducedMotion: false, home: NO_HOME_DATA, game: NO_GAME_DATA, plans: NO_PLANS_DATA, social: null, welcome: null, profiles: null, app: null };
@@ -165,6 +171,20 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       // Who is playing: drawn by the browser app only, from the players of this device.
       if (!ctx.player) return notFound();
       return { body: profilesPage(ctx, state.profiles ?? NO_PROFILES_STATE), title: named(t.t('profile.title')), description: t.t('profile.lead'), noindex: true, status: 200, jsonLd: [] };
+    case 'office': {
+      // The office break: the free desk break as a mode of its own, for the player (no index: the plans page is the one for search engines).
+      const desk = officeCard(ctx, state.plans);
+      return { body: officePage(ctx, state.plans), title: named(t.t('office.kicker')), description: t.t('office.lead', { n: desk?.steps.length ?? 0, min: desk?.minutes ?? 0 }), noindex: true, status: 200, jsonLd: [], ...brandCard };
+    }
+    case 'family':
+      return { body: familyPage(ctx, state.family ?? NO_FAMILY_DATA), title: named(t.t('family.title')), description: t.t('family.lead', { n: FAMILY_ROUND_SEC }), noindex: true, status: 200, jsonLd: [], ...brandCard };
+    case 'formcoach':
+    case 'today':
+    case 'progress': {
+      // The coach pages: their own apps take the page over (main.ts); this is their first paint and what a visit without scripts reads.
+      const c = coachPageText(ctx, route.id);
+      return { body: coachBootPage(ctx, route.id), title: named(c.name), description: c.lead, noindex: true, status: 200, jsonLd: [], ...brandCard };
+    }
     case 'welcome':
       // The tour is drawn in full by the browser app (it owns the 3D stage); a crawler or a visit without scripts gets its first step, and no index.
       return { body: welcomePage(ctx, state.welcome ?? FIRST_TOUR), title: named(t.t('onboarding.h1')), description: t.t('home.description', { n: ctx.games.length, free: ctx.games.filter((g) => g.free).length }), noindex: true, status: 200, jsonLd: [] };

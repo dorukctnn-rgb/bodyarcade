@@ -172,6 +172,27 @@ describe('the navigation controller', () => {
     expect(w.main.attrs['tabindex']).toBe('-1');
   });
 
+  it('leaves a link to a part of the same page to the browser, and brings a part of another page into view (Kol G: /#duel)', async () => {
+    const { w, nav, changes } = setup('/');
+    nav.start(); await flush();
+    const before = changes.length;
+    const same = w.click({ href: '/#duel' });
+    await flush();
+    expect(same.defaultPrevented).toBe(false);
+    expect(changes).toHaveLength(before);
+    const seen: string[] = [];
+    const part = Object.assign(new FakeEl({ id: 'duel' }), { scrollIntoView: () => { seen.push('duel'); } });
+    w.win.document.getElementById = ((id: string) => (id === 'duel' ? part : null)) as never;
+    w.click({ href: '/games/pad-work/' }); await flush();
+    const scrolled = w.scrolls.length;
+    const e = w.click({ href: '/#duel' });
+    await flush();
+    expect(e.defaultPrevented).toBe(true);
+    expect(w.at()).toBe('/#duel');
+    expect(seen).toEqual(['duel']);
+    expect(w.scrolls.length).toBe(scrolled);
+  });
+
   it('leaves links alone that are not ours', async () => {
     const { w, nav, changes } = setup('/');
     nav.start(); await flush();

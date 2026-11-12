@@ -15,7 +15,9 @@ export const repoRoot = (): string => resolve(fileURLToPath(new URL('../../', im
 export async function startWeb(fixtures: 'fill' | 'only' | 'none' = 'fill'): Promise<Served> {
   const prev = process.env['BA_FIXTURES'];
   process.env['BA_FIXTURES'] = fixtures;
-  const server = await createViteServer({ configFile: join(repoRoot(), 'packages', 'web', 'vite.config.ts'), server: { port: 0, strictPort: false }, logLevel: 'error' });
+  // BA_NO_WATCH=1: no file watching (a long capture is not reloaded by an edit made meanwhile).
+  const quiet = process.env['BA_NO_WATCH'] === '1' ? { watch: null } : {};
+  const server = await createViteServer({ configFile: join(repoRoot(), 'packages', 'web', 'vite.config.ts'), server: { port: 0, strictPort: false, ...quiet }, logLevel: 'error' });
   await server.listen();
   if (prev === undefined) delete process.env['BA_FIXTURES']; else process.env['BA_FIXTURES'] = prev;
   const port = (server.httpServer?.address() as AddressInfo).port;

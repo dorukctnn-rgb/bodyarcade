@@ -14,6 +14,7 @@
 import { FIXED_DT, type Game, type GameContext, type GameEvent, type GameManifest, type GameModule, type Hud, type InputFrame, type RunSummary, type StartOptions, type StepResult } from '../../../core/types/index.ts';
 import { makeSchedule, scoreOf, specFor, type Obstacle } from '../../../core/net/schedule.ts';
 import type { ObstacleResult, Outcome } from '../../../core/types/net.ts';
+import { scoreDuelGame } from './score-duel.ts';
 
 /** What the race needs from the room, as the stage sees it. LiveFeed (live-feed.ts) fills it from the LiveClient. */
 export interface DuelFeed {
@@ -24,9 +25,14 @@ export interface DuelFeed {
   /** wait: no match yet. count: the start or the 3-2-1 after a pause. run. hold: paused. over: settling or over. */
   phase(): 'wait' | 'count' | 'run' | 'hold' | 'over';
   report(ob: number, k: Outcome): void;
-  finish(results: readonly ObstacleResult[]): void;
+  /** The end of this player's match: every obstacle result (a race), or none and the last total `sc` (a score duel). */
+  finish(results: readonly ObstacleResult[], sc?: number): void;
   /** This player's match time and score for the others, at most about 15 times a second. */
   state(d: { mt: number; sc: number }): void;
+  /** How the room plays its game: a race (the default), or a score duel of a duel link (score-duel.ts, core/net/duel-link.ts). */
+  duelMode?(): 'race' | 'score';
+  /** A score duel: the player's running total, a few times a second (the Room keeps it within the game's rate). */
+  score?(v: number): void;
 }
 
 /** A step's worth of play time in ms. */
@@ -206,9 +212,17 @@ export function duelGame(game: Game, feed: DuelFeed): Game {
   };
 }
 
-/** The same module, raced: its games are wrapped, and it takes no keys or swipes (a race is played with the body). */
+/**
+ * The same module, raced: its games are wrapped, and it takes no keys or swipes (a race is played with the body). A room that plays its
+ * game as a score duel (a duel link of a game without a course) gets the score duel's wrapper instead.
+ * A game without a course has no 'duel' mode of its own, and the Session starts every round of a room in 'duel' and checks the
+ * manifest's modes first: the raced module of such a game offers 'duel' (its wrapper starts the game itself in 'solo'). Without it a
+ * score duel on a real camera stopped at "the round could not start" on both pages (12 Nov smoke test; the practice player of the
+ * browser tests does not check the modes).
+ */
 export function duelModule(inner: GameModule, feed: DuelFeed): GameModule {
-  return { manifest: inner.manifest, create: () => duelGame(inner.create(), feed) };
+  const manifest = canRace(inner.manifest) ? inner.manifest : { ...inner.manifest, modes: [...inner.manifest.modes, 'duel' as const] };
+  return { manifest, create: () => (feed.duelMode?.() === 'score' ? scoreDuelGame(inner.create(), feed) : duelGame(inner.create(), feed)) };
 }
 
 /** Can this game be raced? Its manifest says so. */

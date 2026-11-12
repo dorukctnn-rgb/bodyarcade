@@ -95,28 +95,34 @@ test.describe('a workout plan', () => {
     // a free player starts the desk break; the other four lead to Pro
     await expect(page.locator('[data-action="plan-start"]')).toHaveCount(1);
     await expect(page.getByRole('link', { name: 'Start with Pro' })).toHaveCount(4);
+    // the desk break is four short rounds (the office break, /office)
+    await expect(page.locator('#desk-break .k-steps li')).toHaveCount(4);
+    await expect(page.locator('#desk-break')).toContainText('Easy, 45 seconds, then 10 seconds rest');
 
     await page.getByRole('button', { name: 'Start Desk break' }).click();
-    await expect(page).toHaveURL(/\/play\/twist-turbine\/\?.*plan=1/);
+    await expect(page).toHaveURL(/\/play\/star-catch\/\?.*plan=1/);
     await expect(page).toHaveURL(/seated=1/);
     await expect(page).toHaveURL(/difficulty=easy/);
     await expect(page).toHaveURL(/\/results\/$/, { timeout: 40_000 });
 
     const panel = page.locator('[data-plan-panel="next"]');
-    await expect(panel).toContainText('Desk break: game 1 of 2 done');
-    await expect(panel).toContainText('Next: Star Catch');
+    await expect(panel).toContainText('Desk break: game 1 of 4 done');
+    await expect(panel).toContainText('Next: Twist Turbine');
     await expect(panel).toContainText('Rest 10 seconds first.');
     await expect(panel.locator('[data-plan-count]')).toBeVisible();
     // the rest counts down by itself and says when it is over
     await expect(panel.locator('[data-plan-rest-text]')).toHaveText('Rest is over.', { timeout: 15_000 });
     await expect(panel.locator('[data-plan-count]')).toBeHidden();
 
-    await panel.getByRole('link', { name: 'Start Star Catch' }).click();
-    await expect(page).toHaveURL(/\/play\/star-catch\/\?.*plan=1/);
-    await expect(page).toHaveURL(/\/results\/$/, { timeout: 40_000 });
+    for (const [slug, name, nextName] of [['twist-turbine', 'Twist Turbine', 'Squat Flap'], ['squat-flap', 'Squat Flap', 'Pose Wall'], ['pose-wall', 'Pose Wall', '']] as const) {
+      await page.locator('[data-plan-panel="next"]').getByRole('link', { name: `Start ${name}` }).click();
+      await expect(page).toHaveURL(new RegExp(`/play/${slug}/\\?.*plan=1`));
+      await expect(page).toHaveURL(/\/results\/$/, { timeout: 40_000 });
+      if (nextName) await expect(page.locator('[data-plan-panel="next"]')).toContainText(`Next: ${nextName}`);
+    }
     const over = page.locator('[data-plan-panel="over"]');
     await expect(over).toContainText('Plan done: Desk break');
-    await expect(over).toContainText('2 of 2 games played in 4 minutes.');
+    await expect(over).toContainText('4 of 4 games played in 3 minutes.');
 
     // the plan was done today: it says so on the page of plans, and it can be started again
     await page.goto(`${WEB_DEV_URL}/plans/`);
@@ -169,9 +175,9 @@ test.describe('a workout plan', () => {
     await page.goto(`${WEB_DEV_URL}/`);
     const active = page.locator('.k-planactive');
     await expect(active).toContainText('Your plan today');
-    await expect(active).toContainText('Desk break: game 2 of 2, Star Catch next.');
+    await expect(active).toContainText('Desk break: game 2 of 4, Twist Turbine next.');
     await active.getByRole('link', { name: 'Continue Desk break' }).click();
-    await expect(page).toHaveURL(/\/play\/star-catch\/\?.*plan=1/);
+    await expect(page).toHaveURL(/\/play\/twist-turbine\/\?.*plan=1/);
   });
 
   test('the page of plans in Turkish', async ({ page }) => {

@@ -91,7 +91,9 @@ describe('the generated site', () => {
 
   it('opens the home page on frames of the real games and fetches the first one from the head, one crop per screen width', () => {
     const hero = readdirSync(join(out, 'static', 'hero'));
-    expect(hero).toHaveLength(showcaseFiles().length);
+    // the frames of the showcase, and the two stills of the before/after band under them (Kol G)
+    expect(hero).toHaveLength(showcaseFiles().length + 2);
+    expect(hero.filter((f) => /^band-(morph|compare)-800\.[0-9a-f]{8}\.webp$/.test(f))).toHaveLength(2);
     expect(hero.every((f) => /\.[0-9a-f]{8}\.(avif|webp)$/.test(f))).toBe(true);
     for (const page of ['index.html', 'tr/index.html']) {
       const html = read(page);
@@ -104,6 +106,8 @@ describe('the generated site', () => {
       expect(frames.length, page).toBe(4);
       expect(html.match(/<img src="\/static\/hero\/[^"]+" alt="" width="960" height="720" fetchpriority="high"/g), page).toHaveLength(1);
       expect(html.match(/<img src="\/static\/hero\/[^"]+" alt="" width="960" height="720" loading="lazy" fetchpriority="low"/g), page).toHaveLength(3);
+      // the band's stills, from the hashed files, never fetched before they are near the screen
+      expect(html.match(/<img src="\/static\/hero\/band-(morph|compare)-800\.[0-9a-f]{8}\.webp" alt="" width="800" height="\d+" loading="lazy"/g), page).toHaveLength(2);
     }
     // Only the home page has them: a game page opens on its own picture.
     expect(read('games/squat-flap/index.html')).not.toContain('rel="preload" as="image"');

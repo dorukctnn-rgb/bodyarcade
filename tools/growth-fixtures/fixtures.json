@@ -1,0 +1,53 @@
+{
+ "gapS": 0.5,
+ "fixtures": [
+  {
+   "id": "turn-pexels-9558217",
+   "clip": "pexels-9558217.mp4",
+   "split": "tune",
+   "windows": [
+    [
+     0,
+     12.3
+    ]
+   ],
+   "source": "pexels-9558217",
+   "url": "https://www.pexels.com/video/a-man-wearing-shirt-while-turning-around-9558217/",
+   "license": "Pexels License https://www.pexels.com/license/",
+   "person": "man",
+   "framing": "head to thighs or knees (no ankles)"
+  },
+  {
+   "id": "turn-pexels-9558207",
+   "clip": "pexels-9558207.mp4",
+   "split": "holdout",
+   "windows": [
+    [
+     0,
+     10.82
+    ]
+   ],
+   "source": "pexels-9558207",
+   "url": "https://www.pexels.com/video/man-wearing-cap-turning-around-9558207/",
+   "license": "Pexels License https://www.pexels.com/license/",
+   "person": "man",
+   "framing": "head to thighs or knees (no ankles)"
+  },
+  {
+   "id": "turn-pexels-9558189",
+   "clip": "pexels-9558189.mp4",
+   "split": "holdout",
+   "windows": [
+    [
+     0,
+     26.66
+    ]
+   ],
+   "source": "pexels-9558189",
+   "url": "https://www.pexels.com/video/the-back-view-of-a-woman-wearing-jeans-and-a-black-t-shirt-9558189/",
+   "license": "Pexels License https://www.pexels.com/license/",
+   "person": "woman",
+   "framing": "head to thighs or knees (no ankles)"
+  }
+ ]
+}

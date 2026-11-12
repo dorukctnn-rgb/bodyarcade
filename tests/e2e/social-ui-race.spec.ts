@@ -172,8 +172,8 @@ async function seesTheOther(p: Person, name: string): Promise<void> {
 }
 
 /** The race is over on this page: the results of a race in the room, with both players. */
-async function results(p: Person, code: string): Promise<string[]> {
-  await expect(p.page).toHaveURL(new RegExp(`/results/\\?(.*&)?room=${code}`), { timeout: 60_000 });
+async function results(p: Person, code: string, timeout = 60_000): Promise<string[]> {
+  await expect(p.page).toHaveURL(new RegExp(`/results/\\?(.*&)?room=${code}`), { timeout });
   await expect(p.page.locator('[data-live-result]')).toHaveAttribute('data-room', code);
   await expect(p.page.locator('[data-live-result] .lr-places li')).toHaveCount(2);
   await expect(p.page.locator('[data-race-verdict]')).not.toBeEmpty();
@@ -216,6 +216,8 @@ for (const e of ENGINES) {
       await expect(bo.page.locator('dialog h2')).toContainText('How old are you?', { timeout: 30_000 });
       await bo.page.locator('label:has(input[name="age"][value="adult"])').click();
       await bo.page.locator('[data-action="sheet.age.next"]').click();
+      // the game page's button makes a duel link, which offers to play as a guest first (social-ui-duel.spec.ts): Bo makes a profile instead
+      await bo.page.locator('[data-action="sheet.guest.profile"]').click();
       await bo.page.locator('#profile-name').fill('Bo');
       // the terms and the community rules are agreed to before an online profile is made (fe693f6)
       await bo.page.locator('#profile-terms').check();
@@ -515,10 +517,13 @@ test('chromium: two adults in a private room who both share their camera see eac
       await signUp(p.page, { band: 'adult', name });
       await online(p.page);
     }
-    await go(ada, '/games/squat-flap/');
-    await ada.page.locator('[data-action="race.new"]').click();
+    // a duel link (the game page's button) has no camera at all: the camera belongs to an ordinary room of friends, made on the Friends page
+    await ada.page.locator('[data-action="room.new"]').click();
     await ada.page.waitForURL(/\/r\/[A-Z0-9]{6}/, { timeout: 30_000 });
     const code = roomCode(ada.page.url());
+    await ada.page.locator('[data-action="room.game"]').click();
+    await ada.page.locator('dialog[open] [data-dialog-close="squat-flap"]').click();
+    await expect(ada.page.locator('.k-gamepick')).toContainText('Squat Flap', { timeout: 20_000 });
     await go(bo, `/r/${code}`);
     await expect(ada.page.locator('.k-seat[data-seat]')).toHaveCount(2, { timeout: 30_000 });
 
@@ -545,8 +550,10 @@ test('chromium: two adults in a private room who both share their camera see eac
     }
     await shot(ada.page, 'race-chromium-stage-cameras', { full: false });
 
-    // (the camera is the room's choice: the stage has no switch of its own) the race ends and both have their results
-    const [ra, rb] = await Promise.all([results(ada, code), results(bo, code)]);
+    // (the camera is the room's choice: the stage has no switch of its own) the race ends and both have their results. A room made on the
+    // Friends page races the game's own length (half a minute to a minute and a half on the Room's clock): the test hook's 15 seconds
+    // belong to the game page's race button, which makes duel links since #39.
+    const [ra, rb] = await Promise.all([results(ada, code, 150_000), results(bo, code, 150_000)]);
     expect(ra).toEqual(rb);
     ended = true;
   } finally {

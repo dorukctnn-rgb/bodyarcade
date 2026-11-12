@@ -62,6 +62,8 @@ import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, t
 import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
 import { startTileClips } from './tile-clips.ts';
 import { startHeroReel } from './hero-reel.ts';
+import { startHowScene } from './how-scene.ts';
+import { startHomeBand } from './home-band.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { ROUND_WORD_EVENTS, roundWord, sendSignal, type SignalEvent } from './signal.ts';
 import type { RestoreOutcome } from '../../../core/entitlements/port.ts';
@@ -71,6 +73,8 @@ import { mountLiveStage } from './live-stage.ts';
 import { lrText } from './live-strings.ts';
 import type { SocialServices } from '../social/port.ts';
 import { buildRoundResult, caloriesFor } from './results.ts';
+import { ShareModes } from './share-modes.ts';
+import { SHORT_VARIANT } from './short-round.ts';
 
 /** What a session factory needs from the app: where the store is, the words, and the player's switches. */
 export interface AppServices {
@@ -199,6 +203,10 @@ export class App {
   private tour: WelcomeController | null = null;
   /** The round on the stage is the first game of the welcome tour. */
   private firstRound = false;
+  /** The round on the stage is a short round (the desk break's step, a family round): its length in seconds, else null. */
+  private shortSec: number | null = null;
+  /** The vertical clip and the two modes (share-modes.ts). */
+  private modesCache: ShareModes | null = null;
   /** The clip of the last round, as a file (to share) and as an address for the page (to show and to save). One at a time. */
   private clipBlob: Blob | null = null;
   private clipUrl: string | null = null;
@@ -682,7 +690,7 @@ export class App {
 
   /** What the address of the round carries besides the choices (the workout plan, the tour's first game, the race): a reload starts the same round. */
   private roundExtra(): Record<string, string | number> {
-    return { ...(this.planRound ? { plan: 1 } : {}), ...(this.firstRound ? { first: 1 } : {}), ...(this.raceParam ? { ghost: this.raceParam } : {}), ...(this.raceRoom ? { room: this.raceRoom } : {}) };
+    return { ...(this.planRound ? { plan: 1 } : {}), ...(this.modes.isFamilyRound() ? { family: 1 } : {}), ...(this.firstRound ? { first: 1 } : {}), ...(this.raceParam ? { ghost: this.raceParam } : {}), ...(this.raceRoom ? { room: this.raceRoom } : {}) };
   }
 
   /** How long a race is: the game's round within half a minute and a minute and a half (a test can shorten it). */
@@ -771,13 +779,33 @@ export class App {
     this.settings.set({ worlds: { ...this.currentSettings().worlds, [g.id]: world } });
   }
 
+  /** The vertical clip and the two modes, made when first needed (the store follows the player: it is read at every call). */
+  private get modes(): ShareModes {
+    this.modesCache ??= new ShareModes({
+      win: this.win, doc: this.doc,
+      store: () => this.arcade.store,
+      games: () => this.games,
+      can: (f) => this.entitlements.can?.(f) ?? false,
+      ctx: () => this.ctx(),
+      go: (href) => this.nav.go(href),
+      toast: (text, o) => this.toaster.show(text, o?.kind ? { kind: o.kind } : undefined),
+      reducedMotion: () => this.reducedMotion(),
+      share: () => this.rules().share,
+      result: () => this.state.result,
+      highlightUrl: () => this.clipUrl,
+      rerender: () => this.rerender(),
+      gesture: () => this.o.onPlayGesture?.(),
+    });
+    return this.modesCache;
+  }
+
   private render(): void {
     const route = this.route;
     this.offRoomWatch?.();
     this.offRoomWatch = null;
     this.stageWait = null;
     // A clip is the results' own: it goes when the page goes on to anything else.
-    if (route?.id !== 'results') { this.dropClip(); this.dropReplay(); }
+    if (route?.id !== 'results') { this.dropClip(); this.dropReplay(); this.modes.dropStory(); }
     this.replayPlayer?.dispose();
     this.replayPlayer = null;
     this.endPlay();
@@ -800,7 +828,8 @@ export class App {
       reducedMotion: this.reducedMotion(),
       home: route?.id === 'home' || route?.id === 'region' ? this.homeData(route) : NO_HOME_DATA,
       game: game ? this.gameData(game, ctx) : this.state.game,
-      plans: route?.id === 'plans' ? { cards: this.arcade.plans.list(), active: this.arcade.plans.active() } : NO_PLANS_DATA,
+      plans: route?.id === 'plans' || route?.id === 'office' ? { cards: this.arcade.plans.list(), active: this.arcade.plans.active() } : NO_PLANS_DATA,
+      ...(route?.id === 'family' ? { family: this.modes.familyData() } : {}),
       social: this.social && route && SOCIAL_ROUTES.has(route.id) ? this.social.pageState(route) : null,
       welcome: this.tour?.tour() ?? null,
       profiles: route?.id === 'profiles' && this.profiles ? this.profiles.state() : null,
@@ -808,14 +837,39 @@ export class App {
     };
     const page = renderPage(ctx, route, state);
     this.shown = this.shownOfPlayers();
+    const keepPart = this.hashPartKeeper();
     swap(this.host, page.body.value);
+    keepPart?.();
     const info = LANG_INFO.find((l) => l.code === this.lang);
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });
     if (route?.id === 'play' && page.status === 200) this.beginPlay(route);
     if (route?.id === 'welcome') void this.tour?.begin();
-    if (route?.id === 'results') { this.startRestTimer(); this.watchRoom(); this.mountReplay(); }
+    if (route?.id === 'results') { this.startRestTimer(); this.watchRoom(); this.mountReplay(); this.modes.restoreStory(); }
     if (route?.id === 'settings') void this.offline?.refresh();
     if (route?.id === 'home' || route?.id === 'region') this.startClips(route.id === 'home');
+  }
+
+  /**
+   * The part of the page the address points to (/#duel), when it is on the screen: a function that puts it back at the same height
+   * once the page is drawn again. The home page is drawn a second time when late data comes (the player book, the plan, the friends
+   * services) and that adds cards above the duels; the new markup has no node for the browser to anchor on, so without this the
+   * part a link or the Duel tab brought into view was pushed below the screen (12 Nov smoke test: 844 px on a phone).
+   */
+  private hashPartKeeper(): (() => void) | null {
+    const hash = this.win.location.hash;
+    if (hash.length < 2 || /[=&]/.test(hash)) return null;   // #restore=... and the like are not parts of the page
+    let id = '';
+    try { id = decodeURIComponent(hash.slice(1)); } catch { return null; }
+    const part = this.doc.getElementById(id);
+    if (!part) return null;
+    const box = part.getBoundingClientRect();
+    if (box.bottom <= 0 || box.top >= this.win.innerHeight) return null;   // the reader is elsewhere on the page: nothing to keep
+    return () => {
+      const now = this.doc.getElementById(id);
+      if (!now) return;
+      const moved = now.getBoundingClientRect().top - box.top;
+      if (Math.abs(moved) >= 1) this.win.scrollBy(0, moved);
+    };
   }
 
   // ---- the moving game tiles ------------------------------------------------------------------------------------------
@@ -830,7 +884,9 @@ export class App {
     };
     const stopTiles = startTileClips(this.host, env);
     const stopReel = withReel ? startHeroReel(this.host, env) : () => undefined;
-    this.stopClips = () => { stopTiles(); stopReel(); };
+    const stopHow = withReel ? startHowScene(this.host, env) : () => undefined;
+    const stopBand = withReel ? startHomeBand(this.host, env, this.ctx().lang) : () => undefined;
+    this.stopClips = () => { stopTiles(); stopReel(); stopHow(); stopBand(); };
   }
 
   private endClips(): void {
@@ -909,13 +965,17 @@ export class App {
     // A race is one player's round (the other side is the recording, or the friends of a room), whatever the game's page had chosen,
     // and it is played with the camera: the platform's session does not start a race by keyboard (the moves are the race).
     // A room's race (`?room=`) is the room's: its clock, its course and its judge are the Room's (live-race.ts).
-    const room = canRace(g) ? roomOfRoute(route) : null;
+    // (a duel link plays any game: one without a course is a score duel, and roomRace() turns away a game its room cannot play)
+    const room = roomOfRoute(route);
     const spec = room ? null : parseGhost(route.query.get('ghost'));
     const racing = room !== null || (spec !== null && canRace(g));
     const asked = setupFromQuery(ctx, g, route.query);
     const setup: SetupState = racing ? { ...asked, players: 1, input: 'camera' } : asked;
     this.rememberWorld(g, setup.world);
     this.planRound = route.query.get('plan') === '1' && this.arcade.plans.active()?.current?.game === g.id;
+    // a short round: the desk break's step, or a round of the family evening (share-modes.ts); a race keeps its own length
+    const short = racing ? { roundSec: null, family: false } : this.modes.roundOf(g, route.query, this.planRound ? this.arcade.plans.active()?.current ?? null : null);
+    this.shortSec = short.roundSec;
     this.firstRound = route.query.get('first') === '1' && g.id === FIRST_GAME_ID;
     // A Pro game without Pro and without a free round left goes to the offer, not to a round that cannot count. In a room the Room
     // decides: a Pro game starts there only with the host's verified Pro, and then it is everybody's to play.
@@ -947,7 +1007,7 @@ export class App {
       host: this.playHost(g), game: g, setup, stage,
       ...(this.o.bodyIsSimulated?.(g.id) ? { simulatedBody: true } : {}),
       makeClip: (canvas) => (this.clipsWanted(g) ? createClipRecorder(this.win, canvas, () => this.clipOverlay()) : null),
-      makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}), ...(race ? { race } : {}), ...(replay ? { replay } : {}) }) ?? null,
+      makeSession: (handles, s): Session | null => factory?.({ game: g, setup: s, stage: handles, ...(this.firstRound ? { first: true } : {}), ...(race ? { race } : {}), ...(replay ? { replay } : {}), ...(short.roundSec ? { roundSec: short.roundSec } : {}) }) ?? null,
       ...(race ? { race } : {}),
       ...(this.o.onRoundEnded ? { release: this.o.onRoundEnded } : {}),
       ...(this.firstRound ? { explained: true } : {}),
@@ -972,7 +1032,7 @@ export class App {
     const st = rooms.state();
     const client = rooms.client?.() ?? null;
     if (!client || !st.info || st.info.code !== code || (st.phase !== 'lobby' && st.phase !== 'playing')) { this.waitForRoom(code, true); return null; }
-    if (st.info.config.gameId !== g.id) {
+    if (st.info.config.gameId !== g.id || (!canRace(g) && st.info.duel?.mode !== 'score')) {
       this.nav.go(ctx.href('room', { params: { code } }), { replace: true });
       return null;
     }
@@ -984,7 +1044,10 @@ export class App {
 
   /** The name the player has in rooms (their own run of a race carries it). */
   private liveName(): string {
-    return this.social?.services().social.state().profile?.name ?? this.playerFacts()?.name ?? '';
+    // the name the Room gave this seat first (a guest of a duel link has no profile; the Room may have told two equal names apart)
+    const rooms = this.social?.services().rooms.state();
+    const seat = rooms?.members.find((m) => m.seat === rooms.me)?.name;
+    return seat ?? this.social?.services().social.state().profile?.name ?? this.playerFacts()?.name ?? '';
   }
 
   /**
@@ -1154,10 +1217,10 @@ export class App {
   }
 
   /** A link goes to the system share sheet on a touch device that has one; everything else is copied. */
-  private async shareText(text: string, o: { link: boolean }): Promise<boolean> {
+  private async shareText(text: string, o: { link: boolean; text?: string }): Promise<boolean> {
     const nav = this.win.navigator;
     if (o.link && this.caps.touch && typeof nav.share === 'function') {
-      try { await nav.share({ url: text }); return true; } catch (e) { if ((e as { name?: string }).name === 'AbortError') return false; }
+      try { await nav.share(o.text ? { url: text, text: o.text } : { url: text }); return true; } catch (e) { if ((e as { name?: string }).name === 'AbortError') return false; }
     }
     try { await nav.clipboard.writeText(text); return true; } catch { /* no clipboard permission: the older way below */ }
     try {
@@ -1312,12 +1375,18 @@ export class App {
     const weightKg = this.rules().calories ? this.currentSettings().weightKg : null;
     const first = this.firstRound;
     this.firstRound = false;
-    const input = runInputOf({ game: first ? { durationSec: FIRST_SECONDS } : game, setup, summary, kcal: caloriesFor(summary.metSeconds, weightKg) });
+    const shortSec = this.shortSec;
+    this.shortSec = null;
+    const family = this.modes.isFamilyRound();
+    const counted = runInputOf({ game: first ? { durationSec: FIRST_SECONDS } : shortSec ? { durationSec: shortSec } : game, setup, summary, kcal: caloriesFor(summary.metSeconds, weightKg) });
+    // a short round keeps its bests apart from the game's full rounds (short-round.ts)
+    const input = shortSec && !first ? { ...counted, variant: SHORT_VARIANT } : counted;
     // A round with the keyboard or by touch is practice: no body moved, so nothing of it goes into the record, the habit, the plan or the calories.
     const practice = setup.input !== 'camera' && !this.o.bodyIsSimulated?.(game.id);
     // A race is played for the time, like two players on one camera: its minutes count for the habit, and its score (the Room's sum, not the game's) is no personal best.
     const room = this.raceRoom;
-    const solo = setup.players === 1 && !race && !room;
+    // a family round is the household's, like two players on one camera: its minutes count, it sets no personal best
+    const solo = setup.players === 1 && !race && !room && !family;
     const before = this.arcade.plans.active();
     let report: RunReport | null = null;
     let step: PlanStepReport | null = null;
@@ -1338,12 +1407,15 @@ export class App {
     const again = room ? playHref(ctx, game, setup, { room }) : this.raceParam ? playHref(ctx, game, setup, { ghost: this.raceParam }) : '';
     const raced = race?.live && room ? { ...race, live: { ...race.live, roomHref: ctx.href('room', { params: { code: room } }) } } : race;
     const clipOf = this.takeClip(game, summary, clip);
+    const evening = family ? this.modes.finishFamily(summary) : null;
     // a round played with the keyboard or by touch moved no body: there is no skeleton to show, whatever the round began as
     const replay = practice ? this.takeReplay(null) : this.takeReplay(summary);
     const result: RoundResult = {
       ...buildRoundResult({ game, setup, summary, weightKg, i18n: ctx.i18n, previousBest: previous, practice, replay }), progress, plan, ...(first ? { first: true } : {}),
       ...(clipOf ? { clip: clipOf } : {}),
       ...(raced ? { score: raced.you, race: { ...raced, again } } : {}),
+      ...(evening ? { family: evening } : {}),
+      ...(this.modes.storyPossible() ? { story: true } : {}),
     };
     this.state = { ...this.state, result };
     if (!practice) {
@@ -1510,6 +1582,23 @@ export class App {
       case 'plan-start':
         e.preventDefault();
         this.startPlan(el.dataset['plan'] ?? '');
+        break;
+      case 'family-start':
+      case 'family-again':
+        e.preventDefault();
+        this.modes.startFamily(el.dataset['familySet'] ?? '', el.dataset['familyMode'] ?? this.doc.querySelector<HTMLInputElement>('input[name="family-mode"]:checked')?.value ?? null);
+        break;
+      case 'family-leave':
+        e.preventDefault();
+        this.modes.leaveFamily();
+        break;
+      case 'story-make':
+        e.preventDefault();
+        void this.modes.makeStory();
+        break;
+      case 'story-share':
+        e.preventDefault();
+        void this.modes.shareStory();
         break;
       case 'plan-skip':
         e.preventDefault();

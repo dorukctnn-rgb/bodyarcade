@@ -15,6 +15,7 @@ import { chrome } from './chrome.ts';
 import { pageHead } from './parts.ts';
 import type { GhostRun } from '../../../core/net/ghost.ts';
 import { canRace } from '../app/duel.ts';
+import { duelText } from '../social/duel-strings.ts';
 import { familyTable } from './profiles.ts';
 import { ghostOffer } from './race.ts';
 import { defaultSetup, setupFields, startLabel, twoPlayersPossible, type SetupState } from './setup.ts';
@@ -89,9 +90,10 @@ function play(ctx: ViewContext, g: ShellGame, data: GameData, access: Access): S
       <div class="k-actions k-moreplay"><a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('home')}">${t.t('game.lock.free')}</a></div>`;
   }
   const state = data.setup ?? defaultSetup(ctx, g);
-  // A race with a friend: only where the game can be raced and the friends side exists in this build.
-  const race = ctx.flags.social && g.modes.includes('duel')
-    ? html`<button type="button" class="ba-btn ba-btn--secondary ba-btn--lg" data-action="race.new" data-game="${g.id}">${icon('users')}<span>${t.t('game.race')}</span></button>` : '';
+  // A duel link (core/net/duel-link.ts): any game, where the friends side exists in this build. A game with a course is raced over it,
+  // any other is a score duel; either way the friend sees points and a figure of the pose, never the camera picture.
+  const race = ctx.flags.social
+    ? html`<button type="button" class="ba-btn ba-btn--secondary ba-btn--lg" data-action="race.new" data-game="${g.id}">${icon('trophy')}<span>${duelText(t)('cta')}</span></button>` : '';
   // A race against a recording: any game that can be raced, on its own at any time (the window asks who to race).
   const ghost = canRace(g)
     ? html`<button type="button" class="ba-btn ba-btn--secondary ba-btn--lg" data-action="ghost-open" data-game="${g.id}">${icon('replay')}<span>${t.t('race.ghost')}</span></button>` : '';
@@ -100,7 +102,7 @@ function play(ctx: ViewContext, g: ShellGame, data: GameData, access: Access): S
     ${data.best !== null ? html`<div class="k-block k-best">${icon('star')}<span>${t.t('game.best', { score: ctx.i18n.number(data.best) })}</span></div>` : ''}
     <div class="k-actionbar"><div class="k-actions"><button type="submit" class="ba-btn ba-btn--primary ba-btn--lg" data-key="play">${icon('play')}<span>${startLabel(ctx, g)}</span></button></div></div>
     ${race || ghost ? html`<div class="k-actions k-moreplay">${race}${ghost}</div>` : ''}
-    <p class="k-note k-playnote">${access === 'once' ? `${t.t('setup.note.once')} ` : ''}${t.t('game.cameraNote')}${race ? html` ${t.t('game.race.note')}` : ''}${ghost ? html` ${t.t('game.ghost.note')}` : ''}</p>
+    <p class="k-note k-playnote">${access === 'once' ? `${t.t('setup.note.once')} ` : ''}${t.t('game.cameraNote')}${race ? html` ${duelText(t)('cta.note')}` : ''}${ghost ? html` ${t.t('game.ghost.note')}` : ''}</p>
   </form>`;
 }
 

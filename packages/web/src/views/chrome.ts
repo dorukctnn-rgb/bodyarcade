@@ -7,14 +7,32 @@ import { createI18n, LANG_INFO, type Lang, type StringKey } from '../../../core/
 import { router, INDEXED_LANGS, type NavTab } from '../routes.ts';
 import { hasPro, type ViewContext } from '../context.ts';
 
-interface Tab { tab: NavTab; label: string; href: string; icon: IconName }
+interface Tab {
+  tab: NavTab; label: string; href: string; icon: IconName;
+  /** A shorter word for the phone's tab bar, where five places share the width. */
+  short?: string;
+  /** A coach page: an app of its own, so the link loads the page (data-native) instead of the shell drawing it. */
+  native?: boolean;
+  /** Phones: in the tab bar at the bottom ('bar') or as an icon in the bar at the top of the page ('head'). */
+  phone: 'bar' | 'head';
+}
 
+/**
+ * The places of the site (Kol G, Apple Fitness+ line): the games, Today, the form coach, progress and duels on every screen; friends,
+ * Pro and settings too, which on a phone sit as icons at the top of the page so the tab bar keeps its five places.
+ */
 export function tabsOf(ctx: ViewContext): Tab[] {
   const t = ctx.i18n;
-  const tabs: Tab[] = [{ tab: 'games', label: t.t('nav.games'), href: ctx.href('home'), icon: 'arcade' }];
-  if (ctx.flags.social) tabs.push({ tab: 'friends', label: t.t('nav.friends'), href: ctx.href('friends'), icon: 'friends' });
-  tabs.push({ tab: 'pro', label: t.t('nav.pro'), href: ctx.href('pro'), icon: 'sparkle' });
-  tabs.push({ tab: 'settings', label: t.t('nav.settings'), href: ctx.href('settings'), icon: 'settings' });
+  const tabs: Tab[] = [
+    { tab: 'games', label: t.t('nav.games'), href: ctx.href('home'), icon: 'arcade', phone: 'bar' },
+    { tab: 'today', label: t.t('nav.today'), href: ctx.href('today'), icon: 'today', native: true, phone: 'bar' },
+    { tab: 'coach', label: t.t('nav.coach'), short: t.t('nav.coach.short'), href: ctx.href('formcoach'), icon: 'coach', native: true, phone: 'bar' },
+    { tab: 'progress', label: t.t('nav.progress'), href: ctx.href('progress'), icon: 'chart', native: true, phone: 'bar' },
+    { tab: 'duel', label: t.t('nav.duel'), href: `${ctx.href('home')}#duel`, icon: 'trophy', phone: 'bar' },
+  ];
+  if (ctx.flags.social) tabs.push({ tab: 'friends', label: t.t('nav.friends'), href: ctx.href('friends'), icon: 'friends', phone: 'head' });
+  tabs.push({ tab: 'pro', label: t.t('nav.pro'), href: ctx.href('pro'), icon: 'sparkle', phone: 'head' });
+  tabs.push({ tab: 'settings', label: t.t('nav.settings'), href: ctx.href('settings'), icon: 'settings', phone: 'head' });
   return tabs;
 }
 
@@ -151,8 +169,11 @@ export function chrome(ctx: ViewContext, o: ChromeOptions): SafeHtml {
   const tabs = tabsOf(ctx);
   const homeLabel = `${t.t('brand.name')}: ${t.t('nav.games')}`;
   const proBadge = hasPro(ctx) ? html`<span class="ba-badge ba-badge--pro">${t.t('common.pro')}</span>` : '';
-  const topLinks = tabs.map((x) => html`<a href="${x.href}"${attr('aria-current', o.tab === x.tab && 'page')}>${icon(x.icon)}<span>${x.label}</span></a>`);
-  const tabLinks = tabs.map((x) => html`<a class="ba-tab" href="${x.href}"${attr('aria-current', o.tab === x.tab && 'page')}>${icon(x.icon)}<span>${x.label}</span></a>`);
+  const native = (x: Tab): SafeHtml => (x.native ? html` data-native` : html``);
+  const topLinks = tabs.map((x) => html`<a href="${x.href}" data-tab="${x.tab}"${native(x)}${attr('aria-current', o.tab === x.tab && 'page')}>${icon(x.icon)}<span>${x.label}</span></a>`);
+  const bar = tabs.filter((x) => x.phone === 'bar');
+  const tabLinks = bar.map((x) => html`<a class="ba-tab" href="${x.href}" data-tab="${x.tab}"${native(x)}${attr('aria-label', x.short && x.short !== x.label && x.label)}${attr('aria-current', o.tab === x.tab && 'page')}>${icon(x.icon)}<span>${x.short ?? x.label}</span></a>`);
+  const headLinks = tabs.filter((x) => x.phone === 'head').map((x) => html`<a class="ba-headlink" href="${x.href}" data-tab="${x.tab}"${native(x)} aria-label="${x.label}"${attr('aria-current', o.tab === x.tab && 'page')}>${icon(x.icon)}</a>`);
   return html`<div class="ba-app${o.pushed ? ' no-tabbar' : ''}">
     <a class="ba-skip" href="#main">${t.t('common.skipToContent')}</a>
     <header class="ba-topbar">
@@ -163,11 +184,11 @@ export function chrome(ctx: ViewContext, o: ChromeOptions): SafeHtml {
     ${languageOffer(ctx)}
     ${trialNotice(ctx)}
     <main id="main" class="ba-page ${o.mainClass ?? ''}" tabindex="-1">
-      ${o.pushed ? '' : html`<div class="ba-mobilehead"><a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 28)}</a><span class="ba-me">${switcherLink(ctx)}${proBadge}</span></div>`}
+      ${o.pushed ? '' : html`<div class="ba-mobilehead"><a class="ba-brand" href="${ctx.href('home')}" aria-label="${homeLabel}">${logo(ctx, 28)}</a><span class="ba-me">${switcherLink(ctx)}${proBadge}<span class="ba-headnav">${headLinks}</span></span></div>`}
       ${o.main}
     </main>
     ${footer(ctx)}
-    <nav class="ba-tabbar ba-tabbar--${tabs.length}" aria-label="${t.t('nav.label')}">${tabLinks}</nav>
+    <nav class="ba-tabbar ba-tabbar--${bar.length}" aria-label="${t.t('nav.label')}">${tabLinks}</nav>
   </div>`;
 }
 

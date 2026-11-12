@@ -11,7 +11,7 @@ import { createStore, memoryStorage } from '../../core/store/store.ts';
 import { weekdayIndex } from '../src/app/arcade.ts';
 import type { Hooks } from '../e2e/support/helpers.ts';
 
-export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'results-replay', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'welcome', 'welcome-2', 'welcome-3', 'welcome-4', 'welcome-5', 'players', 'players-manage', 'players-add', 'players-kid', 'race-dialog', 'race-offer', 'explainer', 'camera-error', 'play-nocamera'] as const;
+export const SCENARIOS = ['home', 'home-week', 'region', 'game', 'game-more', 'game-pro', 'game-locked', 'settings', 'pro', 'results', 'play', 'calibrate', 'calibrate-desk', 'calibrate-headroom', 'plans', 'plans-pro', 'results-plan', 'results-progress', 'results-replay', 'pro-unavailable', 'pro-trial', 'home-trial', 'notfound', 'friends', 'friends-new', 'friends-offline', 'lobbies', 'room', 'room-host', 'safety', 'friendlink', 'welcome', 'welcome-2', 'welcome-3', 'welcome-4', 'welcome-5', 'players', 'players-manage', 'players-add', 'players-kid', 'race-dialog', 'race-offer', 'explainer', 'camera-error', 'play-nocamera', 'office', 'family'] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 
 /** A friend's recording of Squat Flap as the short code they would send (made from the practice partner's code, so it is always a real course). */
@@ -29,6 +29,7 @@ const PATHS: Record<Scenario, string> = {
   players: '/profiles/', 'players-manage': '/profiles/?manage=1', 'players-add': '/profiles/', 'players-kid': '/settings/',
   'race-dialog': '/games/squat-flap/', 'race-offer': `/games/squat-flap/?ghost=${friendCode()}`,
   explainer: '/play/squat-flap/', 'camera-error': '/play/squat-flap/', 'play-nocamera': '/play/squat-flap/?input=keyboard',
+  office: '/office/', family: '/family/',
   welcome: '/welcome/', 'welcome-2': '/welcome/?step=2', 'welcome-3': '/welcome/?step=3', 'welcome-4': '/welcome/?step=4', 'welcome-5': '/welcome/?step=5',
 };
 

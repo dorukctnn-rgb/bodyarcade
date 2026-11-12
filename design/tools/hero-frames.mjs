@@ -2,7 +2,7 @@
 // games taken with tools/gfx-shots --clean (no HUD): 2560x1440 for the 21:9 crop of a wider screen, 1280x960 for the 4:3 crop of a
 // phone and for the tiles. Nothing is enlarged: every size is the shot or smaller.
 //
-//   node design/tools/hero-frames.mjs <shots dir>            showcase frames -> design/art/hero
+//   node design/tools/hero-frames.mjs <shots dir> [--only=<id>]  showcase frames -> design/art/hero (--only: that frame alone)
 //   node design/tools/hero-frames.mjs <shots dir> --tiles    game tiles (800x600 and 400x300) -> design/art/tiles
 //
 // SHOWCASE_SHOTS and TILE_SHOTS name the chosen shot of each frame and tile (gfx-shots names: <game>[-<world>]-<w>x<h>[-b<i>].png),
@@ -60,7 +60,9 @@ const webp = (img, w, h, file, quality = 80) => img.clone().resize(w, h, { kerne
 async function frames() {
   const out = path.join(repo, 'design', 'art', 'hero');
   await mkdir(out, { recursive: true });
+  const only = process.argv.find((a) => a.startsWith('--only='))?.slice(7);
   for (const [id, s] of Object.entries(SHOWCASE_SHOTS)) {
+    if (only && only !== id) continue;
     const src = sharp(path.join(shots, s.wide));
     const { width, height } = await src.metadata();
     const ch = Math.round((width * 9) / 21);

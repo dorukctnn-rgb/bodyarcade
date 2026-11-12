@@ -15,6 +15,8 @@ import type { FeedItem, NoOnline, ProNeeded, RoomProblem, RoomState } from '../p
 import { ux } from '../strings.ts';
 import { avatar, banner, DOT_OF, presenceText } from '../ui.ts';
 import { kidPanel, youngPanel } from './friends.ts';
+import { duelCamNote, duelCard } from './duel.ts';
+import { duelText } from '../duel-strings.ts';
 
 export interface RoomView {
   room: RoomState;
@@ -33,6 +35,8 @@ export interface RoomView {
   noOnline: NoOnline | null;
   /** The host's last Pro refusal (a Pro game the Worker or the Room would not take), or null. */
   pro: ProNeeded | null;
+  /** The Room's time now (a duel room shows how long its link stays open); the page's clock when missing. */
+  now?: number;
 }
 
 export const NO_ROOM_VIEW: RoomView = { room: { phase: 'idle', info: null, members: [], me: null, feed: [], problem: null, shareVideo: false, link: '' }, game: null, profile: null, games: [], draft: '', chatNote: '', friends: [], invited: [], noOnline: null, pro: null };
@@ -102,7 +106,7 @@ function proNote(ctx: ViewContext, v: RoomView): SafeHtml {
   return html`${waiting}`;
 }
 
-const PROBLEMS: readonly RoomProblem[] = ['full', 'no_room', 'removed', 'replaced', 'version', 'not_allowed', 'ticket', 'offline'];
+const PROBLEMS: readonly RoomProblem[] = ['full', 'no_room', 'removed', 'replaced', 'version', 'not_allowed', 'ticket', 'offline', 'expired'];
 
 /**
  * Everybody gets ready (the game's camera is calibrated first); the Room starts the match by itself the moment all
@@ -160,7 +164,9 @@ export function roomMain(ctx: ViewContext, v: RoomView): SafeHtml {
   if (v.noOnline === 'kid') return html`${pageHead(ctx, t.t('room.title'), { back })}<div class="k-mt">${kidPanel(ctx)}</div>`;
   if (r.problem || r.phase === 'closed' || r.phase === 'idle') {
     const problem: RoomProblem = r.problem && PROBLEMS.includes(r.problem) ? r.problem : 'no_room';
-    return html`${pageHead(ctx, t.t('room.title'), { back })}<div class="ba-panel ba-soon k-mt">${icon('users')}<div><p role="alert">${t.tx(`room.problem.${problem}`)}</p><a class="ba-btn ba-btn--secondary k-mt" href="${back}">${t.t('room.problem.back')}</a></div></div>`;
+    // a duel link that closed by itself: the way to a new one for the same game
+    const again = problem === 'expired' && r.info ? html`<button class="ba-btn ba-btn--primary k-mt" type="button" data-action="race.new" data-game="${r.info.config.gameId}">${icon('plus')}${duelText(t)('card.new')}</button> ` : '';
+    return html`${pageHead(ctx, t.t('room.title'), { back })}<div class="ba-panel ba-soon k-mt">${icon('users')}<div><p role="alert">${t.tx(`room.problem.${problem}`)}</p>${again}<a class="ba-btn ba-btn--secondary k-mt" href="${back}">${t.t('room.problem.back')}</a></div></div>`;
   }
   if (r.phase === 'joining' || !r.info) {
     return html`${pageHead(ctx, t.t('room.title'), { back })}<p class="ba-lead k-mt" role="status">${t.t('room.joining')}</p>`;
@@ -180,6 +186,7 @@ export function roomMain(ctx: ViewContext, v: RoomView): SafeHtml {
       <button class="ba-btn ba-btn--secondary" type="button" data-action="room.qr">${icon('qr')}${t.t('room.qr')}</button>
     </div>
     ${proNote(ctx, v)}
+    ${info.duel ? duelCard(ctx, r, g, v.now ?? Date.now()) : ''}
     <div class="k-cols k-mt-lg">
       <div class="k-stack">
         <section class="k-card" aria-labelledby="rg"><div class="k-gamepick">${g ? html`<img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="400" height="300">` : ''}<div><span class="k-label k-flat" id="rg">${t.t('room.game.label')}</span><b>${g ? titleOf(ctx, g) : info.config.gameId}</b><small>${t.t('room.game.line', { duration: secondsLabel(ctx, info.config.durationMs) })}</small>${info.pro ? html`<small class="k-protag" data-pro-game>${icon('sparkle')}${u('pro.gameLine')}</small>` : ''}${me?.host && v.games.length > 1 ? html`<br><button class="ba-link k-mt" type="button" data-action="room.game">${t.t('room.game.change')}</button>` : ''}</div></div></section>
@@ -188,7 +195,7 @@ export function roomMain(ctx: ViewContext, v: RoomView): SafeHtml {
       </div>
       <div class="k-stack">
         <section class="k-card k-camcard" aria-labelledby="cam">
-          ${canVideo
+          ${info.duel ? duelCamNote(ctx) : canVideo
             ? html`<div data-form="room-share">${switchRow({ id: 'room-share', name: 'share', label: t.t('room.share.title'), hint: t.t('room.share.hint'), checked: r.shareVideo })}</div><p class="k-fine">${t.t('room.share.minors')}</p>`
             : html`<b id="cam">${t.t('room.share.title')}</b><p class="k-fine">${videoNote}</p>`}
           ${videoLinks(ctx, r)}

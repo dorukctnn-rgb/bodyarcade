@@ -71,6 +71,8 @@ test.describe('moving pictures at the top of the home page', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${WEB_DEV_URL}/`);
     test.skip(!(await playable(page)), 'this engine plays neither format: the pictures stay');
+    // the reel is the second section, under the scene at the top (views/how.ts)
+    await page.locator('.k-reel').scrollIntoViewIfNeeded();
     const before = await layout(page);
     expect(before.width).toBeGreaterThan(1000);
 
@@ -121,6 +123,7 @@ test.describe('moving pictures at the top of the home page', () => {
       await withHooks(page, { clips: true });
       await page.goto(`${WEB_DEV_URL}/`);
       test.skip(!(await playable(page)), 'this engine plays neither format: the pictures stay');
+      await page.locator('.k-reel').scrollIntoViewIfNeeded();
       const before = await layout(page);
       await expect.poll(async () => (await state(page)).mode, { timeout: 60_000 }).toBe('clips');
       await expect.poll(async () => { const s = await state(page); return s.clips[s.active]?.playing === true; }, { timeout: 30_000 }).toBe(true);
@@ -142,7 +145,7 @@ test.describe('moving pictures at the top of the home page', () => {
       // off the screen: it stops, and goes on when the reel is back
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       await expect.poll(async () => (await state(page)).clips.some((c) => c.playing), { timeout: 10_000 }).toBe(false);
-      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(() => document.querySelector('.k-reel')?.scrollIntoView({ block: 'center' }));
       await expect.poll(async () => { const x = await state(page); return x.clips[x.active]?.playing === true; }, { timeout: 10_000 }).toBe(true);
       expect(errors).toEqual([]);
     } finally {

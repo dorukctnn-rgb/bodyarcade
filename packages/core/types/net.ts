@@ -60,6 +60,11 @@ export interface RoomInfo {
    * Everyone in the room plays a Pro game the host picked, Pro or not; the check is on the host, never on the players.
    */
   pro?: { ok: boolean };
+  /**
+   * Present only in a duel room (core/net/duel-link.ts): two seats, no video, preset messages only, a guest may join, and the room closes
+   * at `closesAt` (server epoch ms) whatever is going on. `mode` is how its game is played: a race over a course, or a score duel.
+   */
+  duel?: { closesAt: number; mode: 'race' | 'score' };
 }
 
 export interface MemberInfo {
@@ -118,6 +123,8 @@ export interface MatchInfo {
   /** Seats out of this match (left, removed, or away for the whole grace). */
   forfeited: SeatId[];
   result: MatchResult | null;
+  /** 'score': a score duel (duel rooms only, core/net/duel-link.ts): the pages report their totals ('sc'), there are no obstacle results. Absent: a race. */
+  mode?: 'score';
 }
 
 /** One result per obstacle per player; the first one is final (tech.md 2.7). */
@@ -160,8 +167,10 @@ export type ClientMessage =
   /** Host only, private rooms: remove a member for the rest of this room's life. */
   | { t: 'kick'; seat: SeatId }
   | { t: 'ev'; mid: string; seq: number; ob: number; k: Outcome }
-  /** End of match: the full outcome list fills anything lost on the way. */
-  | { t: 'final'; mid: string; evs: ObstacleResult[] }
+  /** End of match: the full outcome list fills anything lost on the way. In a score duel `evs` is empty and `sc` is the player's last total. */
+  | { t: 'final'; mid: string; evs: ObstacleResult[]; sc?: number }
+  /** A score duel: the player's running total (at most a few times a second). The Room keeps it within what the game can give (duel-link.ts). */
+  | { t: 'sc'; mid: string; v: number }
   /** Game state while the peer path is down (at most 20 per second, 2 KB each). */
   | { t: 'relay'; d: unknown }
   | { t: 'pause'; reason: NetPauseReason }
@@ -195,6 +204,8 @@ export type RoomMessage =
   | { t: 'ack'; seq: number; rejected?: AckRejection }
   | { t: 'relay'; from: SeatId; d: unknown }
   | { t: 'result'; result: MatchResult }
+  /** A score duel: the totals the Room accepted so far, sent whenever one of them changes. */
+  | { t: 'scores'; mid: string; s: Record<SeatId, number> }
   | { t: 'chat'; from: SeatId; text: string; at: number }
   | { t: 'preset'; from: SeatId; id: PresetId; at: number }
   | { t: 'react'; from: SeatId; id: ReactionId; at: number }
@@ -283,6 +294,8 @@ export interface RoomPreview {
   size: number;
   players: number;
   phase: 'lobby' | 'playing';
+  /** A duel room (a guest may join it without a profile); absent for every other room. */
+  duel?: true;
 }
 
 /** Answer of POST /api/ice. TURN credentials are minted by the Worker; the key never reaches the browser. */

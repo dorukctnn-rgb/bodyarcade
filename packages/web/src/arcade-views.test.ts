@@ -87,7 +87,7 @@ describe('the plans page', () => {
     if (!r.ok || !r.view.current) throw new Error('the desk break did not start');
     const ctx = makeContext({ lang: 'en', games, url: '/plans/' });
     const href = stepHref(ctx, r.view.current) ?? '';
-    expect(href).toMatch(/^\/play\/twist-turbine\/\?/);
+    expect(href).toMatch(/^\/play\/star-catch\/\?/);
     expect(href).toContain('difficulty=easy');
     expect(href).toContain('seated=1');
     expect(href).toContain('players=1');

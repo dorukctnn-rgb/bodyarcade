@@ -28,6 +28,8 @@ export interface NewRoomRequest {
   size?: number;
   durationMs?: number;
   band?: string | null;
+  /** A duel room (core/net/duel-link.ts): private, two seats, closes by itself; a guest may make it and join it. */
+  duel?: boolean;
 }
 
 /** A request that gets no answer at all (a network that swallows it) fails after this long instead of hanging for the browser's minutes. */

@@ -18,6 +18,10 @@
 //    whose signed Pro token the Worker verified (ticket claim `x`, kept per member as `proUntil`) created the room with that game
 //    or picked it. The Room never sees a token and checks no signature (that is async crypto, done by the Worker before the ticket
 //    is signed); it only compares the verified end time with its own clock. Players of the room never need Pro themselves.
+//  - A duel room (core/net/duel-link.ts, `meta.duel`) is a private room of two: no video, preset messages only, no child, and it closes at
+//    `meta.duel.closesAt` whatever is going on (a running match is scored first). A match starts there only when it can end before that.
+//    Its game is raced over a course when the game has one, else it is a score duel: each page reports its total ('sc', 'final.sc') and the
+//    Room keeps every seat's points within what the game can give in the time played (acceptScore), on its own clock.
 import {
   CLOSE, MAX_SEATS, MIN_SEATS, MIN_DURATION_MS, MAX_DURATION_MS, NET_PROTOCOL,
   type AckRejection, type AgeBand, type ChatMode, type ClientMessage, type MatchInfo, type MatchPhase, type MatchResult,
@@ -28,6 +32,7 @@ import {
 import { makeSchedule, scoreOf, specFor, places as placesOf, winnerOf, type Obstacle } from '../../../core/net/schedule.ts';
 import { outcomeString } from '../../../core/net/ghost.ts';
 import { isProGame } from '../../../core/net/live-games.ts';
+import { acceptScore, DUEL_LIFETIME_MS, DUEL_SEATS, duelModeOf, newBucket, scoreRateOf, type ScoreBucket } from '../../../core/net/duel-link.ts';
 import { checkChat, checkName, CHAT_INTERVAL_MS } from '../../../core/net/chat-filter.ts';
 import { MAX_BLOCKS, parseClientMessage } from '../../../core/net/validate.ts';
 import type { RoomReport } from './hooks.ts';
@@ -114,6 +119,8 @@ interface Meta {
   emptySince: number | null;
   /** The Pro game this room may start and until when (epoch ms): written when a member with a verified Pro token made the room with it or picked it. */
   auth?: { game: string; until: number } | null;
+  /** A duel room: when it closes (epoch ms). Absent for every other room. */
+  duel?: { closesAt: number } | null;
 }
 
 interface MemberRec {
@@ -160,6 +167,9 @@ interface MatchRec {
   userPauses: Record<SeatId, number>;
   finals: Record<SeatId, true>;
   settleUntil: number | null;
+  /** A score duel: every seat's points as the Room accepted them (absent: a race, scored from the obstacle results). */
+  mode?: 'score';
+  sc?: Record<SeatId, ScoreBucket>;
 }
 
 interface ChatLine { seat: SeatId; name: string; text: string; at: number }
@@ -178,6 +188,8 @@ export interface InitInput {
   creator: string;
   /** Epoch ms until which the Worker verified the creator's signed Pro token; a Pro game needs it (absent: the creator is free). */
   proUntil?: number;
+  /** A duel room (core/net/duel-link.ts): private, two seats, closes DUEL_LIFETIME_MS after it was made. */
+  duel?: boolean;
 }
 
 export type InitResult = { ok: true } | { ok: false; error: 'exists' | 'bad_config' | 'bad_size' | 'bad_audience' | 'pro_required' };
@@ -264,6 +276,8 @@ export class RoomEngine {
     if (!GAME_RE.test(c.gameId) || !Number.isInteger(c.durationMs) || c.durationMs < MIN_DURATION_MS || c.durationMs > MAX_DURATION_MS
       || (c.band !== null && !BAND_RE.test(c.band))) return { ok: false, error: 'bad_config' };
     if (input.kind === 'public' && input.audience !== 'teen' && input.audience !== 'adult') return { ok: false, error: 'bad_audience' };
+    const duel = input.duel === true;
+    if (duel && (input.kind !== 'private' || input.size !== DUEL_SEATS)) return { ok: false, error: 'bad_size' };
     const now = this.now();
     const pro = isProGame(c.gameId);
     const until = typeof input.proUntil === 'number' && Number.isFinite(input.proUntil) ? input.proUntil : 0;
@@ -272,6 +286,7 @@ export class RoomEngine {
       code: input.code, kind: input.kind, size: input.size, config: { gameId: c.gameId, durationMs: c.durationMs, band: input.kind === 'public' ? c.band : null },
       audience: input.kind === 'public' ? input.audience : null, creator: input.creator, host: null, createdAt: now, activityAt: now,
       nextSeat: 1, banned: [], matches: 0, emptySince: now, auth: pro ? { game: c.gameId, until } : null,
+      ...(duel ? { duel: { closesAt: now + DUEL_LIFETIME_MS } } : {}),
     };
     this.dirty.add('meta');
     this.publish();
@@ -282,7 +297,9 @@ export class RoomEngine {
   preview(): RoomPreview | null {
     const m = this.meta;
     if (!m) return null;
-    return { code: m.code, kind: m.kind, gameId: m.config.gameId, size: m.size, players: Object.keys(this.members).length, phase: this.phase() };
+    const p: RoomPreview = { code: m.code, kind: m.kind, gameId: m.config.gameId, size: m.size, players: Object.keys(this.members).length, phase: this.phase() };
+    if (m.duel) p.duel = true;
+    return p;
   }
 
   summary(): RoomSummary | null {
@@ -413,7 +430,8 @@ export class RoomEngine {
       case 'config': this.onConfig(conn, mem, m); break;
       case 'kick': this.onKick(conn, mem, m.seat); break;
       case 'ev': this.onEvent(conn, mem, m); break;
-      case 'final': this.onFinal(mem, m.mid, m.evs); break;
+      case 'final': this.onFinal(mem, m.mid, m.evs, m.sc); break;
+      case 'sc': this.onScore(mem, m.mid, m.v); break;
       case 'pause': this.onPause(mem, m.reason); break;
       case 'unpause': this.onUnpause(mem); break;
       case 'chat': this.onChat(conn, mem, m.text); break;
@@ -522,6 +540,7 @@ export class RoomEngine {
   /** May a player with this age band and block key take a new seat? `dry`: no eviction (the HTTP pre-check). */
   private admit(age: AgeBand, key: string, blocks: readonly string[], dry: boolean): 'ok' | 'full' | 'not_allowed' {
     const meta = this.meta as Meta;
+    if (meta.duel && age === 'child') return 'not_allowed';
     if (meta.kind === 'public') {
       if (age === 'child' || meta.audience !== age) return 'not_allowed';
       for (const o of Object.values(this.members)) if (blocks.includes(o.bk) || o.blocks.includes(key)) return 'not_allowed';
@@ -691,11 +710,16 @@ export class RoomEngine {
     if (!this.proAuthorised(meta.config.gameId)) { this.noteProBlocked(); return; }
     this.proBlockNoted = null;
     const now = this.now();
+    // a duel room starts no match that could not end before the room closes (the pages read closesAt and say so)
+    if (meta.duel && now + this.timing.startCountdownMs + meta.config.durationMs + this.timing.settleMs > meta.duel.closesAt) return;
     all.sort((a, b) => a.joinedAt - b.joinedAt || a.seat.localeCompare(b.seat));
+    const score = this.scoreDuel();
+    const rate = scoreRateOf(meta.config.gameId);
     this.match = {
       id: this.host.uuid(), seed: this.host.randomU32() >>> 0, gameId: meta.config.gameId, startAt: now + this.timing.startCountdownMs,
       duration: meta.config.durationMs, phase: 'running', pausedAt: null, resumeAt: null, pauseTotal: 0, reasons: {}, reasonAt: {},
       seats: all.map((m) => m.seat), forfeited: [], result: null, pauses: {}, userPauses: {}, finals: {}, settleUntil: null,
+      ...(score ? { mode: 'score' as const, sc: Object.fromEntries(all.map((m) => [m.seat, newBucket(rate)])) } : {}),
     };
     this.events = {};
     this.pendingEv = false;
@@ -741,6 +765,7 @@ export class RoomEngine {
     if (!match || match.id !== m.mid) { reject('no_match'); return; }
     if (match.phase === 'over') { reject('over'); return; }
     if (!this.isPlayer(match, mem.seat)) { reject('not_player'); return; }
+    if (match.mode === 'score') { reject('bad'); return; }
     const o = this.course(match).byId.get(m.ob);
     if (!o) { reject('bad'); return; }
     if (this.matchTime(match) + EARLY_MS < o.t) { reject('early'); return; }
@@ -753,11 +778,12 @@ export class RoomEngine {
   }
 
   /** The end-of-match handshake: the full list fills anything lost on the way. */
-  private onFinal(mem: MemberRec, mid: string, evs: ObstacleResult[]): void {
+  private onFinal(mem: MemberRec, mid: string, evs: ObstacleResult[], sc?: number): void {
     const match = this.match;
     if (!match || match.id !== mid) return;
     if (match.phase === 'over') { const c = this.connOf(mem); if (c && match.result) this.send(c, { t: 'result', result: match.result }); return; }
     if (!this.isPlayer(match, mem.seat)) return;
+    if (match.mode === 'score') { this.onScoreFinal(match, mem, sc); return; }
     if (match.phase === 'paused' || this.matchTime(match) < match.duration - FINAL_EARLY_MS) return;
     const byId = this.course(match).byId;
     const list = this.events[mem.seat] ?? (this.events[mem.seat] = []);
@@ -777,6 +803,48 @@ export class RoomEngine {
     if (m.seats.filter((s) => !m.forfeited.includes(s)).every((s) => m.finals[s])) this.finish('complete');
   }
 
+  // ───────── score duels ─────────
+
+  /** Is the game of this room played as a score duel? Only in a duel room, for a game without a course for live play. */
+  private scoreDuel(): boolean {
+    const meta = this.meta;
+    return !!meta?.duel && duelModeOf(meta.config.gameId) === 'score';
+  }
+
+  /** Takes a seat's total at the Room's match time, within the game's rate. True when the seat's points changed. */
+  private takeScore(match: MatchRec, seat: SeatId, v: number): boolean {
+    const rate = scoreRateOf(match.gameId);
+    const book = match.sc ?? (match.sc = {});
+    const prev = book[seat] ?? newBucket(rate);
+    const next = acceptScore(prev, v, this.matchTime(match), rate);
+    book[seat] = next;
+    this.dirty.add('match');
+    if (next.v < v && prev.v < v) this.host.log({ evt: 'score_capped', game: match.gameId, claimed: v, kept: next.v });
+    return next.v !== prev.v;
+  }
+
+  private broadcastScores(match: MatchRec): void {
+    const s: Record<SeatId, number> = {};
+    for (const [seat, b] of Object.entries(match.sc ?? {})) s[seat] = b.v;
+    this.broadcast({ t: 'scores', mid: match.id, s });
+  }
+
+  private onScore(mem: MemberRec, mid: string, v: number): void {
+    const match = this.match;
+    if (!match || match.id !== mid || match.mode !== 'score' || match.phase === 'over' || !this.isPlayer(match, mem.seat)) return;
+    if (match.finals[mem.seat]) return;                                // a seat that finished keeps the total it finished with
+    if (this.takeScore(match, mem.seat, v)) this.broadcastScores(match);
+  }
+
+  /** A score duel's last total: final at once (the player's game is over, early or at the end); the match ends when every player has one. */
+  private onScoreFinal(match: MatchRec, mem: MemberRec, sc: number | undefined): void {
+    if (match.finals[mem.seat]) return;
+    if (typeof sc === 'number' && this.takeScore(match, mem.seat, sc)) this.broadcastScores(match);
+    match.finals[mem.seat] = true;
+    this.dirty.add('match');
+    if (match.seats.filter((s) => !match.forfeited.includes(s)).every((s) => match.finals[s])) this.finish('complete');
+  }
+
   private enterSettling(): void {
     const m = this.match;
     if (!m || m.phase !== 'running') return;
@@ -790,10 +858,10 @@ export class RoomEngine {
   private finish(reason: ResultReason): void {
     const m = this.match;
     if (!m || m.phase === 'over') return;
-    const sched = this.course(m).list;
+    const sched = m.mode === 'score' ? [] : this.course(m).list;
     const played = this.matchTime(m);
     const scores: MatchResult['scores'] = {};
-    for (const s of m.seats) scores[s] = scoreOf(sched, this.events[s] ?? []);
+    for (const s of m.seats) scores[s] = m.mode === 'score' ? { score: m.sc?.[s]?.v ?? 0, hits: 0, passes: 0, bestCombo: 0 } : scoreOf(sched, this.events[s] ?? []);
     const active = m.seats.filter((s) => !m.forfeited.includes(s));
     let eff = reason;
     if ((reason === 'forfeit' || reason === 'abandoned') && played < m.duration * this.timing.noContestShare) eff = 'no_contest';
@@ -803,8 +871,9 @@ export class RoomEngine {
     else if (eff === 'forfeit') { pl = active.length === 1 ? { [active[0] as SeatId]: 1 } : placesOf(scores, active); winner = winnerOf(pl); }
     m.phase = 'over'; m.pausedAt = null; m.resumeAt = null; m.settleUntil = null; m.reasons = {}; m.reasonAt = {};
     m.result = { mid: m.id, reason: eff, winner, places: pl, scores, forfeited: [...m.forfeited] };
-    // A private room hands every seat's run to the players (their friends' recordings to keep); a public room never does.
-    if (this.meta?.kind === 'private') {
+    // A private room hands every seat's run to the players (their friends' recordings to keep); a public room never does, and a
+    // score duel has no course to record.
+    if (this.meta?.kind === 'private' && m.mode !== 'score') {
       const runs: Record<SeatId, string> = {};
       for (const s of m.seats) runs[s] = outcomeString(sched, this.events[s] ?? []);
       m.result.runs = runs;
@@ -951,7 +1020,12 @@ export class RoomEngine {
     if (m3 && m3.phase === 'settling' && m3.settleUntil !== null && now + slack >= m3.settleUntil) this.finish('complete');
     // 4. event flush
     if (this.evDirtyAt !== null && now + slack >= this.evDirtyAt + t.eventFlushMs) this.flushEvents();
-    // 5. expiry
+    // 5. expiry (a duel room at its closing time: a running match is scored first, so both pages get its result before the close)
+    if (this.meta?.duel && now + slack >= this.meta.duel.closesAt) {
+      if (this.matchActive()) this.finish('complete');
+      this.destroy('expired');
+      return;
+    }
     if (this.meta) {
       const mm = this.meta;
       if (mm.emptySince !== null && now + slack >= mm.emptySince + t.emptyTtlMs) this.destroy('empty');
@@ -968,6 +1042,7 @@ export class RoomEngine {
     const want = (x: number) => { if (x < min) min = x; };
     // the idle deadline moves with every message: round it up to 10 minutes so the alarm is not rewritten each time
     want(meta.emptySince !== null ? meta.emptySince + t.emptyTtlMs : Math.ceil((meta.activityAt + t.roomTtlMs) / 600_000) * 600_000);
+    if (meta.duel) want(meta.duel.closesAt);
     const m = this.match;
     for (const mem of Object.values(this.members)) {
       if (mem.online || mem.offlineAt === null) continue;
@@ -1045,7 +1120,8 @@ export class RoomEngine {
 
   private chatMode(): ChatMode {
     const meta = this.meta as Meta;
-    return meta.kind === 'private' && Object.values(this.members).every((m) => m.age === 'adult') ? 'text' : 'preset';
+    // a duel room may hold a guest, whom no profile vouches for: preset messages only
+    return meta.kind === 'private' && !meta.duel && Object.values(this.members).every((m) => m.age === 'adult') ? 'text' : 'preset';
   }
 
   private onChat(conn: EngineConn, mem: MemberRec, text: string): void {
@@ -1140,8 +1216,9 @@ export class RoomEngine {
 
   private roomInfo(): RoomInfo {
     const meta = this.meta as Meta;
-    const info: RoomInfo = { code: meta.code, kind: meta.kind, size: meta.size, host: meta.host, config: { ...meta.config }, chat: this.chatMode(), video: meta.kind === 'private', phase: this.phase() };
+    const info: RoomInfo = { code: meta.code, kind: meta.kind, size: meta.size, host: meta.host, config: { ...meta.config }, chat: this.chatMode(), video: meta.kind === 'private' && !meta.duel, phase: this.phase() };
     if (isProGame(meta.config.gameId)) info.pro = { ok: this.proAuthorised(meta.config.gameId) };
+    if (meta.duel) info.duel = { closesAt: meta.duel.closesAt, mode: duelModeOf(meta.config.gameId) };
     return info;
   }
 
@@ -1151,13 +1228,14 @@ export class RoomEngine {
     return {
       id: m.id, seed: m.seed, gameId: m.gameId, startAt: m.startAt, duration: m.duration, phase: m.phase, pausedAt: m.pausedAt, resumeAt: m.resumeAt,
       pauseTotal: m.pauseTotal, reasons: { ...m.reasons }, seats: [...m.seats], forfeited: [...m.forfeited], result: m.result,
+      ...(m.mode === 'score' ? { mode: 'score' as const } : {}),
     };
   }
 
   /** Video between a member and the reader: both adults in a private room, the member switched it on, nobody blocked anybody. */
   private videoFor(mem: MemberRec, reader: MemberRec): boolean {
     const meta = this.meta as Meta;
-    if (meta.kind !== 'private' || !mem.video || mem.age !== 'adult') return false;
+    if (meta.kind !== 'private' || meta.duel || !mem.video || mem.age !== 'adult') return false;
     return reader === mem || (reader.age === 'adult' && !this.blockedEither(mem, reader));
   }
 

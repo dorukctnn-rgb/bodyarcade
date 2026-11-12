@@ -132,6 +132,7 @@ export interface NavElement {
   hasAttribute(name: string): boolean;
   focus(o?: { preventScroll?: boolean }): void;
   setAttribute(name: string, value: string): void;
+  scrollIntoView?(o?: { block?: 'start' | 'center' }): void;
 }
 
 export interface NavClickEvent {
@@ -218,6 +219,12 @@ export function createNavigation<Id extends string>(o: NavigatorOptions<Id>): Na
     const state = (win.history.state ?? {}) as HistoryState;
     if (change.popped) win.scrollTo(0, typeof state.y === 'number' ? state.y : 0);
     else if (!win.location.hash) win.scrollTo(0, 0);
+    else if (!wasInitial) {
+      // a link to a part of another page (/#duel): the page is drawn, then that part comes into view
+      const id = decodeURIComponent(win.location.hash.slice(1));
+      const part = id ? win.document.getElementById(id) : null;
+      if (part?.scrollIntoView) part.scrollIntoView({ block: 'start' }); else win.scrollTo(0, 0);
+    }
     if (!wasInitial) focusMain();
   };
 
@@ -251,6 +258,8 @@ export function createNavigation<Id extends string>(o: NavigatorOptions<Id>): Na
     if (href.startsWith('#') || /^(mailto|tel|sms):/i.test(href)) return;
     const u = new URL(href, `${win.location.origin}${win.location.pathname}`);
     if (u.origin !== win.location.origin) return;
+    // A part of this very page (/#duel on the home page): the browser scrolls to it, nothing is drawn again.
+    if (u.hash && u.pathname === win.location.pathname && u.search === win.location.search) return;
     // A page the router does not know (a file such as /sitemap.xml) is left to the browser.
     if (!router.match(`${u.pathname}${u.search}`)) return;
     e.preventDefault();

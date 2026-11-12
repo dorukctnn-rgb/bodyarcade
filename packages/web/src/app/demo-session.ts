@@ -20,6 +20,11 @@ export interface DemoOptions {
   /** The person is at a desk: calibration sees head and shoulders without the hips until the round is a seated one. */
   desk?: boolean;
   document?: Document;
+  /**
+   * A score duel (a duel link of a game without a course): the practice player's total grows by about this much a second (a little
+   * more or less on each page, so a duel of two practice players has a winner). The tests set it far too high to see the Room hold it.
+   */
+  scorePerSec?: number;
 }
 
 const COMMANDS = ['squat', 'stand', 'squat', 'stand'] as const;
@@ -36,7 +41,8 @@ type Listener = (e: never) => void;
 export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Session & { loseSecondPlayer(): void; returnSecondPlayer(): void } {
   const doc = o.document ?? document;
   const scale = Math.max(1, o.timeScale ?? 1);
-  const roundSeconds = o.roundSeconds ?? 20;
+  // a short round (the desk break, a family evening) is as long as it asks, as it is in the real session
+  const roundSeconds = r.roundSec ?? o.roundSeconds ?? 20;
   const two = r.setup.players === 2;
   const listeners = new Map<keyof SessionEvents, Set<Listener>>();
   let state: SessionState = 'idle';
@@ -196,11 +202,38 @@ export function createDemoSession(r: SessionRequest, o: DemoOptions = {}): Sessi
     }, ms(100));
   };
 
+  /**
+   * A score duel (duel-link.ts): the practice player's total grows on the match's own clock and goes to the Room four times a second;
+   * at the end of the match (or when the Room ends it) the last one goes with the final.
+   */
+  const scoreRound = (feed: DuelFeed): void => {
+    const rate = (o.scorePerSec ?? 120) * (0.8 + 0.4 * Math.random());
+    let total = 0;
+    tick = setInterval(() => {
+      if (state !== 'running') return;
+      const m = feed.match();
+      if (!m) return;
+      const t = feed.time();
+      if (feed.phase() === 'over') { raced = Math.round(Math.min(t, m.durationMs) / 1000); feed.finish([], total); finish(); return; }
+      if (feed.phase() !== 'run' || t < 0) return;
+      total = Math.round((rate * Math.min(t, m.durationMs)) / 1000);
+      score = [total, 0];
+      feed.score?.(total);
+      hud.set('score', total);
+      hud.set('timer', Math.max(0, (m.durationMs - t) / 1000));
+      if (t >= m.durationMs) {
+        raced = Math.round(m.durationMs / 1000);
+        feed.finish([], total);
+        finish();
+      }
+    }, 250);                                        // the Room's match runs in real time, whatever the practice clock does
+  };
+
   const beginRunning = (): void => {
     hud.set('prompt', { icon: 'squat', text: 'Squat' });
     hud.set('hint', 'Hips 4 cm above the line');
     hud.set('lives', 3);
-    if (r.race) { raceRound(r.race.feed); return; }
+    if (r.race) { if (r.race.feed.duelMode?.() === 'score') scoreRound(r.race.feed); else raceRound(r.race.feed); return; }
     startFeed();
     let n = 0;
     tick = setInterval(() => {

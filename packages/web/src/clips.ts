@@ -70,13 +70,12 @@ export function clipsAllowed(o: { reducedMotion: boolean; connection?: ClipConne
 }
 
 /**
- * Whether one clip plays now. A device that hovers (a mouse) plays a tile's clip while the pointer is on it or it has the keyboard
- * focus; a touch screen plays the clips of the tiles that are on the screen. Never while the page is still loading (the clips wait
- * for the page's own pictures), never in a hidden tab, never off the screen.
+ * Whether one clip plays now: whenever its tile is on the screen, with a mouse as on a touch screen (a moving tile tells what the game
+ * is before anyone points at it). Never while the page is still loading (the clips wait for the page's own pictures), never in a
+ * hidden tab, never off the screen, never after its file failed.
  */
-export function clipShouldPlay(s: { ready: boolean; hidden: boolean; inView: boolean; hoverDevice: boolean; engaged: boolean; failed: boolean }): boolean {
-  if (!s.ready || s.hidden || !s.inView || s.failed) return false;
-  return s.hoverDevice ? s.engaged : true;
+export function clipShouldPlay(s: { ready: boolean; hidden: boolean; inView: boolean; failed: boolean }): boolean {
+  return s.ready && !s.hidden && s.inView && !s.failed;
 }
 
 // ---- the moving pictures at the top of the home page ----------------------------------------------------------------------
@@ -121,7 +120,7 @@ export const nextSlide = (i: number, n: number): number => (n <= 0 ? 0 : (i + 1)
 
 /**
  * Whether the reel runs now: the page has loaded, the tab is in front, at least a quarter of the reel is on the screen. (The clips
- * of the tiles wait for a mouse; the reel is the first thing on the page, so it plays by itself.)
+ * of the tiles play the same way.)
  */
 export function reelShouldRun(s: { ready: boolean; hidden: boolean; inView: boolean }): boolean {
   return s.ready && !s.hidden && s.inView;

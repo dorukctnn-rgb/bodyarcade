@@ -240,6 +240,15 @@ describe('the race around a game', () => {
     expect(m.controls).toBeUndefined();
     expect(typeof m.create().step).toBe('function');
   });
+
+  it('offers the duel mode the Session checks for a game without a course (a score duel), and leaves the game\'s own manifest alone', () => {
+    const own = { id: 'star-catch', modes: ['solo', 'local2'] } as unknown as GameManifest;
+    const m = duelModule({ manifest: own, create: fakeGame }, { ...fakeFeed(), duelMode: () => 'score' });
+    expect(m.manifest.modes).toEqual(['solo', 'local2', 'duel']);
+    expect(m.manifest.id).toBe('star-catch');
+    expect(own.modes).toEqual(['solo', 'local2']);
+    expect(canRace(own)).toBe(false);
+  });
 });
 
 describe('the race score', () => {

@@ -15,6 +15,11 @@
 // entitlement public key (pro.ts) and what it proves goes into the ticket (`x`) and, for a creator, into the room (`proUntil`); the
 // Room trusts those and never a message. A Pro game (core/net/live-games.ts) is refused to a creator without a good token
 // (403 `pro_required`, `reason` none | expired | invalid); joining any room never needs one.
+//
+// Duel links (core/net/duel-link.ts): POST /api/rooms with `duel: true` makes a private room of two that closes by itself. A call without
+// the signature of a profile is a guest (the anonymous identity of the body: a device id, a filtered name, an age band that is not
+// child) only for a duel room: making one, or joining one (the room says what it is before the identity is read). Every other room
+// still asks the social module who is calling.
 import { CLOSE, DEFAULT_DURATION_MS, MAX_SEATS, MIN_SEATS, type AgeBand, type JoinGrant, type RoomCode, type RoomPreview, type RoomSummary } from '../../../core/types/net.ts';
 import { inviteLink, normalizeRoomCode, randomRoomCode } from '../../../core/net/codes.ts';
 import { checkName } from '../../../core/net/chat-filter.ts';
@@ -26,6 +31,8 @@ import type { Router } from '../router.ts';
 import { iceGrant } from './ice.ts';
 import { LIMITS, allow } from './limits.ts';
 import { CLAIMS_HEADER, encodeClaims } from './room.ts';
+import { AUTH_HEADER, AUTH_QUERY } from '../../../core/social/sign.ts';
+import { DUEL_SEATS } from '../../../core/net/duel-link.ts';
 import { blockKey, checkSecret, signTicket, verifyTicket } from './tickets.ts';
 import { liveHooks, type LivePlayer } from './hooks.ts';
 import { verifyProProof } from './pro.ts';
@@ -71,25 +78,37 @@ function codeParam(raw: string | undefined): RoomCode {
  * anonymous device identity of the body: a random device id (8-64 URL-safe characters), a display name that passes
  * the name filter and a self-declared age band.
  */
-async function identify(req: Request, env: LiveEnv, body: Record<string, unknown>): Promise<LivePlayer> {
+async function identify(req: Request, env: LiveEnv, body: Record<string, unknown>, o: { guest?: boolean } = {}): Promise<LivePlayer> {
   const hook = liveHooks().verifyPlayer;
   let player: LivePlayer;
-  if (hook) {
+  if (o.guest && !signed(req)) {
+    // a guest of a duel room: the anonymous identity, never a child (under 16 has no online identity)
+    player = anonymous(body);
+    if (player.age === 'child') throw new HttpError(403, 'age_not_allowed');
+  } else if (hook) {
     const p = await hook(req, env, body);
     if (!p) throw new HttpError(401, 'auth');
     player = p;
   } else {
-    const pid = body.pid;
-    if (typeof pid !== 'string' || !PID_RE.test(pid)) throw new HttpError(400, 'bad_pid');
-    const age = body.age;
-    if (typeof age !== 'string' || !AGES.includes(age as AgeBand)) throw new HttpError(400, 'bad_age');
-    const name = checkName(typeof body.name === 'string' ? body.name : '');
-    if (!name.ok) throw new HttpError(400, 'bad_name', { reason: name.reason });
-    player = { pid, name: name.text, age: age as AgeBand };
+    player = anonymous(body);
   }
   // The Pro proof is judged here whoever vouched for the identity: what a hook says about it is replaced, never believed.
   return { ...player, pro: await verifyProProof(env, body.pro) };
 }
+
+/** The anonymous device identity of a body: a random device id (8-64 URL-safe characters), a name that passes the filter, an age band. */
+function anonymous(body: Record<string, unknown>): LivePlayer {
+  const pid = body.pid;
+  if (typeof pid !== 'string' || !PID_RE.test(pid)) throw new HttpError(400, 'bad_pid');
+  const age = body.age;
+  if (typeof age !== 'string' || !AGES.includes(age as AgeBand)) throw new HttpError(400, 'bad_age');
+  const name = checkName(typeof body.name === 'string' ? body.name : '');
+  if (!name.ok) throw new HttpError(400, 'bad_name', { reason: name.reason });
+  return { pid, name: name.text, age: age as AgeBand };
+}
+
+/** Does the call carry a profile's signature (it is then the social module's to check, a guest's door or not)? */
+const signed = (req: Request): boolean => !!(req.headers.get(AUTH_HEADER) ?? new URL(req.url).searchParams.get(AUTH_QUERY));
 
 async function body(req: Request): Promise<Record<string, unknown>> {
   const b = await readJson(req, 4096);
@@ -138,6 +157,8 @@ export interface NewRoom {
   size: number;
   durationMs: number;
   band: string | null;
+  /** A duel room (private, two seats, closes by itself). */
+  duel?: boolean;
 }
 
 /**
@@ -153,7 +174,7 @@ export async function createRoomFor(env: LiveEnv, room: NewRoom, creator: LivePl
     const code = randomRoomCode();
     const input: InitInput = {
       code, kind: room.kind, size: room.size, config: { gameId: room.gameId, durationMs: room.durationMs, band: room.band },
-      audience: room.kind === 'public' ? creator.age : null, creator: creator.pid, ...(proUntil ? { proUntil } : {}),
+      audience: room.kind === 'public' ? creator.age : null, creator: creator.pid, ...(proUntil ? { proUntil } : {}), ...(room.duel ? { duel: true } : {}),
     };
     const r = await roomCall<InitResult>(env, code, '/init', input);
     if (r.data.ok) {
@@ -179,15 +200,18 @@ const createRoom = async (req: Request, rawEnv: Record<string, unknown>): Promis
   const b = await body(req);
   const kind = b.kind === undefined || b.kind === 'private' ? 'private' : b.kind === 'public' ? 'public' : null;
   if (!kind) throw new HttpError(400, 'bad_kind');
-  const size = b.size === undefined ? 2 : b.size;
+  if (b.duel !== undefined && typeof b.duel !== 'boolean') throw new HttpError(400, 'bad_config');
+  const duel = b.duel === true;
+  if (duel && kind !== 'private') throw new HttpError(400, 'bad_kind');
+  const size = duel ? DUEL_SEATS : b.size === undefined ? 2 : b.size;
   if (typeof size !== 'number' || !Number.isInteger(size) || size < MIN_SEATS || size > MAX_SEATS) throw new HttpError(400, 'bad_size');
   if (typeof b.gameId !== 'string') throw new HttpError(400, 'bad_config');
   const durationMs = b.durationMs === undefined ? DEFAULT_DURATION_MS : b.durationMs;
   if (typeof durationMs !== 'number') throw new HttpError(400, 'bad_config');
   const band = b.band === undefined || b.band === null ? null : b.band;
   if (band !== null && typeof band !== 'string') throw new HttpError(400, 'bad_config');
-  const player = await identify(req, env, b);
-  const { code, preview } = await createRoomFor(env, { kind, gameId: b.gameId, size, durationMs, band }, player);
+  const player = await identify(req, env, b, { guest: duel });
+  const { code, preview } = await createRoomFor(env, { kind, gameId: b.gameId, size, durationMs, band, duel }, player);
   return json(await grant(env, publicOrigin(req, env.PUBLIC_ORIGIN), code, player, preview), 201);
 };
 
@@ -205,7 +229,14 @@ const joinRoom = async (req: Request, rawEnv: Record<string, unknown>, _ctx: unk
   limited(req, env, 'join', LIMITS.joinPer10Min, 600_000);
   const code = codeParam(params.code);
   const b = await body(req);
-  const player = await identify(req, env, b);
+  // a guest may take a seat in a duel room only: the room says what it is before the identity is read
+  let guest = false;
+  if (!signed(req)) {
+    const pv = await roomCall<RoomPreview>(env, code, '/preview');
+    if (pv.status !== 200) throw new HttpError(404, 'no_room');
+    guest = pv.data.duel === true;
+  }
+  const player = await identify(req, env, b, { guest });
   return json(await issueJoin(env, publicOrigin(req, env.PUBLIC_ORIGIN), code, player));
 };
 

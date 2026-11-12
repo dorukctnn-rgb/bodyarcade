@@ -18,6 +18,7 @@ import { detectLang } from '../../../core/ui/i18n/index.ts';
 import { createLiveRoomPort } from '../app/live-room.ts';
 import { router } from '../routes.ts';
 import { createSocialPort, type SocialClientLike, type SocialPortHandle } from './adapter.ts';
+import { guests as makeGuests, parseGuest, type GuestRecord } from './guest.ts';
 import type { RoomPort, SocialServices } from './port.ts';
 
 export type Probe = 'answers' | 'absent' | 'unreachable';
@@ -85,6 +86,7 @@ async function keyDatabaseExists(): Promise<boolean> {
 
 const FLAG = { version: 1, parse: (raw: unknown): boolean | null => (typeof raw === 'boolean' ? raw : null) } as const;
 const KEYS = { version: 1, parse: (raw: unknown): string[] | null => (Array.isArray(raw) && raw.every((x) => typeof x === 'string') ? (raw as string[]).slice(0, 200) : null) } as const;
+const GUEST = { version: 1, parse: (raw: unknown): GuestRecord | null => parseGuest(raw) } as const;
 
 export interface StartSocialOptions {
   win: Window & typeof globalThis;
@@ -126,6 +128,8 @@ export async function startSocial(o: StartSocialOptions): Promise<RealSocial | n
     const client = new SocialClient({ origin: '', keys, ...(o.fetch ? { fetch: o.fetch } : {}) });
     const checked: SocialClientLike = client;
     const kid = o.kidProfile ?? ((): boolean => false);
+    // the guest of duel links on this device (social/guest.ts): kept only once the player chose to play as a guest
+    const guests = makeGuests({ load: () => ns.get<GuestRecord | null>('duelGuest', GUEST, null), save: (r) => ns.set('duelGuest', r, GUEST) });
     const social = createSocialPort({
       client: checked,
       age: { tooYoung, remember: () => ns.set('tooYoung', true, FLAG) },
@@ -139,6 +143,8 @@ export async function startSocial(o: StartSocialOptions): Promise<RealSocial | n
         try { return client.roomIdentity(); } catch { return null; }
       },
       fetcher: client.fetcher,
+      guest: () => (kid() || tooYoung() ? null : guests.identity()),
+      ...(o.fetch ? { plainFetch: o.fetch } : {}),
       pro: () => (kid() ? null : o.pro?.() ?? null),
       blocks: { load: () => ns.get('roomBlocks', KEYS, []), save: (list) => ns.set('roomBlocks', list.slice(-200), KEYS) },
     });
@@ -147,7 +153,7 @@ export async function startSocial(o: StartSocialOptions): Promise<RealSocial | n
       reportSeat: (seat, reason, block) => { live.client()?.reportPlayer(seat, reason, block); },
       blockSeat: (seat) => { live.client()?.block(seat); },
     };
-    return { social, rooms, client };
+    return { social, rooms, client, guests };
   } catch (e) {
     console.error(e);
     return null;

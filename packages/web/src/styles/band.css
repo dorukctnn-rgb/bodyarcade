@@ -1,0 +1,22 @@
+/* The home page's before/after band (growth/before-after-band.ts): the progress coach's 3D twin between two tapes, the ghost and the
+   heat map, "illustration" on both. Its own dark ground, like the coach pages; a rounded panel inside the home page (Kol G). */
+.bab{--bab-bg:#140F27;--bab-panel:#1C1433;--bab-line:#31285A;--bab-text:#F4F2F8;--bab-muted:#A79FBE;
+  background:var(--bab-bg);color:var(--bab-text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch;padding:24px clamp(16px,4vw,48px);box-sizing:border-box;width:100%}
+.bab *{box-sizing:border-box}
+.bab-copy{display:flex;flex-direction:column;justify-content:center;gap:12px}
+.bab-copy h2{margin:0;font-size:clamp(24px,3vw,38px);line-height:1.12;font-weight:800}
+.bab-copy p{margin:0;color:var(--bab-muted);font-size:clamp(15px,1.4vw,18px);line-height:1.5}
+.bab-copy a{align-self:flex-start;font-weight:800;color:#140F27;background:#22C383;border-radius:12px;padding:12px 18px;text-decoration:none;min-height:44px}
+.bab-card{position:relative;background:var(--bab-panel);border:1px solid var(--bab-line);border-radius:18px;overflow:hidden;min-height:340px;display:flex;flex-direction:column}
+.bab-stage{position:relative;flex:1;min-height:280px}
+.bab-stage canvas,.bab-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.bab-tag{position:absolute;top:10px;right:10px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--bab-muted);background:rgba(20,15,39,.8);border-radius:999px;padding:3px 9px}
+.bab-foot{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:14px;font-weight:700}
+.bab-foot input{flex:1;accent-color:#22C383;min-height:32px}
+.bab-key{display:flex;gap:12px;flex-wrap:wrap;color:var(--bab-muted);font-weight:600}
+.bab-key i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+@media (max-width:900px){.bab{grid-template-columns:1fr 1fr}.bab-copy{grid-column:1/-1}}
+@media (max-width:560px){.bab{grid-template-columns:1fr}.bab-card{min-height:300px}}
+.bab-stage img{display:block}
+.bab-copy a:focus-visible{outline:3px solid #7FD8FF;outline-offset:3px}

@@ -18,6 +18,7 @@ import { canRace } from '../app/duel.ts';
 import { chrome, sitePageHref } from './chrome.ts';
 import { freeLine } from './paywall.ts';
 import { NO_PLANS_DATA, planStrip, type PlansData } from './plans.ts';
+import { modeStrip } from './modes.ts';
 import { gameGrid, regionChips } from './tiles.ts';
 import { weekdayNames } from './parts.ts';
 import { REGION_ORDER } from '../routes.ts';
@@ -25,6 +26,8 @@ import { ROAD_RUN_WORLDS } from '../../../games/road-run/worlds.ts';
 import { phoneHeight, SHOWCASE, SHOWCASE_PHONE_WEBP, SHOWCASE_SIZES_PHONE, SHOWCASE_SIZES_WIDE, SHOWCASE_WIDE_MIN, SHOWCASE_WIDE_WEBP, showcaseSrcset, wideHeight, type ShowcaseSlide } from '../showcase.ts';
 import type { Preload } from '../document.ts';
 import { HERO_CLIP_WIDE, heroClipHeight, heroClipSet } from '../clips.ts';
+import { howHero } from './how.ts';
+import { bandSection, coachSection, privacySection, todaySection } from './home-sections.ts';
 
 /** What the home page knows about the player's weeks; empty on the server and for a new player. */
 export interface HomeData {
@@ -103,16 +106,13 @@ export function showcasePreloads(ctx: ViewContext): Preload[] {
 function hero(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
   const g = featuredGame(ctx);
-  return html`<article class="k-today k-show" aria-labelledby="home-h1">
+  // The page's heading and its two buttons are the scene above (views/how.ts); this card shows the games themselves.
+  return html`<article class="k-today k-show" aria-labelledby="home-show-h">
     ${showcase(ctx)}
     <div class="body">
-      <h1 id="home-h1" data-main-heading>${t.t('home.h1')}</h1>
+      <h2 class="k-showh" id="home-show-h">${t.t('home.h1')}</h2>
       <p class="lead">${t.t('home.lead', { n: ctx.games.length })}</p>
-      <div class="k-actions">
-        ${g ? html`<a class="ba-btn ba-btn--primary ba-btn--lg" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${icon('play')}<span>${t.t('home.cta.play', { game: titleOf(ctx, g) })}</span></a>` : ''}
-        <a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('welcome')}">${t.t('home.cta.how')}</a>
-      </div>
-      <p class="ba-assure">${icon('shield')}<span>${t.t('footer.camera')}</span></p>
+      ${g ? html`<div class="k-actions"><a class="ba-btn ba-btn--secondary ba-btn--lg" href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${icon('play')}<span>${t.t('home.cta.play', { game: titleOf(ctx, g) })}</span></a></div>` : ''}
     </div>
   </article>`;
 }
@@ -289,10 +289,12 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
     ? html`<p class="ba-small ba-hiddennote">${t.t('home.hidden', { n: hiddenByModes })}</p>`
     : '';
 
+  // The home page in the order of Kol G (Apple Fitness+ line): 1 what BodyArcade is (the scene), 2 the before/after band, 3 the games,
+  // 4 the form coach, 5 Today and the progress coach, 6 duels, the office break and family mode, 7 privacy; then the rest.
   const top = region
     ? html`<div class="ba-pagehead"><h1 class="ba-h1" data-main-heading>${t.t('workouts.title', { region: regionLabel(ctx, region) })}</h1></div>
        <p class="k-sub">${t.t('workouts.description', { region: regionLabel(ctx, region), ...regionGames(ctx.games, region) })}</p>`
-    : html`<section class="k-hero${data.week ? '' : ' k-hero--solo'}" aria-label="${t.t('brand.name')}">${hero(ctx)}${data.week ? weekCard(ctx, data.week, data.recent) : ''}</section>`;
+    : html`${howHero(ctx, featuredGame(ctx))}${bandSection(ctx)}<section class="k-hero${data.week ? '' : ' k-hero--solo'}" aria-label="${t.t('brand.name')}">${hero(ctx)}${data.week ? weekCard(ctx, data.week, data.recent) : ''}</section>`;
 
   const main = html`
     ${top}
@@ -307,6 +309,10 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
       ${hidden}
     </section>
     ${region ? '' : planStrip(ctx, data.plans)}
+    ${region ? '' : coachSection(ctx)}
+    ${region ? '' : todaySection(ctx)}
+    ${region ? '' : modeStrip(ctx)}
+    ${region ? '' : privacySection(ctx)}
     ${together(ctx)}
     ${proTeaser(ctx)}
     ${region ? '' : aboutSection(ctx)}`;

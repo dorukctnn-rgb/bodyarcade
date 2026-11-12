@@ -62,8 +62,15 @@ export function liveFeed(c: LiveClient): LiveFeed {
     c.on('presence', () => changed()),
     c.on('forfeit', () => changed()),
     c.on('state', (s) => {
+      // a score duel's points are the Room's (the 'scores' it accepted), never what a page says of itself
+      if (c.match?.mode === 'score') return;
       const d = s.d as { sc?: unknown } | null;
       if (d && typeof d.sc === 'number' && Number.isFinite(d.sc)) { scores.set(s.from, d.sc); changed(); }
+    }),
+    c.on('scores', (d) => {
+      if (c.match && d.mid !== c.match.id) return;
+      for (const [seat, v] of Object.entries(d.s)) if (Number.isFinite(v)) scores.set(seat, v);
+      changed();
     }),
   ];
 
@@ -76,8 +83,10 @@ export function liveFeed(c: LiveClient): LiveFeed {
     time: () => c.matchTime(),
     phase: () => phaseOf(c.match, c.serverNow()),
     report: (ob, k) => c.reportResult(ob, k),
-    finish: (results) => c.finish(results),
+    finish: (results, sc) => c.finish(results, sc),
     state: (d) => c.sendState(d),
+    duelMode: () => (c.match && c.match.phase !== 'over' ? (c.match.mode ?? 'race') : (c.room?.duel?.mode ?? 'race')),
+    score: (v) => c.reportScore(v),
     rivals,
     onRivals(cb) { cbs.add(cb); return () => { cbs.delete(cb); }; },
     result: () => result,

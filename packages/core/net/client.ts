@@ -30,6 +30,8 @@ export interface LiveEvents {
   settling: { mid: string };
   forfeit: { seat: SeatId; match: MatchInfo };
   result: MatchResult;
+  /** A score duel (duel rooms, core/net/duel-link.ts): the totals the Room accepted so far. */
+  scores: { mid: string; s: Record<SeatId, number> };
   chat: { from: SeatId; text: string; at: number };
   preset: { from: SeatId; id: PresetId; at: number };
   react: { from: SeatId; id: ReactionId; at: number };
@@ -498,6 +500,7 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
       case 'settling': this.emit('settling', { mid: msg.mid }); break;
       case 'ack': this.onAck(msg.seq, msg.rejected); break;
       case 'result': this.onResult(msg.result); break;
+      case 'scores': this.emit('scores', { mid: msg.mid, s: { ...msg.s } }); break;
       case 'chat': this.emit('chat', { from: msg.from, text: msg.text, at: msg.at }); break;
       case 'preset': this.emit('preset', { from: msg.from, id: msg.id, at: msg.at }); break;
       case 'react': this.emit('react', { from: msg.from, id: msg.id, at: msg.at }); break;
@@ -630,11 +633,24 @@ export class LiveClient extends Emitter<LiveEvents> implements PeerHost {
     this.sendNow(ev);
   }
 
-  /** End of match: the full outcome list. Resent every 2 s and after reconnects until the result arrives. */
-  finish(evs: readonly ObstacleResult[]): void {
+  /**
+   * A score duel: the player's running total (the Room keeps it within the game's rate). Not queued: a total lost to a drop is
+   * replaced by the next one, and the final carries the last.
+   */
+  reportScore(v: number): void {
+    const m = this.match;
+    if (!m || m.mode !== 'score' || this.resultFor === m.id || (this.pendingFinal && this.pendingFinal.mid === m.id)) return;
+    this.sendNow({ t: 'sc', mid: m.id, v: Math.max(0, Math.round(v)) });
+  }
+
+  /**
+   * End of match: the full outcome list (in a score duel an empty list and the last total, `sc`). Resent every 2 s and after
+   * reconnects until the result arrives.
+   */
+  finish(evs: readonly ObstacleResult[], sc?: number): void {
     const m = this.match;
     if (!m || (this.pendingFinal && this.pendingFinal.mid === m.id) || this.resultFor === m.id) return;
-    this.pendingFinal = { t: 'final', mid: m.id, evs: evs.map((e) => ({ ob: e.ob, k: e.k })) };
+    this.pendingFinal = { t: 'final', mid: m.id, evs: evs.map((e) => ({ ob: e.ob, k: e.k })), ...(typeof sc === 'number' ? { sc: Math.max(0, Math.round(sc)) } : {}) };
     this.finalAt = this.sched.now();
     this.sendNow(this.pendingFinal);
   }

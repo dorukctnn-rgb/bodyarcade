@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Before/after band harness</title><link rel="stylesheet" href="/packages/web/src/styles/band.css"><style>body{margin:0;background:#140F27}</style></head>
+<body>
+<div id="band"></div>
+<script type="module">
+  // The home page's before/after band (packages/web/src/growth/before-after-band.ts) on its own.
+  import { mountBeforeAfterBand } from '/packages/web/src/growth/before-after-band.ts';
+  const q = new URLSearchParams(location.search);
+  const band = mountBeforeAfterBand(document.getElementById('band'), { lang: q.get('lang') ?? 'en', eager: true });
+  band.ready.then(() => { window.bandReady = true; });
+  window.harnessReady = true;
+</script>
+</body>
+</html>

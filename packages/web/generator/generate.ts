@@ -13,6 +13,7 @@ import { LANG_INFO, type Lang } from '../../core/ui/i18n/index.ts';
 import { hasLanguage } from '../../core/ui/i18n/localized.ts';
 import { devAssets, mappedAssets, ONBOARDING_FILES, type TileSize } from '../src/assets.ts';
 import { SHOWCASE, showcaseFiles } from '../src/showcase.ts';
+import { BAND_STILLS } from '../src/growth/before-after-band.ts';
 import { clipFiles, heroClipFiles } from '../src/clips.ts';
 import { loadCatalogue, repoRoot, tilesDir, type FixtureMode } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
@@ -96,6 +97,8 @@ function copyAssets(out: string, games: readonly ShellGame[], root: string): Rec
   }
   for (const file of ONBOARDING_FILES) put(devAssets.onboarding(file), join(root, 'design', 'onboarding', 'fallback', file), 'onboarding');
   for (const file of showcaseFiles()) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
+  // the two stills of the home page's before/after band (growth/before-after-band.ts)
+  for (const file of [BAND_STILLS.morph.file, BAND_STILLS.compare.file]) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
   for (const file of [...clipFiles(), ...heroClipFiles(SHOWCASE.map((x) => x.id))]) put(devAssets.clip(file), join(root, 'design', 'art', 'clips', file), 'clips');
   return map;
 }
@@ -152,7 +155,7 @@ export function generate(o: GenerateOptions): GenerateReport {
     if (games.some((g) => g.regions.includes(region) || (region === 'seated' && g.seated))) emit('region', { region });
   }
   for (const g of games) { emit('game', { slug: g.seo.slug }); emit('play', { slug: g.seo.slug }); }
-  for (const id of ['plans', 'settings', 'pro', 'results', 'welcome'] as const) emit(id, {});
+  for (const id of ['plans', 'settings', 'pro', 'results', 'welcome', 'office', 'family', 'formcoach', 'today', 'progress'] as const) emit(id, {});
 
   // 404.html: what the host serves for an address that does not exist.
   {

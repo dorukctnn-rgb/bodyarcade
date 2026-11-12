@@ -13,6 +13,7 @@ import type { PendingInvite, ProNeeded } from '../port.ts';
 import { qrSvg } from '../qr.ts';
 import { ux } from '../strings.ts';
 import { avatar } from '../ui.ts';
+import { guestNameStep } from './duel.ts';
 
 export type { PresetId };
 
@@ -38,6 +39,8 @@ export interface ProfileSheet {
   recoverCode: string;
   recoverRecovery: string;
   recoverField: 'code' | 'recovery' | null;
+  /** A duel link opened without a profile (social/guest.ts): the name step lets the player in as a guest ('join' a link, or make a 'new' one). */
+  guest?: 'join' | 'new' | null;
 }
 
 export const NEW_PROFILE_SHEET: ProfileSheet = {
@@ -112,6 +115,7 @@ export function profileSheet(ctx: ViewContext, s: ProfileSheet): SafeHtml {
       <p class="ba-small k-note-line is-error" id="recover-note" role="alert">${s.error ?? ''}</p>
       <div class="btns"><button class="ba-btn ba-btn--primary ba-btn--lg" type="button" data-action="sheet.recover.go"${attr('disabled', s.busy)}>${u('recover.cta')}</button><button class="ba-btn ba-btn--quiet" type="button" data-action="sheet.recover.back">${t.t('common.back')}</button></div></div>`;
   }
+  if (s.guest) return guestNameStep(ctx, s);
   const adult = s.band === 'adult';
   return html`<div class="k-sheet k-sheet--bare"><h2 id="sheet-h">${t.t('safety.name.title')}</h2>
     <p class="ba-small k-flat" id="sheet-d">${adult ? t.t('safety.name.adultBody') : t.t('safety.name.minorBody')}</p>

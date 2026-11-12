@@ -1,6 +1,6 @@
 // Per-world picture settings that are not part of the theme file: how strongly the sky lights the scene, how much the
-// flat fill lights are turned down when it does, the grade of the final pass, and the colours of the wind-blown grass.
-// A world that is not listed gets the defaults. Pure data, no three.js objects.
+// flat fill lights are turned down when it does, the grade of the final pass, the colours of the wind-blown grass and the
+// light on the runner of a night world. A world that is not listed gets the defaults. Pure data, no three.js objects.
 import type { GradeLook } from './post.ts';
 import type { ModelTone } from './models.ts';
 
@@ -16,9 +16,24 @@ export interface WorldLook {
   grass: { root: string; tip: string; height: number } | null;
   /** The modelled props' colours in this world (the models are bright; most worlds want them a little quieter). */
   modelTone: ModelTone;
+  /** The light on the runner in a world where the camera sees its unlit side (render3d/figure.ts FigureLight). Null: the world's own lights are enough. */
+  figureLight: FigureLight | null;
 }
 
-const DEFAULT: WorldLook = { envIntensity: 0.85, hemiWithEnv: 0.45, ambientWithEnv: 0.4, grass: null, modelTone: { gain: 0.82, saturation: 0.82 } };
+/**
+ * Light that only the runner gets, for a night world: the camera looks at the runner's back and the moon or the sky glow is ahead of
+ * it, so without this its back is a black shape on a dark road (City, 11 Nov). It is drawn by the figure's own material (no scene
+ * light, nothing else in the world changes, the game plays the same).
+ */
+export interface FigureLight {
+  /** Light from the camera's side, as a share of the figure's own colours: the side the camera sees reads in its colours. */
+  fill: number;
+  /** The light that catches the figure's edges from behind (sRGB hex), and how strong it is (0 none). */
+  rim: string;
+  rimStrength: number;
+}
+
+const DEFAULT: WorldLook = { envIntensity: 0.85, hemiWithEnv: 0.45, ambientWithEnv: 0.4, grass: null, modelTone: { gain: 0.82, saturation: 0.82 }, figureLight: null };
 
 const LOOKS: Readonly<Record<string, Partial<WorldLook>>> = {
   alps: { grade: { lift: [0.0, 0.006, 0.016], saturation: 1.1 }, grass: { root: '#3f5a2c', tip: '#9fb862', height: 0.42 } },
@@ -28,7 +43,10 @@ const LOOKS: Readonly<Record<string, Partial<WorldLook>>> = {
   sunset: { grade: { lift: [0.02, 0.006, 0.012], saturation: 1.12, bloom: 0.42 }, grass: { root: '#4a4a26', tip: '#b8a460', height: 0.4 } },
   arctic: { envIntensity: 0.9, grade: { lift: [0.0, 0.008, 0.022], saturation: 1.02 } },
   jungle: { envIntensity: 0.75, grade: { lift: [0.0, 0.012, 0.006], saturation: 1.14 }, grass: { root: '#24421e', tip: '#6fae48', height: 0.6 } },
-  city: { envIntensity: 0.35, hemiWithEnv: 0.45, ambientWithEnv: 0.45, modelTone: { gain: 0.55, saturation: 0.9 }, grade: { lift: [0.004, 0.004, 0.024], saturation: 1.1, bloom: 0.4, vignette: 0.34 } },
+  city: {
+    envIntensity: 0.35, hemiWithEnv: 0.45, ambientWithEnv: 0.45, modelTone: { gain: 0.55, saturation: 0.9 }, grade: { lift: [0.004, 0.004, 0.024], saturation: 1.1, bloom: 0.4, vignette: 0.34 },
+    figureLight: { fill: 0.42, rim: '#a9bcff', rimStrength: 0.55 },
+  },
   volcano: { envIntensity: 0.7, grade: { lift: [0.02, 0.004, 0.0], contrast: 1.1, bloom: 0.6 } },
   coast: { envIntensity: 0.95, grade: { lift: [0.0, 0.008, 0.014], saturation: 1.1 } },
 };
