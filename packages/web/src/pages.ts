@@ -172,12 +172,12 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       if (!ctx.player) return notFound();
       return { body: profilesPage(ctx, state.profiles ?? NO_PROFILES_STATE), title: named(t.t('profile.title')), description: t.t('profile.lead'), noindex: true, status: 200, jsonLd: [] };
     case 'office': {
-      // The office break: the free desk break as a mode of its own, for the player (no index: the plans page is the one for search engines).
+      // The office break: the free desk break as a mode of its own. It is indexed (routes.ts INDEXABLE) with a title and description made of the words people search for.
       const desk = officeCard(ctx, state.plans);
-      return { body: officePage(ctx, state.plans), title: named(t.t('office.kicker')), description: t.t('office.lead', { n: desk?.steps.length ?? 0, min: desk?.minutes ?? 0 }), noindex: true, status: 200, jsonLd: [], ...brandCard };
+      return { body: officePage(ctx, state.plans), title: t.t('office.meta.title'), description: t.t('office.meta.description', { n: desk?.steps.length ?? 0, min: desk?.minutes ?? 0 }), noindex, status: 200, jsonLd: [], ...brandCard };
     }
     case 'family':
-      return { body: familyPage(ctx, state.family ?? NO_FAMILY_DATA), title: named(t.t('family.title')), description: t.t('family.lead', { n: FAMILY_ROUND_SEC }), noindex: true, status: 200, jsonLd: [], ...brandCard };
+      return { body: familyPage(ctx, state.family ?? NO_FAMILY_DATA), title: t.t('family.meta.title'), description: t.t('family.meta.description', { n: FAMILY_ROUND_SEC }), noindex, status: 200, jsonLd: [], ...brandCard };
     case 'formcoach':
     case 'today':
     case 'progress': {

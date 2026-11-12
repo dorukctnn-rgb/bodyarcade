@@ -62,7 +62,7 @@ const CSS = `
 .fc-dots{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .fc-dots span{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#140F27}
 .fc-dots .ok{background:var(--fc-ok)} .fc-dots .bad{background:var(--fc-bad)}
-@media (max-width:900px){.fc{grid-template-columns:1fr}.fc-moves{margin-left:0}.fc-stage{min-height:56vh}}
+@media (max-width:900px){.fc{grid-template-columns:minmax(0,1fr)}.fc>*{min-width:0}.fc-moves{margin-left:0;max-width:100%}.fc-moves select{min-width:0}.fc-stage{min-height:56vh}}
 `;
 
 interface Snapshot { reps: number; clean: number; holdMs: number; cue: string | null; view: string | null; ready: boolean; segments: Record<string, string>; frames: number; move: FormMoveId }

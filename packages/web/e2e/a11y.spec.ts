@@ -43,3 +43,20 @@ test('the Turkish pages pass axe too, and say what language they are in', async 
   }
   expect(found, found.join('\n')).toEqual([]);
 });
+
+test('the German, Spanish and French pages of the new sections pass axe too, and say what language they are in', async ({ browser }) => {
+  test.setTimeout(300_000);
+  const found: string[] = [];
+  for (const lang of ['de', 'es', 'fr'] as const) {
+    for (const name of ['home', 'game', 'office', 'family'] as const) {
+      const { page, context } = await openScenario(browser, WEB_DEV_URL, name, { w: 390, h: 844, lang });
+      try {
+        expect(await page.locator('html').getAttribute('lang')).toBe(lang);
+        for (const p of await scan(page)) found.push(`${lang} ${name}: ${p}`);
+      } finally {
+        await context.close();
+      }
+    }
+  }
+  expect(found, found.join('\n')).toEqual([]);
+});

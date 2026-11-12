@@ -33,6 +33,8 @@ export function llmsTxt(): string {
     `- [${EXTRA_NAME.pc.name}](${u(EXTRA_URL.pc)}): what a laptop or desktop needs, the games for a desk and the ones that need floor space`,
     `- [${EXTRA_NAME.kinect.name}](${u(EXTRA_URL.kinect)}): what a webcam reads next to a depth sensor, and the games it runs`,
     `- [Workout plans](${u('/plans/')}): ready sessions of games with rests; ${free ? localized(free.title, 'en') : 'one'} is free`,
+    `- [Office break](${u('/office/')}): a free break of short seated camera games at your desk, with the desk set-up and the moves`,
+    `- [Family mode](${u('/family/')}): two players on one camera, side by side on a big screen or in turns on a phone; the classic set is free`,
     `- [Updates](${u(PAGES_CHANGELOG.en)}): new games and changes, release by release; the last release was on ${F.longDate(LATEST_RELEASE.day, 'en')}`,
     `- [Privacy policy](${u('/privacy')}), [Terms](${u('/terms')}), [Refund policy](${u('/refund')})`,
     '',
