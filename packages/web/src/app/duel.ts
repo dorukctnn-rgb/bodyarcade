@@ -215,9 +215,14 @@ export function duelGame(game: Game, feed: DuelFeed): Game {
 /**
  * The same module, raced: its games are wrapped, and it takes no keys or swipes (a race is played with the body). A room that plays its
  * game as a score duel (a duel link of a game without a course) gets the score duel's wrapper instead.
+ * A game without a course has no 'duel' mode of its own, and the Session starts every round of a room in 'duel' and checks the
+ * manifest's modes first: the raced module of such a game offers 'duel' (its wrapper starts the game itself in 'solo'). Without it a
+ * score duel on a real camera stopped at "the round could not start" on both pages (12 Nov smoke test; the practice player of the
+ * browser tests does not check the modes).
  */
 export function duelModule(inner: GameModule, feed: DuelFeed): GameModule {
-  return { manifest: inner.manifest, create: () => (feed.duelMode?.() === 'score' ? scoreDuelGame(inner.create(), feed) : duelGame(inner.create(), feed)) };
+  const manifest = canRace(inner.manifest) ? inner.manifest : { ...inner.manifest, modes: [...inner.manifest.modes, 'duel' as const] };
+  return { manifest, create: () => (feed.duelMode?.() === 'score' ? scoreDuelGame(inner.create(), feed) : duelGame(inner.create(), feed)) };
 }
 
 /** Can this game be raced? Its manifest says so. */

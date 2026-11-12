@@ -837,7 +837,9 @@ export class App {
     };
     const page = renderPage(ctx, route, state);
     this.shown = this.shownOfPlayers();
+    const keepPart = this.hashPartKeeper();
     swap(this.host, page.body.value);
+    keepPart?.();
     const info = LANG_INFO.find((l) => l.code === this.lang);
     applyHead(this.doc, page, { tag: info?.tag ?? this.lang, canonicalHref: route ? `${SITE_ORIGIN}${this.win.location.pathname}` : null });
     if (route?.id === 'play' && page.status === 200) this.beginPlay(route);
@@ -845,6 +847,29 @@ export class App {
     if (route?.id === 'results') { this.startRestTimer(); this.watchRoom(); this.mountReplay(); this.modes.restoreStory(); }
     if (route?.id === 'settings') void this.offline?.refresh();
     if (route?.id === 'home' || route?.id === 'region') this.startClips(route.id === 'home');
+  }
+
+  /**
+   * The part of the page the address points to (/#duel), when it is on the screen: a function that puts it back at the same height
+   * once the page is drawn again. The home page is drawn a second time when late data comes (the player book, the plan, the friends
+   * services) and that adds cards above the duels; the new markup has no node for the browser to anchor on, so without this the
+   * part a link or the Duel tab brought into view was pushed below the screen (12 Nov smoke test: 844 px on a phone).
+   */
+  private hashPartKeeper(): (() => void) | null {
+    const hash = this.win.location.hash;
+    if (hash.length < 2 || /[=&]/.test(hash)) return null;   // #restore=... and the like are not parts of the page
+    let id = '';
+    try { id = decodeURIComponent(hash.slice(1)); } catch { return null; }
+    const part = this.doc.getElementById(id);
+    if (!part) return null;
+    const box = part.getBoundingClientRect();
+    if (box.bottom <= 0 || box.top >= this.win.innerHeight) return null;   // the reader is elsewhere on the page: nothing to keep
+    return () => {
+      const now = this.doc.getElementById(id);
+      if (!now) return;
+      const moved = now.getBoundingClientRect().top - box.top;
+      if (Math.abs(moved) >= 1) this.win.scrollBy(0, moved);
+    };
   }
 
   // ---- the moving game tiles ------------------------------------------------------------------------------------------
