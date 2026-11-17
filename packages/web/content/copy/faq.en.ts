@@ -3,6 +3,7 @@
 import { cta, faqLd, mail, qa, type PageSpec, type Section } from '../chrome.ts';
 import * as F from '../facts.ts';
 import { gameCounts, titlesOf } from './games.ts';
+import { PRICING_URL } from './pricing.en.ts';
 
 interface Item { q: string; a: string }
 interface Group { id: string; title: string; items: Item[] }
@@ -221,10 +222,10 @@ export function faqEn(): PageSpec {
     lang: 'en',
     other: { lang: 'tr', url: '/tr/faq' },
     nav: 'faq',
-    title: 'FAQ',
-    description: 'Answers about BodyArcade: where to stand, playing seated, friends and rooms, privacy, the free plan, Pro prices, the free trial, cancelling and refunds.',
-    h1: 'Questions and answers',
-    lead: `Short answers about playing, privacy, friends and plans. If yours is not here, write to ${mail()}.`,
+    title: 'Webcam Workout Games FAQ: Camera, Privacy, Plans',
+    description: 'Where to stand, playing seated, friends and rooms, privacy, the free plan, Pro prices, the free trial, cancelling and refunds, answered for the webcam workout games.',
+    h1: 'Webcam workout games: questions and answers',
+    lead: `Short answers about playing, privacy, friends and plans. New here? <a href="/">Play a free game</a> or <a href="${PRICING_URL.en}">see the plans</a>. If your question is not here, write to ${mail()}.`,
     sections,
     toc: true,
     after: cta('Ready to try it? Pick a game and your camera does the rest.', '/', 'Play a game'),

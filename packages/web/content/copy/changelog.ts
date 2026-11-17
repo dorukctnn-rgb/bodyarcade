@@ -107,9 +107,9 @@ function page(lang: F.Lang): PageSpec {
     title: `${F.longDate(r.day, lang)}: ${r.title[lang]}`,
     html: ul(r.items.map((x) => x[lang])),
   }));
-  const title = en ? 'BodyArcade updates: new games and changes' : 'BodyArcade güncellemeleri: yeni oyunlar ve değişiklikler';
+  const title = en ? 'Workout Game Release Notes: New Games and Changes' : 'BodyArcade güncellemeleri: yeni oyunlar ve değişiklikler';
   const description = en
-    ? 'BodyArcade updates: the games, the screens and the pages that each release added or changed, newest first, with the day it went live.'
+    ? 'Release notes for the webcam workout games: the games, screens and pages that each update added or changed, newest first, with the day it went live.'
     : 'BodyArcade güncellemeleri: her sürümün eklediği ya da değiştirdiği oyunlar, ekranlar ve sayfalar, en yenisi başta, yayın günüyle.';
   return {
     file: en ? 'changelog.html' : 'tr/guncellemeler.html',
@@ -118,10 +118,10 @@ function page(lang: F.Lang): PageSpec {
     other: { lang: en ? 'tr' : 'en', url: PAGES_CHANGELOG[en ? 'tr' : 'en'] },
     title,
     description,
-    h1: en ? 'BodyArcade updates' : 'BodyArcade güncellemeleri',
+    h1: en ? 'Release notes: new games and changes' : 'BodyArcade güncellemeleri',
     when: en ? `Last release ${F.longDate(LATEST_RELEASE.day, lang)}` : `Son sürüm ${F.longDate(LATEST_RELEASE.day, lang)}`,
     lead: en
-      ? 'BodyArcade updates, release by release, newest first. Pro includes the games we add later, and this is where they appear.'
+      ? `Every release, newest first. Pro includes the games added later, and this is where they appear. Looking for the games themselves? <a href="/">Play one free</a> or <a href="${PRICING_URL.en}">see Pro</a>.`
       : 'BodyArcade güncellemeleri, en yenisi başta. Pro, sonradan eklediğimiz oyunları da içerir; onlar burada görünür.',
     sections,
     toc: false,
