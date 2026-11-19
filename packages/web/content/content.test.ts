@@ -74,14 +74,14 @@ describe('the pages are build products', () => {
     expect(LEGACY_PAGES.map((p) => `${p.file} ${p.url}`).sort()).toEqual(pages().map((p) => `${p.file} ${p.url}`).sort());
   });
 
-  it('the share image is the Play feature graphic of the English set, 1024 by 500, and every page names it with those sizes', () => {
+  it('the share image is the site card with the new logo (design/brand/og-site.png), 1024 by 500, and every page names it with those sizes', () => {
     const png = (rel: string): Buffer => readFileSync(join(REPO_ROOT, rel));
     const size = (b: Buffer): { w: number; h: number } => ({ w: b.readUInt32BE(16), h: b.readUInt32BE(20) });
     const shared = png(`site/assets/brand/${OG_IMAGE.file}`);
     expect(shared.subarray(1, 4).toString('latin1')).toBe('PNG');
     expect(size(shared)).toEqual({ w: OG_IMAGE.width, h: OG_IMAGE.height });
-    // the new art (design/store/export/en), not the older one at the top of that folder
-    expect(Buffer.compare(shared, png('design/store/export/en/feature-graphic.png'))).toBe(0);
+    // the site's own card since the sports redesign (19 Nov 2026); the Play feature graphic (design/store/export/en) stays the store's
+    expect(Buffer.compare(shared, png('design/brand/og-site.png'))).toBe(0);
     for (const p of pages()) {
       const html = renderPage(p);
       expect(html, p.file).toContain(`<meta property="og:image" content="https://bodyarcade.com/assets/brand/${OG_IMAGE.file}">`);

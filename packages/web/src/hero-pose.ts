@@ -58,7 +58,10 @@ export const heroDuration = (p: HeroPose): number => (p.n - 1) / p.fps;
  * through the frames around them, so 15 frames a second follow a fast arm without corners. Outside the data the end frames hold.
  */
 export function poseAt(p: HeroPose, t: number, into = new Float32Array(PER)): Float32Array {
-  const pos = Math.max(0, Math.min(p.n - 1, t * p.fps));
+  const raw = Math.max(0, Math.min(p.n - 1, t * p.fps));
+  // a frame's own time (what requestVideoFrameCallback gives) lands on its pose exactly; only times between frames are interpolated
+  const near = Math.round(raw);
+  const pos = Math.abs(raw - near) < 0.02 ? near : raw;
   const i1 = Math.floor(pos);
   const u = pos - i1;
   const i0 = Math.max(0, i1 - 1), i2 = Math.min(p.n - 1, i1 + 1), i3 = Math.min(p.n - 1, i1 + 2);

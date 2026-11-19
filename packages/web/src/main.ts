@@ -28,4 +28,17 @@ if (coach === 'form') {
   });
 } else if (q.get('worlds') === '1') {
   void import('./worlds/page.ts').then(({ bootWorlds }) => bootWorlds());
-} else void boot({ win: window, catalogue, version: __BA_VERSION__, demo: __BA_DEMO__, placeholderPlans: __BA_PLACEHOLDER_PLANS__, paddle: __BA_PADDLE__ });
+} else {
+  // The page the server drew is painted first (the home page's hero poster is its largest picture), then the app takes over: one frame
+  // later, or after half a second where frames do not come (a tab in the background).
+  let started = false;
+  const start = (): void => {
+    if (started) return;
+    started = true;
+    void boot({ win: window, catalogue, version: __BA_VERSION__, demo: __BA_DEMO__, placeholderPlans: __BA_PLACEHOLDER_PLANS__, paddle: __BA_PADDLE__ });
+  };
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => setTimeout(start, 0));
+    setTimeout(start, 500);
+  } else start();
+}

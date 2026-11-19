@@ -199,6 +199,8 @@ body { line-height: var(--lh-body); }
 .ba-tabbar { background: rgba(5, 5, 5, 0.9); }
 :root[data-theme="light"] .ba-tabbar { background: color-mix(in srgb, var(--ba-surface) 94%, transparent); }
 .ba-headlink { border-radius: var(--radius); }
+.ba-coachboot-brand { display: inline-flex; }
+.ba-coachboot-brand img { height: 28px; width: auto; display: block; }
 .ba-footer { border-top: 1px solid var(--line); }
 .ba-footer-inner { font-size: var(--type-small); }
 
@@ -310,11 +312,13 @@ body { line-height: var(--lh-body); }
 }
 /* A phone on its side: the rail on the left, the hero beside it */
 @media (max-height: 500px) and (orientation: landscape) {
+  .ba-page--home { padding-left: calc(76px + var(--ba-gutter)); }
   .k-arena { min-height: 100svh; padding-top: var(--sp-6); }
   .k-arena-copy .k-lede { display: none; }
   .k-arena-tag, .k-arena-pause { top: var(--sp-4); }
 }
 .ba-page--home > .ba-mobilehead { position: absolute; z-index: 6; top: 0; left: 0; right: 0; padding-inline: var(--ba-gutter); }
+@media (max-height: 500px) and (orientation: landscape) { .ba-page--home > .ba-mobilehead { left: 76px; } }
 
 /* ---------- The area picker ---------- */
 .k-zone { padding-block: var(--sp-7) var(--section-y); }

@@ -28,8 +28,12 @@ const side = Math.max(padW, padH);
 const unpadX = (x: number): number => (padW ? (x * side - (side - padW) / 2) / padW : x);
 const unpadY = (y: number): number => (padH ? (y * side - (side - padH) / 2) / padH : y);
 const aspect = padW ? padW / padH : raw.aspect;
-const OUT_FPS = 15;
-const step = Math.round(raw.fps / OUT_FPS);
+// --video-fps=<frames a second of the clip> (24000/1001 for the Mixkit clips): one pose per frame of the clip, exactly the one the
+// model read from that frame and not smoothed, so the line sits on the athlete in every frame (a smoothed or 15 fps line lags a jump).
+const videoFpsArg = args.find((x) => x.startsWith('--video-fps='))?.slice(12);
+const VIDEO_FPS = videoFpsArg ? (videoFpsArg.includes('/') ? Number(videoFpsArg.split('/')[0]) / Number(videoFpsArg.split('/')[1]) : Number(videoFpsArg)) : 0;
+const OUT_FPS = VIDEO_FPS || 15;
+const step = Math.round(raw.fps / 15);
 const ids = HERO_POINTS.map((p) => p.mp);
 
 // 1. the kept points per frame, null where the model saw nobody
@@ -53,8 +57,18 @@ const smooth = filled.map((_, i) => HERO_POINTS.map((p, j) => {
   for (const [d, k] of taps) { const f = filled[Math.min(filled.length - 1, Math.max(0, i + d!))]!; x += f[j]!.x * k!; y += f[j]!.y * k!; w += k!; }
   return { x: x / w, y: y / w };
 }));
-// 4. 15 frames a second, whole thousandths
-const frames = smooth.filter((_, i) => i % step === 0);
+// 4. per frame of the clip (the sample whose seek time shows that frame, not smoothed), or 15 frames a second; whole thousandths
+const perFrame = (): P[][] => {
+  const n = Math.floor(((raw.frames.length - 1) / raw.fps) * VIDEO_FPS + 1e-6) + 1;
+  const out: P[][] = [];
+  for (let k = 0; k < n; k += 1) {
+    // the first sample at or after the frame's start time shows frame k (seeking to t shows the frame whose time is the last one at or before t)
+    const i = Math.min(filled.length - 1, Math.ceil(((k + 0.02) / VIDEO_FPS) * raw.fps - 1e-6));
+    out.push(filled[i]!);
+  }
+  return out;
+};
+const frames = VIDEO_FPS ? perFrame() : smooth.filter((_, i) => i % step === 0);
 const q = (v: number): number => Math.max(-200, Math.min(1200, Math.round(v * 1000)));
 const f = frames.flatMap((pts) => pts.flatMap((p) => [q(p.x), q(p.y)]));
 
@@ -110,6 +124,6 @@ const KINDS: HeroPose['pops'][number][1][] = ['pts', 'pts', 'combo', 'pts', 'com
 const NUMS = [50, 50, 2, 100, 3, 0];
 const pops: HeroPose['pops'] = picked.map((b, i) => [Math.round(b.t * 100) / 100, KINDS[i % KINDS.length]!, NUMS[i % NUMS.length]!, b.j]);
 
-const out: HeroPose = { v: 1, fps: OUT_FPS, n: frames.length, aspect: Math.round(aspect * 10000) / 10000, f, pops };
+const out: HeroPose = { v: 1, fps: Math.round(OUT_FPS * 100000) / 100000, n: frames.length, aspect: Math.round(aspect * 10000) / 10000, f, pops };
 writeFileSync(output, `${JSON.stringify(out)}\n`);
 console.log(`${output}: ${frames.length} frames at ${OUT_FPS} fps, ${HERO_POINTS.length} points, ${beats.length} moments found, pops at ${pops.map((p) => p[0]).join(', ')} s, ${JSON.stringify(out).length} bytes`);

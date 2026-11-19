@@ -37,7 +37,8 @@ const SHARED: readonly { from: string; to: string; text: boolean }[] = [
   { from: 'packages/web/content/pro-source.js', to: 'assets/pro-source.js', text: true },
   { from: 'design/brand/logo.svg', to: 'assets/brand/logo.svg', text: true },
   { from: 'design/brand/logo-dark.svg', to: 'assets/brand/logo-dark.svg', text: true },
-  { from: 'design/store/export/en/feature-graphic.png', to: `assets/brand/${OG_IMAGE.file}`, text: false },
+  // the link preview card of the site (the new logo on black, 1024 x 500); the Play feature graphic stays the store's own
+  { from: 'design/brand/og-site.png', to: `assets/brand/${OG_IMAGE.file}`, text: false },
 ];
 
 export function pages(): PageSpec[] {

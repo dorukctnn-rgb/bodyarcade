@@ -1,5 +1,6 @@
 // The home page hero, alive (views/arena.ts arenaHero): the clip of a real athlete plays over its poster, and a canvas draws our
-// body line on the athlete, frame by frame, with the score pops of a round in dotted scoreboard lights. Browser only.
+// body line on the athlete, frame by frame (the pose our model read from that very frame), with the score pops of a round in the
+// site's display face. Browser only.
 //
 // - The poster is the page's largest picture. The clip gets its address after the page has loaded, the crop of the screen's shape
 //   (ARENA_TALL_QUERY), VP9 in WebM where the browser plays it, else H.264 in MP4.
@@ -9,7 +10,7 @@
 // - The pause button stops the clip and the line; off the screen and in a hidden tab both stop by themselves.
 import { ARENA, ARENA_TALL_QUERY, type ArenaCrop } from '../arena.ts';
 import { clipsAllowed, type ClipConnection } from '../clips.ts';
-import { coverBox, HERO_BONES, HERO_JOINTS, heroPoint, isHeroPose, objectPosition, popsAt, poseAt, scoreAt, type HeroPose } from '../hero-pose.ts';
+import { coverBox, HERO_BONES, HERO_JOINTS, heroPoint, isHeroPose, objectPosition, popsAt, poseAt, type HeroPose } from '../hero-pose.ts';
 import type { TileClipsEnv } from './tile-clips.ts';
 
 const LIME = '#d7ff1f';
@@ -22,30 +23,6 @@ const loadPose = async (crop: ArenaCrop): Promise<HeroPose | null> => {
     return isHeroPose(data) ? data : null;
   } catch { return null; }
 };
-
-/** Dotted scoreboard lights: the words drawn small, then one dot per lit pixel. Cached per text. */
-const dotCache = new Map<string, { w: number; h: number; on: Uint8Array }>();
-function dots(doc: Document, text: string): { w: number; h: number; on: Uint8Array } {
-  const hit = dotCache.get(text);
-  if (hit) return hit;
-  const c = doc.createElement('canvas');
-  const g = c.getContext('2d', { willReadFrequently: true });
-  const px = 8;
-  const font = `800 ${px}px -apple-system, "SF Pro Display", "Segoe UI", Roboto, Arial, sans-serif`;
-  if (!g) return { w: 0, h: 0, on: new Uint8Array() };
-  g.font = font;
-  const w = Math.max(1, Math.ceil(g.measureText(text).width) + 2);
-  const h = px + 3;
-  c.width = w; c.height = h;
-  g.font = font; g.fillStyle = '#fff'; g.textBaseline = 'top';
-  g.fillText(text, 1, 1);
-  const data = g.getImageData(0, 0, w, h).data;
-  const on = new Uint8Array(w * h);
-  for (let i = 0; i < w * h; i += 1) on[i] = (data[i * 4 + 3] ?? 0) > 120 ? 1 : 0;
-  const out = { w, h, on };
-  dotCache.set(text, out);
-  return out;
-}
 
 export function startHeroLive(root: ParentNode, env: TileClipsEnv): () => void {
   const { win } = env;
@@ -82,40 +59,23 @@ export function startHeroLive(root: ParentNode, env: TileClipsEnv): () => void {
     return { w, h, dpr };
   };
 
-  const drawDots = (text: string, x: number, y: number, pitch: number, alpha: number, color: string, anchor: 'center' | 'right'): void => {
-    const d = dots(doc, text);
-    if (!d.w) return;
-    const ox = anchor === 'center' ? x - (d.w * pitch) / 2 : x - d.w * pitch;
-    const oy = y - (d.h * pitch) / 2;
+  /** A score pop in the display face (the headings' Anton, uppercase): lime points, white words, a dark edge so it reads on the clip. */
+  const POP_FONT = '"Anton", "Arial Narrow", sans-serif';
+  let popFontReady = false;
+  void doc.fonts?.load(`400 48px ${POP_FONT}`).then(() => { popFontReady = true; draw(lastT); }).catch(() => undefined);
+  const drawPop = (text: string, x: number, y: number, size: number, alpha: number, color: string): void => {
+    g.save();
     g.globalAlpha = alpha;
+    g.font = `400 ${Math.round(size)}px ${popFontReady ? POP_FONT : 'sans-serif'}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineJoin = 'round';
+    g.lineWidth = Math.max(2, size * 0.14);
+    g.strokeStyle = 'rgba(5,5,5,0.8)';
+    g.strokeText(text, x, y);
     g.fillStyle = color;
-    g.shadowColor = color;
-    g.shadowBlur = pitch * 0.9;
-    g.beginPath();
-    for (let j = 0; j < d.h; j += 1) {
-      for (let i = 0; i < d.w; i += 1) {
-        if (!d.on[j * d.w + i]) continue;
-        const cx = ox + (i + 0.5) * pitch, cy = oy + (j + 0.5) * pitch;
-        g.moveTo(cx + pitch * 0.36, cy);
-        g.arc(cx, cy, pitch * 0.36, 0, Math.PI * 2);
-      }
-    }
-    g.fill();
-    g.shadowBlur = 0;
-    g.globalAlpha = 1;
-  };
-
-  /** Where the scoreboard sits (CSS px): read from the stylesheet's tag, so it follows the layout. */
-  let scoreInset = 24, scoreTop = 160, scoreAbove = false;
-  const place = (): void => {
-    const tag = section.querySelector<HTMLElement>('.k-arena-pause') ?? section.querySelector<HTMLElement>('.k-arena-tag');
-    const box = canvas.getBoundingClientRect();
-    const r = tag?.getBoundingClientRect();
-    if (!r || !r.width) return;
-    scoreInset = Math.max(16, box.right - r.right);
-    // under the button when it is in the upper half of the picture, above it otherwise (the tall crop has it low)
-    scoreAbove = r.top - box.top > box.height / 2;
-    scoreTop = scoreAbove ? r.top - box.top - 16 : r.bottom - box.top + 16;
+    g.fillText(text, x, y);
+    g.restore();
   };
 
   const draw = (t: number): void => {
@@ -156,28 +116,24 @@ export function startHeroLive(root: ParentNode, env: TileClipsEnv): () => void {
     g.fillStyle = WHITE; g.fill();
     g.lineWidth = Math.max(1, line * 0.45); g.strokeStyle = LIME; g.stroke();
 
-    // the pops and the running score, above the athlete's head
+    // the pops, above the athlete's head where there is room (the wide crop), else over the chest (the tall crop has the head near the top)
     const [sx1, sy1] = p('shoulderL'), [sx2, sy2] = p('shoulderR');
-    const [hx0, hy0] = p('nose');
+    const [, hy0] = p('nose');
     const body = Math.abs(p('ankleL')[1] - Math.min(sy1, sy2)) || box.h * 0.5;
-    const pitch = Math.max(3 * dpr, Math.min(9 * dpr, body * 0.03, w * 0.011));
+    const popSize = Math.max(26 * dpr, Math.min(64 * dpr, body * 0.2, w * 0.09));
     for (const { pop, age } of popsAt(pose, t)) {
       const [, kind, n] = pop;
       const text = (kind === 'pts' ? `+${n}` : kind === 'combo' ? combo.replace('{n}', String(n)) : perfect).toLocaleUpperCase(doc.documentElement.lang || undefined);
       const side = pose.pops.indexOf(pop) % 2 === 0 ? 1 : -1;
       const rise = Math.min(1, age / 0.25);
-      // above the head where there is room (the wide crop), else over the chest (the tall crop has the head near the top)
-      const above = hy0 - body * 0.3 > pitch * 12;
-      const x = Math.max(pitch * 24, Math.min(w - pitch * 24, (sx1 + sx2) / 2 + (above ? side * body * 0.45 : 0)));
-      const y = above ? hy0 - body * (0.18 + 0.12 * age) : (sy1 + sy2) / 2 + body * (0.12 - 0.1 * age);
-      const alpha = age < 0.75 ? Math.min(1, rise * 1.4) : (1 - age) / 0.25;
-      drawDots(text, x, y, pitch * (kind === 'pts' ? 1.25 : 1) * (0.8 + 0.2 * rise), alpha, kind === 'pts' ? LIME : WHITE, 'center');
+      const above = hy0 - body * 0.35 > popSize * 1.2;
+      g.font = `400 ${Math.round(popSize)}px ${popFontReady ? POP_FONT : 'sans-serif'}`;
+      const half = g.measureText(text).width / 2;
+      const x = Math.max(half + 8 * dpr, Math.min(w - half - 8 * dpr, (sx1 + sx2) / 2 + (above ? side * body * 0.42 : 0)));
+      const y = above ? hy0 - body * (0.22 + 0.12 * age) : (sy1 + sy2) / 2 + body * (0.14 - 0.1 * age);
+      const alpha = age < 0.85 ? Math.min(1, age / 0.12) : (1 - age) / 0.15;
+      drawPop(text, x, y, popSize * (kind === 'pts' ? 1 : 0.8) * (0.85 + 0.15 * rise), alpha, kind === 'pts' ? LIME : WHITE);
     }
-    const score = String(scoreAt(pose, t)).padStart(4, '0');
-    // the running score, top right under the tag and the pause button, like a game's scoreboard (only while the clip plays)
-    if (!section.classList.contains('is-live')) return;
-    const sp = Math.max(3 * dpr, Math.min(6 * dpr, h * 0.0075));
-    drawDots(score, w - scoreInset * dpr, scoreTop * dpr + (scoreAbove ? -sp * 6 : sp * 6), sp, 0.92, WHITE, 'right');
   };
 
   // ---- the clip ----------------------------------------------------------------------------------------------------------
@@ -211,7 +167,9 @@ export function startHeroLive(root: ParentNode, env: TileClipsEnv): () => void {
     if (!video.getAttribute('src')) return;
     if (shouldRun()) { void video.play().catch(() => undefined); } else video.pause();
   };
-  const onPlaying = (): void => { section.classList.add('is-live'); button.hidden = false; place(); };
+  const onPlaying = (): void => { section.classList.add('is-live'); button.hidden = false; };
+  // paused (the button, the tab, off the screen): the line of the frame that stays on the screen
+  const onPause = (): void => draw(video.currentTime);
   const loadClip = (): void => {
     if (!live || stopped) return;
     const src = source(crop);
@@ -244,7 +202,7 @@ export function startHeroLive(root: ParentNode, env: TileClipsEnv): () => void {
   const Observer = (win as Window & typeof globalThis).IntersectionObserver;
   const io = typeof Observer === 'function' ? new Observer((entries) => { inView = entries.some((e) => e.isIntersecting); sync(); }, { threshold: 0.1 }) : null;
   const Resize = (win as Window & typeof globalThis).ResizeObserver;
-  const ro = typeof Resize === 'function' ? new Resize(() => { place(); draw(lastT); }) : null;
+  const ro = typeof Resize === 'function' ? new Resize(() => draw(lastT)) : null;
   const onLoad = (): void => { (win.requestIdleCallback ?? ((f: () => void) => win.setTimeout(f, 200)))(() => loadClip()); };
 
   void (async () => {
@@ -252,6 +210,7 @@ export function startHeroLive(root: ParentNode, env: TileClipsEnv): () => void {
     if (stopped) return;
     if (live) {
       video.addEventListener('playing', onPlaying);
+      video.addEventListener('pause', onPause);
       follow();
       if (doc.readyState !== 'complete') win.addEventListener('load', onLoad, { once: true });
     }
@@ -270,6 +229,7 @@ export function startHeroLive(root: ParentNode, env: TileClipsEnv): () => void {
     tallQuery.removeEventListener?.('change', onCrop);
     win.removeEventListener('load', onLoad);
     video.removeEventListener('playing', onPlaying);
+    video.removeEventListener('pause', onPause);
     io?.disconnect();
     ro?.disconnect();
     video.pause();
