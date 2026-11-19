@@ -1,4 +1,4 @@
-// The welcome tour in a real browser: a first visit is taken to it once and a script never is, the five pages move on and back
+// The welcome tour in a real browser: nobody is taken to it by the address, the hero's Play free opens it for a first-timer, the five pages move on and back
 // (the address, the heading and the focus follow), what the player chose is kept, the 3D stage draws and steps down to the
 // pre-rendered pictures where it cannot, the camera page hands over to the real first game and its own result, and every
 // page keeps the layout rule on all ten sizes in both languages.
@@ -30,31 +30,116 @@ const coloursOf = (page: Page): Promise<number> =>
     return seen.size;
   });
 
-test('a first visit to the home page is taken to the tour once, and skipping it is remembered', async ({ browser }) => {
+const HERO_PLAY = '[data-hero] a[data-action="hero-play"]';
+
+test('a first visit lands on the home hero and stays there: nobody is taken to the tour by the address', async ({ browser }) => {
+  for (const [home, h1] of [['/', /Your body is the controller/], ['/tr/', /Kumanda senin vücudun/]] as const) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const page = await context.newPage();
+    const errors = collectErrors(page);
+    // 'first' makes this browser what a person's is for the tour: not a script
+    await withHooks(page, { ...BASE_HOOKS, tour: 'first' });
+    await page.goto(`${WEB_DEV_URL}${home}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(600);
+    await expect(page, home).toHaveURL(`${WEB_DEV_URL}${home}`);
+    await expect(page.getByRole('heading', { level: 1 }), home).toHaveText(h1);
+    await expect(page.locator(HERO_PLAY), home).toBeVisible();
+    expect(await page.locator('[data-welcome]').count(), home).toBe(0);
+    expect(errors, home).toEqual([]);
+    await context.close();
+  }
+});
+
+test('Play free in the hero opens the tour for a first-timer, Back returns to the hero, and skipping the tour is remembered', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
   const page = await context.newPage();
   const errors = collectErrors(page);
-  await withHooks(page, { ...BASE_HOOKS, tour: 'static' });
-  await page.addInitScript(() => { window.__BA_TEST__ = { ...(window.__BA_TEST__ ?? {}), tour: 'first' }; });
+  await withHooks(page, { ...BASE_HOOKS, tour: 'first' });
   await page.goto(`${WEB_DEV_URL}/`, { waitUntil: 'networkidle' });
+  await page.locator(HERO_PLAY).click();
   await page.waitForURL(/\/welcome\/$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Squat, jump, punch/);
+  // the tour is a page on top of the home page: the browser's Back button returns to the hero
+  await page.goBack();
+  await page.waitForURL(`${WEB_DEV_URL}/`);
+  await expect(page.locator(HERO_PLAY)).toBeVisible();
+  await page.locator(HERO_PLAY).click();
+  await page.waitForURL(/\/welcome\/$/);
   await page.getByRole('button', { name: 'Skip the tour' }).click();
   await page.waitForURL(`${WEB_DEV_URL}/`);
   expect((await settingsOf(page))['onboardingDone']).toBe(true);
   await page.reload({ waitUntil: 'networkidle' });
   await expect(page).toHaveURL(`${WEB_DEV_URL}/`);
+  // the first-timer who skipped the tour is a returning player now: Play free goes to the game page, as it always did
+  await page.locator(HERO_PLAY).click();
+  await page.waitForURL(/\/games\/squat-flap\/$/);
   expect(errors).toEqual([]);
   await context.close();
 });
 
-test('a script is not taken to the tour: the page that is listed is the page it gets', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+test('Play free in the Turkish hero opens the Turkish tour for a first-timer', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, locale: 'tr-TR' });
+  const page = await context.newPage();
+  await withHooks(page, { ...BASE_HOOKS, tour: 'first' });
+  await page.goto(`${WEB_DEV_URL}/tr/`, { waitUntil: 'networkidle' });
+  await page.locator(HERO_PLAY).click();
+  await page.waitForURL(/\/tr\/welcome\/$/);
+  expect(await page.locator('html').getAttribute('lang')).toBe('tr');
+  await context.close();
+});
+
+test('Play free in the hero goes where it did before for a player who has played, for a script and for a new tab', async ({ browser }) => {
+  // a player who has finished rounds on this device (the shell counts them under ba2.shell.rounds) is no first-timer
+  const record = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const played = await record.newPage();
+  const errors = collectErrors(played);
+  await withHooks(played, { ...BASE_HOOKS, tour: 'first' });
+  await played.addInitScript(() => { localStorage.setItem('ba2.shell.rounds', JSON.stringify({ v: 1, d: 3 })); });
+  await played.goto(`${WEB_DEV_URL}/`, { waitUntil: 'networkidle' });
+  await played.locator(HERO_PLAY).click();
+  await played.waitForURL(/\/games\/squat-flap\/$/);
+  expect(errors).toEqual([]);
+  await record.close();
+  // a script (no hook: a published build never takes it into the tour) follows the link to the game page
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   await withHooks(page, BASE_HOOKS);
   await page.goto(`${WEB_DEV_URL}/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(400);
-  await expect(page).toHaveURL(`${WEB_DEV_URL}/`);
+  await page.locator(HERO_PLAY).click();
+  await page.waitForURL(/\/games\/squat-flap\/$/);
+  await context.close();
+  // a first-timer who opens the link in a new tab (a click with Control or Command held) gets the game page the link names
+  const fresh = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const first = await fresh.newPage();
+  await withHooks(first, { ...BASE_HOOKS, tour: 'first' });
+  await first.goto(`${WEB_DEV_URL}/`, { waitUntil: 'networkidle' });
+  await expect(first.locator(HERO_PLAY)).toHaveAttribute('href', '/games/squat-flap/');
+  const [tab] = await Promise.all([fresh.waitForEvent('page'), first.locator(HERO_PLAY).click({ modifiers: ['Control'] })]);
+  await tab.waitForURL(/\/games\/squat-flap\//);
+  await expect(first).toHaveURL(`${WEB_DEV_URL}/`);
+  await fresh.close();
+});
+
+test('How it works in the hero still scrolls to its part of the page, for a first-timer too', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  await withHooks(page, { ...BASE_HOOKS, tour: 'first' });
+  await page.goto(`${WEB_DEV_URL}/`, { waitUntil: 'networkidle' });
+  await page.locator('[data-hero] a[href="#how"]').click();
+  await expect(page).toHaveURL(/#how$/);
+  expect(await page.locator('[data-welcome]').count()).toBe(0);
+  await context.close();
+});
+
+test('the tour stays a page of its own: its address opens it for anyone, step by step', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const errors = collectErrors(page);
+  await withHooks(page, { ...BASE_HOOKS, tour: 'static' });
+  await page.goto(`${WEB_DEV_URL}/welcome/?step=3`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-welcome][data-ready="1"]');
+  await expect(page.locator('.ob-progress span')).toHaveText('Step 3 of 7');
+  expect(errors).toEqual([]);
   await context.close();
 });
 
