@@ -316,6 +316,8 @@ body { line-height: var(--lh-body); }
   .k-arena { min-height: 100svh; padding-top: var(--sp-6); }
   .k-arena-copy .k-lede { display: none; }
   .k-arena-tag, .k-arena-pause { top: var(--sp-4); }
+  /* the giant wordmark needs the height a phone on its side does not have, and it would run under the rail */
+  .k-arena-mark { display: none; }
 }
 .ba-page--home > .ba-mobilehead { position: absolute; z-index: 6; top: 0; left: 0; right: 0; padding-inline: var(--ba-gutter); }
 @media (max-height: 500px) and (orientation: landscape) { .ba-page--home > .ba-mobilehead { left: 76px; } }

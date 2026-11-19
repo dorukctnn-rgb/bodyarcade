@@ -19,7 +19,9 @@ Mixkit's terms forbid selling the clips unchanged and redistributing them as sto
 |---|---|
 | `design/art/hero/cap-<game>-480.webp`, `cap-<game>-960.webp` (11 games) | Frames of each game in play, rendered by our own game engine in a headless browser (`node tools/gfx-shots/run.ts <out> --clean --sizes=1280x800 --quality=high`, keyboard input), cut to 4:3. |
 | `design/art/hero/how-score-640.webp` | A frame of Pose Wall in play with its HUD (the shape to match), same tool without `--clean`, cut to 4:5. |
-| `packages/web/src/hero-pose/arena-*.json` | The body points of the two hero clips, read by MediaPipe's pose landmarker (`pose_landmarker_heavy`, Apache-2.0, run once offline through our own trace tool: `tools/hero-pose/extract.ts`, then `compact.ts`). Only the points ship; the model does not. |
+| `design/brand/logo*.svg`, `mark*.svg`, `wordmark*.svg`, `logo-stacked*.svg`, `icon/favicon.svg`, `png/web/favicon-32.png`, `png/web/favicon.ico` | The November 2026 logo: the joint-B mark (the letter B built from straight bones and round joints, like our body line) drawn by hand on a 32-unit grid, and BODYARCADE set in Anton (below) and converted to outlines with fontTools, so the files need no font. Generator: `_media/ba-sports-work/logo/make.py` (not in the repo). |
+| `design/brand/og-site.png` (served as `/assets/brand/og.png`) | The site's link-preview card, 1024 x 500: the new logo, the headline in Anton and the mark, rendered from HTML in headless Edge. The Play feature graphic (`design/store/export/en/feature-graphic.png`) is unchanged and stays the store's. |
+| `packages/web/src/hero-pose/arena-*.json` | The body points of the two hero clips, read by MediaPipe's pose landmarker (`pose_landmarker_heavy`, Apache-2.0, run once offline through our own trace tool: `tools/hero-pose/extract.ts`, then `compact.ts`). Only the points ship; the model does not. One pose per frame of the clip (23.976 a second), as read from that frame, so the line matches every frame. |
 
 ## Font
 
