@@ -4,7 +4,9 @@ import type { Rendered } from '../pages.ts';
 
 /**
  * Replaces the content of `host` with markup. If a control with a data-key (or an id) had focus, the new control with
- * the same key gets it, with the same text selection, so typing and keyboard use survive a redraw.
+ * the same key gets it, with the same text selection, so typing and keyboard use survive a redraw. An element with a
+ * data-keep value that the new markup has too stays as it is (the home page hero's poster, clip and canvas: the picture the
+ * page drew first is not drawn again, and a clip that plays does not start over).
  */
 export function swap(host: HTMLElement, markup: string): void {
   const doc = host.ownerDocument;
@@ -13,7 +15,15 @@ export function swap(host: HTMLElement, markup: string): void {
   const key = inside ? active.getAttribute('data-key') : null;
   const id = inside && !key ? active.id : '';
   const selection = inside && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) ? [active.selectionStart, active.selectionEnd] as const : null;
+  const kept = new Map<string, Element>();
+  for (const el of host.querySelectorAll('[data-keep]')) kept.set(el.getAttribute('data-keep') ?? '', el);
   host.innerHTML = markup;
+  if (kept.size) {
+    for (const el of host.querySelectorAll('[data-keep]')) {
+      const old = kept.get(el.getAttribute('data-keep') ?? '');
+      if (old && old !== el) el.replaceWith(old);
+    }
+  }
   if (!inside) return;
   const next = key ? host.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`) : id ? host.querySelector<HTMLElement>(`#${CSS.escape(id)}`) : null;
   if (!next) return;

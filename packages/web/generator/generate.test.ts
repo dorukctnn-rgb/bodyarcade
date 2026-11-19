@@ -9,6 +9,7 @@ import { loadCatalogue } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import { SHOWCASE, showcaseFiles } from '../src/showcase.ts';
 import { CLIP_TILES, clipFiles, heroClipFiles } from '../src/clips.ts';
+import { arenaClipFiles, arenaStillFiles } from '../src/arena.ts';
 import { gameHasLanguage, generate, type GenerateReport } from './generate.ts';
 
 let out = '';
@@ -110,10 +111,10 @@ describe('the generated site', () => {
     expect(report.assets).toBe(Object.keys(map).length);
   });
 
-  it('opens the home page on frames of the real games and fetches the first one from the head, one crop per screen width', () => {
+  it('opens the home page on the poster of the hero clip, fetched from the head, one crop per screen shape; the frames of the real games wait their turn', () => {
     const hero = readdirSync(join(out, 'static', 'hero'));
-    // the frames of the showcase, and the two stills of the before/after band under them (Kol G)
-    expect(hero).toHaveLength(showcaseFiles().length + 2);
+    // the frames of the showcase, the two stills of the before/after band (Kol G), and the sports home page's pictures (src/arena.ts)
+    expect(hero).toHaveLength(showcaseFiles().length + 2 + arenaStillFiles().length);
     expect(hero.filter((f) => /^band-(morph|compare)-800\.[0-9a-f]{8}\.webp$/.test(f))).toHaveLength(2);
     expect(hero.every((f) => /\.[0-9a-f]{8}\.(avif|webp)$/.test(f))).toBe(true);
     for (const page of ['index.html', 'tr/index.html']) {
@@ -121,11 +122,12 @@ describe('the generated site', () => {
       const head = html.slice(0, html.indexOf('</head>'));
       const preloads = head.match(/<link rel="preload" as="image"[^>]*>/g) ?? [];
       expect(preloads, page).toHaveLength(2);
-      expect(preloads[0]).toMatch(/type="image\/avif" imagesrcset="\/static\/hero\/coast-1280\.[0-9a-f]{8}\.avif 1280w, [^"]*2560w" imagesizes="[^"]+" media="\(min-width: 760px\)" fetchpriority="high"/);
-      expect(preloads[1]).toMatch(/imagesrcset="\/static\/hero\/coast-m-640\.[0-9a-f]{8}\.avif 640w, [^"]*1280w" imagesizes="[^"]+" media="\(max-width: 759\.98px\)"/);
+      expect(preloads[0]).toMatch(/type="image\/avif" imagesrcset="\/static\/hero\/arena-wide-1280\.[0-9a-f]{8}\.avif" imagesizes="100vw" media="not all and \(max-aspect-ratio: 1\/1\) and \(max-width: 599\.98px\)" fetchpriority="high"/);
+      expect(preloads[1]).toMatch(/type="image\/avif" imagesrcset="\/static\/hero\/arena-tall-720\.[0-9a-f]{8}\.avif" imagesizes="100vw" media="\(max-aspect-ratio: 1\/1\) and \(max-width: 599\.98px\)" fetchpriority="high"/);
+      expect(html.match(/<img src="\/static\/hero\/arena-wide-1280\.[0-9a-f]{8}\.webp" alt="" width="1280" height="720" fetchpriority="high"/g), page).toHaveLength(1);
       const frames = html.match(/<div class="k-frame" data-frame="[a-z]+"( data-qa-layer)?>/g) ?? [];
       expect(frames.length, page).toBe(4);
-      expect(html.match(/<img src="\/static\/hero\/[^"]+" alt="" width="960" height="720" fetchpriority="high"/g), page).toHaveLength(1);
+      expect(html.match(/<img src="\/static\/hero\/[^"]+" alt="" width="960" height="720" loading="lazy" decoding/g), page).toHaveLength(1);
       expect(html.match(/<img src="\/static\/hero\/[^"]+" alt="" width="960" height="720" loading="lazy" fetchpriority="low"/g), page).toHaveLength(3);
       // the band's stills, from the hashed files, never fetched before they are near the screen
       expect(html.match(/<img src="\/static\/hero\/band-(morph|compare)-800\.[0-9a-f]{8}\.webp" alt="" width="800" height="\d+" loading="lazy"/g), page).toHaveLength(2);
@@ -136,8 +138,15 @@ describe('the generated site', () => {
 
   it('gives the tiles of the redrawn games their clips under hashed names, and the page fetches none of them by itself', () => {
     const clips = readdirSync(join(out, 'static', 'clips'));
-    expect(clips).toHaveLength(clipFiles().length + heroClipFiles(SHOWCASE.map((x) => x.id)).length);
-    expect(clips.filter((f) => !f.startsWith('hero-')).every((f) => /^[a-z-]+-(400|800)\.[0-9a-f]{8}\.(webm|mp4)$/.test(f))).toBe(true);
+    expect(clips).toHaveLength(clipFiles().length + heroClipFiles(SHOWCASE.map((x) => x.id)).length + arenaClipFiles().length);
+    expect(clips.filter((f) => !f.startsWith('hero-') && !f.startsWith('arena-')).every((f) => /^[a-z-]+-(400|800)\.[0-9a-f]{8}\.(webm|mp4)$/.test(f))).toBe(true);
+    // the hero clip of the sports home page: no address in the page until the app gives it one after the page has loaded
+    for (const page of ['index.html', 'tr/index.html']) {
+      const v = read(page).match(/<video class="k-arena-video"[^>]*>/)?.[0] ?? '';
+      expect(v, page).toMatch(/data-wide-webm="\/static\/clips\/arena-wide-1280\.[0-9a-f]{8}\.webm" data-wide-mp4="\/static\/clips\/arena-wide-1280\.[0-9a-f]{8}\.mp4" data-tall-webm="\/static\/clips\/arena-tall-720\.[0-9a-f]{8}\.webm" data-tall-mp4="\/static\/clips\/arena-tall-720\.[0-9a-f]{8}\.mp4"/);
+      expect(v, page).toContain('preload="none"');
+      expect(v, page).not.toMatch(/\ssrc=/);
+    }
     for (const page of ['index.html', 'tr/index.html', 'workouts/legs/index.html']) {
       const html = read(page);
       const videos = html.match(/<video class="clip"[^>]*>/g) ?? [];

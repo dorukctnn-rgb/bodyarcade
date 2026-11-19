@@ -74,14 +74,14 @@ describe('the pages are build products', () => {
     expect(LEGACY_PAGES.map((p) => `${p.file} ${p.url}`).sort()).toEqual(pages().map((p) => `${p.file} ${p.url}`).sort());
   });
 
-  it('the share image is the Play feature graphic of the English set, 1024 by 500, and every page names it with those sizes', () => {
+  it('the share image is the site card with the new logo (design/brand/og-site.png), 1024 by 500, and every page names it with those sizes', () => {
     const png = (rel: string): Buffer => readFileSync(join(REPO_ROOT, rel));
     const size = (b: Buffer): { w: number; h: number } => ({ w: b.readUInt32BE(16), h: b.readUInt32BE(20) });
     const shared = png(`site/assets/brand/${OG_IMAGE.file}`);
     expect(shared.subarray(1, 4).toString('latin1')).toBe('PNG');
     expect(size(shared)).toEqual({ w: OG_IMAGE.width, h: OG_IMAGE.height });
-    // the new art (design/store/export/en), not the older one at the top of that folder
-    expect(Buffer.compare(shared, png('design/store/export/en/feature-graphic.png'))).toBe(0);
+    // the site's own card since the sports redesign (19 Nov 2026); the Play feature graphic (design/store/export/en) stays the store's
+    expect(Buffer.compare(shared, png('design/brand/og-site.png'))).toBe(0);
     for (const p of pages()) {
       const html = renderPage(p);
       expect(html, p.file).toContain(`<meta property="og:image" content="https://bodyarcade.com/assets/brand/${OG_IMAGE.file}">`);
@@ -1157,28 +1157,31 @@ describe('the search pages say what the build does', () => {
 
 describe('the stylesheet uses the design tokens', () => {
   const hexes = (block: string): Map<string, string> => new Map([...block.matchAll(/(--ba-[a-z-]+):\s*(#[0-9A-Fa-f]{6})\b/g)].map((m) => [m[1] as string, (m[2] as string).toUpperCase()]));
-  const tokens = read('design/tokens/tokens.css');
+  // the sports look (19 Nov 2026): the app's palette is in packages/web/src/styles/sport.css, black unless a player picks light
+  const sport = read('packages/web/src/styles/sport.css');
   const css = read('packages/web/content/content.css');
-  const lightTokens = hexes(/:root \{([\s\S]*?)\n\}/.exec(tokens)?.[1] ?? '');
-  const darkTokens = hexes(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([\s\S]*?)\n  \}/.exec(tokens)?.[1] ?? '');
-  const lightCss = hexes(/:root \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '');
-  const darkCss = hexes(/@media \(prefers-color-scheme: dark\) \{\s*:root \{([\s\S]*?)\n  \}/.exec(css)?.[1] ?? '');
+  const appTokens = hexes(/:root:not\(\[data-theme="light"\]\) \{([\s\S]*?)\n\}/.exec(sport)?.[1] ?? '');
+  const pageCss = hexes(/:root \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '');
 
   it('finds the colours', () => {
-    expect(lightCss.size).toBeGreaterThan(10);
-    expect(darkCss.size).toBeGreaterThan(5);
-    expect(lightTokens.size).toBeGreaterThan(20);
-    expect(darkTokens.size).toBeGreaterThan(10);
+    expect(pageCss.size).toBeGreaterThan(10);
+    expect(appTokens.size).toBeGreaterThan(12);
   });
 
-  it('every colour is the token of the same name, in the light theme and in the dark one', () => {
-    for (const [name, value] of lightCss) expect(lightTokens.get(name), `light ${name}`).toBe(value);
-    for (const [name, value] of darkCss) expect(darkTokens.get(name), `dark ${name}`).toBe(value);
+  it('every colour is the app\'s colour of the same name', () => {
+    for (const [name, value] of pageCss) expect(appTokens.get(name), name).toBe(value);
   });
 
-  it('loads no font file and names none of the faces the style forbids', () => {
-    expect(css).not.toMatch(/@font-face|fonts\.googleapis/);
+  it('loads one font file, the display face of the big headings, from the site itself, and names none of the faces the style forbids', () => {
+    const faces = [...css.matchAll(/@font-face\s*\{([\s\S]*?)\}/g)].map((m) => m[1] as string);
+    expect(faces).toHaveLength(1);
+    expect(faces[0]).toMatch(/font-family: "Anton"/);
+    expect(faces[0]).toMatch(/src: url\("fonts\/anton-subset\.woff2"\) format\("woff2"\)/);
+    expect(faces[0]).toMatch(/font-display: swap/);
+    expect(css).not.toMatch(/fonts\.googleapis|fonts\.gstatic/);
     expect(css).not.toMatch(/font-family:[^;]*\b(Inter|Poppins|Manrope|Montserrat|Open Sans|Lato|Nunito|Raleway|Space Grotesk)\b/);
+    // the display face is for headings: the text keeps the system fonts
+    expect(/body \{[^}]*font-family: var\(--ba-font-text\)/.test(css)).toBe(true);
   });
 });
 

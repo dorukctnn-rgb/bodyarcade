@@ -11,7 +11,7 @@ import type { ChallengeToday } from '../../../core/store/daily-challenge.ts';
 import { listPricePlans } from '../../../core/entitlements/plans.ts';
 import { FREE_PLAN_ID, WORKOUT_PLANS } from '../../../core/store/workout-plans.ts';
 import { localized } from '../../../core/ui/i18n/localized.ts';
-import { describeOffer, type PlansConfig } from '../../../core/ui/plans.ts';
+import type { PlansConfig } from '../../../core/ui/plans.ts';
 import { MAX_SEATS, MIN_SEATS } from '../../../core/types/net.ts';
 import { hasPro, regionLabel, taglineOf, titleOf, type ViewContext } from '../context.ts';
 import { canRace } from '../app/duel.ts';
@@ -26,8 +26,8 @@ import { ROAD_RUN_WORLDS } from '../../../games/road-run/worlds.ts';
 import { phoneHeight, SHOWCASE, SHOWCASE_PHONE_WEBP, SHOWCASE_SIZES_PHONE, SHOWCASE_SIZES_WIDE, SHOWCASE_WIDE_MIN, SHOWCASE_WIDE_WEBP, showcaseSrcset, wideHeight, type ShowcaseSlide } from '../showcase.ts';
 import type { Preload } from '../document.ts';
 import { HERO_CLIP_WIDE, heroClipHeight, heroClipSet } from '../clips.ts';
-import { howHero } from './how.ts';
 import { bandSection, coachSection, privacySection, todaySection } from './home-sections.ts';
+import { areasSection, arenaHero, faqSection, finalSection, howSection, pickSection, proSection } from './arena.ts';
 
 /** What the home page knows about the player's weeks; empty on the server and for a new player. */
 export interface HomeData {
@@ -78,7 +78,8 @@ function showcaseFrame(ctx: ViewContext, s: ShowcaseSlide, first: boolean): Safe
   const media = `(min-width: ${SHOWCASE_WIDE_MIN}px)`;
   const ww = SHOWCASE_WIDE_WEBP;
   const pw = SHOWCASE_PHONE_WEBP;
-  const load = first ? html`fetchpriority="high"` : html`loading="lazy" fetchpriority="low"`;
+  // the reel sits under the hero now (views/arena.ts has the page's first picture): every frame waits its turn
+  const load = first ? html`loading="lazy"` : html`loading="lazy" fetchpriority="low"`;
   return html`<div class="k-frame" data-frame="${s.id}"${first ? '' : html` data-qa-layer`}><picture>
       <source media="${media}" type="image/avif" srcset="${showcaseSrcset(s, 'wide', a)}" sizes="${SHOWCASE_SIZES_WIDE}" width="${ww}" height="${wideHeight(ww)}">
       <source media="${media}" type="image/webp" srcset="${a(`${s.id}-${ww}.webp`)} ${ww}w" sizes="${SHOWCASE_SIZES_WIDE}" width="${ww}" height="${wideHeight(ww)}">
@@ -234,15 +235,7 @@ function aboutSection(ctx: ViewContext): SafeHtml {
   const free = ctx.games.filter((g) => g.free).length;
   const live = ctx.server || ctx.flags.social ? ctx.games.filter((g) => canRace(g)) : [];
   const freePlan = WORKOUT_PLANS.find((p) => p.id === FREE_PLAN_ID);
-  const offers = hasPro(ctx) ? null : homeOffers(ctx);
   const web = ctx.server || ctx.paywall.mode === 'web';
-  const prices = offers
-    ? html`<div class="k-card k-about-prices"${web ? html` data-web-pay` : ''}>
-        <h3 class="k-h3">${t.t('home.about.prices')}</h3>
-        <ul>${offers.offers.map((o) => { const d = describeOffer(o, t, offers); return html`<li><b>${d.name}</b><span>${d.trialLine ?? d.priceLine}</span></li>`; })}</ul>
-        ${web ? html`<p><a class="ba-link" href="${sitePageHref(ctx.lang, 'pricing')}" data-native>${t.t('home.about.pricing')}</a></p>` : ''}
-      </div>`
-    : '';
   return html`<section class="ba-section k-about" aria-labelledby="about-h"><header><h2 id="about-h">${t.t('home.about.title')}</h2></header>
     <div class="k-about-grid">
       <div class="k-about-text">
@@ -253,9 +246,9 @@ function aboutSection(ctx: ViewContext): SafeHtml {
           <li>${icon('globe')}<span>${t.t('home.about.where')}</span></li>
           <li>${icon('programs')}<span>${t.t('home.about.plans', { n: WORKOUT_PLANS.length, free: freePlan ? localized(freePlan.title, ctx.lang) : '' })} <a class="ba-link" href="${ctx.href('plans')}">${t.t('home.about.plansLink')}</a></span></li>
         </ul>
+        ${web && !hasPro(ctx) ? html`<p><a class="ba-link" href="${sitePageHref(ctx.lang, 'pricing')}" data-native data-web-pay>${t.t('home.about.pricing')}</a></p>` : ''}
         <p class="k-about-pages">${t.t('home.about.games')} ${ctx.games.map((g, i) => html`${i ? ', ' : ''}<a href="${ctx.href('game', { params: { slug: g.seo.slug } })}">${titleOf(ctx, g)}</a>`)}. ${t.t('home.about.regions')} ${REGION_ORDER.map((r, i) => html`${i ? ', ' : ''}<a href="${ctx.href('region', { params: { region: r } })}">${regionLabel(ctx, r)}</a>`)}.</p>
       </div>
-      ${prices}
     </div>
   </section>`;
 }
@@ -294,28 +287,38 @@ export function homePage(ctx: ViewContext, o: HomeOptions): SafeHtml {
   const top = region
     ? html`<div class="ba-pagehead"><h1 class="ba-h1" data-main-heading>${t.t('workouts.title', { region: regionLabel(ctx, region) })}</h1></div>
        <p class="k-sub">${t.t('workouts.description', { region: regionLabel(ctx, region), ...regionGames(ctx.games, region) })}</p>`
-    : html`${howHero(ctx, featuredGame(ctx))}${bandSection(ctx)}<section class="k-hero${data.week ? '' : ' k-hero--solo'}" aria-label="${t.t('brand.name')}">${hero(ctx)}${data.week ? weekCard(ctx, data.week, data.recent) : ''}</section>`;
+    : html`${arenaHero(ctx, featuredGame(ctx))}${pickSection(ctx)}${howSection(ctx)}`;
+  // the reel of the real games and the week, at the head of the games (the reel is the games' own pictures in play)
+  const reel = region ? '' : html`<section class="k-hero${data.week ? '' : ' k-hero--solo'}" aria-label="${t.t('brand.name')}">${hero(ctx)}${data.week ? weekCard(ctx, data.week, data.recent) : ''}</section>`;
+  const offers = hasPro(ctx) ? null : homeOffers(ctx);
+  const web = ctx.server || ctx.paywall.mode === 'web';
 
   const main = html`
     ${top}
     ${region ? '' : challengeCard(ctx, data.challenge)}
     <section class="ba-section k-allsec" aria-labelledby="games-h">
       <header class="k-allhead">
-        <h2 id="games-h">${t.t('home.all')}</h2>
+        ${region ? '' : html`<p class="k-eyebrow">${t.t('home.games.kicker')}</p>`}
+        <h2 id="games-h"${region ? '' : html` class="k-h2"`}>${region ? t.t('home.all') : t.t('home.games.title', { n: ctx.games.length, free: ctx.games.filter((g) => g.free).length })}</h2>
         <span class="ba-small" data-count>${t.t('home.countFree', { n: shown.length, free })}</span>
       </header>
+      ${reel}
       ${regionChips(ctx, region, modeChips(ctx, data.duoOnly))}
       <div>${shown.length ? gameGrid(ctx, shown, t.t('home.all')) : empty}</div>
       ${hidden}
     </section>
     ${region ? '' : planStrip(ctx, data.plans)}
-    ${region ? '' : coachSection(ctx)}
-    ${region ? '' : todaySection(ctx)}
     ${region ? '' : modeStrip(ctx)}
-    ${region ? '' : privacySection(ctx)}
     ${together(ctx)}
-    ${proTeaser(ctx)}
-    ${region ? '' : aboutSection(ctx)}`;
+    ${region ? '' : areasSection(ctx)}
+    ${region ? '' : coachSection(ctx)}
+    ${region ? '' : bandSection(ctx)}
+    ${region ? '' : todaySection(ctx)}
+    ${region ? '' : privacySection(ctx)}
+    ${region ? proTeaser(ctx) : proSection(ctx, offers, web)}
+    ${region ? '' : faqSection(ctx)}
+    ${region ? '' : aboutSection(ctx)}
+    ${region ? '' : finalSection(ctx, featuredGame(ctx))}`;
 
   return chrome(ctx, { tab: 'games', main, mainClass: region ? 'ba-page--region' : 'ba-page--home' });
 }

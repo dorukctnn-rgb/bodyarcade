@@ -63,6 +63,7 @@ import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, t
 import { startTileClips } from './tile-clips.ts';
 import { startHeroReel } from './hero-reel.ts';
 import { startHowScene } from './how-scene.ts';
+import { startHeroLive } from './hero-live.ts';
 import { startHomeBand } from './home-band.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { ROUND_WORD_EVENTS, roundWord, sendSignal, type SignalEvent } from './signal.ts';
@@ -885,8 +886,9 @@ export class App {
     const stopTiles = startTileClips(this.host, env);
     const stopReel = withReel ? startHeroReel(this.host, env) : () => undefined;
     const stopHow = withReel ? startHowScene(this.host, env) : () => undefined;
+    const stopLive = withReel ? startHeroLive(this.host, env) : () => undefined;
     const stopBand = withReel ? startHomeBand(this.host, env, this.ctx().lang) : () => undefined;
-    this.stopClips = () => { stopTiles(); stopReel(); stopHow(); stopBand(); };
+    this.stopClips = () => { stopTiles(); stopReel(); stopHow(); stopBand(); stopLive(); };
   }
 
   private endClips(): void {

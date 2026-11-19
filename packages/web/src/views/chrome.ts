@@ -36,10 +36,14 @@ export function tabsOf(ctx: ViewContext): Tab[] {
   return tabs;
 }
 
+/** Width over height of the logo (design/brand/logo*.svg: the joint-B mark and BODYARCADE in Anton, 154.88 x 32). */
+export const LOGO_ASPECT = 154.88 / 32;
+
 /** Both logos are in the page; the stylesheet shows the one that fits the theme. */
 export function logo(ctx: ViewContext, height: number): SafeHtml {
   const name = ctx.i18n.t('brand.name');
-  return html`<span class="ba-logo"><img class="ba-logo-light" src="${ctx.assets.logo('light')}" alt="${name}" height="${height}" width="${Math.round(height * 5.59)}"><img class="ba-logo-dark" src="${ctx.assets.logo('dark')}" alt="" aria-hidden="true" height="${height}" width="${Math.round(height * 5.59)}"></span>`;
+  const width = Math.round(height * LOGO_ASPECT);
+  return html`<span class="ba-logo"><img class="ba-logo-light" src="${ctx.assets.logo('light')}" alt="${name}" height="${height}" width="${width}"><img class="ba-logo-dark" src="${ctx.assets.logo('dark')}" alt="" aria-hidden="true" height="${height}" width="${width}"></span>`;
 }
 
 /** The switcher in the bar of the site: the picture and the name of whoever plays, a link to the screen of players. Only where there is someone to switch to. */

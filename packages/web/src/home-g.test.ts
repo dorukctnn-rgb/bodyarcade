@@ -50,12 +50,12 @@ describe('the new strings of Kol G', () => {
 });
 
 describe.each(['en', 'tr', 'de', 'es', 'fr'] as Lang[])('the home page in %s', (lang) => {
-  it('goes: what it is, the before/after band, the games, the form coach, Today and progress, duels and the modes, privacy', () => {
+  it('goes (the sports home page, 19 Nov): the hero, the area picker, how it works, the games, duels and the modes, the body areas, the form coach, the before/after band, Today and progress, privacy, Pro, the questions, what it is, the last call', () => {
     for (const server of [true, false]) {
       const { html, missing } = draw(lang, p(lang, '/'), { server, ...(server ? {} : { caps: phone }) });
       // the draft languages miss older words (they fall back to English); none of the new ones
       expect(missing.filter((m) => NEW.test(m.slice(m.indexOf(':') + 1)))).toEqual([]);
-      const order = ['data-how', 'data-home-band', 'id="games-h"', 'data-home-coach', 'data-home-today', 'data-modes', 'id="duel"', 'data-mode-card="office"', 'data-mode-card="family"', 'data-home-privacy', 'id="about-h"'].map((m) => html.indexOf(m));
+      const order = ['data-hero', 'data-home-pick', 'data-home-how', 'id="games-h"', 'data-modes', 'id="duel"', 'data-mode-card="office"', 'data-mode-card="family"', 'data-home-areas', 'data-home-coach', 'data-home-band', 'data-home-today', 'data-home-privacy', 'data-home-pro', 'data-home-faq', 'id="about-h"', 'data-home-final'].map((m) => html.indexOf(m));
       for (const [i, at] of order.entries()) expect(at, `marker ${i}`).toBeGreaterThan(-1);
       expect([...order].sort((a, b) => a - b)).toEqual(order);
     }
@@ -63,7 +63,7 @@ describe.each(['en', 'tr', 'de', 'es', 'fr'] as Lang[])('the home page in %s', (
 
   it('shows the before/after band as an illustration of the progress coach: the 3D twin\'s stills, no photo of a person, no result', () => {
     const { html, text } = draw(lang, p(lang, '/'), { server: true });
-    const band = html.slice(html.indexOf('data-home-band'), html.indexOf('class="k-hero'));
+    const band = html.slice(html.indexOf('data-home-band'), html.indexOf('data-home-today'));
     const W = bandWords(lang);
     expect((band.match(/class="bab-tag"/g) ?? []).length).toBe(2);
     expect(band.split(`>${W.label}<`).length - 1).toBe(2);

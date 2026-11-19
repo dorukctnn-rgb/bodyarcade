@@ -157,17 +157,20 @@ describe('home and region pages', () => {
     expect(tileBadges(pro)).toBe(0);
   });
 
-  it('opens on four frames of the real games: the first fetched first, the others when their turn comes, the Pro mark on a Pro world', () => {
+  it('shows four frames of the real games at the head of the games, each fetched when its turn comes, the Pro mark on a Pro world; the hero poster is the first picture', () => {
     const { r, html } = draw('en', '/');
     expect(html.match(/<div class="k-frame" data-frame=/g)).toHaveLength(4);
     // frames 2 to 4 lie over the first by design: the layout check takes them as layers
     expect(html.match(/<div class="k-frame" data-frame="[a-z]+" data-qa-layer>/g)).toHaveLength(3);
     expect(html).toMatch(/<div class="k-frame" data-frame="coast"><picture>/);
+    // one picture is fetched first: the hero's poster (views/arena.ts); the reel sits under the hero and waits its turn
     expect(html.match(/fetchpriority="high"/g)).toHaveLength(1);
+    expect(html).toMatch(/<img src="\/assets\/hero\/arena-wide-1280\.webp" alt="" width="1280" height="720" fetchpriority="high"/);
     expect(html.match(/loading="lazy" fetchpriority="low"/g)).toHaveLength(3);
     expect(html).toMatch(/<div class="k-reel" aria-hidden="true">/);
-    expect(r.preloads?.map((p) => p.media)).toEqual(['(min-width: 760px)', '(max-width: 759.98px)']);
-    expect(r.preloads?.[0]?.srcset).toContain('/assets/hero/coast-2560.avif 2560w');
+    expect(r.preloads?.map((p) => p.media)).toEqual(['not all and (max-aspect-ratio: 1/1) and (max-width: 599.98px)', '(max-aspect-ratio: 1/1) and (max-width: 599.98px)']);
+    expect(r.preloads?.[0]?.srcset).toBe('/assets/hero/arena-wide-1280.avif');
+    expect(r.preloads?.[1]?.srcset).toBe('/assets/hero/arena-tall-720.avif');
     const real = loadCatalogue({ fixtures: 'none', requiredLangs: ['en', 'tr'] }).catalogue.games;
     const tr = draw('tr', '/tr/', { games: real }).html;
     expect(tr).toContain('<span class="k-cap"><b>Road Run</b><span>Kıyı</span><span class="ba-badge ba-badge--pro">Pro</span></span>');
@@ -210,7 +213,8 @@ describe('home and region pages', () => {
         const stem = g?.catalogue.tile ?? '';
         if (!CLIP_TILES.includes(stem)) { expect(tile, `${url} ${id}`).not.toContain('<video'); continue; }
         // the still first (the poster, and what stays when motion is reduced), then the clip over it, then the marks on top
-        expect(tile).toMatch(/<span class="art"><img src="\/assets\/tiles\/[^"]+-400\.webp"[^>]*loading="lazy"[^>]*><video class="clip"/);
+        // the still is a frame of the game in play (src/arena.ts), or its catalogue art where there is none
+        expect(tile).toMatch(/<span class="art"><img src="\/assets\/(tiles\/[^"]+-400|hero\/cap-[a-z-]+-480)\.webp"[^>]*loading="lazy"[^>]*><video class="clip"/);
         expect(tile).toContain(`<video class="clip" data-webm="/assets/clips/${stem}-400.webm 400w, /assets/clips/${stem}-800.webm 800w" data-mp4="/assets/clips/${stem}-400.mp4 400w, /assets/clips/${stem}-800.mp4 800w" width="400" height="300" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>`);
       }
       expect(html, url).not.toMatch(/<video[^>]*\ssrc=/);
@@ -270,13 +274,16 @@ describe('home and region pages', () => {
     for (const lang of LANGS) {
       const home = lang === 'en' ? '/' : '/tr/';
       const { html } = draw(lang, home, { server: true });
-      const about = html.match(/<section class="ba-section k-about"[\s\S]*<\/section>/)?.[0] ?? '';
+      const about = html.match(/<section class="ba-section k-about"[\s\S]*?<\/section>/)?.[0] ?? '';
       const text = textOf(about);
+      // the prices are in the Pro section of the sports home page (views/arena.ts), just before what BodyArcade is
+      const pro = html.match(/<section class="k-sec k-pro"[\s\S]*?<\/section>/)?.[0] ?? '';
       const free = games.filter((g) => g.free).length;
       expect(text).toContain(lang === 'en' ? `${free} of the ${games.length} games are free` : `${games.length} oyunun ${free} tanesi ücretsiz`);
       for (const g of games.filter((x) => x.modes.includes('duel'))) expect(text, g.id).toContain(localized(g.title, lang));
       expect(text).toContain('Chrome, Edge, Firefox');
-      for (const price of ['7.99', '39.99', '59.99', '119.99']) expect(text, price).toContain(lang === 'en' ? `$${price}` : price.replace('.', ','));
+      for (const price of ['7.99', '39.99', '59.99', '119.99']) expect(textOf(pro), price).toContain(lang === 'en' ? `$${price}` : price.replace('.', ','));
+      expect(pro, 'the web prices are hidden inside the Android app by the page that knows it').toContain('data-web-pay');
       expect(about).toContain(`href="${lang === 'en' ? '' : '/tr'}/plans/"`);
       expect(about).toContain(`href="${lang === 'en' ? '/pricing' : '/tr/fiyatlar'}"`);
       expect(about, 'the web prices are hidden inside the Android app by the page that knows it').toContain('data-web-pay');
@@ -285,13 +292,13 @@ describe('home and region pages', () => {
 
   it('the app draws the prices of where it runs: none while it does not know yet, Google Play’s own and no web price page in the Android app, none for a Pro player', () => {
     const neutral = draw('en', '/', { paywall: { mode: 'neutral', note: 'checking', keyEntry: { visible: false, wording: 'neutral' }, manageUrl: null, preview: false } }).html;
-    expect(neutral).not.toContain('k-about-prices');
+    expect(neutral).not.toContain('k-pro-prices');
     expect(draw('en', '/').html, 'on the web the plans of the web').toContain('href="/pricing"');
     const play = draw('en', '/', { paywall: { mode: 'play', note: null, keyEntry: { visible: false, wording: 'neutral' }, manageUrl: null, preview: false } }).html;
-    expect(play).toContain('k-about-prices');
+    expect(play).toContain('k-pro-prices');
     expect(play).not.toContain('href="/pricing"');
     expect(play).not.toContain('data-web-pay');
-    expect(draw('en', '/', { plan: 'pro' }).html).not.toContain('k-about-prices');
+    expect(draw('en', '/', { plan: 'pro' }).html).not.toContain('k-pro-prices');
   });
 
   it('speaks Turkish with proper characters on the Turkish home page', () => {

@@ -6,7 +6,7 @@ import { html, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon } from '../../../core/ui/icons.ts';
 import type { ViewContext } from '../context.ts';
 import type { RouteId } from '../routes.ts';
-import { bare } from './chrome.ts';
+import { bare, LOGO_ASPECT } from './chrome.ts';
 
 export type CoachRoute = Extract<RouteId, 'formcoach' | 'today' | 'progress'>;
 
@@ -22,7 +22,7 @@ export function coachBootPage(ctx: ViewContext, id: CoachRoute): SafeHtml {
   const { name, lead } = coachPageText(ctx, id);
   const ic = id === 'formcoach' ? 'coach' : id === 'today' ? 'today' : 'chart';
   return bare(ctx, html`<section class="ba-coachboot" data-coach-boot="${id}" aria-labelledby="coach-boot-h">
-    <a class="ba-coachboot-brand" href="${ctx.href('home')}">${ctx.i18n.t('brand.name')}</a>
+    <a class="ba-coachboot-brand" href="${ctx.href('home')}" aria-label="${ctx.i18n.t('brand.name')}"><img src="${ctx.assets.logo('dark')}" alt="${ctx.i18n.t('brand.name')}" height="28" width="${Math.round(28 * LOGO_ASPECT)}"></a>
     <span class="ba-coachboot-ico" aria-hidden="true">${icon(ic)}</span>
     <h1 id="coach-boot-h" data-main-heading>${name}</h1>
     <p>${lead}</p>

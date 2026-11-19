@@ -531,9 +531,16 @@ dialog.ba-modal[open] { animation: ba-sheet-in var(--ba-dur-enter) var(--ba-ease
   .k-pw > .k-links { order: 9; }
   .k-pw > .k-keybox { order: 10; }
   .k-pw .k-actionbar { padding-top: 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
-  .k-pw .k-actionbar .k-actions { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 8px; }
-  .k-pw .k-actionbar .k-actions .ba-btn--primary { flex: 1 1 10em; min-height: 54px; font-size: 1.0625rem; padding-inline: 18px; }
-  .k-pw .k-actionbar .k-actions .ba-btn--quiet { flex: 0 1 auto; min-height: 44px; padding-inline: 12px; }
+  .k-pw .k-actionbar .k-actions { flex-direction: row; flex-wrap: wrap; align-items: stretch; justify-content: center; gap: 2px 8px; }
+  /* The sports look's one button (56 px, 1rem, capitals) is wider than the old one: "TRY 7 DAYS FREE" is 153 px of letters, 185 with its padding, and
+     "CONTINUE FREE" as a second capitals button is 143 more, so on 360 px (313 px of bar when the page scrolls) it wrapped to a second row, in every
+     engine. In the bar the second action is the quiet link of the scale's small role (0.8rem, sentence case, lime underline, 106 px), so both share one row
+     down to 330 px wide and the buy button keeps the full button type. */
+  .k-pw .k-actionbar .k-actions .ba-btn--primary { flex: 1 1 auto; min-height: var(--btn-h, 56px); font-size: var(--type-button, 1rem); padding-inline: var(--sp-4, 16px); }
+  .k-pw .k-actionbar .k-actions .ba-btn--quiet {
+    flex: 0 0 auto; min-height: 44px; padding-inline: var(--sp-3, 12px); font-size: var(--type-small, 0.8rem); font-weight: 700; letter-spacing: 0; text-transform: none;
+    text-decoration: underline; text-decoration-color: var(--ba-accent); text-decoration-thickness: 2px; text-underline-offset: 4px;
+  }
 }
 @media (max-width: 599px) {
   .k-pw .k-benefits { gap: 7px; font-size: var(--ba-text-sm); }

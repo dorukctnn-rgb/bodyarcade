@@ -241,13 +241,20 @@ export function serviceWorkerSource(template: string, cfg: SwConfig): string {
   return template.replace(marker, `${JSON.stringify(cfg)};`);
 }
 
+/** The sports home page's own stills in the build (packages/web/src/arena.ts, growth/before-after-band.ts): the hero poster in both crops, "how it works", the last call, a frame of every game and the two views of the before/after band. */
+const HOME_STILLS = /^\/static\/hero\/(?:arena|how|final|cap|band)-[a-z0-9-]*\.[0-9a-f]{8}\.(?:avif|webp)$/;
+
 /**
- * The files a new service worker stores at install: every hashed build file but source maps, the home page's showcase frames
+ * The files a new service worker stores at install: every hashed build file but source maps, the older showcase frames
  * (/static/hero/: many sizes of a few pictures, of which a visitor's screen needs one each) and the clips of the moving game tiles
  * (/static/clips/: two sizes in two formats, fetched only when a tile plays), the progress coach's 3D twin meshes (*.bin: fetched
  * only on that page), and the start pages.
+ *
+ * The sports home page's own stills are kept (packages/web/src/arena.ts): the hero poster in both crops, the stills of "how it works", the
+ * last call, a frame of every game in play (cap-*) and the two views of the before/after band. They are lazy pictures, so a first visit stores only the ones near the top, and the
+ * home page opened offline asked the network for the rest and got "net::ERR_FAILED" for each. Together they are about 0.5 MB.
  */
 export function precacheList(files: readonly string[], startPages: readonly string[]): string[] {
-  const build = files.filter((f) => f.startsWith('/static/') && !f.startsWith('/static/hero/') && !f.startsWith('/static/clips/') && !f.endsWith('.map') && !f.endsWith('.bin')).sort();
+  const build = files.filter((f) => f.startsWith('/static/') && (!f.startsWith('/static/hero/') || HOME_STILLS.test(f)) && !f.startsWith('/static/clips/') && !f.endsWith('.map') && !f.endsWith('.bin')).sort();
   return [...startPages, ...build];
 }

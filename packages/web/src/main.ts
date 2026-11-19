@@ -3,6 +3,8 @@ import './styles/app.css';
 import catalogue from 'virtual:catalogue';
 import { boot } from './app/boot.ts';
 import { router } from './routes.ts';
+// The sports look (styles/sport.css) comes after every other style sheet of the app, so its roles win over the kit's.
+import './styles/sport.css';
 
 const q = new URLSearchParams(location.search);
 // The coach pages (Kol G): /form-coach, /today and /progress (in every language) are apps of their own. The old ?form=1 and
@@ -26,4 +28,17 @@ if (coach === 'form') {
   });
 } else if (q.get('worlds') === '1') {
   void import('./worlds/page.ts').then(({ bootWorlds }) => bootWorlds());
-} else void boot({ win: window, catalogue, version: __BA_VERSION__, demo: __BA_DEMO__, placeholderPlans: __BA_PLACEHOLDER_PLANS__, paddle: __BA_PADDLE__ });
+} else {
+  // The page the server drew is painted first (the home page's hero poster is its largest picture), then the app takes over: one frame
+  // later, or after half a second where frames do not come (a tab in the background).
+  let started = false;
+  const start = (): void => {
+    if (started) return;
+    started = true;
+    void boot({ win: window, catalogue, version: __BA_VERSION__, demo: __BA_DEMO__, placeholderPlans: __BA_PLACEHOLDER_PLANS__, paddle: __BA_PADDLE__ });
+  };
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => setTimeout(start, 0));
+    setTimeout(start, 500);
+  } else start();
+}

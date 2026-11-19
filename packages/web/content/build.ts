@@ -30,11 +30,15 @@ export interface Output {
 /** The brand files the pages show, copied from the art director's folder (design/). */
 const SHARED: readonly { from: string; to: string; text: boolean }[] = [
   { from: 'packages/web/content/content.css', to: 'assets/content.css', text: true },
+  // the display face of the big headings (SIL OFL; packages/web/src/styles/fonts/OFL-Anton.txt), the same subset the app loads
+  { from: 'packages/web/src/styles/fonts/anton-subset.woff2', to: 'assets/fonts/anton-subset.woff2', text: false },
+  { from: 'packages/web/src/styles/fonts/OFL-Anton.txt', to: 'assets/fonts/OFL-Anton.txt', text: true },
   { from: 'packages/web/content/twa.js', to: 'assets/twa.js', text: true },
   { from: 'packages/web/content/pro-source.js', to: 'assets/pro-source.js', text: true },
   { from: 'design/brand/logo.svg', to: 'assets/brand/logo.svg', text: true },
   { from: 'design/brand/logo-dark.svg', to: 'assets/brand/logo-dark.svg', text: true },
-  { from: 'design/store/export/en/feature-graphic.png', to: `assets/brand/${OG_IMAGE.file}`, text: false },
+  // the link preview card of the site (the new logo on black, 1024 x 500); the Play feature graphic stays the store's own
+  { from: 'design/brand/og-site.png', to: `assets/brand/${OG_IMAGE.file}`, text: false },
 ];
 
 export function pages(): PageSpec[] {
