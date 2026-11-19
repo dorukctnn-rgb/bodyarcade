@@ -64,6 +64,7 @@ import { startTileClips } from './tile-clips.ts';
 import { startHeroReel } from './hero-reel.ts';
 import { startHowScene } from './how-scene.ts';
 import { startHeroLive } from './hero-live.ts';
+import { startMotionCards } from './motion-cards.ts';
 import { startHomeBand } from './home-band.ts';
 import type { BillingPort, EntitlementsPort, SessionFactory } from './ports.ts';
 import { ROUND_WORD_EVENTS, roundWord, sendSignal, type SignalEvent } from './signal.ts';
@@ -870,7 +871,7 @@ export class App {
 
   // ---- the moving game tiles ------------------------------------------------------------------------------------------
 
-  /** The tiles of the games (the home page and a region page) and, on the home page, the pictures at its top (hero-reel.ts). */
+  /** The tiles of the games (the home page and a region page), the real people in motion (motion-cards.ts) and, on the home page, the pictures at its top (hero-reel.ts). */
   private startClips(withReel: boolean): void {
     const env = {
       win: this.win,
@@ -883,7 +884,9 @@ export class App {
     const stopHow = withReel ? startHowScene(this.host, env) : () => undefined;
     const stopLive = withReel ? startHeroLive(this.host, env) : () => undefined;
     const stopBand = withReel ? startHomeBand(this.host, env, this.ctx().lang) : () => undefined;
-    this.stopClips = () => { stopTiles(); stopReel(); stopHow(); stopBand(); stopLive(); };
+    const t = this.ctx().i18n;
+    const stopMotion = startMotionCards(this.host, { ...env, words: { combo: t.t('home.hero.combo', { n: '{n}' }), perfect: t.t('home.hero.perfect'), lang: this.doc.documentElement.lang } });
+    this.stopClips = () => { stopTiles(); stopReel(); stopHow(); stopBand(); stopLive(); stopMotion(); };
   }
 
   private endClips(): void {

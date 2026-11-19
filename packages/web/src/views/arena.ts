@@ -16,6 +16,8 @@ import type { Preload } from '../document.ts';
 import { REGION_ORDER } from '../routes.ts';
 import { sitePageHref } from './chrome.ts';
 import { freeLine } from './paywall.ts';
+import { GAME_MOTION, MATCH_MOTION, REGION_MOTION } from '../motion.ts';
+import { gameInset, motionMedia } from './motion.ts';
 
 const gameHref = (ctx: ViewContext, g: ShellGame): string => ctx.href('game', { params: { slug: g.seo.slug } });
 
@@ -62,6 +64,7 @@ export function arenaHero(ctx: ViewContext, featured: ShellGame | undefined): Sa
         <img src="${a(`${wide.stem}.webp`)}" alt="" width="${wide.w}" height="${wide.h}" fetchpriority="high" decoding="async">
       </picture>
       <video class="k-arena-video" data-wide-webm="${c(`${wide.stem}.webm`)}" data-wide-mp4="${c(`${wide.stem}.mp4`)}" data-tall-webm="${c(`${tall.stem}.webm`)}" data-tall-mp4="${c(`${tall.stem}.mp4`)}" width="${wide.w}" height="${wide.h}" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" tabindex="-1" data-qa-layer></video>
+      <canvas class="k-arena-frame" data-qa-layer></canvas>
       <canvas class="k-arena-skel" data-combo="${t.t('home.hero.combo', { n: '{n}' })}" data-perfect="${t.t('home.hero.perfect')}" data-qa-layer></canvas>
     </div>
     <span class="k-arena-mark" aria-hidden="true">${t.t('brand.name')}</span>
@@ -119,7 +122,7 @@ export function pickSection(ctx: ViewContext): SafeHtml {
         ${rows.map((r) => {
           const g = r.game as ShellGame;
           return html`<div class="k-zone-panel" data-pick="${r.id}">
-            <div class="k-zone-pic">${gamePicture(ctx, g, '(min-width: 900px) 280px, 40vw')}</div>
+            <div class="k-zone-pic">${GAME_MOTION[g.id] ? motionMedia(ctx, GAME_MOTION[g.id]!, 'tile', { pops: true, over: gameInset(ctx, g) }) : gamePicture(ctx, g, '(min-width: 900px) 280px, 40vw')}</div>
             <div class="k-zone-body">
               <p class="k-eyebrow">${t.t('home.pick.result')}</p>
               <p class="k-zone-game">${titleOf(ctx, g)}</p>
@@ -135,7 +138,10 @@ export function pickSection(ctx: ViewContext): SafeHtml {
 
 // ---- how it works --------------------------------------------------------------------------------------------------------
 
-/** Camera, move, score: three real pictures (the athlete in the camera's frame, our body line over them, a game in play). */
+/**
+ * Camera, move, score: three real pictures (the athlete in the camera's frame, our body line over them, and a person holding a shape
+ * with the shape to match drawn over them, faint and dashed until they match it).
+ */
 export function howSection(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
   const { w, h } = HOW_STILL_SIZE;
@@ -148,7 +154,7 @@ export function howSection(ctx: ViewContext): SafeHtml {
     <header class="k-sec-head"><p class="k-eyebrow">${t.t('home.cta.how')}</p><h2 id="how-h" class="k-h2">${t.t('home.how2.title')}</h2></header>
     <ol class="k-flow-steps">
       ${steps.map(([id, file, title, body, alt], i) => html`<li class="k-flow-step" data-step="${id}">
-        <figure class="k-flow-pic k-flow-pic--${id}"><img src="${ctx.assets.hero(file)}" alt="${alt}" width="${w}" height="${h}" loading="lazy" decoding="async"></figure>
+        <figure class="k-flow-pic k-flow-pic--${id}">${id === 'score' ? motionMedia(ctx, MATCH_MOTION, 'tall', { alt, target: true }) : html`<img src="${ctx.assets.hero(file)}" alt="${alt}" width="${w}" height="${h}" loading="lazy" decoding="async">`}</figure>
         <p class="k-flow-n" aria-hidden="true">0${i + 1}</p>
         <h3 class="k-h3">${title}</h3>
         <p class="k-body">${body}</p>
@@ -159,7 +165,7 @@ export function howSection(ctx: ViewContext): SafeHtml {
 
 // ---- body areas ----------------------------------------------------------------------------------------------------------
 
-/** Every body area with games, as a card with a game of the area in play and the count; each leads to the area's page. */
+/** Every body area with games, as a card with a person working that area (src/motion.ts) and the count; each leads to the area's page. */
 export function areasSection(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
   const areas = REGION_ORDER.map((r) => ({ r, games: ctx.games.filter((g) => inRegion(g, r)) })).filter((x) => x.games.length > 0);
@@ -170,7 +176,7 @@ export function areasSection(ctx: ViewContext): SafeHtml {
       ${areas.map(({ r, games }) => {
         const g = games.find((x) => x.free) ?? (games[0] as ShellGame);
         return html`<li><a class="k-area" href="${ctx.href('region', { params: { region: r } })}">
-          <span class="k-area-pic">${gamePicture(ctx, g, '(min-width: 1200px) 25vw, (min-width: 700px) 33vw, 50vw')}</span>
+          <span class="k-area-pic">${REGION_MOTION[r] ? motionMedia(ctx, REGION_MOTION[r], 'tile') : gamePicture(ctx, g, '(min-width: 1200px) 25vw, (min-width: 700px) 33vw, 50vw')}</span>
           <span class="k-area-t">${regionLabel(ctx, r)}</span>
           <span class="k-meta">${t.t('home.areas.count', { n: games.length })}</span>
         </a></li>`;

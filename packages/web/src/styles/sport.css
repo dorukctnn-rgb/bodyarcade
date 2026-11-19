@@ -234,10 +234,13 @@ body { line-height: var(--lh-body); }
 }
 @media (min-width: 900px) and (min-height: 501px) { .k-arena { margin-top: -72px; } }
 .k-arena-media { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
-.k-arena-poster, .k-arena-poster img, .k-arena-video, .k-arena-skel { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.k-arena-poster, .k-arena-poster img, .k-arena-video, .k-arena-frame, .k-arena-skel { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .k-arena-poster img, .k-arena-video { object-fit: cover; object-position: 62% 50%; }
 .k-arena-video { opacity: 0; transition: opacity 600ms var(--ba-ease-out); }
 .k-arena.is-live .k-arena-video { opacity: 1; }
+/* the clip's picture drawn with its line, frame by frame (app/hero-live.ts): over the video, which only decodes */
+.k-arena-frame { z-index: 0; pointer-events: none; opacity: 0; transition: opacity 600ms var(--ba-ease-out); }
+.k-arena.is-live.is-framed .k-arena-frame { opacity: 1; }
 .k-arena-media::after {
   content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:
@@ -409,7 +412,7 @@ a.k-modecard:hover { box-shadow: inset 0 0 0 2px var(--ba-text); }
 .k-area { display: grid; gap: var(--sp-2); text-decoration: none; color: inherit; border-radius: var(--radius); }
 .k-area-pic { display: block; aspect-ratio: 4 / 3; border-radius: var(--radius); overflow: hidden; background: var(--ba-surface); }
 .k-area-pic img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 400ms var(--ba-ease-out); }
-.k-area:hover .k-area-pic img { transform: scale(1.04); }
+.k-area:hover .k-area-pic > img { transform: scale(1.04); }
 .k-area-t { font-weight: 800; font-size: var(--type-h3); line-height: var(--lh-h3); }
 
 /* ---------- The coaches, Today, privacy: the same cards on black ---------- */
@@ -498,8 +501,32 @@ a.k-modecard:hover { box-shadow: inset 0 0 0 2px var(--ba-text); }
   .k-final { align-content: end; }
 }
 
+/* ---------- Real people in motion (views/motion.ts, app/motion-cards.ts) ----------
+   The poster (the clip's first frame with its line drawn on it) until the clip plays; then the clip and its line, drawn together on the
+   canvas, over the video that decodes them. A small frame of the game sits in the corner of a game's picture. */
+.k-mo { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; background: #111112; border-radius: inherit; }
+.k-mo--tile { aspect-ratio: 4 / 3; }
+.k-mo--tall { aspect-ratio: 4 / 5; }
+.k-mo-poster, .k-mo-poster img, .k-mo-video, .k-mo-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.k-mo-poster img, .k-mo-video { object-fit: cover; object-position: 50% 50%; }
+.k-mo-video, .k-mo-canvas { pointer-events: none; }
+.k-mo-canvas { opacity: 0; transition: opacity 240ms var(--ba-ease-out); }
+.k-mo.is-live .k-mo-canvas { opacity: 1; }
+.k-mo-game { position: absolute; z-index: 2; top: var(--sp-2); right: var(--sp-2); width: 34%; max-width: 160px; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius); background: #111112; box-shadow: 0 0 0 1px rgba(245, 245, 245, 0.35), 0 6px 16px rgba(5, 5, 5, 0.55); }
+.k-mo-game img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.k-mo > .k-coachfig-hud { z-index: 2; }
+.ba-tile .art .k-mo-game { width: 36%; }
+.k-area:hover .k-area-pic .k-mo { transform: scale(1.04); }
+.k-area-pic .k-mo { transition: transform 400ms var(--ba-ease-out); }
+.k-challenge .k-mo { border-radius: var(--radius); align-self: start; }
+.k-challenge .k-mo img { border-radius: 0; height: 100%; max-width: none; }
+.k-challenge .k-mo .k-mo-game { width: 40%; }
+.k-coachfig-pic > .k-mo { position: absolute; inset: 0; }
+@media (max-width: 520px) { .k-challenge .k-mo { max-width: 220px; } }
+
 /* ---------- Motion: nothing moves for a visitor who reduces it ---------- */
 @media (prefers-reduced-motion: reduce) {
-  :root:not([data-motion="full"]) .k-arena-video, :root:not([data-motion="full"]) .k-area-pic img { transition: none; }
+  :root:not([data-motion="full"]) .k-arena-video, :root:not([data-motion="full"]) .k-area-pic img, :root:not([data-motion="full"]) .k-area-pic .k-mo, :root:not([data-motion="full"]) .k-mo-canvas { transition: none; }
+  :root:not([data-motion="full"]) .k-mo-video, :root:not([data-motion="full"]) .k-mo-canvas { display: none; }
 }
-:root[data-motion="reduce"] .k-arena-video { display: none; }
+:root[data-motion="reduce"] .k-arena-video, :root[data-motion="reduce"] .k-arena-frame, :root[data-motion="reduce"] .k-mo-video, :root[data-motion="reduce"] .k-mo-canvas { display: none; }

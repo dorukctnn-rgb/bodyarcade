@@ -1,13 +1,18 @@
-// The welcome tour in the browser: it keeps what the player chose, draws the panel of each page, runs the 3D stage (and gives way to
-// the pre-rendered pictures on a device that cannot draw it), and hands the player to the real calibration and the real first game
-// when the last page is read. The words and the markup are views/welcome.ts; the rules (steps, choices, what is kept, who is taken
+// The welcome tour in the browser: it keeps what the player chose, draws the panel of each page, plays the stage (a real person doing
+// the page's moves with our body line, app/motion-cards.ts MotionPlayer; the poster stays for reduced motion, saving data, a weak device
+// or a script), and hands the player to the real calibration and the real first game when the last page is read. The words and the markup are views/welcome.ts; the rules (steps, choices, what is kept, who is taken
 // here, when the stage steps down a tier) are welcome-model.ts. This file is only the DOM and the clock.
-import type { Stage, StageLabels } from '../../../../design/onboarding/scene.mjs';
+import type { BodyRegion } from '../../../core/types/index.ts';
 import type { Settings } from '../../../core/ui/settings.ts';
 import type { ViewContext } from '../context.ts';
-import { deviceText, welcomePanel, welcomeTop } from '../views/welcome.ts';
+import { type ClipConnection } from '../clips.ts';
+import { coverBox, pointIndex, poseAt } from '../hero-pose.ts';
+import { motionAllowed, tourClips, type MotionId } from '../motion.ts';
+import { deviceText, tourMedia, welcomePanel, welcomeTop } from '../views/welcome.ts';
+import { loadPopFont } from './body-line.ts';
+import { loadMotionPose, motionFormat, MotionPlayer, weakDevice } from './motion-cards.ts';
 import {
-  backStep, initialTour, judgeStage, nextStep, settingsPatch, startTier, toggleRegion, withDevice, withLevel, withPlayers, type StageTier, type TourState, type TourStep,
+  backStep, initialTour, isAutomated, nextStep, settingsPatch, toggleRegion, withDevice, withLevel, withPlayers, type TourState, type TourStep,
 } from './welcome-model.ts';
 
 export interface WelcomeHost {
@@ -25,32 +30,31 @@ export interface WelcomeHost {
   cameraExplained(): void;
   announce(text: string): void;
   reducedMotion(): boolean;
-  /** 'static' draws the stage once and keeps it still, 'fallback' shows the pre-rendered pictures (tests and pictures). */
+  /** 'static' holds the stage on one frame of its clip, 'fallback' keeps the posters (tests and pictures); 'first' plays as for a visitor. */
   hook(): 'static' | 'fallback' | 'first' | undefined;
   /** The home page address, for the skip. */
   homeHref(): string;
 }
 
-type SceneModule = typeof import('../../../../design/onboarding/scene.mjs');
-
-const theme = (host: WelcomeHost): 'light' | 'dark' => {
-  const set = host.settings().theme;
-  if (set !== 'system') return set;
-  return host.document.defaultView?.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-};
+/** Seconds each clip of the first page stays before the next one comes (about one loop of each). */
+const SEQUENCE_SECONDS = 4.2;
+/** The moment a held stage shows ('static'): a moment of the move, not its first frame. */
+const HOLD_AT = 1.2;
 
 export class WelcomeController {
   private state: TourState;
-  private stage: Stage | null = null;
-  private starting: Promise<void> | null = null;
-  private fallback = false;
+  private player: MotionPlayer | null = null;
+  /** The start of the clip on the stage (a held frame for a test): begin() waits for it before the page says it is ready. */
+  private playerReady: Promise<void> | null = null;
+  private clip: MotionId | null = null;
+  private seq = 0;
+  private seqTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastRegion: BodyRegion | null = null;
+  private moving = false;
   private disposed = false;
   private timers: ReturnType<typeof setTimeout>[] = [];
   private root!: HTMLElement;
   private panel!: HTMLElement;
-  private canvas!: HTMLCanvasElement;
-  private poster!: HTMLImageElement;
-  private loop!: HTMLVideoElement;
   private overlay!: HTMLElement;
   private stageEl!: HTMLElement;
 
@@ -74,13 +78,19 @@ export class WelcomeController {
     this.root = root;
     this.panel = root.querySelector('[data-panel]') as HTMLElement;
     this.stageEl = root.querySelector('[data-stage]') as HTMLElement;
-    this.canvas = root.querySelector('[data-canvas]') as HTMLCanvasElement;
-    this.poster = root.querySelector('[data-poster]') as HTMLImageElement;
-    this.loop = root.querySelector('[data-loop]') as HTMLVideoElement;
     this.overlay = root.querySelector('[data-overlay]') as HTMLElement;
-    this.fallback = this.host.hook() === 'fallback';
+    const win = this.host.document.defaultView;
+    const hook = this.host.hook();
+    const nav = win?.navigator as (Navigator & { connection?: ClipConnection }) | undefined;
+    // the stage moves for a visitor; for reduced motion, saving data, a weak device, a crawler or a script the posters stay
+    this.moving = !!win && hook !== 'fallback' && (hook === 'static' || hook === 'first' || motionAllowed({
+      reducedMotion: this.host.reducedMotion(), connection: nav?.connection,
+      automated: isAutomated({ userAgent: nav?.userAgent ?? '', webdriver: nav?.webdriver === true }), weak: weakDevice(win),
+    }));
+    if (win) loadPopFont(this.host.document, () => undefined);
+    this.clip = (this.stageEl.dataset['clip'] as MotionId | undefined) ?? null;
     this.drawStageFor(this.state.step);
-    await this.ensureStage();
+    await (this.playerReady ?? (this.playerReady = this.startPlayer()));
     this.settle();
   }
 
@@ -94,8 +104,9 @@ export class WelcomeController {
   dispose(): void {
     this.disposed = true;
     for (const t of this.timers.splice(0)) clearTimeout(t);
-    this.stage?.dispose();
-    this.stage = null;
+    if (this.seqTimer) clearTimeout(this.seqTimer);
+    this.player?.dispose();
+    this.player = null;
   }
 
   /** For tests: the stage is ready (or the pictures are) and the page has settled. */
@@ -141,7 +152,8 @@ export class WelcomeController {
         this.state = toggleRegion(this.state, el.dataset['region'] ?? '');
         const on = this.state.regions.includes((el.dataset['region'] ?? '') as never);
         el.setAttribute('aria-pressed', String(on));
-        this.stage?.setRegions(this.state.regions);
+        if (on) this.lastRegion = (el.dataset['region'] ?? null) as BodyRegion | null;
+        this.drawStageFor(this.state.step);
         return true;
       }
       default: return false;
@@ -161,14 +173,13 @@ export class WelcomeController {
       case 'tour-device':
         this.state = withDevice(this.state, el.value as TourState['device']);
         this.root.querySelector('[data-device-text]')?.replaceChildren(deviceText(ctx, this.state));
-        this.stage?.setDevice(this.state.device);
+        this.drawLabels();
         return true;
       case 'tour-players':
         this.state = withPlayers(this.state, el.value === '2' ? 2 : 1, ctx.caps.local2);
         this.drawPanel(false);
         this.panel.querySelector<HTMLElement>(`input[name="tour-players"][value="${this.state.players}"]`)?.focus({ preventScroll: true });
-        this.stage?.setPlayers(this.state.players);
-        this.stage?.setDevice(this.state.device);
+        this.drawLabels();
         return true;
       default: return false;
     }
@@ -185,129 +196,110 @@ export class WelcomeController {
 
   // ---- the stage ----------------------------------------------------------------------------------------------------------------
 
-  /** What the stage shows for a step: the pre-rendered picture where the 3D scene is not drawn, and the labels over the picture. */
+  /** What the stage shows for a step: the person of the page (the clip changes when the page asks for another one) and the labels. */
   private drawStageFor(step: TourStep): void {
+    const t = this.host.context().i18n;
     this.overlay.replaceChildren();
-    const ctx = this.host.context();
-    const t = ctx.i18n;
     if (step === 5) {
       this.overlay.innerHTML = `<div class="ob-finder"><i></i><i></i><i></i><i></i><em>${LOCK}${escapeText(t.t('onboarding.finder'))}</em></div>`;
     }
-    this.stageEl.classList.toggle('is-fallback', this.fallback);
-    this.canvas.style.display = this.fallback ? 'none' : '';
-    this.showPictures(step);
-    if (this.stage && !this.fallback) {
-      this.stage.setRegions(this.state.regions);
-      this.stage.setDevice(this.state.device);
-      this.stage.setPlayers(step === 4 ? this.state.players : 1);
-      this.stage.setStep(step, { instant: this.host.hook() === 'static', logoBand: step === 1 });
-      if (this.host.hook() === 'static') this.stage.renderAt(1.7);
-    }
+    const clips = tourClips(step, this.state.regions, this.lastRegion);
+    if (step !== 1) { this.seq = 0; if (this.seqTimer) { clearTimeout(this.seqTimer); this.seqTimer = null; } }
+    const want = clips[step === 1 ? this.seq % clips.length : 0];
+    if (want && want !== this.clip) this.swapClip(want, step);
+    else this.syncMediaFlags(step);
+    this.drawLabels();
   }
 
-  /** A device that cannot draw the stage: the opening loop on the first page (a still when motion is reduced), a still for the others. */
-  private showPictures(step: TourStep): void {
+  /** The page's flags on the clip that stays (the pops on the first page, the 33 points on the second). */
+  private syncMediaFlags(step: TourStep): void {
+    const el = this.stageEl.querySelector<HTMLElement>('.k-mo');
+    if (!el) return;
+    el.toggleAttribute('data-mo-pops', step === 1);
+    el.toggleAttribute('data-mo-all', step === 2);
+  }
+
+  /** Another person on the stage: the new poster replaces the old clip, and plays as soon as its clip is in. */
+  private swapClip(id: MotionId, step: TourStep): void {
     const ctx = this.host.context();
-    const th = theme(this.host);
-    const still = this.host.reducedMotion() || this.host.hook() === 'static';
-    const useLoop = this.fallback && step === 1 && !still;
-    this.loop.style.display = useLoop ? 'block' : 'none';
-    this.poster.style.display = this.fallback && !useLoop ? 'block' : 'none';
-    if (useLoop && !this.loop.currentSrc && !this.loop.querySelector('source')) {
-      this.loop.poster = ctx.assets.onboarding(`hero-${th}.avif`);
-      for (const [ext, type] of [['webm', 'video/webm'], ['mp4', 'video/mp4']] as const) {
-        const source = this.host.document.createElement('source');
-        source.src = ctx.assets.onboarding(`hero-loop-${th}.${ext}`);
-        source.type = type;
-        this.loop.append(source);
-      }
-      this.loop.load();
-      void this.loop.play().catch(() => undefined);
-    }
-    if (this.fallback && !useLoop) this.poster.src = ctx.assets.onboarding(`step-${step}-${th}.webp`);
+    const old = this.stageEl.querySelector<HTMLElement>('.k-mo');
+    const tpl = this.host.document.createElement('template');
+    tpl.innerHTML = tourMedia(ctx, id, step).value;
+    const el = tpl.content.firstElementChild as HTMLElement | null;
+    if (!el) return;
+    this.clip = id;
+    this.stageEl.dataset['clip'] = id;
+    this.player?.dispose();
+    this.player = null;
+    if (old) old.replaceWith(el); else this.stageEl.prepend(el);
+    if (!this.disposed) this.playerReady = this.startPlayer();
   }
 
-  private ensureStage(): Promise<void> {
-    if (this.stage || this.fallback) return Promise.resolve();
-    this.starting ??= this.startStage();
-    return this.starting;
-  }
-
-  private async startStage(): Promise<void> {
-    const nav = this.host.document.defaultView?.navigator as (Navigator & { deviceMemory?: number }) | undefined;
-    const still = this.host.hook() === 'static';
-    try {
-      const scene: SceneModule = await import('../../../../design/onboarding/scene.mjs');
-      if (this.disposed) return;
-      const tier = startTier({ ...(nav?.hardwareConcurrency ? { cores: nav.hardwareConcurrency } : {}), ...(nav?.deviceMemory ? { memoryGb: nav.deviceMemory } : {}) });
-      this.stage = scene.createStage(this.canvas, {
-        theme: theme(this.host), step: this.state.step, capture: still, tier: still ? 1 : tier, reducedMotion: this.host.reducedMotion(),
-        onLabels: (l) => this.drawLabels(l),
-      });
-      this.canvas.addEventListener('webglcontextlost', () => this.giveWay(), { once: true });
-    } catch {
-      // No WebGL, or the scene could not be built: the pictures made of the same scene stand in.
-      this.giveWay();
-      return;
-    }
-    this.drawStageFor(this.state.step);
-    if (!still) {
-      this.stage?.start();
-      this.timers.push(setTimeout(() => this.judge(), 1500));
-    }
-  }
-
-  /** The 3D stage is not drawn here (or no longer): its canvas goes and the pre-rendered picture of the page comes. */
-  private giveWay(): void {
-    if (this.disposed) return;
-    this.fallback = true;
-    this.stage?.stop();
-    this.drawStageFor(this.state.step);
-  }
-
-  /** After 90 frames the stage looks at its own cost: a lighter tier, or the pictures. */
-  private judge(): void {
-    const stage = this.stage;
-    if (!stage || this.disposed || this.fallback) return;
-    const s = stage.stats();
-    const verdict = judgeStage({ frames: s.frames, p95: s.p95, tier: s.tier });
-    if (verdict === 'wait') { this.timers.push(setTimeout(() => this.judge(), 500)); return; }
-    if (verdict === 'lower') {
-      stage.setTier((stage.tier - 1) as StageTier);
-      stage.resetStats();
-      this.timers.push(setTimeout(() => this.judge(), 1500));
-    } else if (verdict === 'fallback') this.giveWay();
-  }
-
-  /** The labels of the space page sit over the 3D scene where the scene says (the stage reports them every frame). */
-  private drawLabels(l: StageLabels | null): void {
-    if (!l || this.disposed) return;
+  /** Plays the clip on the stage (or holds one moment of it, or leaves the poster: see begin()). */
+  private async startPlayer(): Promise<void> {
+    if (this.player || this.disposed || !this.moving) return;
+    const win = this.host.document.defaultView;
+    const el = this.stageEl.querySelector<HTMLElement>('.k-mo');
+    if (!win || !el) return;
+    const video = el.querySelector('video');
+    const format = video ? motionFormat(video) : null;
+    if (!format) return;
     const t = this.host.context().i18n;
-    const W = this.stageEl.clientWidth;
-    const H = this.stageEl.clientHeight;
-    const duo = l.players === 2;
-    const put = (id: string, p: { x: number; y: number }, text: string, cls = ''): void => {
-      let n = this.overlay.querySelector<HTMLElement>(`#${id}`);
-      if (!n) { n = this.host.document.createElement('div'); n.id = id; this.overlay.append(n); }
-      n.className = `ob-tag3d ${cls}`;
-      n.textContent = text;
-      n.style.left = `${Math.min(W - 70, Math.max(70, p.x * W))}px`;
-      n.style.top = `${Math.max(36, p.y * H - 8)}px`;
-    };
-    put('t-dist', l.distance, t.t(duo ? 'onboarding.tag.distance.two' : 'onboarding.tag.distance'));
-    put('t-dev', l.device, duo ? t.t('onboarding.tag.camera.two') : t.t(this.state.device === 'laptop' ? 'onboarding.tag.feet' : 'onboarding.tag.hip'), 'flush');
-    put('t-space', l.space, t.t(duo ? 'onboarding.tag.apart' : 'onboarding.tag.clear'));
-    // Labels that touch are pushed apart.
-    const tags = [...this.overlay.querySelectorAll<HTMLElement>('.ob-tag3d')];
-    for (let i = 0; i < tags.length; i++) {
-      for (let j = 0; j < i; j++) {
-        const a = (tags[i] as HTMLElement).getBoundingClientRect();
-        const b = (tags[j] as HTMLElement).getBoundingClientRect();
-        if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) {
-          (tags[i] as HTMLElement).style.top = `${Number.parseFloat((tags[i] as HTMLElement).style.top) + (b.bottom - a.top) + 6}px`;
-        }
-      }
+    const player = new MotionPlayer(el, win, { combo: t.t('home.hero.combo', { n: '{n}' }), perfect: t.t('home.hero.perfect'), lang: this.host.document.documentElement.lang });
+    this.player = player;
+    if (this.host.hook() === 'static') { await player.hold(format, HOLD_AT); return; }
+    await player.play(format);
+    if (this.state.step === 1 && !this.disposed && this.player === player) {
+      if (this.seqTimer) clearTimeout(this.seqTimer);
+      this.seqTimer = setTimeout(() => {
+        this.seqTimer = null;
+        if (this.disposed || this.state.step !== 1) return;
+        this.seq += 1;
+        this.drawStageFor(1);
+      }, SEQUENCE_SECONDS * 1000);
     }
+  }
+
+  /**
+   * The labels of the space page (step 4), placed by the person in the poster's frame: where the camera goes (hip height, or the floor for
+   * a laptop) beside the hips, the clear space round the feet (a ring on the floor) and the distance to the camera below them.
+   */
+  private drawLabels(): void {
+    this.overlay.querySelectorAll('.ob-tag3d, .ob-floor').forEach((n) => n.remove());
+    if (this.state.step !== 4 || !this.clip) return;
+    const win = this.host.document.defaultView;
+    const url = this.stageEl.querySelector<HTMLElement>('.k-mo')?.dataset['moPose'];
+    if (!win || !url) return;
+    const clip = this.clip;
+    void loadMotionPose(url, win).then((pose) => {
+      if (!pose || this.disposed || this.state.step !== 4 || this.clip !== clip) return;
+      const W = this.stageEl.clientWidth, H = this.stageEl.clientHeight;
+      const box = coverBox(W, H, 720, 900, 0.5, 0.5);
+      const q = poseAt(pose, 0);
+      const at = (n: Parameters<typeof pointIndex>[1]): [number, number] => { const k = pointIndex(pose, n) * 2; return [box.x + (q[k] ?? 0) * box.w, box.y + (q[k + 1] ?? 0) * box.h]; };
+      const t = this.host.context().i18n;
+      const duo = this.state.players === 2;
+      const [hlx, hly] = at('hipL'), [hrx, hry] = at('hipR');
+      const [alx, aly] = at('ankleL'), [arx, ary] = at('ankleR');
+      const cx = (alx + arx) / 2, fy = Math.max(aly, ary);
+      const span = Math.max(80, Math.abs(hlx - hrx) * 4.2);
+      const floor = this.host.document.createElement('div');
+      floor.className = 'ob-floor';
+      Object.assign(floor.style, { left: `${cx - span / 2}px`, top: `${fy - span * 0.12}px`, width: `${span}px`, height: `${span * 0.28}px` });
+      this.overlay.append(floor);
+      const put = (text: string, x: number, y: number, cls = ''): void => {
+        const n = this.host.document.createElement('div');
+        n.className = `ob-tag3d ${cls}`;
+        n.textContent = text;
+        n.style.left = `${Math.min(W - 80, Math.max(80, x))}px`;
+        n.style.top = `${Math.min(H - 12, Math.max(40, y))}px`;
+        this.overlay.append(n);
+      };
+      const hipY = (hly + hry) / 2;
+      put(duo ? t.t('onboarding.tag.camera.two') : t.t(this.state.device === 'laptop' ? 'onboarding.tag.feet' : 'onboarding.tag.hip'), Math.min(hlx, hrx) - span * 0.45, this.state.device === 'laptop' && !duo ? fy : hipY, 'flush');
+      put(t.t(duo ? 'onboarding.tag.apart' : 'onboarding.tag.clear'), cx + span * 0.38, fy - span * 0.16);
+      put(t.t(duo ? 'onboarding.tag.distance.two' : 'onboarding.tag.distance'), cx, fy + span * 0.3);
+    });
   }
 }
 

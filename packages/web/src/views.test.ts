@@ -14,7 +14,7 @@ import { REGION_ORDER, router, type RouteId } from './routes.ts';
 import type { RoundResult } from './views/results.ts';
 import { overlayHtml } from './views/play.ts';
 import { defaultSetup, sanitizeSetup, setupFromQuery } from './views/setup.ts';
-import { CLIP_TILES } from './clips.ts';
+import { GAME_MOTION } from './motion.ts';
 
 const games = loadCatalogue({ fixtures: 'only', requiredLangs: ['en', 'tr'] }).catalogue.games;
 const LANGS: Lang[] = ['en', 'tr'];
@@ -202,29 +202,29 @@ describe('home and region pages', () => {
     expect(draw('en', '/workouts/legs/').html).not.toContain('class="k-vid"');
   });
 
-  it('moves the tiles of the redrawn games: a silent clip round and round over the still, with no address until the app plays it', () => {
+  it("shows a real person doing each game's move on its tile, with our body line, a frame of the game in the corner, and no clip address until the app plays it", () => {
     const tiles = (h: string): Map<string, string> => new Map([...h.matchAll(/<a class="ba-tile" href="[^"]*" data-game="([a-z0-9-]+)">[\s\S]*?<\/a>/g)].map((m) => [m[1] as string, m[0]]));
     for (const url of ['/', '/tr/', '/workouts/legs/']) {
       const html = draw(url.startsWith('/tr') ? 'tr' : 'en', url).html;
       const shown = tiles(html);
       expect(shown.size, url).toBeGreaterThan(0);
       for (const [id, tile] of shown) {
-        const g = games.find((x) => x.id === id);
-        const stem = g?.catalogue.tile ?? '';
-        if (!CLIP_TILES.includes(stem)) { expect(tile, `${url} ${id}`).not.toContain('<video'); continue; }
-        // the still first (the poster, and what stays when motion is reduced), then the clip over it, then the marks on top
-        // the still is a frame of the game in play (src/arena.ts), or its catalogue art where there is none
-        expect(tile).toMatch(/<span class="art"><img src="\/assets\/(tiles\/[^"]+-400|hero\/cap-[a-z-]+-480)\.webp"[^>]*loading="lazy"[^>]*><video class="clip"/);
-        expect(tile).toContain(`<video class="clip" data-webm="/assets/clips/${stem}-400.webm 400w, /assets/clips/${stem}-800.webm 800w" data-mp4="/assets/clips/${stem}-400.mp4 400w, /assets/clips/${stem}-800.mp4 800w" width="400" height="300" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>`);
+        const m = GAME_MOTION[id] as string;
+        expect(m, id).toBeDefined();
+        // the poster first (the clip's first frame with its line: what stays when motion is reduced), then the video and the canvas, then
+        // the frame of the game, then the marks on top
+        expect(tile).toContain(`<span class="art"><span class="k-mo k-mo--tile" data-mo="${m}" data-mo-webm="/assets/clips/mo-${m}-tile.webm" data-mo-mp4="/assets/clips/mo-${m}-tile.mp4" data-mo-pose="/assets/clips/mo-${m}-tile.json" data-mo-pops aria-hidden="true">`);
+        expect(tile).toMatch(new RegExp(`<picture class="k-mo-poster"><source type="image/avif" srcset="/assets/hero/mo-${m}-tile.avif"><img src="/assets/hero/mo-${m}-tile.webp" alt="" width="640" height="480" loading="lazy" decoding="async"></picture>`));
+        expect(tile).toContain('<video class="k-mo-video" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>');
+        expect(tile).toContain(`<span class="k-mo-game" data-qa-layer><img src="/assets/hero/cap-${id}-480.webp" alt="" width="480" height="360" loading="lazy" decoding="async"></span>`);
+        expect(tile).not.toContain('<video class="clip"');
       }
       expect(html, url).not.toMatch(/<video[^>]*\ssrc=/);
       expect(html, url).not.toMatch(/<video[^>]*\sautoplay/);
       expect(html, url).not.toMatch(/<video[^>]*\scontrols/);
     }
-    const home = draw('en', '/').html;
-    expect(home.match(/<video class="clip"/g)).toHaveLength(CLIP_TILES.length);
     // a game hidden by the modes takes its clip with it
-    expect(draw('en', '/', { settings: { quiet: true } }).html).not.toContain('/assets/clips/road-run-');
+    expect(draw('en', '/', { settings: { quiet: true } }).html).not.toContain('data-game="road-run"');
   });
 
   it('marks the active region chip and lists only that region', () => {

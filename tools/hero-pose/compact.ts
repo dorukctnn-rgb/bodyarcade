@@ -32,9 +32,17 @@ const aspect = padW ? padW / padH : raw.aspect;
 // model read from that frame and not smoothed, so the line sits on the athlete in every frame (a smoothed or 15 fps line lags a jump).
 const videoFpsArg = args.find((x) => x.startsWith('--video-fps='))?.slice(12);
 const VIDEO_FPS = videoFpsArg ? (videoFpsArg.includes('/') ? Number(videoFpsArg.split('/')[0]) / Number(videoFpsArg.split('/')[1]) : Number(videoFpsArg)) : 0;
-const OUT_FPS = VIDEO_FPS || 15;
+const OUT_FPS = args.includes('--per-frame') ? raw.fps : VIDEO_FPS || 15;
 const step = Math.round(raw.fps / 15);
-const ids = HERO_POINTS.map((p) => p.mp);
+// --all: every one of the 33 points (MediaPipe order) instead of the body line's 19, for a picture that shows all the points the model finds.
+const ALL = args.includes('--all');
+const ids = ALL ? Array.from({ length: 33 }, (_, i) => i) : HERO_POINTS.map((p) => p.mp);
+// --per-frame: the trace has one pose per frame of the clip (extract-still.ts), so frame k is sample k and the clip's frames a second are the
+// trace's. --smooth: a lag-free filter (the median of three frames, then 1-2-1 weights, centred, so it never trails a move); --loop: the clip
+// plays round and round, so the filter wraps from the last frame to the first.
+const PER_FRAME = args.includes('--per-frame');
+const SMOOTH = args.includes('--smooth');
+const LOOP = args.includes('--loop');
 
 // 1. the kept points per frame, null where the model saw nobody
 type P = { x: number; y: number };
@@ -49,9 +57,44 @@ const filled: P[][] = seen.map((f, i) => {
   return (A ?? B) as P[];
 });
 if (filled.some((f) => !f)) throw new Error('the clip has no person in it');
+// --repair: a frame the model read wrong (the body jumps away from where it is in the frames round it, or swells or shrinks: it took a
+// knee for a head, or a dumbbell for an arm) is not drawn as read: it is filled from the nearest good frames on each side. Judged by the
+// trunk (the middle of the shoulders and hips, and its length) against the median of the four frames on each side.
+const REPAIR = args.includes('--repair');
+const nameIndex = (name: string): number => { const h = HERO_POINTS.findIndex((q) => q.name === name); return ALL ? HERO_POINTS[h]!.mp : h; };
+const trunk = (f: P[]): { x: number; y: number; s: number } => {
+  const [a, b, c, d] = ['shoulderL', 'shoulderR', 'hipL', 'hipR'].map((n) => f[nameIndex(n)]!) as [P, P, P, P];
+  const sx = (a.x + b.x) / 2, sy = (a.y + b.y) / 2, hx = (c.x + d.x) / 2, hy = (c.y + d.y) / 2;
+  return { x: (sx + hx) / 2, y: (sy + hy) / 2, s: Math.hypot(sx - hx, sy - hy) + Math.hypot(a.x - b.x, a.y - b.y) * 0.5 };
+};
+const median = (v: number[]): number => { const o = [...v].sort((m, n) => m - n); return o[Math.floor(o.length / 2)]!; };
+let repairedFrames = 0;
+if (REPAIR) {
+  const n = filled.length;
+  const tr = filled.map(trunk);
+  const near = (k: number): number[] => [-4, -3, -2, -1, 1, 2, 3, 4].map((d) => k + d).filter((i) => args.includes('--loop') || (i >= 0 && i < n)).map((i) => (i + n) % n);
+  const bad = tr.map((t, k) => {
+    const nb = near(k).map((i) => tr[i]!);
+    const mx = median(nb.map((q) => q.x)), my = median(nb.map((q) => q.y)), ms = median(nb.map((q) => q.s));
+    return Math.hypot(t.x - mx, t.y - my) > 0.45 * ms || t.s / ms < 0.65 || t.s / ms > 1.5;
+  });
+  const good = bad.map((b) => !b);
+  if (good.some(Boolean)) {
+    for (let k = 0; k < n; k += 1) {
+      if (good[k]) continue;
+      let a = k, b = k, da = 0, db = 0;
+      do { a = (a - 1 + n) % n; da += 1; } while (!good[a] && da < n);
+      do { b = (b + 1) % n; db += 1; } while (!good[b] && db < n);
+      const A = filled[a]!, B = filled[b]!, u = da / (da + db);
+      filled[k] = A.map((q, j) => ({ x: q.x + (B[j]!.x - q.x) * u, y: q.y + (B[j]!.y - q.y) * u }));
+      repairedFrames += 1;
+    }
+  }
+}
 // 3. smoothing: the arms move fast (a light 3-tap filter keeps the rope slams), the rest a 5-tap mean takes the model's jitter out
 const fast = new Set(['wristL', 'wristR', 'elbowL', 'elbowR']);
-const smooth = filled.map((_, i) => HERO_POINTS.map((p, j) => {
+const nameOf = (j: number): string => (ALL ? HERO_POINTS.find((p) => p.mp === j)?.name ?? `mp${j}` : HERO_POINTS[j]!.name);
+const smooth = filled.map((_, i) => ids.map((_mp, j) => ({ name: nameOf(j) })).map((p, j) => {
   const taps = fast.has(p.name) ? [[-1, 1], [0, 2], [1, 1]] : [[-2, 1], [-1, 1], [0, 1], [1, 1], [2, 1]];
   let x = 0, y = 0, w = 0;
   for (const [d, k] of taps) { const f = filled[Math.min(filled.length - 1, Math.max(0, i + d!))]!; x += f[j]!.x * k!; y += f[j]!.y * k!; w += k!; }
@@ -68,7 +111,21 @@ const perFrame = (): P[][] => {
   }
   return out;
 };
-const frames = VIDEO_FPS ? perFrame() : smooth.filter((_, i) => i % step === 0);
+// the lag-free filter of --smooth, per point and axis: median of 3, then 1-2-1 (the wrists only the median: they move fastest)
+const at = <T,>(a: T[], i: number): T => a[LOOP ? (i + a.length) % a.length : Math.min(a.length - 1, Math.max(0, i))]!;
+const lagFree = (src: P[][]): P[][] => {
+  const med = src.map((_, i) => src[i]!.map((_p, j) => {
+    const xs = [at(src, i - 1)[j]!.x, src[i]![j]!.x, at(src, i + 1)[j]!.x].sort((a, b) => a - b);
+    const ys = [at(src, i - 1)[j]!.y, src[i]![j]!.y, at(src, i + 1)[j]!.y].sort((a, b) => a - b);
+    return { x: xs[1]!, y: ys[1]! };
+  }));
+  return med.map((_, i) => med[i]!.map((p, j) => {
+    if (/^wrist/.test(nameOf(j))) return p;
+    const a = at(med, i - 1)[j]!, b = at(med, i + 1)[j]!;
+    return { x: (a.x + 2 * p.x + b.x) / 4, y: (a.y + 2 * p.y + b.y) / 4 };
+  }));
+};
+const frames = PER_FRAME ? (SMOOTH ? lagFree(filled) : filled) : VIDEO_FPS ? perFrame() : smooth.filter((_, i) => i % step === 0);
 const q = (v: number): number => Math.max(-200, Math.min(1200, Math.round(v * 1000)));
 const f = frames.flatMap((pts) => pts.flatMap((p) => [q(p.x), q(p.y)]));
 
@@ -79,9 +136,10 @@ const want = flag('pops', 6);
 const gap = flag('gap', 1.3);
 const beatArg = args.find((x) => x.startsWith('--beat='))?.slice(7) ?? 'hips';
 const beats: { t: number; j: number; depth: number }[] = [];
-const hipL = HERO_POINTS.findIndex((p) => p.name === 'hipL'), hipR = HERO_POINTS.findIndex((p) => p.name === 'hipR');
+const idx = (name: string): number => { const h = HERO_POINTS.findIndex((p) => p.name === name); return ALL ? HERO_POINTS[h]!.mp : h; };
+const hipL = idx('hipL'), hipR = idx('hipR');
 const series: { j: number; ys: number[] }[] = beatArg === 'wrists'
-  ? (['wristL', 'wristR'] as const).map((name) => { const j = HERO_POINTS.findIndex((p) => p.name === name); return { j, ys: smooth.map((pts) => pts[j]!.y) }; })
+  ? (['wristL', 'wristR'] as const).map((name) => { const j = idx(name); return { j, ys: smooth.map((pts) => pts[j]!.y) }; })
   : [{ j: hipL, ys: smooth.map((pts) => (pts[hipL]!.y + pts[hipR]!.y) / 2) }];
 for (const { j, ys } of series) {
   for (let i = 3; i < ys.length - 3; i += 1) {
@@ -124,6 +182,7 @@ const KINDS: HeroPose['pops'][number][1][] = ['pts', 'pts', 'combo', 'pts', 'com
 const NUMS = [50, 50, 2, 100, 3, 0];
 const pops: HeroPose['pops'] = picked.map((b, i) => [Math.round(b.t * 100) / 100, KINDS[i % KINDS.length]!, NUMS[i % NUMS.length]!, b.j]);
 
-const out: HeroPose = { v: 1, fps: Math.round(OUT_FPS * 100000) / 100000, n: frames.length, aspect: Math.round(aspect * 10000) / 10000, f, pops };
+// --upper: the clip shows the upper body only; the page draws no leg (the model's guess of legs out of the picture is not drawn)
+const out: HeroPose = { v: 1, fps: Math.round(OUT_FPS * 100000) / 100000, n: frames.length, aspect: Math.round(aspect * 10000) / 10000, f, pops, ...(ALL ? { k: 33 as const } : {}), ...(args.includes('--upper') ? { parts: 'upper' as const } : {}) };
 writeFileSync(output, `${JSON.stringify(out)}\n`);
-console.log(`${output}: ${frames.length} frames at ${OUT_FPS} fps, ${HERO_POINTS.length} points, ${beats.length} moments found, pops at ${pops.map((p) => p[0]).join(', ')} s, ${JSON.stringify(out).length} bytes`);
+console.log(`${output}: ${frames.length} frames at ${OUT_FPS} fps, ${ids.length} points, ${repairedFrames} repaired, ${beats.length} moments found, pops at ${pops.map((p) => p[0]).join(', ')} s, ${JSON.stringify(out).length} bytes`);

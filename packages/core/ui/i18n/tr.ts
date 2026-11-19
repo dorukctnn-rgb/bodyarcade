@@ -112,7 +112,7 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'home.how2.score.body': 'Her temiz hareket sayılır. Arka arkaya yap, kombo kur, rekorunu geç.',
   'home.how2.alt.camera': 'Spor salonunda bir sporcu, kamera kadrajında baştan ayağa.',
   'home.how2.alt.move': 'Aynı sporcu, vücudunun üstünde hareket takibimizin çizgisiyle.',
-  'home.how2.alt.score': 'Pose Wall oynanırken: oyun, eşleşmen gereken şekli gösteriyor.',
+  'home.how2.alt.score': 'Poz tutan bir kişi; eşleşmesi gereken şekil üstüne çizili.',
   'home.games.kicker': 'Oyunlar',
   'home.games.title': '{n} oyun. {free} tanesi ücretsiz.',
   'home.areas.kicker': 'Vücut bölgeleri',

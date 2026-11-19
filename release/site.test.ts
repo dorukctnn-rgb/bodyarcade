@@ -408,8 +408,13 @@ describe('precache list', () => {
 
   it('keeps the stills of the sports home page (a lazy picture the first visit never asked for must not fail offline) and leaves the older showcase frames out', () => {
     const stills = ['/static/hero/arena-tall-720.350db21d.avif', '/static/hero/arena-wide-1280.a6c630f0.webp', '/static/hero/cap-pad-work-960.812c574d.webp', '/static/hero/cap-summit-climb-480.92df84a3.webp',
-      '/static/hero/final-wide-1280.d4ca8588.webp', '/static/hero/how-camera-640.3e727d00.webp', '/static/hero/band-morph-800.598c9973.webp'];
-    const old = ['/static/hero/alps-1920.fd26bcda.webp', '/static/hero/city-m-960.01d0e13c.avif', '/static/hero/flap-1920.0b57c8f7.webp', '/static/hero/captain-960.0a1b2c3d.webp'];
-    expect(precacheList(['/static/a.js', ...stills, ...old, '/static/clips/arena-wide-1280.d7526d7c.mp4'], ['/'])).toEqual(['/', ...['/static/a.js', ...stills].sort()]);
+      '/static/hero/final-wide-1280.d4ca8588.webp', '/static/hero/how-camera-640.3e727d00.webp', '/static/hero/band-morph-800.598c9973.webp',
+      // the posters of the real people in motion that the home page shows (the tiles, and the held pose of "how it works")
+      '/static/hero/mo-squat-tile.0a1b2c3d.avif', '/static/hero/mo-seated-tile.0a1b2c3d.webp', '/static/hero/mo-pose-tall.0a1b2c3d.webp'];
+    // the older showcase frames, and the tour's tall posters (the tour is not a page the offline home needs)
+    const old = ['/static/hero/alps-1920.fd26bcda.webp', '/static/hero/city-m-960.01d0e13c.avif', '/static/hero/flap-1920.0b57c8f7.webp', '/static/hero/captain-960.0a1b2c3d.webp',
+      '/static/hero/mo-squat-tall.0a1b2c3d.avif', '/static/hero/mo-warmup-tall.0a1b2c3d.webp'];
+    // the clips and their body lines are fetched only when a clip plays
+    expect(precacheList(['/static/a.js', ...stills, ...old, '/static/clips/arena-wide-1280.d7526d7c.mp4', '/static/clips/mo-squat-tile.0a1b2c3d.webm', '/static/clips/mo-squat-tile.0a1b2c3d.json'], ['/'])).toEqual(['/', ...['/static/a.js', ...stills].sort()]);
   });
 });

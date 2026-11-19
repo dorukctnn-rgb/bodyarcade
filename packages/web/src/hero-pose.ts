@@ -40,14 +40,25 @@ export interface HeroPose {
   /** n frames of HERO_POINTS.length points, x then y, in thousandths of the picture's width and height. */
   f: number[];
   pops: HeroPop[];
+  /** 33: every point MediaPipe finds, in its own order (a picture that shows them all); absent: the 19 points of HERO_POINTS. */
+  k?: 33;
+  /** 'upper': the clip shows the upper body only, and no leg is drawn. */
+  parts?: 'upper';
 }
 
+/** The points of the legs, left out of the line of a clip that shows the upper body only. */
+export const LEG_POINTS: ReadonlySet<HeroPointName> = new Set<HeroPointName>(['kneeL', 'kneeR', 'ankleL', 'ankleR', 'heelL', 'heelR', 'toeL', 'toeR']);
+
 const PER = HERO_POINTS.length * 2;
+/** Numbers per frame of a file: two for each of its points. */
+export const perFrame = (p: Pick<HeroPose, 'k'>): number => (p.k === 33 ? 66 : PER);
+/** Where a point of the body line is in a frame of the file (its place in HERO_POINTS, or its MediaPipe number in a file of all 33). */
+export const pointIndex = (p: Pick<HeroPose, 'k'>, name: HeroPointName): number => (p.k === 33 ? HERO_POINTS[IX[name]]!.mp : IX[name]);
 
 /** A loose check of a fetched file, so a bad one draws nothing rather than lines across the picture. */
 export function isHeroPose(v: unknown): v is HeroPose {
   const p = v as HeroPose;
-  return !!p && p.v === 1 && typeof p.fps === 'number' && p.fps > 0 && Number.isInteger(p.n) && p.n > 1 && Array.isArray(p.f) && p.f.length === p.n * PER && Array.isArray(p.pops);
+  return !!p && p.v === 1 && typeof p.fps === 'number' && p.fps > 0 && Number.isInteger(p.n) && p.n > 1 && (p.k === undefined || p.k === 33) && (p.parts === undefined || p.parts === 'upper') && Array.isArray(p.f) && p.f.length === p.n * perFrame(p) && Array.isArray(p.pops);
 }
 
 /** How long the data lasts, in seconds. */
@@ -57,7 +68,8 @@ export const heroDuration = (p: HeroPose): number => (p.n - 1) / p.fps;
  * The points at `t` seconds, as fractions of the picture (x, y pairs). Between two frames the points follow a Catmull-Rom curve
  * through the frames around them, so 15 frames a second follow a fast arm without corners. Outside the data the end frames hold.
  */
-export function poseAt(p: HeroPose, t: number, into = new Float32Array(PER)): Float32Array {
+export function poseAt(p: HeroPose, t: number, into = new Float32Array(perFrame(p))): Float32Array {
+  const per = perFrame(p);
   const raw = Math.max(0, Math.min(p.n - 1, t * p.fps));
   // a frame's own time (what requestVideoFrameCallback gives) lands on its pose exactly; only times between frames are interpolated
   const near = Math.round(raw);
@@ -66,8 +78,8 @@ export function poseAt(p: HeroPose, t: number, into = new Float32Array(PER)): Fl
   const u = pos - i1;
   const i0 = Math.max(0, i1 - 1), i2 = Math.min(p.n - 1, i1 + 1), i3 = Math.min(p.n - 1, i1 + 2);
   const u2 = u * u, u3 = u2 * u;
-  for (let k = 0; k < PER; k += 1) {
-    const a = p.f[i0 * PER + k]! / 1000, b = p.f[i1 * PER + k]! / 1000, c = p.f[i2 * PER + k]! / 1000, d = p.f[i3 * PER + k]! / 1000;
+  for (let k = 0; k < per; k += 1) {
+    const a = p.f[i0 * per + k]! / 1000, b = p.f[i1 * per + k]! / 1000, c = p.f[i2 * per + k]! / 1000, d = p.f[i3 * per + k]! / 1000;
     into[k] = 0.5 * ((2 * b) + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (-a + 3 * b - 3 * c + d) * u3);
   }
   return into;

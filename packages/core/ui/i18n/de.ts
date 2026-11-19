@@ -207,7 +207,7 @@ export const de: Readonly<Partial<Record<keyof typeof en, string>>> = {
   'home.how2.score.body': 'Jede saubere Bewegung zählt. Reihe sie zu Combos aneinander und schlag deinen Rekord.',
   'home.how2.alt.camera': 'Ein Athlet im Studio, von Kopf bis Fuß im Bild der Kamera.',
   'home.how2.alt.move': 'Derselbe Athlet mit der Linie unseres Pose-Trackings über dem Körper.',
-  'home.how2.alt.score': 'Pose Wall im Spiel: Das Spiel zeigt die Form, die du nachmachst.',
+  'home.how2.alt.score': 'Eine Person hält eine Pose, die Form zum Nachmachen ist über sie gezeichnet.',
   'home.games.kicker': 'Die Spiele',
   'home.games.title': '{n, plural, one {# Spiel} other {# Spiele}}. {free} kostenlos.',
   'home.areas.kicker': 'Körperbereiche',

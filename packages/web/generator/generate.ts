@@ -11,10 +11,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SERVER_CAPABILITIES } from '../../core/ui/capabilities.ts';
 import { LANG_INFO, type Lang } from '../../core/ui/i18n/index.ts';
 import { hasLanguage } from '../../core/ui/i18n/localized.ts';
-import { devAssets, mappedAssets, ONBOARDING_FILES, type TileSize } from '../src/assets.ts';
+import { devAssets, mappedAssets, type TileSize } from '../src/assets.ts';
 import { SHOWCASE, showcaseFiles } from '../src/showcase.ts';
 import { BAND_STILLS } from '../src/growth/before-after-band.ts';
-import { clipFiles, heroClipFiles } from '../src/clips.ts';
+import { heroClipFiles } from '../src/clips.ts';
+import { motionClipFiles, motionPosterFiles } from '../src/motion.ts';
 import { arenaClipFiles, arenaStillFiles } from '../src/arena.ts';
 import { loadCatalogue, repoRoot, tilesDir, type FixtureMode } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
@@ -96,14 +97,18 @@ function copyAssets(out: string, games: readonly ShellGame[], root: string): Rec
   for (const [url, name] of [[devAssets.logo('light'), 'logo.svg'], [devAssets.logo('dark'), 'logo-dark.svg'], [devAssets.mark(), 'mark.svg'], [devAssets.favicon(), 'icon/favicon.svg']] as const) {
     put(url, join(root, 'design', 'brand', name), 'brand');
   }
-  for (const file of ONBOARDING_FILES) put(devAssets.onboarding(file), join(root, 'design', 'onboarding', 'fallback', file), 'onboarding');
+  // (the tour's stage is a real person now (src/motion.ts): the 3D stage's pre-rendered stand-ins, design/onboarding/fallback, are not shipped)
   for (const file of showcaseFiles()) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
   // the two stills of the home page's before/after band (growth/before-after-band.ts)
   for (const file of [BAND_STILLS.morph.file, BAND_STILLS.compare.file]) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
-  for (const file of [...clipFiles(), ...heroClipFiles(SHOWCASE.map((x) => x.id))]) put(devAssets.clip(file), join(root, 'design', 'art', 'clips', file), 'clips');
+  // (the game tiles show a person doing the game's move now (src/motion.ts), not the old clips of the game in play, src/clips.ts CLIP_TILES)
+  for (const file of heroClipFiles(SHOWCASE.map((x) => x.id))) put(devAssets.clip(file), join(root, 'design', 'art', 'clips', file), 'clips');
   // the sports home page (src/arena.ts): the hero clip's posters, the stills of "how it works" and of the last call, the frames of the games, the clip
   for (const file of arenaStillFiles()) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
   for (const file of arenaClipFiles()) put(devAssets.clip(file), join(root, 'design', 'art', 'clips', file), 'clips');
+  // the real people in motion (src/motion.ts): the posters with the stills, the clips and their body lines with the clips
+  for (const file of motionPosterFiles()) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
+  for (const file of motionClipFiles()) put(devAssets.clip(file), join(root, 'design', 'art', 'clips', file), 'clips');
   return map;
 }
 

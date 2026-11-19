@@ -27,6 +27,8 @@ import { phoneHeight, SHOWCASE, SHOWCASE_PHONE_WEBP, SHOWCASE_SIZES_PHONE, SHOWC
 import type { Preload } from '../document.ts';
 import { HERO_CLIP_WIDE, heroClipHeight, heroClipSet } from '../clips.ts';
 import { bandSection, coachSection, privacySection, todaySection } from './home-sections.ts';
+import { GAME_MOTION } from '../motion.ts';
+import { gameInset, motionMedia } from './motion.ts';
 import { areasSection, arenaHero, faqSection, finalSection, howSection, pickSection, proSection } from './arena.ts';
 
 /** What the home page knows about the player's weeks; empty on the server and for a new player. */
@@ -163,7 +165,7 @@ function challengeCard(ctx: ViewContext, c: ChallengeToday | null): SafeHtml {
   const t = ctx.i18n;
   const href = ctx.href('game', { params: { slug: g.seo.slug } });
   return html`<section class="k-card k-challenge" aria-labelledby="challenge-h" data-challenge="${g.id}">
-    <img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="160" height="120">
+    ${GAME_MOTION[g.id] ? motionMedia(ctx, GAME_MOTION[g.id]!, 'tile', { pops: true, over: gameInset(ctx, g), className: 'k-challenge-pic' }) : html`<img src="${ctx.assets.tile(g.catalogue.tile, 400)}" alt="" width="160" height="120">`}
     <div class="body">
       <h2 class="k-h3" id="challenge-h">${t.t('challenge.title')}</h2>
       <p>${t.t('challenge.body', { game: titleOf(ctx, g), n: Math.max(1, Math.round(ch.minSeconds / 60)) })}</p>

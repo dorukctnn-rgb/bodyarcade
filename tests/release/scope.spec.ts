@@ -58,7 +58,7 @@ test('two players, one camera: two people calibrate and the round starts', async
   expect({ started, alert, errors }).toEqual({ started: true, alert: null, errors: [] });
 });
 
-test('the 3D onboarding draws its stage', async ({ browser }) => {
+test('the onboarding draws its stage (a real person with the body line)', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const page = await context.newPage();
   await page.goto(`${BASE}/welcome/`);
