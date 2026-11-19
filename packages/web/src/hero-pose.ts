@@ -122,3 +122,102 @@ export function scoreAt(p: HeroPose, t: number): number {
   }
   return score;
 }
+
+/** A box in canvas pixels: left, top, right, bottom. */
+export type Rect = readonly [number, number, number, number];
+/** Where a clip's picture sits in a canvas, in its pixels (coverBox). */
+export type PictureBox = { x: number; y: number; w: number; h: number };
+
+const overlaps = (a: Rect, b: Rect): boolean => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+
+/**
+ * The head of the pose at `t` in the canvas: the square round the head ring (from the nose, the eyes and the ears, so the face whatever
+ * way it turns) with the hair, the chin and a margin. A head seen from the side has its ears together: the shoulders and the trunk then
+ * give it its size.
+ */
+export function headBox(p: HeroPose, t: number, box: PictureBox, into = new Float32Array(perFrame(p))): Rect {
+  const raw = poseAt(p, t, into);
+  const xy = (k: number): [number, number] => [box.x + (raw[k * 2] ?? 0) * box.w, box.y + (raw[k * 2 + 1] ?? 0) * box.h];
+  const at = (name: HeroPointName): [number, number] => xy(pointIndex(p, name));
+  const [lx, ly] = at('earL'), [rx, ry] = at('earR'), [nx, ny] = at('nose');
+  const cx = (lx + rx + nx) / 3, cy = (ly + ry + ny) / 3;
+  // the face's own points: the nose and the ears, and in a file of all 33 the eyes and the mouth too (MediaPipe 0 to 10)
+  const face: [number, number][] = p.k === 33 ? Array.from({ length: 11 }, (_, k) => xy(k)) : [[nx, ny], [lx, ly], [rx, ry]];
+  const far = Math.max(...face.map(([x, y]) => Math.hypot(x - cx, y - cy)));
+  const [s1x, s1y] = at('shoulderL'), [s2x, s2y] = at('shoulderR'), [h1x, h1y] = at('hipL'), [h2x, h2y] = at('hipR');
+  const shoulders = Math.hypot(s1x - s2x, s1y - s2y);
+  const trunk = Math.hypot((s1x + s2x - h1x - h2x) / 2, (s1y + s2y - h1y - h2y) / 2);
+  const ring = Math.max(Math.hypot(lx - rx, ly - ry) * 0.85, far * 1.15, shoulders * 0.27, trunk * 0.2);
+  const m = ring * 1.3;
+  return [cx - m, cy - m, cx + m, cy + m];
+}
+
+/** Where a pop goes: its middle when it comes in, how far it rises over its life, its size and its words. */
+export interface PopPlace { x: number; y: number; rise: number; size: number; text: string }
+
+export interface PopLayout {
+  /** The canvas, and where the clip's picture sits in it. */
+  w: number;
+  h: number;
+  box: PictureBox;
+  /** The size of a points pop (a combo or a perfect is drawn at 0.8 of it). */
+  size: number;
+  /** Room kept from the canvas's edges. */
+  pad: number;
+  /** The width of a text at a size (the display face's metrics). */
+  measure: (text: string, size: number) => number;
+  /** The words of a pop. */
+  text: (pop: HeroPop) => string;
+  /** What sits over the picture (a frame of the game, a badge, the bar of the tour): no pop goes under it. */
+  avoid?: readonly Rect[];
+}
+
+/**
+ * Where each pop of the clip goes, or null where none fits: never on the face. A pop keeps its place for its whole life (it rises a
+ * little), placed clear of where the head is over that life, of what sits over the picture and of the pops on at the same time, inside
+ * the canvas: above the head first (on the side the pops take turns on), then beside it, then above it in the middle or on the other
+ * side, then under the chin; and if none fits, the same a size smaller.
+ */
+export function placePops(p: HeroPose, o: PopLayout): (PopPlace | null)[] {
+  const scratch = new Float32Array(perFrame(p));
+  const placed: { at: number; r: Rect }[] = [];
+  return p.pops.map((pop, i) => {
+    const [at, kind] = pop;
+    let f: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+    // every frame of the pop's life (the points between two frames follow a curve, so a little more than one sample a frame)
+    const steps = Math.ceil(POP_LIFE * p.fps * 2);
+    for (let k = 0; k <= steps; k += 1) {
+      const b = headBox(p, at + (POP_LIFE * k) / steps, o.box, scratch);
+      f = [Math.min(f[0], b[0]), Math.min(f[1], b[1]), Math.max(f[2], b[2]), Math.max(f[3], b[3])];
+    }
+    const blocked: Rect[] = [f, ...(o.avoid ?? []), ...placed.filter((q) => Math.abs(q.at - at) < POP_LIFE).map((q) => q.r)];
+    const text = o.text(pop);
+    const side = i % 2 === 0 ? 1 : -1;
+    for (const shrink of [1, 0.82, 0.68]) {
+      const size = o.size * (kind === 'pts' ? 1 : 0.8) * shrink;
+      const half = o.measure(text, size) / 2, th = size * 0.9, edge = size * 0.08 + 1;
+      const rise = size * 0.6, gap = size * 0.2;
+      const fw = f[2] - f[0], fc = (f[0] + f[2]) / 2, fm = (f[1] + f[3]) / 2;
+      const inX = (x: number): number => Math.max(o.pad + half + edge, Math.min(o.w - o.pad - half - edge, x));
+      const above = f[1] - gap - th / 2 - edge;
+      const beside = (s: number): number => (s > 0 ? f[2] + gap + half + edge : f[0] - gap - half - edge);
+      const tries: [number, number][] = [
+        [inX(fc + side * fw * 0.5), above],
+        [beside(side), fm + rise / 2],
+        [beside(-side), fm + rise / 2],
+        [inX(fc), above],
+        [inX(fc - side * fw * 0.5), above],
+        [inX(fc + side * fw * 0.5), f[3] + gap + th / 2 + edge + rise],
+      ];
+      for (const [x, y] of tries) {
+        // the room the pop takes over its life: from where it comes in up to where it has risen to
+        const r: Rect = [x - half - edge, y - rise - th / 2 - edge, x + half + edge, y + th / 2 + edge];
+        if (r[0] < o.pad || r[1] < o.pad || r[2] > o.w - o.pad || r[3] > o.h - o.pad) continue;
+        if (blocked.some((b) => overlaps(r, b))) continue;
+        placed.push({ at, r });
+        return { x, y, rise, size, text };
+      }
+    }
+    return null;
+  });
+}

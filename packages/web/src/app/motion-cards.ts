@@ -8,11 +8,14 @@
 // - The clip's picture and its line are drawn on one canvas in the same callback (requestVideoFrameCallback, else requestAnimationFrame),
 //   so the line is never a frame behind the body. The video element only decodes.
 import { type ClipConnection } from '../clips.ts';
-import { coverBox, isHeroPose, poseAt, type HeroPose } from '../hero-pose.ts';
+import { coverBox, isHeroPose, poseAt, type HeroPose, type Rect } from '../hero-pose.ts';
 import { MOTION_SIZE, motionAllowed, motionCap, pickPlaying, type MotionShape } from '../motion.ts';
 import { drawBodyLine, drawPops, loadPopFont, type Box, type PopWords } from './body-line.ts';
 import { startTier } from './welcome-model.ts';
 import type { TileClipsEnv } from './tile-clips.ts';
+
+/** What may sit over a card's picture (a frame of the game, a badge, the marks, the bar and the note of the tour): pops keep clear of it. */
+const POP_KEEP_OUT = '.k-mo-game, .ba-badge, .marks, .ob-top > *, .ob-example';
 
 const poses = new Map<string, Promise<HeroPose | null>>();
 /** The body line of a clip, fetched once per page life. */
@@ -72,6 +75,7 @@ export class MotionPlayer {
   private readonly count: HTMLElement | null;
   private readonly clean: HTMLElement | null;
   private reps = 0;
+  private over: { key: string; rects: Rect[] } | null = null;
   failed = false;
   disposed = false;
   extra: MotionDrawExtra | null = null;
@@ -194,7 +198,26 @@ export class MotionPlayer {
   }
 
   /** Draws the frame on the screen again (the canvas changed size). */
-  redraw(): void { if (this.el.classList.contains('is-live')) this.draw(this.lastT, true); }
+  redraw(): void { this.over = null; if (this.el.classList.contains('is-live')) this.draw(this.lastT, true); }
+
+  /**
+   * What sits over the picture, in canvas pixels, so no pop goes under it: the frame of the game in the corner, a badge, the marks, and
+   * in the tour the logo, the language and "example footage". Read once for a size of the canvas.
+   */
+  private keepOut(w: number, h: number, dpr: number): readonly Rect[] {
+    const key = `${w}x${h}`;
+    if (this.over?.key === key) return this.over.rects;
+    const c = this.canvas.getBoundingClientRect();
+    const scope = this.el.closest('[data-stage]') ?? this.el.parentElement ?? this.el;
+    const rects: Rect[] = [];
+    for (const o of scope.querySelectorAll(POP_KEEP_OUT)) {
+      const r = o.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1 || r.right <= c.left || r.left >= c.right || r.bottom <= c.top || r.top >= c.bottom) continue;
+      rects.push([(r.left - c.left) * dpr, (r.top - c.top) * dpr, (r.right - c.left) * dpr, (r.bottom - c.top) * dpr]);
+    }
+    this.over = { key, rects };
+    return rects;
+  }
 
   private draw(t: number, frame: boolean): void {
     const g = this.g;
@@ -218,8 +241,11 @@ export class MotionPlayer {
       const matched = d / 28 < 0.02;
       drawBodyLine(g, this.pose, this.target, box, { line: line * 1.4, ghost: !matched, alpha: matched ? 0.45 : 0.75 }, this.ghost);
     }
-    const at = drawBodyLine(g, this.pose, t, box, { line, allPoints: this.el.hasAttribute('data-mo-all') }, this.pts);
-    if (this.el.hasAttribute('data-mo-pops')) drawPops(g, this.pose, t, at, box, w, dpr, this.words, this.shape === 'tile' ? 0.5 : 0.8, this.shape === 'tile' ? 14 : 22);
+    drawBodyLine(g, this.pose, t, box, { line, allPoints: this.el.hasAttribute('data-mo-all') }, this.pts);
+    if (this.el.hasAttribute('data-mo-pops')) {
+      const tile = this.shape === 'tile';
+      drawPops(g, this.pose, t, box, w, h, dpr, this.words, { scale: tile ? 0.5 : 0.8, minPx: tile ? 14 : 22, avoid: this.keepOut(w, h, dpr) });
+    }
     // the form coach's counter: one more rep at each of the clip's rep moments
     if (this.count && this.prevT >= 0 && t !== this.prevT) {
       const crossed = this.pose.pops.filter(([p]) => (this.prevT <= t ? p > this.prevT && p <= t : p > this.prevT || p <= t)).length;

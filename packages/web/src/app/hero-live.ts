@@ -78,8 +78,8 @@ export function startHeroLive(root: ParentNode, env: TileClipsEnv): () => void {
     }
     g.clearRect(0, 0, w, h);
     if (!pose) return;
-    const at = drawBodyLine(g, pose, t, box, { line: Math.max(2 * dpr, 3.4 * (box.h / 720)) }, pts);
-    drawPops(g, pose, t, at, box, w, dpr, words);
+    drawBodyLine(g, pose, t, box, { line: Math.max(2 * dpr, 3.4 * (box.h / 720)) }, pts);
+    drawPops(g, pose, t, box, w, h, dpr, words);
   };
 
   // ---- the clip ----------------------------------------------------------------------------------------------------------
