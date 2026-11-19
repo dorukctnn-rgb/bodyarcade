@@ -7,7 +7,8 @@ import type { Matched } from '../../core/ui/router.ts';
 import { gameBySlug } from '../catalogue/filter.ts';
 import { aboutOf, kindOf, regionLabel, titleOf, type ViewContext } from './context.ts';
 import { INDEXABLE, isRegion, type RouteId } from './routes.ts';
-import { homePage, NO_HOME_DATA, regionGames, showcasePreloads, type HomeData } from './views/home.ts';
+import { homePage, NO_HOME_DATA, regionGames, type HomeData } from './views/home.ts';
+import { arenaPreloads } from './views/arena.ts';
 import type { Preload } from './document.ts';
 import { gamePage, NO_GAME_DATA, type GameData } from './views/game.ts';
 import { notFoundPage } from './views/misc.ts';
@@ -71,7 +72,7 @@ export interface Rendered {
   image?: string;
   /** Its size in pixels, so a link preview can be laid out before the picture arrives. */
   imageSize?: { width: number; height: number };
-  /** Pictures the head fetches first (the home page's first showcase frame). */
+  /** Pictures the head fetches first (the home page's hero poster, views/arena.ts). */
   preloads?: Preload[];
 }
 
@@ -112,7 +113,7 @@ export function renderPage(ctx: ViewContext, route: Matched<RouteId> | null, sta
       return {
         body: homePage(ctx, { region: null, data: state.home }), title: t.t('home.title'), description: t.t('home.description', { n: ctx.games.length, free: ctx.games.filter((g) => g.free).length }), noindex: false, status: 200,
         jsonLd: [{ '@context': 'https://schema.org', '@type': 'WebSite', name: brand, url: `${SITE_ORIGIN}${home}`, inLanguage: t.tag }],
-        preloads: showcasePreloads(ctx),
+        preloads: arenaPreloads(ctx),
         ...brandCard,
       };
     }

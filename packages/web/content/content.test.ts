@@ -1157,28 +1157,31 @@ describe('the search pages say what the build does', () => {
 
 describe('the stylesheet uses the design tokens', () => {
   const hexes = (block: string): Map<string, string> => new Map([...block.matchAll(/(--ba-[a-z-]+):\s*(#[0-9A-Fa-f]{6})\b/g)].map((m) => [m[1] as string, (m[2] as string).toUpperCase()]));
-  const tokens = read('design/tokens/tokens.css');
+  // the sports look (19 Nov 2026): the app's palette is in packages/web/src/styles/sport.css, black unless a player picks light
+  const sport = read('packages/web/src/styles/sport.css');
   const css = read('packages/web/content/content.css');
-  const lightTokens = hexes(/:root \{([\s\S]*?)\n\}/.exec(tokens)?.[1] ?? '');
-  const darkTokens = hexes(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([\s\S]*?)\n  \}/.exec(tokens)?.[1] ?? '');
-  const lightCss = hexes(/:root \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '');
-  const darkCss = hexes(/@media \(prefers-color-scheme: dark\) \{\s*:root \{([\s\S]*?)\n  \}/.exec(css)?.[1] ?? '');
+  const appTokens = hexes(/:root:not\(\[data-theme="light"\]\) \{([\s\S]*?)\n\}/.exec(sport)?.[1] ?? '');
+  const pageCss = hexes(/:root \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '');
 
   it('finds the colours', () => {
-    expect(lightCss.size).toBeGreaterThan(10);
-    expect(darkCss.size).toBeGreaterThan(5);
-    expect(lightTokens.size).toBeGreaterThan(20);
-    expect(darkTokens.size).toBeGreaterThan(10);
+    expect(pageCss.size).toBeGreaterThan(10);
+    expect(appTokens.size).toBeGreaterThan(12);
   });
 
-  it('every colour is the token of the same name, in the light theme and in the dark one', () => {
-    for (const [name, value] of lightCss) expect(lightTokens.get(name), `light ${name}`).toBe(value);
-    for (const [name, value] of darkCss) expect(darkTokens.get(name), `dark ${name}`).toBe(value);
+  it('every colour is the app\'s colour of the same name', () => {
+    for (const [name, value] of pageCss) expect(appTokens.get(name), name).toBe(value);
   });
 
-  it('loads no font file and names none of the faces the style forbids', () => {
-    expect(css).not.toMatch(/@font-face|fonts\.googleapis/);
+  it('loads one font file, the display face of the big headings, from the site itself, and names none of the faces the style forbids', () => {
+    const faces = [...css.matchAll(/@font-face\s*\{([\s\S]*?)\}/g)].map((m) => m[1] as string);
+    expect(faces).toHaveLength(1);
+    expect(faces[0]).toMatch(/font-family: "Anton"/);
+    expect(faces[0]).toMatch(/src: url\("fonts\/anton-subset\.woff2"\) format\("woff2"\)/);
+    expect(faces[0]).toMatch(/font-display: swap/);
+    expect(css).not.toMatch(/fonts\.googleapis|fonts\.gstatic/);
     expect(css).not.toMatch(/font-family:[^;]*\b(Inter|Poppins|Manrope|Montserrat|Open Sans|Lato|Nunito|Raleway|Space Grotesk)\b/);
+    // the display face is for headings: the text keeps the system fonts
+    expect(/body \{[^}]*font-family: var\(--ba-font-text\)/.test(css)).toBe(true);
   });
 });
 

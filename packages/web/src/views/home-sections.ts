@@ -45,8 +45,8 @@ function coachFigure(ctx: ViewContext): SafeHtml {
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
   const vbX = cx - vbW / 2, vbY = top - vbH * 0.32;
   const svg = `<svg viewBox="${f(vbX)} ${f(vbY)} ${f(vbW)} ${f(vbH)}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">`
-    + '<defs><linearGradient id="coach-room" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A3350"/><stop offset="1" stop-color="#262036"/></linearGradient></defs>'
-    + `<rect x="${f(vbX - 20)}" y="${f(vbY - 20)}" width="${f(vbW + 40)}" height="${f(vbH + 40)}" fill="url(#coach-room)"/><rect x="${f(vbX - 20)}" y="${HOW_FLOOR}" width="${f(vbW + 40)}" height="${f(vbY + vbH + 20 - HOW_FLOOR)}" fill="#1D1829"/>`
+    + '<defs><linearGradient id="coach-room" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2A2D"/><stop offset="1" stop-color="#18181A"/></linearGradient></defs>'
+    + `<rect x="${f(vbX - 20)}" y="${f(vbY - 20)}" width="${f(vbW + 40)}" height="${f(vbH + 40)}" fill="url(#coach-room)"/><rect x="${f(vbX - 20)}" y="${HOW_FLOOR}" width="${f(vbW + 40)}" height="${f(vbY + vbH + 20 - HOW_FLOOR)}" fill="#111112"/>`
     + shapesMarkup(personShapes(pts)) + legs + knees
     + '</svg>';
   return html`<figure class="k-coachfig">

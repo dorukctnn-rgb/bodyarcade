@@ -9,10 +9,11 @@ import type { ShellGame } from '../../catalogue/types.ts';
 import { durationLabel, hasPro, mainRegion, regionLabel, titleOf, type ViewContext } from '../context.ts';
 import { REGION_ORDER } from '../routes.ts';
 import { clipSet, hasClip } from '../clips.ts';
+import { gamePicture } from './arena.ts';
 
+/** The picture of a game's tile: a frame of the game in play (src/arena.ts), or its catalogue art where there is no frame. */
 export function tileImage(ctx: ViewContext, g: ShellGame, sizes: string): SafeHtml {
-  const stem = g.catalogue.tile;
-  return html`<img src="${ctx.assets.tile(stem, 400)}" srcset="${ctx.assets.tile(stem, 400)} 400w, ${ctx.assets.tile(stem, 800)} 800w" sizes="${sizes}" width="400" height="300" alt="" loading="lazy" decoding="async">`;
+  return gamePicture(ctx, g, sizes);
 }
 
 const TILE_SIZES = '(min-width: 1680px) 300px, (min-width: 900px) 25vw, (min-width: 600px) 33vw, 50vw';

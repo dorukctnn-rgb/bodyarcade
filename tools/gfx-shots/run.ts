@@ -7,7 +7,8 @@
 // WebGL) means the lowest tier soon. --world=<id> starts Road Run in that world. --suffix=<s> is added to the file names.
 // --clean hides the HUD, the overlays and the camera picture: a frame of the game alone (the home page's showcase and the
 // game tiles). --press=<key>:<ms> presses that key every <ms> milliseconds while waiting (ArrowUp: Squat Flap's wing beats;
-// not Space, which also presses the focused button). --burst=<n>:<ms> takes n pictures <ms> apart (<name>-b<i>.png).
+// not Space, which also presses the focused button); several keys separated by commas take turns (ArrowLeft,ArrowRight:300: Knee
+// Sprint's steps). --burst=<n>:<ms> takes n pictures <ms> apart (<name>-b<i>.png).
 //
 // Each picture is <game>-<w>x<h>.png. A game that does not reach its HUD is reported and the rest carry on.
 import { mkdirSync } from 'node:fs';
@@ -35,7 +36,7 @@ const suffix = flag('suffix') ?? '';
 const world = flag('world');
 const clean = args.includes('--clean');
 const [pressFlag, pressEvery] = (flag('press') ?? '').split(':');
-const pressKey = pressFlag === 'Space' ? ' ' : pressFlag;
+const pressKeys = (pressFlag ?? '').split(',').filter(Boolean).map((k) => (k === 'Space' ? ' ' : k));
 const pressMs = Number(pressEvery ?? 0);
 const [burstN, burstMs] = (flag('burst') ?? '1:0').split(':').map(Number) as [number, number];
 
@@ -51,8 +52,8 @@ async function take(browser: Browser, base: string, game: string, [w, h]: [numbe
     await page.waitForSelector('[data-hud="statusLeft"]', { timeout: 45_000 });
     await page.waitForFunction(() => !document.querySelector('.ba-countdown') && !document.querySelector('.cal'), undefined, { timeout: 30_000 });
     const hold = async (ms: number): Promise<void> => {
-      if (!(pressKey && pressMs > 0)) { await page.waitForTimeout(ms); return; }
-      for (let t = 0; t < ms; t += pressMs) { await page.keyboard.press(pressKey); await page.waitForTimeout(pressMs); }
+      if (!(pressKeys.length && pressMs > 0)) { await page.waitForTimeout(ms); return; }
+      for (let t = 0, i = 0; t < ms; t += pressMs, i += 1) { await page.keyboard.press(pressKeys[i % pressKeys.length] as string); await page.waitForTimeout(pressMs); }
     };
     await hold(wait);
     // A constructed style sheet (CSSOM, so the page's Content-Security-Policy allows it) also holds for a HUD drawn again later.

@@ -15,6 +15,7 @@ import { devAssets, mappedAssets, ONBOARDING_FILES, type TileSize } from '../src
 import { SHOWCASE, showcaseFiles } from '../src/showcase.ts';
 import { BAND_STILLS } from '../src/growth/before-after-band.ts';
 import { clipFiles, heroClipFiles } from '../src/clips.ts';
+import { arenaClipFiles, arenaStillFiles } from '../src/arena.ts';
 import { loadCatalogue, repoRoot, tilesDir, type FixtureMode } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import { renderDocument, type Alternate, type BuildAssets } from '../src/document.ts';
@@ -100,6 +101,9 @@ function copyAssets(out: string, games: readonly ShellGame[], root: string): Rec
   // the two stills of the home page's before/after band (growth/before-after-band.ts)
   for (const file of [BAND_STILLS.morph.file, BAND_STILLS.compare.file]) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
   for (const file of [...clipFiles(), ...heroClipFiles(SHOWCASE.map((x) => x.id))]) put(devAssets.clip(file), join(root, 'design', 'art', 'clips', file), 'clips');
+  // the sports home page (src/arena.ts): the hero clip's posters, the stills of "how it works" and of the last call, the frames of the games, the clip
+  for (const file of arenaStillFiles()) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
+  for (const file of arenaClipFiles()) put(devAssets.clip(file), join(root, 'design', 'art', 'clips', file), 'clips');
   return map;
 }
 
