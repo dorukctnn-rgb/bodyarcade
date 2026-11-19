@@ -53,7 +53,7 @@ export function arenaHero(ctx: ViewContext, featured: ShellGame | undefined): Sa
   const c = (f: string): string => ctx.assets.clip(f);
   const { wide, tall } = ARENA;
   return html`<section class="k-arena" aria-labelledby="home-h1" data-hero>
-    <div class="k-arena-media" aria-hidden="true">
+    <div class="k-arena-media" aria-hidden="true" data-keep="arena:${ctx.lang}:${a(`${wide.stem}.webp`)}">
       <picture class="k-arena-poster">
         <source media="${ARENA_TALL_QUERY}" type="image/avif" srcset="${a(`${tall.stem}.avif`)}" width="${tall.w}" height="${tall.h}">
         <source media="${ARENA_TALL_QUERY}" type="image/webp" srcset="${a(`${tall.stem}.webp`)}" width="${tall.w}" height="${tall.h}">
