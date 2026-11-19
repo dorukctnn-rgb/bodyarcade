@@ -405,4 +405,11 @@ describe('precache list', () => {
     expect(precacheList(['/static/a.js', '/static/clips/road-run-800.0a1b2c3d.webm', '/static/clips/road-run-400.0a1b2c3d.mp4'], ['/'])).toEqual(['/', '/static/a.js']);
     expect(precacheList(['/static/a.js', '/static/twin-female.0a1b2c3d.bin'], ['/'])).toEqual(['/', '/static/a.js']);
   });
+
+  it('keeps the stills of the sports home page (a lazy picture the first visit never asked for must not fail offline) and leaves the older showcase frames out', () => {
+    const stills = ['/static/hero/arena-tall-720.350db21d.avif', '/static/hero/arena-wide-1280.a6c630f0.webp', '/static/hero/cap-pad-work-960.812c574d.webp', '/static/hero/cap-summit-climb-480.92df84a3.webp',
+      '/static/hero/final-wide-1280.d4ca8588.webp', '/static/hero/how-camera-640.3e727d00.webp', '/static/hero/band-morph-800.598c9973.webp'];
+    const old = ['/static/hero/alps-1920.fd26bcda.webp', '/static/hero/city-m-960.01d0e13c.avif', '/static/hero/flap-1920.0b57c8f7.webp', '/static/hero/captain-960.0a1b2c3d.webp'];
+    expect(precacheList(['/static/a.js', ...stills, ...old, '/static/clips/arena-wide-1280.d7526d7c.mp4'], ['/'])).toEqual(['/', ...['/static/a.js', ...stills].sort()]);
+  });
 });

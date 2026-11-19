@@ -172,8 +172,9 @@ body { line-height: var(--lh-body); }
 .ba-btn--secondary:active { transform: translateY(1px); }
 .ba-btn--quiet { padding: 0 var(--sp-3); }
 .ba-btn--danger { background: transparent; }
-/* a destructive action (Settings: clear data) keeps its red, light enough to read on the black surface */
-:root:not([data-theme="light"]) .k-danger { color: #ff7a85; }
+/* a destructive action (Settings: clear data) and the error lines of the friends, profile and sign-up screens keep their red, light enough to read on
+   the black surface (the kit's dark red, flush-700, is 3.4 to 3.7:1 on it; axe wants 4.5:1; this one is 7.5 to 8.1:1) */
+:root:not([data-theme="light"]) .k-danger, :root:not([data-theme="light"]) .k-note-line.is-error, :root:not([data-theme="light"]) .pf-error { color: #ff7a85; }
 .ba-actions > .ba-btn { padding-block: var(--sp-2); }
 /* a long label (Turkish, German, French in capitals) wraps inside its button on a narrow phone instead of leaving it */
 .ba-btn { white-space: normal; text-align: center; max-width: 100%; padding-block: var(--sp-2); }
@@ -313,9 +314,14 @@ body { line-height: var(--lh-body); }
 /* A phone on its side: the rail on the left, the hero beside it */
 @media (max-height: 500px) and (orientation: landscape) {
   .ba-page--home { padding-left: calc(76px + var(--ba-gutter)); }
-  .k-arena { min-height: 100svh; padding-top: var(--sp-6); }
+  /* the phone's head (14 px, the 44 px buttons, 6 px) lies over the top of the hero: the words start under it and so does the "Example footage" note,
+     which sat under the logo and the settings link; the wordmark below is hidden, so the bottom needs no room for it */
+  .k-arena { --head: calc(env(safe-area-inset-top, 0px) + 64px); min-height: 100svh; padding-top: calc(var(--head) + var(--sp-3)); padding-bottom: var(--sp-6); }
+  .k-arena-copy { gap: var(--sp-4); }
+  /* two lines of title instead of three: the buttons stay on the first screen of 390 px, also under a trial or language notice */
+  .k-arena-copy .k-display { max-width: 16ch; }
   .k-arena-copy .k-lede { display: none; }
-  .k-arena-tag, .k-arena-pause { top: var(--sp-4); }
+  .k-arena-tag, .k-arena-pause { top: calc(var(--head) + var(--sp-3)); }
   /* the giant wordmark needs the height a phone on its side does not have, and it would run under the rail */
   .k-arena-mark { display: none; }
 }
@@ -435,6 +441,10 @@ a.k-modecard:hover { box-shadow: inset 0 0 0 2px var(--ba-text); }
 .k-band .bab-card { border-radius: var(--radius); }
 .k-band .bab-tag { border-radius: var(--radius); font-size: var(--type-small); background: rgba(5, 5, 5, 0.8); }
 .k-band .bab-foot { font-size: var(--type-small); }
+.bab-foot input { min-width: 0; }
+/* A phone held on its side is 900 px wide or more (915), but the rail and the gutters leave about 760 px: three columns made the slider's "After" run
+   out of its card. Two columns with the words across the top, as under 900 px. */
+@media (max-height: 500px) and (orientation: landscape) { .bab { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .bab-copy { grid-column: 1 / -1; } }
 
 /* ---------- Pro ---------- */
 .k-pro { display: grid; gap: var(--sp-7); align-items: center; }
