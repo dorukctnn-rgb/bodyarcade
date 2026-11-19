@@ -18,7 +18,7 @@ export interface Hooks {
   trial?: { endsInHours: number; where?: 'web' | 'play'; cancelled?: boolean; email?: 'offer' | 'none' };
   /** What a published build shows while nothing can be bought: no offers, a note. */
   billing?: 'unavailable' | 'checking';
-  /** The welcome tour: the stage drawn once and still ('static'), the pre-rendered pictures ('fallback'), or a first visit that is taken to it ('first'). */
+  /** The welcome tour: the stage drawn once and still ('static'), the pre-rendered pictures ('fallback'), or a first-timer, for whom the hero's Play free opens it ('first'). */
   tour?: 'static' | 'fallback' | 'first';
   /** Let the game signal (app/signal.ts) go out from this automated browser too: the signal tests look at what a round sends. */
   signals?: boolean;

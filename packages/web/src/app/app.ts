@@ -59,7 +59,7 @@ import { keyValueOf } from '../../../core/store/index.ts';
 import { canRace } from './duel.ts';
 import { openGhostDialog, type GhostDialogHost } from './ghost-dialog.ts';
 import { ghostMenu, ghostParam, ghostRunOf, ghostSource, parseGhost, raceMsOf, type GhostMenu, type GhostSpec, type RaceOutcome, type RaceSource, type RaceStageMount, type RaceWorld } from './race.ts';
-import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, stepFrom, takeToTour, type TourState, type TourStep } from './welcome-model.ts';
+import { firstDifficulty, FIRST_GAME_ID, FIRST_SECONDS, isAutomated, playFreeOpensTour, stepFrom, type TourState, type TourStep } from './welcome-model.ts';
 import { startTileClips } from './tile-clips.ts';
 import { startHeroReel } from './hero-reel.ts';
 import { startHowScene } from './how-scene.ts';
@@ -615,11 +615,6 @@ export class App {
       this.nav.go(router.href('home', { lang: route.lang }), { replace: true });
       return;
     }
-    // A first visit to the home page is taken to the tour, once (a script or a crawler never is, so the page a search engine lists is the one it gets).
-    if (route?.id === 'home' && this.firstVisit(change)) {
-      this.nav.go(router.href('welcome', { lang: route.lang }), { replace: true });
-      return;
-    }
     // The tour moves between its pages without being drawn again: its 3D stage stays and the panel follows the address.
     if (route?.id === 'welcome' && this.tour && this.route?.id === 'welcome' && route.lang === this.lang) {
       this.route = route;
@@ -900,13 +895,21 @@ export class App {
 
   private tourHook(): 'static' | 'fallback' | 'first' | undefined { return this.o.demo ? this.win.__BA_TEST__?.tour : undefined; }
 
-  /** The home page, the first time this device opens it: no tour seen, no round played, no script or crawler. */
-  private firstVisit(change: RouteChange<RouteId>): boolean {
+  /**
+   * The hero's "Play free" of the home page: a first-timer (no tour seen, no round played, no script or crawler) goes into the welcome tour,
+   * the quick way to a first real game; anyone else follows the link, which is the page of a game. Nobody is taken to the tour by the
+   * address of the home page: it always shows the hero. The tour opens as a page on top of the home page, so Back returns to the hero.
+   */
+  private heroPlay(e: MouseEvent): void {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // a new tab or window takes the link as it is
     const forced = this.tourHook() === 'first';
-    return takeToTour({
-      initial: change.initial, atHome: true, onboardingDone: this.currentSettings().onboardingDone, rounds: this.rounds(),
+    const opens = playFreeOpensTour({
+      onboardingDone: this.currentSettings().onboardingDone, rounds: this.rounds(),
       automated: !forced && isAutomated({ userAgent: this.win.navigator.userAgent, webdriver: this.win.navigator.webdriver }),
     });
+    if (!opens) return;
+    e.preventDefault();
+    this.nav.go(this.ctx().href('welcome'));
   }
 
   private endTour(): void {
@@ -1542,6 +1545,9 @@ export class App {
     switch (action) {
       case 'mode':
         this.toggleMode(el.dataset['mode'] ?? '');
+        break;
+      case 'hero-play':
+        this.heroPlay(e);
         break;
       case 'close-paywall':
         e.preventDefault();

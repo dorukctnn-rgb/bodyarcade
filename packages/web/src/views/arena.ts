@@ -45,7 +45,8 @@ export function arenaPreloads(ctx: ViewContext): Preload[] {
 /**
  * The top of the home page. The poster is the page's largest picture and the first thing drawn; the clip has no address until the app
  * gives it one after the page has loaded (app/hero-live.ts), and never for reduced motion, saving data or a crawler. The canvas carries the
- * body line and the pops; the media is decoration (aria-hidden), the words say what it shows.
+ * body line and the pops; the media is decoration (aria-hidden), the words say what it shows. "Play free" is a link to the game page (what a
+ * crawler, a script or a new tab follows); for a first-timer the app opens the welcome tour instead (app.ts heroPlay, data-action="hero-play").
  */
 export function arenaHero(ctx: ViewContext, featured: ShellGame | undefined): SafeHtml {
   const t = ctx.i18n;
@@ -69,7 +70,7 @@ export function arenaHero(ctx: ViewContext, featured: ShellGame | undefined): Sa
       <h1 id="home-h1" class="k-display" data-main-heading>${t.t('home.how.h1')}</h1>
       <p class="k-lede">${t.t('home.how.lead')}</p>
       <div class="k-actions">
-        ${featured ? html`<a class="ba-btn ba-btn--primary" href="${gameHref(ctx, featured)}">${icon('play')}<span>${t.t('home.cta.free')}</span></a>` : ''}
+        ${featured ? html`<a class="ba-btn ba-btn--primary" href="${gameHref(ctx, featured)}" data-action="hero-play">${icon('play')}<span>${t.t('home.cta.free')}</span></a>` : ''}
         <a class="ba-btn ba-btn--secondary" href="#how">${t.t('home.cta.how')}</a>
       </div>
       <p class="k-arena-assure">${icon('shield')}<span>${t.t('home.how.assure')}</span></p>

@@ -7,10 +7,12 @@ import type { Lang } from '../../core/ui/i18n/index.ts';
 import { DEFAULT_SETTINGS } from '../../core/ui/settings.ts';
 import { loadCatalogue } from '../catalogue/load.ts';
 import {
-  backStep, DEFAULT_REGIONS, deviceChoices, firstDifficulty, initialTour, isAutomated, judgeStage, nextStep, settingsPatch, startTier, stepFrom, TOUR_PAGES, TOUR_REGIONS,
-  takeToTour, toggleRegion, withDevice, withLevel, withPlayers, type FirstVisit, type TourState, type TourStep,
+  backStep, DEFAULT_REGIONS, deviceChoices, firstDifficulty, initialTour, isAutomated, judgeStage, nextStep, playFreeOpensTour, settingsPatch, startTier, stepFrom, TOUR_PAGES, TOUR_REGIONS,
+  toggleRegion, withDevice, withLevel, withPlayers, type Newcomer, type TourState, type TourStep,
 } from './app/welcome-model.ts';
 import { makeContext } from './make-context.ts';
+import { EMPTY_STATE, renderPage } from './pages.ts';
+import { router } from './routes.ts';
 import { FIRST_TOUR, seatedLine, welcomePage } from './views/welcome.ts';
 
 const games = loadCatalogue({ fixtures: 'only', requiredLangs: ['en', 'tr'] }).catalogue.games;
@@ -80,18 +82,18 @@ describe('the choices', () => {
   });
 });
 
-describe('who is taken to the tour', () => {
-  const visit: FirstVisit = { initial: true, atHome: true, onboardingDone: false, rounds: 0, automated: false };
+describe('for whom Play free in the hero opens the tour', () => {
+  const newcomer: Newcomer = { onboardingDone: false, rounds: 0, automated: false };
 
-  it('is a first visit to the home page, with nothing played, that is not a script', () => {
-    expect(takeToTour(visit)).toBe(true);
+  it('is a first-timer: no tour seen or skipped, no round played, not a script', () => {
+    expect(playFreeOpensTour(newcomer)).toBe(true);
   });
 
-  it('is nobody else: not a game page, not someone who has seen it or played, not a move inside the app, not a robot', () => {
-    for (const no of [{ initial: false }, { atHome: false }, { onboardingDone: true }, { rounds: 1 }, { automated: true }]) expect(takeToTour({ ...visit, ...no }), JSON.stringify(no)).toBe(false);
+  it('is nobody else: not someone who has done the tour (seen or skipped) or played a round, not a robot', () => {
+    for (const no of [{ onboardingDone: true }, { rounds: 1 }, { rounds: 40 }, { automated: true }, { onboardingDone: true, rounds: 3 }]) expect(playFreeOpensTour({ ...newcomer, ...no }), JSON.stringify(no)).toBe(false);
   });
 
-  it('never takes a crawler, a preview fetcher or a script driving the browser', () => {
+  it('never sends a crawler, a preview fetcher or a script driving the browser into the tour', () => {
     const robots = [
       'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
       'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0)',
@@ -104,6 +106,33 @@ describe('who is taken to the tour', () => {
     expect(isAutomated({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' })).toBe(false);
     expect(isAutomated({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0 Safari/537.36', webdriver: true })).toBe(true);
     expect(isAutomated({})).toBe(false);
+  });
+});
+
+describe.each(['en', 'tr'] as const)('the hero of the home page in %s', (lang) => {
+  const home = lang === 'en' ? '/' : `/${lang}/`;
+  const hero = (server: boolean): string => {
+    const ctx = makeContext({ lang, games, url: home, server });
+    const body = renderPage(ctx, router.match(home), EMPTY_STATE).body.value;
+    const from = body.indexOf('data-hero');
+    return body.slice(from, body.indexOf('</section>', from));
+  };
+
+  it('keeps Play free a plain link to the game page (what a crawler, a script and a new tab follow) that the app turns into the tour for a first-timer', () => {
+    for (const server of [true, false]) {
+      const links = [...hero(server).matchAll(/<a [^>]*class="ba-btn ba-btn--primary"[^>]*>/g)].map((m) => m[0]);
+      expect(links, `server ${server}`).toHaveLength(1);
+      expect(links[0], `server ${server}`).toMatch(/href="[^"]*\/games\/[a-z0-9-]+\/"/);
+      expect(links[0], `server ${server}`).not.toMatch(/welcome/);
+      expect(links[0], `server ${server}`).toContain('data-action="hero-play"');
+    }
+  });
+
+  it('leaves How it works and every other link of the hero as they were', () => {
+    const h = hero(true);
+    expect(h.match(/<a /g)).toHaveLength(2);
+    expect(h).toMatch(/<a class="ba-btn ba-btn--secondary" href="#how">/);
+    expect(h.match(/data-action=/g)).toHaveLength(1);
   });
 });
 

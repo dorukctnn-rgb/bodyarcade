@@ -1,5 +1,5 @@
 // The welcome tour as plain data and rules: which step comes next, what each choice does to the others, what is kept in the
-// settings when the tour moves on, who is taken to the tour on their first visit, and when the 3D stage gives way to a
+// settings when the tour moves on, for whom the hero's "Play free" opens the tour, and when the 3D stage gives way to a
 // pre-rendered picture. Steps 1 to 5 are pages of the tour; the sixth (the calibration) and the seventh (the first game) are the
 // real play page of Squat Flap, so what the player is shown there is the real thing, not a drawing of it.
 import type { BodyRegion } from '../../../core/types/index.ts';
@@ -97,26 +97,28 @@ export function settingsPatch(s: TourState): Pick<Settings, 'regions' | 'level' 
   return { regions: [...s.regions], level: s.level, seated: s.seated, quiet: s.quiet, device: s.device === 'tv' ? 'laptop' : s.device };
 }
 
-// ---- who is taken to the tour ----------------------------------------------------------------------------------------------
+// ---- who the tour is for -----------------------------------------------------------------------------------------------------
 
-export interface FirstVisit {
+/**
+ * Nobody is taken to the tour by the address: every visit to the home page (the first too) shows the home page, with its hero.
+ * The tour is what the hero's "Play free" opens for a first-timer, the quick way to a first real game; anyone else, and
+ * every other link, goes where the link says. The tour stays a page of its own (the welcome route and its ?step=).
+ */
+export interface Newcomer {
   /** The settings say the tour was seen or skipped. */
   onboardingDone: boolean;
   /** Rounds played on this device (a player who comes back with a record needs no tour). */
   rounds: number;
-  /** The visitor is a script or a crawler (a robot never gets a page that is not the one a search engine lists). */
+  /** The visitor is a script or a crawler (it follows the link to the game page, as it always did). */
   automated: boolean;
-  /** Only the home page takes a first visitor to the tour; a game page opened from a search goes where it was asked to. */
-  atHome: boolean;
-  /** A page that is part of the tour or of a round is never replaced. */
-  initial: boolean;
 }
 
-export function takeToTour(v: FirstVisit): boolean {
-  return v.initial && v.atHome && !v.onboardingDone && v.rounds === 0 && !v.automated;
+/** Does the hero's "Play free" open the tour? Only for a first-timer: no tour seen, no round played, no script or crawler. */
+export function playFreeOpensTour(v: Newcomer): boolean {
+  return !v.onboardingDone && v.rounds === 0 && !v.automated;
 }
 
-/** The user agent of a search engine, a preview fetcher or a speed test: none of them is taken to the tour. */
+/** The user agent of a search engine, a preview fetcher or a speed test: none of them is sent into the tour. */
 export const ROBOT_AGENT = /bot|crawl|spider|slurp|lighthouse|headless|prerender|facebookexternalhit|embedly|preview/i;
 
 export function isAutomated(nav: { userAgent?: string; webdriver?: boolean }): boolean {
