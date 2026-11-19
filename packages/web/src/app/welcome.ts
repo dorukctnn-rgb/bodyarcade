@@ -241,8 +241,7 @@ export class WelcomeController {
     const win = this.host.document.defaultView;
     const el = this.stageEl.querySelector<HTMLElement>('.k-mo');
     if (!win || !el) return;
-    const video = el.querySelector('video');
-    const format = video ? motionFormat(video) : null;
+    const format = motionFormat(this.host.document.createElement('video'));
     if (!format) return;
     const t = this.host.context().i18n;
     const player = new MotionPlayer(el, win, { combo: t.t('home.hero.combo', { n: '{n}' }), perfect: t.t('home.hero.perfect'), lang: this.host.document.documentElement.lang });

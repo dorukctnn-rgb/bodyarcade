@@ -268,7 +268,7 @@ test('where the clip is not to play (the test asks for the posters) the poster s
   const poster = page.locator('.ob-stage .k-mo-poster img');
   await expect(poster).toBeVisible();
   await expect.poll(() => poster.evaluate((i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 100)).toBe(true);
-  expect(await page.locator('.ob-stage video').getAttribute('src')).toBeNull();
+  expect(await page.locator('.ob-stage video[src]').count()).toBe(0);
   await page.getByRole('button', { name: 'Start' }).click();
   await expect(page).toHaveURL(/step=2/);
   await expect(page.locator('[data-stage]')).toHaveAttribute('data-clip', 'reach');
@@ -288,7 +288,7 @@ test('a script and a visitor who asked for less motion get the poster, and no cl
     await page.waitForSelector('[data-welcome][data-ready="1"]');
     await page.waitForTimeout(800);
     await expect(page.locator('.ob-stage .k-mo-poster img'), reducedMotion).toBeVisible();
-    expect(await page.locator('.ob-stage video').getAttribute('src'), reducedMotion).toBeNull();
+    expect(await page.locator('.ob-stage video[src]').count(), reducedMotion).toBe(0);
     expect(fetched, reducedMotion).toEqual([]);
     await context.close();
   }

@@ -81,8 +81,19 @@ export class MotionPlayer {
     this.el = el;
     this.win = win;
     this.words = words;
-    this.video = el.querySelector('video.k-mo-video') as HTMLVideoElement;
-    this.canvas = el.querySelector('canvas.k-mo-canvas') as HTMLCanvasElement;
+    // the video (it only decodes) and the canvas (the picture and the line) go after the poster, under what sits over the picture
+    const doc = win.document;
+    const poster = el.querySelector('.k-mo-poster');
+    this.video = el.querySelector('video.k-mo-video') ?? Object.assign(doc.createElement('video'), { className: 'k-mo-video', muted: true, loop: true, playsInline: true, preload: 'none', tabIndex: -1 });
+    this.video.setAttribute('aria-hidden', 'true');
+    this.video.setAttribute('disablepictureinpicture', '');
+    this.video.setAttribute('disableremoteplayback', '');
+    this.video.setAttribute('playsinline', '');
+    this.video.setAttribute('data-qa-layer', '');
+    this.canvas = el.querySelector('canvas.k-mo-canvas') ?? Object.assign(doc.createElement('canvas'), { className: 'k-mo-canvas' });
+    this.canvas.setAttribute('aria-hidden', 'true');
+    this.canvas.setAttribute('data-qa-layer', '');
+    if (!this.video.isConnected) (poster ?? el.firstChild)?.after?.(this.video, this.canvas);
     this.g = this.canvas?.getContext('2d') ?? null;
     this.shape = el.classList.contains('k-mo--tall') ? 'tall' : 'tile';
     this.count = el.querySelector('[data-mo-count]');
@@ -151,6 +162,8 @@ export class MotionPlayer {
     this.video.pause();
     if (this.video.getAttribute('src')) { this.video.removeAttribute('src'); this.video.load(); }
     this.el.classList.remove('is-live');
+    this.video.remove();
+    this.canvas.remove();
   }
 
   private follow(): void {
@@ -234,8 +247,7 @@ export function startMotionCards(root: ParentNode, env: MotionEnv): () => void {
   if (els.length === 0) return () => undefined;
   const connection = (win.navigator as Navigator & { connection?: ClipConnection }).connection;
   if (!motionAllowed({ reducedMotion: env.reducedMotion, connection, automated: env.automated, forced: env.forced === true, weak: weakDevice(win) })) return () => undefined;
-  const probe = els[0]?.querySelector('video');
-  const format = probe ? motionFormat(probe) : null;
+  const format = motionFormat(doc.createElement('video'));
   const Observer = (win as Window & typeof globalThis).IntersectionObserver;
   if (!format || typeof Observer !== 'function') return () => undefined;
   loadPopFont(doc, () => undefined);

@@ -9,8 +9,9 @@ const cards = (page: Page) => page.locator('.k-mo');
 
 /** What each card of the page is doing: its clip, its address, whether it plays and whether its canvas is shown. */
 const state = (page: Page) => page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.k-mo')].map((el) => {
-  const v = el.querySelector('video') as HTMLVideoElement;
-  return { id: el.dataset['mo'] ?? '', game: el.closest('a.ba-tile')?.getAttribute('data-game') ?? '', src: v.getAttribute('src') ?? '', playing: !v.paused && v.currentTime > 0, live: el.classList.contains('is-live') };
+  // the video is made by the app when the clip is to play: none before
+  const v = el.querySelector('video');
+  return { id: el.dataset['mo'] ?? '', game: el.closest('a.ba-tile')?.getAttribute('data-game') ?? '', src: v?.getAttribute('src') ?? '', playing: !!v && !v.paused && v.currentTime > 0, live: el.classList.contains('is-live') };
 }));
 
 /** The layout of a tile: where it lies on the page and the size of its picture box (offset sizes: the hover lift is a transform). */

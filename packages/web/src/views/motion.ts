@@ -1,6 +1,7 @@
 // A real person in motion with our body line (src/motion.ts): the poster first (the clip's first frame with its line drawn on it), and,
-// once the app plays the clip (app/motion-cards.ts), the clip and its line drawn together on a canvas. The clip, its line and its pops have
-// no address in the markup's sources, so nothing but the poster is fetched until the clip is to play. Decorative unless given words:
+// once the app plays the clip (app/motion-cards.ts), the clip and its line drawn together on a canvas. The markup carries only the poster
+// and the addresses (data-*); the video and the canvas are made by the app when the clip is to play, so a page that never plays one (a
+// crawler, reduced motion, saving data, a weak device) has none of them, and nothing but the poster is fetched. Decorative unless given words:
 // the card or the link around it says what it shows.
 import { html, type SafeHtml } from '../../../core/ui/html.ts';
 import type { ShellGame } from '../../catalogue/types.ts';
@@ -31,9 +32,7 @@ export function motionMedia(ctx: ViewContext, id: MotionId, shape: MotionShape, 
   const load = o.eager ? html`decoding="async"` : html`loading="lazy" decoding="async"`;
   const flags = html`${o.pops ? html` data-mo-pops` : ''}${o.target ? html` data-mo-target` : ''}${o.all ? html` data-mo-all` : ''}`;
   return html`<span class="k-mo k-mo--${shape}${o.className ? ` ${o.className}` : ''}" data-mo="${id}" data-mo-webm="${c(motionClipFile(id, shape, 'webm'))}" data-mo-mp4="${c(motionClipFile(id, shape, 'mp4'))}" data-mo-pose="${c(motionPoseFile(id, shape))}"${flags}${o.alt ? '' : html` aria-hidden="true"`}>
-    <picture class="k-mo-poster"><source type="image/avif" srcset="${a(motionPosterFile(id, shape, 'avif'))}"><img src="${a(motionPosterFile(id, shape, 'webp'))}" alt="${o.alt ?? ''}" width="${w}" height="${h}" ${load}></picture>
-    <video class="k-mo-video" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>
-    <canvas class="k-mo-canvas" aria-hidden="true" data-qa-layer></canvas>${o.over ?? ''}
+    <picture class="k-mo-poster"><source type="image/avif" srcset="${a(motionPosterFile(id, shape, 'avif'))}"><img src="${a(motionPosterFile(id, shape, 'webp'))}" alt="${o.alt ?? ''}" width="${w}" height="${h}" ${load}></picture>${o.over ?? ''}
   </span>`;
 }
 

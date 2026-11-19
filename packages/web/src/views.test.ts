@@ -211,11 +211,13 @@ describe('home and region pages', () => {
       for (const [id, tile] of shown) {
         const m = GAME_MOTION[id] as string;
         expect(m, id).toBeDefined();
-        // the poster first (the clip's first frame with its line: what stays when motion is reduced), then the video and the canvas, then
-        // the frame of the game, then the marks on top
+        // the poster first (the clip's first frame with its line: what stays when motion is reduced), then the frame of the game, then the
+        // marks on top
         expect(tile).toContain(`<span class="art"><span class="k-mo k-mo--tile" data-mo="${m}" data-mo-webm="/assets/clips/mo-${m}-tile.webm" data-mo-mp4="/assets/clips/mo-${m}-tile.mp4" data-mo-pose="/assets/clips/mo-${m}-tile.json" data-mo-pops aria-hidden="true">`);
         expect(tile).toMatch(new RegExp(`<picture class="k-mo-poster"><source type="image/avif" srcset="/assets/hero/mo-${m}-tile.avif"><img src="/assets/hero/mo-${m}-tile.webp" alt="" width="640" height="480" loading="lazy" decoding="async"></picture>`));
-        expect(tile).toContain('<video class="k-mo-video" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>');
+        // no video and no canvas until the app plays the clip (a page that never plays one has none)
+        expect(tile).not.toContain('<video');
+        expect(tile).not.toContain('<canvas');
         expect(tile).toContain(`<span class="k-mo-game" data-qa-layer><img src="/assets/hero/cap-${id}-480.webp" alt="" width="480" height="360" loading="lazy" decoding="async"></span>`);
         expect(tile).not.toContain('<video class="clip"');
       }
