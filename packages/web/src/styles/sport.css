@@ -35,8 +35,8 @@
   --type-body: var(--fs-1);
   --type-small: var(--fs-0);
   --type-mark: 19.6vw;
-  --lh-display: 0.9;
-  --lh-h2: 0.95;
+  --lh-display: 1.02;
+  --lh-h2: 1.02;
   --lh-h3: 1.2;
   --lh-lead: 1.45;
   --lh-body: 1.55;
@@ -175,8 +175,8 @@ body { line-height: var(--lh-body); }
 /* a destructive action (Settings: clear data) keeps its red, light enough to read on the black surface */
 :root:not([data-theme="light"]) .k-danger { color: #ff7a85; }
 .ba-actions > .ba-btn { padding-block: var(--sp-2); }
-/* a long label (German, French) wraps inside its button on a narrow phone instead of leaving it */
-.k-arena .ba-btn, .k-zone .ba-btn, .k-pro .ba-btn, .k-final .ba-btn, .k-feature .ba-btn, .k-paircard .ba-btn { white-space: normal; text-align: center; max-width: 100%; padding-block: var(--sp-2); }
+/* a long label (Turkish, German, French in capitals) wraps inside its button on a narrow phone instead of leaving it */
+.ba-btn { white-space: normal; text-align: center; max-width: 100%; padding-block: var(--sp-2); }
 .ba-link { text-decoration-color: var(--ba-accent); font-size: inherit; letter-spacing: 0; }
 .ba-chip { border-radius: var(--radius); font-weight: 700; font-size: var(--type-small); letter-spacing: var(--ls-label); }
 .ba-chip[aria-current="page"], .ba-chip[aria-pressed="true"] { background: var(--ba-text); color: var(--ba-bg); }
@@ -294,6 +294,8 @@ body { line-height: var(--lh-body); }
 @media (max-aspect-ratio: 1/1) and (min-width: 600px) {
   .k-arena-poster img, .k-arena-video { object-position: 56% 50%; }
 }
+/* the notice of a trial's last days sits above the page: the picture gives up the room, so the buttons stay on the first screen */
+@media (max-aspect-ratio: 1/1) { .ba-app:has(> .ba-trialnote) .k-arena, .ba-app:has(> .ba-langnote) .k-arena { --media-h: 46svh; min-height: 0; } }
 @media (max-aspect-ratio: 1/1) and (max-height: 779.98px) {
   .k-arena { --media-h: 54svh; }
   .k-arena-copy .k-lede { display: none; }
@@ -301,6 +303,10 @@ body { line-height: var(--lh-body); }
 @media (max-aspect-ratio: 1/1) and (max-width: 599.98px) {
   .k-arena-copy .k-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); width: 100%; }
   .k-arena-copy .k-actions .ba-btn { padding-inline: var(--sp-3); }
+}
+/* the narrowest phones: one button a line, so a long word ("GRATUITEMENT") keeps its button */
+@media (max-aspect-ratio: 1/1) and (max-width: 379.98px) {
+  .k-arena-copy .k-actions { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
 }
 /* A phone on its side: the rail on the left, the hero beside it */
 @media (max-height: 500px) and (orientation: landscape) {
