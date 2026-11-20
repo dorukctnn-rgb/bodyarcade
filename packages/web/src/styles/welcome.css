@@ -45,3 +45,62 @@ html:has(.ob) body { overflow: hidden; }
 /* No spinning, no camera sway: a visitor who asked for less motion gets the still picture of the stage. */
 html[data-motion="reduce"] .ob-stage canvas { transition: none; }
 
+
+/* ---------- The sports look (19 Nov 2026, the site's harmony rules: styles/sport.css) ----------
+   Anton for the one heading of each page (uppercase), the system fonts for the rest; the black base with its raised blacks and hairline;
+   one lime accent (the button, the page in the progress, a chosen option); one 4 px radius; the one 56 px button (sport.css .ba-btn).
+   The stage is a real person doing the page's moves with our body line (views/motion.ts, app/welcome.ts). */
+.ob-title { font-family: var(--font-poster); font-weight: 400; text-transform: uppercase; letter-spacing: var(--ls-display); line-height: 1.02; font-size: clamp(2.1rem, 1.3rem + 3.4vmin, 3.8rem); }
+.ob[data-step="1"] .ob-title { font-size: clamp(2.5rem, 1.4rem + 4.6vmin, 5rem); }
+@media (orientation: landscape) and (max-height: 500px) { .ob-title { font-size: clamp(1.6rem, 1rem + 2.8vmin, 2.3rem); } .ob[data-step="1"] .ob-title { font-size: clamp(1.9rem, 1rem + 3.4vmin, 2.7rem); } }
+@media (min-width: 1200px) and (orientation: landscape) { .ob-title { font-size: clamp(3rem, 1rem + 2.8vw, 4.4rem); } .ob[data-step="1"] .ob-title { font-size: clamp(3.6rem, 1rem + 3.6vw, 5.6rem); } }
+.ob-text, .ob-points span, .ob-note, .ob-level span, .ob-mode span, .ob-level-desc, .ob-health { color: var(--ba-text-muted); }
+.ob-points b, .ob-mode b { font-weight: 800; }
+.ob-label { font-size: var(--type-small); font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ba-text-muted); }
+
+.ob-progress li { height: 4px; border-radius: 0; }
+.ob-progress span { font-size: var(--type-small); font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; }
+
+/* choices: a raised black with a hairline; the chosen one in lime */
+.ob .ba-chip { border-radius: var(--radius); background: var(--ba-surface); color: var(--ba-text); box-shadow: inset 0 0 0 1px var(--ba-border); }
+.ob .ba-chip[aria-pressed="true"] { background: var(--ba-accent); color: var(--ba-on-accent); box-shadow: none; }
+.ob .ba-chip:hover:not([aria-pressed="true"]) { box-shadow: inset 0 0 0 2px var(--ba-text); }
+.ob-level, .ob-mode, .ob-health { border-radius: var(--radius); background: var(--ba-surface); box-shadow: inset 0 0 0 1px var(--ba-border); }
+.ob-level b { font-family: inherit; font-weight: 800; }
+.ob-level:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ba-accent); background: var(--ba-surface); }
+.ob-level:has(input:checked) b::after { border-radius: 0; background: var(--ba-accent); }
+.ob-seg { border-radius: var(--radius); background: var(--ba-surface); box-shadow: inset 0 0 0 1px var(--ba-border); }
+.ob-seg label, .ob-seg label > span { border-radius: var(--radius); }
+.ob-seg input:checked + span { background: var(--ba-accent); color: var(--ba-on-accent); box-shadow: none; }
+
+/* the buttons: the lime one, and "Back" / "Skip the tour" as the outlined second button */
+.ob-actions .ba-btn--quiet { min-height: 56px; padding: 0 var(--sp-5); background: transparent; color: var(--ba-text); box-shadow: inset 0 0 0 2px var(--ba-text); }
+.ob-actions .ba-btn--quiet:hover { background: var(--ba-text); color: var(--ba-bg); }
+@media (min-width: 1200px) and (orientation: landscape) { .ob-actions .ba-btn--lg { min-height: 56px; font-size: var(--type-button); } }
+@media (orientation: landscape) and (max-height: 500px) { .ob-actions .ba-btn--lg, .ob-actions .ba-btn--quiet { min-height: 48px; } }
+
+.ob-lang { border-radius: var(--radius); height: 44px; background: rgba(5, 5, 5, 0.6); color: #f5f5f5; box-shadow: inset 0 0 0 1px rgba(245, 245, 245, 0.35); font-size: var(--type-small); letter-spacing: var(--ls-label); }
+
+/* the stage: the clip fills it and melts into the panel like the 3D scene did; the grain is gone (it was the 3D scene's) */
+.ob-stage { background: #050505; }
+.ob-stage::after { background: radial-gradient(var(--ob-vig), transparent 62%, rgba(5, 5, 5, 0.55) 100%); }
+.ob-stage .k-mo { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; background: #050505; -webkit-mask-image: var(--ob-fade); mask-image: var(--ob-fade); }
+.ob-example { position: absolute; z-index: 2; top: calc(env(safe-area-inset-top, 0px) + var(--sp-4)); right: var(--ob-gutter); margin: 0; font-size: var(--type-small); font-weight: 600; letter-spacing: var(--ls-label); color: #a3a3a3; }
+@media (orientation: landscape) { .ob-example { right: auto; left: var(--ob-gutter); top: auto; bottom: var(--sp-4); } }
+@media (orientation: portrait) { .ob[data-step="1"] .ob-example { top: calc(env(safe-area-inset-top, 0px) + 64px); } }
+.ob-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+
+/* the space page's labels, placed by the person (app/welcome.ts drawLabels), and the clear floor round their feet */
+.ob-tag3d { border-radius: var(--radius); padding: 6px 10px; font-size: var(--type-small); font-weight: 700; letter-spacing: var(--ls-label); background: rgba(5, 5, 5, 0.78); color: #f5f5f5; box-shadow: inset 0 0 0 1px rgba(245, 245, 245, 0.45); }
+.ob-tag3d.flush { background: var(--ba-accent); color: var(--ba-on-accent); box-shadow: none; }
+.ob-floor { position: absolute; border-radius: 50%; border: 2px dashed #d7ff1f; box-shadow: 0 0 12px rgba(215, 255, 31, 0.35); }
+
+/* the camera page's viewfinder */
+.ob-finder i { border-color: #d7ff1f; border-radius: 0 !important; }
+.ob-finder em { border-radius: var(--radius); background: var(--ba-accent); color: var(--ba-on-accent); font-size: var(--type-small); font-weight: 800; letter-spacing: var(--ls-label); }
+
+/* the two switches of the third page: a hairline track on the black, the knob white, lime when on (one radius: square corners) */
+.ob .ba-switch span { border-radius: var(--radius); background: #2a2a2d; }
+.ob .ba-switch span::after { border-radius: 2px; background: #f5f5f5; }
+.ob .ba-switch input:checked + span { background: var(--ba-accent); }
+.ob .ba-switch input:checked + span::after { background: #050505; }

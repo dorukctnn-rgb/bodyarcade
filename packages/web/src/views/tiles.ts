@@ -9,10 +9,17 @@ import type { ShellGame } from '../../catalogue/types.ts';
 import { durationLabel, hasPro, mainRegion, regionLabel, titleOf, type ViewContext } from '../context.ts';
 import { REGION_ORDER } from '../routes.ts';
 import { clipSet, hasClip } from '../clips.ts';
+import { GAME_MOTION } from '../motion.ts';
 import { gamePicture } from './arena.ts';
+import { gameInset, motionMedia } from './motion.ts';
 
-/** The picture of a game's tile: a frame of the game in play (src/arena.ts), or its catalogue art where there is no frame. */
+/**
+ * The picture of a game's tile: a person doing the game's move with our body line (src/motion.ts), and a small frame of the game itself
+ * in the corner; a game without a clip keeps a frame of the game in play (src/arena.ts) or its catalogue art.
+ */
 export function tileImage(ctx: ViewContext, g: ShellGame, sizes: string): SafeHtml {
+  const id = GAME_MOTION[g.id];
+  if (id) return motionMedia(ctx, id, 'tile', { pops: true, over: gameInset(ctx, g) });
   return gamePicture(ctx, g, sizes);
 }
 
@@ -25,7 +32,7 @@ const TILE_SIZES = '(min-width: 1680px) 300px, (min-width: 900px) 25vw, (min-wid
  */
 export function tileClip(ctx: ViewContext, g: ShellGame): SafeHtml {
   const stem = g.catalogue.tile;
-  if (!hasClip(stem)) return html``;
+  if (GAME_MOTION[g.id] || !hasClip(stem)) return html``;
   const url = (file: string): string => ctx.assets.clip(file);
   return html`<video class="clip" data-webm="${clipSet(stem, 'webm', url)}" data-mp4="${clipSet(stem, 'mp4', url)}" width="400" height="300" muted loop playsinline disablepictureinpicture disableremoteplayback preload="none" aria-hidden="true" tabindex="-1" data-qa-layer></video>`;
 }

@@ -112,7 +112,7 @@ export const en = {
   'home.how2.score.body': 'Every clean move counts. Chain them into combos and beat your best.',
   'home.how2.alt.camera': 'An athlete in a gym, framed by a camera from head to feet.',
   'home.how2.alt.move': 'The same athlete with our pose tracking line over the body.',
-  'home.how2.alt.score': 'Pose Wall in play: the game shows the shape to match.',
+  'home.how2.alt.score': 'A person holding a pose, with the shape to match drawn over them.',
   'home.games.kicker': 'The games',
   'home.games.title': '{n, plural, one {# game} other {# games}}. {free} free.',
   'home.areas.kicker': 'Body areas',

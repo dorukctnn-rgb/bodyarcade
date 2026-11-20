@@ -1,12 +1,12 @@
 // The home page's story under the games (Kol G, Apple Fitness+ line): the before/after band of the progress coach, the form coach,
-// Today and the progress coach, and the privacy promise. Large type, one idea per section, real words from the product. The pictures
-// are the product's own: the 3D twin's stills (the band), the body line drawn from the same squat as the scene at the top (views/how.ts),
-// and the shape of a day's plan. No photo of a person, no result promised, nothing medical.
+// Today and the progress coach, and the privacy promise. Large type, one idea per section, real words from the product. The pictures:
+// the progress coach's own 3D twin (the band: the feature's real output, so it stays a 3D picture), a person doing squats with our body
+// line and the coach's counters (src/motion.ts, example footage), and the shape of a day's plan. No result promised, nothing medical.
 import { html, raw, type SafeHtml } from '../../../core/ui/html.ts';
 import { icon, type IconName } from '../../../core/ui/icons.ts';
 import type { ViewContext } from '../context.ts';
-import { framePoints, HOW_FLOOR, HOW_LOOP, HOW_STILL, personShapes } from '../how.ts';
-import { shapesMarkup } from './how.ts';
+import { COACH_MOTION } from '../motion.ts';
+import { motionMedia } from './motion.ts';
 import { sitePageHref } from './chrome.ts';
 import { BAND_STILLS, bandMarkup } from '../growth/before-after-band.ts';
 
@@ -25,32 +25,15 @@ export function bandSection(ctx: ViewContext): SafeHtml {
   return html`<div class="k-band" data-home-band>${raw(bandMarkup(ctx.lang, { href: ctx.href('progress'), stills }))}</div>`;
 }
 
-const at = (pts: readonly { x: number; y: number }[], name: string): { x: number; y: number } => pts[HOW_LOOP.points.indexOf(name)] as { x: number; y: number };
-
-/** The form coach's picture: the body line over the person at the bottom of a squat, green where the form is good, amber dotted on the knees. */
+/**
+ * The form coach's picture: a person doing squats with our body line, and the coach's counters over them (the reps go up at each rep of
+ * the clip while it plays; the poster says 8 and 7).
+ */
 function coachFigure(ctx: ViewContext): SafeHtml {
   const t = ctx.i18n;
-  const pts = framePoints(HOW_STILL);
-  const tip = '#FFC53A';
-  const f = (v: number): string => v.toFixed(1);
-  const legs = [['hipL', 'kneeL'], ['kneeL', 'ankleL'], ['hipR', 'kneeR'], ['kneeR', 'ankleR']]
-    .map(([a, b]) => { const p = at(pts, a as string), q = at(pts, b as string); return `<line x1="${f(p.x)}" y1="${f(p.y)}" x2="${f(q.x)}" y2="${f(q.y)}" stroke="#2A2340" stroke-width="5" stroke-linecap="round"/><line x1="${f(p.x)}" y1="${f(p.y)}" x2="${f(q.x)}" y2="${f(q.y)}" stroke="${tip}" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="0.1 6.5"/>`; })
-    .join('');
-  const knees = ['kneeL', 'kneeR'].map((k) => { const p = at(pts, k); return `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="5" fill="#1C1433" stroke="${tip}" stroke-width="2.4"/>`; }).join('');
-  // the picture comes in close on the person: the body fills two thirds of the height, the numbers sit over the room above the head
-  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
-  const shoulder = Math.abs(at(pts, 'shoulderL').x - at(pts, 'shoulderR').x);
-  const top = Math.min(...ys) - shoulder * 0.9, bottom = HOW_FLOOR + 6;
-  const vbH = (bottom - top) / 0.66, vbW = (vbH * 4) / 3;
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const vbX = cx - vbW / 2, vbY = top - vbH * 0.32;
-  const svg = `<svg viewBox="${f(vbX)} ${f(vbY)} ${f(vbW)} ${f(vbH)}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">`
-    + '<defs><linearGradient id="coach-room" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2A2D"/><stop offset="1" stop-color="#18181A"/></linearGradient></defs>'
-    + `<rect x="${f(vbX - 20)}" y="${f(vbY - 20)}" width="${f(vbW + 40)}" height="${f(vbH + 40)}" fill="url(#coach-room)"/><rect x="${f(vbX - 20)}" y="${HOW_FLOOR}" width="${f(vbW + 40)}" height="${f(vbY + vbH + 20 - HOW_FLOOR)}" fill="#111112"/>`
-    + shapesMarkup(personShapes(pts)) + legs + knees
-    + '</svg>';
+  const hud = html`<span class="k-coachfig-hud" aria-hidden="true" data-qa-layer><span><b data-mo-count>8</b>${t.t('home.coach.reps')}</span><span><b data-mo-clean>7</b>${t.t('home.coach.clean')}</span></span>`;
   return html`<figure class="k-coachfig">
-    <div class="k-coachfig-pic">${raw(svg)}<div class="k-coachfig-hud" aria-hidden="true"><span><b>8</b>${t.t('home.coach.reps')}</span><span><b>7</b>${t.t('home.coach.clean')}</span></div></div>
+    <div class="k-coachfig-pic">${motionMedia(ctx, COACH_MOTION, 'tile', { over: hud })}</div>
     <p class="k-coachfig-cue" aria-hidden="true">${t.t('home.coach.cue')}</p>
     <figcaption class="ba-visually-hidden">${t.t('home.coach.caption')}</figcaption>
   </figure>`;

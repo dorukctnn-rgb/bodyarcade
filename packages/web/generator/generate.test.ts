@@ -8,7 +8,8 @@ import { BRAND_CARD } from '../src/pages.ts';
 import { loadCatalogue } from '../catalogue/load.ts';
 import type { ShellGame } from '../catalogue/types.ts';
 import { SHOWCASE, showcaseFiles } from '../src/showcase.ts';
-import { CLIP_TILES, clipFiles, heroClipFiles } from '../src/clips.ts';
+import { heroClipFiles } from '../src/clips.ts';
+import { motionClipFiles, motionPosterFiles } from '../src/motion.ts';
 import { arenaClipFiles, arenaStillFiles } from '../src/arena.ts';
 import { gameHasLanguage, generate, type GenerateReport } from './generate.ts';
 
@@ -113,8 +114,8 @@ describe('the generated site', () => {
 
   it('opens the home page on the poster of the hero clip, fetched from the head, one crop per screen shape; the frames of the real games wait their turn', () => {
     const hero = readdirSync(join(out, 'static', 'hero'));
-    // the frames of the showcase, the two stills of the before/after band (Kol G), and the sports home page's pictures (src/arena.ts)
-    expect(hero).toHaveLength(showcaseFiles().length + 2 + arenaStillFiles().length);
+    // the frames of the showcase, the two stills of the before/after band (Kol G), the sports home page's pictures (src/arena.ts) and the posters of the real people in motion (src/motion.ts)
+    expect(hero).toHaveLength(showcaseFiles().length + 2 + arenaStillFiles().length + motionPosterFiles().length);
     expect(hero.filter((f) => /^band-(morph|compare)-800\.[0-9a-f]{8}\.webp$/.test(f))).toHaveLength(2);
     expect(hero.every((f) => /\.[0-9a-f]{8}\.(avif|webp)$/.test(f))).toBe(true);
     for (const page of ['index.html', 'tr/index.html']) {
@@ -136,10 +137,10 @@ describe('the generated site', () => {
     expect(read('games/squat-flap/index.html')).not.toContain('rel="preload" as="image"');
   });
 
-  it('gives the tiles of the redrawn games their clips under hashed names, and the page fetches none of them by itself', () => {
+  it('gives the real people in motion their clips and body lines under hashed names, and the page fetches none of them by itself', () => {
     const clips = readdirSync(join(out, 'static', 'clips'));
-    expect(clips).toHaveLength(clipFiles().length + heroClipFiles(SHOWCASE.map((x) => x.id)).length + arenaClipFiles().length);
-    expect(clips.filter((f) => !f.startsWith('hero-') && !f.startsWith('arena-')).every((f) => /^[a-z-]+-(400|800)\.[0-9a-f]{8}\.(webm|mp4)$/.test(f))).toBe(true);
+    expect(clips).toHaveLength(heroClipFiles(SHOWCASE.map((x) => x.id)).length + arenaClipFiles().length + motionClipFiles().length);
+    expect(clips.filter((f) => f.startsWith('mo-')).every((f) => /^mo-[a-z]+-(tile|tall)\.[0-9a-f]{8}\.(webm|mp4|json)$/.test(f))).toBe(true);
     // the hero clip of the sports home page: no address in the page until the app gives it one after the page has loaded
     for (const page of ['index.html', 'tr/index.html']) {
       const v = read(page).match(/<video class="k-arena-video"[^>]*>/)?.[0] ?? '';
@@ -149,16 +150,19 @@ describe('the generated site', () => {
     }
     for (const page of ['index.html', 'tr/index.html', 'workouts/legs/index.html']) {
       const html = read(page);
-      const videos = html.match(/<video class="clip"[^>]*>/g) ?? [];
-      expect(videos.length, page).toBeGreaterThan(0);
-      for (const v of videos) {
-        expect(v).toMatch(/data-webm="\/static\/clips\/[a-z-]+-400\.[0-9a-f]{8}\.webm 400w, \/static\/clips\/[a-z-]+-800\.[0-9a-f]{8}\.webm 800w"/);
-        expect(v).toMatch(/data-mp4="\/static\/clips\/[a-z-]+-400\.[0-9a-f]{8}\.mp4 400w, \/static\/clips\/[a-z-]+-800\.[0-9a-f]{8}\.mp4 800w"/);
+      const cards = html.match(/<span class="k-mo k-mo--(tile|tall)[^"]*"[^>]*>/g) ?? [];
+      expect(cards.length, page).toBeGreaterThan(0);
+      for (const c of cards) {
+        expect(c).toMatch(/data-mo-webm="\/static\/clips\/mo-[a-z]+-(tile|tall)\.[0-9a-f]{8}\.webm" data-mo-mp4="\/static\/clips\/mo-[a-z]+-(tile|tall)\.[0-9a-f]{8}\.mp4" data-mo-pose="\/static\/clips\/mo-[a-z]+-(tile|tall)\.[0-9a-f]{8}\.json"/);
+      }
+      for (const v of html.match(/<video class="k-mo-video"[^>]*>/g) ?? []) {
         expect(v).toContain('preload="none"');
         expect(v).not.toMatch(/\ssrc=/);
       }
+      expect(html, page).toMatch(/<img src="\/static\/hero\/mo-[a-z]+-tile\.[0-9a-f]{8}\.webp" alt="" width="640" height="480" loading="lazy"/);
     }
-    expect((read('index.html').match(/<video class="clip"/g) ?? []).length).toBe(CLIP_TILES.length);
+    // a person for every game of the home page and every body area, the pick, "how it works" and the form coach
+    expect((read('index.html').match(/<span class="k-mo k-mo--tile/g) ?? []).length).toBeGreaterThanOrEqual(11 + 7 + 1);
     expect(read('index.html')).not.toMatch(/<link[^>]+\/static\/clips\//);
   });
 

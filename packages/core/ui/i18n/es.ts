@@ -207,7 +207,7 @@ export const es: Readonly<Partial<Record<keyof typeof en, string>>> = {
   'home.how2.score.body': 'Cada movimiento limpio cuenta. Encadénalos en combos y supera tu récord.',
   'home.how2.alt.camera': 'Un atleta en el gimnasio, encuadrado por la cámara de la cabeza a los pies.',
   'home.how2.alt.move': 'El mismo atleta con la línea de nuestro seguimiento de postura sobre el cuerpo.',
-  'home.how2.alt.score': 'Pose Wall en juego: el juego muestra la forma que debes imitar.',
+  'home.how2.alt.score': 'Una persona mantiene una postura, con la forma que debe imitar dibujada encima.',
   'home.games.kicker': 'Los juegos',
   'home.games.title': '{n, plural, one {# juego} other {# juegos}}. {free} gratis.',
   'home.areas.kicker': 'Zonas del cuerpo',

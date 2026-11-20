@@ -255,12 +255,10 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     await page.goto(`${DEMO_URL}/welcome/`, { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-welcome][data-ready="1"]', { timeout: 45_000 });
     await settle(page);
-    const stage = await page.evaluate(() => ({ fallback: document.querySelector('.ob-stage')?.classList.contains('is-fallback') === true, canvas: !!document.querySelector('canvas[data-canvas]') }));
-    info.annotations.push({ type: 'stage', description: stage.fallback ? 'pre-rendered pictures (the 3D stage stepped down)' : '3D stage' });
-    if (!stage.fallback) {
-      const rep = await look(page.locator('canvas[data-canvas]'));
-      expect(rep.blank, `the 3D stage drew nothing (${rep.flatColour} over ${(rep.flatShare * 100).toFixed(1)} % of it)`).toBe(false);
-    }
+    // a script gets the stage's poster: the first frame of the clip with its body line (the clip plays for a visitor: the next flow)
+    const poster = page.locator('.ob-stage .k-mo-poster img');
+    await expect.poll(() => poster.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 100), { message: 'the stage has no picture' }).toBe(true);
+    info.annotations.push({ type: 'stage', description: `poster ${await poster.evaluate((i: HTMLImageElement) => i.currentSrc.split('/').pop())}` });
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     expect(await problemsOfLayout(page), 'layout, step 1').toEqual([]);
     await shot(page, info, 'welcome-1');
@@ -279,30 +277,29 @@ test.describe('the practice build (hooks, practice session, demo social)', () =>
     expect(w.errors).toEqual([]);
   });
 
-  test('welcome: the pictures that stand in for the 3D stage play (the loop is a video)', async ({ page, browserName }, info) => {
+  test('welcome: the stage plays a real person with the body line (the clip is a video drawn on a canvas)', async ({ page, browserName }, info) => {
     const w = watch(page);
-    await withHooks(page, { keyboard: true, tour: 'fallback' });
+    // 'first': this browser is a visitor for the tour, so the stage plays its clip
+    await withHooks(page, { keyboard: true, tour: 'first' });
     await page.goto(`${DEMO_URL}/welcome/`, { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-welcome][data-ready="1"]', { timeout: 45_000 });
-    await expect(page.locator('.ob-stage')).toHaveClass(/is-fallback/);
-    const loop = page.locator('video[data-loop]');
-    await expect(loop).toBeVisible();
-    const codecs = await page.evaluate(() => ['video/mp4; codecs="avc1.42E01E"', 'video/webm; codecs="vp8"', 'video/webm; codecs="vp9"'].map((t) => document.createElement('video').canPlayType(t)));
-    test.skip(codecs.every((c) => c === ''), 'this engine build has no video codec at all (Playwright\'s WebKit for Windows), so no loop can play here');
-    // the same build may answer "maybe" to a codec it cannot decode (canPlayType is a guess and the video's readyState stays 0): the Safari engine on macOS answers for Safari
-    test.skip(process.platform === 'win32' && browserName === 'webkit', 'Playwright\'s WebKit for Windows lists codecs it cannot decode, the loop gets no picture there; the macOS runner has the real Safari engine');
+    const video = page.locator('.ob-stage video.k-mo-video');
+    const codecs = await page.evaluate(() => ['video/mp4; codecs="avc1.64001F"', 'video/webm; codecs="vp9"'].map((t) => document.createElement('video').canPlayType(t)));
+    test.skip(codecs.every((c) => c === ''), 'this engine build has no video codec at all (Playwright\'s WebKit for Windows), so the poster stays');
+    test.skip(process.platform === 'win32' && browserName === 'webkit', 'Playwright\'s WebKit for Windows lists codecs it cannot decode; the macOS runner has the real Safari engine');
     // a video that plays on this engine: it has a picture and its time moves (Safari plays a muted inline video, and only from a server that answers byte ranges)
-    await expect.poll(() => loop.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 20_000, message: 'the loop never got a picture (video.readyState)' }).toBeGreaterThanOrEqual(2);
-    const t0 = await loop.evaluate((v: HTMLVideoElement) => v.currentTime);
+    await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 20_000, message: 'the clip never got a picture (video.readyState)' }).toBeGreaterThanOrEqual(2);
+    const t0 = await video.evaluate((v: HTMLVideoElement) => v.currentTime);
     await page.waitForTimeout(1200);
-    const t1 = await loop.evaluate((v: HTMLVideoElement) => v.currentTime);
-    info.annotations.push({ type: 'loop', description: `currentTime ${t0.toFixed(2)} -> ${t1.toFixed(2)}, src ${await loop.evaluate((v: HTMLVideoElement) => v.currentSrc.split('/').pop())}` });
-    expect(t1, 'the loop video plays').toBeGreaterThan(t0);
-    await shot(page, info, 'welcome-fallback');
+    const t1 = await video.evaluate((v: HTMLVideoElement) => v.currentTime);
+    info.annotations.push({ type: 'clip', description: `currentTime ${t0.toFixed(2)} -> ${t1.toFixed(2)}, src ${await video.evaluate((v: HTMLVideoElement) => v.currentSrc.split('/').pop())}` });
+    expect(t1, 'the clip plays').toBeGreaterThan(t0);
+    // the frame and its body line are drawn on the canvas
+    const rep = await look(page.locator('.ob-stage canvas.k-mo-canvas'));
+    expect(rep.blank, `the stage drew nothing (${rep.flatColour} over ${(rep.flatShare * 100).toFixed(1)} % of it)`).toBe(false);
+    await shot(page, info, 'welcome-clip');
     await page.getByRole('button', { name: 'Start' }).click();
-    const still = page.locator('img[data-poster]');
-    await expect(still).toBeVisible();
-    await expect.poll(() => still.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 100)).toBe(true);
+    await expect(page.locator('[data-stage]')).toHaveAttribute('data-clip', 'reach');
     expect(w.errors).toEqual([]);
   });
 

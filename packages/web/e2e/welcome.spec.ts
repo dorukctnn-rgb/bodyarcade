@@ -1,7 +1,7 @@
 // The welcome tour in a real browser: nobody is taken to it by the address, the hero's Play free opens it for a first-timer, the five pages move on and back
-// (the address, the heading and the focus follow), what the player chose is kept, the 3D stage draws and steps down to the
-// pre-rendered pictures where it cannot, the camera page hands over to the real first game and its own result, and every
-// page keeps the layout rule on all ten sizes in both languages.
+// (the address, the heading and the focus follow), what the player chose is kept, the stage shows a real person with our body line
+// (the poster for reduced motion, a script or where the clip is not to play), the camera page hands over to the real first game and
+// its own result, and every page keeps the layout rule on all ten sizes in both languages.
 import { expect, test, type Page } from '@playwright/test';
 import { BREAKPOINTS } from '../../core/ui/layout.ts';
 import { checkPage } from '../tools/layout-check.ts';
@@ -15,10 +15,10 @@ const BASE_HOOKS: Hooks = { timeScale: 40, roundSeconds: 6, forceDemo: true, key
 const settingsOf = (page: Page): Promise<Record<string, unknown>> =>
   page.evaluate(() => (JSON.parse(localStorage.getItem('ba2.shell.settings') ?? '{"d":{}}') as { d: Record<string, unknown> }).d);
 
-/** How many different colours (in sixteen steps per channel) a canvas shows: a stage that drew nothing shows one. */
+/** How many different colours (in sixteen steps per channel) the stage's canvas shows: one that drew nothing shows one. */
 const coloursOf = (page: Page): Promise<number> =>
   page.evaluate(() => {
-    const c = document.querySelector('canvas[data-canvas]') as HTMLCanvasElement;
+    const c = document.querySelector('.ob-stage canvas.k-mo-canvas') as HTMLCanvasElement;
     const t = document.createElement('canvas');
     t.width = 48;
     t.height = 48;
@@ -145,7 +145,7 @@ test('the tour stays a page of its own: its address opens it for anyone, step by
 
 test('the five pages move on and back with the address, the heading and the focus, and the stage stays', async ({ browser }) => {
   const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, 'welcome', { w: 390, h: 844 });
-  await page.evaluate(() => { (window as unknown as { __canvas: Element | null }).__canvas = document.querySelector('canvas[data-canvas]'); });
+  await page.evaluate(() => { (window as unknown as { __stage: Element | null }).__stage = document.querySelector('[data-stage]'); });
   const heading = page.getByRole('heading', { level: 1 });
   await expect(heading).toHaveText(/Squat, jump, punch/);
   await page.getByRole('button', { name: 'Start' }).click();
@@ -155,12 +155,12 @@ test('the five pages move on and back with the address, the heading and the focu
     expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('H1');
     if (n < 5) await page.getByRole('button', { name: n === 4 ? 'I have the space' : 'Next' }).click();
   }
-  // Back (the browser's own) goes one page back without drawing the page again: the very same canvas is there.
+  // Back (the browser's own) goes one page back without drawing the page again: the very same stage is there.
   await page.goBack();
   await expect(page).toHaveURL(/step=4/);
   await page.goBack();
   await expect(page).toHaveURL(/step=3/);
-  expect(await page.evaluate(() => (window as unknown as { __canvas: Element | null }).__canvas === document.querySelector('canvas[data-canvas]'))).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { __stage: Element | null }).__stage === document.querySelector('[data-stage]'))).toBe(true);
   // The button too.
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page).toHaveURL(/step=2/);
@@ -237,62 +237,76 @@ test('the camera page hands over to the real first game, and the result is the f
   await context.close();
 });
 
-test('the 3D stage draws a picture on every page, and a still one when the tour is told to hold it', async ({ browser }) => {
+test('the stage shows a real person with the body line on every page (held on one frame for the test), the right person for each page', async ({ browser }) => {
+  const want: Record<string, RegExp> = { welcome: /^squat$/, 'welcome-2': /^reach$/, 'welcome-3': /^(lunge|ropes)$/, 'welcome-4': /^warmup$/, 'welcome-5': /^warmup$/ };
   for (const name of STEPS) {
     const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, name, { w: 1280, h: 800 });
+    expect(await page.locator('[data-stage]').getAttribute('data-clip'), name).toMatch(want[name] as RegExp);
+    await expect(page.locator('.ob-stage .k-mo'), name).toHaveClass(/is-live/);
     expect(await coloursOf(page), name).toBeGreaterThan(8);
     expect(errors, name).toEqual([]);
     await context.close();
   }
 });
 
-test('where the stage cannot be drawn the pictures made of the same scene stand in, a loop on the first page and a still on the others', async ({ browser }) => {
-  const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, 'welcome', { w: 390, h: 844, hooks: { ...BASE_HOOKS, tour: 'fallback' } });
-  await expect(page.locator('.ob-stage')).toHaveClass(/is-fallback/);
-  await expect(page.locator('canvas[data-canvas]')).toBeHidden();
-  const loop = page.locator('video[data-loop]');
-  await expect(loop).toBeVisible();
-  expect(await loop.locator('source').count()).toBe(2);
-  await page.getByRole('button', { name: 'Start' }).click();
-  await expect(page).toHaveURL(/step=2/);
-  const still = page.locator('img[data-poster]');
-  await expect(still).toBeVisible();
-  await expect.poll(() => still.evaluate((i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 100)).toBe(true);
+test('the third page shows the area the player turns on, and the space page puts its labels by the person', async ({ browser }) => {
+  const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, 'welcome-3', { w: 1280, h: 800 });
+  await page.getByRole('button', { name: 'Arms' }).click();
+  await expect(page.locator('[data-stage]')).toHaveAttribute('data-clip', 'press');
+  await page.getByRole('button', { name: 'Core' }).click();
+  await expect(page.locator('[data-stage]')).toHaveAttribute('data-clip', 'halo');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page).toHaveURL(/step=4/);
+  await expect(page.locator('.ob-tag3d')).toHaveCount(3);
+  await expect(page.locator('.ob-floor')).toHaveCount(1);
   expect(errors).toEqual([]);
   await context.close();
 });
 
-test('where the browser has no WebGL the tour falls back to the pictures by itself', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  const page = await context.newPage();
-  const errors = collectErrors(page);
-  await withHooks(page, BASE_HOOKS);
-  await page.addInitScript(() => {
-    const real = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
-      if (kind === 'webgl' || kind === 'webgl2' || kind === 'experimental-webgl') return null;
-      return (real as (k: string, ...r: unknown[]) => unknown).call(this, kind, ...rest) as never;
-    } as typeof real;
-  });
-  await page.goto(`${WEB_DEV_URL}/welcome/`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-welcome][data-ready="1"]');
-  await expect(page.locator('.ob-stage')).toHaveClass(/is-fallback/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Squat, jump, punch/);
-  expect(errors.filter((e) => !/WebGL|webgl|context/i.test(e))).toEqual([]);
+test('where the clip is not to play (the test asks for the posters) the poster stands in: the first frame with its body line', async ({ browser }) => {
+  const { page, context, errors } = await openScenario(browser, WEB_DEV_URL, 'welcome', { w: 390, h: 844, hooks: { ...BASE_HOOKS, tour: 'fallback' } });
+  const poster = page.locator('.ob-stage .k-mo-poster img');
+  await expect(poster).toBeVisible();
+  await expect.poll(() => poster.evaluate((i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 100)).toBe(true);
+  expect(await page.locator('.ob-stage video[src]').count()).toBe(0);
+  await page.getByRole('button', { name: 'Start' }).click();
+  await expect(page).toHaveURL(/step=2/);
+  await expect(page.locator('[data-stage]')).toHaveAttribute('data-clip', 'reach');
+  await expect.poll(() => page.locator('.ob-stage .k-mo-poster img').evaluate((i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 100)).toBe(true);
+  expect(errors).toEqual([]);
   await context.close();
 });
 
-test('a visitor who asked for less motion gets the stage still', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+test('a script and a visitor who asked for less motion get the poster, and no clip is fetched', async ({ browser }) => {
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion });
+    const page = await context.newPage();
+    const fetched: string[] = [];
+    page.on('request', (r) => { if (r.url().includes('/assets/clips/mo-')) fetched.push(r.url()); });
+    await withHooks(page, BASE_HOOKS);
+    await page.goto(`${WEB_DEV_URL}/welcome/`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-welcome][data-ready="1"]');
+    await page.waitForTimeout(800);
+    await expect(page.locator('.ob-stage .k-mo-poster img'), reducedMotion).toBeVisible();
+    expect(await page.locator('.ob-stage video[src]').count(), reducedMotion).toBe(0);
+    expect(fetched, reducedMotion).toEqual([]);
+    await context.close();
+  }
+});
+
+test('for a visitor the first page plays squat, jump and punch one after the other', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
-  await withHooks(page, BASE_HOOKS);
+  const errors = collectErrors(page);
+  await withHooks(page, { ...BASE_HOOKS, tour: 'first' });
   await page.goto(`${WEB_DEV_URL}/welcome/`, { waitUntil: 'networkidle' });
   await page.waitForSelector('[data-welcome][data-ready="1"]');
-  await page.waitForTimeout(500);
-  const first = await page.evaluate(() => (document.querySelector('canvas[data-canvas]') as HTMLCanvasElement).toDataURL());
-  await page.waitForTimeout(900);
-  const later = await page.evaluate(() => (document.querySelector('canvas[data-canvas]') as HTMLCanvasElement).toDataURL());
-  expect(later).toBe(first);
+  const playable = await page.evaluate(() => document.createElement('video').canPlayType('video/webm; codecs="vp9"') === 'probably');
+  test.skip(!playable, 'this engine does not play VP9 here');
+  await expect(page.locator('.ob-stage .k-mo')).toHaveClass(/is-live/, { timeout: 20_000 });
+  await expect(page.locator('[data-stage]')).toHaveAttribute('data-clip', 'jacks', { timeout: 15_000 });
+  await expect(page.locator('[data-stage]')).toHaveAttribute('data-clip', 'punch', { timeout: 15_000 });
+  expect(errors).toEqual([]);
   await context.close();
 });
 

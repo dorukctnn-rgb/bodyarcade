@@ -241,8 +241,12 @@ export function serviceWorkerSource(template: string, cfg: SwConfig): string {
   return template.replace(marker, `${JSON.stringify(cfg)};`);
 }
 
-/** The sports home page's own stills in the build (packages/web/src/arena.ts, growth/before-after-band.ts): the hero poster in both crops, "how it works", the last call, a frame of every game and the two views of the before/after band. */
-const HOME_STILLS = /^\/static\/hero\/(?:arena|how|final|cap|band)-[a-z0-9-]*\.[0-9a-f]{8}\.(?:avif|webp)$/;
+/**
+ * The sports home page's own stills in the build (packages/web/src/arena.ts, motion.ts, growth/before-after-band.ts): the hero poster in both
+ * crops, "how it works", the last call, a frame of every game, the two views of the before/after band, and the posters of the real people
+ * in motion that the home page shows (the 'tile' ones and the held pose of "how it works"; the tour's tall ones are not stored ahead).
+ */
+const HOME_STILLS = /^\/static\/hero\/(?:(?:arena|how|final|cap|band)-[a-z0-9-]*|mo-[a-z]+-tile|mo-pose-tall)\.[0-9a-f]{8}\.(?:avif|webp)$/;
 
 /**
  * The files a new service worker stores at install: every hashed build file but source maps, the older showcase frames

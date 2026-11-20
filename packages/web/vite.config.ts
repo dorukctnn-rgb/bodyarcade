@@ -15,7 +15,7 @@ import { loadCatalogue, type FixtureMode } from './catalogue/load.ts';
 const here = (p: string): string => fileURLToPath(new URL(p, import.meta.url));
 const repo = here('../../');
 
-const TYPES: Record<string, string> = { '.webp': 'image/webp', '.avif': 'image/avif', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.webm': 'video/webm' };
+const TYPES: Record<string, string> = { '.webp': 'image/webp', '.avif': 'image/avif', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.webm': 'video/webm', '.json': 'application/json' };
 
 /** Serves the art director's pictures at the addresses the views use: /assets/tiles/..., /assets/brand/..., /assets/onboarding/..., /assets/hero/... and /assets/clips/... */
 function designAssets(): Plugin {
