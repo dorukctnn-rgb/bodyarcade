@@ -236,4 +236,9 @@ export const de: Readonly<Partial<Record<keyof typeof en, string>>> = {
   'region.cardio': 'Ausdauer',
   'region.mobility': 'Beweglichkeit und Gleichgewicht',
   'region.seated': 'Im Sitzen',
+  'leano.eyebrow': 'Leano für iPhone und iPad',
+  'leano.title': 'Verfolge deinen Körper, nicht nur deinen Punktestand',
+  'leano.body': 'Leano schätzt Körperfettanteil, BMI und Taille-Größe-Verhältnis aus deinen Maßbandwerten, formt aus deinen Zahlen einen 3D-Zwilling und zeigt dir, wo sich dein Körper seit dem letzten Mal verändert hat.',
+  'leano.note': 'Kostenlos laden. Kein Konto, keine Werbung.',
+  'leano.badge.alt': 'Leano im App Store laden',
 };

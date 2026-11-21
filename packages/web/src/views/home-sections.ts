@@ -9,6 +9,7 @@ import { COACH_MOTION } from '../motion.ts';
 import { motionMedia } from './motion.ts';
 import { sitePageHref } from './chrome.ts';
 import { BAND_STILLS, bandMarkup } from '../growth/before-after-band.ts';
+import { leanoCard } from './leano.ts';
 
 /**
  * How many moves the form coach knows (core/form/moves FORM_MOVE_IDS; a test keeps the two equal). A number here, so the home page
@@ -19,10 +20,13 @@ export const FORM_MOVE_COUNT = 113;
 /** The example day of the Today section: the same split the Today panel makes for 18 minutes (FIKIRLER-ALINAN.md 2). */
 export const TODAY_EXAMPLE = { warm: 3, games: 12, stretch: 3 } as const;
 
-/** 2. The before/after band: the progress coach's 3D twin between two tapes, "illustration" on both views (growth/before-after-band.ts). */
+/**
+ * 2. The before/after band: the progress coach's 3D twin between two tapes, "illustration" on both views (growth/before-after-band.ts).
+ * On an iPhone or an iPad the Leano card sits under it (views/leano.ts): the one place of the home page that talks about tape measures.
+ */
 export function bandSection(ctx: ViewContext): SafeHtml {
   const stills = { morph: ctx.assets.hero(BAND_STILLS.morph.file), compare: ctx.assets.hero(BAND_STILLS.compare.file) };
-  return html`<div class="k-band" data-home-band>${raw(bandMarkup(ctx.lang, { href: ctx.href('progress'), stills }))}</div>`;
+  return html`<div class="k-band" data-home-band>${raw(bandMarkup(ctx.lang, { href: ctx.href('progress'), stills }))}${leanoCard(ctx, 'progress', 3)}</div>`;
 }
 
 /**

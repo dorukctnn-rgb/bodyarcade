@@ -16,6 +16,7 @@ import { lrText } from '../app/live-strings.ts';
 import { playHref, type SetupState } from './setup.ts';
 import { storyCard } from './story-card.ts';
 import { familyPanel } from './family.ts';
+import { leanoCard } from './leano.ts';
 import type { FamilyView } from '../app/family.ts';
 
 /** A number a game adds to its results beyond the common ones (Reaction Tag: the average and the best reaction), already in words. */
@@ -221,6 +222,7 @@ export function resultsPage(ctx: ViewContext, r: RoundResult | null): SafeHtml {
             <span class="ba-small" data-replay-length>${t.t('results.replay.length', { n: t.number((r.replay.ms ?? 1000) / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}</span></div>
           <p class="k-fine">${t.t('results.replay.hint')}</p></section>` : ''}
         ${!hasPro(ctx) && proMore > 0 ? html`<div class="k-card k-procard"><p>${t.t('results.proCard', { n: proMore })}</p><a class="ba-link" href="${ctx.href('pro')}">${t.t('results.proLink')}</a></div>` : ''}
+        ${first ? '' : leanoCard(ctx, 'results', 2)}
       </div>
       <div class="k-actionbar"><div class="k-actions k-actions--results">${r.race?.live
         // a race in a room: the rematch is the room's next race (the camera gets ready first), and the room is one press away

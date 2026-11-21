@@ -49,6 +49,8 @@ export interface ViewContext {
   version: string;
   /** True in the page generator: nothing may depend on this visitor, and nothing claims to know their device. */
   server: boolean;
+  /** The visitor is on an iPhone or an iPad (not the Android app): the Leano card may be drawn (views/leano.ts, app/leano-offer.ts). Always false in the page generator. */
+  leano: boolean;
   /** The complete language the bar under the header offers on an English page (app/lang-offer.ts); null when there is nothing to offer, and always in the page generator. */
   langOffer: Lang | null;
 }

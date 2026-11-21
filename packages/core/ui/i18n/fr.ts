@@ -236,4 +236,9 @@ export const fr: Readonly<Partial<Record<keyof typeof en, string>>> = {
   'region.cardio': 'Cardio',
   'region.mobility': 'Mobilité et équilibre',
   'region.seated': 'Assis',
+  'leano.eyebrow': 'Leano pour iPhone et iPad',
+  'leano.title': 'Suis ton corps, pas seulement ton score',
+  'leano.body': 'Leano estime la masse grasse, l’IMC et le rapport tour de taille/taille à partir de tes mensurations au mètre ruban, façonne un jumeau 3D avec tes chiffres et montre où ton corps a changé depuis la dernière fois.',
+  'leano.note': 'Gratuit à télécharger. Sans compte, sans publicité.',
+  'leano.badge.alt': 'Télécharger Leano dans l’App Store',
 };

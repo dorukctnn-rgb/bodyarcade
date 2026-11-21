@@ -97,6 +97,8 @@ function copyAssets(out: string, games: readonly ShellGame[], root: string): Rec
   for (const [url, name] of [[devAssets.logo('light'), 'logo.svg'], [devAssets.logo('dark'), 'logo-dark.svg'], [devAssets.mark(), 'mark.svg'], [devAssets.favicon(), 'icon/favicon.svg']] as const) {
     put(url, join(root, 'design', 'brand', name), 'brand');
   }
+  // the official App Store badge of the Leano card, in each language of the site (views/leano.ts; Apple's own artwork)
+  for (const l of LANG_INFO) put(devAssets.badge(l.code), join(root, 'design', 'brand', 'appstore', `${l.code}.svg`), 'brand');
   // (the tour's stage is a real person now (src/motion.ts): the 3D stage's pre-rendered stand-ins, design/onboarding/fallback, are not shipped)
   for (const file of showcaseFiles()) put(devAssets.hero(file), join(root, 'design', 'art', 'hero', file), 'hero');
   // the two stills of the home page's before/after band (growth/before-after-band.ts)

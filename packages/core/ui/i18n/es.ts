@@ -236,4 +236,9 @@ export const es: Readonly<Partial<Record<keyof typeof en, string>>> = {
   'region.cardio': 'Cardio',
   'region.mobility': 'Movilidad y equilibrio',
   'region.seated': 'Sentado',
+  'leano.eyebrow': 'Leano para iPhone y iPad',
+  'leano.title': 'Sigue tu cuerpo, no solo tu puntuación',
+  'leano.body': 'Leano estima la grasa corporal, el IMC y la relación cintura-altura a partir de tus medidas con cinta, crea un gemelo 3D con tus números y te muestra dónde ha cambiado tu cuerpo desde la última vez.',
+  'leano.note': 'Descarga gratis. Sin cuenta y sin anuncios.',
+  'leano.badge.alt': 'Descargar Leano en el App Store',
 };

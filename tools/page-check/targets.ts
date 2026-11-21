@@ -51,6 +51,8 @@ export interface Target {
   expectScene?: boolean;
   /** Breakpoint ids this target is opened at (default: all ten). */
   sizes?: string[];
+  /** The visitor is on an iPhone (widths under 700) or an iPad (wider), in any engine: the pages that are for them only (the Leano card, views/leano.ts). */
+  ios?: boolean;
   /** Free text for the report. */
   note?: string;
 }
@@ -103,6 +105,27 @@ function playProbe(id: string): string {
   })()`;
 }
 
+/** The Leano card's checks for a page made for an iPhone or an iPad: the card is there once, its badge is loaded at 56 px and inside the card, and what follows it (the Pro button, the results screen's buttons) is still on the page, after it. */
+function leanoProbe(place: 'progress' | 'results', after: string): string {
+  return `(() => {
+    const out = [];
+    const cards = document.querySelectorAll('[data-leano]');
+    if (cards.length !== 1) return ['the Leano card should be on the page once, it is there ' + cards.length + ' time(s)'];
+    const c = cards[0];
+    if (c.getAttribute('data-leano') !== '${place}') out.push('the Leano card is the wrong place: ' + c.getAttribute('data-leano'));
+    const img = c.querySelector('img');
+    const a = c.querySelector('a[href^="https://apps.apple.com/app/id6761293700?ct=bodyarcade-${place}&mt=8"]');
+    if (!a) out.push('the Leano card has no App Store link of its place');
+    if (!img || !img.complete || img.naturalWidth === 0) out.push('the App Store badge did not load');
+    else { const b = img.getBoundingClientRect(), r = c.getBoundingClientRect(); if (Math.round(b.height) !== 56) out.push('the badge is ' + b.height + ' px high, not 56'); if (b.left < r.left - 0.5 || b.right > r.right + 0.5) out.push('the badge is outside its card'); }
+    if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 1) out.push('the page scrolls sideways');
+    const next = document.querySelector(${JSON.stringify(after)});
+    if (!next) out.push('the element after the card is missing: ' + ${JSON.stringify(after)});
+    else if (!(c.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING)) out.push('the Leano card should come before ' + ${JSON.stringify(after)});
+    return out;
+  })()`;
+}
+
 /** The pages of the web shell. `lang` is the path prefix of a language ('' for English). */
 export function webTargets(prefix: string): Target[] {
   const { catalogue } = loadCatalogue({ fixtures: 'fill', requiredLangs: ['en'] });
@@ -132,6 +155,8 @@ export function webTargets(prefix: string): Target[] {
     { id: 'web:pro:trial', server: 'web', path: `${prefix}/pro/`, hooks: { ...PRACTICE, plan: 'pro', trial: { endsInHours: 30 } }, note: 'the paywall for a player in the last days of the trial' },
     { id: 'web:pro:unavailable', server: 'web', path: `${prefix}/pro/`, hooks: { ...PRACTICE, billing: 'unavailable' }, note: 'a build where nothing can be bought' },
     { id: 'web:home:trial', server: 'web', path: `${prefix}/`, hooks: { ...PRACTICE, trial: { endsInHours: 30 } }, primary: [HOME_MAIN], note: 'the notice of the last days of a trial' },
+    // An iPhone or an iPad: the Leano card under the before/after band (views/leano.ts). The Pro section's button stays after it and on the page.
+    { id: 'web:home:leano', server: 'web', path: `${prefix}/`, ios: true, primary: [HOME_MAIN], steps: [{ waitFor: '[data-leano="progress"]' }, { wait: 300 }], probe: leanoProbe('progress', '[data-home-pro] a.ba-btn--primary'), note: 'an iPhone or an iPad: the Leano card under the before/after band' },
   );
   // The players of the Family plan: the list, the manage state, the form, a child's settings, and the parent gate.
   const family = { ...PRACTICE, plan: 'family', players: FAMILY_PLAYERS };
@@ -180,6 +205,9 @@ export function webTargets(prefix: string): Target[] {
     if (hasGameCode(g.id)) out.push({ id: `web:cam:${g.id}`, server: 'web', path: `${prefix}/play/${slug}/?input=camera`, hooks: { timeScale: 5, roundSeconds: 120 }, steps: CAMERA_ROUND, probe: playProbe(g.id), expectScene: true, needsCamera: true, sizes: CAMERA_SIZES, note: 'a real round on the camera picture of a person' });
     out.push({ id: `web:results:${g.id}`, server: 'web', path: play, hooks: { forceDemo: true, timeScale: 40, roundSeconds: 6 }, steps: [{ waitUrl: 'results' }, { wait: 400 }], note: 'results view with the practice score of this game' });
   }
+  // The results screen for an iPhone or an iPad (one free game is enough: the card is the same under every game): the card ends the stack, the buttons follow it.
+  const leanoGame = games.find((g) => g.free) ?? games[0];
+  if (leanoGame) out.push({ id: 'web:results:leano', server: 'web', path: `${prefix}/play/${leanoGame.seo.slug}/?input=keyboard`, ios: true, hooks: { forceDemo: true, timeScale: 40, roundSeconds: 6 }, steps: [{ waitUrl: 'results' }, { waitFor: '[data-leano="results"]' }, { wait: 400 }], probe: leanoProbe('results', '.k-actionbar'), note: 'an iPhone or an iPad: the Leano card at the end of the results screen' });
   if (paid) {
     out.push({ id: 'web:pro:locked', server: 'web', path: `${prefix}/pro/?game=${paid.id}`, note: 'the paywall that a locked game opens' });
   }

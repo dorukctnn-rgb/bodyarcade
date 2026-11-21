@@ -138,10 +138,13 @@ async function check(browser: Browser, t: Target, size: { id: string; w: number;
   const origin = new URL(url).origin;
   const touch = size.w < 1000;
   // WebKit has phones (isMobile, an iPhone's user agent); Firefox only a touch screen of that size; Chromium is checked as a desktop browser at every size.
-  const phone = engine === 'webkit' && size.w < 700;
+  // A target made for an iPhone or an iPad (t.ios: the Leano card) is opened as one in every engine.
+  const phone = (engine === 'webkit' || t.ios === true) && size.w < 700;
+  const ipad = t.ios === true && size.w >= 700;
   const context: BrowserContext = await browser.newContext({
-    viewport: { width: size.w, height: size.h }, deviceScaleFactor: 1, hasTouch: touch, isMobile: phone,
-    ...(phone ? { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1' } : {}),
+    viewport: { width: size.w, height: size.h }, deviceScaleFactor: 1, hasTouch: touch, isMobile: phone || (ipad && touch),
+    ...(phone ? { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1' }
+      : ipad ? { userAgent: 'Mozilla/5.0 (iPad; CPU OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1' } : {}),
     colorScheme: dark ? 'dark' : 'light', locale: lang === 'en' ? 'en-US' : `${lang}-${lang.toUpperCase()}`, reducedMotion: 'no-preference',
   });
   // Chromium has a fake camera that plays a file (set at launch); the other engines get the same pictures from the page. Firefox has a test picture of

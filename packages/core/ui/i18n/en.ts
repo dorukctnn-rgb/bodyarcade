@@ -1321,4 +1321,9 @@ export const en = {
   'home.privacy.point.data': 'What you play is saved on this device first.',
   'home.privacy.link': 'Read the privacy policy',
   'coachpage.loading': 'The page is opening.',
+  'leano.eyebrow': 'Leano for iPhone and iPad',
+  'leano.title': 'Track your body, not just your score',
+  'leano.body': 'Leano estimates body fat %, BMI and waist-to-height ratio from a soft tape measure, shapes a 3D twin from your numbers and shows where your body changed since last time.',
+  'leano.note': 'Free to download. No account, no ads.',
+  'leano.badge.alt': 'Download Leano on the App Store',
 } as const;

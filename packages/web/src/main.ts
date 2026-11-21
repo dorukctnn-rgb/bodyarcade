@@ -5,6 +5,8 @@ import { boot } from './app/boot.ts';
 import { router } from './routes.ts';
 // The sports look (styles/sport.css) comes after every other style sheet of the app, so its roles win over the kit's.
 import './styles/sport.css';
+// The Leano card for an iPhone or an iPad (views/leano.ts) comes last: it only uses the roles and tokens of the sports look.
+import './styles/leano.css';
 
 const q = new URLSearchParams(location.search);
 // The coach pages (Kol G): /form-coach, /today and /progress (in every language) are apps of their own. The old ?form=1 and
