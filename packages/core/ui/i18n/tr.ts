@@ -1321,4 +1321,9 @@ export const tr: Readonly<Record<keyof typeof en, string>> = {
   'home.privacy.point.data': 'Oynadıkların önce bu cihaza kaydedilir.',
   'home.privacy.link': 'Gizlilik politikasını oku',
   'coachpage.loading': 'Sayfa açılıyor.',
+  'leano.eyebrow': 'iPhone ve iPad için Leano',
+  'leano.title': 'Sadece skorunu değil, vücudunu da takip et',
+  'leano.body': 'Leano, mezuranla aldığın ölçülerden yağ oranını, VKİ’yi ve bel/boy oranını tahmin eder, sayılarından 3D bir ikiz kurar ve son ölçümden bu yana vücudunun nerede değiştiğini gösterir.',
+  'leano.note': 'İndirmesi ücretsiz. Hesap yok, reklam yok.',
+  'leano.badge.alt': 'Leano’yu App Store’dan indir',
 };

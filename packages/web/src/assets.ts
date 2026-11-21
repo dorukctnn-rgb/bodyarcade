@@ -13,6 +13,8 @@ export interface AssetResolver {
   hero(file: string): string;
   /** A clip of a moving game tile (src/clips.ts), by file name. */
   clip(file: string): string;
+  /** Apple's official "Download on the App Store" badge in a language of the site (design/brand/appstore, the artwork of Apple's own marketing tools; views/leano.ts). */
+  badge(lang: string): string;
 }
 
 export const ASSET_BASE = '/assets';
@@ -25,6 +27,7 @@ export const devAssets: AssetResolver = {
   onboarding: (file) => `${ASSET_BASE}/onboarding/${file}`,
   hero: (file) => `${ASSET_BASE}/hero/${file}`,
   clip: (file) => `${ASSET_BASE}/clips/${file}`,
+  badge: (lang) => `${ASSET_BASE}/brand/appstore/${lang}.svg`,
 };
 
 /** The files of design/onboarding/fallback, by name: the opening picture and loop of each theme, and a still for each page of the tour. */
@@ -44,5 +47,6 @@ export function mappedAssets(map: Readonly<Record<string, string>>): AssetResolv
     onboarding: (file) => m(devAssets.onboarding(file)),
     hero: (file) => m(devAssets.hero(file)),
     clip: (file) => m(devAssets.clip(file)),
+    badge: (lang) => m(devAssets.badge(lang)),
   };
 }

@@ -1,0 +1,20 @@
+/* The Leano card (views/leano.ts): a quiet cross-promotion of our body-measurement app for an iPhone or an iPad, under the home page's
+   before/after band and at the end of the results screen. It is a card of the sports look and nothing else: the same black surface, hairline,
+   4 px radius, eyebrow with its lime bar, text-face heading (h3 role), grey body, and Apple's own App Store badge at the 56 px of the
+   site's buttons. Only the tokens of sport.css, no value of its own; no lime in running words. Not drawn at all for anyone else. */
+.k-leano {
+  display: grid; gap: var(--sp-5); align-items: center; padding: clamp(var(--sp-5), 3vw, var(--sp-6));
+  border-radius: var(--radius); background: var(--ba-surface); box-shadow: inset 0 0 0 1px var(--line);
+}
+.k-leano-text { display: grid; gap: var(--sp-3); justify-items: start; min-width: 0; }
+.k-leano .k-h3 { margin: 0; text-wrap: balance; overflow-wrap: break-word; }
+.k-leano .k-body { max-width: 60ch; }
+.k-leano-badge { display: inline-flex; align-items: center; justify-self: start; min-height: var(--btn-h); border-radius: var(--radius); }
+.k-leano-badge img { display: block; height: var(--btn-h); width: auto; max-width: 100%; }
+.k-leano-badge:focus-visible { outline: 3px solid var(--ba-focus); outline-offset: 3px; }
+/* a card wide enough for it: the words on the left, the badge on the right */
+@media (min-width: 700px) { .k-leano { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-7); } }
+/* under the band: one gap of the page's rhythm between the two panels */
+.k-band > .k-leano { margin-top: var(--sp-4); }
+/* on the results screen the card is one of the stack's sections (the stack has its own gap), quieter than the cards above it */
+.k-stack > .k-leano { padding: var(--sp-5); }

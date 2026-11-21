@@ -22,6 +22,8 @@ import type { SyncPort } from '../../../core/store/sync-docs.ts';
 import type { PlanProgress, PlanRunView, WorkoutPlan } from '../../../core/store/workout-plans.ts';
 import { localized } from '../../../core/ui/i18n/localized.ts';
 import { languageOffer } from './lang-offer.ts';
+import { leanoOffer } from './leano-offer.ts';
+import { readDeviceSignals } from '../../../core/device/capabilities.ts';
 import type { Catalogue, ShellGame } from '../../catalogue/types.ts';
 import { gameById, gameBySlug } from '../../catalogue/filter.ts';
 import { mappedAssets, devAssets, type AssetResolver } from '../assets.ts';
@@ -190,6 +192,8 @@ export class App {
   private readonly factory: SessionFactory | undefined;
   private nav!: Navigation<RouteId>;
   private caps: UiCapabilities;
+  /** An iPhone or an iPad that is not the Android app's page: the Leano card may be drawn (app/leano-offer.ts, views/leano.ts). */
+  private readonly leano: boolean;
   private lang: Lang = 'en';
   private route: Matched<RouteId> | null = null;
   private state: PageState = { ...EMPTY_STATE };
@@ -259,6 +263,7 @@ export class App {
     const first = !this.shell.has('settings');
     this.settings = createSettingsStore(this.shell);
     this.caps = this.detectCaps();
+    this.leano = leanoOffer(readDeviceSignals(this.win));
     if (first && this.caps.tv) this.settings.set({ bigText: true });
     if (first && this.space) this.applyDefaults(this.space.profile.defaults);
     this.syncSeated(true);
@@ -447,6 +452,8 @@ export class App {
       player: this.playerFacts(),
       // The bar that offers the Turkish page on an English one: only for a visitor who never chose a language.
       langOffer: languageOffer(this.currentSettings().lang, this.preferredLang(), lang),
+      // The card of our body-measurement app for an iPhone or an iPad (views/leano.ts): decided once, from the device.
+      leano: this.leano,
       // The friends pages exist when the services are there or on their way; whether the player may use them is the player's rules.
       flags: { social: this.hasSocial() && this.rules().online, family: this.o.family === true, socialChild: this.hasSocial() && !this.rules().online, roomsPro: this.o.roomsPro === true }, version: this.o.version, server: false,
     });

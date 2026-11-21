@@ -30,6 +30,8 @@ export interface ContextInit {
   server?: boolean;
   i18n?: I18nOptions;
   langOffer?: Lang | null;
+  /** The visitor is on an iPhone or an iPad (app/leano-offer.ts); a page drawn without a visitor never says yes. */
+  leano?: boolean;
 }
 
 const NO_OFFERS: PlansConfig = { offers: [], trialEligible: false, trialReminder: false };
@@ -56,5 +58,6 @@ export function makeContext(init: ContextInit): ViewContext {
     version: init.version ?? '0.0.0',
     server: init.server ?? false,
     langOffer: init.server ? null : (init.langOffer ?? null),
+    leano: init.server ? false : (init.leano ?? false),
   };
 }
